@@ -25,8 +25,6 @@ import {
   type OrgMovePatch,
 } from './orgStructureDisplay';
 
-// Same keys the shared hooks use (admin/hook.ts, tickets/hook.ts); spelled out here because the
-// move mutation below needs to update the cached roster itself.
 const USERS_KEY = ['admin-users'] as const;
 const DEPARTMENTS_KEY = ['departments'] as const;
 const STORES_KEY = ['stores'] as const;
@@ -39,7 +37,6 @@ const OrgStructureSkeleton = () => (
   </div>
 );
 
-// Header for the two warning buckets (departments without a store, people without a department).
 const BucketHeader = ({ title, hint, count }: { title: string; hint: string; count: number }) => (
   <div className="flex items-start gap-3">
     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-warning/30 bg-warning/15 text-warning">
@@ -56,8 +53,6 @@ const BucketHeader = ({ title, hint, count }: { title: string; hint: string; cou
 );
 
 interface OrgStructurePageProps {
-  /** Inside People & Teams as one of its views: no page title (that page already has one), just the
-   *  one-line hint and the Expand / Collapse buttons. */
   embedded?: boolean;
 }
 
@@ -75,7 +70,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
   const [isUnassignDropTarget, setIsUnassignDropTarget] = useState(false);
-  // This month's score on every store, department and person row; each pill opens the Scores page there.
   const orgScores = useAllMonthScores();
 
   const isPending = storesPending || deptsPending || usersPending;
@@ -92,13 +86,10 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   const people = useMemo(() => {
     const all = users ?? [];
     const active = all.filter((u) => u.isActive).length;
-    // Same rule as the "People without a department or store" bucket below.
     const unplaced = all.filter((u) => u.isActive && !u.departmentId && !u.storeId).length;
     return { active, deactivated: all.length - active, unplaced };
   }, [users]);
 
-  // What a glance at this page should flag. Only active departments count: a switched-off one is
-  // already out of the way. Admin/PC (org-wide) and store-level Seniors are not "missing" a department.
   const attention = useMemo(() => {
     const activeDepartments = (departments ?? []).filter((d) => d.isActive);
     const headedDepartmentIds = new Set(
@@ -117,19 +108,10 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
     else next.add(id);
     return next;
   };
-  // Stable references (empty deps, both only use the functional setState form) so StoreSection/
-  // DepartmentSection can be memoized: toggling one store or department no longer hands every
-  // sibling a freshly-created callback prop, which would defeat the memo on every render.
   const toggleStore = useCallback((id: string) => setExpandedStores((prev) => toggleInSet(prev, id)), []);
   const toggleDept = useCallback((id: string) => setExpandedDepts((prev) => toggleInSet(prev, id)), []);
-  // Unlike toggleStore/toggleDept above, this one's identity CAN'T stay stable, it reads
-  // `expandedDepts`, so it has to change whenever that Set does. StoreSection's own memo()
-  // comparator is what stops that from fanning out into a re-render of every store section.
   const isDeptOpen = useCallback((id: string) => expandedDepts.has(id), [expandedDepts]);
 
-  // Reassigning is optimistic: the person jumps to their new place at once and snaps back with an
-  // error if the server says no. Own mutation (not useUpdateUserMutation) so the success message
-  // can name who moved where instead of the generic "User updated".
   const moveMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: OrgMovePatch; successMessage: string }) =>
       adminApi.update(id, patch).then((r) => r.data),
@@ -155,13 +137,10 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   });
   const { mutate: runMove } = moveMutation;
 
-  // Stable: reads names from the query cache at call time instead of closing over the lists.
   const moveUser = useCallback(
     async (userId: string, patch: OrgMovePatch) => {
       const person = queryClient.getQueryData<AdminUser[]>(USERS_KEY)?.find((u) => u.id === userId);
       const first = person?.firstName ?? 'Person';
-      // Dropping on a store header or "No department" takes the department away. For a head that
-      // also takes their team, so it never happens on one stray drop.
       if (!patch.departmentId && person?.departmentId) {
         const ok = await confirm({
           title: `Take ${first} out of their department?`,
@@ -204,8 +183,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   );
   const moveApi = useMemo<OrgMoveApi>(() => ({ targets: moveTargets, moveUser, nameOf }), [moveTargets, moveUser, nameOf]);
 
-  // Stable, same reason as the toggles above; the drag callbacks only need to exist so rows render
-  // as draggable.
   const handleUserDragStart = useCallback((_user: AdminUser) => {}, []);
   const handleUserDragEnd = useCallback(() => {}, []);
 
@@ -310,7 +287,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               if (!dragged || (dragged.departmentId === null && dragged.storeId === null)) return;
               moveUser(dragged.id, { departmentId: null, storeId: null });
             }}
-            // Outline, not ring: no box-shadows on this page.
             className={`flex flex-col gap-4 rounded-2xl border p-4 sm:p-5 transition-colors duration-200 ${
               isUnassignDropTarget
                 ? 'border-warning bg-warning/15 outline outline-2 -outline-offset-2 outline-warning/40'
@@ -341,7 +317,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
   const expandCollapse = (
     <>
-      {/* Square icon buttons on a phone so they share the search row; the words come back from sm. */}
       <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending} aria-label="Expand all" className="max-sm:size-11 max-sm:px-0">
         <Maximize2 className="size-4 sm:size-3.5" aria-hidden /> <span className="max-sm:sr-only">Expand all</span>
       </Button>
@@ -365,7 +340,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             />
           )}
 
-          {/* Phone: the four counts as one compact row of tiles; the full stat cards come back from sm. */}
           <div className="grid grid-cols-4 gap-1.5 sm:hidden" aria-label="Org at a glance">
             {[
               { icon: Users, label: 'People', value: users ? people.active : null, tile: 'from-primary-500 to-primary-700' },
@@ -424,8 +398,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
           </div>
 
           {(isPending || hasAllData) && (
-            // One slim strip, not a titled panel: the heading and the items share a row, so a clean org
-            // costs one line of height and a messy one costs one wrapped row.
             <section aria-label="Needs attention" className={`${PANEL_CLASS} flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3`}>
               <h2 className="flex items-center gap-2 t-card font-display font-bold text-text shrink-0">
                 {attention.length === 0 && !isPending ? (
@@ -454,8 +426,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             </section>
           )}
 
-          {/* One toolbar sitting directly above the tree it controls: search on the left, the
-              deactivated toggle beside it, and Expand / Collapse all pushed to the right edge. */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex-1 basis-40 min-w-0 sm:max-w-xl">
               <Input
@@ -476,7 +446,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             {embedded && <div className="flex items-center gap-2 sm:ml-auto shrink-0">{expandCollapse}</div>}
           </div>
 
-          {/* A failed refresh never hides the structure; it just says so. */}
           {isError && hasAllData && (
             <InlineError message="Couldn't refresh the latest changes. Showing what we loaded earlier." onRetry={retryAll} />
           )}

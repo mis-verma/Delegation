@@ -1,23 +1,14 @@
 import type { ReactNode } from 'react';
 
 interface SectionHeaderProps {
-  /** For aria-labelledby on the section. */
   id?: string;
   title: ReactNode;
-  /** A page block ("section", t-section) or the title of a card inside one ("card", t-card). */
   level?: 'section' | 'card';
-  /** A "?" (HowCalculated) that sits right after the title. */
   hint?: ReactNode;
-  /** One line under the title. Desktop only: on a phone the numbers come first. */
   description?: ReactNode;
-  /** Right-aligned: period badge, updating note, export. Always in this order, export last. */
   actions?: ReactNode;
 }
 
-/**
- * The one header every score card and block uses: title on the left (with its optional "?"), the actions
- * right-aligned on the same line, wrapping under the title on a narrow screen instead of squeezing it.
- */
 export const SectionHeader = ({ id, title, level = 'section', hint, description, actions }: SectionHeaderProps) => {
   const Heading = level === 'section' ? 'h2' : 'h3';
   return (

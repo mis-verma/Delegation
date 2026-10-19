@@ -3,10 +3,6 @@ import type { CONVERSATION_SLOTS } from "../../../db/schema/task.js"
 type ConversationSlot = (typeof CONVERSATION_SLOTS)[number]
 import { WEEKDAYS, daysUntilWeekday, matchInDays } from "./dateParsing.js"
 
-// Ported from client/src/features/tasks/SmartTaskModal.tsx so the WhatsApp/DoubleTick bot can ask
-// the same follow-up questions the web "Smart Add" chat does. Kept framework-agnostic (no
-// Express/Mongoose imports) so it stays reusable from the Meta whatsapp/ module later.
-
 export const SLOT_ORDER: readonly ConversationSlot[] = ["assignee", "department", "dueDate", "priority"]
 
 export const SLOT_QUESTIONS: Record<ConversationSlot, string> = {
@@ -59,11 +55,6 @@ export function resolveDueDateLocally(answer: string, reference: Date = new Date
         return base
     }
 
-    // Exact keyword matches are checked for EVERYTHING (today/tomorrow/every weekday) before any
-    // fuzzy typo-tolerance is attempted for anything — "today" and "monday" (edit distance 2) sit
-    // within containsFuzzyWord's default tolerance, so fuzzy-matching one before checking whether
-    // the OTHER was typed exactly would silently swap the resolved day. Mirrors the same fix in
-    // client/src/features/tasks/SmartTaskModal.tsx's resolveDueDateLocally.
     if (/\btomorrow\b/.test(lower) || lower.includes("kal")) {
         base.setDate(base.getDate() + 1)
         return base
@@ -77,7 +68,6 @@ export function resolveDueDateLocally(answer: string, reference: Date = new Date
         return base
     }
 
-    // Nothing matched exactly — only now fall back to typo tolerance.
     if (containsFuzzyWord(lower, "tomorrow")) {
         base.setDate(base.getDate() + 1)
         return base

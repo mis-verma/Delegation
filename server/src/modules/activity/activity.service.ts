@@ -86,7 +86,6 @@ const SUBMITTED = new Set(["pending_approval", "PENDING_APPROVAL"])
 
 export const activityService = {
     async forEntity(viewer: AccessTokenPayload, entityType: ActivityEntity, entityId: string): Promise<ActivityFeed> {
-        // 1. Fetch Entity
         const entity = entityType === "Task"
             ? (await db.select({
                 id: tasks.id,
@@ -109,7 +108,6 @@ export const activityService = {
 
         if (!entity) throw AppError.notFound(entityType === "Task" ? "Delegation not found" : "Ticket not found")
 
-        // 2. Access Control
         const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
         let allowed = orgWide || entity.userId === viewer.sub || entity.assigneeId === viewer.sub
             || (isHod(viewer.role) && !!viewer.departmentId && viewer.departmentId === entity.departmentId)
@@ -123,7 +121,6 @@ export const activityService = {
         }
         if (!allowed) throw AppError.forbidden()
 
-        // 3. Parallel Queries for Audit Logs & Status Remarks
         const [auditRows, remarkRows] = await Promise.all([
             db.select({
                 id: auditLogs.id,
@@ -146,7 +143,6 @@ export const activityService = {
         const truncated = auditRows.length > MAX_ROWS
         const rows = truncated ? auditRows.slice(0, MAX_ROWS) : auditRows
 
-        // 4. Build Fast O(1) Remark Lookup Map (Explicitly typed to avoid TS2364 and TS2345)
         const remarkMap = new Map<string, RemarkRow[]>()
         for (const r of remarkRows) {
             const key = `${r.by}:${r.to}`
@@ -161,7 +157,6 @@ export const activityService = {
         const remarkFor = (actorId: string, to: unknown, at: Date) =>
             remarkMap.get(`${actorId}:${to}`)?.find((m) => Math.abs(m.at.getTime() - at.getTime()) < 15_000)?.remark ?? null
 
-        // 5. Collect User IDs for Batch Name Lookup
         const ids = new Set<string>()
         const addStringId = (id: unknown) => { if (typeof id === "string" && id) ids.add(id) }
 
@@ -183,7 +178,6 @@ export const activityService = {
         const byId = new Map(people.map((p) => [p.id, { name: `${p.firstName} ${p.lastName ?? ""}`.trim(), role: p.role as string }]))
         const nameOf = (id: unknown) => (typeof id === "string" ? byId.get(id)?.name ?? "Someone who has left" : null)
 
-        // 6. Build Activity Events
         const events: ActivityEvent[] = []
         let sawCreate = false
 
@@ -218,13 +212,11 @@ export const activityService = {
             if (touched.length) push({ kind: "edited", fields: touched.map((k) => FIELD_LABEL[k]) }, "e")
         }
 
-        // 7. Fallback for older records missing CREATE rows
         if (!sawCreate && !truncated) {
             const maker = byId.get(entity.userId)
             events.push({ id: "created", kind: "created", at: entity.createdAt.toISOString(), actor: maker ? { name: maker.name, role: maker.role } : null })
         }
 
-        // 8. Sort Chronologically (Newest First) & Deduplicate Linearly O(N)
         events.sort((x, y) => y.at.localeCompare(x.at))
 
         const deduped: ActivityEvent[] = []
@@ -238,7 +230,6 @@ export const activityService = {
             if (!isDuplicate) deduped.push(e)
         }
 
-        // 9. Build Final Feed
         const lastStatus = deduped.find((e) => e.kind === "status" || e.kind === "approved" || e.kind === "sent_back" || e.kind === "created")
 
         return {

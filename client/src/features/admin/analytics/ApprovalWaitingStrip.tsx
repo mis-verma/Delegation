@@ -13,7 +13,6 @@ import { ANALYTICS_QUERY_KEY } from './useAnalyticsQueries';
 import { formatDuration } from './analyticsDisplay';
 
 interface ApprovalWaitingStripProps {
-  /** The window the decision time covers (ISO instants): the picked range, or the page's default window. */
   from?: string;
   to?: string;
 }
@@ -24,15 +23,11 @@ const KIND_NOUN: Record<ApprovalKind, [string, string]> = { checklist: ['checkli
 
 const plural = (count: number, kind: ApprovalKind) => `${count} ${KIND_NOUN[kind][count === 1 ? 0 : 1]}`;
 
-/** "2 checklists, 1 ticket" for the kinds that have something waiting, or `none` when nothing is. */
 const breakdown = (pick: (kind: ApprovalKind) => number, none: string) => {
   const parts = KINDS.filter((k) => pick(k) > 0).map((k) => plural(pick(k), k));
   return parts.length ? parts.join(', ') : none;
 };
 
-// Work handed in and waiting for a decision from Admin or PC, with the 24 hour promise next to it. Waiting
-// now is live (it ignores the period); the average decision time covers the hand-ins in the period. Every
-// tile opens the Verification Queue, where the decisions are made.
 const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();

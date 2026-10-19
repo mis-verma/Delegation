@@ -4,10 +4,6 @@ import { toast } from 'sonner';
 
 const isOnline = () => (typeof navigator === 'undefined' ? true : navigator.onLine);
 
-/**
- * A thin bar at the top of every screen while the device has no connection, so nobody taps Save and wonders why
- * nothing happened. Coming back online says so once, and React Query refetches by itself at that moment.
- */
 export const OfflineBanner = () => {
   const [online, setOnline] = useState(isOnline);
   const wasOffline = useRef(!isOnline());

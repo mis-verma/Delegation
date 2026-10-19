@@ -1,29 +1,7 @@
-/**
- * Colour for a delegation or ticket label.
- *
- * A label has a colour the person who made it can choose from the twelve below; the choice is saved
- * on the label (`Tag.color` holds the colour's key, e.g. "indigo"). A label made before colours
- * could be chosen, or by someone who skipped the choice, has none saved and gets one derived from
- * its name, so the same label is the same colour on the board, in the table, in the filter and
- * after a reload.
- *
- * Each colour is a soft tint of its hue behind a darker text of the same hue, with a solid dot,
- * the way current task apps draw labels. Dark mode lifts the text and keeps the tint translucent,
- * so one class works on both themes.
- *
- * Raw Tailwind hues, not theme tokens, on purpose (same precedent as departmentTagColors.ts): twelve
- * distinguishable hues cannot come from a brand ramp plus semantics, and a red label must not read
- * as "danger". Every class is written out in full because Tailwind reads class names from source
- * text and emits nothing for a name assembled at runtime.
- */
 export interface LabelColor {
-  /** Saved on the label. Never change a key once labels carry it. */
   key: string;
-  /** Shown as the swatch's tooltip and accessible name. */
   name: string;
-  /** Tinted pill: background, text and border. */
   chip: string;
-  /** Solid fill for a dot or swatch. */
   dot: string;
 }
 
@@ -42,32 +20,20 @@ export const LABEL_COLORS: readonly LabelColor[] = [
   { key: 'slate', name: 'Graphite', chip: 'bg-slate-500/12 text-slate-700 border-slate-500/25 dark:bg-slate-400/15 dark:text-slate-300 dark:border-slate-400/30', dot: 'bg-slate-500' },
 ];
 
-/** What every colour helper accepts: a whole label, or just a name to derive a colour from. */
 export type LabelColorInput = string | { name: string; color?: string | null };
 
-/**
- * FNV-1a plus a final avalanche mix.
- *
- * Deliberately NOT the `hash * 31 + char` loop used in departmentTagColors: with a small palette,
- * 31 % 10 === 1, so the multiply contributes almost nothing and the index collapses to roughly the
- * sum of the character codes. Similar names then land on the same colour. The mix below spreads
- * them.
- */
 const hashIndex = (name: string, length: number) => {
   let hash = 2166136261;
   for (let i = 0; i < name.length; i++) {
     hash ^= name.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
-  // Final mix, so a one-character difference changes the high bits too rather than just the low
-  // ones the modulo reads.
   hash ^= hash >>> 15;
   hash = Math.imul(hash, 2246822507);
   hash ^= hash >>> 13;
   return Math.abs(hash) % length;
 };
 
-/** The colour a name gets when nobody chose one. Also the default offered when creating a label. */
 export const suggestedLabelColor = (name: string): LabelColor => LABEL_COLORS[hashIndex(name, LABEL_COLORS.length)];
 
 const labelColorOf = (input: LabelColorInput): LabelColor => {
@@ -75,15 +41,10 @@ const labelColorOf = (input: LabelColorInput): LabelColor => {
   return LABEL_COLORS.find((c) => c.key === input.color) ?? suggestedLabelColor(input.name);
 };
 
-/** The palette key a label is drawn in: its saved colour, or the one its name suggests. */
 export const labelColorKey = (input: LabelColorInput) => labelColorOf(input).key;
 
-/** Tinted pill classes (background, text, border) for a label. */
 export const labelChipClass = (input: LabelColorInput) => labelColorOf(input).chip;
 
-/** Solid fill for a colour dot next to plain text. */
 export const labelDotClass = (input: LabelColorInput) => labelColorOf(input).dot;
 
-/** No pill around a label: just its coloured icon and name, on whatever the card or sheet behind it is. Merged
- *  onto IconChip by TagChip and the label field. */
 export const BARE_LABEL_CLASS = 'border-0 bg-transparent pl-0 pr-0 sm:pr-0';

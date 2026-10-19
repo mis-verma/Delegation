@@ -1,8 +1,5 @@
 import type { ChecklistScore, DelegationScore, ExplorerRow, ScoreReportRow, ScoreScope, Scores, TicketScore } from '../../api/scores';
 
-// The cards and tables that were built on the older score shapes (Scores, ScoreReportRow) read the explorer
-// through these, so their layout stays and their numbers come from the one explorer answer.
-
 const checklistFromRow = (row: ExplorerRow): ChecklistScore => {
   const c = row.checklist;
   return {
@@ -65,7 +62,6 @@ const delegationFromRow = (row: ExplorerRow): DelegationScore => {
   };
 };
 
-/** An explorer row as a score card (the same shape /scores returns). */
 export const explorerRowToScores = (row: ExplorerRow, scope: ScoreScope, win: { from: string; to: string }): Scores => ({
   scope,
   id: row.id,
@@ -80,7 +76,6 @@ export const explorerRowToScores = (row: ExplorerRow, scope: ScoreScope, win: { 
   rankable: row.rankable,
 });
 
-/** An explorer row as a report row (the table shape the Scorecard and the Overview rankings use). `department` is the person's department (person rows only, else empty). */
 export const explorerRowToReportRow = (row: ExplorerRow): ScoreReportRow => ({
   id: row.id,
   name: row.name,

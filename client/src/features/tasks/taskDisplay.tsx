@@ -39,8 +39,6 @@ export const STATUS_ICON = {
 
 export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 
-// The one set of status names Delegation uses everywhere, for every role: chips, filters, the
-// detail footer and stepper, toasts and history. Change a word here, not at a call site.
 export const STATUS_LABEL = {
   draft: 'Draft',
   todo: 'To do',

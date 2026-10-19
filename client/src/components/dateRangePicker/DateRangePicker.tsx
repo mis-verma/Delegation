@@ -26,23 +26,12 @@ interface DateRangePickerProps {
   showTime?: boolean;
   placeholder?: string;
   className?: string;
-  /** Extra classes merged onto the trigger button itself — className above only sizes the
-   *  outer wrapper. For call sites (e.g. a pill-shaped toolbar) that need to override the
-   *  trigger's own shape/height rather than just its width. */
   triggerClassName?: string;
   disabled?: boolean;
-  /** Styles the placeholder like a real selected value (solid text, not muted) — for callers
-   *  where the placeholder itself is a meaningful default (e.g. "All time" in a filter bar next
-   *  to Combobox filters whose own "All X" option renders the same way), not a true empty
-   *  "nothing chosen yet" state like a form's "Select a date range". Off by default. */
   placeholderIsValue?: boolean;
-  /** With `showTime`: ask for a time on the last day only (a start day plus a due day and time). */
   endTimeOnly?: boolean;
-  /** One day is enough: a single tap sets the due day and no start day is asked for. */
   dueOnly?: boolean;
-  /** Hide the quick-choice row, for forms that already show their own quick-day chips beside the picker. */
   hidePresets?: boolean;
-  /** Earliest moment that can be picked. Earlier days are greyed out and an earlier time is refused. */
   minDate?: Date;
   tiles?: boolean;
   invalid?: boolean;
@@ -56,17 +45,6 @@ const laterOf = (a: Date | null | undefined, b: Date | null | undefined) => {
   return a ?? b ?? null;
 };
 
-/**
- * Start and due day (and time) in one picker.
- *
- *  - Phones get a bottom sheet with Date and Time tabs, 44px days and one big Done button; from `sm`
- *    up it is a popover with the calendar and the time side by side. Same content, same behaviour.
- *  - Nothing is reported until the range is complete (or just the due day, in `dueOnly`). Tapping a
- *    first day and walking away used to report a start with no end and clear the due date.
- *  - A day picked with a time gets a sensible one (9 AM to start, 6 PM to finish) instead of
- *    midnight, which for today is already in the past.
- *  - With a time to set it never closes by itself: Done does.
- */
 export function DateRangePicker({
   value,
   onChange,
@@ -85,14 +63,11 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [open, setOpen] = useState(false);
-  // What is being picked right now. The parent's `value` only changes once a choice is complete.
   const [draft, setDraft] = useState<DateRangeValue>(value);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value.from ?? value.to ?? new Date()));
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
-  // Re-read on every open, so a tab left open past midnight doesn't call yesterday "today".
   const [today, setToday] = useState(() => startOfDay(new Date()));
   const [tab, setTab] = useState<'date' | 'time'>('date');
-  // Which of the two times the clock is showing, when both a start and an end time are asked for.
   const [clockFor, setClockFor] = useState<'from' | 'to'>(endTimeOnly || dueOnly ? 'to' : 'from');
   const closeTimer = useRef<number | null>(null);
   useEffect(() => () => {
@@ -122,8 +97,6 @@ export function DateRangePicker({
     setOpen(next);
   };
 
-  // A picked day with a time gets the previous pick's clock time, or a working-day default, and is
-  // never earlier than `minDate`.
   const stamp = (day: Date, which: 'from' | 'to', base: Date | null): Date => {
     if (!showTime || (endTimeOnly && which === 'from')) return startOfDay(day);
     let next = base
@@ -140,8 +113,6 @@ export function DateRangePicker({
     if (isComplete(next)) onChange(next);
   };
 
-  // With a time to set, a phone moves on to the Time tab. Without one, the picker closes itself a beat
-  // after the last day so that day is seen lit up first.
   const afterComplete = () => {
     if (showTime) { if (isPhone) setTab('time'); } else closeSoon();
   };
@@ -164,7 +135,6 @@ export function DateRangePicker({
     const picked = day < fromDay
       ? { from: stamp(day, 'from', draft.from), to: stamp(fromDay, 'to', null) }
       : { from: draft.from, to: stamp(day, 'to', draft.to) };
-    // Same-day ranges with the clock the wrong way round are made to meet rather than invert.
     if (picked.to && picked.from && picked.to < picked.from) picked.to = picked.from;
     commit(picked);
     afterComplete();
@@ -190,7 +160,6 @@ export function DateRangePicker({
       disabled: disabledDay,
       solid,
       inRange: inRange && !solid,
-      // The start drops its right corners and the end its left, so the band reads as one piece.
       roundLeft: inRange && !solid ? false : !(solid && hasSpan && isTo && !isFrom),
       roundRight: inRange && !solid ? false : !(solid && hasSpan && isFrom && !isTo),
     };
@@ -198,7 +167,6 @@ export function DateRangePicker({
 
   const setTime = (which: 'from' | 'to', next: Date) => {
     const range = { ...draft, [which]: next };
-    // Moving the start past a same-day end pulls the end along.
     if (which === 'from' && range.to && range.to < next) range.to = next;
     commit(range);
   };
@@ -233,7 +201,6 @@ export function DateRangePicker({
         value.to ? formatDay(value.to) + clock(value.to) : null,
       ].filter(Boolean).join(' to ')
     : placeholder;
-
 
   const tileSlots = dueOnly
     ? [{ key: 'to' as const, label: 'Due', date: value.to }]
@@ -305,7 +272,6 @@ export function DateRangePicker({
         ))}
       </div>}
 
-      {/* What has been picked and which tap comes next. */}
       <div className={cn('grid items-center gap-2', slots.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1')}>
         {slots.map((slot, i) => (
           <div key={slot.key} className="contents">
@@ -345,7 +311,6 @@ export function DateRangePicker({
   const activeClock: 'from' | 'to' = bothTimes ? clockFor : 'to';
   const timeColumn = showTime && (
     <div className="flex flex-col gap-3 w-full sm:w-60 min-w-0 sm:border-l sm:border-border/60 sm:pl-4">
-      {/* Start and end each have a time; one clock serves both, switched here. */}
       {bothTimes && (
         <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/80" role="group" aria-label="Which time to set">
           {([
@@ -371,7 +336,6 @@ export function DateRangePicker({
         </div>
       )}
 
-      {/* Keyed by which time it is, so switching starts the clock on the hour again. */}
       <ClockPicker
         key={activeClock}
         label={bothTimes ? undefined : 'Due time'}
@@ -381,7 +345,6 @@ export function DateRangePicker({
         onTouch={cancelClose}
       />
 
-      {/* From sm up the Done button lives here; on a phone it is pinned under the sheet instead. */}
       <Button variant="primary" size="sm" onClick={() => setOpen(false)} disabled={!complete} className="hidden sm:inline-flex mt-auto">
         Done
       </Button>
@@ -443,7 +406,6 @@ export function DateRangePicker({
         </button>
       )}
       triggerAside={hasValue && !disabled && (
-        // A sibling of the trigger, not nested inside it, so it is a real button of its own.
         <button
           type="button"
           aria-label="Clear date range"
@@ -459,7 +421,6 @@ export function DateRangePicker({
       )}
     >
       {phoneTabs}
-      {/* Phone shows one tab at a time; from sm up both columns sit side by side. */}
       <div className={cn('sm:grid sm:gap-4', showTime && 'sm:grid-cols-[19.5rem_15rem]')}>
         <div className={cn(showTime && tab === 'time' && 'max-sm:hidden')}>{dateColumn}</div>
         {timeColumn && <div className={cn(tab === 'date' && 'max-sm:hidden')}>{timeColumn}</div>}

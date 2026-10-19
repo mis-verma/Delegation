@@ -9,22 +9,9 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * `icon`, `tint` and `accentRing` used to live here too, and every caller dutifully supplied them
- * — icon choices, `drop-shadow-sm` tints, `ring-*`/`shadow-lg` combinations — but the render below
- * only ever destructured `key`, `label`, `bgTint`, `accentBar` and `accentBorder`. None of it
- * reached the DOM. Removed so the type states what actually renders; build tiles with
- * `statusTiles()` rather than by hand.
- *
- * `icon`/`iconTint` came back deliberately (see statusTiles.ts) to close the one visible gap
- * between this component and StatCard: every StatCard-style stat on the Dashboard, Calendar and
- * admin analytics pages shows its icon in a tinted tile, and these tiles didn't.
- */
 export interface QuickFilterTile<K extends string> {
   key: K;
   label: string;
-  /** A shorter word for a phone, where five tiles share one row and a long word used to break mid-word
-   *  ("Complete / d"). Tablet and up, and the screen-reader name, keep `label`. */
   shortLabel?: string;
   icon: LucideIcon;
   bgTint: string;
@@ -40,30 +27,13 @@ interface QuickFilterStatsProps<K extends string> {
   active: K | null;
   onToggle: (key: K) => void;
   itemLabel: string;
-  /** Kept so existing callers still compile; every tile is white with blue type now. */
   variant?: 'default' | 'navy';
-  /**
-   * While the page's query is still in flight its counts default to zero, so the row rendered a
-   * confident "0 0 0 0" and then jumped to the real numbers. Pass the query's `isPending` to show
-   * placeholders instead of numbers that aren't true yet.
-   */
   isLoading?: boolean;
-  /**
-   * Pass the unfiltered count to prepend a lead "Total" tile. It reports this number, lights up
-   * when nothing is filtered, and clicking it calls `onClearFilter` instead of applying a bucket —
-   * so it's both the page's headline count and the one tap back to everything.
-   *
-   * This replaced each page's "N total tickets"-style header subtitle. Don't pass it from a module
-   * that already declares its own `all` tile (the Compliance board's "Instances") — that one is a
-   * real filter key with a count of its own, and it would end up rendered twice.
-   */
   total?: number;
-  /** Wording for the lead tile where "Total" isn't what the page counts. */
   totalLabel?: string;
   onClearFilter?: () => void;
 }
 
-/** Same strip, same cells, so nothing moves when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
   <div className="grid gap-1.5 sm:gap-3" style={gridStyle(count)} role="status" aria-label="Loading counts">
     {Array.from({ length: count }).map((_, i) => (
@@ -78,10 +48,8 @@ const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
   </div>
 );
 
-// One row on every screen, phones included: as many equal columns as there are cards.
 const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` });
 
-// Only late work gets a colour (red); every other number is plain dark text.
 const LATE = new Set<string>(['delayed', 'overdue']);
 
 export function QuickFilterStats<K extends string>({
@@ -96,20 +64,14 @@ export function QuickFilterStats<K extends string>({
   onClearFilter,
 }: QuickFilterStatsProps<K>) {
   const hasTotal = total !== undefined;
-  // Built here rather than by each caller: four modules were already one wrapper apiece around
-  // this component, and hand-rolling the lead tile in each of them is exactly the duplication
-  // statusTiles() exists to prevent.
   const shownTiles: QuickFilterTile<K | 'all'>[] = hasTotal
     ? [{ ...statusTiles(['all'])[0], label: totalLabel }, ...tiles]
     : tiles;
 
   if (isLoading) return <QuickFilterStatsSkeleton count={shownTiles.length} />;
 
-
   return (
     <div className="grid gap-1.5 sm:gap-3" style={gridStyle(shownTiles.length)}>
-      {/* Simple cards: the number big on the left, its name under it, a soft coloured icon on the right. Only
-          late work gets a red number; a zero is quiet grey. The picked card's icon fills with its colour and its name turns bold; no border or line. */}
       {shownTiles.map((tile) => {
         const { key, label, shortLabel, icon: Icon, bgTint, iconTint, accentBar, accentBorder } = tile;
         const isTotalTile = hasTotal && key === 'all';
@@ -132,24 +94,19 @@ export function QuickFilterStats<K extends string>({
               'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              // Picked: the tile takes its colour (border and a soft tint); the rest stay plain.
               isActive ? cn(accentBorder, bgTint) : 'border-border bg-surface hover:border-border-hover',
             )}
           >
             <span className="min-w-0 max-w-full">
               <span className={cn(
                 'block t-stat font-extrabold sm:font-bold leading-none max-sm:tracking-tighter max-sm:break-all',
-                // On a phone there is no icon tile, so the picked card's number takes its colour instead.
                 isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
               )}>
                 <CountUp value={count} />
               </span>
-              {/* Phone: up to two lines, never an ellipsis. Five tiles at 320px leave about 50px each, so a
-                  long word may hyphenate rather than get cut. The grid row keeps every tile the same height. */}
               <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:line-clamp-2 sm:leading-snug sm:t-meta', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
                 {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
               </span>
-              {/* Bigger screens: how much of the whole this bucket is, as a word and a thin bar in its colour. */}
               {hasTotal && !isTotalTile && (
                 <span className="hidden sm:flex mt-2 items-center gap-2" aria-hidden="true">
                   <span className="h-1 w-14 overflow-hidden rounded-full bg-surface-hover">

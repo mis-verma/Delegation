@@ -10,8 +10,6 @@ interface QuestionTypeMenuProps {
   onPick: (entry: QuestionTypeEntry) => void;
 }
 
-// The question's type as one chip that opens a grouped menu — replaces the 16-button type wall
-// every question card used to carry (about 1000px tall per card on a phone).
 export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
   const current = questionTypeOf(draft);
   const Icon = current.icon;
@@ -42,7 +40,6 @@ export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
               return (
                 <DropdownMenuItem key={entry.id} onClick={() => !selected && onPick(entry)} className="gap-2.5 py-1.5">
                   <span className={`flex items-center justify-center size-7 rounded-lg shrink-0 ${GROUP_TILE[entry.group]}`}>
-                    {/* `!` beats DropdownMenuItem's forced svg size/colour. */}
                     <EntryIcon strokeWidth={2.25} className="size-3.5! text-current!" />
                   </span>
                   <span className="flex flex-col min-w-0 flex-1">

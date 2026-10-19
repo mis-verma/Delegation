@@ -10,12 +10,9 @@ import { scoresHref } from '../directory/orgScoreData';
 
 interface StoreCardProps {
   store: Store;
-  /** undefined while the people list is loading, null if it failed; otherwise active people only. */
   activeCount: number | null | undefined;
   inactiveCount: number;
-  /** Departments filed under this store; undefined while they load. */
   departmentCount: number | undefined;
-  /** This month's score row: undefined while loading, null when nothing was due. */
   score: ExplorerRow | null | undefined;
   scoreWindow: { from: string; to: string; failed: boolean };
   isUpdating: boolean;
@@ -25,10 +22,6 @@ interface StoreCardProps {
   onDelete: (store: Store) => void;
 }
 
-/**
- * A store at a glance: name, code and address, chips for staff and departments, and this month's score. A tap
- * anywhere opens the store on the Scores page; Edit, Deactivate and Delete live in the menu.
- */
 export const StoreCard = memo(({
   store, activeCount, inactiveCount, departmentCount, score, scoreWindow,
   isUpdating, isDeleting, onToggleActive, onEdit, onDelete,
@@ -40,7 +33,6 @@ export const StoreCard = memo(({
         <EntityIconTile icon={StoreIcon} tone="coral" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="min-w-0">
-            {/* The card's one primary action; its ::after stretches over the card, the menu and score strip sit above it. */}
             <Link
               viewTransition
               to={href}
@@ -97,7 +89,6 @@ export const StoreCard = memo(({
 });
 StoreCard.displayName = 'StoreCard';
 
-// Same rows and gaps as the card above (header, chips, score strip), so the grid does not jump when the real rows arrive.
 export const StoreCardSkeleton = () => (
   <div className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3')} aria-hidden>
     <div className="flex items-start gap-3">

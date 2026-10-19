@@ -9,16 +9,12 @@ const shouldShow = () => {
   try { return localStorage.getItem(STORAGE_KEY) !== '1'; } catch { return true; }
 };
 
-/**
- * One line for touch screens only: moving a card needs a press and hold, which nothing on the
- * board says. Dismissed for good once closed. Mouse users never see it.
- */
 export const BoardTouchHint = () => {
   const [visible, setVisible] = useState(shouldShow);
   if (!visible) return null;
 
   const dismiss = () => {
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* storage blocked: it just returns next visit */ }
+    try { localStorage.setItem(STORAGE_KEY, '1'); } catch { }
     setVisible(false);
   };
 

@@ -7,7 +7,6 @@ import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 
 const SHOWN = 4;
 
-// The answer in as few words as fit on the right of a row: "Yes", "4 of 5", "₹ 1200", "Done", "N/A", "Not done".
 const shortAnswer = (item: ChecklistInstanceItem): string => {
   if (item.isNotApplicable) return 'N/A';
   if (!item.isDone && item.itemType !== 'AUDIT') return 'Not done';
@@ -16,7 +15,6 @@ const shortAnswer = (item: ChecklistInstanceItem): string => {
   return text.replace(/^(Answered:?|Entered|Picked|Rated)\s+/, '');
 };
 
-/** What each dot means, worst first. */
 const dotFor = (item: ChecklistInstanceItem): { dot: string; text: string; title: string } => {
   const f = itemFlags(item);
   if (f.criticalFailed) return { dot: 'bg-danger', text: 'text-danger', title: 'Critical question, not an acceptable answer' };
@@ -30,15 +28,9 @@ const dotFor = (item: ChecklistInstanceItem): { dot: string; text: string; title
 
 interface QuestionPreviewProps {
   items: ChecklistInstanceItem[];
-  /** Opens the full review (the same as tapping the title). */
   onOpen: () => void;
 }
 
-/**
- * The run's questions right on its queue row, so a reviewer sees what was answered without opening it: a count line
- * ("8 of 10 answered · photos 2 of 3"), then the first few questions with their answers, the ones that need a look
- * first, each with a coloured dot (red critical or missing photo, orange bad answer, violet sent back, green fine).
- */
 export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: QuestionPreviewProps) {
   const { shown, rest, answered, total, photosHave, photosNeeded } = useMemo(() => {
     const sorted = [...items].sort((a, b) => {

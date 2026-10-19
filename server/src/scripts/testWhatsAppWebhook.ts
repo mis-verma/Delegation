@@ -20,9 +20,6 @@ const run = async() => {
                 value : {
                     messaging_product : "whatsapp",
                     metadata : { display_phone_number : phone , phone_number_id : env.WHATSAPP_PHONE_NUMBER_ID},
-                    // Must be unique per invocation — the webhook handler now dedupes deliveries by
-                    // this id (see inboundMessageDedupe.ts), so re-running this script with the same
-                    // hardcoded id would silently no-op the second time.
                     messages : [{ from : phone, id : `test-message-${Date.now()}`, type : "text", text : { body : text}}],
                 },
             }],

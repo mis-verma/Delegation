@@ -56,7 +56,6 @@ interface TicketDetailProps {
 
 const EDIT_FORM_ID = 'ticket-edit-form';
 
-/** "15 Oct, 10:45 AM", with the year only when it isn't this year. */
 const formatRaised = (iso: string) => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
@@ -64,8 +63,6 @@ const formatRaised = (iso: string) => {
   const day = d.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
   return `${day}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 };
-// Roles that may send a ticket to another person (the server refuses USER/AGENT; assertCanMutate
-// keeps a Manager to their department or store and a Senior to their store).
 const ROUTING_ROLES: readonly Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
 
 export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailProps) => {
@@ -76,23 +73,15 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const role = currentUser?.role;
   const isAdmin = role === 'ADMIN' || role === 'PC';
   const isVerifier = isAdmin;
-  // Front-line staff (USER/AGENT): their own work only, no routing, priority or due changes.
   const ownScope = !!role && OWN_SCOPE_ROLES.includes(role);
-  // One rule for "may change this ticket": editing its text, adding photos, moving its status.
   const canChangeStatus = canChangeTicket(currentUser, ticket);
   const canEdit = canChangeStatus && ticket.status !== 'CLOSED';
-  // Picking the person: whoever can route tickets and may change this one, never on a closed ticket.
   const canRoute = canEdit && !!role && ROUTING_ROLES.includes(role);
-  // The raiser can take back a ticket nobody has started yet. Only judged on the full record
-  // (`fresh`), which carries the status history the decision depends on.
   const canWithdraw = !!fresh && canWithdrawTicket(currentUser, ticket);
-  // Removing a ticket photo: anyone who may edit the ticket, but proof photos from a status change
-  // and photos on a closed ticket stay unless an Admin removes them (ticketAttachment.service.ts).
   const canRemovePhoto = (a: TicketAttachment) =>
     role === 'ADMIN' || (canEdit && !a.statusUpdateId);
 
   const updateMut = useUpdateTicketMutation();
-  // The edit form shows a failed save next to its own Save button, so no toast as well.
   const editMut = useUpdateTicketMutation({ inlineError: true });
   const labelsMut = useUpdateTicketMutation({ silent: true });
   const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
@@ -102,8 +91,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
   const { data: departments } = useDepartmentsQuery();
-  // The current assignee may sit outside this department's assignable roster (moved, or picked
-  // before a department change). Without them in the list the picker showed "Unassigned".
   const assigneeOptions: AssignableUser[] | undefined = ticket.assignee && assignableUsers && !assignableUsers.some(u => u.id === ticket.assignee!.id)
     ? [...assignableUsers, { id: ticket.assignee.id, firstName: ticket.assignee.firstName, lastName: null, email: ticket.assignee.email, role: ticket.assignee.role as Role, departmentId: null }]
     : assignableUsers;
@@ -112,8 +99,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const { data: categories } = useCategoriesQuery();
   const storeName = ticket.storeId ? stores?.find(s => s.id === ticket.storeId)?.name : undefined;
   const categoryName = ticket.categoryId ? categories?.find(c => c.id === ticket.categoryId)?.name : undefined;
-  // Raised-by is only a user id on the ticket. "You" when it is the viewer, otherwise looked up in
-  // the roster already loaded for the assignee picker; left out when neither resolves.
   const raisedByUser = assignableUsers?.find(u => u.id === ticket.userId);
   const raisedByName = ticket.userId === currentUser?.id
     ? 'You'
@@ -123,9 +108,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const sheetRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
-  // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
   const [moreOpen, setMoreOpen] = useState(false);
-  // Activity and the change log live in their own sheet, opened from the header's More menu.
   const [activityOpen, setActivityOpen] = useState(false);
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
@@ -138,8 +121,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     variant: 'danger',
   });
 
-  // Every way out of the sheet (X, Escape, phone back) asks first while the edit form has changes.
-  // Returning the promise tells the phone back handler the sheet is still deciding.
   const requestClose = () => {
     if (!(editing && editDirty)) {
       onClose();
@@ -162,7 +143,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setEditDirty(false);
   };
 
-  // Asked first: a delete takes the ticket off every list for everyone working on it.
   const handleDelete = async () => {
     const ok = await confirm({
       title: 'Delete this ticket?',
@@ -175,7 +155,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
   };
 
-  // The raiser's own take-back. Asked first because it can't be undone from here.
   const handleWithdraw = async () => {
     const ok = await confirm({
       title: 'Withdraw this ticket?',
@@ -190,8 +169,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const due = formatDueLabel(ticket);
 
-  // On Hold opens the remark popup (remark required, optional proof photos), the same gate a board
-  // drag goes through; Mark completed opens it with the note optional; In progress is one tap.
   const [quickStatusPick, setQuickStatusPick] = useState<RestrictedStatus | null>(null);
   const [quickStatusPhotos, setQuickStatusPhotos] = useState<File[]>([]);
   const [quickStatusCaptureMethod, setQuickStatusCaptureMethod] = useState<CaptureMethod>('GALLERY');
@@ -202,21 +179,15 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setQuickStatusCaptureMethod(method);
   };
 
-  // Admin/PC, the department's Manager or a named reviewer; never the person it is assigned to (lib/canApproveWork).
   const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveWork(currentUser, {
     departmentId: ticket.departmentId,
     assigneeIds: ticket.assignee ? [ticket.assignee.id] : [],
     reviewers: ticket.reviewers,
   });
-  // Work moves belong to the person doing the work. For front-line staff that means the assignee
-  // only: someone who just raised the ticket can edit or withdraw it, not move it (the server
-  // refuses it too). Nobody but a verifier moves a closed or handed-in ticket.
   const workerCanMove = canChangeStatus
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
     && (!ownScope || ticket.assigneeId === currentUser?.id);
-  // 'CLOSED' is never a plain pick, even for a verifier: closing is the Approve decision. While the
-  // viewer can approve, Approve and Send back are the only choices on screen.
   const statusOptions = showVerify
     ? []
     : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
@@ -236,7 +207,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
     && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline;
-  // The list row already carries the full ticket, so a loading bar only helps when it doesn't.
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
@@ -245,7 +215,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
       <SheetContent
         showCloseButton={false}
         onInteractOutside={(e) => { if (editing && editDirty) e.preventDefault(); }}
-        // Not the ticket-code button: Radix focusing it on open drew a focus ring before anyone touched anything.
         ref={sheetRef}
         onOpenAutoFocus={(e) => { e.preventDefault(); sheetRef.current?.focus({ preventScroll: true }); }}
         className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
@@ -266,7 +235,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           isDeleting={deleteMut.isPending}
         />
 
-        {/* Little top padding: the description continues straight on from the title above. */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:px-8 lg:pt-2 lg:pb-6 custom-scrollbar">
       
           <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
@@ -278,7 +246,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               <section className="flex flex-col gap-2 lg:gap-3">
                 <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
                   <TicketPropertyRow label="Priority" wide icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
-                    {/* Same rule as the edit form (canChangePriority): front-line staff see the chip, everyone else can change it here. */}
                     {canEdit && !ownScope ? (
                       <TicketPriorityChipPicker
                         value={ticket.priority}
@@ -321,7 +288,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                         />
                       </div>
                     ) : (
-                      // Same row as the picker, without its "Change": read-only for this viewer.
                       <span title="Assignee" className="flex w-full min-w-0 items-center gap-2 h-10 pl-1.5 pr-2.5 rounded-lg border border-border/60 bg-surface t-meta font-display font-semibold text-text">
                         {assigneeName ? (
                           <span className={`flex items-center justify-center size-7 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
@@ -359,11 +325,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </dl>
               </section>
 
-              {/* How this ticket counts in the scores right now; ticks while open, and status changes arrive by socket. */}
               {!ticket.declinedAt && <ItemScoreCard scoreAt={(now) => ticketScore(ticket, now)} noun="ticket" />}
 
-              {/* Same inline label field as the create form; each change saves at once. Editable by
-                  whoever may change the ticket, read-only chips for everyone else. */}
               <div className="min-w-0 rounded-xl bg-surface-hover/40 px-2.5 py-2 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:border-t lg:border-border/50 lg:pt-4 empty:hidden">
                 <DetailLabelsField
                   current={ticket.tags ?? []}
@@ -379,8 +342,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
             <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 min-w-0 lg:order-1">
               <div className="flex flex-col gap-4 sm:gap-5 min-w-0 max-lg:order-1">
-              {/* No reviewer picker: PC and Admin verify every ticket by default. Older tickets that
-                  named reviewers still show them, read-only. */}
               {ticket.reviewers.length > 0 && (
                 <div className="flex items-start gap-2 text-sm">
                   <ShieldCheck size={16} className="mt-0.5 text-text-light shrink-0" />
@@ -419,8 +380,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 onPreview={setPreviewImage}
               />
 
-              {/* The server won't take Mark completed while a checklist step is neither done nor
-                  explained, so the checklist has to be workable right here. */}
               {(ticket.checklists?.length ?? 0) > 0 && (
                 <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} workerIds={ticket.assignee ? [ticket.assignee.id] : []} />
               )}
@@ -438,16 +397,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
             </div>
           </div>
 
-          {/* Who raised it and when: reference, not something to act on, so it closes the page. */}
           <p className="mt-5 flex items-center gap-1.5 border-t border-border/50 pt-3 t-meta font-medium text-text-muted">
             <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
             {raisedByName ? `Raised by ${raisedByName}` : 'Raised'}, {formatRaised(ticket.createdAt)}
           </p>
         </div>
 
-        {/* Sticky action bar. A flex sibling of the scrolling body (not an overlay), so nothing is
-            ever hidden behind it and it stays above the phone keyboard; padded for the iPhone home
-            indicator. While editing it holds only Cancel and Save. */}
         {showFooter && (
           editing ? (
             <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
@@ -468,7 +423,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
             </div>
           ) : (
             <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
-              {/* Single-stage verify: one reviewer's decision closes it or sends it back. */}
               {showVerify && (
                 <div className="min-w-0 sm:flex-1 sm:basis-72 sm:max-w-md">
                   <TicketVerificationActions
@@ -487,8 +441,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   isBusy={updateMut.isPending || statusUpdateMut.isPending}
                 />
               )}
-              {/* A quiet text button: on a phone it sits small and centred under the main button,
-                  never as a red bar competing with it. */}
               {canDecline && (
                 <Button
                   variant="ghost"

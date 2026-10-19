@@ -24,8 +24,6 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        // One tab look for the whole app. flex-wrap: when the options do not fit, they move to a second line
-        // instead of squeezing their labels out of the pills.
         "bg-surface-hover text-text-muted border border-border/60 inline-flex flex-wrap w-fit items-center justify-center rounded-lg p-1 gap-1",
         className,
       )}

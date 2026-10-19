@@ -13,25 +13,15 @@ interface TicketStatusRemarkDialogProps {
   onConfirm: (remark: string) => void;
   isSubmitting?: boolean;
   nested?: boolean;
-  /** Same optional proof-photo capture the non-verifier "Update Status" panel already has —
-   *  state lives with the caller (TicketDetail) since it has to survive the confirm/cancel round
-   *  trip and feed the same mutation the panel posts through. */
   photos?: File[];
   onAddPhotos?: (files: FileList | null, method: CaptureMethod) => void;
   onRemovePhoto?: (index: number) => void;
 }
 
-// `icon={false}` used to strip the colored icon circle from these — the only thing that actually
-// carries each status's color on this chip (see IconChip) — so "Open" and "In Progress" rendered
-// as identical plain gray pills here despite being color-coded everywhere else in the app. Keeping
-// the default icon is what makes these "the latest chips" instead of a flattened-out copy of them.
-// Same status names as every other ticket screen (lib/ticketStatusLabel).
 const chip = (status: Ticket['status']) => (
   <StatusChip status={status.toLowerCase() as StatusChipStatus} label={getTicketStatusLabel(status)} />
 );
 
-// Short, not TicketStatusHistory's own full "Sep 17, 2026, 4:32 PM" — this sits inside a compact
-// dialog next to a live textarea, not a dedicated history panel with room to spare.
 const relativeTime = (isoDate: string) => {
   const diffMs = Date.now() - new Date(isoDate).getTime();
   const minutes = Math.floor(diffMs / 60_000);
@@ -45,10 +35,6 @@ const relativeTime = (isoDate: string) => {
   return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-// The last few status moves, right where the next one is being explained — so whoever's filling
-// this in can see what already happened without cancelling out to scroll down to the ticket's own
-// Status History section. Same StatusChip the from/to row above already uses, just smaller —
-// "latest chips" throughout, not a different, older-looking list style underneath a modern header.
 const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdates'] }) => {
   const recent = (statusUpdates ?? []).slice(0, 3);
   if (recent.length === 0) return null;
@@ -81,14 +67,9 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
   );
 };
 
-// Camera and Gallery look the same: two plain choices, neither one pushed.
 const PHOTO_BUTTON_CLASS =
   'inline-flex items-center justify-center gap-2 t-meta font-display font-semibold px-3 h-10 sm:h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-500/5 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-500/40 [&_svg]:text-primary-600 dark:[&_svg]:text-primary-300';
 
-// Same Camera/Gallery capture the non-verifier "Update Status" panel offers — this popup was the
-// one place a status change could be recorded with no way to attach the proof photo that goes
-// with it, even though the mutation underneath (useAddTicketStatusUpdateMutation) already accepts
-// files. Optional: only renders once the caller wires photo state through.
 const PhotoAttachments = ({
   photos, onAddPhotos, onRemovePhoto,
 }: {
@@ -100,7 +81,6 @@ const PhotoAttachments = ({
     <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <ImagePlus size={14} className="text-text-light" aria-hidden /> Photo (optional)
     </span>
-    {/* Two equal 44px buttons on a phone; compact and content-sized from sm. */}
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
       <label className={PHOTO_BUTTON_CLASS}>
         <Camera size={14} strokeWidth={2.5} />
@@ -143,12 +123,10 @@ const PhotoAttachments = ({
 
 const ON_HOLD_SUGGESTIONS = ['Waiting for parts', 'Waiting for vendor', 'Waiting for customer', 'Need approval from manager'];
 
-/** Tickets' wording and chips over the shared StatusRemarkDialog — see TaskStatusRemarkDialog. */
 export const TicketStatusRemarkDialog = ({
   ticket, toStatus, onCancel, onConfirm, isSubmitting, nested,
   photos, onAddPhotos, onRemovePhoto,
 }: TicketStatusRemarkDialogProps) => {
-  // Handing in is called "Mark completed" in the status menu, so the dialog and its button say the same.
   const handIn = toStatus === 'PENDING_APPROVAL';
   const onHold = toStatus === 'ON_HOLD';
   return (
@@ -164,8 +142,6 @@ export const TicketStatusRemarkDialog = ({
         : handIn
           ? 'It goes to the reviewer for approval. Add a note for them if you want to.'
           : 'Add a note if you want to. You can also move it without one.'}
-      // On hold does not stop the clock: the due-time check (server/src/jobs/slaSweep.job.ts) only
-      // skips closed and waiting-for-approval tickets.
       phoneNote={onHold ? 'The due time keeps running while it is on hold.' : handIn ? 'It goes to the reviewer for approval.' : undefined}
       suggestions={onHold ? ON_HOLD_SUGGESTIONS : undefined}
       placeholder={onHold

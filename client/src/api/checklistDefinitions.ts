@@ -23,22 +23,16 @@ export type ChecklistDefinitionItem = {
   id: string;
   label: string;
   order: number;
-  // Free-text grouping label (e.g. "Opening", "Closing", "Operational") — null items render in
-  // an "Ungrouped" bucket.
   section: string | null;
   requiredImageCount: number;
   maxImageCount: number | null;
   requiresLivePhoto: boolean;
-  /** Critical question: counts double in compliance, a bad answer is flagged to the reviewer. */
   isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
-  /** AUDIT only: separate lists for female / male people; empty = use `accessories`. */
   accessoriesFemale: string[];
   accessoriesMale: string[];
-  /** AUDIT only: one list per dress type, keyed by dress type id. A person with that type is checked
-   *  against its list; a missing or empty one falls back to their gender's list, then `accessories`. */
   accessoriesByType: Record<string, string[]> | null;
   numberEntryUnit: string | null;
   numberEntryMin: number | null;
@@ -51,12 +45,9 @@ export type ChecklistDefinitionItem = {
   signatureLabels: string[];
   qrExpectedValue: string | null;
   cashExpectedAmount: number | null;
-  /** "Good answer" rule for the compliance %: YES/NO, the good options, or a good number range. */
   acceptableAnswers: string[] | null;
   acceptableMin: number | null;
   acceptableMax: number | null;
-  // Two independent action sets — one per possible Yes/No answer — so an item can require e.g. a
-  // photo when answered Yes AND a reason when answered No, both active at once.
   yesActions: ChecklistConditionalAction[];
   noActions: ChecklistConditionalAction[];
   definitionId: string;
@@ -73,46 +64,26 @@ export type ChecklistDefinition = {
   cutoffTime: string | null;
   isActive: boolean;
   assigneeIds: string[];
-  // Additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD own department
-  // only) — naming someone here lets them approve/reject this checklist's instances regardless of
-  // role or department.
   reviewerIds: string[];
   assigneeRoles: ChecklistAssigneeRole[];
   icon: ChecklistIcon;
-  /** DAILY only: weekdays a run is created on (0 = Sunday … 6 = Saturday). Null = every day. */
   activeWeekdays: number[] | null;
-  /** Who a run belongs to: everyone (shared), one per department, or one per person. */
   responseMode: ChecklistResponseMode;
-  /** Departments the assigned people belong to, for the card. Read-only: derived on the server. */
   departmentNames: string[];
   version: number;
   createdBy: string;
   items: ChecklistDefinitionItem[];
-  // Computed server-side across every generated instance of this checklist — null until at
-  // least one instance/qualifying item exists yet, rather than a misleading 0%.
   completionRate: number | null;
-  /** How far along the run(s) happening right now are (today's, or this week's), 0-100; null when
-   *  no run is live today. completionRate above is the lifetime figure. */
   currentRate: number | null;
   qualityRate: number | null;
-  // Share of gated Yes/No-style items (one branch wired with REQUIRE_PHOTO/ASK_REASON/
-  // CREATE_ISSUE/NOTIFY_AREA_MANAGER) whose answer landed on that flagged branch. Higher is
-  // worse; null when nothing on this checklist is actually gated that way.
   issueRate: number | null;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
-/** What saving an edit did to today's runs of a checklist: `refreshed` runs nobody had started were
- *  rebuilt from the edit; `updated` runs already had work in them and got the edit merged in, every
- *  answer kept; `kept` runs stay as they were (already sent for review or approved, or their store
- *  was taken out of the checklist). */
 export type LiveRunsSummary = { refreshed: number; updated: number; kept: number };
 
 export type CreateChecklistDefinitionItemPayload = {
-  /** Id of the question as loaded from the server. Sent back on an edit so today's runs stay linked
-   *  to their question (a rename or move then reaches a run that's already started). Ignored for a
-   *  question the server doesn't know, so a new or copied one can carry any unique key. */
   id?: string;
   label: string;
   order?: number;
@@ -162,10 +133,6 @@ export type CreateChecklistDefinitionPayload = {
   items: CreateChecklistDefinitionItemPayload[];
 };
 
-// Builder's edit mode replaces the whole definition (name/schedule/items) in one PUT — same shape
-// as create, plus `version`: whichever version the builder loaded the checklist at, so the server
-// can reject the write (409) if someone else has saved a change since, instead of silently
-// discarding it.
 export type UpdateChecklistDefinitionPayload = CreateChecklistDefinitionPayload & { version: number };
 
 export type ListChecklistDefinitionsParams = {
@@ -177,10 +144,6 @@ export type ListChecklistDefinitionsParams = {
   limit?: number;
 };
 
-/**
- * Same page/limit response shape as ChecklistInstancePage (checklistInstances.ts) — the endpoint
- * used to be unbounded, hydrating every matching definition on every call.
- */
 export type ChecklistDefinitionsPage = {
   page: number;
   limit: number;
@@ -198,18 +161,11 @@ const buildQuery = (params: Record<string, string | undefined>) => {
   return query ? `?${query}` : '';
 };
 
-// Every array field on a definition and its items. The UI reads all of them without guards
-// (`definition.items.some(...)`, `definition.assigneeIds.length`, `item.options.map(...)`), so a
-// response missing any one of them throws where it's rendered rather than where it arrived —
-// the exact failure mode that took the dashboard down when a task came back with no
-// `additionalAssigneeIds`. Tasks, tickets and checklist *instances* were guarded then;
-// definitions and templates were the two that never got the same treatment.
 const definitionItemDefaults = withArrayDefaults({
   auditUserIds: arrayField(z.string()),
   accessories: arrayField(z.string()),
   accessoriesFemale: arrayField(z.string()),
   accessoriesMale: arrayField(z.string()),
-  // Not an array: a missing or malformed map reads as "no type lists" instead of crashing the builder.
   accessoriesByType: z.record(z.string(), z.array(z.string())).nullable().catch(null),
   options: arrayField(z.string()),
   signatureLabels: arrayField(z.string()),
@@ -229,16 +185,12 @@ const definitionDefaults = withArrayDefaults({
 const normalizeDefinition = (raw: unknown) => normalizeWith<ChecklistDefinition>(definitionDefaults, raw);
 const normalizeDefinitions = (raw: unknown[]) => raw.map(normalizeDefinition);
 
-/** A live checklist with questions that could be scored but have no good answer set. */
 export type ChecklistScoringGap = {
   id: string;
   name: string;
   recurrence: ChecklistRecurrence;
-  /** Questions that can carry a good-answer rule. */
   scorable: number;
-  /** Of those, how many have none. */
   unscored: number;
-  /** The first few unscored question labels. */
   labels: string[];
 };
 
@@ -278,7 +230,6 @@ export const checklistDefinitionApi = {
   remove: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-definitions/${id}`, { method: 'DELETE' }),
 
-  /** Undo a delete: the checklist and every run come back as they were. */
   restore: (id: string) =>
     apiFetch<ApiResponse<unknown>>(`/checklist-definitions/${id}/restore`, { method: 'POST' }),
 };

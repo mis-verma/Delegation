@@ -3,9 +3,6 @@ import { TICKET_GRID_CLASS } from './ticketLayout';
 
 type SkeletonView = 'list' | 'board' | 'table' | 'timeline';
 
-// Same card anatomy as TicketCard (two-line title + avatar, meta line, chip row), in the same grid,
-// so the list does not jump when tickets arrive. Extra cards are hidden where the grid has fewer
-// columns, so a phone is not handed a wall of placeholders.
 const CardSkeleton = ({ className }: { className?: string }) => (
   <div className={`flex flex-col gap-2.5 p-3.5 rounded-2xl bg-surface border border-border/60 ${className ?? ''}`}>
     <div className="flex items-start gap-2">
@@ -16,7 +13,6 @@ const CardSkeleton = ({ className }: { className?: string }) => (
       <Skeleton className="size-5 sm:size-6 rounded-full shrink-0" />
     </div>
     <Skeleton className="h-4 w-24 rounded-md" />
-    {/* Three chips on phones (status, priority, due), a fourth from sm where department joins. */}
     <div className="flex items-center gap-1.5 flex-wrap">
       <Skeleton className="h-6 sm:h-7 w-20 rounded-full" />
       <Skeleton className="h-6 sm:h-7 w-16 rounded-full" />

@@ -12,9 +12,6 @@ interface AvatarProps {
   src?: string | null;
   size?: keyof typeof SIZE_CLASS;
   className?: string;
-  /** Renders a small presence dot at the bottom-right corner when set — leave undefined when
-   *  presence isn't known/relevant here (most callers). Online = filled success green, offline =
-   *  hollow so it doesn't read as an error/warning color, just "not right now." */
   online?: boolean;
 }
 
@@ -26,12 +23,8 @@ const DOT_SIZE_CLASS: Record<keyof typeof SIZE_CLASS, string> = {
   xl: 'size-3.5',
 };
 
-// Pixel size of each SIZE_CLASS step, so the <img> reserves its box before the photo arrives.
 const IMG_PX: Record<keyof typeof SIZE_CLASS, number> = { xs: 20, sm: 32, md: 40, lg: 48, xl: 80 };
 
-// Shared photo-or-initials avatar — a real <img> when `src` is set, the same gradient-circle
-// initials treatment every card in the app already used inline otherwise (see UserCard.tsx,
-// AdminHeader.tsx) as the fallback, now in one place instead of reimplemented per component.
 export const Avatar = ({ name, src, size = 'md', className, online }: AvatarProps) => {
   const image = src ? (
     <img

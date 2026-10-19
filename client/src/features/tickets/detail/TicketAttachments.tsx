@@ -8,20 +8,11 @@ import type { TicketAttachment } from '../../../api/ticket';
 interface TicketAttachmentsProps {
   ticketId: string;
   attachments: TicketAttachment[];
-  /** Adds the "Add photo" box or tile. */
   canEdit: boolean;
-  /** Whether this photo gets a remove button. Same rule as the server: proof photos sent with a
-   *  status change and photos on a closed ticket stay, except for an Admin. */
   canRemove: (attachment: TicketAttachment) => boolean;
   onPreview: (url: string) => void;
 }
 
-/**
- * The photos that belong to the ticket itself, added when it was raised or later. Proof photos
- * that come with a status change stay in the History list. With no photos yet it is one dashed box
- * that says what it does; with photos, a tight grid of thumbnails ending in a dashed Add tile.
- * Hidden when there is nothing to show and nothing the viewer could add.
- */
 export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, onPreview }: TicketAttachmentsProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadTicketAttachmentsMutation(ticketId);
@@ -61,7 +52,6 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
         )}
       </h3>
 
-      {/* No capture attribute: on a phone the picker offers both camera and gallery. */}
       {canEdit && <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />}
 
       {attachments.length === 0 ? (

@@ -12,13 +12,8 @@ import { presenceService, HEARTBEAT_MS } from "../modules/presence/presence.serv
 
 let io: SocketIOServer | undefined;
 
-// The personal room every socket of one user joins (also what notification.service.ts emits to).
 const userRoom = (userId: string) => `user:${userId}`
 
-// Drops every live socket of this user (all tabs/devices, across workers when the Redis adapter is
-// on) so they reconnect with fresh credentials, or can't reconnect at all if they were switched off.
-// Called after a role/department/store/active change, an offboard, a delete and a password reset.
-// Quietly does nothing when sockets aren't running (scripts, tests).
 export const disconnectUserSockets = (userId: string) => {
     if (!io) return;
     try {
@@ -33,8 +28,6 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
         cors: { origin: env.CLIENT_URL, credentials: true },
     });
 
-    // Only needed once more than one process is serving sockets — a single process doesn't
-    // benefit from it, and shouldn't be forced to depend on a running Redis instance.
     if (useRedisAdapter) {
         const { pubClient, subClient } = await createRedisPubSubClients();
         io.adapter(createAdapter(pubClient, subClient));
@@ -46,15 +39,11 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
 
         let payload: AccessTokenPayload;
         try {
-            // Pinned to HS256 (what signAccessToken actually uses) — same hardening as auth.ts's authenticate.
             payload = jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as AccessTokenPayload;
         } catch {
             return next(new Error("Invalid access token"));
         }
 
-        // Same re-check authenticate() does on every HTTP request: the JWT's own role/department/
-        // store claims go stale the moment an admin changes them, so rooms are built from the
-        // database row, and a deactivated person (or one whose password changed) never connects.
         try {
             const [current] = await db.select({
                 role: users.role,
@@ -88,7 +77,6 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
         if (user.storeId) socket.join(`store:${user.storeId}`)
 
         presenceService.markConnected(user.sub, socket.id);
-        // Keeps this socket's presence key from expiring while it is really connected.
         const beat = setInterval(() => { void presenceService.heartbeat(user.sub, socket.id) }, HEARTBEAT_MS);
         socket.on("disconnect", () => {
             clearInterval(beat);

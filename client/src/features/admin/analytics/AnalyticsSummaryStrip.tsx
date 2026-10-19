@@ -26,20 +26,11 @@ interface AnalyticsSummaryStripProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** Jumps to the tab further down this same page that explains the number, which every role that
-   *  can see this page can reach (a route link would not be, for MANAGER/SENIOR). */
   onViewSection: (section: SummarySection) => void;
-  /** ADMIN/PC only: the drill-down modal's "View all tickets" button points at /admin/tickets,
-   *  which MANAGER/SENIOR cannot open. */
   isOrgWideRole: boolean;
-  /** The window the missed-checklist count covers: the picked range, or the page's default window. */
   windowFrom?: string;
   windowTo?: string;
 }
-
-// ---------------------------------------------------------------------------------------------
-// Tile: a compact two-up tile on a phone, the full StatCard from sm up
-// ---------------------------------------------------------------------------------------------
 
 export interface StatTileProps {
   label: string;
@@ -52,14 +43,11 @@ export interface StatTileProps {
   iconBgTint?: string;
   isLoading?: boolean;
   onClick?: () => void;
-  /** Sits beside the label: a "how is this calculated" popover. */
   labelAdornment?: ReactNode;
 }
 
-// Written placeholders for a tile that has no figure: never a bare dash standing in for a value.
 const NO_DATA_VALUE = 'No data';
 const LOADING_VALUE = 'Loading';
-// A request that failed is not the same as "nothing happened": say it did not load.
 const UNAVAILABLE_VALUE = 'Unavailable';
 
 const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3 text-left min-w-0`;
@@ -68,7 +56,6 @@ const MOBILE_TILE_INTERACTIVE =
 
 const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment }: StatTileProps) => {
   const hasTrend = trend != null && trend.label !== '—';
-  // A change of zero is neither good nor bad, same as StatCard.
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const isGood = trend ? (trend.direction === 'up') !== lowerIsBetter : true;
   const trendClass = isFlat ? 'text-text-muted' : isGood ? 'text-success' : 'text-danger';
@@ -78,7 +65,6 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
       <span className="flex items-start gap-1.5">
         <span className="t-meta font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
         {labelAdornment && (
-          // A control inside a tappable tile: its taps and keys stop here instead of opening the tile.
           <span className="inline-flex shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             {labelAdornment}
           </span>
@@ -104,7 +90,6 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   );
 
   if (onClick) {
-    // A div, not a button: the label can hold its own button (the popover), and a button cannot sit inside a button.
     return (
       <div
         role="button"
@@ -125,10 +110,6 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   return <div className={`${MOBILE_TILE_BASE} sm:hidden`}>{body}</div>;
 };
 
-/**
- * One headline figure. Below sm it is a plain number-and-label tile (no icon, no ring) so four of
- * them fit a phone two-up; from sm up it is the full StatCard. Meant to sit in a grid.
- */
 export const StatTile = memo((props: StatTileProps) => (
   <>
     <MobileStatTile {...props} />
@@ -139,12 +120,6 @@ export const StatTile = memo((props: StatTileProps) => (
 ));
 StatTile.displayName = 'StatTile';
 
-// ---------------------------------------------------------------------------------------------
-// Drill-down
-// ---------------------------------------------------------------------------------------------
-
-// DrilldownModal shows at most this many rows, so asking the server for more would only be thrown
-// away.
 const DRILLDOWN_FETCH_LIMIT = 8;
 
 const ticketRow = (t: Ticket): DrilldownRow => ({
@@ -158,39 +133,27 @@ const ticketRow = (t: Ticket): DrilldownRow => ({
 
 type DrilldownKind = 'on-time' | 'overdue';
 
-// What this page calls its headline tiles, in one place so a label never drifts between the tile
-// and the modal it opens.
 const DRILLDOWN_META: Record<DrilldownKind, { title: string; icon: LucideIcon }> = {
   'on-time': { title: 'Tickets closed on time', icon: ShieldCheck },
   overdue: { title: 'Overdue tickets', icon: AlertTriangle },
 };
 
-
-// The tile names, built from the one label dictionary so they read the same as the Scores page.
 const TICKETS_ON_TIME = `${MODULE_LABEL.ticket} ${SCORE_LABEL.onTime.toLowerCase()}`;
 const CHECKLISTS_NOT_DONE = `${MODULE_LABEL.checklist} ${SCORE_LABEL.notDone.toLowerCase()}`;
 const CHECKLISTS_COMPLETION = `${MODULE_LABEL.checklist} ${SCORE_LABEL.completion.toLowerCase()}`;
 const DELEGATIONS_COMPLETION = `${MODULE_LABEL.delegation} ${SCORE_LABEL.completion.toLowerCase()}`;
 
-// The first section on the Overview page: the figures worth a look first. Overdue is a live count
-// (open tickets already past their deadline), so it ignores the date picker. Every percentage covers the
-// Overview's window and comes from the score explorer (the same answer the Scores page shows), so there
-// is no change-versus-last-period badge here: the explorer has one figure per window, not per bucket.
 const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole, windowFrom, windowTo }: AnalyticsSummaryStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null);
 
-  // Open tickets past their deadline right now: no date range, because "overdue now" is not a
-  // question about a period.
   const overdue = useTicketOwnerStatsQuery('org');
 
-  // Delegations past their due date and not done (waiting-for-approval work has stopped the clock), live.
   const overdueDelegations = useTaskOwnerStatsQuery('org');
   const overdueDelegationCount = overdueDelegations.data?.[0]?.overdueCount;
 
-  // Every score figure: the explorer's whole-window row. Admin and PC see the organisation, a head their department.
   const scores = useOverviewScores(windowFrom, windowTo);
   const dayFrom = scores.win?.from;
   const dayTo = scores.win?.to;
@@ -206,8 +169,6 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
 
   const overdueCount = overdue.data?.[0]?.overdueCount;
 
-  // A percentage tile: the figure, or a written reason there is none. `count` is what the percentage is of
-  // (finished for on time, due for completion): zero means there is nothing to show.
   const percentValue = (value: number | null | undefined, count: number | undefined) =>
     scoresFailed ? UNAVAILABLE_VALUE : scoresLoading || !scores.total ? LOADING_VALUE : !count || value == null ? NO_DATA_VALUE : formatPercent(value);
   const percentCaption = (value: number | null | undefined, count: number | undefined, noDataText: string) =>
@@ -215,14 +176,8 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
       ? statCaption({ isPending: scoresLoading, isError: scoresFailed, hasData: !!count && value != null, noDataText })
       : windowText;
 
-  // The tickets the on-time tile counted: the Overview's window, so the list covers the same days as the figure.
   const onTimeWindow = useMemo(() => (windowFrom && windowTo ? { from: windowFrom, to: windowTo } : from && to ? { from, to } : null), [windowFrom, windowTo, from, to]);
 
-  // Fetched only once a tile is opened, with the same definitions the figures use (the server's
-  // sla filter), so the list is exactly the tickets that were counted.
-  // The window is part of the key (and a precondition) for the on-time list only: the overdue list
-  // has no period, so it must not refetch when the page's window changes, and the on-time list must
-  // not run before its window is known (it would list every closed ticket).
   const isOnTime = drilldownKind === 'on-time';
   const drilldown = useQuery({
     queryKey: ['analytics', 'ticket-drilldown', drilldownKind, isOnTime ? onTimeWindow?.from : null, isOnTime ? onTimeWindow?.to : null],
@@ -238,7 +193,6 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const drilldownMeta = drilldownKind ? DRILLDOWN_META[drilldownKind] : null;
 
   const failed = [overdue, overdueDelegations, scores].filter((q) => q.isError);
-  // The headline numbers as label and value. A figure that did not load is left empty.
   const exportRows = (): TableRows => [
     ['Figure', 'Value', 'Covers'],
     ['Overdue tickets', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now'],

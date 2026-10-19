@@ -15,12 +15,9 @@ function cn(...inputs: ClassValue[]) {
 export interface ComboboxOption {
   value: string;
   label: string;
-  /** Small secondary text on the right (a department, a code). It is searched too. */
   hint?: string;
 }
 
-// A long list (every person in the company) is cut to this many rows until the search narrows it, so
-// opening stays instant. The footer says how many more there are.
 const MAX_ROWS = 60;
 
 interface ComboboxProps {
@@ -35,7 +32,6 @@ interface ComboboxProps {
   className?: string;
   onCreateNew?: (query: string) => void;
   createNewLabel?: string;
-  /** Heading of the phone sheet. Defaults to the placeholder without its "Search ..." wording. */
   label?: string;
 }
 
@@ -89,7 +85,6 @@ export const Combobox = ({
   const shown = useMemo(() => {
     if (filtered.length <= MAX_ROWS) return filtered;
     const head = filtered.slice(0, MAX_ROWS);
-    // The current pick stays visible even when it sits far down the list.
     const current = filtered.find((o) => o.value === value);
     return current && !head.includes(current) ? [current, ...head.slice(0, MAX_ROWS - 1)] : head;
   }, [filtered, value]);
@@ -156,8 +151,6 @@ export const Combobox = ({
     </button>
   );
 
-  // Phones get a bottom sheet instead of a small popover: a list under a field is cramped, can be
-  // covered by the keyboard, and has rows too short to hit. Same choices, bigger rows, own search.
   if (isPhone) {
     const sheetTitle = label ?? (placeholder.replace(/^Search\s+/i, '').replace(/[….]+$/, '').trim().replace(/^./, (c) => c.toUpperCase()) || 'Choose an option');
     return (
@@ -212,8 +205,6 @@ export const Combobox = ({
         <div className="relative mb-1.5 shrink-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
           <input
-            // A phone keyboard would cover most of the list the moment it opens, so on touch screens the
-            // search box is tapped on purpose, not focused for you.
             autoFocus={typeof window === 'undefined' || !window.matchMedia('(pointer: coarse)').matches}
             role="combobox"
             aria-expanded={open}
@@ -252,10 +243,6 @@ export const Combobox = ({
                   }}
                   onMouseEnter={() => setHighlightedIndex(i)}
                   className={cn(
-                    // Same reference as the DatePicker calendar: a soft tint marks "this is the
-                    // pick" and "this is where keyboard focus is", never a solid colour block —
-                    // that read as a heavy, dated highlight next to the rest of this modal's quiet
-                    // surfaces, especially in dark mode where the fill fought the near-black page.
                     'flex items-center justify-between gap-2 px-3 py-2.5 pointer-coarse:min-h-11 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
                     isSelected
                       ? 'bg-gradient-to-r from-primary-500/15 to-primary-500/5 text-primary-700 dark:text-primary-300 font-semibold'

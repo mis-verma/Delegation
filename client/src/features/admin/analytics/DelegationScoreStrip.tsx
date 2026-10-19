@@ -13,16 +13,11 @@ import { UpdatingNote } from './UpdatingNote';
 import { useOverviewScores } from './useOverviewScores';
 
 interface DelegationScoreStripProps {
-  /** The window every figure covers (ISO instants): the picked range, or the page's default window. */
   from?: string;
   to?: string;
-  /** Kept for the caller: Admin and PC read the whole organisation and a department head their department, both decided by the explorer itself. */
   isOrgWideRole: boolean;
 }
 
-// The delegation figures for the period, from the score explorer's whole-window row (the same answer the
-// Scores page shows): how many came due, how many were done, the completion and on-time rates, and how many
-// are overdue. The checklist-item and photo figures further down are a different thing (the steps inside delegations).
 export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
@@ -34,7 +29,6 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
   const loading = scores.isPending && !totals;
   const failed = scores.isError && !totals;
   const empty = !!totals && totals.due === 0;
-  // On time (of finished) has nothing to divide when no delegation is done yet.
   const noneFinished = !!totals && totals.done === 0;
   const text = (value: string | number) => (loading ? 'Loading' : value);
 
@@ -72,7 +66,6 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
         <InlineError message="Could not load the delegation figures." onRetry={() => void scores.refetch()} />
       ) : (
         <div className="@container">
-          {/* Four tiles, not five: the done count lives in Completion's caption, so no figure is cut short at desktop widths. */}
           <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-4">
             <StatTile icon={ListChecks} iconTint="text-primary-600 dark:text-primary-400" label={SCORE_LABEL.due} value={text(totals?.due ?? 0)} isLoading={loading} caption={empty ? 'Nothing was due' : 'Came due in the period'} />
             <StatTile

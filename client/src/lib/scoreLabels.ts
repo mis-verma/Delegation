@@ -1,19 +1,12 @@
-// The ONE dictionary of score words. Every page (Scores, Scorecard, Overview tiles, person card, exports)
-// reads its labels and its "how is this calculated" lines from here, so a figure carries the same name and
-// the same explanation everywhere. The explanations restate the server's score notes
-// (server/src/modules/scores/scoreNotes.ts) in plain words; change them together.
 
 export type ScoreModule = 'checklist' | 'ticket' | 'delegation';
 export type ScoreFigure = 'completion' | 'compliance' | 'onTime' | 'metDeadline' | 'overall' | 'itemsDone';
 
 export const MODULE_LABEL: Record<ScoreModule, string> = { checklist: 'Checklists', ticket: 'Tickets', delegation: 'Delegations' };
-/** What one counted thing is called, per module. */
 const UNIT: Record<ScoreModule, string> = { checklist: 'checklist runs', ticket: 'tickets', delegation: 'delegations' };
 
-/** Full labels, as they read on a desktop table head or a card. */
 export const SCORE_LABEL = {
   completion: 'Completion',
-  /** Checklists have "Answers right"; tickets and delegations have "Met deadline". Use complianceLabel(). */
   compliance: 'Compliance',
   onTime: 'On time',
   metDeadline: 'Met deadline',
@@ -26,7 +19,6 @@ export const SCORE_LABEL = {
   due: 'Due',
 } as const;
 
-/** Short labels for a phone, where a column or chip has about a word of room. */
 export const SCORE_LABEL_SHORT = {
   completion: 'Done',
   compliance: 'Right',
@@ -41,26 +33,16 @@ export const SCORE_LABEL_SHORT = {
   due: 'Due',
 } as const;
 
-/** The second measure of a module: "Answers right" for checklists, "Met deadline" for tickets and delegations. */
 export const complianceLabel = (module: ScoreModule): string => (module === 'checklist' ? 'Answers right' : SCORE_LABEL.metDeadline);
 export const complianceLabelShort = (module: ScoreModule): string => (module === 'checklist' ? 'Right' : SCORE_LABEL_SHORT.metDeadline);
 
-/** Label of a figure for one module (compliance differs by module; the rest do not). */
 export const figureLabel = (figure: ScoreFigure, module?: ScoreModule): string =>
   figure === 'compliance' && module ? complianceLabel(module) : SCORE_LABEL[figure];
 
-// ---------------------------------------------------------------------------------------------
-// How a number is calculated: the same four lines for every figure.
-// ---------------------------------------------------------------------------------------------
-
 export interface HowLines {
-  /** What is counted (the top of the fraction). */
   counted: string;
-  /** Divided by what (the bottom). */
   dividedBy: string;
-  /** Which dates decide whether something is in. */
   dates: string;
-  /** What is left out. */
   leftOut: string;
 }
 

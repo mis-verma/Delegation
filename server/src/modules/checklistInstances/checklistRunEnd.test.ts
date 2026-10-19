@@ -11,10 +11,9 @@ import {
     type RunEndInput,
 } from "./checklistRunEnd.js"
 
-const IST = 330 // the org offset, minutes
+const IST = 330
 const utc = (iso: string) => new Date(`${iso}Z`)
 
-// A daily run for 12 Oct: periodStart is the org-local day written as UTC midnight, periodEnd (exclusive) the next day's.
 const daily = (o: Partial<RunEndInput & { totalItems: number; doneItems: number }> = {}) => ({
     recurrence: "DAILY",
     verificationStatus: "NOT_SUBMITTED",
@@ -29,13 +28,11 @@ const daily = (o: Partial<RunEndInput & { totalItems: number; doneItems: number 
 
 describe("runDeadlineMs", () => {
     it("is the cutoff on the start day, in the org's time zone", () => {
-        // 18:30 IST on 12 Oct is 13:00 UTC.
         expect(runDeadlineMs(daily(), IST)).toBe(utc("2026-10-12T13:00:00").getTime())
     })
 
     it("rolls an overnight window (cutoff earlier than opens) to the next day", () => {
         const run = daily({ opensTime: "18:00", cutoffTime: "07:00" })
-        // 07:00 IST on 13 Oct is 01:30 UTC.
         expect(runDeadlineMs(run, IST)).toBe(utc("2026-10-13T01:30:00").getTime())
     })
 
@@ -45,7 +42,6 @@ describe("runDeadlineMs", () => {
     })
 
     it("is the end of the period when there is no cutoff (periodEnd is exclusive)", () => {
-        // Midnight at the start of 13 Oct IST is 18:30 UTC on 12 Oct.
         expect(runDeadlineMs(daily({ cutoffTime: null }), IST)).toBe(utc("2026-10-12T18:30:00").getTime())
     })
 
@@ -68,22 +64,19 @@ describe("isRunEnded", () => {
     })
 
     it("does not end a cutoff run at local midnight: it ended at the cutoff, hours earlier", () => {
-        // 9 PM IST, after the 6:30 PM cutoff but before midnight.
         expect(isRunEnded(daily(), utc("2026-10-12T15:30:00"), IST)).toBe(true)
     })
 
     it("keeps an overnight run open into the next morning and ends it at the next day's cutoff", () => {
         const run = daily({ opensTime: "18:00", cutoffTime: "07:00" })
-        // 11 PM IST on the start day and 6:59 AM next morning: still open.
         expect(isRunEnded(run, utc("2026-10-12T17:30:00"), IST)).toBe(false)
         expect(isRunEnded(run, utc("2026-10-13T01:29:00"), IST)).toBe(false)
-        // 7:00 AM IST: ended.
         expect(isRunEnded(run, utc("2026-10-13T01:30:00"), IST)).toBe(true)
     })
 
     it("ends a run with no cutoff at the end of its period, exclusive", () => {
         const run = daily({ cutoffTime: null })
-        const endOfDay = utc("2026-10-12T18:30:00").getTime() // 13 Oct 00:00 IST
+        const endOfDay = utc("2026-10-12T18:30:00").getTime()
         expect(isRunEnded(run, endOfDay - 1, IST)).toBe(false)
         expect(isRunEnded(run, endOfDay, IST)).toBe(true)
     })
@@ -144,8 +137,8 @@ describe("closed message", () => {
 })
 
 describe("assertRunOpen", () => {
-    const after = utc("2026-10-12T14:00:00") // 7:30 PM IST, past the 6:30 PM cutoff
-    const before = utc("2026-10-12T12:00:00") // 5:30 PM IST
+    const after = utc("2026-10-12T14:00:00")
+    const before = utc("2026-10-12T12:00:00")
 
     it("lets ADMIN and PC work an ended run", () => {
         expect(() => assertRunOpen(daily(), { role: "ADMIN" }, after, IST)).not.toThrow()

@@ -19,7 +19,6 @@ function cn(...inputs: ClassValue[]) {
 export interface SelectDropdownOption<Value extends string> {
   value: Value;
   label: string;
-  /** A leading visual (a coloured icon tile, an avatar), shown beside the label in the list and in the trigger. */
   lead?: ReactNode;
 }
 
@@ -32,7 +31,6 @@ interface SelectDropdownProps<Value extends string> {
   triggerClassName?: string;
   contentClassName?: string;
   'aria-label'?: string;
-  /** Heading of the phone sheet. Defaults to the aria-label. */
   label?: string;
 }
 
@@ -77,7 +75,6 @@ export function SelectDropdown<Value extends string>({
     </button>
   );
 
-  // Phones get a bottom sheet with 48px rows instead of a small menu under the field.
   if (isPhone) {
     return (
       <PickerShell

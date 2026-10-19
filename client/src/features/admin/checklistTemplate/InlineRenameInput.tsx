@@ -3,20 +3,14 @@ import { cn } from '@/lib/utils';
 
 interface InlineRenameInputProps {
   value: string;
-  /** Accessible name, e.g. "Template name" or "Step 2 label". */
   label: string;
-  /** Called with the trimmed new text, only when it is non-empty and actually different. */
   onSave: (next: string) => void;
   onCancel: () => void;
   className?: string;
 }
 
-// The one inline text editor for a template's name and a step's label: Enter or leaving the field
-// saves, Escape cancels, an empty or unchanged value just closes. 16px on a phone so iOS does not
-// zoom the page when it takes focus.
 export const InlineRenameInput = ({ value, label, onSave, onCancel, className }: InlineRenameInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  // Enter/Escape close the editor, which can blur the field a moment later: only act once.
   const doneRef = useRef(false);
 
   useEffect(() => {

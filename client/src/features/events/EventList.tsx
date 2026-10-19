@@ -31,9 +31,6 @@ export const EventList = () => {
     return base;
   }, [events]);
 
-  // Upcoming first (soonest next), THEN past (most recently passed first) — a plain ascending
-  // sort put whatever was furthest in the past at the very top of the page, ahead of everything
-  // still coming up, which is backwards for "what do I need to know about."
   const ordered = useMemo(() => {
     const upcoming = events.filter((e) => new Date(e.eventDate).getTime() >= now)
       .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
@@ -96,8 +93,6 @@ export const EventList = () => {
               className={`group relative flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-all duration-200 animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none ${
                 isPast ? 'opacity-70 hover:opacity-100' : ''
               } ${isDeleting ? 'opacity-40 pointer-events-none' : ''}`}
-              // Stagger caps at 8 steps — same cap TodoList.tsx uses, so a long list doesn't make
-              // its last card wait noticeably longer than the rest.
               style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
             >
               <div className="flex items-start justify-between gap-2">
@@ -155,7 +150,6 @@ export const EventList = () => {
 
   return (
     <div className="flex flex-col gap-3 sm:gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300 pb-10">
-      {/* The page name is already in the header on a phone. */}
       <div className="hidden sm:flex items-center gap-3">
         <GradientIconTile icon={CalendarClock} />
         <div>
@@ -163,8 +157,6 @@ export const EventList = () => {
         </div>
       </div>
 
-      {/* Always shown, same as Tickets/Delegation's own stat row (even at zero) — QuickFilterStats
-          handles its own loading skeleton via `isLoading`. */}
       <QuickFilterStats
         tiles={EVENT_TYPE_TILES}
         counts={counts}
@@ -177,9 +169,6 @@ export const EventList = () => {
         isLoading={isPending}
       />
 
-      {/* Desktop: inline button in its own toolbar row, right-aligned. Mobile: that row was just
-          this one pill floating alone with the rest of the row empty, so it hides below `md` in
-          favor of the Fab below — same split every other list page (Tickets/Tasks/To-Do) uses. */}
       {canManage && (
         <div className="hidden md:flex items-center justify-end">
           <Button
@@ -195,7 +184,6 @@ export const EventList = () => {
 
       {renderContent()}
 
-      {/* Phone: the round + (the desktop button above hides below md). It was missing, so no one could add an event on a phone. */}
       {canManage && <Fab actions={[{ key: 'new', label: 'New event', icon: Plus, onClick: () => setShowForm(true) }]} />}
 
       {activeModal && (

@@ -6,15 +6,9 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 interface CountUpProps {
   value: number;
-  /** How the running number is written. Defaults to thousands separators. */
   format?: (n: number) => string;
 }
 
-/**
- * A number that counts up (or down) to its new value instead of jumping. The very first value shows
- * straight away, so a page does not animate from 0 on every visit; only a change of value runs the
- * animation. Skipped completely for people who ask for reduced motion.
- */
 export const CountUp = ({ value, format = (n) => n.toLocaleString() }: CountUpProps) => {
   const reduceMotion = usePrefersReducedMotion();
   const [shown, setShown] = useState(value);
@@ -39,6 +33,5 @@ export const CountUp = ({ value, format = (n) => n.toLocaleString() }: CountUpPr
     };
   }, [value, reduceMotion]);
 
-  // Reduced motion (or a value that is not a number): show the real value, no animation.
   return <>{format(reduceMotion || !Number.isFinite(value) ? value : shown)}</>;
 };

@@ -17,30 +17,22 @@ import { getAppLink, shareAppLink } from '../../../lib/installPrompt';
 
 interface UserCardProps extends UserActionHandlers {
   user: AdminUser;
-  /** Resolved from user.departmentId by the parent list; undefined when unassigned. */
   departmentName?: string;
   storeName?: string;
-  /** Undefined while presence is still loading, so the dot and label stay hidden instead of
-   *  guessing "offline" for someone who may be active right now. */
   online?: boolean;
-  /** "Active now", "Active 2h ago" or "Never active". Empty while presence is loading. */
   presenceText: string;
   busy: boolean;
   isSelf: boolean;
-  /** This month's score row: undefined while loading, null when nothing was due. */
   score: ExplorerRow | null | undefined;
   scoreWindow: { from: string; to: string; failed: boolean };
 }
 
-// The colour strip across the top says how far someone's access reaches at a glance: the whole
-// organisation, one department, or only their own work (no strip). A deactivated person gets none.
 const REACH_STRIP = {
   all: 'bg-gradient-to-r from-primary-500 to-primary-700 dark:from-primary-400 dark:to-primary-600',
   department: 'bg-gradient-to-r from-coral-400 to-coral-600 dark:from-coral-400 dark:to-coral-500',
   own: '',
 } as const;
 
-// Round, 44px on touch, quiet until hovered. They sit above the card's stretched title link.
 const CONTACT_BUTTON =
   'relative z-10 inline-flex items-center justify-center size-8 pointer-coarse:size-11 rounded-full text-text-muted bg-surface-hover/70 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
@@ -60,8 +52,6 @@ const UserCardComponent = ({
   const strip = muted ? '' : REACH_STRIP[ROLE_META[user.role].scope];
 
   return (
-    // justify-start: the footer pins itself with mt-auto, so a taller grid row never spreads the
-    // other blocks apart.
     <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-4 overflow-hidden', muted && 'bg-surface-hover/30', busy && 'pointer-events-none')}>
       {strip && <span aria-hidden className={cn('absolute inset-x-0 top-0 h-1', strip)} />}
 
@@ -75,8 +65,6 @@ const UserCardComponent = ({
             className={muted ? 'opacity-60 grayscale' : undefined}
           />
           <div className="flex flex-col gap-0.5 min-w-0">
-            {/* The title is the card's one primary action. Its ::after stretches over the whole
-                card, so a click anywhere opens Edit while the menu and contact buttons stay above it. */}
             <h3 className="min-w-0">
               <button
                 type="button"
@@ -115,7 +103,6 @@ const UserCardComponent = ({
         <PresenceChip online={online} text={presenceText} deactivated={!user.isActive} deactivatedLabel={deactivatedLabel(user)} />
       </div>
 
-      {/* Where they work as two chips; the department one opens that department's scores. */}
       <div className="flex flex-wrap items-center gap-1.5">
         {user.departmentId && departmentName ? (
           <Link
@@ -173,8 +160,6 @@ const UserCardComponent = ({
 
 export const UserCard = memo(UserCardComponent);
 
-// Same chrome, rows and gaps as the card above (header, chips, place panel, footer), so the grid
-// does not jump when the real people arrive.
 export const UserCardSkeleton = () => (
   <div className={cn(ENTITY_CARD_CLASS, 'justify-start gap-4 overflow-hidden')} aria-hidden>
     <div className="flex items-start justify-between gap-2">

@@ -20,12 +20,10 @@ const TABS: { value: AuditGroup | ''; label: string }[] = [
   { value: 'settings', label: 'Settings' },
 ];
 
-// Radix tab values can't usefully be empty, so "Everything" travels as 'all' and maps back here.
 const ALL = 'all';
 
 type DayGroup = { key: string; heading: string; logs: AuditLog[] };
 
-// Rows arrive newest first, so a new group starts whenever the calendar day changes.
 const groupByDay = (logs: AuditLog[]): DayGroup[] => {
   const groups: DayGroup[] = [];
   for (const log of logs) {
@@ -37,7 +35,6 @@ const groupByDay = (logs: AuditLog[]): DayGroup[] => {
   return groups;
 };
 
-// Mirrors AuditLogRow: avatar, a one-line sentence, a chip row and a couple of change pills.
 const RowSkeleton = () => (
   <div className="flex items-stretch gap-3">
     <Skeleton className="size-8 rounded-full shrink-0 mt-3" />
@@ -61,7 +58,6 @@ const RowSkeleton = () => (
 
 export const AuditLogPage = () => {
   const [filter, setFilter] = useState<AuditLogFilter>({ page: 1, limit: 30 });
-  // keepPrevious: paging or filtering keeps the old rows on screen (dimmed) instead of flashing skeletons.
   const { data, isPending, isError, isFetching, refetch } = useAuditLogsQuery(filter, { keepPrevious: true });
   const { data: users } = useUsersQuery();
   const resolvers = useAuditIdResolvers(true);
@@ -69,7 +65,6 @@ export const AuditLogPage = () => {
   const patchFilter = useCallback((patch: Partial<AuditLogFilter>) =>
     setFilter((prev) => ({ ...prev, ...patch, page: 1 })), []);
 
-  // Clears the panel's filters but stays on the current section tab.
   const clearPanelFilters = useCallback(() =>
     setFilter((prev) => ({ page: 1, limit: prev.limit, group: prev.group })), []);
 
@@ -86,7 +81,6 @@ export const AuditLogPage = () => {
       />
 
       <div className="flex flex-col gap-2">
-        {/* Scrolls sideways on a narrow screen rather than wrapping the tab strip into two rows. */}
         <div className="overflow-x-auto">
           <Tabs
             value={filter.group || ALL}

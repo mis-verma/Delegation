@@ -11,8 +11,6 @@ export type ChecklistTemplateItem = {
   requiredImageCount: number;
   maxImageCount:      number | null;
   requiresLivePhoto:  boolean;
-  // Seed value carried over as the created checklist item's assigneeId when this template is
-  // applied to a task/ticket — scoped to the parent template's departmentId.
   defaultAssigneeId:  string | null;
   templateId:         string;
 };
@@ -51,9 +49,6 @@ export type UpdateChecklistTemplateItemPayload = Omit<Partial<CreateChecklistTem
   defaultAssigneeId?: string | null;
 };
 
-// `template.items.map(...)` is read unguarded wherever a template is applied (the builder's
-// import-from-template path, ChecklistPanel's template picker), so a template arriving without
-// `items` throws at render. Same guard the other checklist APIs carry.
 const templateDefaults = withArrayDefaults({ items: arrayField(z.object({}).passthrough()) });
 const normalizeTemplate = (raw: unknown) => normalizeWith<ChecklistTemplate>(templateDefaults, raw);
 

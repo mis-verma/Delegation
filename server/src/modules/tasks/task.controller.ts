@@ -5,9 +5,6 @@ import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
-// Task has no storeId, so a SENIOR is scoped through every department that belongs to their store
-// (undefined for every other role = no department-list filter). Fails closed: a SENIOR with no
-// store gets an empty list, which the service turns into "no rows", never an org-wide view.
 const seniorDepartmentIds = async (user: AccessTokenPayload): Promise<string[] | undefined> => {
     if (user.role !== "SENIOR") return undefined;
     return user.storeId ? resolveDepartmentIdsForStore(user.storeId) : [];
@@ -71,7 +68,6 @@ export const taskController = {
         res.json({ success : true, data })
     }),
 
-    // `data` is at most 8 rows; `meta.total` is the real number awaiting approval.
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
         const { data, meta } = await taskService.pendingApproval();
         res.json({ success : true, data, meta })

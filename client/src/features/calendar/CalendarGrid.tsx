@@ -17,14 +17,7 @@ const MAX_CHIPS_PER_DAY = 2;
 
 const KEY_STEPS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 
-// Cells react to the width of the calendar card itself (a container query), not the viewport:
-// side by side with the agenda on a laptop the card is narrower than on a tablet, and the same
-// cell has to pick dots or chips by the room it really has. `@min-[38rem]` = roughly 87px per
-// day; it is written out literally everywhere below because Tailwind only picks up class names it
-// can read as plain text.
-
 interface CalendarGridProps {
-  /** The fixed 42-day grid from buildMonthGrid. */
   days: Date[];
   month: number;
   today: Date;
@@ -38,9 +31,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
   const bodyRef = useRef<HTMLDivElement>(null);
   const selectedKey = dayKey(selectedDay);
 
-  // Arrow keys walk the days (roving tabindex: only the selected day is a tab stop). Moving past
-  // the first or last cell is fine, selecting that date flips the month and the same key exists
-  // in the rebuilt grid to take focus.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const current = (e.target as HTMLElement).dataset.day;
     const step = KEY_STEPS[e.key] as number | undefined;
@@ -86,7 +76,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
           return (
             <div
               key={key}
-              // Narrow (phone): no cell lines, like a calendar app. Wide: the ruled month grid.
               className={`group relative @min-[38rem]:border-b @min-[38rem]:border-r border-border/50 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0 ${
                 isSelected ? 'z-10' : ''
               }`}
@@ -109,7 +98,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
               >
                 <span className={`flex @min-[38rem]:justify-start justify-center`}>
                   <span
-                    // The picked day is a filled circle; today, when it isn't picked, is a blue number with a soft ring (app style).
                     className={`inline-flex items-center justify-center size-7 rounded-full text-[0.8125rem] @min-[38rem]:text-sm font-display font-semibold tabular-nums transition-colors duration-150 ${
                       isSelected
                         ? 'bg-primary-600 text-white'
@@ -128,7 +116,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
 
                 {dayItems.length > 0 && (
                   <>
-                    {/* Narrow cells: colour dots only, up to three plus a count. */}
                     <span className={`flex items-center justify-center gap-1 @min-[38rem]:hidden ${inMonth ? '' : 'opacity-60'}`}>
                       {dots.map((item) => (
                         <span
@@ -139,7 +126,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                       {dotOverflow > 0 && <span className="t-meta font-display font-bold leading-none text-text-muted">+{dotOverflow}</span>}
                     </span>
 
-                    {/* Roomy cells: two small chips with the real titles, then "+N more". */}
                     <span className={`hidden @min-[38rem]:flex flex-col gap-1 min-w-0 ${inMonth ? '' : 'opacity-60'}`}>
                       {chips.map((item) => (
                         <span
@@ -160,9 +146,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                 )}
               </button>
 
-              {/* Quick add: a real sibling button (never nested in the day button). Only the
-                  selected day keeps it in the tab order, so keyboard users get one extra stop
-                  rather than 42. */}
               <CalendarAddMenu
                 align="start"
                 onPick={(kind) => onCreate(kind, date)}
@@ -184,7 +167,6 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
         })}
       </div>
 
-      {/* The key: one small line of coloured dots and names. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 px-3 py-2">
         {(Object.keys(CALENDAR_ITEM_LABEL) as CalendarItemType[]).map((type) => (
           <span key={type} className="inline-flex items-center gap-1 t-meta font-medium text-text-muted">

@@ -13,12 +13,6 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
-// Option B from the reference (see conversation) — the one actually picked, implemented faithfully
-// rather than softened back toward Option A. No shadow anywhere. Primary starts as a quiet neutral
-// pill (bg-surface-active) and only resolves to the app's own navy the moment it's touched —
-// that's still "beautify with theme colors", just spent on the hover state instead of permanently,
-// so a screen with several buttons doesn't read as several equally-loud navy blocks. Secondary
-// stays borderless until hovered, danger stays flat with no shadow.
 const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary:
     'bg-surface-active text-text border border-transparent hover:bg-primary-900 hover:text-white focus-visible:ring-primary-500',
@@ -32,11 +26,6 @@ const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
     'bg-danger text-white border border-transparent hover:bg-danger/90 focus-visible:ring-danger',
 };
 
-// Touch screens (pointer-coarse) get the primary navy at rest: they never hover, so there the quiet
-// neutral above was the button's permanent look and an enabled primary action (Create, Move to…)
-// read as disabled. Disabled stays neutral there, so ready vs not-ready is distinguishable. Skipped
-// when the caller sets its own background (green Approve, red Reject, the login gradient) — those
-// already carry their meaning in color and must not all turn navy on a phone.
 const PRIMARY_TOUCH_CLASS =
   'pointer-coarse:bg-primary-800 dark:pointer-coarse:bg-primary-500 pointer-coarse:text-white pointer-coarse:disabled:bg-surface-active dark:pointer-coarse:disabled:bg-surface-active pointer-coarse:disabled:text-text';
 const hasOwnBackground = (className: unknown) =>
@@ -68,15 +57,10 @@ export function Button({
       aria-busy={isLoading}
       className={cn(
         'press-feedback',
-        // Base styles: Flexbox layout & typography
         'inline-flex items-center justify-center font-medium whitespace-nowrap',
-        // Smooth transitions and micro-interactions
         'transition-all duration-200 ease-in-out cursor-pointer select-none',
         'active:scale-[0.98]',
-        // Universal accessibility focus rings — ring-offset-background (not the Tailwind
-        // default white) so the offset gap reads correctly in dark mode too.
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        // Rock-solid disabled states based on your color scheme
         'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100',
         sizeMap[size],
         variantMap[variant],
@@ -88,10 +72,6 @@ export function Button({
       {isLoading && (
         <Loader
           size={size === 'lg' ? 'md' : 'sm'}
-          // `disabled:pointer-events-none` means a loading (disabled) button never actually shows
-          // its hover state, so primary reads in its neutral resting look while loading — a white
-          // spinner on that light neutral fill would nearly disappear, same reason `secondary`/
-          // `ghost`/`outline` already get the dark `slate` spinner instead of `white`.
           variant={variant === 'danger' ? 'white' : 'slate'}
         />
       )}

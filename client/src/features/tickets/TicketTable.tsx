@@ -14,29 +14,14 @@ interface TicketTableProps {
   onOpen: (ticket: Ticket) => void;
 }
 
-// Solid navy header, same treatment as every other dense table in the product (see TaskTable.tsx).
 const HEAD_ROW_CLASS = 'bg-primary-800';
 const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
 const CELL_CLASS = 'px-3 py-2.5 pointer-coarse:py-3 align-middle text-xs text-text-secondary';
 
-// Column priority by width. Ticket, Status, Priority, Assignee and TAT Due always show; the rest
-// arrive as room does (the content area is only about 700px at lg and 940px at xl), so a narrow
-// screen scrolls a little instead of a lot. Nothing is lost at 2xl.
 const FROM_LG = 'hidden lg:table-cell';
 const FROM_XL = 'hidden xl:table-cell';
 const FROM_2XL = 'hidden 2xl:table-cell';
 
-/**
- * Dense tabular view of the same tickets the board and list render.
- *
- * Unlike Task's table, columns are fixed rather than driven by a customize-cards visibility
- * toggle — Ticket has no such concept anywhere else in its UI (List/Board don't have one either),
- * so adding one just for this view would be new surface area the feature doesn't call for.
- *
- * Fetches nothing of its own and applies no filtering — `tickets` arrives already scoped,
- * filtered and sorted by TicketList. A row opens the ticket detail sheet on click, same as every
- * other Ticket view; status changes happen there, not inline in this table.
- */
 const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNames, assigneeNames, onOpen }: TicketTableProps) => {
 
   return (

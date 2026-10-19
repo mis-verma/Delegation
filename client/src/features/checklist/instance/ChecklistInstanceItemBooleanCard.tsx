@@ -38,9 +38,6 @@ const ACTION_HINT: Record<ChecklistConditionalAction, string> = {
   NOTIFY_AREA_MANAGER: 'the area manager will be notified',
 };
 
-// The answer buttons size everything from their own font: the icon is 1.15em, so it grows and shrinks
-// with the label (15px on phones, 14px from sm) and the two always sit in balance. Equal width, 48px
-// tall on phones so a thumb never misses, 40px with a mouse.
 const ANSWER_BASE =
   'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-10 px-4 rounded-xl border t-card sm:text-sm font-display font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
 
@@ -101,12 +98,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod });
   };
 
-  // Follow-up UI shows while confirming a pending trigger answer, or read-only afterward if the
-  // item was already completed with the triggering answer (so the reason/photos stay visible).
   const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
   const answerLocked = !interactive || item.isDone;
-  // A reopened question keeps its old answer on file, but it is open again: show neither button as picked
-  // (it used to look already answered), and say what it was before in small text instead.
   const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
 
@@ -153,7 +146,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             shownAnswer === 'YES'
               ? item.isDone ? 'border-success-strong bg-success-strong text-white' : 'border-success bg-success/10 text-success'
               : 'border-border text-text hover:border-success/60 hover:bg-success/5',
-            // Once answered, the chosen one stays clear and only the other one fades.
             answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'YES' && 'opacity-50') : 'cursor-pointer',
           )}
         >

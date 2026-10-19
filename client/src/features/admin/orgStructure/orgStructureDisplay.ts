@@ -6,30 +6,22 @@ import { ROLE_LABEL } from '../roleBadge';
 
 export interface DepartmentNode {
   department: Department;
-  /** People shown under this department: head first, then by name. Deactivated people only when asked for. */
   users: AdminUser[];
-  /** Active Managers and Seniors in this department. */
   heads: AdminUser[];
-  /** Active people only, whatever `users` is currently showing. */
   activeCount: number;
-  /** userId -> plain sentence, for people whose own store differs from this department's store. */
   storeMismatch: Map<string, string>;
 }
 
 export interface StoreNode {
   store: Store;
   departments: DepartmentNode[];
-  /** Users assigned directly to this store with no department, e.g. SENIOR. */
   directUsers: AdminUser[];
-  /** Active people in the store, direct and through departments. */
   activeCount: number;
 }
 
 export interface OrgTree {
   stores: StoreNode[];
-  /** Departments with no home store set yet. */
   unassignedDepartments: DepartmentNode[];
-  /** Users with neither a department nor a store. */
   unassignedUsers: AdminUser[];
 }
 
@@ -45,15 +37,9 @@ const byHeadThenName = (a: AdminUser, b: AdminUser): number => {
   return fullName(a).localeCompare(fullName(b));
 };
 
-// Admins and PCs work org-wide, and a Senior sits at a store with no department by design, so
-// neither counts as "missing a department".
 export const needsDepartment = (u: AdminUser): boolean =>
   u.isActive && !u.departmentId && u.role !== 'ADMIN' && u.role !== 'PC' && !(u.role === 'SENIOR' && !!u.storeId);
 
-// The ladder: Store -> Department -> User, using Department.storeId (the link added so a
-// MANAGER's department-scoped view and a SENIOR's store-scoped view can resolve into each
-// other, see server/src/utils/reportScope.ts). Anything left unassigned surfaces as its own
-// bucket instead of silently vanishing, so gaps in the setup are visible, not hidden.
 export const buildOrgTree = (
   stores: Store[],
   departments: Department[],
@@ -136,8 +122,6 @@ const matches = (haystack: string | null | undefined, query: string) => !!haysta
 const userMatches = (u: AdminUser, query: string) =>
   matches(fullName(u), query) || matches(u.email, query) || matches(u.role, query) || matches(ROLE_LABEL[u.role], query);
 
-// If a branch's own name matches, every descendant is kept as-is (searching "Downtown" shows
-// the whole store). Otherwise only descendants that themselves match survive, recursively.
 export const filterOrgTree = (tree: OrgTree, rawQuery: string): OrgTree => {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return tree;
@@ -165,9 +149,6 @@ export const filterOrgTree = (tree: OrgTree, rawQuery: string): OrgTree => {
   };
 };
 
-/** What a UserRow puts on the wire when a drag starts: just enough for a drop target to tell
- *  whether the drop would actually change anything, without needing the whole AdminUser object
- *  threaded down through every section. */
 export interface DraggedUser {
   id: string;
   departmentId: string | null;
@@ -186,12 +167,9 @@ export const readDraggedUser = (e: DragEvent): DraggedUser | null => {
   }
 };
 
-/** dragleave also fires when the pointer moves onto a child of the drop target; that is not a real
- *  leave, so ignore it (otherwise the highlight flickers as the cursor crosses inner elements). */
 export const isLeavingDropTarget = (e: DragEvent): boolean =>
   !e.currentTarget.contains(e.relatedTarget as Node | null);
 
-/** The change a drop or "Move to..." applies to a person. */
 export interface OrgMovePatch {
   departmentId: string | null;
   storeId?: string | null;

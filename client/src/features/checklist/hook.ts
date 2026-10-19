@@ -30,7 +30,6 @@ const KEYS = {
 
 const DEFINITIONS_PAGE_SIZE = 30;
 
-/** Live checklists with questions that have no good answer set (ADMIN/PC). Cheap, so a short stale time is enough. */
 export const useChecklistScoringGapsQuery = () => {
   const { token } = useAuth();
   return useQuery({
@@ -42,9 +41,6 @@ export const useChecklistScoringGapsQuery = () => {
   });
 };
 
-// Infinite, not the old unbounded fetch-everything call — GET /checklist-definitions used to
-// hydrate every matching definition (items, stores, assignees, reviewers) on every load of the
-// templates grid. useInfiniteQuery fetches and caches each page exactly once and appends them.
 export const useChecklistDefinitionsQuery = (filters: Omit<ListChecklistDefinitionsParams, 'page' | 'limit'> = {}) => {
   const { token } = useAuth();
   return useInfiniteQuery({
@@ -54,7 +50,6 @@ export const useChecklistDefinitionsQuery = (filters: Omit<ListChecklistDefiniti
     getNextPageParam: (lastPage) => (lastPage.meta?.hasNext ? lastPage.meta.page + 1 : undefined),
     enabled: !!token,
     retry: handleQueryRetry,
-    // Changing a filter keeps the old list on screen until the new one lands, instead of flashing skeletons.
     placeholderData: keepPreviousData,
   });
 };
@@ -84,10 +79,6 @@ export const useCreateChecklistDefinitionMutation = () => {
   });
 };
 
-// Saving an edit goes live in today's runs straight away: runs nobody started are rebuilt, runs that
-// already have answers get the edit merged in with every answer kept, and runs already sent for
-// review or approved stay as signed off. Say which happened, so "I saved it but it isn't live" never
-// has to be guessed.
 const savedMessage = (live?: LiveRunsSummary) => {
   const lines: string[] = [];
   if (live?.refreshed) lines.push(live.refreshed === 1 ? "Today's run is updated." : `${live.refreshed} of today's runs are updated.`);
@@ -108,7 +99,6 @@ export const useUpdateChecklistDefinitionMutation = () => {
     onSuccess: ({ definition, liveRuns, wentLive, paused, lateToday }) => {
       queryClient.setQueryData(KEYS.definitionDetail(definition.id), definition);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      // Runs changed too, so every list/board/detail/count built from them has to reload.
       if (liveRuns?.refreshed || liveRuns?.updated || wentLive || paused) {
         queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
         queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
@@ -152,7 +142,6 @@ export const useDeleteChecklistDefinitionMutation = () => {
         invalidateScoreCaches(queryClient);
       };
       refresh();
-      // The delete only hides the checklist, so a mistake can be taken back for a few seconds.
       toast.success('Checklist deleted', {
         duration: 8000,
         action: {
@@ -169,8 +158,6 @@ export const useDeleteChecklistDefinitionMutation = () => {
   });
 };
 
-// Read-only — parses + matches the uploaded file but never writes anything, so no cache
-// invalidation belongs here.
 export const useChecklistBulkImportPreviewMutation = () =>
   useMutation({
     mutationFn: (file: File) => checklistBulkImportApi.preview(file).then(r => r.data),
@@ -191,13 +178,6 @@ export const useChecklistBulkImportPublishMutation = () => {
   });
 };
 
-/**
- * Counts straight from the database, instead of `useMyChecklistInstancesQuery().length`.
- *
- * The dashboard cards and the compliance board used to download every instance — items, images,
- * submissions and all — purely to count them. That is why those list endpoints had to stay
- * unbounded; this is what lets them paginate.
- */
 export const useChecklistInstanceSummaryQuery = (
   filter: {
     mine?: boolean;
@@ -212,7 +192,6 @@ export const useChecklistInstanceSummaryQuery = (
     to?: string;
     includeDeleted?: boolean;
   } = {},
-  /** keepPrevious: keep showing the last counts while a changed filter (e.g. another period) loads. */
   options: DashboardQueryOptions & { enabled?: boolean; keepPrevious?: boolean } = {},
 ) => {
   const { token } = useAuth();
@@ -227,9 +206,6 @@ export const useChecklistInstanceSummaryQuery = (
   });
 };
 
-// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC and
-// the department heads who can approve), same convention as the task/ticket summary hooks'
-// `enabled` param. Returns the oldest few rows plus the real queue size.
 export const useChecklistPendingApprovalQuery = (enabled = true, options?: DashboardQueryOptions) => {
   const { token } = useAuth();
   return useQuery({
@@ -267,9 +243,6 @@ export const useMyChecklistInstancesQuery = (
   });
 };
 
-// Audit history (History page): submitted audit rows, newest first. Under the 'checklist-instances'
-// prefix on purpose, so submitting or reopening any audit row invalidates it along with everything
-// else on that prefix. The server scopes it by role (ADMIN/PC all, MANAGER/SENIOR their department).
 export const useAuditHistoryQuery = (
   filter: { storeId?: string; personId?: string; from?: string; to?: string } = {},
   paging: { page?: number; limit?: number } = {},
@@ -326,10 +299,6 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
   });
 };
 
-// Powers the admin Compliance Board — every generated instance matching whichever store/person/
-// status filters are picked, across every checklist definition (not scoped to one, unlike
-// useInstancesForDefinitionQuery above).
-/** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
 export const useDepartmentScoresQuery = (from: string, to: string, storeId: string | undefined, enabled: boolean) => {
   const { token } = useAuth();
   return useQuery({
@@ -379,7 +348,6 @@ type SetChecklistInstanceItemDoneVars = {
   signatureValue?: string;
   secondSignatureValue?: string;
   conditionalReasonValue?: string;
-  /** null clears the remark. */
   remarks?: string | null;
   notApplicable?: boolean;
 };
@@ -393,9 +361,6 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
       checklistInstanceApi.setItemDone(itemId, isDone, {
         numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks, notApplicable,
       }).then(r => r.data),
-    // Checking an item off (or filling in its answer) should reflect on the card immediately —
-    // waiting on the round-trip made every tap feel laggy. Patch the cached instance's item now,
-    // roll back in onError if the server rejects it.
     onMutate: async ({ itemId, notApplicable, ...patch }) => {
       await queryClient.cancelQueries({ queryKey: instanceKey });
       const previous = queryClient.getQueryData<ChecklistInstance>(instanceKey);
@@ -408,11 +373,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
               ? {
                   ...item,
                   ...patch,
-                  // Only a change of done-ness moves the completion stamp; a remark saved on a
-                  // finished item used to re-stamp it "Completed just now" locally.
                   completedAt: patch.isDone === item.isDone ? item.completedAt : patch.isDone ? new Date().toISOString() : null,
-                  // Mirrors the server: only an explicit N/A save sets it; a remark-only save
-                  // leaves it; anything else (complete, reopen) clears it.
                   isNotApplicable: notApplicable === true
                     ? true
                     : patch.isDone === item.isDone && Object.keys(patch).every((k) => k === 'isDone' || k === 'remarks')
@@ -426,14 +387,6 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
       return { previous, wasComplete };
     },
     onSuccess: (_data, _vars, context) => {
-      // No success toast here — keeps checkbox-toggling snappy, matching
-      // useUpdateChecklistItemMutation in tickets/hook.ts.
-      // The optimistic patch above already keeps this instance's own detail view correct for the
-      // common case (item toggled, instance still incomplete) — no refetch needed there. Only
-      // when this tap actually crossed the completion boundary (finished the instance, or undid
-      // its only remaining item) do the summary card, compliance board, and verification queue
-      // need to hear about it, so the wider invalidation is reserved for that transition instead
-      // of firing on every single tap.
       const current = queryClient.getQueryData<ChecklistInstance>(instanceKey);
       const isCompleteNow = !!current && current.items.length > 0 && current.items.every((i) => i.isDone);
       if (!context || context.wasComplete !== isCompleteNow) {
@@ -444,8 +397,6 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
     },
     onError: (err, vars, context) => {
       if (context?.previous) queryClient.setQueryData(instanceKey, context.previous);
-      // The tap was rolled back, so say so and keep the message up until the person retries or
-      // dismisses it: a quick toast is too easy to miss and they would think the answer was kept.
       notifyError(err, "Couldn't save your answer. Try again.", {
         id: `answer-not-saved-${vars.itemId}`,
         persistent: true,
@@ -475,20 +426,10 @@ export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
     retryable: true,
   });
 
-// Mutations below act on one AUDIT item's per-auditor ChecklistInstanceItemSubmission (see
-// ChecklistInstanceItemAuditCard.tsx) — all invalidate the same instance-detail key as the
-// STANDARD-item mutations above, since a submission change also flips its parent item's derived
-// isDone (and possibly the instance's verificationStatus) server-side.
-// instanceId kept in the signature (unused) to match its sibling submission mutations below,
-// which all take it for their own narrower invalidateKeys — SubmissionRow calls all of them
-// uniformly with the same instanceId argument.
 export const useSetChecklistInstanceItemSubmissionDoneMutation = (_instanceId: string) =>
   useEntityMutation({
     mutationFn: ({ id, isDone, notApplicable, remarks }: { id: string; isDone: boolean; notApplicable?: boolean; remarks?: string }) =>
       checklistInstanceItemSubmissionApi.setDone(id, isDone, { notApplicable, remarks }).then(r => r.data),
-    // Whole prefix, not just this instance's own detail key — same reasoning as
-    // useSetChecklistInstanceItemDoneMutation above: a submission can complete the whole
-    // instance, which the summary/board/verification-queue queries need to reflect too.
     invalidateKeys: [['checklist-instances']],
     errorFallback: "Couldn't update the submission. Try again.",
     retryable: true,
@@ -502,9 +443,6 @@ export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (inst
     errorFallback: "Couldn't update the accessories. Try again.",
   });
 
-// Switches what one person is wearing. The server swaps their accessory rows for the new type's
-// list (all unticked), so the cached submission is patched from the response right away; the
-// refetch after it just confirms. Errors toast the server's plain-text reason.
 export const useSetChecklistInstanceItemSubmissionDressTypeMutation = (instanceId: string) => {
   const queryClient = useQueryClient();
   const instanceKey = KEYS.instanceDetail(instanceId);
@@ -555,15 +493,6 @@ export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId
     retryable: true,
   });
 
-// Powers the PC/Admin verification queue's Checklists section — instances with every item done,
-// awaiting review. Scoped server-side (PC gets their own department, ADMIN gets every department).
-// Returns `meta` (not just `data`) so the queue's "Load more" button can check `hasNext` instead
-// of guessing from whether the last page came back full.
-// Infinite, not a growing flat `limit` — a "Load more" that just widens `limit` refetches every
-// already-loaded row from offset 0 on each click (5 clicks to reach 100 rows transfers 300
-// row-equivalents). useInfiniteQuery fetches and caches each page exactly once and appends them
-// for free, so callers don't need to hand-roll accumulation (which would mean calling setState
-// from inside a useEffect — an anti-pattern this codebase's lint config flags).
 export const usePendingVerificationChecklistInstancesQuery = (limit: number, enabled = true) => {
   const { token } = useAuth();
   return useInfiniteQuery({
@@ -639,7 +568,6 @@ export const useUnwaiveChecklistItemMutation = () =>
     retryable: true,
   });
 
-// ADMIN only: an approved run goes back to the review queue.
 export const useReopenApprovalMutation = () =>
   useEntityMutation({
     mutationFn: (id: string) => checklistInstanceApi.reopenApproval(id).then(r => r.data),
@@ -651,12 +579,8 @@ export const useReopenApprovalMutation = () =>
   });
 
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
-// Templates are a separate one-off feature (see ChecklistDefinition model comment), but the
-// definition form lets admins import a template's step labels as a starting point.
 export { useChecklistTemplatesQuery } from '../admin/hook';
 
-// The answer history of one run, fetched only when a reviewer opens a question's history. One request
-// covers every question in the run, so opening a second question costs nothing.
 export const useChecklistItemHistoryQuery = (instanceId: string, enabled: boolean) => {
   const { token } = useAuth();
   return useQuery({

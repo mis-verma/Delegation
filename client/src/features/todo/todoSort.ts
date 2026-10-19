@@ -4,7 +4,6 @@ import type { Todo, TodoPriority } from '../../api/todos';
 
 export type TodoSortKey = 'due' | 'priority' | 'created';
 
-/** Ordering follows the label order, same convention as the Delegation/Tickets sort menus. */
 export const TODO_SORT_LABEL: Record<TodoSortKey, string> = {
   due: 'Due date',
   priority: 'Priority',
@@ -23,13 +22,6 @@ const PRIORITY_RANK: Record<TodoPriority, number> = { high: 0, medium: 1, low: 2
 
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
 
-/**
- * Sorts a copy — callers pass React Query's cached array, which must not be mutated in place.
- *
- * "Due date" puts the soonest first and sinks undated todos to the bottom rather than treating a
- * missing date as the epoch (which would have floated every undated item to the top, the opposite
- * of what picking this sort means).
- */
 export const sortTodos = (todos: Todo[], sort: TodoSortKey): Todo[] => {
   const sorted = [...todos];
 
@@ -44,7 +36,6 @@ export const sortTodos = (todos: Todo[], sort: TodoSortKey): Todo[] => {
         return at - bt;
       });
     case 'priority':
-      // Ties break on due date so the high-priority block isn't itself in arbitrary order.
       return sorted.sort(
         (a, b) =>
           PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||

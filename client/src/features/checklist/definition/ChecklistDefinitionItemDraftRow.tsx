@@ -8,25 +8,18 @@ import { GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/qu
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 
 export type ItemDraft = {
-  // Client-only identity for drag-and-drop and React keys — stable across reorders, unlike the
-  // array index. Set to the definition item's real id when hydrating an existing checklist.
   key: string;
-  // Free-text grouping label (e.g. "Opening", "Closing", "Operational"); null = ungrouped.
   section: string | null;
   label: string;
   requiredImageCount: string;
   maxImageCount: string;
   requiresLivePhoto: boolean;
-  // Critical question: counts double in compliance, a bad answer is flagged to the reviewer.
   isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
-  // AUDIT only: separate lists for female / male people (empty = they get `accessories`).
   accessoriesFemale: string[];
   accessoriesMale: string[];
-  // AUDIT only: one list per added dress type, keyed by dress type id. A key with an empty list is
-  // a type added but not filled in yet; it is dropped on save.
   accessoriesByType: Record<string, string[]>;
   numberEntryUnit: string;
   numberEntryMin: string;
@@ -38,13 +31,9 @@ export type ItemDraft = {
   gpsRadiusMeters: string;
   qrExpectedValue: string;
   cashExpectedAmount: string;
-  // "Good answer" rule for the compliance %. Yes/No and choice types use acceptableAnswers; number
-  // and rating use the min/max range. All empty = the question isn't scored.
   acceptableAnswers: string[];
   acceptableMin: string;
   acceptableMax: string;
-  // Two independent action sets — one per possible Yes/No answer — so both can be armed on the
-  // same item at once (e.g. Yes requires a photo AND No requires a reason).
   yesActions: ChecklistConditionalAction[];
   noActions: ChecklistConditionalAction[];
 };
@@ -81,38 +70,25 @@ export const emptyItemDraft = (): ItemDraft => ({
   noActions: [],
 });
 
-/** Type switch for a catalog entry: clears what the new type can't use, then applies its preset. */
 // eslint-disable-next-line react-refresh/only-export-components
 export const patchForEntry = (draft: ItemDraft, entry: QuestionTypeEntry): Partial<ItemDraft> => {
   const itemType = entry.patch.itemType ?? 'STANDARD';
   const patch: Partial<ItemDraft> = { ...patchForTypeSwitch(draft, itemType), ...entry.patch };
-  // Checkbox and Photo are both STANDARD, so the generic switch keeps photo settings; a Checkbox
-  // must drop them or it would still ask for photos.
   if (entry.id === 'CHECKBOX') Object.assign(patch, { maxImageCount: '', requiresLivePhoto: false });
   return patch;
 };
 
 interface ChecklistDefinitionItemDraftRowProps {
-  // Display-only (row number) — the draft being edited is identified by its stable `key`, not this
-  // position, so a stale/racing index here can't mutate the wrong row.
   index: number;
   draft: ItemDraft;
   onChange: (key: string, patch: Partial<ItemDraft>) => void;
   storeIds?: string[];
-  /** Active people of the checklist's stores, for flagging picked auditors that are no longer shown. */
   validPersonIds?: ReadonlySet<string> | null;
-  /** Drag handle, rendered at the card's top-left. */
   leading?: ReactNode;
-  /** Card actions (remove), rendered at the top-right. */
   trailing?: ReactNode;
   className?: string;
 }
 
-// One question, as one card: its type tile, the question itself typed straight into the header,
-// the type chip, then only the settings this type needs. Replaces a card that repeated the label
-// "What should staff do or answer?" and a 16-button type switcher on every single question.
-// Memoised: with a stable `onChange` (keyed by draft.key) and an unchanged `draft`, typing in one
-// question leaves every other card alone.
 const ChecklistDefinitionItemDraftRowImpl = ({
   index,
   draft,
@@ -126,7 +102,6 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   const patch = (p: Partial<ItemDraft>) => onChange(draft.key, p);
   const type = questionTypeOf(draft);
   const TypeIcon = type.icon;
-  // A blank label is a real error state (the item would be dropped on save), flagged right here.
   const isLabelBlank = !draft.label.trim();
   const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : itemDraftProblem(draft, validPersonIds);
   const problemId = `item-problem-${draft.key}`;
@@ -142,9 +117,6 @@ const ChecklistDefinitionItemDraftRowImpl = ({
         className,
       )}
     >
-      {/* One grid, so the same single set of controls reads as a top strip on a phone (drag handle,
-          "Question N", Duplicate/Remove, with the content below at full card width) and as the
-          familiar left handle / tile / content / right actions row from sm up. */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-x-1 gap-y-2 sm:gap-x-3 p-2.5 sm:p-4 sm:pr-2">
         <div className="col-start-1 row-start-1 flex items-center">{leading}</div>
         <span className="col-start-2 row-start-1 self-center sm:hidden t-meta font-display font-medium text-text-muted tabular-nums" aria-hidden="true">
@@ -154,18 +126,12 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           <TypeIcon size={18} strokeWidth={2.25} />
         </span>
 
-        {/* Settings live in the same column as the question, so they line up under it by
-            structure rather than by a guessed left padding. */}
         <div className="col-span-3 row-start-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 flex flex-col gap-3 min-w-0">
           <div className="flex items-start gap-3">
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              {/* Below sm the visible "Question N" is the strip above; this one stays for screen readers. */}
               <label htmlFor={`item-label-${draft.key}`} className="sr-only sm:not-sr-only t-meta font-display font-medium text-text-muted tabular-nums">
                 Question {index + 1}
               </label>
-              {/* Deliberate raw textarea (not the shared Textarea): it auto-grows with
-                  field-sizing-content and reads as borderless inline text until hovered or focused,
-                  which the shared boxed field can't do. */}
               <textarea
                 id={`item-label-${draft.key}`}
                 rows={1}

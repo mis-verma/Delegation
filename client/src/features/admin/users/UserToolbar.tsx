@@ -32,20 +32,15 @@ interface UserToolbarProps {
   onClear: () => void;
   departmentOptions: SelectDropdownOption<string>[];
   storeOptions: SelectDropdownOption<string>[];
-  /** How many people the current search and filters leave in. */
   shownCount: number;
-  /** Everyone in the roster, before any filter. */
   totalPeople: number;
-  /** "12 of 48 people", shown while something narrows the list. */
   resultText: string | null;
   onNew: () => void;
-  /** Starts downloading the form's code before it is needed. */
   onPreloadForm: () => void;
 }
 
 const VIEW_TABS: ViewTab<UserView>[] = [
   { key: 'cards', label: 'Cards', icon: LayoutGrid },
-  // A wide table is not usable one-handed, so phones keep the cards.
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 
@@ -75,7 +70,6 @@ export const UserToolbar = ({
 }: UserToolbarProps) => {
   const [showOptions, setShowOptions] = useState(false);
 
-  // The search box is not counted: it is already visible in the row.
   const activeCount =
     Number(filters.status !== 'all') + Number(!!filters.role) + Number(!!filters.department) + Number(!!filters.store) +
     Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads);
@@ -230,7 +224,6 @@ export const UserToolbar = ({
           onMouseEnter={onPreloadForm}
           onFocus={onPreloadForm}
           aria-label="New user"
-          // A square + on a phone so the whole toolbar stays on one row; the word comes back from sm.
           className="group max-sm:size-11 max-sm:px-0"
         >
           <Plus className="size-4 sm:size-3.5 transition-transform duration-300 group-hover:rotate-90" aria-hidden />

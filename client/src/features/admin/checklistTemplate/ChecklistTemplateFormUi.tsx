@@ -49,7 +49,6 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   const { data: assignableUsers } = useAssignableUsersQuery(departmentId || undefined);
   const departmentName = departments.find(d => d.id === departmentId)?.name ?? 'Global (no department)';
   const definedSteps = itemDrafts.filter(d => d.label.trim());
-  // Esc, an outside click or Cancel must not drop a template the admin has been building.
   const requestClose = useDiscardGuard(name.trim().length > 0 || definedSteps.length > 0, isSaving, onClose);
 
   const updateDraft = useCallback((i: number, patch: Partial<ChecklistItemDraft>) => {
@@ -93,9 +92,6 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
     onSubmit({ name, appliesTo, departmentId, items: cleanedItems });
   };
 
-  // One derived pair instead of two independently-reasoned-about ternaries both branching on
-  // `step` — the wizard footer is really one 3-way state (first/middle/last step), not two
-  // separate ad-hoc conditions that happen to share a variable and have to be kept in sync by hand.
   const isFirstStep = step === 0;
   const isLastStep = step === STEP_LABELS.length - 1;
 

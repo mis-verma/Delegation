@@ -9,7 +9,6 @@ type CreatedRangeState = ReturnType<typeof useCreatedRange>;
 interface CreatedRangePickerProps {
   createdRange: CreatedRangeState;
   className?: string;
-  /** What the date is called, for the tooltip and screen readers: "Created on" by default, "Due date" on To-Do. */
   label?: string;
 }
 
@@ -21,19 +20,12 @@ const dayOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const sameDay = (a: Date | null, b: Date | null) => !!a && !!b && a.getTime() === b.getTime();
 
-// Six rows of seven days starting on a Monday, so the grid never changes height between months.
 const monthGrid = (month: Date) => {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const offset = (first.getDay() + 6) % 7;
   return Array.from({ length: 42 }, (_, i) => new Date(first.getFullYear(), first.getMonth(), 1 - offset + i));
 };
 
-/**
- * "Created on" for a list page: a small button that opens a compact calendar popup (not a full-screen
- * dialog). Tap a start day then an end day (the same day twice is one day), or use a shortcut: Today,
- * Yesterday, Last 7 days, This month. The list narrows to items created in it, and the banner above the
- * page says so. It is the same filter a chart bar links to, so the two always agree.
- */
 export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel = 'Created on' }: CreatedRangePickerProps) => {
   const { range, set, clear } = createdRange;
   const [today] = useState(() => dayOf(new Date()));
@@ -41,8 +33,6 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
   const [viewMonth, setViewMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [start, setStart] = useState<Date | null>(null);
   const [hover, setHover] = useState<Date | null>(null);
-  // The last day just tapped. The popup holds for a beat with the whole range lit up, then closes by
-  // itself, so the person sees what they picked before it goes.
   const [end, setEnd] = useState<Date | null>(null);
   const closeTimer = useRef<number | null>(null);
   useEffect(() => () => {
@@ -52,7 +42,6 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
   const grid = useMemo(() => monthGrid(viewMonth), [viewMonth]);
 
   const applied = range ? { from: dayOf(new Date(range.from)), to: dayOf(new Date(range.to - 1)) } : null;
-  // While a start day is chosen the highlight follows the pointer to the possible end day.
   const shown = start
     ? (() => {
         const other = end ?? hover ?? start;
@@ -80,7 +69,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
   };
 
   const pick = (day: Date) => {
-    if (end) return; // already choosing: ignore taps while the popup is closing
+    if (end) return;
     if (!start) {
       setStart(day);
       return;
@@ -111,7 +100,6 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
           type="button"
           title={label}
           className={cn(
-            // Same look as the Options button beside it, picked or not; the banner above says a range is on.
             'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-full border border-border bg-surface text-text-secondary text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40',
             className,
           )}

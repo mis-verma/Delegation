@@ -4,7 +4,6 @@ import { Button, Input, NoticeBanner } from '../../../components';
 import { useResetUserPasswordMutation } from '../hook';
 import { MIN_PASSWORD_LENGTH, copyText, generatePassword } from './passwordTools';
 
-// Eye button that sits inside a password Input.
 export const PasswordVisibilityToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () => void }) => (
   <button
     type="button"
@@ -18,14 +17,11 @@ export const PasswordVisibilityToggle = ({ shown, onToggle }: { shown: boolean; 
 
 interface PasswordSharedPanelProps {
   password: string;
-  /** Shown above the password so it is clear which account it belongs to. */
   email?: string;
   codeSent?: boolean;
   onDone: () => void;
 }
 
-// Shown once, right after a password is set. The password is not stored anywhere readable after
-// this, so this is the admin's one chance to copy it and pass it on.
 export const PasswordSharedPanel = ({ password, email, codeSent = false, onDone }: PasswordSharedPanelProps) => (
   <NoticeBanner tone="success" icon={CheckCircle2} className="flex-col">
     <div className="flex flex-col gap-3">
@@ -60,17 +56,12 @@ export const PasswordSharedPanel = ({ password, email, codeSent = false, onDone 
 interface ResetPasswordSectionProps {
   userId: string;
   email?: string;
-  /** Start open (the kebab's "Reset password" dialog) instead of as a quiet link. */
   defaultExpanded?: boolean;
-  /** Called when the person finishes: after Done, or Cancel on an opened-by-default section. */
   onFinished?: () => void;
 }
 
-// Its own mutation (POST /users/:id/reset-password), not a field on the profile form, and rendered
-// outside the form's <form> tag so pressing Enter here can never submit the whole profile.
 export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, onFinished }: ResetPasswordSectionProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  // The quick path first: one button makes a temporary password. Typing one is the second choice.
   const [manual, setManual] = useState(false);
   const [password, setPassword] = useState('');
   const [shown, setShown] = useState(false);
@@ -96,7 +87,6 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
     resetMutation.mutate({ id: userId, password }, { onSuccess: () => { setSavedPassword(password); setPassword(''); } });
   };
 
-  // One click: make a strong temporary password and set it straight away.
   const createTemporary = () => {
     const generated = generatePassword();
     resetMutation.mutate({ id: userId, password: generated }, { onSuccess: () => setSavedPassword(generated) });

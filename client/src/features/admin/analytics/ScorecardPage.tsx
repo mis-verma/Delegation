@@ -38,7 +38,6 @@ const MODULES: { key: Module; label: string }[] = [
   { key: 'delegation', label: MODULE_LABEL.delegation },
 ];
 const MEASURE_KEYS: readonly Measure[] = ['completion', 'compliance', 'ontime'];
-// One plain name per figure, from the one label dictionary, the same in the cards, the table, the popup and the exports.
 const measureName = (module: Module, measure: Measure): string =>
   measure === 'completion' ? SCORE_LABEL.completion : measure === 'compliance' ? complianceLabel(module) : SCORE_LABEL.onTime;
 const VIEW_LABEL: Record<ViewBy, string> = { department: 'Departments', store: 'Stores', person: 'People' };
@@ -51,15 +50,10 @@ type ModuleScore = ScoreReportRow['checklist'] | ScoreReportRow['ticket'] | Scor
 const valueOf = (m: ModuleScore, measure: Measure): number | null =>
   measure === 'completion' ? m.completionPct : measure === 'compliance' ? m.compliancePct : m.onTimePct;
 
-/** What was done, late or not done, per module: the shared rule (late = finished after the deadline). */
 const delayOf = (row: Pick<ScoreReportRow, Module>, key: Module) => {
   const { done, late, notDone } = moduleCounts(row, key);
   return { done, late, missed: notDone };
 };
-
-// ---------------------------------------------------------------------------------------------
-// The organisation in three cards
-// ---------------------------------------------------------------------------------------------
 
 const ModuleSummary = ({ label, module, scores }: { label: string; module: Module; scores: Scores }) => {
   const data = scores[module];
@@ -82,7 +76,6 @@ const ModuleSummary = ({ label, module, scores }: { label: string; module: Modul
   );
 };
 
-// The organisation is the explorer's total row of the department view (the same request as the Departments table).
 const OrgSummary = ({ from, to }: { from: string; to: string }) => {
   const query = useScoreExplorer({ from, to, view: 'department' });
   const data = query.data;
@@ -91,7 +84,6 @@ const OrgSummary = ({ from, to }: { from: string; to: string }) => {
   if (!scores) {
     return <div className="grid grid-cols-1 gap-3 md:grid-cols-3">{MODULES.map((m) => <Skeleton key={m.key} className="h-32 rounded-2xl sm:h-44" />)}</div>;
   }
-  // No dim while the next period loads: the old numbers stay as they are until the new ones land.
   return (
     <section aria-label="Whole organisation" className="grid grid-cols-1 gap-3 md:grid-cols-3">
       {MODULES.map((m) => <ModuleSummary key={m.key} label={m.label} module={m.key} scores={scores} />)}
@@ -99,14 +91,8 @@ const OrgSummary = ({ from, to }: { from: string; to: string }) => {
   );
 };
 
-// ---------------------------------------------------------------------------------------------
-// One row's detail
-// ---------------------------------------------------------------------------------------------
-
 interface DrillLink { label: string; href: string }
 
-// The exact items behind a module's figures: the subject (person, department or store) and the period
-// travel with the link, and each link opens only what its count says.
 const drillLinksFor = (
   orgWide: boolean,
   subject: DrillSubject,
@@ -119,11 +105,8 @@ const drillLinksFor = (
     key === 'ticket' ? ticketDrillHref(orgWide, subject, window.from, window.to, kind)
       : key === 'delegation' ? delegationDrillHref(subject, window.from, window.to, kind)
         : checklistDrillHref(orgWide, subject, window.from, window.to, kind, window.period);
-  // A department's checklists open its fill report, which has no late or missed split of its own.
   if (key === 'checklist' && subject.kind === 'department') return [{ label: 'Open fill report', href: href('notDone') }];
   const links: DrillLink[] = [];
-  // The run history has no "finished late" filter, so a checklist's late link opens ALL its finished runs, and the label
-  // says so instead of promising only the late ones.
   if (late > 0) links.push({ label: key === 'checklist' ? `All finished runs (${late} of them late)` : `Late (${late})`, href: href('late') });
   if (missed > 0) links.push({ label: `Not done (${missed})`, href: href('notDone') });
   return links;
@@ -136,9 +119,7 @@ interface RowDetailProps {
   window: { from: string; to: string; period?: { period: ScorePeriod; offset: number } };
   orgWide: boolean;
   onClose: () => void;
-  /** A department's people: switches the table to People, narrowed to this department. */
   onSeePeople: (row: ScoreReportRow) => void;
-  /** A head's People view is already their own department, so there is nothing to narrow. */
   canNarrow: boolean;
 }
 
@@ -156,7 +137,6 @@ const RowDetail = ({ row, viewBy, windowLabel, window, orgWide, onClose, onSeePe
             {MODULES.map(({ key, label }) => {
               const m = row[key];
               const { done, late, missed } = delayOf(row, key);
-              // The catch-all rows have no one person, department or store behind them, so no list to open.
               const links = m.due > 0 && !CATCH_ALL_IDS.includes(row.id) ? drillLinksFor(orgWide, { kind: viewBy, id: row.id }, window, row, key) : [];
               return (
                 <div key={key} className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
@@ -197,12 +177,6 @@ const RowDetail = ({ row, viewBy, windowLabel, window, orgWide, onClose, onSeePe
   </Dialog>
 );
 
-// ---------------------------------------------------------------------------------------------
-// The table
-// ---------------------------------------------------------------------------------------------
-
-// '2026-10-01' to '2026-10-31' is October when October is a whole calendar period back from today: the fill
-// report is told which period that is. Anything else (custom dates, a running period) opens on its default.
 const periodOf = (from: string, to: string, today: string): { period: ScorePeriod; offset: number } | undefined => {
   for (const period of ['week', 'month', 'quarter', 'year'] as const) {
     const limit = period === 'week' ? 104 : period === 'month' ? 36 : period === 'quarter' ? 12 : 3;
@@ -214,24 +188,12 @@ const periodOf = (from: string, to: string, today: string): { period: ScorePerio
   return undefined;
 };
 
-/**
- * Checklists, tickets and delegations side by side for every department, store or person, on the
- * measures that matter: completion (done out of what was due), compliance (answers right for checklists,
- * the share that met the deadline for tickets and delegations) and on time (of what was finished). Admin
- * and PC also see the whole organisation on top; a department head sees their own department and its
- * people. Worst first, so who needs a conversation is on top; sort any column, search, open a row for its
- * counts and the exact late and unfinished items, export.
- *
- * The period is the same one the Overview keeps in the address (?from=YYYY-MM-DD&to=YYYY-MM-DD, or
- * ?range=all), so it carries over both ways. The address can also open one row: ?view=person&open=<id>.
- */
 export const ScorecardPage = () => {
   const { user } = useAuth();
   const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
   const views: ViewBy[] = orgWide ? ['department', 'store', 'person'] : ['department', 'person'];
   const [searchParams, setSearchParams] = useSearchParams();
   const patch = useSearchPatch();
-  // THE window for every score page: the picked dates, else the default window, never later than today.
   const { from, to, label: windowLabel, today: orgToday, range: pickedRange, handleRange } = useScoreWindow();
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
@@ -241,28 +203,20 @@ export const ScorecardPage = () => {
   });
   const [measureView, setMeasureView] = useState<MeasureView>('all');
   const [query, setQuery] = useState('');
-  // A department picked from its popup ("See people"): the People view shows only its people (explorer parentId).
   const [departmentFilter, setDepartmentFilter] = useState<{ id: string; name: string } | null>(null);
-  // Worst first by default: the rows that need attention lead, rows with nothing due sink to the bottom.
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
   const [openId, setOpenId] = useState<string | null>(() => searchParams.get('open'));
 
-  // One explorer request per view and window (people narrowed by the department when one was picked). The same
-  // cache key serves every page that asks for the same cut, so the numbers cannot differ between pages.
   const parentId = viewBy === 'person' ? departmentFilter?.id : undefined;
   const explorer = useScoreExplorer({ from, to, view: viewBy, parentId });
-  // While another view or department loads the old rows would sit under the wrong heading, so only an answer for what
-  // is asked for is shown (a new window keeps the previous figures, with the Updating line).
   const data = explorer.data && explorer.data.view === viewBy && (explorer.data.parent?.id ?? null) === (parentId ?? null) ? explorer.data : undefined;
   const updating = explorer.updating && !!data;
-  // The server locks a head to their own department.
   const departmentLocked = data?.scope.departmentLocked ?? !orgWide;
 
   const measures: Measure[] = measureView === 'all' ? [...MEASURE_KEYS] : [measureView];
 
   const source = useMemo<ScoreReportRow[]>(() => (data ? data.rows.map(explorerRowToReportRow) : []), [data]);
-  // Work with nobody assigned: its own row under the people, never ranked.
   const unassignedRow = useMemo<ScoreReportRow | null>(
     () => (viewBy === 'person' && data?.unassigned ? { ...explorerRowToReportRow(data.unassigned), id: UNASSIGNED_ROW_ID, name: 'Unassigned' } : null),
     [data, viewBy],
@@ -280,7 +234,6 @@ export const ScorecardPage = () => {
     };
     list.sort((a, b) => {
       const x = value(a), y = value(b);
-      // Rows with no figure sink to the bottom whichever way the list is sorted.
       if (x === null && y === null) return a.name.localeCompare(b.name);
       if (x === null) return 1;
       if (y === null) return -1;
@@ -293,7 +246,6 @@ export const ScorecardPage = () => {
 
   const sortBy = (key: SortKey) => {
     if (key === sortKey) setAscending((v) => !v);
-    // Names read A to Z; a figure starts worst first.
     else { setSortKey(key); setAscending(true); }
   };
 
@@ -327,7 +279,6 @@ export const ScorecardPage = () => {
     ...MEASURE_KEYS.map((ms) => `${MODULES.find((x) => x.key === m)!.label} ${measureName(m, ms).toLowerCase()} %`),
     `${MODULES.find((x) => x.key === m)!.label} late`, `${MODULES.find((x) => x.key === m)!.label} not done`,
   ];
-  // The table as sorted, searched and narrowed on screen, every measure, with the counts behind them.
   const exportRows = (): TableRows => {
     const withDepartment = viewBy === 'person';
     const head: string[] = [NAME_HEAD[viewBy], ...(withDepartment ? ['Department'] : []), SCORE_LABEL.overall];
@@ -344,8 +295,6 @@ export const ScorecardPage = () => {
     return [head, ...body];
   };
   const queryClient = useQueryClient();
-  // Admin and PC also see the whole organisation in three cards above the table. The columns carry the
-  // same plain names as the cards: compliance is "answers right" for checklists, "met deadline" otherwise.
   const orgExport: ExportSource[] = orgWide
     ? [{
         label: 'Whole organisation',
@@ -367,7 +316,6 @@ export const ScorecardPage = () => {
     <div className="flex w-full flex-col gap-6">
       <h1 className="sr-only">Scorecard</h1>
 
-      {/* The same period bar as the Overview, reading and writing the same address, so the period carries over. */}
       <AnalyticsControlBar
         groupBy="week"
         onGroupByChange={() => undefined}
@@ -384,7 +332,6 @@ export const ScorecardPage = () => {
       <section aria-label={`By ${VIEW_LABEL[viewBy].toLowerCase()}`} className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <PeriodTabControl value={viewBy} options={views} labels={VIEW_LABEL} onChange={pickView} fill dense className="lg:w-80" />
-          {/* Every measure is already in the cards and the popup on a phone, so the measure tabs are for wider screens. */}
           <PeriodTabControl value={measureView} options={['all', 'completion', 'compliance', 'ontime'] as const} labels={MEASURE_VIEW_LABEL} onChange={setMeasureView} fill dense className="hidden md:block lg:w-96" />
           <div className="flex items-center gap-2 lg:ml-auto">
             <label className="relative block flex-1 lg:w-56 lg:flex-none">
@@ -438,9 +385,7 @@ export const ScorecardPage = () => {
             description={query.trim() ? `Nothing matches "${query.trim()}".` : departmentFilter ? `Nobody in ${departmentFilter.name} had work due in this period.` : 'Try another period.'}
           />
         ) : (
-          // No dim while the next period loads: the old numbers stay until the new ones land.
           <div>
-            {/* Phone: one card per row. */}
             <ol className="flex flex-col gap-2 md:hidden">
               {rows.map((r, i) => (
                 <MobileScoreRow
@@ -459,7 +404,6 @@ export const ScorecardPage = () => {
               ))}
             </ol>
 
-            {/* Tablet and desktop: a sortable table, the modules as column groups. The header stays in view while the rows scroll. */}
             <div className={TABLE_FRAME_CLASS}>
               <table className="w-full border-collapse text-left">
                 <caption className="sr-only">Scorecard by {VIEW_LABEL[viewBy].toLowerCase()}, {windowLabel}</caption>
@@ -509,7 +453,6 @@ export const ScorecardPage = () => {
           </div>
         )}
 
-        {/* The long explanation is for wider screens; a phone gets the same words behind a "?". */}
         <div className="flex flex-col gap-1.5">
           {updating && <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {windowLabel} loads.</p>}
           <p className="hidden t-meta text-text-muted sm:block">

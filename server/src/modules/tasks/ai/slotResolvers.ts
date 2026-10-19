@@ -27,10 +27,6 @@ type SlotResolver = (
     ctx: { rankFallbackPriority: "low" | "medium" | "high" }
 ) => Promise<{ draft: ConversationDraftLike; ack: string }>
 
-// Server-side equivalents of SmartTaskModal.tsx's SLOT_RESOLVERS. An unresolved answer still
-// advances the conversation (raw text is kept, ack apologizes) — there's no manual-review screen on
-// WhatsApp to fall back to, so an unmatched assignee/department just means an unassigned/
-// department-less task, same as today's one-shot behavior.
 const SLOT_RESOLVERS: Record<ConversationSlot, SlotResolver> = {
     assignee: async (answer, draft) => {
         const match = await resolveAssignee(answer, draft.departmentName || undefined)

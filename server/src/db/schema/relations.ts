@@ -11,10 +11,6 @@ import {
   projects,
   projectMembers,
   notifications,
-  // auditLogs is intentionally omitted: entityType/entityId is a true
-  // polymorphic reference with no single target table, and actorId is a
-  // plain string (not a FK to users) — neither can be modeled with
-  // relations().
 } from './core.js';
 import {
   tasks,
@@ -63,10 +59,6 @@ import {
   checklistInstanceItemSubmissionImages,
 } from './checklistInstance.js';
 
-// ===========================================================================
-// core.ts relations
-// ===========================================================================
-
 export const storesRelations = relations(stores, ({ many }) => ({
   departments: many(departments),
   users: many(users),
@@ -99,7 +91,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   todos: many(todos),
   smartTaskConversations: many(smartTaskConversations),
 
-  // Task domain — Task has 3 separate FKs to User, disambiguated by relationName.
   createdTasks: many(tasks, { relationName: 'TaskCreator' }),
   assignedTasks: many(tasks, { relationName: 'TaskAssignee' }),
   verifiedTasks: many(tasks, { relationName: 'TaskVerifier' }),
@@ -109,13 +100,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   uploadedTaskImages: many(taskImages),
   taskComments: many(taskComments),
 
-  // PendingTaskConversation has 2 separate FKs to User, disambiguated by relationName.
   pendingTaskConversations: many(pendingTaskConversations, { relationName: 'PendingConversationUser' }),
   draftAssignedPendingTaskConversations: many(pendingTaskConversations, {
     relationName: 'PendingConversationDraftAssignee',
   }),
 
-  // Ticket domain — Ticket has 3 separate FKs to User, disambiguated by relationName.
   raisedTickets: many(tickets, { relationName: 'TicketRaiser' }),
   assignedTickets: many(tickets, { relationName: 'TicketAssignee' }),
   verifiedTickets: many(tickets, { relationName: 'TicketVerifier' }),
@@ -128,7 +117,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   createdChecklistTemplates: many(checklistTemplates),
   defaultAssignedChecklistTemplateItems: many(checklistTemplateItems),
 
-  // Recurring checklist domain
   createdChecklistDefinitions: many(checklistDefinitions),
   checklistDefinitionAssigneeLinks: many(checklistDefinitionAssignees),
   checklistDefinitionItemAuditLinks: many(checklistDefinitionItemAuditUsers),
@@ -176,9 +164,6 @@ export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   recipient: one(users, { fields: [notifications.recipientId], references: [users.id] }),
-  // These 3 targets have no `.references()` at the column level (declared plain
-  // to avoid a circular file import — see core.ts), but relations() metadata
-  // can still describe the logical join for `db.query` `with` usage.
   ticket: one(tickets, { fields: [notifications.ticketId], references: [tickets.id] }),
   task: one(tasks, { fields: [notifications.taskId], references: [tasks.id] }),
   checklistInstance: one(checklistInstances, {
@@ -187,21 +172,15 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
-// ===========================================================================
-// task.ts relations
-// ===========================================================================
-
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
   creator: one(users, { fields: [tasks.userId], references: [users.id], relationName: 'TaskCreator' }),
   assignee: one(users, { fields: [tasks.assigneeId], references: [users.id], relationName: 'TaskAssignee' }),
   verifier: one(users, { fields: [tasks.verifiedBy], references: [users.id], relationName: 'TaskVerifier' }),
   project: one(projects, { fields: [tasks.projectId], references: [projects.id] }),
   department: one(departments, { fields: [tasks.departmentId], references: [departments.id] }),
-  // Subtasks — self-referencing FK, disambiguated by relationName.
   parentTask: one(tasks, { fields: [tasks.parentTaskId], references: [tasks.id], relationName: 'TaskParent' }),
   subtasks: many(tasks, { relationName: 'TaskParent' }),
   additionalAssigneeLinks: many(taskAdditionalAssignees),
-  // TaskDependency has 2 separate FKs to Task, disambiguated by relationName.
   blockedByLinks: many(taskDependencies, { relationName: 'TaskDependent' }),
   blockingLinks: many(taskDependencies, { relationName: 'TaskBlocker' }),
   tagLinks: many(taskTags),
@@ -310,10 +289,6 @@ export const pendingTaskConversationsRelations = relations(pendingTaskConversati
   }),
 }));
 
-// ===========================================================================
-// ticket.ts relations
-// ===========================================================================
-
 export const ticketsRelations = relations(tickets, ({ one, many }) => ({
   raisedBy: one(users, { fields: [tickets.userId], references: [users.id], relationName: 'TicketRaiser' }),
   assignee: one(users, { fields: [tickets.assigneeId], references: [users.id], relationName: 'TicketAssignee' }),
@@ -382,10 +357,6 @@ export const checklistTemplateItemsRelations = relations(checklistTemplateItems,
   defaultAssignee: one(users, { fields: [checklistTemplateItems.defaultAssigneeId], references: [users.id] }),
 }));
 
-// ===========================================================================
-// checklistDefinition.ts relations
-// ===========================================================================
-
 export const checklistDefinitionsRelations = relations(checklistDefinitions, ({ one, many }) => ({
   createdByUser: one(users, { fields: [checklistDefinitions.createdBy], references: [users.id] }),
   storeLinks: many(checklistDefinitionStores),
@@ -425,10 +396,6 @@ export const checklistDefinitionItemAuditUsersRelations = relations(checklistDef
   }),
   user: one(users, { fields: [checklistDefinitionItemAuditUsers.userId], references: [users.id] }),
 }));
-
-// ===========================================================================
-// checklistInstance.ts relations
-// ===========================================================================
 
 export const checklistInstancesRelations = relations(checklistInstances, ({ one, many }) => ({
   definition: one(checklistDefinitions, {

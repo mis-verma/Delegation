@@ -4,7 +4,6 @@ import type { TicketPriority } from './formConstants';
 
 const OPTIONS = (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((p) => ({ value: p, label: PRIORITY_CONFIG[p].label, solid: PRIORITY_CONFIG[p].solid, icon: PRIORITY_CONFIG[p].icon }));
 
-/** Ticket priority, on the shared PrioritySelect (the app's one dropdown), with tickets' four levels. */
 export const TicketPriorityChipPicker = ({
   value,
   onChange,

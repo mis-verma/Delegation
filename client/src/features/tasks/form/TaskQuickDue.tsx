@@ -13,12 +13,7 @@ const OPTIONS = [
   { label: 'Next week', days: 7 },
 ];
 
-/**
- * One-tap due days above the full calendar. Sets the due day (the saved time is the end of that
- * day, same as picking it in the calendar) and keeps the start day unless it would land after it.
- */
 export const TaskQuickDue = ({ value, onChange }: { value: DateRangeValue; onChange: (v: DateRangeValue) => void }) => {
-  // Computed once when the form opens, so the options don't shift under a finger at midnight.
   const options = useMemo(() => OPTIONS.map((o) => ({ label: o.label, date: dayAt(o.days) })), []);
 
   return (

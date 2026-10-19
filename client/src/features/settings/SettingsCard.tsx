@@ -4,19 +4,12 @@ import type { LucideIcon } from 'lucide-react';
 interface SettingsCardProps {
   icon: LucideIcon;
   title: string;
-  /** A small control on the right of the title row, e.g. a role chip. */
   aside?: ReactNode;
-  /** One quiet explanatory paragraph under the fields. */
   hint?: string;
   tone?: 'primary' | 'warning';
   children: ReactNode;
 }
 
-/**
- * One card per group of settings, shared by Admin settings and the personal Settings tabs: a tinted
- * icon tile and a readable title (not a tiny grey label), the fields, then the explanation in plain
- * text under them.
- */
 export const SettingsCard = ({ icon: Icon, title, aside, hint, tone = 'primary', children }: SettingsCardProps) => (
   <section aria-label={title} className="flex flex-col gap-3.5 p-3.5 sm:p-5 rounded-2xl border border-border/60 bg-surface">
     <div className="flex items-center gap-2.5">

@@ -6,15 +6,7 @@ import type { ViewIcon } from './viewIcons';
 export interface ViewTab<V extends string> {
   key: V;
   label: string;
-  /** Used only for a view key that has no solid icon of its own (see VIEW_ICONS): list, board, table, timeline and cards always draw the shared solid set. */
   icon?: LucideIcon | ViewIcon;
-  /**
-   * Hidden below `sm` — for dense, many-column views (Table, Timeline) that need real width to
-   * read and aren't genuinely usable one-handed on a phone, even though they scroll horizontally
-   * rather than overflow. The tab stays fully available on tablet/desktop. If `value` points at a
-   * mobile-hidden tab when the viewport narrows past `sm`, this falls back to the first visible
-   * tab rather than leaving the toolbar showing a view the person can no longer reach.
-   */
   mobileHidden?: boolean;
 }
 
@@ -22,12 +14,7 @@ interface ViewToggleProps<V extends string> {
   tabs: ViewTab<V>[];
   value: V;
   onChange: (key: V) => void;
-  /**
-   * Remembers the last view picked under this key (in this browser) and returns to it the next time
-   * the page opens. Put the page and the person in it, e.g. `view:tickets:<userId>`.
-   */
   storageKey?: string;
-  /** Number keys 1, 2, 3 and 4 jump to the Nth view when no field has focus. On by default. */
   shortcuts?: boolean;
 }
 
@@ -36,20 +23,15 @@ const isTypingTarget = (el: EventTarget | null) => {
   return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
 };
 
-// A pill-group view switcher (e.g. List/Board) — shared shell behind the Delegation and Tickets
-// list pages' view toggles, same "generic component + feature-owned tab data" split as
-// QuickFilterStats.
 export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey, shortcuts = true }: ViewToggleProps<V>) {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Every way of picking a view goes through here, so the choice is remembered the same way.
   const pick = (key: V) => {
     onChange(key);
     if (!storageKey) return;
-    try { window.localStorage.setItem(storageKey, key); } catch { /* storage blocked: the view still changes */ }
+    try { window.localStorage.setItem(storageKey, key); } catch { }
   };
 
-  // Back to the view this person left the page on, unless it cannot be shown on this screen.
   useEffect(() => {
     if (!storageKey) return;
     let saved: string | null = null;
@@ -58,11 +40,9 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
     if (!tab || tab.key === value) return;
     if (tab.mobileHidden && window.matchMedia('(max-width: 639px)').matches) return;
     onChange(tab.key);
-    // Once, on arrival: later changes come from the person, not from storage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
-  // The views this screen can show, in order: what the number keys count.
   const visibleKeys = (): V[] => {
     const small = typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
     return tabs.filter((t) => !t.mobileHidden || !small).map((t) => t.key);
@@ -81,7 +61,6 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // pick and the tab list change with the page; the listener is cheap to rebind.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shortcuts, tabs, onChange, storageKey]);
 
@@ -100,9 +79,6 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  // Real tablist semantics: arrow keys move both focus and selection between tabs (Home/End jump
-  // to the ends), matching the roving-tabindex pattern the app's Radix Tabs-based switchers get
-  // for free — this one is plain buttons, so it needs the behavior wired by hand.
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number | null = null;
     if (e.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
@@ -117,9 +93,6 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
   };
 
   return (
-    // Segmented track, same rounded-xl shape as the filter button and the phone "Assigned to me" switch. The
-    // picked view is a white segment with blue text and a blue ring rather than a solid fill, so the page's
-    // one solid button (create) stays the only loud thing in the row.
     <div role="tablist" className="flex items-center gap-1 p-1 rounded-xl bg-surface-hover/60 border border-border/60 dark:border-white/[0.06]">
       {tabs.map((tab, index) => {
         const Icon = VIEW_ICONS[tab.key] ?? tab.icon;
@@ -139,7 +112,6 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
             tab.mobileHidden ? 'hidden sm:flex' : 'flex'
           } ${
             value === tab.key
-              // Ring + surface fill, readable in both themes; no box-shadow (app uses borders).
               ? 'bg-surface text-primary-700 dark:text-primary-300 font-bold ring-1 ring-primary-500/30'
               : 'text-text-secondary font-semibold hover:text-text hover:bg-surface/70'
           }`}

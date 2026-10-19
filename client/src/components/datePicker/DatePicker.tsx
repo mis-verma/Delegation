@@ -23,12 +23,8 @@ interface DatePickerProps {
   triggerClassName?: string;
   disabled?: boolean;
   showTime?: boolean;
-  /** Earliest moment that can be picked. Earlier days are greyed out and an earlier time is refused. */
   minDate?: Date;
-  /** With `showTime`: the hour (0-23) a freshly picked day starts at. Defaults to the next quarter
-   *  hour for today and 9 AM for any other day, never the raw current minute (3:47 PM). */
   defaultHour?: number;
-  /** Drop the built-in Today / Tomorrow row, for a form that already shows its own quick choices. */
   hideQuickPicks?: boolean;
 }
 
@@ -55,9 +51,7 @@ export function DatePicker({
 
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value ?? new Date()));
-  // Phones only: date and time are two tabs of one sheet instead of a calendar stacked on a clock.
   const [panel, setPanel] = useState<'date' | 'time'>('date');
-  // Re-read on every open, so a tab left open past midnight doesn't call yesterday "today".
   const [today, setToday] = useState(() => startOfDay(new Date()));
 
   const handleOpenChange = (next: boolean) => {
@@ -70,7 +64,6 @@ export function DatePicker({
     setOpen(next);
   };
 
-  // The time a freshly picked day starts at: the clock already chosen, else a round one.
   const clockFor = (day: Date): Date => {
     if (!showTime) return startOfDay(day);
     let next: Date;
@@ -84,11 +77,9 @@ export function DatePicker({
   const selectDay = (day: Date) => {
     onChange(clockFor(day));
     if (!showTime) setOpen(false);
-    // Day picked, so the phone sheet moves on to the next question.
     else if (isPhone) setPanel('time');
   };
 
-  // Every change from the clock goes through the clock's own past-time check; this just saves it.
   const changeTime = (next: Date) => onChange(next);
 
   const getDayState = (day: Date): DayState => ({
@@ -98,7 +89,6 @@ export function DatePicker({
 
   const dateColumn = (
     <div className="flex flex-col gap-3 w-full sm:w-[17.5rem] min-w-0">
-      {/* One row of four, not a wrapping 3 + 1. */}
       {!hideQuickPicks && (
       <div className="grid grid-cols-4 gap-1" role="group" aria-label="Quick choices">
         {QUICK_PICKS.map((pick) => {
@@ -128,8 +118,6 @@ export function DatePicker({
     </div>
   );
 
-  // The clock sits beside the calendar from sm up and is its own tab on a phone. One component for
-  // both, so the time is set the same way on every screen.
   const clock = showTime && (
     <ClockPicker value={value} onChange={changeTime} minAt={minDate ?? null} label="Time" />
   );
@@ -202,7 +190,6 @@ export function DatePicker({
         </button>
       }
       triggerAside={value && !disabled && (
-        // A sibling of the trigger, not nested inside it, so it is a real button of its own.
         <button
           type="button"
           aria-label="Clear date"
@@ -220,7 +207,6 @@ export function DatePicker({
       <div className="flex flex-col sm:flex-row sm:gap-5">
         <div className={cn(showTime && panel === 'time' && 'max-sm:hidden')}>{dateColumn}</div>
 
-        {/* Phone: the clock is its own tab. */}
         {showTime && isPhone && panel === 'time' && clock}
 
         {desktopClock}

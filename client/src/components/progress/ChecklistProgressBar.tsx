@@ -10,11 +10,8 @@ interface ChecklistProgressBarProps {
   done: number;
   total: number;
   className?: string;
-  /** 'danger' turns the fill red (an overdue run); 'auto' is green when complete, primary otherwise. */
   tone?: 'auto' | 'danger';
-  /** Hide the leading check icon and the done/total counter for a bare bar. */
   bare?: boolean;
-  /** Track height. Defaults to the 8px bar. */
   thin?: boolean;
 }
 
@@ -38,9 +35,6 @@ export const ChecklistProgressBar = ({ done, total, className, tone = 'auto', ba
         />
       )}
 
-      {/* Progress Track: theme token, not raw slate, so it stays soft in dark mode instead of a
-          fixed light-gray track sitting on a dark card. Fill animates with scaleX (compositor only),
-          not width, so a tick-off never triggers layout. */}
       <div
         role="progressbar"
         aria-valuemin={0}

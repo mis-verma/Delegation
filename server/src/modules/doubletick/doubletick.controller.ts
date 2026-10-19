@@ -17,8 +17,6 @@ import {
     toDraftObject,
 } from "../taskConversations/taskConversation.service.js";
 
-// Shape confirmed against DoubleTick's public webhook docs — both TEXT and AUDIO messages arrive
-// on the same MESSAGE_RECEIVED trigger, distinguished only by message.type.
 interface DoubleTickIncomingPayload {
     to: string;
     from: string;
@@ -53,8 +51,6 @@ function formatTaskConfirmation(taskTitle: string, draft: ConversationDraftLike)
 }
 
 export const doubletickController = {
-    // No GET-challenge verify step here (unlike Meta) — DoubleTick has no equivalent handshake,
-    // the webhook URL + auth token are registered directly in their dashboard instead.
     receive: asyncHandler(async (req: Request, res: Response) => {
         if (!verifyDoubleTickAuth(req.params.secret)) {
             return res.sendStatus(401);
@@ -65,12 +61,6 @@ export const doubletickController = {
         const body = req.body as DoubleTickIncomingPayload;
         if (body.integrationType !== "WHATSAPP" || !body.message) return;
 
-        // DoubleTick retries a delivery on any hiccup on their end — claim the message id first
-        // so a retried delivery of the same message is a no-op instead of a second task. No id at
-        // all means nothing to dedupe against — DoubleTick's real payloads always include one, so
-        // this only fires on a malformed delivery; drop it (fail-closed) rather than silently
-        // processing every retry as a brand new message (the old `body.messageId &&` guard fell
-        // through to that instead of stopping here).
         if (!body.messageId) {
             console.error("DoubleTick webhook: payload missing messageId, dropping (can't dedupe)");
             return;
@@ -99,7 +89,6 @@ export const doubletickController = {
             return;
         }
 
-        // Matched on digits only (last 10), so "+91 98765-43210" in a profile still matches the sender id.
         const sender = await findActiveUserByPhone(from);
         if (!sender) {
             await sendDoubleTickMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
@@ -133,9 +122,6 @@ export const doubletickController = {
                     return;
                 }
 
-                // advanceConversation already deleted the row as part of returning "done" (see its
-                // own comment) — nothing left to clean up here even if createFromSmartInput throws
-                // below; the user just gets the error message and can resend to restart.
                 const task = await taskService.createFromSmartInput(
                     draftToConfirmInput(updatedDraft),
                     { sub: sender.id, role: sender.role, departmentId: sender.departmentId ?? undefined },

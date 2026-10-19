@@ -27,12 +27,6 @@ import { PRIORITY_MAP, STATUS_LABEL } from './taskDisplay';
 import { CATEGORY_CONFIG, formatShortDate } from './cardFields';
 import type { Task } from '../../api/task';
 
-// A local status→{tone, icon} table rather than reusing taskDisplay's own STATUS_ICON/STATUS_CONFIG
-// (JSX elements and badge classes, not the {tone, icon} shape IconChip wants) — those two feed a
-// dozen other call sites (TaskCard, TaskMoveMenu, TaskDetail's dropdown) that render status their
-// own established way, so this stays scoped to these two chip-based rows instead of reshaping a
-// widely-shared map. Same solid `bg-status-*` tokens the rest of the app already uses for these
-// statuses (TodoList's dot classes, the dashboard's activity colors), so the color still matches.
 const STATUS_CHIP_META: Record<Task['status'], { tone: string; icon: LucideIcon }> = {
   draft: { tone: 'bg-text-light', icon: FileEdit },
   todo: { tone: 'bg-status-todo', icon: CircleDashed },
@@ -94,13 +88,6 @@ const RowShell = ({ task, departmentNames, action, problem }: { task: Task; depa
   );
 };
 
-/**
- * Draft Delegations: pre-publication scratch items, visible only to whoever created them (see
- * task.service.ts#list). "Publish" fires the same status-change PATCH (draft -> todo) the detail
- * sheet's Publish does, with the same fixed note and the same check for what is still missing.
- * Opening the row goes through TaskDetail for anyone who wants to finish filling it out first. The
- * creator can also discard a draft (the server allows DELETE of your own draft).
- */
 export const DraftDelegationsPage = () => {
   const { data: tasks, isPending, isError, refetch } = useDraftTasksQuery();
   const { data: departments } = useDepartmentsQuery();
@@ -108,7 +95,6 @@ export const DraftDelegationsPage = () => {
   const discardMutation = useDiscardDraftMutation();
   const confirm = useConfirm();
   const [selected, setSelected] = useState<Task | null>(null);
-  // What a row still lacks, said under that row after a Publish tap.
   const [problem, setProblem] = useState<{ id: string; text: string } | null>(null);
   const departmentNames = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d.name])), [departments]);
 
@@ -179,16 +165,6 @@ export const DraftDelegationsPage = () => {
   );
 };
 
-/**
- * Archived Delegations — soft-deleted tasks (Task.deletedAt), same visibility scope the live list
- * uses. Read-only rows, not click-through to TaskDetail: the detail endpoint excludes soft-deleted
- * rows everywhere (same NOT_DELETED guard the rest of the app relies on), so there's no detail view
- * to open here — Restore is the one real action, and it's what brings the row back into that view.
- *
- * Admin and PC only: they are the only roles the server lets delete or restore a delegation, so for
- * anyone else this page would be a list with a button that always fails. A typed-in link goes back
- * to Delegation instead.
- */
 export const ArchivedDelegationsPage = () => {
   const { user } = useAuth();
   if (!user) return null;

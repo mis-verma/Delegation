@@ -5,9 +5,6 @@ import { taskApi } from '../../api/task';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import type { TeamPeriodRange } from './teamDisplay';
 
-// The per-person checklist report (answers checked, sent back, photo proof inputs) for the person screen.
-// The cards' scores do NOT come from here: they come from the scores report. Kept on screen while a new
-// period loads (an "Updating" line says so, no dim), so changing the period never flashes back to skeletons.
 export const useTeamChecklistReport = (range: Pick<TeamPeriodRange, 'from' | 'to'>, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
@@ -26,14 +23,9 @@ export interface TeamTaskChecklistTotals {
   doneItems: number;
   photoItems: number;
   photoOk: number;
-  /** Required evidence photos uploaded, as a whole %; null when no item needed a photo. */
   photoRate: number | null;
 }
 
-// Delegation checklist items (the to-do items inside tasks) and their photo-evidence rate for one
-// person over the selected window. Fetched as one 'year' bucket per calendar year the window
-// touches (at most two) and summed, so it covers exactly the chosen period instead of whichever
-// bucket "now" falls in.
 export const useTeamTaskChecklistTotals = (range: Pick<TeamPeriodRange, 'startMs' | 'endMs'>, departmentId: string, personId: string) => {
   const { token } = useAuth();
   const from = new Date(range.startMs).toISOString();

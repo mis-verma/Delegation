@@ -12,8 +12,6 @@ interface AvatarUploadProps {
   isRemoving?: boolean;
 }
 
-// Circular photo with a hover-to-change overlay (upload input triggers on click), plus a small
-// text-link row underneath for the same actions on touch devices where hover doesn't apply.
 export const AvatarUpload = ({ name, src, onUpload, onRemove, isUploading, isRemoving }: AvatarUploadProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = Boolean(isUploading || isRemoving);

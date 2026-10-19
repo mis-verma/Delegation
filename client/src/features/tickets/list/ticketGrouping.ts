@@ -1,6 +1,5 @@
 import type { Ticket } from '../../../api/ticket';
 
-
 export const groupByDepartment = (tickets: Ticket[], departmentNames: Map<string, string>) => {
   const groups = new Map<string, { departmentId: string | null; departmentName: string; tickets: Ticket[] }>();
 
@@ -50,9 +49,6 @@ export const groupChecklistStats = (tickets: Ticket[]) => {
   let total = 0;
   let done = 0;
   for (const t of tickets) {
-    // checklists/items are typed as always-present arrays, but real API responses have been seen
-    // omitting fields their own type claims are required — defaulted defensively rather than
-    // trusting the type (see the dashboard's additionalAssigneeIds crash for precedent).
     for (const cl of t.checklists ?? []) {
       total += (cl.items ?? []).length;
       done += (cl.items ?? []).filter(i => i.isDone).length;

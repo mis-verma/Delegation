@@ -133,8 +133,6 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
 });
 AuditRowCard.displayName = 'AuditRowCard';
 
-
-// Same card shape as a history row, so nothing shifts when the real rows arrive.
 const ListSkeleton = () => (
   <div className="flex flex-col gap-3" role="status" aria-label="Loading history">
     <span className="sr-only">Loading history</span>
@@ -156,18 +154,10 @@ const ListSkeleton = () => (
 const TAB_TRIGGER_CLASS =
   'min-h-11 sm:min-h-8 px-3.5 text-xs border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none';
 
-/**
- * Where past days go. Audit results and finished/unfinished checklists used to pile up at the
- * bottom of every person's checklist panel; now they live here, for the people who oversee them.
- * ADMIN and PC see every store; a department head (MANAGER/SENIOR) sees only their own department,
- * and the server enforces that, this page just asks.
- */
 export const ChecklistHistory = () => {
   const { user } = useAuth();
   const orgWide = !!user && ADMIN_AREA_ROLES.includes(user.role);
 
-  // A link from a score opens this on one person or store and window (?tab=checklists&from=&to=&person=&store=&status=).
-  // Read once; after that the filters on the page own the state.
   const [urlParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => (urlParams.get('tab') === 'checklists' ? 'checklists' : 'audits'));
   const [range, setRangeState] = useState<DateRangeValue>(() => {
@@ -183,8 +173,6 @@ export const ChecklistHistory = () => {
   });
   const [page, setPage] = useState(1);
 
-  // Any filter or tab change returns to page one: page 4 of the old result is meaningless against
-  // the new one. Done in the setters, not an effect, so the stale page never renders.
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setPersonId = (value: string) => { setPersonIdState(value); setPage(1); };
@@ -192,14 +180,11 @@ export const ChecklistHistory = () => {
   const changeTab = (next: string) => { setTab(next as Tab); setPage(1); };
   const clearFilters = () => { setRangeState(ALL_TIME); setStoreIdState(''); setPersonIdState(''); setStatusState(''); setPage(1); };
 
-  // Plain calendar days (the picked day as the person sees it), not instants: both tabs then read the
-  // same days whatever time zone this browser is in. An instant meant a different day on each tab.
   const from = range.from ? toDateParam(range.from) : undefined;
   const to = range.to ? toDateParam(range.to) : undefined;
 
   const { data: stores = [], isLoading: storesLoading } = useStoresQuery();
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
-  // The people you can look at: everyone for ADMIN and PC, the department for a head (the server decides).
   const { data: assignable } = useAssignableUsersQuery();
   const personOptions = useMemo(
     () => [{ value: '', label: 'Everyone' }, ...(assignable ?? []).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName ?? ''}`.trim() }))],
@@ -210,7 +195,6 @@ export const ChecklistHistory = () => {
     [stores],
   );
 
-  // Only the visible tab's query runs: the other tab's list isn't fetched until it's opened.
   const audits = useAuditHistoryQuery(
     { storeId: storeId || undefined, personId: personId || undefined, from, to },
     { page, limit: PAGE_SIZE },
@@ -226,11 +210,8 @@ export const ChecklistHistory = () => {
   const checklistRows = checklists.data?.data;
   const rowCount = (tab === 'audits' ? auditRows : checklistRows)?.length ?? 0;
   const totalPages = active.data?.meta.totalPages ?? 1;
-  // Rows can shrink under the viewer (a deleted checklist, a filter changed elsewhere). Step back to the last
-  // real page instead of showing an empty one with no pager.
   if (active.data && !active.isPlaceholderData && page > totalPages) setPage(Math.max(1, totalPages));
   const hasFilters = !!range.from || !!range.to || !!storeId || !!personId || (tab === 'checklists' && !!status);
-  // keepPreviousData keeps the old page on screen while a new filter loads.
   const refreshing = active.isPlaceholderData;
 
   const panel = (

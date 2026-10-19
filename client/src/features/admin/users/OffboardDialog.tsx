@@ -9,9 +9,7 @@ import { fullName } from './userDisplay';
 
 interface OffboardDialogProps {
   user: AdminUser;
-  /** The whole roster, to pick who takes over. */
   people: AdminUser[];
-  /** Name of the person's department, for the "will have no head" notice. */
   departmentName?: string;
   onClose: () => void;
 }
@@ -23,12 +21,6 @@ const Line = ({ icon: Icon, children }: { icon: typeof Ticket; children: React.R
   </li>
 );
 
-/**
- * Switching someone off instead of deleting them. A person who has worked in the system is part of
- * old tickets, tasks, checklists and audits, so they stay on record (name and all) and are only
- * blocked from logging in. What's still open is handed to someone first, so nothing is left with
- * nobody.
- */
 export const OffboardDialog = ({ user, people, departmentName, onClose }: OffboardDialogProps) => {
   const { data: summary, isPending, isError, refetch } = useOffboardingQuery(user.id, true);
   const offboard = useOffboardUserMutation();
@@ -36,8 +28,6 @@ export const OffboardDialog = ({ user, people, departmentName, onClose }: Offboa
 
   const holdsChecklists = (summary?.checklists.length ?? 0) > 0;
 
-  // Same store first: a checklist can only go to someone who works in its store. When this person
-  // fills in checklists, anyone from another store is marked so they are not picked by mistake.
   const options = useMemo(
     () => people
       .filter((p) => p.isActive && p.id !== user.id)
@@ -53,7 +43,6 @@ export const OffboardDialog = ({ user, people, departmentName, onClose }: Offboa
   const takeover = people.find((p) => p.id === takeoverId);
   const takeoverBlocked = !!takeover && holdsChecklists && takeover.storeId !== user.storeId;
 
-  // Leaving a department without any head is easy to miss, so say it before it happens.
   const leavesNoHead = useMemo(
     () => isDepartmentHead(user.role) && !!user.departmentId &&
       !people.some((p) => p.id !== user.id && p.isActive && p.departmentId === user.departmentId && isDepartmentHead(p.role)),
@@ -66,7 +55,6 @@ export const OffboardDialog = ({ user, people, departmentName, onClose }: Offboa
   const confirm = () =>
     offboard.mutate({ id: user.id, transferToUserId: needsPerson ? takeoverId : undefined }, { onSuccess: onClose });
 
-  // No closing mid-save: Cancel, Esc and a click outside all wait until the request is done.
   const requestClose = () => {
     if (!offboard.isPending) onClose();
   };

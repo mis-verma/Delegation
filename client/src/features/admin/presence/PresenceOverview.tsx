@@ -17,9 +17,6 @@ function cn(...inputs: ClassValue[]) {
 
 const LIST_CLASS = cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 overflow-hidden');
 
-// One grid for the whole row. Phone: person and presence chip on the first line, the role,
-// department and store chips wrap under them. md and up: five aligned columns (person, department,
-// store, role, presence), so every chip lines up down the list.
 const ROW_CLASS = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_10rem_10rem_9rem_9.5rem] md:gap-x-4';
 const CHIPS_CLASS = 'col-span-2 flex flex-wrap items-center gap-1.5 md:contents';
 const CHIP_CLASS = 'min-w-0 max-w-full justify-self-start';
@@ -51,12 +48,10 @@ interface PresenceRowProps {
   departmentName: string | undefined;
   storeName: string | undefined;
   isActive: boolean;
-  /** undefined while live status is unknown; the avatar then shows no dot at all. */
   online: boolean | undefined;
   statusText: string;
 }
 
-// Primitive props only, so a 20-second poll that changes nothing for a person re-renders nothing for them.
 const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeName, isActive, online, statusText }: PresenceRowProps) => (
   <div className={cn(ROW_CLASS, 'hover:bg-surface-hover transition-colors')}>
     <div className="flex items-center gap-3 min-w-0">
@@ -73,7 +68,6 @@ const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeN
       <RoleChip role={role} className={CHIP_CLASS} />
     </div>
 
-    {/* On a phone this sits on the first line, right of the name; from md it is the last column. */}
     <div className="col-start-2 row-start-1 flex justify-end md:col-start-auto md:row-start-auto">
       <PresenceChip online={online} text={statusText} deactivated={!isActive} className="max-w-full" />
     </div>
@@ -81,9 +75,6 @@ const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeN
 ));
 PresenceRow.displayName = 'PresenceRow';
 
-// Who's on the web app right now, and when everyone else was last on it: real presence (see
-// server/src/modules/presence), not the isActive/inactive account-enabled flag People & Teams
-// already shows.
 export const PresenceOverview = () => {
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
   const { data: presenceRows, isPending: presencePending, isError: presenceError, refetch: refetchPresence } = usePresenceQuery();
@@ -115,9 +106,6 @@ export const PresenceOverview = () => {
     return (presenceRows ?? []).filter((p) => p.online && activeIds.has(p.id)).length;
   }, [users, presenceRows]);
 
-  // The order only depends on who is online and on names, never on "last seen", so rows do not
-  // reshuffle every time the 20-second poll returns a new timestamp. Someone going online or
-  // offline is the one thing that moves a row.
   const rows = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return (users ?? [])
@@ -249,7 +237,6 @@ export const PresenceOverview = () => {
         )}
       </div>
 
-      {/* Live status failing never hides the people; the list stays, just without fresh dots. */}
       {presenceError && (
         <InlineError message="Live status isn't loading. Showing last known." onRetry={() => refetchPresence()} />
       )}

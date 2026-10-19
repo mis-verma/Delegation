@@ -24,7 +24,6 @@ const uptime = (seconds: number) => {
 
 const duration = (ms: number | null) => (ms == null ? '' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 
-// Icon + solid tone for the chip's icon circle (see IconChip) per health level.
 const LEVEL_TONE: Record<HealthLevel, { tone: string; icon: LucideIcon; label: string }> = {
   ok: { tone: 'bg-success', icon: CheckCircle2, label: 'Healthy' },
   warn: { tone: 'bg-warning', icon: TriangleAlert, label: 'Needs a look' },
@@ -98,7 +97,6 @@ const OverallBanner = ({ health }: { health: SystemHealth }) => {
   );
 };
 
-// Same shapes as the real page (banner, four tiles, a job list), so nothing jumps on load.
 const HealthSkeleton = () => (
   <div className="flex flex-col gap-4">
     <Skeleton className="min-h-16 w-full rounded-lg" />

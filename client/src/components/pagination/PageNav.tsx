@@ -2,12 +2,10 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-/** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// --- Types & Helpers ---
 type PageToken = number | 'ellipsis';
 
 const getPageList = (current: number, total: number): PageToken[] => {
@@ -27,7 +25,6 @@ const getPageList = (current: number, total: number): PageToken[] => {
 interface PageNavProps {
   page: number;
   totalPages: number;
-  /** Called with the new page number. Callers scroll their list back to the top here. */
   onPageChange: (page: number) => void;
   className?: string;
 }
@@ -39,7 +36,6 @@ const PHONE_ARROW_CLASS = cn(
   "disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed",
 );
 
-// --- Main Component ---
 export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavProps) => {
   if (totalPages <= 1) return null;
 
@@ -50,8 +46,6 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
       aria-label="Pagination" 
       className={cn("flex items-center justify-center w-full font-sans", className)}
     >
-      {/* Phone: "<  Page 3 of 9  >". A row of number buttons does not fit at 320px and a page
-          number is rarely the target on a phone anyway; next/previous is. */}
       <div className="flex sm:hidden items-center justify-center gap-3 w-full">
         <button
           type="button"
@@ -78,7 +72,6 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
 
       <ul className="hidden sm:flex items-center gap-1.5">
         
-        {/* Previous Button */}
         <li>
           <button
             type="button"
@@ -97,7 +90,6 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
           </button>
         </li>
 
-        {/* Page Numbers */}
         {pages.map((p, i) =>
           p === 'ellipsis' ? (
             <li key={`ellipsis-${i}`} aria-hidden="true">
@@ -126,7 +118,6 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
           )
         )}
 
-        {/* Next Button */}
         <li>
           <button
             type="button"

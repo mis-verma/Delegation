@@ -4,11 +4,9 @@ import type { CreatedRange } from '../../lib/createdRange';
 interface CreatedRangeBannerProps {
   range: CreatedRange | null;
   onClear: () => void;
-  /** What the page lists, in the plural: "delegations", "tickets". */
   noun: string;
 }
 
-/** Shown on a list page that was opened from a chart bar: says which period it is narrowed to, with one tap to clear. */
 export const CreatedRangeBanner = ({ range, onClear, noun }: CreatedRangeBannerProps) => {
   if (!range) return null;
   return (

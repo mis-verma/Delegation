@@ -45,9 +45,6 @@ const PasswordToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () => v
   </button>
 );
 
-// Your weekly day(s) off — the daily checklist generator leaves you off those days' runs, so a
-// week-off never turns into an "overdue" checklist. Keyed on the saved value by the parent so it
-// re-baselines after a save.
 const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSaving: boolean; onSave: (days: number[]) => void }) => {
   const [days, setDays] = useState<number[]>(initial);
   const dirty = days.join(',') !== initial.join(',');
@@ -68,10 +65,6 @@ const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSavin
   );
 };
 
-// Every logged-in user's own "who am I" page — separate from Admin > Settings (system-wide
-// defaults an ADMIN/PC configures for everyone) and from the admin User form (an admin editing
-// someone else). Two independent forms/mutations, same as UserForm's profile-fields-vs-password
-// split, since saving a name edit shouldn't require the current password and vice versa.
 export const AccountSettings = () => {
   const { data: profile, isPending } = useMyProfileQuery();
   const updateProfileMut = useUpdateMyProfileMutation();
@@ -89,10 +82,6 @@ export const AccountSettings = () => {
     formState: { errors: profileErrors, isDirty: profileDirty },
   } = useForm<ProfileFields>({ resolver: zodResolver(profileSchema) });
 
-  // Baselines the form from the fetched profile exactly once. Guarded past that first load so a
-  // background refetch (react-query refetches on window focus/reconnect by default) can't wipe
-  // out edits someone's mid-typing — a save's own success handler below re-baselines instead,
-  // which is the only other moment the "clean" state should actually move.
   const initializedRef = useRef(false);
   useEffect(() => {
     if (profile && !initializedRef.current) {
@@ -133,8 +122,6 @@ export const AccountSettings = () => {
   }
 
   return (
-    // Two columns from lg: who you are on the left, your week and your password on the right. One
-    // column on a phone, in the same order.
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
       <form onSubmit={handleProfileSubmit(onProfileSubmit)} noValidate>
        <SettingsCard icon={UserIcon} title="Profile" aside={<RoleChip role={profile.role} />}>

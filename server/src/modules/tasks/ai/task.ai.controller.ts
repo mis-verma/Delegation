@@ -42,8 +42,6 @@ export const taskAiController = {
         res.status(201).json(task)
     }),
 
-    // Web Smart Add's voice recorder — transcribes a browser-recorded clip and hands back plain
-    // text, which the client then feeds through the exact same /ai/parse flow typed text uses.
     transcribe : asyncHandler(async (req : Request , res : Response) => {
         if (!req.file) {
             throw AppError.badRequest("audio file is required")

@@ -1,17 +1,3 @@
-// One-off maintenance script: a checklist instance is stamped out once per (definition, store,
-// period) and never retroactively updated when the definition's template changes afterward (see
-// checklistInstanceGenerator.job.ts's generateInstanceForDefinition) — by design, so in-progress
-// work isn't rewritten under someone mid-fill. But that means adding/removing an AUDIT item's
-// auditors (or any other item edit) after today's instance already generated has no effect on
-// today's run at all. This script deletes one specific, still-untouched instance and immediately
-// regenerates it fresh off the CURRENT definition, so a same-day edit can actually take effect
-// today instead of waiting for tomorrow's sweep.
-//
-// Usage:
-//   List today's instances (no changes made):
-//     npm run regenerate:instance
-//   Delete one and regenerate it fresh:
-//     npm run regenerate:instance -- --deleteId=<instanceId> --yes
 import 'dotenv/config'
 import { eq } from 'drizzle-orm'
 import { connectDB, disconnectDB, db } from '../config/db.js'
@@ -75,9 +61,6 @@ const run = async () => {
         await disconnectDB()
         process.exit(1)
     }
-    // Only the store whose instance we just deleted should still be "pending" for today's period
-    // — every other store on this definition already has its own up-to-date instance and gets
-    // skipped, same as the hourly sweep would skip it.
     const created = await generateInstanceForDefinition(definitionForGeneration, new Date())
     if (created.length) {
         for (const c of created) console.log(`Regenerated: new instance id=${c.id}`)

@@ -16,9 +16,6 @@ interface AddQuestionModalProps {
   onConfirm: (patch: Partial<ItemDraft>) => void;
 }
 
-// Laid out like the New Delegation / New Ticket pop-ups: an icon-led "Question" heading over a
-// quiet field, then a "Details" row whose first chip is the question type itself — so the type can
-// still be changed here without closing and reopening from the palette.
 export const AddQuestionModal = ({
   entry,
   storeIds,
@@ -46,9 +43,6 @@ export const AddQuestionModal = ({
     onConfirm(draft);
   };
 
-  // Escape/overlay-click and the shared Modal's own close button all funnel through the same
-  // onOpenChange -> onClose path with no distinction between them — so without this, typing a
-  // question and tapping outside the modal (or hitting Escape) silently threw it away.
   const confirm = useConfirm();
   const handleClose = async () => {
     if (hasLabel) {
@@ -110,7 +104,6 @@ export const AddQuestionModal = ({
           <ItemTypeConfigFields draft={draft} onChange={patchDraft} storeIds={storeIds} />
         </div>
 
-        {/* Only after something's typed — an empty form isn't an error yet. */}
         {hasLabel && problem && (
           <p role="alert" className="text-xs font-display font-medium text-danger">{problem}</p>
         )}

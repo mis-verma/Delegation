@@ -48,13 +48,8 @@ export type TicketBulkImportMatchedRow = {
     storeMatchConfidence: MatchConfidence
     categoryId: string | null
     categoryMatchConfidence: MatchConfidence
-    // Never "none" — an unrecognized or blank priority text still resolves to a real, usable
-    // value (MEDIUM, the same default createTicketSchema itself lets the DB default to), it just
-    // isn't "matched".
     priority: TicketPriority
     priorityMatched: boolean
-    // "Couldn't parse" only when text was actually typed and it wasn't a positive number — blank
-    // is a legitimate "use the org/category default", not an error.
     tatHours: number | null
     tatHoursInvalid: boolean
     tagIds: string[]
@@ -88,8 +83,6 @@ export type TicketBulkImportSummary = {
     failed: { rowIndex: number; message: string }[]
 }
 
-// Accepted column headers, case-insensitive — same tolerance approach as the task/checklist
-// bulk-importers' own HEADER_ALIASES.
 const HEADER_ALIASES: Record<string, "title" | "description" | "assigneeName" | "priority" | "departmentName" | "storeName" | "categoryName" | "tatHours" | "labels"> = {
     "title": "title",
     "ticket title": "title",
@@ -131,9 +124,6 @@ const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): T
         const v = String(value ?? "").trim()
         if (v) mapped[canonical] = v
     }
-    // A fully blank row (e.g. a trailing empty line) carries nothing worth previewing. A row
-    // missing only `title`/`description` (the two fields createTicketSchema actually requires) is
-    // still kept — it surfaces in the review table as unresolved rather than silently vanishing.
     if (!mapped.title && !mapped.description && !mapped.assigneeName && !mapped.departmentName) return null
     return {
         rowIndex,
@@ -183,8 +173,6 @@ const parseXlsxRows = async (buffer: Buffer): Promise<TicketBulkImportRawRow[]> 
 const resolvePriority = (raw: string | undefined): { priority: TicketPriority; matched: boolean } => {
     const n = raw?.trim().toUpperCase()
     if (n && (TICKET_PRIORITIES as readonly string[]).includes(n)) return { priority: n as TicketPriority, matched: true }
-    // Blank is a normal default, not a mismatch — only flag `matched: false` when text was
-    // actually given and didn't resolve.
     return { priority: "MEDIUM", matched: !n }
 }
 
@@ -197,8 +185,6 @@ const resolveTatHours = (raw: string | undefined): { tatHours: number | null; in
 
 export const ticketBulkImportService = {
     async parseFile(buffer: Buffer, mimetype: string): Promise<{ rows: TicketBulkImportRawRow[] }> {
-        // "application/vnd.ms-excel" is also what some browsers/OSes report a .csv as (same
-        // ambiguity handled the same way by the task/checklist bulk-importers).
         if (mimetype === "text/csv" || mimetype === "application/vnd.ms-excel") {
             return { rows: parseCsvRows(buffer) }
         }
@@ -209,9 +195,6 @@ export const ticketBulkImportService = {
     },
 
     async matchRows(rawRows: TicketBulkImportRawRow[], actor: AccessTokenPayload): Promise<TicketBulkImportPreviewResult> {
-        // `listAssignable` with no department/store filter — for ADMIN/PC (the only roles this
-        // route is gated to, see ticket.routes.ts) that's every active user, same roster the
-        // normal create-ticket form's Assignee field offers them.
         const [assignableUsers, { data: departments }, allStores, allCategories, allTags] = await Promise.all([
             userService.listAssignable(actor),
             departmentService.list(),
@@ -283,9 +266,6 @@ export const ticketBulkImportService = {
         }
     },
 
-    // Each row is an outright insert — one bad row must not sink the rest of the batch.
-    // ticketService.create() already does its own DB write, audit record, and notification per
-    // call; this just calls it once per row inside its own try/catch and keeps going.
     async applyBatch(rows: TicketBulkImportApplyRow[], actor: AccessTokenPayload): Promise<TicketBulkImportSummary> {
         if (!rows.length) throw AppError.badRequest("No rows to apply.")
 

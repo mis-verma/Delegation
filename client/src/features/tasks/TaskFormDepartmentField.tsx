@@ -8,16 +8,10 @@ interface TaskFormDepartmentFieldProps {
   departments?: Department[];
   isLoading: boolean;
   disabled?: boolean;
-  /** Suppress the built-in "Department" label — for callers that already provide their own label
-   *  next to this field (e.g. an icon-led row layout). */
   hideLabel?: boolean;
-  /** Extra classes merged onto the Combobox trigger itself — for callers that need to override
-   *  its default boxed/bordered look (e.g. a plain-value row layout). */
   triggerClassName?: string;
 }
 
-// gap-1.5 on the wrapper, because FIELD_LABEL_CLASS no longer carries its own mb-1.5 — that
-// margin was doubling up with the `gap` every other field wrapper already set.
 export const TaskFormDepartmentField = ({ value, onChange, departments, isLoading, disabled = false, hideLabel = false, triggerClassName }: TaskFormDepartmentFieldProps) => (
   <div className={`group/field flex flex-col justify-end gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && (

@@ -1,6 +1,3 @@
-// Recurrence engine for the Checklist feature: sweeps active ChecklistDefinitions and stamps
-// out a fresh, completable ChecklistInstance whenever a definition's current period hasn't been
-// generated yet. See utils/period.ts for the period-math this relies on.
 import { scheduleJob } from '../utils/jobTracker.js';
 import { createId } from "@paralleldrive/cuid2"
 import { eq, and, inArray, asc, lte, gt, isNull, sql } from "drizzle-orm"
@@ -32,23 +29,11 @@ import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 
-// Opens and cutoff times are a window inside ONE day. Copied onto a weekly, monthly, quarterly or yearly
-// run they would close it after its first day (deadline = start date + cutoff), so those runs get no
-// time window and keep their whole period.
 const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null) =>
     recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime } : { opensTime: null, cutoffTime: null }
 
-// Caps how many due checklist definitions get processed in a single hourly sweep, same rationale
-// as the batch caps in slaSweep.job.ts/taskDeadlineReminder.job.ts. In practice the number of
-// admin-configured definitions is small and slow-growing, but this keeps the guarantee uniform
-// across every unattended sweep job rather than leaving this one as the exception.
 const GENERATOR_BATCH_SIZE = 500;
 
-// Plain-object shape carrying everything generateInstanceForDefinition needs, decoupled from
-// wherever the caller got it from — the sweep below loads it fresh off the DB (loadDefinitionForGeneration),
-// while checklistDefinition.service.ts's create()/update() load it the same way right after their
-// own transaction commits, so both paths see exactly what was actually persisted (no risk of the
-// generator working off stale/unsaved input).
 type GenerationItem = {
     id: string
     label: string
@@ -97,32 +82,17 @@ export type GenerationDefinition = {
     items: GenerationItem[]
 }
 
-// Assembles the generation-shaped view of a definition straight off the DB (its store/assignee
-// junction rows and its items + their audit-user junction rows) — the closest equivalent of the
-// old Mongoose-populated definition document the job used to work off of. Deliberately separate
-// from checklistDefinition.service.ts's own hydrateDefinitions (which also computes completion/
-// quality stats this job has no use for, and importing from that module would create a circular
-// import since that service calls back into this one).
 export const loadDefinitionForGeneration = async (definitionId: string): Promise<GenerationDefinition | null> =>
     (await loadDefinitionsForGeneration([definitionId])).get(definitionId) ?? null
 
-// Batched sibling of loadDefinitionForGeneration above: 5 queries total for the whole set instead
-// of 5 per definition. The hourly sweep used to call the singular loader once per due definition —
-// harmless at a handful of definitions, but a batch of GENERATOR_BATCH_SIZE (500) meant up to 2,500
-// sequential round trips per tick. Single-definition call sites (create()/update() in
-// checklistDefinition.service.ts, via loadDefinitionForGeneration) are unaffected.
 export const loadDefinitionsForGeneration = async (definitionIds: string[]): Promise<Map<string, GenerationDefinition>> => {
     const result = new Map<string, GenerationDefinition>()
     if (!definitionIds.length) return result
 
-    // isNull(deletedAt) is defense-in-depth here — every caller (the sweep below, and
-    // create()/update() in checklistDefinition.service.ts) already only passes ids it knows are
-    // live, but a soft-deleted definition must never generate another instance if that ever changes.
     const rows = await db.select().from(checklistDefinitions).where(and(inArray(checklistDefinitions.id, definitionIds), isNull(checklistDefinitions.deletedAt)))
     const storeLinks = await db.select({ definitionId: checklistDefinitionStores.definitionId, storeId: checklistDefinitionStores.storeId })
         .from(checklistDefinitionStores)
         .where(inArray(checklistDefinitionStores.definitionId, definitionIds))
-    // Inactive (deactivated/offboarded) people never get a run, so they are dropped at load time.
     const assigneeLinks = await db.select({ definitionId: checklistDefinitionAssignees.definitionId, userId: checklistDefinitionAssignees.userId })
         .from(checklistDefinitionAssignees)
         .innerJoin(users, eq(users.id, checklistDefinitionAssignees.userId))
@@ -181,7 +151,6 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-// Who fills a run in and who reviews it, copied from the definition.
 const stampPeople = async (tx: Tx, instanceId: string, definition: GenerationDefinition) => {
     if (definition.assigneeIds.length) {
         await tx.insert(checklistInstanceAssignees).values(
@@ -195,28 +164,14 @@ const stampPeople = async (tx: Tx, instanceId: string, definition: GenerationDef
     }
 }
 
-// A yes/no or pass/fail question nobody gave an accepted answer to still has an obvious right answer
-// (Yes, Pass), so a "No" counts as a failed check instead of being ignored. It is copied into the run when
-// the run is made, which means it applies from now on and leaves every earlier run's score as it was.
-// A question with its own rule keeps it.
 export const defaultAcceptableAnswers = (item: Pick<GenerationItem, "itemType" | "acceptableAnswers">): string[] | null =>
     item.acceptableAnswers?.length ? item.acceptableAnswers : item.itemType === "YES_NO" || item.itemType === "PASS_FAIL" ? ["YES"] : item.acceptableAnswers
 
-// The columns of a run's question that are authored on the checklist question and copied across
-// (how the question is answered, its photo rules, its options). Used both to stamp a question onto
-// a run and to bring a not-yet-answered question on a started run up to date.
 const definitionConfig = (item: GenerationItem) => ({
-    // Photo requirements are authored once on the definition item and copied onto
-    // every instance it stamps out — an instance item never edits these itself.
     requiredImageCount: item.requiredImageCount,
     maxImageCount: item.maxImageCount,
     requiresLivePhoto: item.requiresLivePhoto,
     isCritical: item.isCritical,
-    // Definition items commonly leave this null (only some items use accessory
-    // checkboxes) — the client's ChecklistInstanceItem type declares this a plain
-    // string[] (never null), and ChecklistInstanceItemAuditCard.tsx reads
-    // `.length` on it unconditionally, so a raw null here crashed the whole
-    // checklist detail page for any AUDIT item with no accessories configured.
     accessories: item.accessories ?? [],
     numberEntryUnit: item.numberEntryUnit,
     numberEntryMin: item.numberEntryMin,
@@ -236,9 +191,6 @@ const definitionConfig = (item: GenerationItem) => ({
     noActions: item.noActions,
 })
 
-// What to check on ONE person: the list for their dress type when the question has one (a type with
-// an empty list doesn't count), else the list for their gender, else the question's main list (also
-// what someone with neither set gets). A stale or unknown type id just falls through.
 export const accessoriesForPerson = (
     item: Pick<GenerationItem, "accessories" | "accessoriesFemale" | "accessoriesMale" | "accessoriesByType">,
     person: { gender: Gender | null; dressTypeId: string | null },
@@ -253,16 +205,12 @@ type PersonLook = { gender: Gender | null; dressTypeId: string | null }
 
 type ListSource = Parameters<typeof accessoriesForPerson>[0]
 
-// True when the question carries a non-empty tick-list for this dress type.
 export const typeHasList = (item: Pick<ListSource, "accessoriesByType">, dressTypeId: string | null | undefined): dressTypeId is string => {
     if (!dressTypeId) return false
     const list = item.accessoriesByType?.[dressTypeId]
     return Array.isArray(list) && list.length > 0
 }
 
-// Just the columns of a checklist question that decide what gets ticked, for code that has a run
-// question's definitionItemId in hand and needs the lists (a run can outlive edits to the question,
-// so this reads the current definition). Null when the question no longer exists.
 export const loadAuditListSource = async (definitionItemId: string, executor: Pick<typeof db, "select"> = db): Promise<ListSource | null> => {
     const [row] = await executor.select({
         accessories: checklistDefinitionItems.accessories,
@@ -279,10 +227,6 @@ const peopleOf = async (tx: Tx, userIds: string[]): Promise<Map<string, PersonLo
     return new Map(rows.map((r) => [r.id, { gender: r.gender, dressTypeId: r.dressTypeId }]))
 }
 
-// One ticked-off-nothing row per accessory, for each person on an AUDIT question. A person starts on
-// their profile's dress type when the question has a list for it (stored on the submission so the
-// auditor can see and change it); otherwise they start on "Standard" (null): their gender list, then
-// the main list. See accessoriesForPerson.
 const stampAuditPeople = async (tx: Tx, itemId: string, userIds: string[], item: GenerationItem) => {
     if (!userIds.length) return
     const people = await peopleOf(tx, userIds)
@@ -300,8 +244,6 @@ const stampAuditPeople = async (tx: Tx, itemId: string, userIds: string[], item:
     }
 }
 
-// Stamps checklist questions onto a run as brand-new, unanswered questions. Each one remembers which
-// checklist question it came from (definitionItemId), so a later edit can find it again.
 const stampItems = async (tx: Tx, instanceId: string, items: GenerationItem[]) => {
     if (!items.length) return
 
@@ -319,33 +261,20 @@ const stampItems = async (tx: Tx, instanceId: string, items: GenerationItem[]) =
         })),
     )
 
-    // AUDIT items fan out into one ChecklistInstanceItemSubmission per person being audited,
-    // seeded with that item's accessories checklist (all unchecked).
     for (const [index, item] of items.entries()) {
         if (item.itemType === "AUDIT") await stampAuditPeople(tx, itemIds[index], item.auditUserIds, item)
     }
 }
 
-// Everything under an instance row that comes from its definition: who fills it in, who reviews
-// it, and its questions (with one row per audited person on an AUDIT question). Shared by a brand
-// new instance (generateInstanceForStore) and by syncLiveInstances, so a run rebuilt after an edit
-// is stamped exactly the way a fresh one is.
 const stampInstanceContents = async (tx: Tx, instanceId: string, definition: GenerationDefinition) => {
     await stampPeople(tx, instanceId, definition)
     await stampItems(tx, instanceId, definition.items)
 }
 
-// One slice of a checklist's people at one store: what a single run is for.
 export type RunScope = { key: string; assigneeIds: string[]; title: string }
 
 const scopedTitle = (name: string, label: string) => `${name} · ${label}`.slice(0, 191)
 
-// How a definition's (working) assignees split into runs at a store, by its response mode:
-//  SHARED         one run for everyone (key '')
-//  PER_USER       one run per person
-//  PER_DEPARTMENT one run per department among the assignees (people with no department share one)
-// With more than one store, a person who belongs to a store only gets that store's runs; a person
-// with no store of their own gets a run at every store. Built once per generation/sync pass.
 export const buildScopeResolver = async (definition: GenerationDefinition): Promise<(storeId: string) => RunScope[]> => {
     if (definition.responseMode === "SHARED") {
         return () => [{ key: "", assigneeIds: definition.assigneeIds, title: definition.name }]
@@ -382,16 +311,6 @@ export const buildScopeResolver = async (definition: GenerationDefinition): Prom
     }
 }
 
-// Stamps out the currently-due ChecklistInstance for one (definition, store) pair. Caller is
-// responsible for the "already generated for this period?" check — see generateInstanceForDefinition,
-// which does that once for every store up front instead of once per store here.
-//
-// Wrapped in a single transaction (the original had none, plus a manual delete-the-orphan
-// cleanup for when item/submission stamp-out failed after the instance insert had already
-// committed) — a deliberate improvement per the migration conventions: if anything in here
-// fails, the whole attempt rolls back cleanly instead of leaving a half-stamped-out instance
-// behind for the next sweep tick to skip over (its (definitionId, storeId, periodKey) would
-// otherwise already "exist" with no items to complete).
 const generateInstanceForStore = async (
     definition: GenerationDefinition,
     storeId: string,
@@ -419,8 +338,6 @@ const generateInstanceForStore = async (
             await stampInstanceContents(tx, instanceId, { ...definition, assigneeIds: scope.assigneeIds })
         })
     } catch (err: any) {
-        // Duplicate-key race between this run and a concurrent tick for the same period —
-        // the unique (definitionId, storeId, periodKey, scopeKey) index already guarantees only one wins.
         if (err?.code === "ER_DUP_ENTRY") return null
         throw err
     }
@@ -428,23 +345,11 @@ const generateInstanceForStore = async (
     return { id: instanceId }
 }
 
-// A company-wide day off (Admin -> Holidays). `dateStr` is the org-local day as YYYY-MM-DD, which is
-// exactly periodStart's own date because periodStart is that local day written as UTC midnight.
 const isHoliday = async (dateStr: string): Promise<boolean> => {
     const [row] = await db.select({ id: holidays.id }).from(holidays).where(eq(holidays.date, dateStr)).limit(1)
     return !!row
 }
 
-// Working days + personal week-offs + company holidays + extra working days (DAILY only — a weekly/monthly
-// run spans several days, so one person's day off or one public holiday shouldn't cancel it). periodStart
-// is the org-local calendar day written as UTC midnight (utils/period.ts), so its UTC weekday IS the local
-// weekday. Returns the definition to stamp this period from (for a DAILY one, with the people not working
-// today filtered out), or null when nothing should run: a holiday, not a working day, or everyone assigned
-// is off. No run means nothing to miss, so no score drops.
-//
-// An extra working day (Admin -> Holidays -> Extra working days, e.g. Sunday overtime) turns the day ON
-// for the people it covers, whatever the checklist's weekdays, their own week-off or a holiday say.
-// Everyone it does not cover keeps the normal rules.
 const applyWorkingDayRules = async (definition: GenerationDefinition, period: Period): Promise<GenerationDefinition | null> => {
     if (definition.recurrence !== "DAILY") return definition
     const dateStr = period.periodStart.toISOString().slice(0, 10)
@@ -455,8 +360,6 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
 
     if (!definition.assigneeIds.length) {
         if (dayOn) return definition
-        // A store checklist with nobody named: an extra day for everyone runs it everywhere, one for some
-        // stores runs it in those stores only.
         if (extras.some((e) => e.scope === "ALL")) return definition
         const extraStores = new Set(extras.filter((e) => e.scope === "STORE").flatMap((e) => e.targetIds ?? []))
         const storeIds = definition.storeIds.filter((id) => extraStores.has(id))
@@ -472,20 +375,14 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
         if (e.scope === "DEPARTMENT") return !!p.departmentId && ids.includes(p.departmentId)
         return !!p.storeId && ids.includes(p.storeId)
     })
-    // A deactivated person never gets a run. Everyone else works if it is a normal working day for them,
-    // or an extra working day covers them.
     const workingIds = new Set(people
         .filter((p) => p.isActive && ((dayOn && !(p.weekOffDays ?? []).includes(weekday)) || coveredByExtra(p)))
         .map((p) => p.id))
     const working = definition.assigneeIds.filter((id) => workingIds.has(id))
-    // Everyone on this checklist is off today — no run, rather than an overdue one nobody was ever
-    // going to fill.
     if (!working.length) return null
     return working.length === definition.assigneeIds.length ? definition : { ...definition, assigneeIds: working }
 }
 
-// Removing an extra working day for today: runs nobody started on that day, whose checklist would not run
-// there now, are taken back off people's lists. Started runs are real work and stay.
 export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number> => {
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId, definitionId: checklistInstances.definitionId })
@@ -524,12 +421,6 @@ export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number
     return removed
 }
 
-// Stamps out the currently-due ChecklistInstance for one definition, across every store it's live
-// in — one independent instance per store, or does nothing if its period hasn't arrived yet.
-// Shared by the sweep below and by checklistDefinition.service.ts's create()/update() — a
-// freshly-created (or just-reactivated) already-due definition gets its first instance(s)
-// immediately instead of waiting for the next hourly tick. Returns the list of newly-created
-// instances (empty if none were due/new).
 export const generateInstanceForDefinition = async (definition: GenerationDefinition, now: Date): Promise<{ id: string }[]> => {
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return []
@@ -539,8 +430,6 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
     if (!working) return []
     definition = working
 
-    // One query covering every store this definition is live in, instead of one
-    // "already generated?" existence check per store.
     const alreadyGeneratedRows = await db.select({ storeId: checklistInstances.storeId, scopeKey: checklistInstances.scopeKey })
         .from(checklistInstances)
         .where(and(
@@ -555,8 +444,6 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
     for (const storeId of definition.storeIds) {
         for (const scope of scopesAt(storeId)) {
             if (alreadyGenerated.has(`${storeId}|${scope.key}`)) continue
-            // Each run is isolated in its own try/catch: one failure (bad data, a transient DB
-            // error) must not stop the rest of this definition's runs from being created this tick.
             try {
                 const instance = await generateInstanceForStore(definition, storeId, period, now, scope)
                 if (instance) {
@@ -569,8 +456,6 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
         }
     }
 
-    // A ONE_TIME definition has exactly one period, ever — deactivate it once generated (in at
-    // least one store) so the sweep doesn't keep re-checking it forever.
     if (definition.recurrence === "ONE_TIME" && created.length) {
         await db.update(checklistDefinitions).set({ isActive: false, updatedAt: new Date() }).where(eq(checklistDefinitions.id, definition.id))
     }
@@ -578,14 +463,6 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
     return created
 }
 
-// What an edit did to the runs that already exist for the current period.
-//  refreshed — runs nobody had started, rebuilt from the edited checklist (or dropped, if the
-//              edit took their store or today out of it)
-//  updated   — runs someone had already started, brought up to date in place: renamed/moved/new/
-//              removed questions, audit people and times all follow the edit, and every answer
-//              already entered stays
-//  kept      — runs left exactly as they were: already sent for review or approved (a signed-off
-//              record), or started runs whose store or day the edit took out of the checklist
 export type LiveRunsSummary = { refreshed: number; updated: number; kept: number }
 
 const hasValue = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : v != null)
@@ -594,8 +471,6 @@ type RunRow = typeof checklistInstances.$inferSelect
 type InstanceItemRow = typeof checklistInstanceItems.$inferSelect
 type SubmissionRow = typeof checklistInstanceItemSubmissions.$inferSelect
 
-// True when a question on a run holds an answer, a skip or a note (photos and audit rows are
-// checked separately, they live in other tables).
 const itemHasAnswer = (i: InstanceItemRow) =>
     i.isDone || i.isNotApplicable
     || hasValue(i.completedAt) || hasValue(i.numericValue) || hasValue(i.booleanAnswer) || hasValue(i.textValue)
@@ -603,9 +478,6 @@ const itemHasAnswer = (i: InstanceItemRow) =>
     || hasValue(i.signatureValue) || hasValue(i.secondSignatureValue)
     || hasValue(i.conditionalReasonValue) || hasValue(i.remarks) || hasValue(i.issueId)
 
-// True once anyone has done anything on a run: answered or skipped a question, typed a note,
-// attached a photo, ticked someone off an audit, or pushed it into review. Deliberately generous —
-// a run that merely *might* hold someone's work is never rebuilt from scratch.
 const runHasProgress = async (tx: Tx, run: RunRow): Promise<boolean> => {
     if (run.verificationStatus !== "NOT_SUBMITTED" || run.rejectionCount > 0 || run.draftReminderSentAt) return true
 
@@ -636,17 +508,8 @@ const runHasProgress = async (tx: Tx, run: RunRow): Promise<boolean> => {
     return !!submissionImage
 }
 
-// Wording compared loosely, so "Check the  badge" and "check the badge " are the same question.
 const normalizeLabel = (label: string) => label.trim().replace(/\s+/g, " ").toLowerCase()
 
-// Pairs each question already on a run with the checklist question it came from, so an edit can be
-// carried onto the run:
-//  1. by the link written when the question was stamped (definitionItemId) — survives a rename or a
-//     move to another section, as long as the question kept its type;
-//  2. for runs stamped before that link existed (or whose question was re-created), by same type +
-//     same wording, first-come in the run's own order.
-// Whatever is left over is a run question the checklist no longer has (unmatchedRun) and a checklist
-// question the run doesn't have yet (newDefs).
 export const matchRunItems = (runItems: InstanceItemRow[], defItems: GenerationItem[]) => {
     const defById = new Map(defItems.map((d) => [d.id, d]))
     const takenDef = new Set<string>()
@@ -685,10 +548,6 @@ export const matchRunItems = (runItems: InstanceItemRow[], defItems: GenerationI
     return { pairs, unmatchedRun, newDefs: defItems.filter((d) => !takenDef.has(d.id)) }
 }
 
-// Keeps the people on a started run's AUDIT question in step with the checklist: someone added to
-// the audit gets a row to fill in, someone taken off loses theirs unless they were already checked
-// (that result is a record and stays), and every open person's tick-list follows the list that fits
-// them (by dress type, then gender). Returns whether everyone left on the question is now submitted.
 const syncAuditPeople = async (
     tx: Tx,
     itemId: string,
@@ -712,9 +571,6 @@ const syncAuditPeople = async (
 
     for (const submission of remaining) {
         if (submission.isDone) continue
-        // This person's own list: the dress type picked on their row (the auditor may have changed
-        // it from their profile's), then gender, else the main list. A picked type the question no
-        // longer has a list for falls back to Standard.
         const pickedTypeId = typeHasList(def, submission.dressTypeId) ? submission.dressTypeId : null
         if (pickedTypeId !== submission.dressTypeId) {
             await tx.update(checklistInstanceItemSubmissions).set({ dressTypeId: pickedTypeId, updatedAt: new Date() }).where(eq(checklistInstanceItemSubmissions.id, submission.id))
@@ -737,13 +593,6 @@ const syncAuditPeople = async (
     return added.length === 0 && remaining.length > 0 && remaining.every((s) => s.isDone)
 }
 
-// Brings a run that's already started up to date with the edited checklist WITHOUT touching anyone's
-// work. Every question that's still on the checklist keeps its answer and follows the edit (new
-// wording, new section, new place in the order); a question nobody touched that the edit removed is
-// dropped, one that already holds an answer stays; new questions are added unanswered; the audit's
-// people, the times, the assignees and the reviewers follow the edit. A question that's already
-// answered keeps the rules it was answered under (photo count, options, range) — only its wording,
-// section and place change.
 const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefinition, now: Date) => {
     const runItems = await tx.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, run.id))
     const itemIds = runItems.map((i) => i.id)
@@ -781,7 +630,6 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
     const { pairs, unmatchedRun, newDefs } = matchRunItems(runItems, working.items)
 
     for (const { run: item, def } of pairs) {
-        // A not-applicable audit is finished as a whole: its people are left alone.
         let auditAllDone: boolean | null = null
         if (def.itemType === "AUDIT" && !item.isNotApplicable) {
             auditAllDone = await syncAuditPeople(tx, item.id, def, submissionsByItem.get(item.id) ?? [], accessoriesBySubmission)
@@ -797,8 +645,6 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
         }
         if (!finished) Object.assign(patch, definitionConfig(def))
         if (auditAllDone !== null && auditAllDone !== item.isDone) {
-            // The audit's done-ness is derived from its people (see the submission service): someone
-            // new to check reopens it, taking the last open person off finishes it.
             patch.isDone = auditAllDone
             if (!auditAllDone) { patch.completedAt = null; patch.completedBy = null }
         }
@@ -820,24 +666,11 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
     await stampPeople(tx, run.id, working)
 }
 
-// A run is a snapshot of its checklist taken when it was created, so saving an edit used to leave
-// today's runs on the OLD version — the change only showed from the next run, which made an edit
-// look like it hadn't saved. Now every run of the current period follows the edit, in place (same
-// id, so links and notifications still work):
-//  - a run nobody has started is rebuilt from the edited checklist;
-//  - a run that's already started is merged: the edit is carried onto it and every answer stays
-//    (see mergeIntoStartedRun);
-//  - a run already sent for review or approved is a signed-off record and is left alone, like a
-//    started run whose store (or day) the edit took out of the checklist.
-// Returns how many runs fell in each group.
 export const syncLiveInstances = async (definition: GenerationDefinition, now: Date): Promise<LiveRunsSummary> => {
     const summary: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return summary
 
-    // An overnight checklist (opens 18:00, cuts off 07:00) is still live in the morning of the next day:
-    // the run of the day before is the one people are filling in at 02:00, and an edit made then must
-    // reach it too, not only the run that opens that evening.
     const periods = [period]
     const overnight = definition.recurrence === "DAILY" && !!definition.opensTime && !!definition.cutoffTime && definition.cutoffTime < definition.opensTime
     if (overnight) {
@@ -852,26 +685,20 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     const runs = await db.select({ id: checklistInstances.id }).from(checklistInstances).where(and(
         eq(checklistInstances.definitionId, definition.id),
         eq(checklistInstances.periodKey, target.periodKey),
-        // The earlier day's run is only touched while it is still open for filling: once its cutoff has
-        // passed it is a record of what happened, and an edit must not rewrite or remove a miss.
         target === period ? undefined : sql`${deadlineExpr} > ${localNowExpr}`,
     ))
 
     for (const { id } of runs) {
         try {
             const outcome = await db.transaction(async (tx) => {
-                // Locked, so two saves in a row can't both decide this run is untouched and race.
                 const [run] = await tx.select().from(checklistInstances)
                     .where(eq(checklistInstances.id, id)).for("update").limit(1)
                 if (!run) return null
 
-                // This run's slice of the people (its department / person), or null when the edit
-                // no longer gives it one: then it's handled like a store taken out of the checklist.
                 const scope = scopesAt?.(run.storeId).find((sc) => sc.key === run.scopeKey)
                 const scoped = working && scope ? { ...working, assigneeIds: scope.assigneeIds, name: scope.title } : null
 
                 if (await runHasProgress(tx, run)) {
-                    // Sent for review or approved: nobody may change what a reviewer is looking at.
                     const editable = run.verificationStatus === "NOT_SUBMITTED" || run.verificationStatus === "REJECTED"
                     if (!editable || !scoped || !definition.storeIds.includes(run.storeId)) {
                         return { kind: "kept" as const, storeId: run.storeId }
@@ -880,8 +707,6 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
                     return { kind: "updated" as const, storeId: run.storeId }
                 }
 
-                // The edit took this store out (or made today a day off) and nobody started it:
-                // the empty run has no reason to exist any more.
                 if (!scoped || !definition.storeIds.includes(run.storeId)) {
                     await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
                     return { kind: "refreshed" as const, storeId: run.storeId }
@@ -895,7 +720,6 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
                 }).where(eq(checklistInstances.id, id))
                 await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
                 await tx.delete(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
-                // Cascades to the old items' images, submissions, accessories and submission images.
                 await tx.delete(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, id))
                 await stampInstanceContents(tx, id, scoped)
                 return { kind: "refreshed" as const, storeId: run.storeId }
@@ -903,15 +727,12 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
             if (!outcome) continue
             summary[outcome.kind]++
             if (outcome.kind === "updated") {
-                // Removing the last open question (or finishing the audit's last open person) can
-                // leave the run fully done: move it on to review the way ticking it off would have.
                 await syncVerificationStatus(id)
             }
             if (outcome.kind !== "kept") {
                 emitChecklistEvent("checklist-instance:updated", { storeId: outcome.storeId }, { instanceId: id })
             }
         } catch (err) {
-            // One run failing to update must not stop the rest — it simply keeps its old version.
             console.error(`Updating checklist run ${id} for definition ${definition.id} failed:`, err)
         }
     }
@@ -919,17 +740,12 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     return summary
 }
 
-// Called when a holiday is added for a date that may already have runs (the hourly sweep creates
-// the day's runs at the start of the day): every DAILY run for that day that nobody has started is
-// removed, so there is no checklist left standing to be missed. A run someone has already started
-// stays, since they chose to work that day and their answers are real. Returns how many were removed.
 export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number> => {
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
         .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
 
     let removed = 0
-    // Whose cached board/dashboard numbers just changed (read before the delete cascades the links away).
     const affectedAssignees = new Set<string>()
     for (const { id, storeId } of runs) {
         try {
@@ -947,19 +763,13 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
                 emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
             }
         } catch (err) {
-            // One run failing to clear must not stop the rest.
             console.error(`Removing holiday run ${id} failed:`, err)
         }
     }
-    // Without this the board's cached summary kept counting the runs just removed until its TTL ran out.
     if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a holiday failed:", err))
     return removed
 }
 
-// Pausing a checklist: its runs for the current period (today's daily run, this week's or month's run)
-// that nobody has started are removed, so from the pause on they are not on anyone's list and cannot be
-// counted as missed. A run someone already started, or one sent for review, is real work and stays. Past
-// periods are history and are never touched. Resuming lets the generator create the current run again.
 export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date()): Promise<number> => {
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
@@ -991,8 +801,6 @@ export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Dat
     return removed
 }
 
-// Everyone ever assigned a run of this checklist: pausing or resuming changes what their own list shows
-// (older open runs are hidden while paused), so their cached counts must not wait for the timeout.
 export const clearSummariesForDefinition = async (definitionId: string): Promise<void> => {
     const everyone = await db.selectDistinct({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
         .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
@@ -1000,9 +808,6 @@ export const clearSummariesForDefinition = async (definitionId: string): Promise
     if (everyone.length) await dropChecklistSummaries(everyone.map((e) => e.userId)).catch((err) => console.error("Clearing checklist summary cache failed:", err))
 }
 
-// Dry run of dropUntouchedDailyRunsOn for the "add a holiday" confirmation: how many of that day's
-// DAILY runs nobody has started (these would be removed) and how many someone has (these stay).
-// Writes nothing.
 export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRuns: number; startedRuns: number }> => {
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
     const runs = await db.select().from(checklistInstances)
@@ -1020,17 +825,11 @@ export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRu
 
 export const generateDueInstances = async () => {
     const now = new Date()
-    // Widen the pre-filter by the same org-timezone offset getCurrentPeriod uses, so a definition
-    // whose startDate is "today" in local time but still "tomorrow" by raw UTC clock isn't excluded
-    // before generateInstanceForDefinition ever gets a chance to evaluate it.
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const definitionRows = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
         .where(and(
             eq(checklistDefinitions.isActive, true),
             lte(checklistDefinitions.startDate, localNow),
-            // A soft-deleted definition must stop generating new instances the moment it's
-            // deleted, independent of isActive (a separate pause/resume switch) — see
-            // checklistDefinition.service.ts's NOT_DELETED.
             isNull(checklistDefinitions.deletedAt),
         ))
         .orderBy(asc(checklistDefinitions.startDate))
@@ -1042,8 +841,6 @@ export const generateDueInstances = async () => {
 
     const definitionsById = await loadDefinitionsForGeneration(definitionRows.map((r) => r.id))
     for (const { id } of definitionRows) {
-        // Each definition is isolated in its own try/catch — one bad/malformed definition must
-        // not abort the sweep for the rest, unlike the single-collection slaSweep job.
         try {
             const definition = definitionsById.get(id)
             if (definition) await generateInstanceForDefinition(definition, now)
@@ -1053,14 +850,8 @@ export const generateDueInstances = async () => {
     }
 }
 
-// Registers the hourly sweep and runs it once immediately, so a freshly deployed server (or a
-// definition created mid-day) doesn't wait up to an hour for its first instance. Hourly, not
-// every-5-minutes like the SLA sweep: every period boundary here is day-granular, so sub-hour
-// polling buys nothing, while hourly stays cheap and tolerates brief downtime near midnight.
 export const startChecklistInstanceGenerator = () => {
     generateDueInstances().catch((err) => console.error("Initial checklist instance generation failed:", err))
-    // Every half hour, not hourly: local midnight is 18:30 UTC at the default +05:30 offset, so an hourly
-    // sweep at :00 made every new day wait 30 minutes while yesterday's runs had already left everyone's list.
     scheduleJob("checklist-generator", "0,30 * * * *", 30, () => {
         generateDueInstances().catch((err) => console.error("Checklist instance sweep failed:", err))
     })

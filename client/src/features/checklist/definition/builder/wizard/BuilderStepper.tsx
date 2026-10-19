@@ -30,10 +30,6 @@ export const BuilderStepper = ({
 }: BuilderStepperProps) => {
   return (
     <>
-    {/* Below xl: six labelled steps never fit in one row (the circle stepper needs about 840px, more
-        than the content area has between sm and xl once the sidebar is open), so they collapse to
-        "Step n of 6" plus one tappable segment per step, tinted the same way the circles are
-        (done / needs attention / current / locked). */}
     <nav aria-label="Checklist builder progress" className={`xl:hidden flex flex-col gap-2 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">
@@ -95,7 +91,6 @@ export const BuilderStepper = ({
           const isConnectorFilled = index < current;
           const isLast = index === steps.length - 1;
 
-          // Accessible status description
           let statusDescription = 'In progress';
           if (isLocked) statusDescription = 'Locked (complete previous steps first)';
           else if (isCompleted) statusDescription = 'Completed';
@@ -117,7 +112,6 @@ export const BuilderStepper = ({
                     : 'cursor-pointer hover:bg-muted/40'
                   } focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
               >
-                {/* Step Circle Badge */}
                 <span
                   className={[
                     'flex size-8 pointer-coarse:size-9 shrink-0 items-center justify-center rounded-full text-xs font-display font-bold transition-all duration-200',
@@ -140,7 +134,6 @@ export const BuilderStepper = ({
                   )}
                 </span>
 
-                {/* Step Label & Subtitle */}
                 <div className="flex flex-col text-left">
                   <span
                     className={[
@@ -164,7 +157,6 @@ export const BuilderStepper = ({
                 </div>
               </button>
 
-              {/* Progress Connector Line */}
               {!isLast && (
                 <div
                   aria-hidden="true"

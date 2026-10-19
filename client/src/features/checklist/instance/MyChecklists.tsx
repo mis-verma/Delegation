@@ -36,13 +36,11 @@ const VIEW_TABS: ViewTab<View>[] = [
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 
-// Same "Options" dialog shell Delegation and Tickets both use, plus a permanent Store scope box —
-// the one facet checklist instances actually carry that those two pages already let you filter by.
 type SortKey = 'recent' | 'dueSoonest' | 'titleAsc';
 const SORT_LABEL: Record<SortKey, string> = { recent: 'Most recent', dueSoonest: 'Due soonest', titleAsc: 'Title A-Z' };
 const SORT_ICON: Record<SortKey, typeof Clock> = { recent: Clock, dueSoonest: AlarmClock, titleAsc: ArrowDownAZ };
 const SORT_COMPARATORS: Record<SortKey, (a: ChecklistInstance, b: ChecklistInstance) => number> = {
-  recent: () => 0, // server already orders by periodStart desc — nothing to re-sort
+  recent: () => 0,
   dueSoonest: (a, b) => instanceDeadline(a) - instanceDeadline(b),
   titleAsc: (a, b) => a.title.localeCompare(b.title),
 };
@@ -54,23 +52,14 @@ const GROUP_BY_ICON: Record<GroupByKey, typeof Repeat> = { recurrence: Repeat, s
 const RECURRENCES = Object.keys(RECURRENCE_LABEL) as ChecklistRecurrence[];
 const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerificationStatus[];
 
-// Same four-way split Delegation and Tickets both use, named plainly: "Not done" is every unfinished
-// run (missed included), "On track" is the subset still before its cutoff, "Missed" is the subset past
-// its cutoff, "Done today" is finished today. Not done, On track and Missed cover this month up to today, so a miss
-// stays on the books; Done is TODAY ONLY, so the finished runs of earlier days do not pile up here (they live on
-// the History page). These map onto the server's OPEN / DUE / COMPLETED / OVERDUE status filter (see
-// `serverStatus` below) rather than being applied here over a fully-downloaded list.
-
 const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
   pending: 'Not done', completed: 'Done today', due: 'On track', overdue: 'Missed',
 };
 
 const PAGE_SIZE = 50;
 
-// The Table view is hidden below `sm` (its toggle is too), so a phone is always on Board.
 const NARROW_QUERY = '(max-width: 639px)';
 
-// Loading placeholders shaped like what replaces them, per view, so nothing jumps on arrival.
 const CardSkeleton = () => (
   <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')} aria-hidden>
     <div className="flex flex-col gap-1.5">
@@ -129,16 +118,10 @@ const InstancesSkeleton = ({ view }: { view: View }) => {
 export const MyChecklists = () => {
   const [page, setPage] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
-  // One-time-read-from-URL seed (same pattern as TicketList/TaskList/TodoPage's `quickFilter`) so
-  // the Dashboard's "Due"/"Completed" rows still land on the matching subset here; from then on
-  // the tiles below drive it directly, same as everywhere else this pattern is used.
   const [quickFilter, setQuickFilter] = useState<MyChecklistsQuickFilterKey | null>(() => {
     const sf = searchParams.get('status');
     return sf === 'pending' || sf === 'due' || sf === 'completed' || sf === 'overdue' ? sf : null;
   });
-  // The tile now narrows the query itself instead of filtering an already-downloaded list —
-  // `overdue`/`due` became real server statuses (relative to each instance's period end), which is
-  // what let this endpoint start paginating at all.
   const serverStatus: ChecklistInstanceStatus | undefined =
     quickFilter === 'completed' ? 'COMPLETED'
     : quickFilter === 'pending' ? 'OPEN'
@@ -146,18 +129,11 @@ export const MyChecklists = () => {
     : quickFilter === 'overdue' ? 'OVERDUE'
     : undefined;
 
-  // One-time-read-from-URL seed, same as `quickFilter` above.
   const [storeId, setStoreId] = useState<string>(() => searchParams.get('store') ?? '');
   const { data: stores, isLoading: storesLoading } = useStoresQuery();
   const storeOptions = useMemo(() => (stores ?? []).filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name })), [stores]);
   const storeNameById = useMemo(() => new Map(storeOptions.map((s) => [s.id, s.name])), [storeOptions]);
 
-  // Board first: it groups by status (Due/Overdue/Completed) at a glance, which is what actually
-  // matters day to day — List's default grouping (Recurrence) says nothing about urgency, and
-  // Table is denser but built for scanning many rows, not spotting what's overdue right now.
-  // The toggle that would switch this back is hidden below `sm`: if someone picked List/Table on a
-  // wider screen and then narrows the window past that breakpoint, they get Board rather than a
-  // view they can no longer reach the control for. Derived, so there's no effect and no flash.
   const [pickedView, setView] = useState<View>('board');
   const isNarrow = useMediaQuery(NARROW_QUERY);
   const view: View = isNarrow ? 'board' : pickedView;
@@ -165,21 +141,12 @@ export const MyChecklists = () => {
   const [groupBy, setGroupBy] = useState<GroupByKey>('recurrence');
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence | ''>('');
   const [verificationStatus, setVerificationStatus] = useState<ChecklistVerificationStatus | ''>('');
-  // Instances have no departmentId of their own — this matches "at least one assignee belongs to
-  // this department" server-side (see checklistInstance.service.ts's instanceIdsForDepartment).
   const [departmentId, setDepartmentId] = useState('');
   const { data: allDepartments } = useDepartmentsQuery();
   const departmentOptions = useMemo(() => (allDepartments ?? []).filter((d) => d.isActive), [allDepartments]);
-  // Who else an instance is shared with — checklist instances can carry more than one assignee
-  // (e.g. "Store Opening Walkthrough"), so among *your* checklists this narrows to the ones a
-  // specific co-assignee is also on. Resolved server-side (getMine/summary's own `assigneeIds`
-  // param) — it used to filter only the already-fetched page client-side, which left the quick-
-  // stat tiles and pagination total quoting the pre-filter counts while the visible list shrank.
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(false);
 
-  // Front-line staff see only their own checklists, so the "Shared with" people list and the
-  // Department filter are left out for them — the list of colleagues isn't even requested.
   const { user } = useAuth();
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const canFillEnded = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -187,13 +154,9 @@ export const MyChecklists = () => {
   const people = useMemo(() => toFilterPeople(assignableUsers), [assignableUsers]);
   const peopleNameById = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
-  // Today's bound (org-local calendar day) — only applied when the Completed filter is actually
-  // engaged, below, so the "Completed" tile and this list agree on what "completed" means.
   const todayBound = todayPeriodBoundIso();
-  // The one window every tile counts: this month up to today (the server's own default, sent explicitly).
   const windowTo = todayBound.slice(0, 10);
   const windowFrom = `${windowTo.slice(0, 8)}01`;
-  // Opened from a chart bar: the server narrows to runs whose period falls in that bar's days.
   const createdRange = useCreatedRange();
   const rangeFrom = createdRange.range ? new Date(createdRange.range.from).toISOString() : undefined;
   const rangeTo = createdRange.range ? new Date(createdRange.range.to - 1).toISOString() : undefined;
@@ -204,14 +167,9 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
-    // A tile opens the same window the tile counted: this month up to today, except Done, which is today
-    // only (earlier days' finished runs belong to History). With no tile the list keeps every open run, so
-    // a weekly checklist begun last month does not vanish mid-week.
     from: rangeFrom ?? (quickFilter === 'completed' ? windowTo : quickFilter ? windowFrom : undefined),
     to: rangeTo ?? (quickFilter ? windowTo : undefined),
   };
-  // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
-  // while a new filter loads), so skeletons show on first load and the list just dims after that.
   const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
 
   const activeOptionsCount = (storeId ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
@@ -225,19 +183,13 @@ export const MyChecklists = () => {
 
   const toggleQuickFilter = useCallback((key: MyChecklistsQuickFilterKey) => {
     setQuickFilter((prev) => (prev === key ? null : key));
-    // Page 4 of the old filter is meaningless against the new one, and usually past its end.
     setPage(1);
     setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; });
   }, [setSearchParams]);
   const clearQuickFilter = useCallback(() => setQuickFilter(null), []);
 
-  // Everything the empty state can undo in one go: the status tile and every option.
   const clearAllFilters = () => { clearOptions(); setQuickFilter(null); };
 
-  // From the database, not from `allInstances.length`. Counting the fetched array is what forced
-  // /mine to return every instance ever assigned; with the tiles independent of the list, the list
-  // can page later without the numbers above it quietly turning into page sizes. Also scoped by
-  // `storeId` so the tile counts and pagination total match the filtered list, not the whole roster.
   const { data: summary, isPending: summaryIsPending } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
@@ -248,8 +200,6 @@ export const MyChecklists = () => {
     from: windowFrom,
     to: windowTo,
   });
-  // Today only: the "assigned to you today" line, and the Done tile (its count and the list it opens agree).
-  // The other tiles read the month window above.
   const { data: todaySummary, isPending: todaySummaryIsPending } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
@@ -260,32 +210,19 @@ export const MyChecklists = () => {
     from: windowTo,
     to: windowTo,
   });
-  // The counts default to 0 until the summaries land; the tiles and the overdue banner wait for them
-  // rather than showing (or hiding) numbers that aren't true yet.
   const summaryPending = summaryIsPending || todaySummaryIsPending;
   const counts = useMemo<MyChecklistsQuickFilterCounts>(() => ({
     pending: summary?.pending ?? 0,
-    // Done is today's figure (see the note at the top of this file); the rest are the month's.
     completed: todaySummary?.completed ?? 0,
     due: summary?.due ?? 0,
     overdue: summary?.missed ?? 0,
   }), [summary, todaySummary]);
 
-  // assigneeIds narrowing now happens server-side (both here and in the summary query above), so
-  // this only needs to re-sort the page the server already scoped.
   const sortedInstances = useMemo(() => [...allInstances].sort(SORT_COMPARATORS[sort]), [allInstances, sort]);
 
-  // This page is today's work, and a checklist's last time (its cutoff, e.g. 6:30 PM) is where it ends.
-  // The server already leaves out every run that has ended (unfinished past its cutoff; see
-  // isInstanceEnded, the same rule), so the first filter below is only a safety net for a page left open
-  // past a cutoff. The second is tidying, not a rule: once the cutoff passes, a run that is finished and
-  // handed in (waiting or approved) moves to History, and only what still needs the person stays: one sent
-  // back to fix, one finished but not yet submitted, and a one-time checklist that is not done. Tapping a
-  // tile lists exactly what that tile counted, so a number is never larger than the list it opens.
   const now = useNow();
   useRefreshOnNewDay();
   const instances = useMemo(() => {
-    // ADMIN/PC may still fill an ended run, so the server keeps it in their list and so does this.
     const open = canFillEnded ? sortedInstances : sortedInstances.filter((i) => !isInstanceEnded(i, now));
     if (quickFilter) return open;
     const needsAction = (i: ChecklistInstance) =>
@@ -297,8 +234,6 @@ export const MyChecklists = () => {
       needsAction(i));
   }, [sortedInstances, now, quickFilter, canFillEnded]);
 
-  // How many rows the active filter matches — taken from the summary counts already fetched
-  // above rather than a second request, since they're the same four numbers the tiles show.
   const matchingTotal =
     quickFilter === 'pending' ? counts.pending
     : quickFilter === 'completed' ? counts.completed
@@ -307,11 +242,6 @@ export const MyChecklists = () => {
     : (summary?.total ?? 0);
   const totalPages = Math.max(1, Math.ceil(matchingTotal / PAGE_SIZE));
 
-  // Grouped by Recurrence (default), Store, or Person — same "Group by" toggle Tickets' Options
-  // dialog offers (Department/Person there). Person is the one case a single instance can land in
-  // more than one group at once — a shared checklist (e.g. "Store Opening Walkthrough") has every
-  // one of its assignees as a real group membership, not just one. While stores/people are still
-  // loading, an unresolved name reads "Loading" instead of a wrong "Unknown".
   const grouped = useMemo(() => {
     if (view !== 'list') return [];
     const groups = new Map<string, ChecklistInstance[]>();
@@ -335,25 +265,15 @@ export const MyChecklists = () => {
   const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
 
   return (
-    // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
-    // and this one must not shift the content's width or edge.
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width)">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="checklists" />
       <div className="flex flex-col gap-3">
-        {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block, the nav
-            item that got you here already says My Checklists. The heading stays as the page's one
-            accessibility landmark; the count that used to sit in a lead "Total" tile is now this
-            plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
         <h1 className="sr-only">My Checklists</h1>
         <div className="flex items-center gap-1.5 t-meta sm:t-card font-display text-text-muted">
           {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
           assigned to you today
         </div>
 
-        {/* Stays up while anything of today's is overdue (past its cutoff, still not filled): one
-            step up from the red Missed tile. It counts the whole window (this month so far), not just
-            today. One short line, tap to see them. Held back until the summary has loaded so
-            it never flashes in or out on a count that is still the 0 default. */}
         {!summaryPending && counts.overdue > 0 && quickFilter !== 'overdue' && (
           <button
             type="button"
@@ -388,26 +308,11 @@ export const MyChecklists = () => {
         )}
       </div>
 
-      {/* Same "Store scope box + Options button" pair Delegation and Tickets both put in their own
-          toolbar row — Store as a permanent, always-visible box (it's the one org-scope dimension
-          checklist instances carry), Sort tucked inside Options since it's a view preference, not
-          a narrowing filter. Phones skip the whole row: today's cards are all they need. */}
       <div className="hidden sm:flex items-center gap-3 flex-wrap">
-        {/* View lives in the toolbar, not inside Options — same as Delegation/Tickets: it changes
-            what the whole page looks like, so it reads as a place you are, not a setting. Hidden
-            below `sm` entirely, not just Table — Board (the default) already reorders to
-            Overdue-first stacked cards on a phone (see ChecklistInstanceBoard's own comment),
-            which is exactly the "just show me the cards, overdue on top" view a mobile user
-            wants, so there's nothing worth switching away from there to offer a toggle for. */}
         <div className="hidden sm:block">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey={`view:checklists:${user?.id ?? "anon"}`} />
         </div>
 
-        {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
-            shifting this Store+Options cluster off the left edge on mobile for no benefit,
-            since there's no primary action to balance against on this page. Store used to be its
-            own dropdown beside Options; it's a filter like the rest, so it lives in the sheet now
-            and the toolbar is just Options, same as the other list pages. */}
         <div className="ml-auto flex shrink-0 items-center gap-3">
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
           <OptionsSheet
@@ -466,8 +371,6 @@ export const MyChecklists = () => {
               </ChoiceWrap>
             </OptionSection>
 
-            {/* Approval only applies once every item is done; the tiles above already cover
-                completion itself. */}
             <OptionSection icon={ShieldCheck} label="Approval" aside={!!verificationStatus && <ChoiceClear onClick={() => { setVerificationStatus(''); setPage(1); }} />}>
               <ChoiceWrap>
                 {VERIFICATIONS.map((v) => (
@@ -483,8 +386,6 @@ export const MyChecklists = () => {
               </ChoiceWrap>
             </OptionSection>
 
-            {/* Instances carry no department of their own: this matches "at least one assignee is
-                in this department" server-side. */}
             {!ownScopeOnly && departmentOptions.length > 0 && (
               <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => { setDepartmentId(''); setPage(1); }} />}>
                 <ChoiceWrap>

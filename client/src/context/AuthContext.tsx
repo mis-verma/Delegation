@@ -10,8 +10,6 @@ type AuthContextType = {
   token:      string | null;
   login:      (token: string, user: User) => void;
   logout:     () => void;
-  /** Patches the cached user (e.g. after an Account Settings name change) so the header/sidebar
-   *  initials reflect it immediately, without waiting for the next full login. */
   updateUser: (patch: Partial<User>) => void;
 };
 
@@ -50,18 +48,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
-    // Fire-and-forget, not awaited — sign-out should stay instant like it always has, and there's
-    // nothing to react to locally either way. This revokes the refresh token server-side so the
-    // still-valid httpOnly cookie can't be replayed (via /auth/refresh) to silently mint a new
-    // session after the user believes they've signed out — clearing only the local token/user
-    // state below never invalidated that cookie.
     authApi.logout().catch(() => {});
     tokenStore.set(null);
     localStorage.removeItem(USER_KEY);
     setUser(null);
-    // Purge every cached query on sign-out — without this, whatever the previous account had
-    // already fetched (tasks, tickets, dashboard data) stays in memory and can render for
-    // whichever account logs in next in this same tab, before its own queries refetch.
     queryClient.clear();
   };
 
@@ -72,8 +62,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Provider + hook intentionally live in one file (the hook is meaningless without its provider);
-// only affects Fast Refresh granularity, not runtime correctness.
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);

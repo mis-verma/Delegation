@@ -6,14 +6,9 @@ interface ComingSoonProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  /** Short bullet points teasing what's shipping — optional, keeps the page from feeling empty. */
   features?: string[];
 }
 
-// Full-bleed placeholder for a routed page that isn't built yet. Sits inside Dashboard's
-// <Outlet>, which already gives it a flex-1 column to fill, so this just centers itself within
-// that space rather than assuming viewport height (letting it work under both the plain Dashboard
-// shell and any header/breadcrumb wrapper a future page might add above it).
 export const ComingSoon = ({ icon: Icon, title, description, features }: ComingSoonProps) => (
   <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden px-4 py-16 text-center">
     <OrbitDecoration corner="top-left" tone="primary" className="hidden sm:block" />

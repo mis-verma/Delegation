@@ -22,7 +22,6 @@ export const ticketController = {
         res.json({ success : true , data })
     }),
 
-    // `data` is at most 8 rows; `meta.total` is the real number awaiting approval.
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
         const { data, meta } = await ticketService.pendingApproval();
         res.json({ success : true , data, meta })

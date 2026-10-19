@@ -13,7 +13,6 @@ import { auditService } from "../audit/audit.service.js";
 const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: string }) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1);
     if (!instance) throw AppError.notFound("Checklist instance not found");
-    // Same approval lock as setItemDone — evidence on an approved run can't be added or removed.
     assertInstanceEditable(instance, user);
     await assertRunOpenForUser(instance.id, user);
     if (user.role === "ADMIN" || user.role === "PC") return;
@@ -34,8 +33,6 @@ export const checklistInstanceImageService = {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
         }
 
-        // The upload filter accepts images and videos for every item, so a photo used to satisfy
-        // a video question and a video a photo question. Each item now only takes its own kind.
         const wantsVideo = item.itemType === "VIDEO_UPLOAD";
         const wrongKind = files.filter((f) => wantsVideo ? !f.mimetype.startsWith("video/") : !f.mimetype.startsWith("image/"));
         if (wrongKind.length) {
@@ -93,14 +90,10 @@ export const checklistInstanceImageService = {
             throw AppError.forbidden("Only an assignee of this checklist can upload evidence for it");
         }
 
-        // Evidence on a completed item stays put — removing it used to leave the item "done" with
-        // its proof gone. Reopen the item first to swap a photo.
         if (item?.isDone) {
             throw AppError.badRequest("This item is already done — reopen it first to change its evidence");
         }
 
-        // The file is deliberately left on disk (only the row goes), and the removal is logged
-        // with the file's URL — a deleted photo used to be unrecoverable.
         await db.delete(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId));
         await auditService.record({
             entityType: "ChecklistInstanceImage",

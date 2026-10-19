@@ -33,9 +33,6 @@ import type { CaptureMethod } from '../../../api/ticket';
 interface ChecklistInstanceItemAuditCardProps {
   item:           ChecklistInstanceItem;
   instanceId:     string;
-  /** Same rule as every other item type — whoever's assigned this checklist (or ADMIN/PC) can
-   *  fill it in. One field auditor works through everyone on this list themselves; a row here
-   *  isn't locked to whichever account happens to share that row's name. */
   canWork:        boolean;
   currentUserId?: string;
   isLocked:       boolean;
@@ -48,10 +45,6 @@ const personName = (submission: ChecklistInstanceItemSubmission) => {
 
 const firstName = (submission: ChecklistInstanceItemSubmission) => submission.userId?.firstName?.trim() || 'person';
 
-// Pick a person, then fill in just their row. An auditor walks the floor one person at a time, so
-// the card shows one person's checklist at a time too, and moves on by itself after each Submit.
-// Phones get a single "who is open" button that opens a sheet; large screens get the list as a
-// sticky column beside the open person.
 export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceItemAuditCard({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) {
   const peopleLabelId = useId();
   const { data: stores } = useStoresQuery();
@@ -67,9 +60,6 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
   });
   const selected = submissions.find(s => s.id === selectedId) ?? submissions[0] ?? null;
 
-  // Next person still waiting, searching forward from the one given and wrapping round. For a
-  // person just submitted the refetch that marks them done hasn't landed yet, so they are skipped
-  // by position, not by isDone.
   const findNextPending = (fromId: string) => {
     const at = submissions.findIndex(s => s.id === fromId);
     return [...submissions.slice(at + 1), ...submissions.slice(0, at)].find(s => !s.isDone);
@@ -79,8 +69,6 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
     if (next) setSelectedId(next.id);
   };
 
-  // A tall form leaves the page scrolled far down. When the checker moves on, bring the new
-  // person's top back into view instead of landing them at the bottom of someone else's form.
   const detailRef = useRef<HTMLDivElement>(null);
   const firstRun = useRef(true);
   const selectedKey = selected?.id;
@@ -153,8 +141,6 @@ const AuditProgress = ({ done, total }: { done: number; total: number }) => (
   </div>
 );
 
-// Also used read-only by ChecklistHistory, so a past result is drawn exactly the way
-// the auditor saw it.
 export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
   name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;
 }) => {
@@ -214,7 +200,6 @@ interface SubmissionPanelProps {
   isMe:        boolean;
   interactive: boolean;
   onSubmitted: (submissionId: string) => void;
-  /** Jumps to the next person still waiting. Absent when everyone else is already done. */
   onNext?:     () => void;
 }
 
@@ -225,19 +210,13 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const setDressType = useSetChecklistInstanceItemSubmissionDressTypeMutation(instanceId);
   const uploadImages = useUploadChecklistInstanceItemSubmissionImagesMutation(instanceId);
   const deleteImage = useDeleteChecklistInstanceItemSubmissionImageMutation(instanceId);
-  // A submitted person stays submitted: only an admin can reopen their row.
   const canReopen = useCanReopen();
 
   const [remarksDraft, setRemarksDraft] = useState(submission.remarks ?? '');
   const remarksDirty = remarksDraft !== (submission.remarks ?? '');
-  // "Not applicable": this person can't be checked today (absent, on leave). Asks for the reason in
-  // a pop-up, then counts them as submitted so the audit can still finish.
   const isNa = submission.isNotApplicable;
   const [naOpen, setNaOpen] = useState(false);
   const [naReason, setNaReason] = useState('');
-  // Ticked instantly, on the tap — not after the round trip. The mutation still fires and saves
-  // for real, but nobody should have to stare at a checkbox for half a second wondering if their
-  // tap registered. Rolled back to the last known-good state only if the save actually fails.
   const [accessoriesDraft, setAccessoriesDraft] = useState(submission.accessories);
 
   const name = personName(submission);
@@ -248,11 +227,9 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const typeChoices = dressTypeChoices(item.dressTypeOptions, submission.userId?.gender);
   const typeId = submission.dressType?.id ?? null;
   const typeSwapping = setDressType.isPending;
-  // The selector replaces the header chip while it can show the current type itself.
   const showTypePicker = editable && !submission.isNotApplicable && typeChoices.length > 0;
   const typeShownInPicker = showTypePicker && (typeId === null || typeChoices.some(o => o.id === typeId));
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
-  // Every checked person needs at least one photo as proof (the server enforces the same floor).
   const requiredPhotos = Math.max(1, item.requiredImageCount);
   const photosNeeded = Math.max(requiredPhotos - qualifying, 0);
   const checkedCount = accessoriesDraft.filter(a => a.checked).length;
@@ -266,7 +243,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   };
   const pickDressType = (dressTypeId: string | null) => {
     if (!editable || typeSwapping) return;
-    // The server swaps in the new type's list, all unticked; show it as soon as it lands.
     setDressType.mutate({ id: submission.id, dressTypeId }, {
       onSuccess: data => setAccessoriesDraft(data.accessories),
     });
@@ -275,7 +251,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
     if (!editable || typeSwapping) return;
     saveAccessories(accessoriesDraft.map(a => (a.name === accessoryName ? { ...a, checked: !a.checked } : a)));
   };
-  // Most people pass most checks — tick everything in one tap, then untick whatever's missing.
   const tickAll = () => {
     if (!editable) return;
     saveAccessories(accessoriesDraft.map(a => ({ ...a, checked: true })));
@@ -301,7 +276,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   };
 
   const openNa = () => {
-    // Start from whatever is already typed in Remarks, so nothing has to be typed twice.
     setNaReason(remarksDraft.trim());
     setNaOpen(true);
   };
@@ -321,8 +295,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const liveWord = item.requiresLivePhoto ? 'live ' : '';
   const unticked = accessoriesDraft.length - checkedCount;
 
-  // What the Submit button is waiting on, said plainly. Only missing photos block the button (as
-  // before); the rest is a heads-up so an untouched person isn't submitted by accident.
   const helper = photosNeeded > 0
     ? (qualifying === 0 && photosNeeded === 1
       ? `Add a ${liveWord}photo to submit.`
@@ -333,8 +305,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         ? `${unticked} not ticked. Those will be recorded as missing.`
         : '';
 
-  // The action strip. On phones it sticks above the bottom nav so Submit stays under the thumb
-  // however tall the form gets; from lg it is an ordinary row at the end of the panel.
   const actionBar = 'sticky z-10 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 lg:static flex flex-col gap-2 bg-surface -mx-3.5 px-3.5 sm:-mx-4 sm:px-4 lg:mx-0 lg:px-0 py-3 border-t border-border/60 lg:border-t-0 lg:py-0';
 
   return (
@@ -444,7 +414,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <AuditCaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
-                {/* A live-only question rejects gallery uploads server-side, so there's no Gallery button to fail. */}
                 {!item.requiresLivePhoto && (
                   <AuditCaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
                 )}

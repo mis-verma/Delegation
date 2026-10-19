@@ -15,19 +15,12 @@ interface TaskDescriptionFieldProps {
   disabled?: boolean;
   placeholder?: string;
   rows?: number;
-  /**
-   * Visible field label. Optional because TaskDetail renders this inside a row that already has
-   * its own; in a form it should always be set — a placeholder disappears the moment you type,
-   * so a field identified only by its placeholder is unlabelled as soon as it has content.
-   */
   label?: string;
 
   toolbar?: ReactNode;
 
   children?: ReactNode;
 
-  /** Extra classes merged onto the bordered wrapper — for a caller that wants a quieter fill
-   *  instead of the default visible border (e.g. TaskForm's Notion-style treatment). */
   containerClassName?: string;
 }
 
@@ -44,10 +37,6 @@ export const TaskDescriptionField = ({
   children,
   containerClassName,
 }: TaskDescriptionFieldProps) => (
-  // Sizes to its `rows`, rather than stretching to fill its parent. It used to carry
-  // `flex-1 min-h-0`, which inside TaskForm's flex column meant the textarea absorbed every
-  // spare pixel of the modal — so on a short viewport the description was the only field you
-  // could see and everything under it was pushed out of view behind a nested scrollbar.
   <div className="group/field flex flex-col gap-1.5">
     {label && (
       <label htmlFor={id} className={FIELD_LABEL_CLASS}>

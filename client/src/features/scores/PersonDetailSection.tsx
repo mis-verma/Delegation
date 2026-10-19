@@ -18,20 +18,13 @@ const NO_TICKETS: Ticket[] = [];
 interface PersonDetailSectionProps {
   personId: string;
   personName: string;
-  /** The department the viewer drilled through, when they came that way. */
   departmentFromTrail?: string;
-  /** The explorer's total row for this person: the same numbers as everywhere else. */
   total: ExplorerRow;
   from: string;
   to: string;
   windowLabel: string;
 }
 
-/**
- * What the old Team Overview showed for one person, under the Scores table: store checklist metrics, photo
- * proof and the created-in-period delegation and ticket bars. Its score figures are the explorer's own row for
- * this person, so they cannot differ from the table above.
- */
 export const PersonDetailSection = ({ personId, personName, departmentFromTrail, total, from, to, windowLabel }: PersonDetailSectionProps) => {
   const { user } = useAuth();
   const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -40,7 +33,6 @@ export const PersonDetailSection = ({ personId, personName, departmentFromTrail,
     return { from, to, startMs: Date.parse(w.start), endMs: Date.parse(w.end) - 1 };
   }, [from, to]);
 
-  // A head can only open people of their own department; Admin and PC need the person's record to know theirs.
   const users = useUsersQuery(orgWide && !departmentFromTrail);
   const departmentId = departmentFromTrail ?? (orgWide ? users.data?.find((u) => u.id === personId)?.departmentId : user?.departmentId) ?? '';
   const departments = useDepartmentsQuery();

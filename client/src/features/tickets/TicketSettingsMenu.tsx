@@ -40,11 +40,6 @@ interface TicketSettingsMenuProps {
   onExport: () => void;
 }
 
-/**
- * Tickets' Filter and sort sheet: who you're looking at, how the list is grouped and sorted, then
- * every filter as icon chips (status and priority circles, label dots, name chips with avatars).
- * Changes apply as you tap; the footer button shows how many tickets match.
- */
 export const TicketSettingsMenu = ({
   isOpen, setIsOpen, organizer, departments, assignableUsers, tags, canExport, onExport,
 }: TicketSettingsMenuProps) => {
@@ -86,7 +81,6 @@ export const TicketSettingsMenu = ({
       onExport={canExport ? onExport : undefined}
       showLabel={`Show ${resultCount} ${resultCount === 1 ? 'ticket' : 'tickets'}`}
     >
-      {/* Not on a phone: the page's own Assigned to me / Created by me switch already does this. */}
       <div className="max-sm:hidden">
       <OptionSection icon={Eye} label="Show">
         <OptionSegmented

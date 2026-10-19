@@ -16,12 +16,9 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact: boolean;
-  /** The raised round button in the middle of the bar. Exactly one item has it. */
   center?: boolean;
 }
 
-// Delegation sits in the middle, raised: it is the screen people live in, and a centre button is the
-// easiest one to reach with a thumb. Two tabs either side.
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Home', icon: LayoutGrid, exact: true },
   { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false },
@@ -30,9 +27,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false },
 ];
 
-// A floating rounded bar, inset from the screen edges like the header and sidebar cards, instead of a
-// full-width strip glued to the bottom. No shadow: the border and the notch ring around the centre
-// button give it separation. 12px labels (the old 10px was too small to read at arm's length).
 export const BottomNav = () => {
   const location = useLocation();
   const badges = useNavBadges();
@@ -40,9 +34,6 @@ export const BottomNav = () => {
 
   return (
     <nav
-      // The strip the bar floats in is filled with the page colour, so scrolling text and cards no
-      // longer show through the gaps at its sides and below it, and a tap in that strip no longer
-      // lands on something hidden behind it.
       className="md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pt-2 bg-background"
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
@@ -62,7 +53,6 @@ export const BottomNav = () => {
                 aria-label={summary ? `${label}, ${summary}` : label}
                 className="group relative flex flex-col items-center justify-end h-full pb-2 select-none outline-none [-webkit-tap-highlight-color:transparent]"
               >
-                {/* The raised button. The surface-coloured ring cuts a notch into the bar around it. */}
                 <span
                   className={`absolute -top-5 flex items-center justify-center size-12 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
                     isActive ? 'dark:from-primary-400 dark:to-primary-600' : ''
@@ -91,7 +81,6 @@ export const BottomNav = () => {
               aria-label={summary ? `${label}, ${summary}` : label}
               className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >
-              {/* Active is the icon colour and a bold label only: no tinted pill behind the icon. */}
               <span className="relative flex items-center justify-center w-12 h-8">
                 <Icon
                   size={19}

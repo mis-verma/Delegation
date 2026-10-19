@@ -4,17 +4,13 @@ import { SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
 import { ScorePct } from './ScorePct';
 
 interface MobileScoreRowProps {
-  /** Position in the list, or null for a row that is not ranked (Unassigned). */
   rank: number | null;
   title: ReactNode;
-  /** The Overall score, or null when nothing was due. */
   overall: number | null;
-  /** One small column per module: its own score, or null when nothing was due. */
   cells: { key: string; label: string; value: number | null }[];
   onOpen: () => void;
 }
 
-/** The phone row of every score list: rank, name, Overall score, then each module's own score. Everything else is in the popup one tap away. */
 export const MobileScoreRow = memo(({ rank, title, overall, cells, onOpen }: MobileScoreRowProps) => (
   <li>
     <button type="button" onClick={onOpen} className="flex w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3 text-left outline-none transition-colors duration-150 hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">

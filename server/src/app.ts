@@ -54,19 +54,11 @@ import { verifyUploadSignature, signUploadPathsDeep } from "./utils/signedUpload
 
 const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
 
-// DoubleTick has no signature-header handshake (see doubletick.routes.ts) — the webhook's own auth
-// secret has to live in its URL path instead, which morgan's default `:url` token would otherwise
-// print verbatim to the access log on every single request (including failed 401s from someone
-// probing the URL). Overriding the token here masks that one path shape everywhere morgan is used,
-// with no effect on any other route's logged URL.
 morgan.token<Request, Response>('url', (req) => (req.originalUrl ?? req.url ?? '').replace(/^(\/doubletick\/webhook\/)[^/?]+/, '$1[redacted]'));
 
 class App {
     public app: Application;
 
-    // Takes the store *factory*, not a single Store — six different limiters below each need
-    // their own Store instance (express-rate-limit rejects two limiters sharing one), so every
-    // call site below invokes this with its own unique prefix. See config/redis.ts's own comment.
     constructor(rateLimitStoreFactory? : (prefix: string) => Store) {
         this.app = express()
         this.initMiddlewares(rateLimitStoreFactory)
@@ -82,12 +74,7 @@ class App {
         this.app.use(compression())
         this.app.use(cors({
             origin: (origin, callback) => {
-                // No Origin header: same-origin requests, curl, and native mobile clients
-                // (React Native's fetch doesn't send/enforce Origin — CORS is a browser thing).
                 if (!origin || origin === env.CLIENT_URL) return callback(null, true);
-                // Outside production, also allow any localhost/LAN-IP origin regardless of port,
-                // so the web-client Vite port and the mobile app's Expo web-preview port (and a
-                // physical device reaching this machine's LAN IP) all work without env changes.
                 if (env.NODE_ENV !== 'production' && DEV_ORIGIN_PATTERN.test(origin)) return callback(null, true);
                 callback(new Error('Not allowed by CORS'));
             },
@@ -102,14 +89,6 @@ class App {
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
         this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
 
-        // Every `/uploads/...` path this API ever hands out in a JSON response gets a
-        // short-lived signature appended (signUploadPathsDeep, utils/signedUpload.ts) before it
-        // reaches the browser — this is what actually checks that signature before serving the
-        // file. A request with no signature, a wrong one, or an expired one never reaches
-        // express.static at all, so a photo/attachment link that leaked out (forwarded
-        // screenshot, browser history) stops working once it expires instead of staying open
-        // forever. `req.path` here is already relative to the '/uploads' mount, so it's
-        // prefixed back to match exactly what signUploadPath signed.
         this.app.use('/uploads', (req: Request, res: Response, next) => {
             const fullPath = `/uploads${req.path}`
             if (!verifyUploadSignature(fullPath, req.query.exp, req.query.sig)) {
@@ -118,35 +97,16 @@ class App {
             next()
         }, express.static(path.resolve('uploads')))
 
-        // Signs every embedded `/uploads/...` path in every JSON response, org-wide, so none of
-        // the ~12 modules that write one of these paths (avatars, logos, checklist/ticket/task
-        // photos and attachments, ...) need to remember to sign it themselves — see
-        // signUploadPathsDeep's own comment for why a response-shape-agnostic deep walk was
-        // chosen over touching each module. Registered before initRoutes() below so every route
-        // handler's res.json is already wrapped by the time it runs.
         this.app.use((_req: Request, res: Response, next) => {
             const originalJson = res.json.bind(res)
-            // `any` here matches Express's own `Response.json(body?: any)` signature — there's no
-            // narrower type to give a function meant to sign whatever shape any route returns.
             res.json = ((body?: any) => originalJson(signUploadPathsDeep(body))) as typeof res.json
             next()
         })
     }
 
     private initRoutes(rateLimitStoreFactory?: (prefix: string) => Store): void {
-        // Liveness only — "is the process up and responding at all." Deliberately does no I/O
-        // (no DB/Redis round-trip) so a process manager polling this frequently never itself adds
-        // load or turns a slow-but-fine DB query into a false "unhealthy, restart me" signal.
         this.app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
 
-        // Readiness — "can this instance actually serve requests right now." Unlike /health above,
-        // this does real I/O on purpose: a load balancer/orchestrator uses this one to decide
-        // whether to route traffic here, which is exactly the question a DB check answers and a
-        // liveness check doesn't. DB failing means real 503 (nothing works without it); Redis
-        // failing is reported but never fails the check — every Redis-backed feature in this app
-        // (query cache, rate limiting) is already built to degrade gracefully without it, so a
-        // readiness probe that failed on a down cache would restart/de-route a perfectly capable
-        // instance over something that isn't actually broken.
         this.app.get('/health/ready', async (_req: Request, res: Response) => {
             const db = await pingDB();
             const redis = queryCacheStatus();
@@ -202,7 +162,6 @@ class App {
         this.app.use('/whatsapp', whatsappRouter);
         this.app.use('/doubletick/webhook', createWebhookLimiter(rateLimitStoreFactory?.('webhook-doubletick')));
         this.app.use('/doubletick', doubletickRouter);
-
 
         this.app.use("/notifications", notificationRouter)
         this.app.use("/reports", reportRouter)

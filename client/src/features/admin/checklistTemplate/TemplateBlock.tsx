@@ -18,7 +18,6 @@ interface TemplateBlockProps {
   departmentName: string | null;
 }
 
-// 44px square on touch, the compact 32px icon button from sm up.
 const ICON_BTN_CLASS =
   'shrink-0 flex items-center justify-center size-11 sm:size-8 text-text-muted rounded-lg transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
@@ -32,13 +31,9 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
   const updateTemplate = useUpdateChecklistTemplateMutation();
   const addItem = useAddChecklistTemplateItemMutation();
   const confirm = useConfirm();
-  // Gated on `open` — this list is only ever read by ItemRow's assignee picker inside the
-  // collapsed panel below, so fetching it eagerly for every template on the page fired one
-  // `/users/assignable` request per row on load, almost all of them for templates never expanded.
   const { data: assignableUsers } = useAssignableUsersQuery(template.departmentId ?? undefined, undefined, undefined, open);
 
   const handleAddItem = () => {
-    // Enter twice quickly would add the same step twice while the first save is still running.
     if (!newLabel.trim() || addItem.isPending) return;
     addItem.mutate(
       { templateId: template.id, payload: { label: newLabel.trim(), order: template.items.reduce((max, it) => Math.max(max, it.order), -1) + 1 } },

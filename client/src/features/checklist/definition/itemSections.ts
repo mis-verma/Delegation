@@ -1,7 +1,5 @@
 import type { ItemDraft } from './ChecklistDefinitionItemDraftRow';
 
-// Sentinel id for the "no section" bucket — never a value a user can type as a real section name
-// (the section-name input is free text, but this string is reserved for internal grouping only).
 export const UNGROUPED = '__ungrouped__';
 export type SectionId = string;
 
@@ -20,14 +18,9 @@ export const groupBySection = (itemDrafts: ItemDraft[], sections: string[]): Rec
 
 export const containerOrderFor = (sections: string[]): SectionId[] => [UNGROUPED, ...sections];
 
-// Limits the server enforces on save (checklistDefinition.validation.ts) — checked while
-// duplicating so a copy can't push the checklist over and only fail at the final Save.
 export const MAX_CHECKLIST_ITEMS = 200;
 export const MAX_SECTION_NAME_LENGTH = 120;
 
-// A copy of one question with an identity of its own. Every field but `key` is a string, a boolean
-// or an array of strings, so copying the arrays one level down is a full deep copy — editing the
-// copy's options/auditors/actions can't reach back into the original.
 export const cloneItemDraft = (draft: ItemDraft, patch: Partial<ItemDraft> = {}): ItemDraft => ({
   ...draft,
   auditUserIds: [...draft.auditUserIds],
@@ -43,8 +36,6 @@ export const cloneItemDraft = (draft: ItemDraft, patch: Partial<ItemDraft> = {})
   key: crypto.randomUUID(),
 });
 
-// "Opening" becomes "Opening (copy)", then "Opening (copy 2)", and so on: the first name that isn't
-// taken yet, trimmed so even a very long section name stays inside the server's length limit.
 export const copiedSectionName = (name: string, taken: readonly string[]): string => {
   const withSuffix = (suffix: string) => `${name.slice(0, MAX_SECTION_NAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
   let candidate = withSuffix(' (copy)');
@@ -55,17 +46,9 @@ export const copiedSectionName = (name: string, taken: readonly string[]): strin
 const flattenGroups = (order: SectionId[], groups: Record<SectionId, ItemDraft[]>): ItemDraft[] =>
   order.flatMap((id) => groups[id] ?? []);
 
-// Re-groups then flattens straight back — guarantees items sharing a section are contiguous in
-// the result, in [Ungrouped, ...sections] order. The saved item order IS this flattened array (no
-// separate per-item "order" the client sends), and ChecklistInstanceDetail's section-header
-// rendering assumes same-section items are contiguous — so this must run any time an item is
-// added or an existing (possibly stale/out-of-order) checklist is loaded into the builder, not
-// only after a drag.
 export const normalizeItemOrder = (itemDrafts: ItemDraft[], sections: string[]): ItemDraft[] => {
   const groups = groupBySection(itemDrafts, sections);
   const order = containerOrderFor(sections);
-  // A question whose section isn't in `sections` keeps its own block at the end rather than being
-  // dropped, so this is safe to run on any list.
   const strays = Object.keys(groups).filter((id) => !order.includes(id));
   return flattenGroups([...order, ...strays], groups);
 };

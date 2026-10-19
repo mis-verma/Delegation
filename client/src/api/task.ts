@@ -32,7 +32,6 @@ export type Task = {
     title:        string;
     description:  string | null;
     status:       'draft' | 'todo' | 'in_progress' | 'pending_approval' | 'done' | 'on_hold';
-    /** Soft-delete marker — non-null means this delegation is in the Archived view. */
     deletedAt?:   string | null;
     category :    'issue' | 'delegation';
     priority:     'low' | 'medium' | 'high';
@@ -42,7 +41,6 @@ export type Task = {
     reminderChannel: 'notification' | 'alarm' | 'email' | 'sms';
     projectId:    string | null;
     assigneeId:   string | null;
-    // Extra people beyond the primary assigneeId — see Task.ts model for why they're separate.
     additionalAssigneeIds: string[];
     departmentId: string | null;
     userId:       string;
@@ -50,7 +48,6 @@ export type Task = {
     updatedAt:    string;
     verifiedBy:       string | null;
     verifiedAt:       string | null;
-    /** When it was last handed in for approval (the server records it; absent on older payloads). */
     submittedAt?:     string | null;
     verificationNote: string | null;
     aiMeta?: {
@@ -64,17 +61,9 @@ export type Task = {
     } | null;
     checklists?:  TaskChecklist[];
     attachments?: TaskAttachment[];
-    /** Labels, alphabetical. Returned by both the list and detail endpoints. */
     tags?: Tag[];
-    /** Newest first. Only the detail endpoint returns these — list responses omit them. */
     statusUpdates?: TaskStatusUpdate[];
-    /** Only present when the list call opts in via `includeChecklistSummary` (the Verification
-     *  Queue does) — a done/total/missing-photo rollup so a collapsed row can show completion
-     *  status without fetching the full checklist. */
     checklistSummary?: { total: number; done: number; missingPhotos: number };
-    /** Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
-     *  MANAGER/HOD within the task's own department). Anyone named here can approve/reject this
-     *  delegation regardless of role or department. Returned by create/update/getById. */
     reviewers?: { id: string; firstName: string; lastName: string | null; email: string }[];
 };
 
@@ -91,18 +80,9 @@ export type CreateTaskPayload = {
     assigneeId?:   string;
     additionalAssigneeIds?: string[];
     departmentId?: string;
-    /**
-     * Label ids to attach. Server caps the array at 12.
-     *
-     * On a PATCH, omitting this leaves the delegation's labels alone; sending `[]` clears them.
-     * That distinction matters — a status move PATCH must not wipe the labels as a side effect.
-     */
     tagIds?: string[];
-    /** User ids to name as explicit reviewers — see Task['reviewers']. Same omit/empty-array
-     *  convention as tagIds. */
     reviewerIds?: string[];
 };
-
 
 export type SmartTaskParseResult = {
     title : string;
@@ -138,11 +118,9 @@ export type ConfirmSmartTaskPayload = {
 export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'assigneeId' | 'departmentId' | 'reminderMinutesBefore' | 'startDate' | 'dueDate'>> & {
     assigneeId?: string | null;
     departmentId?: string | null;
-    /** null clears the date. */
     startDate?: string | null;
     dueDate?: string | null;
     reminderMinutesBefore?: number | null;
-    /** Required by the server whenever `status` differs from what's stored. */
     statusRemark?: string;
 };
 
@@ -163,9 +141,7 @@ export type TaskOwnerStatsRow = {
     total: number;
     done: number;
     overdueCount: number;
-    /** Delegations CREATED in the window (same as total). The Scorecard counts those DUE in the window. */
     createdCount?: number;
-    /** Done PLUS waiting for approval (same as done). The Scorecard counts waiting items as not done. */
     doneOrWaitingCount?: number;
 };
 
@@ -174,13 +150,9 @@ export type ApiResponse<T> = { success: boolean; data: T };
 export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
 export type TaskListPage = { data: Task[]; meta: ListMeta };
 
-/** Mirrors the server's TaskSummaryRow (task.service.ts) — powers the sidebar's "Delegation"
- *  count badge and its hover breakdown. Always "mine" (creator/assignee/additional assignee), not
- *  org-wide, regardless of role — see the summary() doc comment server-side for why. */
 export type TaskSummary = {
     total: number;
     newToday: number;
-    /** Open work: due (on track) plus overdue. */
     pending: number;
     due: number;
     overdue: number;
@@ -188,8 +160,6 @@ export type TaskSummary = {
     draft: number;
 };
 
-/** Dashboard's "Needs your approval" card — one row per delegation currently awaiting an
- *  ADMIN/PC's sign-off. Org-wide (not "mine" like TaskSummary above), matching who can act on it. */
 export type TaskPendingApproval = {
     id: string;
     title: string;
@@ -197,34 +167,21 @@ export type TaskPendingApproval = {
     waitingSince: string;
 };
 
-// additionalAssigneeIds is the field that actually crashed the dashboard (spread of an undefined
-// value) — checklists/attachments are the same "typed as always-present" shape and just haven't
-// bitten yet, so they're guarded the same way rather than waiting for their own crash report.
 const taskArrayDefaults = withArrayDefaults({
     additionalAssigneeIds: arrayField(z.string()),
-    // Nested via taskChecklistDefaults, not a bare arrayField(z.unknown()) — a checklist that's
-    // present but missing its own `items` (or an item missing its `images`) is exactly the shape
-    // that crashed ChecklistBlock's `checklist.items.filter(...)` before this was added.
     checklists: arrayField(taskChecklistDefaults).optional(),
     attachments: arrayField(z.unknown()).optional(),
     statusUpdates: arrayField(z.unknown()).optional(),
-    // Same guard as the rest: every view maps over this, so a response that omits it (an older
-    // server, or a code path that forgets the join) must yield [] rather than crash the render.
     tags: arrayField(z.unknown()).optional(),
     reviewers: arrayField(z.unknown()).optional(),
 });
 const normalizeTask = (raw: unknown) => normalizeWith<Task>(taskArrayDefaults, raw);
 
 export const taskApi = {
-    // Returns the page AND its meta. `limit` is now sent explicitly rather than relying on the
-    // server's default, and `meta.total` is what lets a caller tell "this is everything" apart
-    // from "this is the first `limit` of N" — the distinction the old bare-array response lost.
     getAll: (userId?: string, status?: Task['status'], page = 1, limit = 200, tagIds?: string[], archived?: boolean, includeChecklistSummary?: boolean): Promise<TaskListPage> => {
         const params = new URLSearchParams();
         if (userId) params.set('userId', userId);
         if (status) params.set('status', status);
-        // Server-side so the page's counts describe the filtered set rather than a client-side
-        // slice of a truncated page. Matched as OR — any of these labels.
         if (tagIds?.length) params.set('tagIds', tagIds.join(','));
         if (archived) params.set('archived', '1');
         if (includeChecklistSummary) params.set('checklistSummary', '1');
@@ -270,7 +227,6 @@ export const taskApi = {
     restore: (id: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/restore`, { method: 'PATCH' }).then(r => normalizeTask(r.data)),
 
-    // 'none' = one bucket named 'range' for the whole from/to window.
     getComplianceReport: (groupBy: 'day' | 'week' | 'month' | 'year' | 'none' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
         const params = new URLSearchParams({ groupBy });
         if (from) params.set('from', from);

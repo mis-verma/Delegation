@@ -4,25 +4,10 @@ import { db } from '../config/db.js';
 import { notifications } from '../db/schema/core.js';
 import { settingsService } from '../modules/settings/settings.service.js';
 
-// Same batching rationale as auditRetention.job.ts: an unbounded DELETE over a table that's been
-// accumulating for months takes a long row lock, stalling every notification write behind it.
 const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 50;
 
-/**
- * Trims the Notification table to Settings.notificationRetentionDays (admin-configurable,
- * Admin → Settings).
- *
- * Written on every assignment/verification/reminder event across tickets, tasks and checklists,
- * with nothing ever removing them — same unbounded-growth shape AuditLog had before its own
- * retention sweep. Read state doesn't matter here: an old read notification is just as much
- * dead weight in the table as an old unread one.
- *
- * A retention of 0 days keeps everything forever — the job then does nothing.
- */
 export const startNotificationRetention = () => {
-    // 03:30 daily — same quiet window as auditRetention (03:15) and ahead of the checklist
-    // generator's morning run, offset 15 minutes so the two sweeps don't overlap.
     scheduleJob("notification-retention", '30 3 * * *', 1440, async () => {
         const days = settingsService.getCached().notificationRetentionDays;
         if (days <= 0) return;
@@ -50,7 +35,6 @@ export const startNotificationRetention = () => {
                 console.log(`Notification retention: removed ${removed} rows older than ${days} days`);
             }
         } catch (err) {
-            // Same posture as auditRetention.job.ts: housekeeping must never take the server down.
             console.error('Notification retention sweep failed', err);
         }
     });

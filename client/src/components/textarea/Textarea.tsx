@@ -3,7 +3,6 @@ import { AlertCircle, CheckCircle2, type LucideIcon } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-/** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -35,14 +34,12 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     },
     ref
   ) => {
-    // Generate a unique ID for aria-describedby if validation messages exist
     const messageId = (error || success) && id ? `${id}-message` : undefined;
     const isError = !!error;
     const isSuccess = !error && !!success;
 
     return (
       <div className={cn("group/field flex flex-col gap-1.5 w-full", containerClassName)}>
-        {/* Label */}
         <label
           htmlFor={id}
           className={cn(
@@ -59,7 +56,6 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {label}
         </label>
 
-        {/* Textarea Field */}
         <textarea
           id={id}
           ref={ref}
@@ -67,8 +63,6 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={isError}
           aria-describedby={messageId}
           className={cn(
-            // 14px everywhere, the same as the rest of the form text. iPhone Safari would zoom into a field under 16px;
-            // index.html stops that (maximum-scale on iOS only), so the smaller size is safe there too.
             "w-full px-4 py-3.5 min-h-[112px] text-sm font-medium transition-colors duration-150 ease-out resize-y",
             "bg-surface text-text placeholder:text-text-light",
             "border rounded-xl outline-none appearance-none",
@@ -83,7 +77,6 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
 
-        {/* Validation Messages */}
         {(isError || isSuccess) && (
           <p
             id={messageId}

@@ -25,18 +25,13 @@ export const TodoPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  // Seeded from `?quickFilter=` (the Dashboard's rows deep-link in with it).
   const [quickFilter, setQuickFilter] = useState<TodoQuickFilterKey | null>(
     () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
   );
   const [priority, setPriority] = useState<TodoPriorityFilter>('all');
-  // Newest first by default: the order the server already returns.
   const [sort, setSort] = useState<TodoSortKey>('created');
-  // Same query key as TodoList, so this is served from cache.
   const { data: allTodos = [], isPending } = useTodosQuery();
-  // Opened from a chart bar: only to-dos created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
-  // The due-date filter from the calendar icon: only to-dos due inside it. A to-do with no due date is not in any range.
   const dueRange = useDueRange();
   const rangeFilter = useMemo(
     () => (t: Todo) => (createdRange.range ? createdRange.matches(t.createdAt) : true) && (dueRange.range ? !!t.dueDate && dueRange.matches(t.dueDate) : true),
@@ -44,7 +39,6 @@ export const TodoPage = () => {
   );
   const todos = useMemo(() => allTodos.filter(rangeFilter), [allTodos, rangeFilter]);
 
-  // `/todo?create=1` (the sidebar's "+") opens the form once, then drops the param.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -66,7 +60,6 @@ export const TodoPage = () => {
     delayed: todos.filter(TODO_QUICK_FILTER_PREDICATES.delayed).length,
   };
 
-  // Mirrors TodoList's own narrowing so the sheet's count matches what's rendered.
   const quickFiltered = quickFilter ? todos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : todos;
   const shownCount = priority === 'all' ? quickFiltered.length : quickFiltered.filter((t) => t.priority === priority).length;
 
@@ -77,7 +70,6 @@ export const TodoPage = () => {
 
   return (
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
-      {/* No visible title block, same as Delegation and Tickets: the nav item already says To-Do. */}
       <h1 className="sr-only">To-Do</h1>
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
 
@@ -93,10 +85,6 @@ export const TodoPage = () => {
           isLoading={isPending}
         />
 
-        {/* One controls row, same as the other list pages: Options on the left, the add button on
-            the right on desktop (phones use the + button instead). */}
-        {/* Right-aligned and in reverse order, so Options sits at the far right with Created on and the add button to its left. */}
-        {/* Phones skip this row: no filter sheet or date picker there, the + button adds a to-do. */}
         <div className="hidden sm:flex flex-row-reverse items-center gap-3">
           <OptionsSheet
             isOpen={showOptions}

@@ -7,11 +7,6 @@ import type { TicketStatusUpdate } from '../../../api/ticket';
 interface TicketStatusHistoryProps {
   statusUpdates: TicketStatusUpdate[];
   onPreview: (url: string) => void;
-  /**
-   * Closing a ticket happens through approval, not through a status move, so it is never one of the
-   * `statusUpdates` rows (the last row would still read "Waiting for approval" on a closed ticket).
-   * Pass this to show the closing as the newest step.
-   */
   closure?: { at: string; by: string | null; note: string | null } | null;
 }
 
@@ -20,7 +15,6 @@ type HistoryRow = Pick<TicketStatusUpdate, 'id' | 'toStatus' | 'createdAt' | 're
   author: string | undefined;
 };
 
-/** "10 Oct 4:32 PM", with the year only when it isn't this year. */
 const formatStamp = (iso: string) => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
@@ -30,8 +24,6 @@ const formatStamp = (iso: string) => {
   return `${date} ${time}`;
 };
 
-// A reviewer's send-back is recorded as a move from Waiting for approval to In progress; it reads
-// better as what it was.
 const rowLabel = (row: HistoryRow) =>
   row.fromStatus === 'PENDING_APPROVAL' && row.toStatus === 'IN_PROGRESS'
     ? 'Sent back'
@@ -39,11 +31,6 @@ const rowLabel = (row: HistoryRow) =>
       ? 'Marked completed'
       : TICKET_STATUS_LABEL[row.toStatus as keyof typeof TICKET_STATUS_LABEL] ?? row.toStatus;
 
-/**
- * Every status move, newest first, on one quiet rail. Each move gets its status's own icon circle;
- * the newest is a white card tagged "Now". Each row: the move and "Ravi · 10 Oct 4:32 PM" on one
- * line, then the remark and any proof photos as small thumbnails (a camera mark on live ones).
- */
 export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: TicketStatusHistoryProps) => {
   const rows: HistoryRow[] = [
     ...(closure
@@ -61,8 +48,6 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted tabular-nums">{rows.length}</span>
       </h3>
 
-      {/* A thin rail with a small disc per move in that status's colour. The newest move is the white, ringed card;
-          older ones are quiet tinted rows. */}
       <ol className="relative flex flex-col gap-1.5 pl-8 before:absolute before:bottom-5 before:left-[11px] before:top-5 before:w-px before:bg-border">
         {rows.map((su, i) => {
           const key = su.toStatus.toLowerCase() as StatusChipStatus;
@@ -76,7 +61,6 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
                 <Icon size={12} strokeWidth={2.75} />
               </span>
               <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 ${latest ? 'border-primary-500/25 bg-surface' : 'border-border/50 bg-surface-hover/30'}`}>
-                {/* One line: what happened on the left, who and when on the right (the name truncates first). */}
                 <div className="flex items-baseline justify-between gap-3 min-w-0">
                   <p className="shrink-0 t-meta font-display font-semibold leading-snug text-text">
                     {rowLabel(su)}

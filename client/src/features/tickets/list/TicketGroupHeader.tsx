@@ -8,8 +8,6 @@ interface TicketGroupHeaderProps {
   stats: { total: number; done: number };
 }
 
-// A quiet label above each group, not a boxed banner: small tile, the group name, and a plain
-// count. The checklist tally is desktop-only; on a phone it pushed the count onto a second line.
 export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: TicketGroupHeaderProps) => {
   const Icon = groupBy === 'department' ? Building2 : User;
 
@@ -17,7 +15,6 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
     <div className="flex items-center justify-between gap-x-3 gap-y-1 flex-wrap px-0.5">
       <div className="flex items-center gap-2 min-w-0">
         <EntityIconTile icon={Icon} tone={groupBy === 'department' ? 'coral' : 'primary'} className="size-6 sm:size-7 rounded-md shrink-0" iconClassName="size-3.5 sm:size-4" />
-        {/* Wraps rather than truncates: a long department or person name must stay readable. */}
         <h3 className="min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug break-words">
           {label}
         </h3>

@@ -1,18 +1,5 @@
-// The score data check: proves the different cuts of the same numbers add up. The comparison itself
-// (evaluateConsistency) is pure and tested on small fixtures; assertScoreConsistency loads the real numbers.
-//
-// Must-equal ("fail"): every ticket, delegation and checklist run is counted once per cut.
-//   tickets      org = sum of departments (incl. No department) = sum of stores (incl. no store) = sum of people (incl. Unassigned and left)
-//   delegations  org = sum of departments = sum of stores   (people are not compared: a shared delegation is on each assignee)
-//   checklists   org = sum of stores                         (each run sits on exactly one store)
-//   explorer total = /scores org total = report total
-//   a sample of people: the person card = the explorer row
-// Explained gaps ("flag", never a failure): checklist org against the sum of departments and against the sum of
-// people. A run shared across departments or people is counted in each of them, and a run with nobody on it is on no
-// department and no person, so these can legitimately differ; the flag states the gap and the number of shared runs.
 
 export type CountMetrics = { due: number; done: number; onTime: number }
-/** Anything with the three module blocks: an explorer row, a score card or a report row. */
 export type CountBlocks = { checklist: CountMetrics; ticket: CountMetrics; delegation: CountMetrics }
 
 export type ConsistencyStatus = "pass" | "fail" | "flag"
@@ -37,7 +24,6 @@ export type ConsistencyInput = {
     reportTotal: CountBlocks
     departments: readonly CountBlocks[]
     stores: readonly CountBlocks[]
-    /** Every person row of the explorer, including the Unassigned row and people who have left. */
     people: readonly CountBlocks[]
     samples: readonly ConsistencySample[]
     sharing: { runsAcrossDepartments: number; runsWithSeveralAssignees: number; runsWithoutAssignee: number }
@@ -63,7 +49,6 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
     const checks: ConsistencyCheck[] = []
     const org = input.explorerTotal
 
-    // Must-equal: partitions of the organisation.
     const partitions: { module: ModuleName; against: "departments" | "stores" | "people"; rows: readonly CountBlocks[]; cause: string }[] = [
         { module: "ticket", against: "departments", rows: input.departments, cause: "a ticket is missing from, or double counted in, the department rows (check the No department row)" },
         { module: "ticket", against: "stores", rows: input.stores, cause: "a ticket is missing from, or double counted in, the store rows (check the Other / no store row)" },
@@ -85,7 +70,6 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
         }
     }
 
-    // Must-equal: the same total read three ways.
     for (const m of MODULES) {
         for (const k of METRICS) {
             checks.push(makeCheck(
@@ -111,7 +95,6 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
         }
     }
 
-    // Must-equal: person card = explorer row.
     for (const s of input.samples) {
         for (const k of ["due", "done"] as const) {
             const card = MODULES.reduce((n, m) => n + s.card[m][k], 0)
@@ -127,7 +110,6 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
         }
     }
 
-    // Flag only: checklist runs shared across departments or people, or with nobody on them.
     const shared = input.sharing
     for (const against of ["departments", "people"] as const) {
         const rows = against === "departments" ? input.departments : input.people
@@ -150,7 +132,6 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
     return { ok: failed === 0, from: input.from, to: input.to, failed, flagged, checks }
 }
 
-/** Last month and month-to-date (capped at today), for the nightly job. `today` is an org-local YYYY-MM-DD. */
 export const nightlyWindows = (today: string): { label: string; from: string; to: string }[] => {
     const [y, m] = today.split("-").map(Number)
     const pad = (n: number) => String(n).padStart(2, "0")
@@ -163,13 +144,8 @@ export const nightlyWindows = (today: string): { label: string; from: string; to
     ]
 }
 
-/** How many people the check compares against their card. */
 export const CONSISTENCY_SAMPLE_SIZE = 5
 
-/**
- * Loads the real numbers for the window and runs evaluateConsistency over them. ADMIN-level: callers (the endpoint,
- * the nightly job) gate access. Imports are dynamic so the pure part above can be tested without a database.
- */
 export const assertScoreConsistency = async (from: string, to: string): Promise<ConsistencyResult> => {
     const [{ scoreService }, { scoreExplorerService, orgToday }, { capWindow }] = await Promise.all([
         import("./score.service.js"),

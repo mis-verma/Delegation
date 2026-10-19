@@ -28,7 +28,6 @@ interface TileProps {
   tint: keyof typeof TINT;
 }
 
-// One quarter of the phone's stat strip: a small icon over the number, the name under it.
 const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
   <div className="flex min-w-0 flex-col items-center gap-0.5 px-1 py-2 text-center">
     <span className={`inline-flex items-center gap-1 ${TINT[tint].text}`}>
@@ -39,8 +38,6 @@ const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
   </div>
 );
 
-/** Phones get one slim strip of four (like a calendar app's summary row, nothing scrolls sideways); sm and up get the
- *  full StatCards. */
 export const CalendarStats = ({ stats, isPending, monthLabel, todayWeekday }: CalendarStatsProps) => {
   const show = (n: number) => (isPending ? '-' : n);
 

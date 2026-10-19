@@ -7,21 +7,15 @@ export interface SidebarSummaryData {
   due: number;
   overdue: number;
   completed: number;
-  /** Only Delegations have a real draft concept — Tickets/To-Do/Checklists omit it rather than
-   *  showing a "Draft: 0" row on a type that can never have one. */
   draft?: number;
 }
 
 interface SidebarSummaryBadgeProps {
   label: string;
   data: SidebarSummaryData | undefined;
-  /** "Closed" for Tickets, "Completed" everywhere else — matches each type's own status label. */
   completedLabel?: string;
 }
 
-// Popover is click-triggered by default (Radix); this drives it from hover instead, with a short
-// grace period on leave so the pointer can travel from the pill to the content without it
-// vanishing mid-move — the same "hoverable tooltip" pattern a native OS menu uses.
 const CLOSE_DELAY_MS = 150;
 
 const StatRow = ({ label, value, dotClassName }: { label: string; value: number; dotClassName: string }) => (
@@ -34,12 +28,6 @@ const StatRow = ({ label, value, dotClassName }: { label: string; value: number;
   </div>
 );
 
-/**
- * The sidebar's per-item count pill — quiet by design. Nothing renders at all when there's
- * nothing actionable (`due + overdue === 0`), the same "no badge for zero" rule the collapsed
- * icon-only sidebar already follows elsewhere. Hovering the pill reveals the full breakdown
- * (new/due/overdue/completed/draft), which the pill's own single number can't carry.
- */
 export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' }: SidebarSummaryBadgeProps) => {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<number | undefined>(undefined);
@@ -70,11 +58,6 @@ export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' 
           tabIndex={0}
           role="button"
           aria-label={`${label}: ${active} to act on — ${data.overdue} overdue`}
-          // Theme navy, not a generic amber warning chip — this sidebar rail is all navy accents
-          // (the active nav pill, the icons), and an unrelated yellow badge read as a stray,
-          // off-brand patch rather than a considered part of the same design. Still distinct from
-          // the plain "just active, nothing overdue" gray below it, just recolored to the app's
-          // own palette instead of the generic status-warning one.
           className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full text-xs font-display font-bold flex items-center justify-center tabular-nums cursor-default outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
             data.overdue > 0
               ? 'bg-primary-500/15 text-primary-700 dark:bg-primary-500/25 dark:text-primary-300'
@@ -87,10 +70,6 @@ export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' 
       <PopoverContent
         onMouseEnter={cancelClose}
         onMouseLeave={scheduleClose}
-        // Radix returns DOM focus to the trigger by default when the content closes. That refocus
-        // fires the trigger's own onFocus above, which reopens it — an infinite open/close loop on
-        // every hover-away. This is a hover-driven info popover, not a dialog people tab into, so
-        // there's nothing worth restoring focus to on close.
         onCloseAutoFocus={(e) => e.preventDefault()}
         side="right"
         align="start"

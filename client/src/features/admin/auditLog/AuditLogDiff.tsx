@@ -4,10 +4,6 @@ import { EMPTY_MARK, displayValue, type DiffRow, type FactRow } from './auditLog
 
 type PillVariant = 'removed' | 'added' | 'changed' | 'plain';
 
-// A value pill's own tint communicates what kind of change this side represents: a plain
-// "before -> after" row reads the same whether a field was newly set, cleared, or changed, so a
-// reviewer has to read every word to know which. Color does that work instead: muted+struck for
-// what's gone, primary for what replaced it, success for a value that simply didn't exist before.
 const valuePillClass = (variant: PillVariant) => {
   switch (variant) {
     case 'removed':
@@ -28,7 +24,6 @@ const ValuePill = ({ value, variant }: { value: string; variant: PillVariant }) 
       className={cn(
         'inline-flex items-center px-2 py-1 rounded-md border text-xs max-w-full sm:max-w-[16rem] truncate',
         valuePillClass(variant),
-        // The word "Empty" is a state, not a value: keep it quiet and italic.
         value === EMPTY_MARK && 'italic font-medium text-text-muted',
       )}
       title={text}
@@ -38,7 +33,6 @@ const ValuePill = ({ value, variant }: { value: string; variant: PillVariant }) 
   );
 };
 
-// The before/after pills for one field, shared by the full list and the compact in-row chips.
 const ChangePills = ({ row }: { row: DiffRow }) => {
   const wasEmpty = row.before === EMPTY_MARK;
   const isEmpty = row.after === EMPTY_MARK;
@@ -54,7 +48,6 @@ const ChangePills = ({ row }: { row: DiffRow }) => {
   );
 };
 
-/** One changed field as a small self-contained chip: "Priority  Low -> High". Used directly in a row. */
 export const DiffChange = ({ row }: { row: DiffRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
     <span className="text-xs font-display font-semibold text-text-secondary">{row.label}</span>
@@ -62,7 +55,6 @@ export const DiffChange = ({ row }: { row: DiffRow }) => (
   </div>
 );
 
-/** One detail of a record as a plain "Label: value" pill, e.g. "Priority: High". */
 export const FactPill = ({ fact }: { fact: FactRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
     <span className="text-xs font-display font-semibold text-text-secondary">{fact.label}</span>
@@ -81,7 +73,6 @@ const DiffRowView = ({ row }: { row: DiffRow }) => (
   </div>
 );
 
-/** The full list of every changed field, used when a row is expanded. */
 export const AuditLogDiff = ({ rows }: { rows: DiffRow[] }) => {
   if (rows.length === 0) {
     return <p className="text-xs font-medium text-text-muted px-1">No field changes were recorded for this entry.</p>;

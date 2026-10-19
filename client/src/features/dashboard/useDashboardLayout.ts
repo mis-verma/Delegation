@@ -15,18 +15,14 @@ import {
 } from './dashboardLayout';
 
 interface StoredLayout {
-  /** Absent on layouts saved before versioning existed (those are version 1). */
   version?: number;
   order: DashboardCardId[];
   sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
-  /** Cards the person chose to hide. Absent on layouts saved before hiding existed. */
   hidden?: DashboardCardId[];
 }
 
 interface LoadedLayout {
   version: number;
-  /** Every id as it was saved, including ones this version no longer has. Only used to recognise
-   *  an untouched old default. */
   rawOrder: string[];
   order: DashboardCardId[];
   sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
@@ -51,26 +47,19 @@ const loadStoredLayout = (key: string): LoadedLayout | null => {
       hidden: Array.isArray(parsed.hidden) ? (parsed.hidden as unknown[]).filter(isDashboardCardId) : [],
     };
   } catch {
-    // Corrupt or blocked storage reads the same as "nothing saved yet" — falls through to
-    // DEFAULT_CARD_ORDER below rather than breaking the dashboard over a bad localStorage value.
     return null;
   }
 };
 
 const sizesFrom = (stored: LoadedLayout | null): Record<DashboardCardId, DashboardCardSize> => {
   const saved = { ...stored?.sizes };
-  // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
   if (stored && stored.version < 4) delete saved.myScores;
-  // Version 10 put the two worklists side by side: a width saved before that was only the old default.
   if (stored && stored.version < 10) { delete saved.needsApproval; delete saved.exceptions; }
-  // Version 9 made Scores full width (the other cards beside it were removed): a width saved before that was only the old default.
   if (stored && stored.version < 9) delete saved.myScores;
-  // Version 6 put Key numbers back to full width (version 5 had made it half width).
   if (stored && stored.version < 6) delete saved.kpiStrip;
   return { ...DEFAULT_CARD_SIZES, ...saved };
 };
 
-// Drag-reorder without pulling @dnd-kit into the home bundle just for this helper.
 const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
   const next = [...list];
   const [item] = next.splice(from, 1);
@@ -78,22 +67,9 @@ const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
   return next;
 };
 
-/**
- * Drag-to-reorder and small/big sizing for the dashboard's card grid — gated behind an explicit
- * `isCustomizing` mode (HomePage only shows drag handles/size toggles while it's on) so the
- * default view stays exactly what it was before this existed.
- *
- * Saved per signed-in account, not per browser — a chosen layout is a personal preference tied to
- * who's logged in, not a device setting like the theme toggle.
- *
- * Versioned: when the default order changes (LAYOUT_VERSION), a saved layout that is still exactly
- * the previous default is moved to the new default, and one the user rearranged keeps their order.
- */
 export const useDashboardLayout = (view: DashboardViewConfig) => {
   const { user } = useAuth();
   const isOrgWideRole = view.showOversightCards;
-  // The user view and the admin view each save under their own key, so the order a person chose in one
-  // is never read as the other's, and "Reset to default" always returns to the view's own default.
   const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo(
@@ -101,10 +77,6 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
     [view.order, isOrgWideRole, view.isHod],
   );
 
-  // Drops any id a stored order still has but this viewer can no longer see (e.g. their role
-  // changed since they last customized), then appends any card they *can* see that the stored
-  // order predates — at the end, not scattered in, so an old layout doesn't silently reshuffle
-  // around a card the user never placed themselves.
   const reconcile = useCallback((storedOrder: DashboardCardId[]): DashboardCardId[] => {
     const visibleSet = new Set(visibleCards);
     const kept = storedOrder.filter((id) => visibleSet.has(id));
@@ -112,8 +84,6 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
     return [...kept, ...missing];
   }, [visibleCards]);
 
-  // True when a v1 layout is just the old default for this viewer's role, i.e. the user never
-  // rearranged anything and so has no custom order worth preserving.
   const isUntouchedLegacyDefault = useCallback((rawOrder: string[]): boolean => {
     const legacyForRole = LEGACY_V1_DEFAULT_ORDER.filter((id) => isOrgWideRole || !LEGACY_V1_ADMIN_ONLY.has(id));
     return rawOrder.length === legacyForRole.length && rawOrder.every((id, i) => id === legacyForRole[i]);
@@ -123,8 +93,6 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
     const stored = loadStoredLayout(storageKey);
     if (!stored) return [...visibleCards];
     if (stored.version < LAYOUT_VERSION && isUntouchedLegacyDefault(stored.rawOrder)) return [...visibleCards];
-    // A layout saved before version 3 predates the three worklist cards: they go first, where they used
-    // to be pinned, and the rest keeps the order the person chose.
     if (stored.version < 3) {
       const front = NEW_IN_V3.filter((id) => visibleCards.includes(id));
       return [...front, ...reconcile(stored.order.filter((id) => !NEW_IN_V3.includes(id)))];
@@ -135,19 +103,10 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);
   const [isCustomizing, setIsCustomizing] = useState(false);
 
-  // Re-reconciles if the viewer's visible card set changes after mount — `user` (and so
-  // `isOrgWideRole`) is often still null on the very first render, right after a fresh login, so
-  // without this an ADMIN would have Compliance/Compare permanently missing from `order` for the
-  // rest of the session once their real role loads in a tick later. Adjusted during render
-  // (React's documented pattern for resetting state off a prop change) rather than in an effect,
-  // so it commits in the same render `isOrgWideRole` actually changes.
   const roleKey = `${isOrgWideRole}-${view.view}-${storageKey}`;
   const [prevRoleKey, setPrevRoleKey] = useState(roleKey);
   if (roleKey !== prevRoleKey) {
     setPrevRoleKey(roleKey);
-    // Someone who never saved a layout gets the default for the role that just loaded; someone who did
-    // keeps their own order, with any card they can no longer (or newly can) see reconciled. A different
-    // saved key (the account or the view changed) loads that layout's own sizes and hidden cards too.
     const stored = loadStoredLayout(storageKey);
     setOrder(stored ? reconcile(stored.order) : [...visibleCards]);
     setSizes(sizesFrom(stored));
@@ -158,8 +117,6 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
     try {
       localStorage.setItem(storageKey, JSON.stringify({ version: LAYOUT_VERSION, order, sizes, hidden } satisfies StoredLayout));
     } catch {
-      // A layout that can't be saved just resets on the next reload — not worth failing anything
-      // over (private window, full storage, disabled site data).
     }
   }, [storageKey, order, sizes, hidden]);
 

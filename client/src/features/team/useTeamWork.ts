@@ -5,15 +5,8 @@ import { taskApi, type Task } from '../../api/task';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import type { TeamPeriodRange } from './teamDisplay';
 
-// A safety stop: never more than this many pages per list, so a huge year cannot loop for ever.
 const MAX_PAGES = 20;
 
-/**
- * Every ticket and delegation created in the Team Overview's period, not just the first page, for the person
- * screen's category bars (a created-in-this-period count, labelled that way). Tickets are filtered by date on
- * the server; delegations come newest first, so pages are read until one reaches past the start of the period.
- * Only loads while a person screen is open.
- */
 export const useTeamPeriodWork = (range: Pick<TeamPeriodRange, 'startMs' | 'endMs'>, enabled: boolean) => {
   const { token } = useAuth();
 

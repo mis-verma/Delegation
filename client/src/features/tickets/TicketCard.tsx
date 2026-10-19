@@ -18,33 +18,22 @@ interface TicketCardProps {
   ticket: Ticket;
   onClick: (ticket: Ticket) => void;
   departmentName?: string;
-  /** Board columns are narrow, so there the department stays plain text and labels wait for `xl`. */
   variant?: 'list' | 'board';
-  /** Hide the avatar when the list is already grouped by that person. */
   hideAssignee?: boolean;
 }
 
-/**
- * One ticket as a tile, in the same design as the delegation list cards: title, a quiet one-line
- * meta line (ticket code, checklist count, department on phones), then a row of icon chips. Phones
- * show only status, priority and due so every card is the same height; department and labels join
- * from `sm`. Also the board's kanban card, so it has to read well narrow too.
- */
 const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list', hideAssignee = false }: TicketCardProps) => {
   const { totalItems, doneItems, progress } = getChecklistProgress(ticket.checklists);
 
   const due = formatDueLabel(ticket);
   const isOverdue = !!due?.overdue;
   const isBoard = variant === 'board';
-  // Phones: department is plain meta text. From sm it is a chip, except in narrow board columns,
-  // where it stays text and labels wait for xl.
   const deptChipClass = isBoard ? 'hidden' : 'hidden sm:inline-flex';
   const tagChipClass = isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex';
   const priorityInfo = PRIORITY_CONFIG[ticket.priority];
   const statusChipStatus = (ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus;
   const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee ? ticket.assignee.firstName : null;
-  // statusUpdates is newest-first, so the first ON_HOLD entry is the reason it is on hold now.
   const onHoldRemark = ticket.status === 'ON_HOLD'
     ? (ticket.statusUpdates ?? []).find(su => su.toStatus === 'ON_HOLD')?.remark ?? null
     : null;
@@ -62,7 +51,6 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
-          {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
           <h3 className="flex-1 min-w-0 t-card font-display font-semibold text-text leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
@@ -79,22 +67,16 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </span>
           ))}
         </div>
-        {/* What the ticket is about: two lines at most, and not on a phone, where the title has to
-            carry the card and every card stays the same short height. */}
         {ticket.description?.trim() && (
           <p className="max-sm:hidden text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
         )}
-        {/* The reason is also in the status chip's tooltip, but a phone has no hover. */}
         {onHoldRemark && (
           <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
             <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
           </p>
         )}
-        {/* One line, never wraps: the department is the only part that truncates. Parts are joined
-            with commas. Only drawn when there is something to say. */}
         {((isOverdue && !due) || progress !== null || (departmentName && !isBoard)) && (
           <div className="flex items-center min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
-            {/* "Late" in words only where there is no red due chip saying it already. */}
             {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Late</span>}
             {progress !== null && (
               <span className="tabular-nums shrink-0">{isOverdue && !due ? ', ' : ''}Checklist {doneItems}/{totalItems}</span>
@@ -106,10 +88,8 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         )}
       </div>
 
-      {/* Chip footer sits under a hairline, so title and facts read as two parts of the card. */}
       <div className="flex items-center gap-x-1.5 gap-y-1.5 flex-wrap mt-auto w-full pt-2 sm:pt-2.5 border-t border-border/50 dark:border-white/[0.06]">
         {onHoldRemark ? (
-          // StatusChip doesn't forward props, so it can't be the asChild target itself.
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex max-w-full min-w-0 cursor-help">{statusChip}</span>
@@ -120,12 +100,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </Tooltip>
         ) : statusChip}
 
-        {/* Every priority shows, as in To-Do and Delegation, so the chip reads the same across the three. */}
         <PriorityChip meta={priorityInfo} />
 
         {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 
-        {/* Red and tinted when late, orange when due later today, quiet otherwise. */}
         {due && (
           <IconChip
             icon={isOverdue ? AlarmClock : CalendarDays}
@@ -136,7 +114,6 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           />
         )}
 
-        {/* Capped at two with a +n: a ticket can carry up to 12 labels. Hidden on phones. */}
         {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className={tagChipClass} />)}
         {ticket.tags.length > 2 && (
           <span
@@ -147,7 +124,6 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </span>
         )}
 
-        {/* The bar is desktop-only: on a phone the meta line already says "Checklist 3/10". */}
         {progress !== null && (
           <span className="hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
             <span className="w-12 h-1.5 rounded-full bg-surface-hover overflow-hidden">
@@ -161,7 +137,6 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         )}
 
         <span
-          // Not on a phone: there it wrapped onto a line of its own and made cards uneven heights.
           className={`hidden sm:inline-flex ${progress === null ? 'ml-auto' : ''} items-center gap-1 shrink-0 t-meta font-medium text-text-light tabular-nums`}
           title={`Raised ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
         >

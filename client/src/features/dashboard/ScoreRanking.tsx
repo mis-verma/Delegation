@@ -32,15 +32,10 @@ interface Computed {
   completion: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   compliance: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   ontime: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
-  /** The overall score: completion and compliance counted equally, per module and across them all. */
   overview: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   due: number;
 }
 
-// On the Overall score tab, the big figure is overallOf (completion and compliance of every module with
-// something due, counted equally): the one rule every score view uses. On the Completion, Compliance and
-// On time tabs the big figure is one measure taken across all modules, weighted by what each module had
-// due, so a module with 2 items does not count like one with 200.
 const compute = (row: ScoreReportRow): Computed => {
   const parts = [
     { due: row.checklist.due, done: row.checklist.completed, completion: row.checklist.completionPct, compliance: row.checklist.compliancePct, ontime: row.checklist.onTimePct, onTime: row.checklist.onTime },
@@ -65,7 +60,6 @@ const compute = (row: ScoreReportRow): Computed => {
     },
     completion: { overall: across.completion, checklist: parts[0].completion, ticket: parts[1].completion, delegation: parts[2].completion },
     compliance: { overall: across.compliance, checklist: parts[0].compliance, ticket: parts[1].compliance, delegation: parts[2].compliance },
-    // Overall on time: of everything finished, how much was finished on time.
     ontime: { overall: across.ontime, checklist: parts[0].ontime, ticket: parts[1].ontime, delegation: parts[2].ontime },
   };
 };
@@ -79,21 +73,14 @@ const MiniBar = ({ value }: { value: number | null }) => (
 );
 
 interface ScoreRankingProps {
-  /** The list sits in a narrow side panel: always use the compact cards, never the wide table. */
   compact?: boolean;
-  /** When given, the card's measure tabs drive this list and its own measure chips are hidden. */
   metric?: ScoreMetric;
   scope: ScoreScope;
   from: string;
   to: string;
-  /** Open one row on the card: the dials and bars for that person, department or store. */
   onOpen: (id: string) => void;
 }
 
-/**
- * Everyone (or every department, or every store) side by side for the selected window, sorted so the
- * ones who need attention are on top. Tap a row to open that person, department or store on the card.
- */
 export const ScoreRanking = ({ compact = false, metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
   const [localMetric, setMetric] = useState<Metric>('completion');
   const metric: Metric = controlled ?? localMetric;
@@ -101,19 +88,15 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
 
-  // The same two shared requests as the Scorecard and the Overview, so every view agrees for one window.
   const isStore = scope === 'store';
   const peopleReport = useScoreReport(from, to, !isStore);
   const storeReport = useStoreScoreReport(from, to, isStore);
   const { data: reportData, isPending, isError, refetch } = isStore ? storeReport : peopleReport;
 
   const rows = useMemo(() => {
-    // The whole-organisation view lists its departments.
     const source = isStore ? (reportData as ScoreReportRow[] | undefined) : scope === 'person' ? peopleReport.data?.people : peopleReport.data?.departments;
     const needle = query.trim().toLowerCase();
     const list = (source ?? [])
-      // The catch-all rows (work with no department, work with no assignee) are not a person or a
-      // department that can be opened on the card; they live on the Scorecard.
       .filter((r) => r.id !== UNASSIGNED_ROW_ID && r.id !== NO_DEPARTMENT_ROW_ID)
       .filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.department.toLowerCase().includes(needle))
       .map(compute);
@@ -123,7 +106,6 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     };
     return [...list].sort((a, b) => {
       const x = value(a), y = value(b);
-      // Rows with no figure always sink to the bottom, whichever way the list is sorted.
       if (x === null && y === null) return 0;
       if (x === null) return 1;
       if (y === null) return -1;
@@ -137,15 +119,12 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     else { setSortKey(key); setAscending(key === 'name'); }
   };
 
-  // The list as it is on screen (search, sort, measure), one row per line.
   const exportRows = (): TableRows => {
     const measure = metric === 'overview' ? 'overall score' : `${METRIC_LABEL[metric].toLowerCase()} %`;
     const head = ['Position', SUBJECT_HEAD[scope], ...(scope === 'person' ? ['Department'] : []), `All modules ${measure}`, `Checklist ${measure}`, `Tickets ${measure}`, `Delegations ${measure}`, 'Due'];
     return [head, ...rows.map((c, i) => [i + 1, c.row.name, ...(scope === 'person' ? [c.row.department] : []), c[metric].overall, c[metric].checklist, c[metric].ticket, c[metric].delegation, c.due])];
   };
 
-  // Says the order the list is really in (it changes when a column header is tapped), and says nothing
-  // about order when there is only one row to put in it.
   const orderNote = (() => {
     if (rows.length < 2) return '';
     if (sortKey === 'name') return ascending ? ', A to Z' : ', Z to A';
@@ -221,7 +200,6 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
 
       {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center t-card font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
-      {/* Phone: one card per row. */}
       <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
         {rows.map((c) => {
           const value = c[metric].overall;
@@ -257,7 +235,6 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         })}
       </ul>
 
-      {/* Tablet and desktop: a sortable table. */}
       <div className={cn('hidden overflow-x-auto rounded-lg border border-border', !compact && 'sm:block')}>
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{METRIC_LABEL[metric]} by {scope}</caption>

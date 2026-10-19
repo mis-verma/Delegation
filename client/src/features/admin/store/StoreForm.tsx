@@ -12,7 +12,6 @@ import { FormPreview, FormSection } from '../users/FormField';
 import { CardChip } from '../directory/orgScores';
 import type { Store } from '../../../api/stores';
 
-// Built per render of the form so the duplicate-name check can read the cached store list.
 const buildStoreSchema = (existing: Store[] | undefined, ignoreId: string | undefined) =>
   z.object({
     name: z
@@ -47,16 +46,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 interface StoreFormProps {
   onClose: () => void;
   store?: Store;
-  /** Called with the newly-created store right after a successful create (not fired when
-   *  editing). Lets a caller opening this as a nested "quick create" (e.g. from UserForm's
-   *  store Combobox) auto-select the result instead of the admin re-picking it themselves. */
   onCreated?: (store: Store) => void;
-  /** Seeds the name field, e.g. whatever the admin had already typed into a Combobox's search
-   *  box before hitting "Create new store". */
   prefillName?: string;
-  /** True when this opens on top of another modal (the user form's quick add / edit). It then stays
-   *  non-modal so the two dialogs do not fight over focus and scroll lock. On its own (from the
-   *  Stores tab) it is a normal modal, exactly like the user form. */
   nested?: boolean;
 }
 
@@ -113,8 +104,6 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
 
   const onSubmit = (data: StoreFields) => {
     if (isEditing && store) {
-      // An emptied code/address is sent as '' (the payload type and the server schema both reject
-      // null); the server stores it as blank and every screen treats blank as "not set".
       updateMutation.mutate(
         { id: store.id, payload: { name: data.name, code: data.code, address: data.address } },
         { onSuccess: onClose }
@@ -142,8 +131,6 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
     <Modal
       open
       onClose={requestClose}
-      // Non-modal only when opened on top of another Modal (the user form's quick add / edit), same
-      // reasoning as DatePicker/DateRangePicker. On its own it is a normal modal like the user form.
       modal={!nested}
       icon={<StoreIcon className="w-5 h-5" />}
       title={isEditing ? 'Edit store' : 'New store'}

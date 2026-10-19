@@ -12,15 +12,11 @@ interface QueueToolbarProps {
   params: QueueParams;
   patch: (change: QueueParamsPatch, options?: { replace?: boolean }) => void;
   lookups: QueueLookups;
-  /** "Needs attention only" is about checklists, so it is off on the Tickets and Delegations tabs. */
   attentionAvailable: boolean;
   filtersActive: boolean;
   onClear: () => void;
-  /** How many items the current filters leave, for the sheet's "Show N" button. */
   shownCount?: number | null;
-  /** How many are waiting per type, for the Type choices in Options. Null while loading. */
   counts: { all: number; checklists: number; tickets: number; delegations: number } | null;
-  /** How many decisions were made today, for the Show choices. Null while loading. */
   decidedCount: number | null;
 }
 
@@ -37,7 +33,6 @@ const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
   icon: o.value === 'any' ? Clock : CalendarClock,
 }));
 
-/** One removable chip for an applied filter. */
 const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
   <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-border/60 bg-surface t-meta font-display font-semibold text-text">
     <span className="truncate max-w-[12rem]">{label}</span>
@@ -52,9 +47,6 @@ const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void 
   </span>
 );
 
-// Search, plus ONE Options button that holds everything else (sort, store, department, person, age,
-// needs attention). What is applied shows as chips under the search box, each one removable.
-// Everything is written to the URL.
 export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, counts, decidedCount }: QueueToolbarProps) => {
   const [open, setOpen] = useState(false);
   const decided = params.view === 'decided';
@@ -108,8 +100,6 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
           canReset={filtersActive || params.sort !== 'oldest' || params.tab !== 'all' || decided}
           showLabel={decided ? 'Show decisions' : showLabel}
         >
-          {/* What was the two tab strips on the page: whether to look at the work waiting or at what was
-              decided today, and which kind of work. Everything about the view now lives in this one place. */}
           <OptionSection icon={History} label="Show">
             <PeriodTabControl
               value={params.view}
@@ -125,7 +115,6 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
 
           {!decided && (
             <OptionSection icon={Layers} label="Type">
-              {/* Wrapping choices, not a four-across strip: "Delegations 12" does not fit a quarter of a phone. */}
               <ChoiceWrap>
                 {(Object.keys(TYPE_LABEL) as QueueTab[]).map((tab) => (
                   <ChoiceChip key={tab} active={params.tab === tab} onClick={() => patch({ tab, open: null })}>

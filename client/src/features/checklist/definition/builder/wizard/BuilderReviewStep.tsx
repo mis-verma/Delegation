@@ -47,11 +47,9 @@ interface BuilderReviewStepProps {
   canSubmit: boolean;
   isSubmitting: boolean;
   isEditing: boolean;
-  /** Whether the saved checklist is live (only known when editing). Decides what saving does to today's runs. */
   isActive?: boolean;
   onSubmit: () => void;
   submitError?: string;
-  /** Set when the save lost a race with another admin: offers a way to load their version. */
   onReloadLatest?: () => void;
 }
 
@@ -63,7 +61,6 @@ const SECTION_CONFIG = [
   { label: 'Assign', icon: Users },
 ] as const;
 
-/** Safe date formatter to prevent invalid date runtime crashes */
 const safeFormatDate = (dateStr: string): string => {
   if (!dateStr) return 'No date set';
   try {
@@ -75,7 +72,6 @@ const safeFormatDate = (dateStr: string): string => {
   }
 };
 
-// A Button (not a hand-rolled chip) so it gets the shared 44px touch height for free.
 const EditButton = ({
   onClick,
   sectionName,
@@ -146,9 +142,6 @@ const SectionCard = ({
 
 type UserPool = ReturnType<typeof useAssignableUsersQuery>['data'];
 
-// Only people the pool still lists. Someone picked for a store that was since unticked (or who has
-// been deactivated) is not saved, so naming them as "Unknown user" would be wrong; they are counted
-// in `left out` and called out under the names instead.
 const resolveNames = (ids: string[], pool: UserPool) => {
   const names: string[] = [];
   for (const id of ids) {
@@ -164,8 +157,6 @@ const Caption =({ children }: { children: ReactNode }) => (
   <span className="flex items-center gap-1 t-meta font-medium text-text-muted">{children}</span>
 );
 
-// Stand-in for a names line while its query is still loading, so the card never says
-// "Unknown store" / "Unknown user" for a name that just hasn't arrived yet.
 const NamesSkeleton = () => (
   <div className="flex flex-col gap-1.5" aria-busy="true">
     <Skeleton className="h-3.5 w-3/4 rounded" />
@@ -199,14 +190,7 @@ export const BuilderReviewStep = ({
   onReloadLatest,
 }: BuilderReviewStepProps) => {
   const storesQuery = useStoresQuery();
-  // Every selected store, not just the first: a checklist can span multiple stores, and an
-  // assignee added via a later store's "select everyone" bulk-add otherwise resolved to nothing
-  // here and rendered as "Unknown user" even though they're a perfectly valid assignee.
   const assignableQuery = useAssignableUsersQuery(undefined, undefined, storeIds);
-  // Reviewers aren't necessarily store-scoped (a checklist can be reviewed by someone outside its
-  // own stores, e.g. a corporate/compliance reviewer), so their names can't be resolved off the
-  // store-scoped assignableUsers list above. An ADMIN/PC caller with no scope args at all gets
-  // every active user back (see user.service.ts's listAssignable), which is what this needs.
   const allActiveQuery = useAssignableUsersQuery();
 
   const stores = storesQuery.data;
@@ -228,7 +212,6 @@ export const BuilderReviewStep = ({
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 w-full">
-      {/* Saving an edit touches today's runs, so say how before the button, not after. */}
       {isEditing && isActive !== undefined && (
         isActive && !hasPeople ? (
           <NoticeBanner tone="warning" icon={PauseCircle}>
@@ -249,9 +232,7 @@ export const BuilderReviewStep = ({
         )
       )}
 
-      {/* Grid of Sections. The step frame above already carries the step heading. */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* 1. Basics */}
         <SectionCard
           title="Basics"
           icon={<FileText size={14} />}
@@ -272,7 +253,6 @@ export const BuilderReviewStep = ({
           </div>
         </SectionCard>
 
-        {/* 2. Schedule */}
         <SectionCard
           title="Schedule"
           icon={<Calendar size={14} />}
@@ -280,7 +260,6 @@ export const BuilderReviewStep = ({
           onEdit={() => onEditSection(1)}
         >
           <div className="grid grid-cols-1 gap-2 text-xs font-display text-text-secondary">
-            {/* Stores */}
             <div className="flex items-start gap-2">
               <Store size={13} className="text-text-muted shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -299,7 +278,6 @@ export const BuilderReviewStep = ({
               </div>
             </div>
 
-            {/* Recurrence */}
             <div className="flex items-center gap-2">
               <Repeat size={13} className="text-text-muted shrink-0" />
               <div>
@@ -311,7 +289,6 @@ export const BuilderReviewStep = ({
               </div>
             </div>
 
-            {/* Start Date */}
             <div className="flex items-center gap-2">
               <Calendar size={13} className="text-text-muted shrink-0" />
               <div>
@@ -320,7 +297,6 @@ export const BuilderReviewStep = ({
               </div>
             </div>
 
-            {/* Active Time Window */}
             {(opensTime || cutoffTime) && (
               <div className="flex items-center gap-2">
                 <Clock size={13} className="text-text-muted shrink-0" />
@@ -329,9 +305,6 @@ export const BuilderReviewStep = ({
                   <span className="font-medium text-text">
                     {opensTime || 'Anytime'} &rarr; {cutoffTime || 'End of day'}
                   </span>
-                  {/* Cutoff earlier than open time rolls the deadline to the next calendar day
-                      (checklistDisplay.ts's instanceDeadline), called out here so publishing
-                      this schedule doesn't silently land a day later than it visually reads. */}
                   {isOvernightWindow(opensTime, cutoffTime) && (
                     <span className="text-text-muted"> (cuts off the next day)</span>
                   )}
@@ -341,7 +314,6 @@ export const BuilderReviewStep = ({
           </div>
         </SectionCard>
 
-        {/* 3. Items */}
         <SectionCard
           title="Questions"
           icon={<ListChecks size={14} />}
@@ -456,7 +428,6 @@ export const BuilderReviewStep = ({
 
       </div>
 
-      {/* Submission Error Banner */}
       {submitError && <InlineError message={submitError} />}
       {submitError && onReloadLatest && (
         <Button variant="outline" size="sm" className="self-start" onClick={onReloadLatest}>
@@ -464,7 +435,6 @@ export const BuilderReviewStep = ({
         </Button>
       )}
 
-      {/* Action Footer & Incomplete Step Helper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/60">
         {!canSubmit && incompleteSections.length > 0 ? (
           <NoticeBanner tone="warning" icon={AlertTriangle} className="sm:flex-1">

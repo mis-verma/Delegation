@@ -35,11 +35,8 @@ import {
 } from '../../../components';
 
 const PAGE_SIZE = 24;
-// The server refuses a bulk change over this many people.
 const BULK_LIMIT = 100;
 
-// Lazy-loaded modal chunk. Kept as a function so hovering the New button can start the download
-// before the click (the module system hands the same promise back afterwards).
 const loadUserForm = () => import('./UserForm');
 const UserForm = lazy(() =>
   loadUserForm().then(module => ({ default: module.UserForm })).catch(() => ({
@@ -47,7 +44,6 @@ const UserForm = lazy(() =>
   }))
 );
 
-// --- Subcomponents ---
 const UserGridSkeleton = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3" aria-hidden>
     {Array.from({ length: 6 }).map((_, i) => <UserCardSkeleton key={i} />)}
@@ -60,7 +56,6 @@ const UserTableSkeleton = () => (
   </div>
 );
 
-// --- Main Component ---
 export const UserList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
@@ -68,8 +63,6 @@ export const UserList = () => {
   const [resetting, setResetting] = useState<AdminUser | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
-  // The whole roster comes down once and is searched, filtered, sorted and paged here, so the
-  // Active / Deactivated split and every filter are instant instead of a round trip each.
   const { data: allUsers, isPending, isError, refetch } = useUsersQuery();
   const users = useMemo(() => allUsers ?? [], [allUsers]);
   const { data: departments } = useDepartmentsQuery();
@@ -99,12 +92,10 @@ export const UserList = () => {
     [stores],
   );
 
-  // --- Single-person actions. Stable callbacks, so memoised cards and rows don't re-render. ---
   const { mutate: updateUser } = reactivateMut;
   const { mutate: deleteUser } = deleteMut;
 
   const handleEdit = useCallback((user: AdminUser) => {
-    // A PC cannot change an admin account.
     if (me?.role === 'PC' && user.role === 'ADMIN') {
       toast.info('Only an admin can change admin accounts.');
       return;
@@ -112,9 +103,7 @@ export const UserList = () => {
     setEditingUser(user);
   }, [me?.role]);
   const handleResetPassword = useCallback((user: AdminUser) => setResetting(user), []);
-  // Deactivating goes through the hand-over dialog (their open work moves to someone first).
   const handleDeactivate = useCallback((user: AdminUser) => setOffboarding(user), []);
-  // Switching someone back on is a plain, instant change.
   const handleReactivate = useCallback((user: AdminUser) => updateUser({ id: user.id, payload: { isActive: true } }), [updateUser]);
   const handleDelete = useCallback(async (user: AdminUser) => {
     const ok = await confirm({
@@ -132,8 +121,6 @@ export const UserList = () => {
       ? (deleteMut.variables ?? null)
       : null;
 
-  // --- Selection (table view only). Only people the current filters still show count. ---
-  // Never yourself: a bulk role or department change on your own account could lock you out.
   const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && u.id !== me?.id), [filtered, selectedIds, me?.id]);
 
   const toggleSelect = useCallback((id: string) => {
@@ -153,7 +140,6 @@ export const UserList = () => {
   }, []);
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  // --- Bulk actions. Each one says how many people it touches and waits for a yes. ---
   const runBulk = async (
     change: { departmentId?: string | null; storeId?: string | null; role?: Role },
     copy: { title: string; description: string; confirmLabel: string; done: string },
@@ -240,7 +226,6 @@ export const UserList = () => {
   };
 
   const renderContent = () => {
-    // Skeleton only while there is nothing to show yet, never on a refetch.
     if (isPending) return view === 'table' ? <UserTableSkeleton /> : <UserGridSkeleton />;
 
     if (!hasData) {
@@ -267,7 +252,6 @@ export const UserList = () => {
 
     return (
       <>
-        {/* A failed refresh keeps the people already loaded on screen, with a note above. */}
         {isError && <InlineError message="We couldn’t refresh the list. You are seeing the last version we loaded." onRetry={() => refetch()} />}
         {view === 'table' ? (
           <UserTable

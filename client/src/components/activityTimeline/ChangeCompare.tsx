@@ -3,7 +3,6 @@ import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TONE, type ActivityTone } from './activityTones';
 
-// The new value's tint, one per tone. Opacity tints, so they sit right on a light or a dark surface.
 const NEW_VALUE: Record<ActivityTone, string> = {
   primary: 'bg-primary-500/12 text-primary-700 dark:text-primary-200',
   success: 'bg-success/12 text-success',
@@ -15,24 +14,15 @@ const NEW_VALUE: Record<ActivityTone, string> = {
 };
 
 interface ChangeCompareProps {
-  /** The old value. Left out when there was none (it was set for the first time). */
   from?: ReactNode;
   to: ReactNode;
-  /** A coloured tile in front, e.g. a calendar for a date change. */
   icon?: LucideIcon;
   tone?: ActivityTone;
-  /** A short note after the pair, such as "3 days later". */
   note?: ReactNode;
   noteTone?: ActivityTone;
-  /** No border or background of its own: for a row that already sits inside a panel. */
   plain?: boolean;
 }
 
-/**
- * "Was → Now" as one small card: the old value stepped back and struck through, a round arrow, then the new value
- * in the colour of the change. Used for dates, priority and assignee in the Activity feed, and for date fields in
- * the full change log, so every before-and-after reads the same way.
- */
 export const ChangeCompare = ({ from, to, icon: Icon, tone = 'primary', note, noteTone, plain = false }: ChangeCompareProps) => (
   <div className={cn('inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1.5', plain ? '' : 'rounded-xl border border-border/60 bg-surface p-1.5')}>
     {Icon && (

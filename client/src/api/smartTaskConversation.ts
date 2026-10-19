@@ -18,8 +18,6 @@ export type SmartTaskConversation = {
     updatedAt:       string;
 };
 
-// Lightweight row for the history list — no message array, so opening the list stays cheap even
-// once there are many past chats. Full messages only fetched when a specific one is opened.
 export type SmartTaskConversationSummary = {
     id:              string;
     status:          SmartTaskConversationStatus;

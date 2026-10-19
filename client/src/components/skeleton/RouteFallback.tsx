@@ -1,10 +1,5 @@
 import { Skeleton } from './Skeleton';
 
-/**
- * Shown inside a layout's <Suspense> boundary while a lazy-loaded route chunk downloads.
- * Shaped like a generic bento page (title bar + card grid) rather than a bare spinner, so the
- * shell doesn't flash to an empty page between the chunk load and the real content mounting.
- */
 export const RouteFallback = () => (
   <div className="flex flex-col gap-5 w-full" role="status" aria-label="Loading page">
     <div className="flex items-center gap-3">

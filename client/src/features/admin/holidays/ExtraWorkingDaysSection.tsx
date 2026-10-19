@@ -52,11 +52,6 @@ const ExtraDayRow = memo(({ day, who, today, onDelete, busy }: { day: ExtraWorki
 });
 ExtraDayRow.displayName = 'ExtraDayRow';
 
-/**
- * Days people work although they are normally off: Sunday overtime, a stock-count weekend. On such a day
- * the daily checklists run for the people it covers, whatever the checklist's working days, their own
- * week-off or a holiday say. Everyone else stays off, so nobody is marked as missing anything.
- */
 export const ExtraWorkingDaysSection = ({ year, today }: { year: number; today: string }) => {
   const confirm = useConfirm();
   const [formOpen, setFormOpen] = useState(false);

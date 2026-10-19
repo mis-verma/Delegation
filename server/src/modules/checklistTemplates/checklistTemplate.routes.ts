@@ -2,8 +2,6 @@ import { Router } from "express"
 import { checklistTemplateController } from "./checklistTemplate.controller.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 
-// Mounted at /checklist-templates in app.ts. Reading templates (list/getOne) is useful to any
-// authenticated user picking one to apply to a task/ticket — only ADMIN can manage them.
 export const checklistTemplateRouter = Router()
 checklistTemplateRouter.use(authenticate)
 checklistTemplateRouter.get("/", checklistTemplateController.list)
@@ -13,7 +11,6 @@ checklistTemplateRouter.patch("/:id", requireRole("ADMIN", "PC"), checklistTempl
 checklistTemplateRouter.delete("/:id", requireRole("ADMIN", "PC"), checklistTemplateController.remove)
 checklistTemplateRouter.post("/:templateId/items", requireRole("ADMIN", "PC"), checklistTemplateController.addItem)
 
-// Mounted at /checklist-template-items in app.ts
 export const checklistTemplateItemRouter = Router()
 checklistTemplateItemRouter.use(authenticate)
 checklistTemplateItemRouter.patch("/:id", requireRole("ADMIN", "PC"), checklistTemplateController.updateItem)

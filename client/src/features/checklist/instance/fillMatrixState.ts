@@ -2,8 +2,6 @@ import { CalendarOff, Check, Clock, X } from 'lucide-react';
 import { exportPct, type TableRows } from '../../../lib/exportTable';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 
-// One look per state. Colour is never the only signal: each carries its own mark and a word in the
-// tooltip / screen-reader label.
 export const STATE: Record<WeeklyCellState, { label: string; tone: string; icon: typeof Check | null }> = {
   done: { label: 'Filled on time', tone: 'text-success', icon: Check },
   late: { label: 'Filled late', tone: 'text-warning', icon: Clock },
@@ -15,14 +13,12 @@ export const STATE: Record<WeeklyCellState, { label: string; tone: string; icon:
   summary: { label: 'Month total', tone: 'text-text', icon: null },
 };
 
-/** What one cell says in a file: the state in words (with the count when a run exists), or the share filled for a month. */
 const cellText = (cell: WeeklyCell): string | number | null => {
   if (cell.state === 'summary') return exportPct(cell.completion ?? null);
   const state = cell.state === 'open' && cell.done === 0 ? 'Not started' : STATE[cell.state].label;
   return cell.total && cell.runId ? `${state} (${cell.done}/${cell.total})` : state;
 };
 
-/** The matrix as a table for ExportMenu: exactly the rows and columns on screen, with the state of each day in words. */
 export const fillMatrixRows = (data: WeeklyReport): TableRows => {
   const head = ['Checklist', 'Store', ...data.columns.map((c) => (data.kind === 'month' ? c.label : c.key)), 'Completion %', 'Met deadline %', 'Answers right %', 'Still open'];
   const body = data.rows.map((r) => [

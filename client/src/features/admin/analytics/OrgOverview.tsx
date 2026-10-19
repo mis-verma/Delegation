@@ -33,14 +33,7 @@ type SectionValue = (typeof SECTION_TABS)[number]['value'];
 const DEFAULT_SECTION: SectionValue = 'delegations';
 const SECTIONS_ANCHOR_ID = 'overview-sections';
 
-// Comparing performance across stores and departments is an org-wide (owner) view: a department
-// head only needs their own numbers, not a cross-entity ranking. It also depends on the
-// ADMIN/PC-only /users list, which is not opened up further here.
 const isOrgWide = (role?: string) => role === 'ADMIN' || role === 'PC';
-
-// ---------------------------------------------------------------------------------------------
-// Scope notice (MANAGER and SENIOR only)
-// ---------------------------------------------------------------------------------------------
 
 interface ScopeNoticeProps {
   role?: string;
@@ -48,13 +41,9 @@ interface ScopeNoticeProps {
   storeId?: string | null;
   departments?: Department[];
   stores?: Store[];
-  /** Names still loading, or the lookup failed: say nothing rather than guess. */
   isUnavailable: boolean;
 }
 
-// Department heads see only their own slice of the organisation. Said once, up front, instead of a
-// chip beside the title. Renders nothing while the names are still loading, so it never flashes
-// "unassigned" before the real department or store arrives.
 const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, isUnavailable }: ScopeNoticeProps) => {
   if (role !== 'MANAGER' && role !== 'SENIOR') return null;
   if (isUnavailable) return null;
@@ -69,7 +58,6 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
       </NoticeBanner>
     );
   }
-  // The server returns no rows at all for a SENIOR missing either one, so say which is missing.
   if (role === 'SENIOR' && (!storeId || !departmentId)) {
     const missing = !storeId && !departmentId ? 'store or department' : !storeId ? 'store' : 'department';
     return (
@@ -89,10 +77,6 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
 });
 ScopeNotice.displayName = 'ScopeNotice';
 
-// ---------------------------------------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------------------------------------
-
 interface OverviewTabsProps {
   groupBy: GroupBy;
   from?: string;
@@ -102,8 +86,6 @@ interface OverviewTabsProps {
   isOrgWideRole: boolean;
 }
 
-// Owns the selected tab, so switching tabs re-renders only this block and never the summary or
-// snapshot strips above and below it.
 const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: OverviewTabsProps) => {
   const headingId = useId();
   const [params] = useSearchParams();
@@ -116,8 +98,6 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
     <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 focus:outline-none lg:scroll-mt-52">
       <h2 id={headingId} className="sr-only">Performance by area</h2>
       <Tabs value={section} onValueChange={(v) => patch({ tab: v === DEFAULT_SECTION ? null : v })}>
-        {/* Equal columns on a phone: the icon drops out and a long label wraps to two lines
-            instead of clipping. A compact pill group from sm up. */}
         <TabsList aria-label="Performance area" className="grid w-full grid-flow-col auto-cols-fr sm:inline-flex sm:w-fit h-auto">
           {SECTION_TABS.map(({ value, label, icon: Icon }) => (
             <TabsTrigger
@@ -146,10 +126,6 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
 });
 OverviewTabs.displayName = 'OverviewTabs';
 
-// ---------------------------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------------------------
-
 export const OrgOverview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -163,26 +139,20 @@ export const OrgOverview = () => {
       requestAnimationFrame(() => {
         const section = document.getElementById(SECTIONS_ANCHOR_ID);
         section?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-        // Keyboard and screen reader users land in the section too, not just the eyes.
         section?.focus({ preventScroll: true });
       });
     },
     [patch],
   );
-  // The organisation scores follow this page period bar, so the page never shows two windows at once. The same org
-  // days (never later than today) go to the explorer, so the Scores page opens on exactly these numbers.
   const scoreWindow = useOverviewScoreWindow(windowFrom, windowTo);
   const scoresHref = useCallback(
     (view: 'department' | 'person') => `/admin/scores?${new URLSearchParams({ view, ...(scoreWindow ? { from: scoreWindow.from, to: scoreWindow.to } : {}) }).toString()}`,
     [scoreWindow],
   );
-  // The full ranking is the Scores page now, opened on the same window.
   const openRankings = useCallback(() => navigate(scoresHref('department')), [navigate, scoresHref]);
 
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
-  // Names for the department head's scope notice only. Admin and PC get the four organisation counts
-  // from one small request instead of the whole roster, so they never download these lists here.
   const departmentsQuery = useDepartmentsQuery(!orgWide);
   const storesQuery = useStoresQuery(!orgWide);
   const countsQuery = useOrgCounts(orgWide);
@@ -226,15 +196,10 @@ export const OrgOverview = () => {
 
       <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
 
-      {/* Admin and PC decide the approvals, so how many are waiting and for how long sits right under the headline numbers. */}
       {orgWide && <ApprovalWaitingStrip from={windowFrom} to={windowTo} />}
 
-      {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
-          completion, compliance and on time, with every department ranked under it. */}
       {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} />}
 
-      {/* Who is top and who is low, right on the page: the full ranked table lives in the Stores
-          tab below, this is the glance view of it. Org-wide roles only. */}
       {orgWide && (
         <div className="@container">
           <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
@@ -246,7 +211,6 @@ export const OrgOverview = () => {
 
       <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
 
-      {/* The size of the organisation is background, so it sits below the performance cards. */}
       {orgWide && <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />}
 
     </div>

@@ -10,10 +10,7 @@ import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/d
 interface TaskAttachmentsProps {
   taskId: string;
   attachments: TaskAttachment[];
-  /** Adds the "Add file" button and a remove button on each file. */
   canEdit: boolean;
-  /** Narrows the remove buttons only (an approved delegation keeps its files unless an Admin removes
-   *  them). Defaults to canEdit. */
   canRemove?: boolean;
   onPreview: (url: string) => void;
 }
@@ -21,11 +18,6 @@ interface TaskAttachmentsProps {
 const REMOVE_BUTTON =
   'flex items-center justify-center size-8 rounded-full bg-surface text-text-muted hover:text-danger border border-border/50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-50 after:absolute after:-inset-1.5';
 
-/**
- * The files that belong to the delegation itself: photos as thumbnails that open full size,
- * everything else (PDF, CSV, video) as a row you can open. Hidden when there is nothing to show and
- * nothing the viewer could add.
- */
 export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canEdit, onPreview }: TaskAttachmentsProps) => {
   const upload = useUploadTaskAttachmentsMutation(taskId);
   const remove = useDeleteTaskAttachmentMutation();
@@ -125,7 +117,6 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
         </ul>
       )}
 
-      {/* Same File and Photo buttons as the New delegation form (Photo opens the camera on a phone). */}
       {canEdit && (
         <div className="flex items-center gap-2">
           <AttachFilesToolbar bordered onFiles={(list) => upload.mutate(Array.from(list))} disabled={upload.isPending} />

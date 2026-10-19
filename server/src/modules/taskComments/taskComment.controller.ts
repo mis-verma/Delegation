@@ -4,14 +4,11 @@ import { createTaskCommentSchema } from "./taskComment.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 
 export const taskCommentController = {
-    // GET /tasks/:taskId/comments
     list: asyncHandler(async (req: Request, res: Response) => {
         const comments = await taskCommentService.list(req.params.taskId, req.user!);
         res.json({ success: true, data: comments });
     }),
 
-    // POST /tasks/:taskId/comments — multipart/form-data: `body` (text), `location` (JSON string,
-    // since multipart fields are always strings), and any number of `files`.
     create: asyncHandler(async (req: Request, res: Response) => {
         const input = createTaskCommentSchema.parse({
             body: req.body.body,

@@ -5,22 +5,12 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, D
 import { Button } from '../button';
 import { useDraggableDialog } from '../modal/useDraggableDialog';
 
-/**
- * The "Filter and sort" sheet shared by list pages (Tickets, To-Do): an Options pill that opens a
- * bottom sheet on phones (only the middle scrolls) or a draggable dialog on desktop. Header has an
- * icon tile, the title and a live match count; footer has Reset, optional Export, and a
- * "Show N …" button that closes it. The rows in between are built from the pieces below.
- */
-
-// Same quiet label style as the detail sheets' section headings.
 const HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
 
-/** One section: an icon label over its controls, with an optional control on the label row. */
 export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: LucideIcon; label: string; children: ReactNode; aside?: ReactNode }) => (
   <section className="flex flex-col gap-2 min-w-0">
     <div className="flex items-center justify-between gap-2">
       <span className={HEADING_CLASS}>
-        {/* A small tinted tile, not a bare grey glyph: the section icons are the sheet's wayfinding. */}
         <span className="flex items-center justify-center size-6 rounded-md bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0">
           <Icon size={13} strokeWidth={2.4} />
         </span>
@@ -32,11 +22,6 @@ export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: Lu
   </section>
 );
 
-/**
- * Gradient fills for the icon tiles in this sheet, one per option, so the choices are told apart by
- * colour as well as by shape. Spelled out in full: Tailwind reads class names from source text and
- * emits nothing for a name assembled at runtime.
- */
 const OPTION_TONES = [
   'bg-gradient-to-br from-primary-500 to-primary-700 dark:from-primary-400 dark:to-primary-600',
   'bg-gradient-to-br from-coral-400 to-coral-600',
@@ -48,19 +33,12 @@ const OPTION_TONES = [
 
 const toneAt = (index: number) => OPTION_TONES[index % OPTION_TONES.length];
 
-/** The solid, rounded icon tile used by the choice cards and chips below. */
 const OptionGlyph = ({ icon: Icon, tone, className = 'size-8 rounded-lg' }: { icon: LucideIcon; tone: string; className?: string }) => (
   <span className={`flex items-center justify-center shrink-0 text-white ${tone} ${className}`}>
     <Icon className="size-4" strokeWidth={2.4} />
   </span>
 );
 
-/**
- * Choice cards for a short either/or (Show, Group by): equal-width cells, each with its own
- * coloured icon tile above the label. The picked card gets a navy border, a soft tint and a tick, so
- * it reads without relying on colour alone. Cards stack icon-over-label on phones so three fit
- * without cutting words off.
- */
 export const OptionSegmented = <T extends string>({ options, value, onChange }: {
   options: { value: T; label: string; icon: LucideIcon }[];
   value: T;
@@ -94,11 +72,6 @@ export const OptionSegmented = <T extends string>({ options, value, onChange }: 
   </div>
 );
 
-/**
- * A one-of-many picker (Sort by, Group board by) shown as a row of chips instead of a dropdown:
- * every option is visible and one tap away, each with its own coloured icon tile, and the current
- * one is ticked. Same name and props as the dropdown it replaces, so callers are unchanged.
- */
 export const OptionSelect = <K extends string>({ labels, icons, value, onChange }: {
   labels: Record<K, string>;
   icons: Record<K, LucideIcon>;
@@ -119,11 +92,6 @@ export const OptionSelect = <K extends string>({ labels, icons, value, onChange 
   </div>
 );
 
-/**
- * A pickable chip in the app's icon-chip language: a solid icon circle (or colour dot, or avatar)
- * plus a bold label in a pill. Picked = navy border, soft tint and a tick, so it reads at a glance
- * without relying on colour alone.
- */
 export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolean; onClick: () => void; lead?: ReactNode; children: ReactNode }) => (
   <button
     type="button"
@@ -141,7 +109,6 @@ export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolea
   </button>
 );
 
-/** Solid icon circle for a ChoiceChip's `lead`. */
 export const ChoiceIcon = ({ icon: Icon, tone }: { icon: LucideIcon; tone: string }) => (
   <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white shrink-0 ${tone}`}>
     <Icon className="size-2.5 sm:size-3" strokeWidth={2.75} />
@@ -150,7 +117,6 @@ export const ChoiceIcon = ({ icon: Icon, tone }: { icon: LucideIcon; tone: strin
 
 export const ChoiceWrap = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap gap-2 pointer-coarse:gap-2.5">{children}</div>;
 
-/** Small "Clear" link for a section's label row, shown only while that section has a pick. */
 export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
@@ -164,14 +130,11 @@ export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
 interface OptionsSheetProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  /** Number shown in the trigger's badge (active filters). */
   activeCount: number;
-  /** Under the title, e.g. "6 of 64 tickets". */
   subtitle: ReactNode;
   onReset: () => void;
   canReset: boolean;
   onExport?: () => void;
-  /** The footer's close button, e.g. "Show 6 tickets". */
   showLabel: string;
   children: ReactNode;
 }
@@ -183,8 +146,6 @@ export const OptionsSheet = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* The number sits on a wrapper beside the button, not inside it, and inside the wrapper's own
-          padding, so neither the button's round edge nor a toolbar's overflow can cut it off. */}
       <span className="relative inline-flex shrink-0 -m-1 p-1">
         <DialogTrigger asChild>
           <Button

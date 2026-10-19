@@ -1,7 +1,3 @@
-// The last few unexpected server errors (the 500s the error handler masks from users), kept in
-// memory so an admin can see "what just broke" on the System Health page without opening server
-// logs. Deliberately not persisted: it resets on restart, which is itself useful (the page shows
-// the process start time). Only the message and the route are kept, never request bodies.
 
 export type RecordedError = { at: string; method: string; path: string; message: string }
 

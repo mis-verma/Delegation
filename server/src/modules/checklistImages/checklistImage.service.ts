@@ -10,8 +10,6 @@ import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from "../../util
 
 type ChecklistItemRow = typeof checklistItems.$inferSelect;
 
-// Same rule as ticking the item (see checklistItemWorkers): its assignee, the ticket's assignee when
-// the item has nobody on it, or an admin.
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; checklistId: string | null }) =>
     assertCanWorkChecklistItem(
         user,
@@ -35,8 +33,6 @@ export const checklistImageService = {
             throw AppError.badRequest("This item requires a live camera photo, not a gallery upload");
         }
 
-        // maxImageCount: an upper cap on how much evidence can pile up on one item — distinct
-        // from requiredImageCount (the minimum needed to complete it). null means no cap.
         if (item.maxImageCount != null) {
             const [{ count: existingCount }] = await db
                 .select({ count: sql<number>`count(*)` })

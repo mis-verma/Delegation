@@ -22,8 +22,6 @@ interface UserTableProps extends UserActionHandlers {
   onTogglePage: (ids: string[], select: boolean) => void;
 }
 
-// A light header: a tinted band with quiet labels, so the people are what stands out. The sticky
-// cells reuse it, which is why it has to be a solid colour.
 const HEAD_ROW_CLASS = 'bg-surface-hover';
 const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-display font-semibold text-text-muted tracking-tight whitespace-nowrap';
 

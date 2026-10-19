@@ -14,21 +14,9 @@ import type { Task } from '../../api/task';
 
 interface TaskMoveMenuProps {
   task: Task;
-  /** Always route this through useTaskStatusMove's requestMove — never a mutation directly. */
   onMove: (task: Task, status: Task['status']) => void;
 }
 
-/**
- * The card's "Move to" menu, extracted so the table and timeline views offer the identical one.
- *
- * The board card keeps its own copy of this markup because it lives inside dnd-kit's drag
- * listeners and has to stopPropagation on pointerdown so opening the menu doesn't pick the card
- * up instead. Nothing here is draggable, so this version doesn't carry that.
- *
- * Not rendered at all for someone the server won't let move this delegation (canMoveTask: PC, an
- * approval manager, a Manager on a colleague's work, anyone but an Admin once it is approved).
- * Options that exist but aren't reachable from the current status show disabled (isMoveBlocked).
- */
 export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
   const { user } = useAuth();
   if (!canMoveTask(task, user)) return null;

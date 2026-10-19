@@ -1,11 +1,6 @@
 import { useCallback } from 'react';
 import { useConfirm } from '../../components';
 
-/**
- * Wraps a form's close handler so Cancel, Esc, the X and a click outside all ask first when the
- * form has unsaved edits. Returns a stable function; call it instead of `onClose` directly.
- * A successful save should still call the raw `onClose` (nothing left to discard).
- */
 export const useDiscardGuard = (isDirty: boolean, isBusy: boolean, onClose: () => void) => {
   const confirm = useConfirm();
 

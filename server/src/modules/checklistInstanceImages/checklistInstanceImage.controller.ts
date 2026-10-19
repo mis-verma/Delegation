@@ -12,7 +12,6 @@ export const checklistInstanceImageController = {
         res.status(201).json({ success: true, data: images });
     }),
 
-    // DELETE /checklist-instance-images/:id
     remove: asyncHandler(async (req: Request, res: Response) => {
         await checklistInstanceImageService.remove(req.params.id, req.user!);
         res.json({ success: true, data: { deleted: true } });

@@ -29,10 +29,8 @@ const PAGE_SIZE = 24;
 const SKELETON_COUNT = 6;
 const GRID_CLASS = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3';
 
-// Named so hovering/focusing "New store" can start the chunk download early.
 const loadStoreForm = () => import('./StoreForm');
 
-// Lazy-loaded modal chunk, same code-splitting (and chunk-load-failure fallback) as UserForm/DepartmentForm.
 const StoreForm = lazy(() =>
   loadStoreForm().then(module => ({ default: module.StoreForm })).catch(() => ({
     default: FormLoadError,
@@ -47,12 +45,9 @@ export const StoreList = () => {
   const [searchText, setSearchText] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [sort, setSort] = useState<SortKey>('name');
   const [view, setView] = useDirectoryView();
-  // Phones always get cards, whatever the shared view says.
   const isNarrow = useMediaQuery('(max-width: 639px)');
   const showTable = view === 'table' && !isNarrow;
 
-  // Filtering/pagination is client-side (full roster, not a server page) so the Active/Inactive
-  // split can be seen and filtered at all.
   const { data: allStores, isPending, isError, refetch } = useStoresQuery();
   const stores = useMemo(() => allStores ?? [], [allStores]);
   const { data: users, isError: usersError, refetch: refetchUsers } = useUsersQuery();
@@ -63,7 +58,6 @@ export const StoreList = () => {
   const { mutate: deleteStore } = deleteMut;
   const confirm = useConfirm();
 
-  // undefined until the roster arrives, so a card never claims "0 staff" while it is still loading.
   const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'storeId') : undefined), [users]);
 
   const departmentCountByStore = useMemo(() => {
@@ -152,7 +146,6 @@ export const StoreList = () => {
     const deptCount = departmentCountByStore?.get(store.id) ?? 0;
     const peopleKnown = !!memberCounts && !!departmentCountByStore;
 
-    // Not empty: deleting would strand departments and people, so the only forward step is deactivating.
     if ((people && hasPeople(people)) || deptCount > 0) {
       const parts: string[] = [];
       if (deptCount > 0) parts.push(`${deptCount} ${deptCount === 1 ? 'department' : 'departments'}`);
@@ -196,7 +189,6 @@ export const StoreList = () => {
   const activeModal = showForm || editingStore;
 
   const renderContent = () => {
-    // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
     if (isPending) return showTable ? <OrgTableSkeleton /> : (
       <div className={GRID_CLASS}>
         {Array.from({ length: SKELETON_COUNT }).map((_, i) => <StoreCardSkeleton key={i} />)}
@@ -292,7 +284,6 @@ export const StoreList = () => {
         </OptionSection>
       </OrgToolbar>
 
-      {/* A failed refresh never hides the list; it just says so. */}
       {isError && allStores && (
         <InlineError message="Couldn't refresh stores. Showing the last list we loaded." onRetry={() => refetch()} />
       )}

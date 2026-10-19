@@ -7,7 +7,6 @@ export const createTodoSchema = z.object({
     priority: z.enum(TODO_PRIORITIES).optional(),
 })
 
-// GET /todos. No limit = every todo, as before. The dashboard passes a small one.
 export const listTodosQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(500).optional(),
 })

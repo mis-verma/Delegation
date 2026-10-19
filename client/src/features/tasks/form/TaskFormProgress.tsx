@@ -2,12 +2,6 @@ import { useWatch, type Control } from 'react-hook-form';
 import { Check } from 'lucide-react';
 import type { TaskFields } from '../TaskForm';
 
-/**
- * Footer line for the New delegation form. Before the required fields are in it says what is still
- * needed; after that it lists what is still empty (person, due date) as a gentle nudge, since a
- * delegation with no owner or due day is easy to lose. Its own component so only this line
- * re-renders on each keystroke. On a phone it stays out of the way until the first Create tap.
- */
 export const TaskFormProgress = ({
   control,
   hasPerson,
@@ -18,9 +12,7 @@ export const TaskFormProgress = ({
   control: Control<TaskFields>;
   hasPerson: boolean;
   hasDates: boolean;
-  /** Department is required for this person (front-line staff send work to a department). */
   needsDepartment: boolean;
-  /** True once Create or Save as draft was tapped. */
   attempted: boolean;
 }) => {
   const title = useWatch({ control, name: 'title' });

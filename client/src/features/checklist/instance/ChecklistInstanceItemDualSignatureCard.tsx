@@ -16,7 +16,6 @@ interface ChecklistInstanceItemDualSignatureCardProps {
 
 export const ChecklistInstanceItemDualSignatureCard = memo(function ChecklistInstanceItemDualSignatureCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemDualSignatureCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  // Both start empty, matching the blank pads — see ChecklistInstanceItemSignatureCard.
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
   const interactive = canWork && !isLocked;
@@ -35,9 +34,6 @@ export const ChecklistInstanceItemDualSignatureCard = memo(function ChecklistIns
         })}
       />
 
-      {/* The saved signatures are NOT gated on `interactive` — they're evidence, and must stay
-          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
-          capture UI (blank pads + Save) is for the still-editable case. */}
       {item.isDone && item.signatureValue && item.secondSignatureValue ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[[firstLabel, item.signatureValue], [secondLabel, item.secondSignatureValue]].map(([lbl, src]) => (

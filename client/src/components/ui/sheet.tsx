@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils"
 import { useCloseOnBack } from "@/lib/useCloseOnBack"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  // A controlled sheet closes on the phone back gesture (top-most layer only), like Modal.
   const { open, onOpenChange } = props
   useCloseOnBack(!!open && !!onOpenChange, () => onOpenChange?.(false))
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -63,9 +62,6 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          // Theme tokens (not raw slate/white) — those never adapted to dark mode, so a sheet
-          // opened in dark mode rendered as a jarring bright-white panel while the rest of the app
-          // was dark. bg-surface/text-text/border-border track the app's actual theme instead.
           "fixed z-60 flex flex-col bg-surface text-text shadow-2xl shadow-black/10 outline-none",
           "transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-200 data-[state=closed]:duration-150",
@@ -87,10 +83,6 @@ function SheetContent({
         {showCloseButton && (
           <SheetPrimitive.Close
             className={cn(
-              // size-10 (was size-8) to clear the 44px touch-target guideline; text-text-muted
-              // (was slate-400, ~2.6:1 against white) clears the 3:1 non-text contrast minimum;
-              // focus-visible:ring-primary (was ring-slate-100, ~1.1:1) is now an actually visible
-              // keyboard focus indicator instead of nearly the same color as the background.
               "absolute top-4 right-4 flex items-center justify-center size-10 rounded-full text-text-muted z-10 cursor-pointer transition-all duration-200",
               "hover:text-text hover:bg-surface-hover",
               "outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",

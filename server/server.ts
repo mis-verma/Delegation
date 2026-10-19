@@ -32,17 +32,12 @@ class ServerBootstrap {
   public async start(): Promise<void> {
     await connectDB();
     await settingsService.init()
-    // Not awaited — starts the query-cache Redis handshake in the background as early as possible
-    // in boot, so it's likely already connected (or already backed off) by the time the first real
-    // request needs it, instead of that request paying the full connect cost itself (see
-    // queryCache.ts's CONNECT_WAIT_MS comment for the request-time half of this fix).
     warmQueryCache();
 
     const rateLimitStoreFactory = workerCount > 1 ? await createRedisRateLimitStoreFactory() : undefined;
     this.appInstance = new App(rateLimitStoreFactory);
 
     this.httpServer = http.createServer(this.appInstance.app);
-    // A stalled client or a hung handler must not hold a socket (and a DB connection) forever.
     this.httpServer.requestTimeout = 30_000;
     this.httpServer.headersTimeout = 35_000;
     const io = await initSocket(this.httpServer, workerCount > 1);
@@ -59,7 +54,6 @@ class ServerBootstrap {
       startDataBackup();
       startAuthTokenPurge();
       startScoreDataCheck();
-      // Presence keys left over from the previous process are stale; live sockets re-register on their next heartbeat.
       void presenceService.clearStale();
       startNotificationRetention();
       startNotificationDigest();
@@ -68,8 +62,6 @@ class ServerBootstrap {
     }
 
     if (cluster.isWorker) {
-      // The primary owns PORT and sticky-routes each connection to a worker over IPC (see
-      // forkWorkerPool) — this process must not bind PORT itself, only accept what's forwarded.
       setupWorker(io);
       console.log(`Server ready (worker ${cluster.worker?.id})`);
     } else {
@@ -85,8 +77,6 @@ class ServerBootstrap {
   private shutdown(): void {
     console.log("Shutting down server...");
 
-    // close() waits for open connections (sockets, keep-alive) and can wait forever: force the exit
-    // so a restart never hangs. unref() so this timer alone never keeps the process alive.
     setTimeout(() => process.exit(1), 15_000).unref();
 
     this.httpServer?.close(async () => {
@@ -103,9 +93,6 @@ class ServerBootstrap {
   }
 }
 
-// A stray rejected promise in one request must not take the whole server down, so it is logged.
-// An uncaught exception leaves the process in an unknown state: log it and exit, and the process
-// manager (or the cluster primary, which forks a replacement) brings a clean one back.
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection:", reason);
 });
@@ -126,19 +113,7 @@ const bootstrap = () => {
 const forkWorkerPool = (workerCount: number) => {
   console.log(`Primary ${process.pid} forking ${workerCount} workers...`);
 
-  // Socket.io's polling transport needs every request from one client to land on the same
-  // worker — Node's cluster module round-robins raw connections across workers with no such
-  // affinity, which is what produced "Session ID unknown" 400s in the browser once this ran
-  // with more than one worker. The Redis adapter (see socket.ts) only fans *events* out across
-  // workers; it doesn't make polling sticky. @socket.io/sticky fixes the actual routing: the
-  // primary itself binds PORT, reads each connection's `sid` off the wire, and forwards it over
-  // IPC to the worker that already owns that session (falling back to least-connection for a
-  // brand-new session) — nginx and CloudPanel are untouched, they still just proxy to PORT.
   const httpServer = http.createServer();
-  // round-robin, not least-connection: that mode only counts Socket.IO sessions, never plain HTTP
-  // connections, so every count stays equal and every tie goes to the first worker. Measured with
-  // 1000 simulated people: one worker at ~250% CPU, the other three at 0%, i.e. the whole REST API ran
-  // on a single core. A request carrying a socket's sid still goes to the worker that owns it.
   setupMaster(httpServer, { loadBalancingMethod: "round-robin" });
   cluster.setupPrimary({ serialization: "advanced" });
   httpServer.listen(env.PORT, () => {

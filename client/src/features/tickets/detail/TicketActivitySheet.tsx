@@ -9,11 +9,6 @@ interface TicketActivitySheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/**
- * Activity and the full change log, opened from the ticket sheet's More menu. Kept off the ticket sheet itself so
- * that page stays about the work: details, photos and status history. Mounted only while open, so the feeds load
- * when someone asks for them.
- */
 export const TicketActivitySheet = ({ ticketId, open, onOpenChange }: TicketActivitySheetProps) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent showCloseButton={false} className="w-full sm:max-w-[560px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none">

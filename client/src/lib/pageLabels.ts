@@ -1,9 +1,5 @@
-// The name the top bar shows for the page you are on (Header.tsx), kept in one place so PageHeader can tell when
-// the top bar already says it. Order matters: `.find()` takes the first match, so a specific route comes before
-// the generic one that would also match it.
 const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/$/, label: 'Dashboard' },
-  // Checked before the generic /tasks pattern below — this route needs its own name rather than the plain "Delegation".
   { pattern: /^\/tasks\/smart/, label: 'Smart Delegations' },
   { pattern: /^\/tasks/, label: 'Delegation' },
   { pattern: /^\/tickets/, label: 'Tickets' },

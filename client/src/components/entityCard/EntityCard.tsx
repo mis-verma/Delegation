@@ -11,32 +11,18 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Shared visual language for the Users / Departments / Stores cards — one definition so the
-// three entity types read as one design system instead of three hand-drifted lookalikes.
-
 export const ENTITY_CARD_CLASS =
   'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border/60 transition-colors duration-150 hover:border-primary-300';
 
-// The same card chrome without the hover and padding: for static panels, headers, tiles and item cards
-// that sit next to entity cards, so every surface shares one radius and border.
 export const PANEL_CLASS = 'bg-surface rounded-2xl border border-border/60';
 
 interface EntityIconTileProps {
   icon: LucideIcon;
-  /** primary (navy) for org structure — users, departments; coral (gold) for physical stores. */
   tone?: 'primary' | 'coral';
   className?: string;
-  /** Glyph size classes; defaults to `size-5` (for the 40px tile). Pass a smaller one when the tile
-   *  itself is shrunk via `className`. */
   iconClassName?: string;
 }
 
-// The leading visual for Departments/Stores — exactly 40px to match User avatars. A solid
-// gradient fill with a white icon, not the pale tint-on-white this used to be — one shared, bolder
-// recipe used everywhere an icon tile appears (this, the Dashboard's section headers, Quick
-// Actions) so "the app feels dull/flat" gets fixed once, consistently, rather than per screen.
-// Still just a border for edge definition, no box-shadow — the app's own "cards use borders, not
-// shadows" convention extends to this tile too.
 export const EntityIconTile = ({ icon: Icon, tone = 'primary', className, iconClassName = 'size-5' }: EntityIconTileProps) => (
   <div
     className={cn(
@@ -56,12 +42,9 @@ interface StatusPillProps {
   isUpdating: boolean;
   onToggle: () => void;
   ariaLabel: string;
-  /** Word for the off state. Users say "Deactivated"; Departments and Stores keep "Inactive". */
   inactiveLabel?: string;
 }
 
-// The Active/Inactive control on the Department and Store cards and rows: a real switch with its
-// state spelled out beside it (the old dot pill read as a label, not something you can press).
 export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLabel = 'Inactive' }: StatusPillProps) => (
   <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
     <StateChip active={active} label={active ? 'Active' : inactiveLabel} />
@@ -84,16 +67,11 @@ interface EntityCardActionsProps {
   isDeleting: boolean;
   editLabel: string;
   deleteLabel: string;
-  /** Adds a copy button between edit and delete — only the cards whose thing can be duplicated
-   *  (checklists) pass these; Users/Departments/Stores leave them out and look exactly as before. */
   onDuplicate?: () => void;
   duplicateLabel?: string;
-  /** Extra items between Edit and Delete, e.g. Deactivate on the Departments and Stores cards. */
   extraItems?: DropdownAction[];
 }
 
-// One "more actions" menu instead of a row of pencil, copy and trash icons: Edit, Duplicate (when the
-// thing can be copied) and Delete (red, after a divider). 44px target on touch, 36px with a mouse.
 export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel, extraItems = [] }: EntityCardActionsProps) => (
   <Dropdown
     align="end"

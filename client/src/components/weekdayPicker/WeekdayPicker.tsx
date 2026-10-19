@@ -1,7 +1,5 @@
 import { cn } from '@/lib/utils';
 
-// Monday-first, as people here read a week. Values match Date#getDay (0 = Sunday … 6 = Saturday),
-// which is also what the server stores.
 const DAYS = [
   { value: 1, short: 'Mon', letter: 'M' },
   { value: 2, short: 'Tue', letter: 'T' },
@@ -17,13 +15,11 @@ const DAY_NAME: Record<number, string> = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday
 // eslint-disable-next-line react-refresh/only-export-components
 export const weekdayShortName = (day: number) => DAYS.find((d) => d.value === day)?.short ?? '';
 
-/** "Mon – Sat", "Every day", "Mon, Wed, Fri" — for summaries (review step, detail page). */
 // eslint-disable-next-line react-refresh/only-export-components
 export const formatWeekdays = (days: number[] | null | undefined): string => {
   if (!days || days.length === 7) return 'Every day';
   if (!days.length) return 'No days';
   const ordered = DAYS.filter((d) => days.includes(d.value));
-  // A single unbroken run in Monday-first order reads as a range.
   const idx = ordered.map((d) => DAYS.findIndex((x) => x.value === d.value));
   const contiguous = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1);
   if (contiguous && ordered.length > 2) return `${ordered[0].short} – ${ordered[ordered.length - 1].short}`;
@@ -33,11 +29,8 @@ export const formatWeekdays = (days: number[] | null | undefined): string => {
 interface WeekdayPickerProps {
   value: number[];
   onChange: (days: number[]) => void;
-  /** "on" = days it runs (filled primary); "off" = days off (filled muted/warning). */
   tone?: 'on' | 'off';
-  /** Stops the last selected day from being cleared (a checklist needs at least one working day). */
   minSelected?: number;
-  /** Stops selecting beyond this many (a week-off can't be the whole week). */
   maxSelected?: number;
   disabled?: boolean;
   className?: string;

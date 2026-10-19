@@ -8,15 +8,8 @@ import type { Task } from '../../api/task';
 
 interface TaskVerifyActionsProps {
   task: Task;
-  /** Icon-only, no labels — for tight spots like TaskCard's board footer, where full-text
-   *  buttons crowd out the assignee info next to them. TaskDetail's sheet footer has plenty
-   *  of room, so it keeps the labeled default. */
   compact?: boolean;
-  /** Runs after an approve or send-back went through, so a detail sheet can close and drop the
-   *  reviewer back on the list they came from. */
   onDecided?: () => void;
-  /** True when rendered inside another Modal (the detail sheet), so the send-back sheet opens
-   *  nested. See StatusRemarkDialog's `nested`. */
   nested?: boolean;
 }
 
@@ -29,10 +22,6 @@ const iconButtonClass = (tone: 'success' | 'danger') =>
       : 'bg-danger/10 text-danger hover:bg-danger hover:text-white focus-visible:ring-danger/40'
   }`;
 
-// Shared by TaskBoard's card footer and TaskDetail's sheet footer: the Approve and Send back
-// controls shown once a delegation is waiting for approval. Send back needs a note (the server
-// enforces it too), so it opens its own sheet with a required note instead of firing at once.
-// The verify endpoint has no undo, so Approve is a plain action with a plain toast.
 export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = false }: TaskVerifyActionsProps) => {
   const verifyMut = useVerifyTaskMutation();
   const [sendingBack, setSendingBack] = useState(false);
@@ -61,8 +50,6 @@ export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = f
 
   if (compact) {
     return (
-      // The send-back sheet is portalled but still a React child of this div, so its key presses
-      // bubble here: stopped, or a space typed in the note would reach the card's Enter/Space handler.
       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
         <button
           type="button"

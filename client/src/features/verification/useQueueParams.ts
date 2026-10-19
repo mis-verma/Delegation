@@ -2,9 +2,6 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import type { AgeFilter, QueueTab, QueueView, SortKey } from './verificationModel';
 
-// Everything the reviewer picked on the page lives in the URL, so a refresh, a shared link or the
-// back button lands on the same view. Defaults are left out of the URL to keep it short.
-
 export interface QueueParams {
   view: QueueView;
   tab: QueueTab;
@@ -15,7 +12,6 @@ export interface QueueParams {
   person: string | null;
   age: AgeFilter;
   attention: boolean;
-  /** The checklist open in the review pane. */
   open: string | null;
 }
 
@@ -52,8 +48,6 @@ export const useQueueParams = () => {
     open: searchParams.get('open'),
   }), [searchParams]);
 
-  // Writes only what changed. `replace` (the default) keeps typing in the search box and moving down
-  // the list from filling the history with one entry per keystroke.
   const patch = useCallback((change: QueueParamsPatch, options: { replace?: boolean } = {}) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);

@@ -34,10 +34,6 @@ export const parseRecurrence = (v: string | null): ExplorerRecurrence => RECURRE
 export const parseModule = (v: string | null): ExplorerModule | undefined => (v === 'checklist' || v === 'ticket' || v === 'delegation' ? v : undefined);
 export const parseView = (v: string | null): ExplorerView | null => ALL_VIEWS.find((x) => x === v) ?? null;
 
-// ---------------------------------------------------------------------------------------------
-// The drill-down trail, kept in the address (?trail=...), so back, refresh and a shared link land on the same level.
-// ---------------------------------------------------------------------------------------------
-
 export type TrailItem = ExplorerParent;
 
 export const parseTrail = (raw: string | null): TrailItem[] => {
@@ -55,7 +51,6 @@ export const parseTrail = (raw: string | null): TrailItem[] => {
 };
 export const serializeTrail = (trail: readonly TrailItem[]): string | null => (trail.length ? JSON.stringify(trail) : null);
 
-/** The views that make sense inside what you opened: a person has only checklists and modules to look at. */
 export const viewsFor = (parentKind: TrailItem['kind'] | null, orgWide: boolean): ExplorerView[] => {
   if (parentKind === 'person') return ['checklist', 'module'];
   if (parentKind === 'department') return ['person', 'checklist', 'module'];
@@ -65,7 +60,6 @@ export const viewsFor = (parentKind: TrailItem['kind'] | null, orgWide: boolean)
 
 export interface DrillTarget { view: ExplorerView; label: string }
 
-/** Where a row can be opened to: its people, its checklists, its departments. */
 export const drillTargets = (row: ExplorerRow): DrillTarget[] => {
   if (row.kind === 'department') return [{ view: 'person', label: 'See people' }, { view: 'checklist', label: 'See checklists' }];
   if (row.kind === 'store') return [{ view: 'department', label: 'See departments' }, { view: 'checklist', label: 'See checklists' }];
@@ -76,13 +70,8 @@ export const drillTargets = (row: ExplorerRow): DrillTarget[] => {
 export const asTrailItem = (row: ExplorerRow): TrailItem | null =>
   row.kind === 'department' || row.kind === 'store' || row.kind === 'person' ? { id: row.id, kind: row.kind, name: row.name } : null;
 
-// ---------------------------------------------------------------------------------------------
-// Figures
-// ---------------------------------------------------------------------------------------------
-
 export const measureOf = (b: ExplorerBlock, measure: Measure): number | null => (measure === 'completion' ? b.completion : b.compliance);
 
-/** Competition ranking by Overall, best first, among rows with enough work due. Others get no rank. */
 export const rankById = (rows: readonly ExplorerRow[]): Map<string, number> => {
   const ranked = rows.filter((r) => r.rankable && r.overall !== null).sort((a, b) => (b.overall as number) - (a.overall as number));
   const map = new Map<string, number>();
@@ -102,7 +91,6 @@ const sortValue = (r: ExplorerRow, key: SortKey): number | string | null => {
   return r[mod].due > 0 ? measureOf(r[mod], measure) : null;
 };
 
-/** Sorts a copy. Rows with nothing due, or no figure for the column, sink to the bottom whichever way it is sorted. */
 export const sortRows = (rows: readonly ExplorerRow[], key: SortKey, ascending: boolean): ExplorerRow[] =>
   [...rows].sort((a, b) => {
     const nothingA = a.totalDue === 0;
@@ -117,11 +105,6 @@ export const sortRows = (rows: readonly ExplorerRow[], key: SortKey, ascending: 
     return (ascending ? diff : -diff) || a.name.localeCompare(b.name);
   });
 
-// ---------------------------------------------------------------------------------------------
-// Links to the actual items
-// ---------------------------------------------------------------------------------------------
-
-/** '2026-10-01' to '2026-10-31' is October when it is a whole calendar period back from today: the fill report opens on that period. */
 export const periodOf = (from: string, to: string, today: string): { period: ScorePeriod; offset: number } | undefined => {
   for (const period of ['week', 'month', 'quarter', 'year'] as const) {
     const limit = period === 'week' ? 104 : period === 'month' ? 36 : period === 'quarter' ? 12 : 3;
@@ -136,25 +119,18 @@ export const periodOf = (from: string, to: string, today: string): { period: Sco
 export interface DrillLink { label: string; href: string }
 export interface ItemLinkWindow { from: string; to: string; period?: { period: ScorePeriod; offset: number } }
 
-/** The exact items behind one module's figures: each link opens only what its count says. */
 export const itemLinksFor = (orgWide: boolean, subject: DrillSubject, win: ItemLinkWindow, row: ExplorerRow, module: ScoreModule): DrillLink[] => {
   const b = row[module];
   const href = (kind: DrillKind) =>
     module === 'ticket' ? ticketDrillHref(orgWide, subject, win.from, win.to, kind)
       : module === 'delegation' ? delegationDrillHref(subject, win.from, win.to, kind)
         : checklistDrillHref(orgWide, subject, win.from, win.to, kind, win.period);
-  // A department's checklists open its fill report, which has no late or missed split of its own.
   if (module === 'checklist' && subject.kind === 'department') return b.due > 0 ? [{ label: 'Open fill report', href: href('notDone') }] : [];
   const links: DrillLink[] = [];
-  // The run history has no "finished late" filter, so the late link for checklists opens all finished runs and says so.
   if (b.late > 0) links.push({ label: module === 'checklist' ? `All finished runs (${b.late} late)` : `Late (${b.late})`, href: href('late') });
   if (b.notDone > 0) links.push({ label: `Not done (${b.notDone})`, href: href('notDone') });
   return links;
 };
-
-// ---------------------------------------------------------------------------------------------
-// Export: exactly the table on screen
-// ---------------------------------------------------------------------------------------------
 
 export const exportRowsFor = (view: ExplorerView, rows: readonly ExplorerRow[], ranks: ReadonlyMap<string, number>, modules: readonly ScoreModule[]): TableRows => {
   const withDepartment = view === 'person';
@@ -181,7 +157,6 @@ export const exportRowsFor = (view: ExplorerView, rows: readonly ExplorerRow[], 
 
 export const modulesForFilter = (module: ExplorerModule | undefined): readonly ScoreModule[] => (module ? [module] : MODULES);
 
-/** One plain line on why the rows may add up to more than the total, or null when nothing is shared. */
 export const sharingLine = (view: ExplorerView, s: { runsWithSeveralAssignees: number; runsAcrossDepartments: number; runsWithoutAssignee: number }): string | null => {
   const parts: string[] = [];
   const noun = (n: number) => (n === 1 ? 'checklist run is' : 'checklist runs are');

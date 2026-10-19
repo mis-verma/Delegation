@@ -16,13 +16,10 @@ export const useHolidaysQuery = (year: number) => {
     queryFn: () => holidayApi.getByYear(year).then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
-    // Stepping to another year keeps the current list on screen (dimmed) instead of flashing skeletons.
     placeholderData: keepPreviousData,
   });
 };
 
-// A holiday also clears that day's unstarted daily runs, so the checklist lists and counts have to
-// reload along with the holiday list.
 const useRefreshAfterChange = () => {
   const queryClient = useQueryClient();
   return useCallback(() => {
@@ -63,7 +60,6 @@ export const useCreateHolidaysMutation = () => {
   });
 };
 
-/** How many runs adding these dates would clear, summed. Only the dates that can already have runs (today or earlier). */
 export const previewHolidayClears = async (dates: string[]) => {
   const results = await Promise.all(dates.map(d => holidayApi.preview(d)));
   return results.reduce(
@@ -78,8 +74,6 @@ export const useDeleteHolidayMutation = () => {
     mutationFn: (id: string) => holidayApi.remove(id),
     onSuccess: (res) => {
       refresh();
-      // `backfilled` is the server's own word on whether that day gets its checklists back: today and
-      // later are created again, a past day is never filled in retroactively.
       toast.success('Holiday removed', {
         description: res.backfilled
           ? "Today's and future checklists appear within the hour."
@@ -89,10 +83,6 @@ export const useDeleteHolidayMutation = () => {
     onError: (err) => toast.error(errorMessage(err, "Couldn't remove the holiday")),
   });
 };
-
-// ---------------------------------------------------------------------------------------------
-// Extra working days: dates people work although they are normally off (Sunday overtime).
-// ---------------------------------------------------------------------------------------------
 
 const EXTRA_KEY = ['extra-working-days'] as const;
 
@@ -107,7 +97,6 @@ export const useExtraWorkingDaysQuery = (year: number) => {
   });
 };
 
-// Adding or removing one changes which checklists exist today, so the lists and counts reload with it.
 const useRefreshAfterExtraChange = () => {
   const queryClient = useQueryClient();
   return useCallback(() => {
@@ -141,7 +130,6 @@ export const useDeleteExtraWorkingDayMutation = () => {
   });
 };
 
-// The signed-in person's own extra working days (dashboard notice, Overtime tag on a run). Anyone may ask.
 export const useMyExtraWorkingDaysQuery = () => {
   const { token } = useAuth();
   return useQuery({

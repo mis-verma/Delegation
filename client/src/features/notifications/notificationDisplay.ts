@@ -4,10 +4,6 @@ import {
 } from 'lucide-react';
 import type { Notification } from '@/api/notifications';
 
-// Type strings come from server/src/modules/notifications/notification.service.ts
-// (e.g. TICKET_ASSIGNED, TASK_REJECTED, CHECKLIST_OVERDUE). The outcome suffix decides the colour
-// (so "sent back" reads red wherever it came from); the prefix decides the icon when the outcome
-// has none of its own.
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
   { match: 'APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-success to-success/70 text-white' },
   { match: 'REJECTED', icon: XCircle, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
@@ -37,14 +33,11 @@ export const notificationLook = (type: string) => {
 export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'> & { type?: string }) => {
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
-  // A checklist that has ended still opens from here, read-only: the page says it closed and points to
-  // today's checklist.
   if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;
   if (n.type === 'CHECKLIST_REMINDER_NUDGE') return '/checklists';
   return null;
 };
 
-// "Today, 4:12 PM" / "Yesterday, 9:05 AM" / "26 Sep, 6:40 PM" (year only when it isn't this year).
 export const formatNotificationTime = (iso: string) => {
   const date = new Date(iso);
   const now = new Date();
@@ -74,8 +67,6 @@ export interface NotificationGroup {
   items: Notification[];
 }
 
-// Newest first, bucketed by calendar day so a long list reads as "what happened today" before
-// "what you missed". Empty buckets are left out. The list comes from the server newest-first already.
 export const groupNotifications = (list: Notification[]): NotificationGroup[] => {
   const now = new Date();
   const yesterday = new Date();

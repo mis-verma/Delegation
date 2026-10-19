@@ -20,7 +20,6 @@ import { accessoriesForPerson, loadAuditListSource, typeHasList } from "../../jo
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
 
-
 export const assertCanAccess = async (instanceId: string, user: AccessTokenPayload) => {
     if (user.role === "ADMIN" || user.role === "PC") return
     const [assignee] = await db.select({ userId: checklistInstanceAssignees.userId })
@@ -34,7 +33,6 @@ export const assertCanAccess = async (instanceId: string, user: AccessTokenPaylo
 const assertNotLocked = (submission: { isDone: boolean }) => {
     if (submission.isDone) throw AppError.badRequest("Reopen this submission before editing it")
 }
-
 
 export const assertSubmissionRunEditable = async (instanceId: string, user: AccessTokenPayload) => {
     const [instance] = await db.select({ verificationStatus: checklistInstances.verificationStatus })
@@ -62,18 +60,12 @@ const loadSubmissionAndItem = async (submissionId: string) => {
     return { submission, item }
 }
 
-
 const deriveSubmissionCompletion = (isDone: boolean): { completedAt: Date | null } => ({
     completedAt: isDone ? new Date() : null,
 })
 
-
-
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-// Runs inside the same transaction as the submission write, with the item row already locked, so
-// two people ticking the last two people of one question at the same moment cannot each see the
-// other as not done and leave the question unfinished.
 const recomputeItemDone = async (tx: Tx, item: { id: string; isDone: boolean }) => {
     const siblings = await tx.select({ isDone: checklistInstanceItemSubmissions.isDone })
         .from(checklistInstanceItemSubmissions)
@@ -203,10 +195,6 @@ export const checklistInstanceItemSubmissionService = {
             if (!markingNotApplicable) await assertPhotosSatisfied(submission, { ...item, requiredImageCount: Math.max(1, item.requiredImageCount) })
         }
 
-        // The write and the question's done-flag recompute happen in one transaction, with the item
-        // row locked first and the submission row second (always that order, so two requests cannot
-        // deadlock). Everything above read a snapshot that may be a moment old; the checks that
-        // decide the outcome are repeated here against the locked row.
         const completion = deriveSubmissionCompletion(isDone)
         const { row, changed } = await db.transaction(async (tx) => {
             const [lockedItem] = await tx.select({ id: checklistInstanceItems.id, isDone: checklistInstanceItems.isDone })
@@ -215,8 +203,6 @@ export const checklistInstanceItemSubmissionService = {
                 .where(eq(checklistInstanceItemSubmissions.id, id)).limit(1).for("update")
             if (!lockedItem || !fresh) throw AppError.notFound("Submission not found")
 
-            // A double tap, a retry after a dropped connection, or two devices sending the same
-            // thing: the state already matches, so do nothing (completedAt keeps its first value).
             const alreadyThere = fresh.isDone === isDone && (!isDone || fresh.isNotApplicable === markingNotApplicable)
             if (alreadyThere) return { row: fresh, changed: false }
 

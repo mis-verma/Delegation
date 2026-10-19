@@ -28,7 +28,6 @@ const refreshAccessToken = (staleToken: string | null): Promise<string | null> =
         const retryAfter = Number(res.headers.get('Retry-After'));
         if (Number.isFinite(retryAfter) && retryAfter > 0) waitMs = Math.min(retryAfter * 1000, MAX_RETRY_WAIT_MS);
       } catch {
-        // Offline or a dropped connection: fall through to the retry below.
       }
       if (attempt < REFRESH_ATTEMPTS) await sleep(waitMs);
     }
@@ -41,11 +40,8 @@ const refreshAccessToken = (staleToken: string | null): Promise<string | null> =
   return doRefresh();
 };
 
-// Thrown for any non-ok response so callers (see queryHelpers.ts's handleQueryRetry) can branch
-// on the actual HTTP status — a plain Error has nowhere to carry that.
 export class ApiError extends Error {
   status: number;
-  /** How long the server asked us to wait before trying again (Retry-After), when it said. */
   retryAfterMs?: number;
   constructor(message: string, status: number, retryAfterMs?: number) {
     super(message);
@@ -55,34 +51,21 @@ export class ApiError extends Error {
   }
 }
 
-// Retry-After comes as whole seconds (the form the server's rate limiter and proxies send); an HTTP
-// date, or anything else, is ignored rather than guessed at.
 const retryAfterMsOf = (res: Response): number | undefined => {
   const seconds = Number(res.headers.get('Retry-After'));
   return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
 };
 
 const forceLogout = () => {
-  // Best-effort, not awaited: the refresh token is almost certainly already dead (that's why
-  // refreshAccessToken just failed), but if it's somehow still valid server-side this revokes it
-  // instead of leaving it usable. A raw fetch, not authApi.logout()/apiFetch — this file is what
-  // apiFetch itself lives in, so importing back from api/auth.ts here would be circular.
   fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
   localStorage.removeItem('tm-user');
   tokenStore.set(null);
-  // A hard redirect, not an in-app navigate: this path only runs when the session has already
-  // died out from under an in-flight request, so there's no in-progress UI worth preserving — a
-  // full reload guarantees every bit of stale in-memory state (including the React Query cache
-  // AuthContext.logout otherwise clears by hand) is gone, with no separate cleanup call to keep in
-  // sync with that one.
   window.location.href = '/login';
 };
 
 export const apiFetch = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const isAuthEndpoint = path.startsWith('/auth/');
   const token = tokenStore.get();
-  // FormData bodies (file uploads) need the browser to set their own
-  // `multipart/form-data; boundary=...` header — forcing 'application/json' here would corrupt them.
   const isFormData = options.body instanceof FormData;
 
   const doFetch = (t: string | null) =>
@@ -96,19 +79,14 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
       },
     });
 
-  // A genuine network failure (offline, DNS, CORS) throws a raw, browser-worded TypeError here
-  // ("Failed to fetch" and similar) — every other failure path in this function already surfaces a
-  // clean message, so this is the one spot that could still show a user something like that.
   let res: Response;
   try {
     res = await doFetch(token);
   } catch {
-    // Status 0 = nothing reached the server; errorMessage() turns it into the offline sentence.
     throw new ApiError("Couldn't reach the server. Check your connection and try again.", 0);
   }
 
   if (res.status === 401 && token && !isAuthEndpoint) {
-    // A transient refresh failure throws a 503 ApiError out of here without touching the session.
     const newToken = await refreshAccessToken(token);
     if (newToken) {
       res = await doFetch(newToken);
@@ -123,10 +101,6 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
   return data as T;
 };
 
-/** Which slice of the work a summary counts: `mine` is work assigned to the signed-in user,
- *  `visible` is everything their role can see (org-wide for ADMIN/PC, department for HODs). */
 export type SummaryScope = 'mine' | 'visible';
 
-/** A pending-approval preview: the oldest few rows plus the true queue size, so a card can say
- *  "+12 more" instead of implying the preview is the whole queue. */
 export type PendingApprovalPreview<T> = { rows: T[]; total: number };

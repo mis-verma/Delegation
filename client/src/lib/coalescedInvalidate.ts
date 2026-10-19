@@ -1,18 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { SCORE_CACHE_KEYS } from './queryHelpers';
 
-/**
- * Collapses a burst of socket events into a bounded number of refetches.
- *
- * React Query already dedupes refetches that are *concurrent*, so events landing inside one
- * request's flight collapse on their own. What it doesn't collapse is a stream spaced further
- * apart than that — someone dragging six cards across a board, or a bulk verify emitting one
- * event per row, produces one full list refetch each. On a list query that's a real payload every
- * time, and the intermediate results are thrown away by the next one anyway.
- *
- * Leading edge fires immediately so a single event still feels instant; anything arriving during
- * the window is folded into one trailing refetch when it closes.
- */
 export const createCoalescedInvalidator = (
   queryClient: QueryClient,
   queryKey: readonly unknown[],
@@ -39,9 +27,6 @@ export const createCoalescedInvalidator = (
       }
       fire();
     },
-    // Must be called from the effect's cleanup: without it a trailing refetch can fire against a
-    // QueryClient the unmounting tree no longer uses, and on sign-out that re-populates caches
-    // logout() has just purged.
     cancel: () => {
       if (timer) clearTimeout(timer);
       timer = null;
@@ -50,7 +35,6 @@ export const createCoalescedInvalidator = (
   };
 };
 
-/** The same coalescing for every score and report cache at once (see SCORE_CACHE_KEYS), for the socket hooks. */
 export const createScoreCacheInvalidator = (queryClient: QueryClient, waitMs = 300) => {
   const parts = SCORE_CACHE_KEYS.map((key) => createCoalescedInvalidator(queryClient, key, waitMs));
   return {

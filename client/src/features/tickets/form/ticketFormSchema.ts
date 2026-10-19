@@ -10,19 +10,10 @@ const baseTicketSchema = z.object({
   assigneeId: z.string().optional().or(z.literal('')),
   dueDate: z.string().optional().or(z.literal('')),
   dueTime: z.string().optional().or(z.literal('')),
-  // First day of a start-to-due range (YYYY-MM-DD). Optional: a single due date works as before.
   startDate: z.string().optional().or(z.literal('')),
   tagIds: z.array(z.string()).max(12).optional(),
 });
 
-/**
- * Every part of "where it goes" is required, so no ticket is created half-routed:
- *  - By category (AUTO): a category, which brings its own department, person and due time.
- *  - To a person (MANUAL): a department, then (unless this user only sends to a department) the
- *    person, plus a due date and time. Choosing a category here fills department and person in.
- * `requirePerson` is false for front-line staff, who send to a department or a category and don't
- * pick a named person.
- */
 export const buildTicketSchema = ({ requirePerson }: { requirePerson: boolean }) =>
   baseTicketSchema
     .refine(

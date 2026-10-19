@@ -4,33 +4,28 @@ import { createSmartTaskConversationSchema, patchSmartTaskConversationSchema } f
 import { asyncHandler } from "../../utils/asyncHandler.js"
 
 export const smartTaskConversationController = {
-    // POST /smart-task-conversations
     create: asyncHandler(async (req: Request, res: Response) => {
         const input = createSmartTaskConversationSchema.parse(req.body);
         const conversation = await smartTaskConversationService.create(req.user!.sub, input);
         res.status(201).json({ success: true, data: conversation });
     }),
 
-    // PATCH /smart-task-conversations/:id
     patch: asyncHandler(async (req: Request, res: Response) => {
         const input = patchSmartTaskConversationSchema.parse(req.body);
         const conversation = await smartTaskConversationService.patch(req.params.id, req.user!.sub, input);
         res.json({ success: true, data: conversation });
     }),
 
-    // GET /smart-task-conversations
     list: asyncHandler(async (req: Request, res: Response) => {
         const conversations = await smartTaskConversationService.listForUser(req.user!.sub);
         res.json({ success: true, data: conversations });
     }),
 
-    // GET /smart-task-conversations/:id
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const conversation = await smartTaskConversationService.getOne(req.params.id, req.user!.sub);
         res.json({ success: true, data: conversation });
     }),
 
-    // DELETE /smart-task-conversations — admin-only, see route gating
     deleteAll: asyncHandler(async (req: Request, res: Response) => {
         const result = await smartTaskConversationService.deleteAllForUser(req.user!.sub);
         res.json({ success: true, data: result });

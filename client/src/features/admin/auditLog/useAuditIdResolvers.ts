@@ -8,15 +8,6 @@ import type { AuditIdResolvers } from './auditLogDisplay';
 const displayName = (u: { firstName: string; lastName: string | null }) =>
   u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName;
 
-/**
- * Builds the id -> name lookup tables diffAuditLog needs to turn raw foreign keys (assigneeId,
- * tagIds, departmentId, ...) into something a QC reviewer can actually read, instead of a bare
- * nanoid. `enabled` gates every underlying query so a non-ADMIN/PC viewer — for whom
- * ActivityTimeline always mounts but renders nothing — never fires these org-wide lookups.
- *
- * Each query here is also already used elsewhere in the app (forms, filters, org structure), so
- * this mostly reads from react-query's existing cache rather than adding new network calls.
- */
 export const useAuditIdResolvers = (enabled: boolean): AuditIdResolvers => {
   const { data: users } = useUsersQuery(enabled);
   const { data: tags } = useTagsQuery(enabled);

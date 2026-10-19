@@ -39,10 +39,6 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 type ItemCardContext = { instanceId: string; canWork: boolean; isLocked: boolean; currentUserId?: string };
 
-// Which card renders a given item — AUDIT items fan out into one row per person being audited,
-// everything else keeps the original single-state card. A lookup map of render closures, not an
-// if/else, since the two cards take different prop shapes and can't share one component reference
-// directly.
 const ITEM_CARD_RENDERERS: Record<ChecklistInstanceItem['itemType'], (item: ChecklistInstanceItem, ctx: ItemCardContext) => ReactElement> = {
   STANDARD: (item, ctx) => (
     <ChecklistInstanceItemCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} isLocked={ctx.isLocked} />
@@ -89,8 +85,6 @@ const ITEM_CARD_RENDERERS: Record<ChecklistInstanceItem['itemType'], (item: Chec
   CASH_TALLY: (item, ctx) => (
     <ChecklistInstanceItemCashTallyCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} isLocked={ctx.isLocked} />
   ),
-  // VIDEO_UPLOAD reuses the STANDARD photo-evidence card — same upload pipeline, the card itself
-  // renders a <video> instead of an <img> and swaps the accept/button copy based on itemType.
   VIDEO_UPLOAD: (item, ctx) => (
     <ChecklistInstanceItemCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} isLocked={ctx.isLocked} />
   ),
@@ -102,23 +96,16 @@ interface DetailItemRowProps {
   canWork: boolean;
   isLocked: boolean;
   currentUserId: string | undefined;
-  /** An overdue run asks for a remark on every item. */
   overdue: boolean;
-  /** Render the section heading above this item. */
   showHeader: boolean;
-  /** Done and total questions in this item's section, for the heading. */
   sectionCount?: { done: number; total: number };
   isFirst: boolean;
   selecting: boolean;
   picked: boolean;
   onTogglePicked: (itemId: string) => void;
-  /** A department head, PC or Admin who is not filling this run in: may waive a failing question. */
   canWaive: boolean;
 }
 
-// One question in the list. Memoized so ticking one item, or flipping the reviewer's pick mode,
-// re-renders only the rows whose own props changed instead of every card on the page. React Query
-// keeps untouched `item` objects referentially equal between refetches, so the memo holds.
 const DetailItemRow = memo(({
   item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, isFirst, selecting, picked, onTogglePicked, canWaive,
 }: DetailItemRowProps) => {
@@ -173,8 +160,6 @@ const DetailItemRow = memo(({
             <WaiveAction instanceId={instanceId} item={item} />
           </div>
         )}
-        {/* The question and its Add remark / Not applicable row sit in ONE card, so the row reads as part of
-            the question it belongs to. Shown for done items too, and read-only for reviewers. */}
         <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0">
           {item.isNotApplicable ? (
             <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
@@ -191,8 +176,6 @@ const DetailItemRow = memo(({
 });
 DetailItemRow.displayName = 'DetailItemRow';
 
-// Mirrors the loaded page: back row, header card, then item cards. Heights come from content
-// (min-h only), so it doesn't fight the real thing when it swaps in.
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
     <div className="flex items-center justify-between gap-3">
@@ -223,8 +206,6 @@ const DetailSkeleton = () => (
   </div>
 );
 
-// Shared between a user's own "My Checklists" link and the admin oversight link from
-// ChecklistDefinitionDetail — the server authorizes both (ADMIN or an assignee of the instance).
 export const ChecklistInstanceDetail = () => {
   const { instanceId = '' } = useParams();
   const navigate = useNavigate();
@@ -232,7 +213,6 @@ export const ChecklistInstanceDetail = () => {
   useRefreshOnNewDay();
   const now = useNow();
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
-  // Reviewer's send-back picking: which questions are ticked while the review bar is in pick mode.
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const togglePicked = useCallback((itemId: string) =>
@@ -244,16 +224,10 @@ export const ChecklistInstanceDetail = () => {
   const startSelecting = useCallback(() => setSelecting(true), []);
   const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
   const selectedIds = useMemo(() => [...picked], [picked]);
-  // A run that was sent back is the person's to fix: one warning buzz when it opens like that.
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
-  // Runs made for an extra working day (overtime) get a tag, so the person knows why it exists.
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
-  // "Left to do" hides the questions already answered, so the person sees only what is still open.
   const [show, setShow] = useState<'all' | 'left'>('all');
-  // After approving or sending back, return to the page the reviewer came from (the queue, the
-  // approvals list, a notification's source). Opened from a bookmark with no history, fall back to the
-  // queue that fits their role.
   const goBackAfterDecision = () => {
     const hasHistory = typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0;
     if (hasHistory) navigate(-1);
@@ -262,10 +236,6 @@ export const ChecklistInstanceDetail = () => {
 
   if (isPending) return <DetailSkeleton />;
 
-  // Same reasoning as ChecklistDefinitionDetail/ChecklistBuilder's own "was deleted" state — an
-  // old notification or bookmark pointing at an instance id that's gone (or was never real) hits
-  // a 404 every retry, so show what actually happened instead of a "check your connection" banner
-  // whose Retry can never succeed.
   const isDeleted = error instanceof ApiError && error.status === 404;
   if (isDeleted) {
     return (
@@ -293,37 +263,22 @@ export const ChecklistInstanceDetail = () => {
     );
   }
 
-  // Completion leaves "not applicable" questions out of both sides; compliance scores only the
-  // answered questions that have a good-answer rule. Same numbers the list cards show.
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
-  // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
-  // A run that has ended (its cutoff, or the end of its period, passed and it was left unfinished) counts as
-  // missed and is closed to the people it was assigned to; the server refuses their changes too. ADMIN/PC can
-  // still work it. A sent-back run, a fully done one waiting for Submit and a one-time checklist stay open.
-  // `now` keeps a page left open past the cutoff honest without waiting for a refetch.
   const isMissed = instance.isMissed === true || isInstanceEnded(instance, now);
   const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceDeadline(instance));
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
-  // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves; a head only
-  // while the run is being reviewed, Admin and PC at any time.
   const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id);
-  // Same people who can approve; the server still checks the department for a MANAGER/SENIOR.
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
     !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const notYetOpen = isInstanceNotYetOpen(instance);
-  // Everything is done and it has not been sent yet (or it was sent back and is now fixed): the
-  // person filling it in confirms with one Submit button.
   const canSubmit =
     canWork && isComplete && !notYetOpen &&
     (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
-  // Only show section headers when the checklist actually has any — most checklists were built
-  // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
   const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
-  // Answered = done or marked Not applicable. Used for "left", the filter and the section counts.
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
   const shownItems = show === 'left' ? instance.items.filter((i) => !answered(i)) : instance.items;
@@ -335,7 +290,6 @@ export const ChecklistInstanceDetail = () => {
     if (answered(i)) c.done += 1;
     sectionCounts.set(key, c);
   }
-  // Scrolls to the first question still open, in the full list.
   const goToNext = () => {
     const next = instance.items.find((i) => !answered(i));
     if (!next) return;
@@ -352,7 +306,6 @@ export const ChecklistInstanceDetail = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Back on the left, Edit template (admins) on the right. */}
       <div className="flex items-center justify-between gap-3">
         <Button variant="ghost" size="sm" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/checklists', { replace: true }))} aria-label="Back">
           <ArrowLeft size={15} aria-hidden />
@@ -372,8 +325,6 @@ export const ChecklistInstanceDetail = () => {
         )}
       </div>
 
-      {/* Header: title, how often and the period, status + approval chips, then progress. Same
-          chip language as the list cards. */}
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
           <h1 className="t-title font-display font-semibold text-text tracking-tight leading-snug">{instance.title.replace(/\.\s*$/, '')}</h1>
@@ -383,7 +334,6 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* The sheet's headline state, so the word stays on a phone. */}
           <StatusChip status={chipStatus} showLabelOnMobile />
           {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
           {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} />}
@@ -477,8 +427,6 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      {/* Stays at the top while scrolling: how much is done and how much is left, a jump to the next open
-          question, and a switch to see only what is left. For the person filling it in. */}
       {canWork && !isLocked && total > 0 && (
         <div className="sticky top-0 z-20 -mt-3">
           <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 bg-surface px-3 py-2.5 sm:px-4')}>

@@ -30,8 +30,6 @@ interface GradientIconTileProps {
   className?: string;
 }
 
-// The page-header "brand mark" tile — a beautiful, glowing gradient-filled square
-// used identically across every page/modal header that wants one.
 export const GradientIconTile = ({ icon: Icon, size = 'md', className }: GradientIconTileProps) => {
   const { tile, icon, shadow } = SIZE_CONFIG[size];
   
@@ -47,7 +45,6 @@ export const GradientIconTile = ({ icon: Icon, size = 'md', className }: Gradien
     >
       <Icon size={icon} strokeWidth={2.5} className="relative z-10" />
       
-      {/* Optional: Subtle top-left glare effect for extra depth */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
     </div>
   );

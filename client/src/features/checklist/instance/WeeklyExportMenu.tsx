@@ -18,21 +18,14 @@ const GROUPINGS: { value: ChecklistReportGrouping; label: string; hint: string }
 ];
 
 interface WeeklyExportMenuProps {
-  /** The page's own filters carry into the export, so it matches what is on screen. */
   storeId?: string;
   departmentId?: string;
   storeName?: string;
   departmentName?: string;
-  /** When the page passes its own period, the export covers exactly what is on screen and the menu drops its own picker. */
   period?: ScorePeriod;
   offset?: number;
 }
 
-/**
- * Downloads the checklist report (completion, on time, compliance, approvals) for a week, month,
- * quarter or year, per person, per department or both, narrowed to the store and department picked on
- * the page. The file comes from the same server report the Checklist Reports page uses.
- */
 export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentName, period: pagePeriod, offset: pageOffset }: WeeklyExportMenuProps) => {
   const [open, setOpen] = useState(false);
   const [ownPeriod, setPeriod] = useState<ScorePeriod>('week');

@@ -11,12 +11,8 @@ import { UpdatingNote } from './UpdatingNote';
 import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
 import type { ReportTrendChartProps } from './ReportTrendChart';
 
-// The chart pulls in recharts, which is by far the heaviest thing on this page, so it loads on its
-// own and the cards above it can paint first.
 const ReportTrendChart = lazy(() => import('./ReportTrendChart'));
 
-// Chart-shaped, not a spinner — every sibling card on this page (gauges, leader rows, store
-// tables) already loads in with a placeholder shaped like its real content.
 const ChartSkeleton = () => (
   <div className="flex h-[260px] items-end gap-2 px-2" role="status" aria-label="Loading the chart">
     {[45, 70, 55, 85, 40, 65, 50, 75, 60, 35, 80, 55].map((h, i) => (
@@ -29,25 +25,15 @@ export interface KpiCardConfig {
   icon: LucideIcon;
   iconTint: string;
   label: string;
-  /** `number` lets StatCard apply thousands separators; pre-formatted strings ("85%", "3.5 h") pass through. */
   value: string | number;
-  /** The figure as a plain number for the export (85 for "85%", 3.5 for "3.5 h"). Defaults to `value` when that is a number. */
   raw?: number | null;
-  /** What `raw` counts, written into the export's column name. */
   unit?: '%' | 'hours';
-  /** False when the report came back but this figure has nothing behind it (shown as "No data"). */
   hasData: boolean;
   trend: Trend;
-  /** For metrics where rising is bad news (Overdue, Avg time to close) — colours the trend badge correctly. */
   lowerIsBetter?: boolean;
-  /** Qualifier under the trend badge. Defaults to the period the figure covers, e.g. "Oct 2026 vs Sep 2026". */
   caption?: string;
-  /** Text shown instead of the caption when `hasData` is false. */
   noDataText?: string;
-  /** Where the card goes when clicked. Omitted entirely (not just falsy) when no destination is
-   *  reachable for the current viewer. */
   href?: string;
-  /** A score figure: puts the "how is this calculated" popover next to the label. */
   how?: { figure: ScoreFigure; module?: ScoreModule };
 }
 
@@ -58,17 +44,13 @@ interface KpiSectionShellProps {
   isPending: boolean;
   isError: boolean;
   errorMessage: string;
-  /** The failed request's error. A 400 carries a reason the viewer can act on ("Pick a period of 366 days or less."). */
   error?: unknown;
-  /** Wired to the report query's refetch. */
   onRetry?: () => void;
   cards: KpiCardConfig[];
   chart: ReportTrendChartProps;
-  /** The rows the cards read, when they differ from the chart's (a picked range: one whole-range row). */
   summaryRows?: { bucket: string }[];
   from?: string;
   to?: string;
-  /** The score figures are still the previous period's while the next loads: say so in plain text, no dimming. */
   updating?: boolean;
 }
 
@@ -79,14 +61,10 @@ const exportNumber = (value: number | null | undefined, unit: KpiCardConfig['uni
   return unit === 'hours' ? Math.round(value * 10) / 10 : Math.round(value);
 };
 
-// Shared layout for every KPI group on the analytics page (header, stat cards, chart card, plus
-// loading/error states) — each report just supplies its own data + chart. Adding another chart to
-// the dashboard means writing one thin section component, not repeating this scaffolding.
 export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, errorMessage, error, onRetry, cards, chart, summaryRows, from, to, updating = false }: KpiSectionShellProps) => {
   const headingId = useId();
   const { label: periodCaption, isWholeRange } = describeLatestPeriod(summaryRows ?? (chart.data as { bucket: string }[]), chart.groupBy);
 
-  // The cards as label and value, then the trend as drawn: one row per period per line.
   const exportRows = () => {
     const figures: TableRows = cards.map((c) => {
       const raw = c.raw !== undefined ? c.raw : typeof c.value === 'number' ? c.value : null;
@@ -119,7 +97,6 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
           <EntityIconTile icon={Icon} tone="primary" />
           <div className="min-w-0">
             <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
-            {/* Descriptive sentences are desktop-only: on a phone the numbers come first. */}
             <p className="hidden t-meta text-text-muted sm:block">{description}</p>
           </div>
         </div>
@@ -148,10 +125,6 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
         <InlineError message={error instanceof ApiError && error.status === 400 ? error.message : errorMessage} onRetry={error instanceof ApiError && error.status === 400 ? undefined : onRetry} />
       ) : (
         <div className="flex flex-col gap-4">
-          {/* Two tiles per row on a phone (a lone last tile spans the row), then the grid opens up:
-              caps at 2 columns for a 2-card section instead of reserving a column that sits empty,
-              3 columns from `lg`, and one row of 4 at `xl` only when the cards divide evenly by 4
-              (a 6-card section stays at 3 so the last row is not left half empty). */}
           <div className={`grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 ${cards.length >= 3 ? 'lg:grid-cols-3' : ''} ${cards.length >= 4 && cards.length % 4 === 0 ? 'xl:grid-cols-4' : ''}`}>
             {cards.map(({ hasData, noDataText, caption, trend, how, ...card }) => {
               const needsStatus = isPending || !hasData;

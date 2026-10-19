@@ -20,12 +20,8 @@ import { resolveLogoUrl } from '../../lib/uploadsBase';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { getPageLabel } from '../../lib/pageLabels';
 import { cn } from '@/lib/utils';
-// Same greeting the Admin header and the Dashboard use, so the three never disagree on where morning ends.
 import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisplay';
 
-// size-11 (44px) — the minimum recommended touch target, not the size-9/size-8 this used to be.
-// Matches the same fix already applied to AdminHeader's icon buttons, for the same reason: on a
-// header full of icon-only buttons, undersized targets are the easiest spot to mis-tap on a phone.
 const ICON_BUTTON_CLASS =
   'inline-flex items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
@@ -36,8 +32,6 @@ const ICON_BUTTON_CLASS =
 const titleCase = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
-// 30s is plenty of precision for a minute-resolution display, and cheap enough to tick without
-// re-rendering the whole header every second. Matches AdminHeader's own clock.
 const CLOCK_REFRESH_MS = 30_000;
 
 export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
@@ -63,17 +57,12 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     return () => clearInterval(id);
   }, []);
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  // Phones: the header carries the page's name (or a greeting on Home) with today's date under it,
-  // since the desktop page-label pill and clock don't fit there.
   const firstName = (user?.name ?? '').split(' ')[0];
   const isHome = location.pathname === '/';
   const phoneTitle = isHome ? timeGreeting(now) : pageLabel;
   const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
-  // Home: the name rides on the second line so "Good afternoon" fits a 360px bar uncut.
   const phoneDate = isHome && firstName ? `${firstName}, ${phoneDateOnly}` : phoneDateOnly;
 
-  // Phones: the theme toggle lives in the account menu (as in the Admin header), so the greeting
-  // and the name have the bar's width to themselves.
   const isMobile = useIsMobile();
   const accountActions: DropdownAction[] = [
     { label: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -89,11 +78,6 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   ];
 
   return (
-    // The same floating card as the Admin header: a flat surface with a border and rounded corners,
-    // not the old full-bleed glass bar with a shadow and a gradient underline. The one difference is
-    // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
-    // is the way home and the only brand mark on screen).
-    // A faint brand tint from the logo side, fading to the surface, so the bar reads as the app's own top layer.
     <header className={`relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30`}>
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -115,15 +99,11 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             className={`group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-xl shrink-0 ${phoneTitle ? 'max-sm:hidden' : ''}`}
           >
             {customLogoSrc ? (
-              // An org's own uploaded logo has no guaranteed visual weight of its own (unlike
-              // BrandLogo's self-contained tile below), so it sits in a quiet tinted frame.
               <span className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-primary-500/10 border border-primary-500/20">
                 <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain" />
               </span>
             ) : (
               <span className="inline-flex rounded-xl">
-                {/* The bare K mark (32px) alone on a phone, so the greeting and name fit a 360px bar; from sm up
-                    the KaryaOS name sits beside it, so the logo reads as a logo on tablets and desktops. */}
                 <BrandLogo className="size-8 sm:size-9" textClassName="hidden sm:inline-flex text-xl" />
               </span>
             )}
@@ -131,7 +111,6 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
           <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />
 
-          {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
             <div className="sm:hidden flex flex-col min-w-0 leading-tight">
               <span className="t-card font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
@@ -139,9 +118,6 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             </div>
           )}
 
-          {/* From sm up: where you are is the headline, and the greeting and today's date sit quietly under
-              it (the date used to be its own bordered clock pill on the right). With no page name (the public
-              pages) the greeting takes the headline and the date the line under it. */}
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
             <span className="t-card font-display font-bold text-text truncate">
               {pageLabel ?? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''}`}
@@ -153,8 +129,6 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
-          {/* Bare icon buttons: no boxed pill around them, so the bar has one clear brand mark, one headline
-              and a few quiet controls instead of three bordered capsules. */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             {user && <NotificationBell badgeRing={false} />}
             <button

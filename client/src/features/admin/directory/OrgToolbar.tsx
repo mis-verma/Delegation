@@ -13,7 +13,6 @@ import type { DirectoryView } from './useDirectoryView';
 
 const VIEW_TABS: ViewTab<DirectoryView>[] = [
   { key: 'cards', label: 'Cards', icon: LayoutGrid },
-  // A wide table is not usable one-handed, so phones keep the cards.
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 
@@ -26,27 +25,17 @@ interface OrgToolbarProps {
   onView: (view: DirectoryView) => void;
   newLabel: string;
   onNew: () => void;
-  /** Starts downloading the form's code before it is needed. */
   onPreloadForm: () => void;
-  /** Number on the Options badge (filters that narrow the list; sort is not counted). */
   activeCount: number;
-  /** Under the sheet title, e.g. "4 of 9 departments". */
   subtitle: string;
   showLabel: string;
   canReset: boolean;
   onReset: () => void;
-  /** "4 of 9 departments" while search or status narrows the list, otherwise null. */
   resultText: string | null;
   onClearFilters: () => void;
-  /** Sheet body: usually an OrgStatusSection and a Sort by section. */
   children: ReactNode;
 }
 
-/**
- * One row for the Departments and Stores tabs: search, Cards/Table switch, a single Options button
- * and the New button. Filters live in the sheet so the row stays calm; when something narrows the
- * list, a slim line underneath says so and offers a way back.
- */
 export const OrgToolbar = ({
   searchLabel, searchPlaceholder, searchText, onSearchText, view, onView, newLabel, onNew, onPreloadForm,
   activeCount, subtitle, showLabel, canReset, onReset, resultText, onClearFilters, children,
@@ -102,7 +91,6 @@ export const OrgToolbar = ({
           onMouseEnter={onPreloadForm}
           onFocus={onPreloadForm}
           aria-label={newLabel}
-          // A square + on a phone so the whole toolbar stays on one row; the word comes back from sm.
           className="group max-sm:size-11 max-sm:px-0"
         >
           <Plus className="size-4 sm:size-3.5 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
@@ -124,7 +112,6 @@ export const OrgToolbar = ({
   );
 };
 
-/** The Status block of the Options sheet: All / Active / Deactivated, each with its count. */
 export const OrgStatusSection = ({ value, onChange, counts }: {
   value: EntityStatusFilterValue;
   onChange: (value: EntityStatusFilterValue) => void;
@@ -143,7 +130,6 @@ export const OrgStatusSection = ({ value, onChange, counts }: {
   </OptionSection>
 );
 
-/** Table-shaped loading placeholder: a few rows in the same bordered panel the real table uses. */
 export const OrgTableSkeleton = ({ rows = 5 }: { rows?: number }) => (
   <div className="w-full overflow-hidden rounded-lg border border-border/60" aria-busy="true">
     <div className="h-10 bg-primary-800" />

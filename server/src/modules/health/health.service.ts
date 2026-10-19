@@ -8,10 +8,6 @@ import { queryCacheStatus } from "../../config/queryCache.js"
 import { registeredJobs } from "../../utils/jobTracker.js"
 import { recentServerErrors } from "./errorBuffer.js"
 
-// What the System Health page shows an admin. Everything here is read-only and cheap: one SELECT 1,
-// one information_schema read, a few small table reads and a directory listing. Nothing is cached
-// on purpose: the point of the page is the state right now.
-
 type Level = "ok" | "warn" | "down"
 
 const DAY_MS = 86_400_000
@@ -40,7 +36,6 @@ const databaseSection = async () => {
             const [rows] = await db.execute(sql`SELECT COUNT(*) AS n FROM __drizzle_migrations`) as unknown as [{ n: number | string }[]]
             migrations = Number(rows[0]?.n ?? 0)
         } catch {
-            // The migrations table has a different name on some setups; the page just omits the count.
         }
 
         const level: Level = latencyMs > 500 ? "warn" : "ok"
@@ -101,9 +96,6 @@ const jobsSection = async () => {
     }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// The backup script (npm run backup:data) writes timestamped folders under server/backups. They are
-// manual rollback points, so this only reports what is there, and warns when there are none or the
-// newest is old. It cannot see database backups taken elsewhere (hosting panel, provider snapshots).
 const backupsSection = async () => {
     const dir = join(process.cwd(), "backups")
     try {

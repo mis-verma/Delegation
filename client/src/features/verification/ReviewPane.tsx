@@ -12,7 +12,6 @@ import type { ReviewDraft } from './useReviewDraft';
 import type { ChecklistRow } from './verificationModel';
 
 export interface SendBackPayload {
-  /** Empty means the whole run goes back. */
   itemIds: string[];
   note: string;
 }
@@ -26,21 +25,16 @@ const Tile = ({ label, value, tone }: { label: string; value: string; tone?: str
 
 interface BodyProps {
   row: ChecklistRow;
-  /** Picked question id -> its own note, and the same ids as a set. */
   picked: Readonly<Record<string, string>>;
   pickedSet: ReadonlySet<string>;
   onTogglePicked: (itemId: string) => void;
   onItemNote: (itemId: string, note: string) => void;
-  /** The sheet already shows the title in its own header. */
   hideTitle?: boolean;
 }
 
-// Everything a reviewer reads about one run: who did it and when, three score tiles, then the
-// questions with the failing ones first.
 const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, onTogglePicked, onItemNote, hideTitle = false }: BodyProps) {
   const { instance, risk } = row;
   const { user } = useAuth();
-  // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves.
   const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
@@ -49,7 +43,6 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
       to={`/checklists/${instance.id}`}
       className="inline-flex items-center justify-center gap-1 shrink-0 min-h-11 min-w-11 sm:min-h-8 sm:min-w-0 px-2 -mr-2 rounded-md t-meta font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      {/* Just the icon on a phone, so the details line keeps the width; the words stay for screen readers. */}
       <span className="sr-only sm:not-sr-only">Open full page</span> <ExternalLink size={14} aria-hidden />
     </Link>
   );
@@ -57,9 +50,6 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-2">
-        {/* With its own title row (desktop pane) the link sits beside the title. In the phone sheet the title is
-            already in the sheet's header, so the link joins the details line instead of a row of its own,
-            which used to leave a blank band at the top of the sheet. */}
         {!hideTitle && (
           <div className="flex items-start justify-between gap-3">
             <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>
@@ -102,8 +92,6 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
         <Tile label="Completion" value={`${risk.completion}%`} />
         <Tile
           label="Compliance"
-          // A run with no accepted-answer rules has nothing that could have failed, so it reads 100%
-          // rather than "Not scored".
           value={`${risk.compliance ?? 100}%`}
           tone={complianceToneClass(risk.compliance ?? 100)}
         />
@@ -137,7 +125,6 @@ interface FooterProps {
   onSendBack: (row: ChecklistRow, payload: SendBackPayload) => void;
 }
 
-// The action bar: Send back / Approve, or the send-back form once the reviewer starts one.
 const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
   const { pickedIds, picked, note, sending, setNote, setSending } = draft;
   const items = row.instance.items;
@@ -184,9 +171,6 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
-      {/* On a phone the sheet's own text above the questions already says how to pick, so with nothing picked
-          the buttons stand alone, and once something is picked this is just the count. A repeat of the same
-          sentence here took a quarter of the screen. */}
       <p className={cn('t-meta font-display text-text-secondary', count === 0 && 'hidden sm:block')}>
         {count > 0 ? (
           <>
@@ -212,7 +196,6 @@ interface PaneProps extends FooterProps {
   className?: string;
 }
 
-/** The desktop review pane: scrolls on its own, action bar pinned to the bottom. */
 export const ReviewPane = ({ row, draft, onApprove, onSendBack, className }: PaneProps) => (
   <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0 lg:max-h-[calc(100dvh-7rem)]', className)}>
     <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-5">
@@ -228,7 +211,6 @@ interface SheetProps extends FooterProps {
   onClose: () => void;
 }
 
-/** The same review as a full-screen sheet on a phone, buttons fixed at the bottom. */
 export const ReviewSheet = ({ row, draft, onApprove, onSendBack, onClose }: Omit<SheetProps, 'row'> & { row: ChecklistRow | null }) => (
   <Modal
     open={!!row}

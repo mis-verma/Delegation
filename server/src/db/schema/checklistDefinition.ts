@@ -15,12 +15,8 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { users, stores } from './core.js';
 
-
 export const CHECKLIST_RECURRENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const;
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number];
-// Who a run belongs to. SHARED: one run per store that every assignee can work on (the original
-// behaviour). PER_DEPARTMENT: one run per store and department among the assignees. PER_USER: one run
-// per store and person, so every person fills their own copy.
 export const CHECKLIST_RESPONSE_MODES = ['SHARED', 'PER_DEPARTMENT', 'PER_USER'] as const;
 export type ChecklistResponseMode = (typeof CHECKLIST_RESPONSE_MODES)[number];
 
@@ -72,7 +68,6 @@ export const CHECKLIST_CONDITIONAL_ACTIONS = [
 
 export const YES_NO_VALUES = ['YES', 'NO'] as const;
 
-
 export const checklistDefinitions = mysqlTable(
   'ChecklistDefinition',
   {
@@ -81,23 +76,15 @@ export const checklistDefinitions = mysqlTable(
     description: text('description'),
     recurrence: mysqlEnum('recurrence', CHECKLIST_RECURRENCES).notNull(),
     startDate: datetime('startDate', { mode: 'date' }).notNull(),
-    opensTime: varchar('opensTime', { length: 5 }), // HH:mm, validated at app layer
-    cutoffTime: varchar('cutoffTime', { length: 5 }), // HH:mm, validated at app layer
+    opensTime: varchar('opensTime', { length: 5 }),
+    cutoffTime: varchar('cutoffTime', { length: 5 }),
     isActive: boolean('isActive').notNull().default(true),
     assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
     icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
     responseMode: mysqlEnum('responseMode', CHECKLIST_RESPONSE_MODES).notNull().default('SHARED'),
-    // DAILY only: which weekdays a run is created on (0 = Sunday … 6 = Saturday, same as
-    // Date#getDay). Null means every day. New daily checklists default to Mon–Sat.
     activeWeekdays: json('activeWeekdays').$type<number[]>(),
     version: int('version').notNull().default(1),
     createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
-    // Soft-delete: remove() sets this instead of deleting the row — which used to cascade through
-    // every ChecklistDefinitionItem/Store/Assignee/Reviewer AND every ChecklistInstance ever
-    // generated from it (plus that instance tree's own items/images/submissions). None of that is
-    // touched now: the whole history stays recoverable. Independent of `isActive` above (a
-    // separate pause/resume switch) — every read path in checklistDefinition.service.ts, and the
-    // instance-generation sweep, must AND in `isNull(checklistDefinitions.deletedAt)`.
     deletedAt: datetime('deletedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -136,10 +123,6 @@ export const checklistDefinitionAssignees = mysqlTable(
   ],
 );
 
-// Explicit reviewers, additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD
-// scoped to their own department — see checklistInstance.service.ts's CAN_VERIFY_BY_ROLE): naming
-// someone here lets them approve/reject this checklist's instances regardless of role or
-// department, without replacing who could already verify it.
 export const checklistDefinitionReviewers = mysqlTable(
   'ChecklistDefinitionReviewer',
   {
@@ -164,25 +147,15 @@ export const checklistDefinitionItems = mysqlTable(
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
     label: varchar('label', { length: 191 }).notNull(),
     order: int('order').notNull().default(0),
-    // Free-text grouping label (e.g. "Opening", "Closing", "Operational") — purely organizational,
-    // items with no section (null) render in an "Ungrouped" bucket. Copied onto the generated
-    // ChecklistInstanceItem at generation time, same as every other definition-authored field.
     section: varchar('section', { length: 120 }),
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
-    // "Some questions are important": a critical question counts double in the compliance % and a bad
-    // answer is flagged to the reviewer. Copied onto the generated ChecklistInstanceItem.
     isCritical: boolean('isCritical').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),
-    // AUDIT only: what to check on a FEMALE / MALE person. An audited person gets the list that
-    // matches their gender (User.gender); when that list is empty, or their gender isn't set, they
-    // get the main `accessories` list above.
     accessoriesFemale: json('accessoriesFemale').$type<string[]>(),
     accessoriesMale: json('accessoriesMale').$type<string[]>(),
-    // AUDIT only: a list per dress type (key = DressType id). A person whose User.dressTypeId has a
-    // non-empty list here gets it instead of their gender list; otherwise the gender/main list applies.
     accessoriesByType: json('accessoriesByType').$type<Record<string, string[]>>(),
     numberEntryUnit: varchar('numberEntryUnit', { length: 191 }),
     numberEntryMin: float('numberEntryMin'),
@@ -195,15 +168,9 @@ export const checklistDefinitionItems = mysqlTable(
     signatureLabels: json('signatureLabels').$type<string[]>(),
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
-    // "Acceptable answer": what counts as a GOOD answer, for the compliance %. Separate from whether
-    // the question was completed. YES_NO/PASS_FAIL: ["YES"] or ["NO"]; choice types: the good
-    // options; NUMBER_ENTRY/RATING: acceptableMin/Max (either may be empty). No rule = not scored.
     acceptableAnswers: json('acceptableAnswers').$type<string[]>(),
     acceptableMin: float('acceptableMin'),
     acceptableMax: float('acceptableMax'),
-    // Two independent action sets, one per possible Yes/No answer — a single item can require
-    // e.g. a photo when answered Yes AND a reason when answered No, both active at once. An empty/
-    // null array means no rule for that branch.
     yesActions: json('yesActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     noActions: json('noActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     definitionId: varchar('definitionId', { length: 191 })

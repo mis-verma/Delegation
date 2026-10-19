@@ -25,18 +25,14 @@ export type CreateStorePayload = {
 export type UpdateStorePayload = Partial<CreateStorePayload> & { isActive?: boolean };
 
 export const storeApi = {
-  // No page/limit -> the full list (used everywhere stores feed a picker or the org tree).
-  // Use getPage for the admin directory's paginated list view.
   getAll: () => apiFetch<ApiResponse<Store[]>>('/stores'),
 
   getPage: (page = 1, limit = 20) =>
     apiFetch<PaginatedResponse<Store>>(`/stores?page=${page}&limit=${limit}`),
 
-  // POST /stores -- server rejects this with 403 unless you're ADMIN.
   create: (payload: CreateStorePayload) =>
     apiFetch<ApiResponse<Store>>('/stores', { method: 'POST', body: JSON.stringify(payload) }),
 
-  // PATCH /stores/:id -- partial update, same ADMIN-only rule applies.
   update: (id: string, payload: UpdateStorePayload) =>
     apiFetch<ApiResponse<Store>>(`/stores/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 

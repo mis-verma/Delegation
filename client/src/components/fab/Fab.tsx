@@ -10,33 +10,20 @@ export interface FabAction {
   label: string;
   icon: LucideIcon;
   onClick: () => void;
-  /** One short line under the label in the action sheet, e.g. "Type it in yourself". */
   description?: string;
   disabled?: boolean;
-  /** Small tag beside the label in the action sheet, e.g. "Soon". */
   badge?: string;
 }
 
 export interface FabProps {
   actions: FabAction[];
-  /** Icon on the button when there's more than one action. Ignored for a single action. */
   icon?: LucideIcon;
-  /** Title of the action sheet, e.g. "Create". */
   sheetTitle?: string;
   'aria-label'?: string;
 }
 
-// A short tick on Android when the button is pressed, like a native app. iOS browsers ignore it.
 const tap = () => haptic('tap');
 
-/**
- * Phone-only round + button, working like an app's:
- * - A tap does the first (everyday) action straight away, so New delegation / New ticket opens at once.
- * - With more actions, a small "more" button sits above it (or press and hold the +): it opens a bottom action
- *   sheet with one row per action. A tap outside, Cancel, Escape or the phone's Back button closes it.
- * - It slides out of the way while the list scrolls down and comes back on the first scroll up, so it
- *   never sits on top of what the person is reading.
- */
 export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-label': ariaLabel }: FabProps) => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -44,7 +31,6 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
 
   const primary = actions[0] ?? null;
   const hasMore = actions.length > 1;
-  // Press and hold the + for the full list (the small "more" button does the same with a tap).
   const holdTimer = useRef<number | null>(null);
   const held = useRef(false);
   const startHold = () => {
@@ -63,7 +49,6 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
     return () => window.removeEventListener('keydown', onKey);
   }, [sheetOpen]);
 
-  // Hide while scrolling down, show again on any scroll up or near the top.
   useEffect(() => {
     lastY.current = window.scrollY;
     let frame = 0;
@@ -130,7 +115,6 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
           aria-label={ariaLabel ?? primary?.label ?? sheetTitle}
           className={cn(
             'flex items-center justify-center size-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white cursor-pointer transition-transform duration-150 ease-out',
-            // No shadow: a ring in the page colour lifts the button off whatever scrolls beneath it.
             'ring-4 ring-background active:scale-95 focus-visible:outline-none focus-visible:ring-primary-500/40',
             'disabled:opacity-50 disabled:cursor-not-allowed [-webkit-tap-highlight-color:transparent]',
           )}

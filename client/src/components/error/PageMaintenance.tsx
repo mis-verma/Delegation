@@ -3,21 +3,11 @@ import { useNavigate } from 'react-router';
 import { Button } from '../button';
 
 interface PageMaintenanceProps {
-  /** Name of the page being worked on, e.g. "Delegation". */
   pageName?: string;
   message?: string;
-  /** Optional human-readable ETA, e.g. "Back by 3:00 PM IST". */
   estimatedReturn?: string;
 }
 
-/**
- * The single-page counterpart to MaintenancePage.
- *
- * MaintenancePage is a `min-h-svh` takeover that deliberately stands alone — correct when the whole
- * app is down, wrong for one page: it would paint over the sidebar and nav and strand the user with
- * no way out of a section that isn't even broken. This renders *inside* the shell instead, so every
- * other module stays one click away, and it offers an explicit route back to the dashboard.
- */
 export const PageMaintenance = ({
   pageName = 'This page',
   message = "We're updating it right now. It'll be back shortly — everything else is still available.",
@@ -33,7 +23,6 @@ export const PageMaintenance = ({
     >
       <div className="relative flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-400">
         <Construction size={28} strokeWidth={1.75} />
-        {/* motion-safe so the pulsing ring respects a reduced-motion preference. */}
         <span className="absolute inset-0 rounded-2xl border border-primary-400/30 motion-safe:animate-ping" />
       </div>
 
@@ -53,8 +42,6 @@ export const PageMaintenance = ({
           <RefreshCcw size={14} />
           Try again
         </Button>
-        {/* `Button` has no `asChild`, and an <a> nested in a <button> would be invalid markup
-            anyway — navigating programmatically keeps it a single, correct control. */}
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/')}>
           <ArrowLeft size={14} />
           Back to dashboard

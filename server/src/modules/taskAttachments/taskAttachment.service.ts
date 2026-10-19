@@ -7,9 +7,6 @@ import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 
-// Who can attach/remove files directly on a task — the creator, the assignee, or an Admin.
-// Looser than checklist-item evidence (assignee-only there) since this is general reference
-// material/evidence on the task itself, not one person's specific work item.
 const assertCanAttach = async (user: AccessTokenPayload, task: { id: string; userId: string; assigneeId: string | null }) => {
     if (user.role === "ADMIN" || user.role === "PC") return;
     if (task.userId === user.sub) return;
@@ -25,9 +22,6 @@ const assertCanAttach = async (user: AccessTokenPayload, task: { id: string; use
 
 export const taskAttachmentService = {
     async upload(taskId: string, files: Express.Multer.File[], user: AccessTokenPayload) {
-        // Multer's already written these to disk by the time this runs — every throw below must
-        // clean them up first, or a caller with no access to the task can repeatedly fill disk by
-        // uploading to tasks they'll always get rejected on (same pattern as checklistImage.service).
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
@@ -65,9 +59,6 @@ export const taskAttachmentService = {
 
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, attachment.taskId), isNull(tasks.deletedAt))).limit(1);
         if (task) await assertCanAttach(user, task);
-        // An approved delegation is closed, and its files are part of what was approved: only an
-        // Admin may take one off (same rule as every other change on a done delegation, see
-        // task.service.ts's update()).
         if (task && task.status === "done" && user.role !== "ADMIN") {
             throw AppError.forbidden("This delegation is approved and closed. Only an admin can remove its files.");
         }

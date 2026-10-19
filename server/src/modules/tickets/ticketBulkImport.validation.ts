@@ -4,9 +4,6 @@ import { objectId } from "../../utils/index.js"
 
 export const ticketBulkImportPublishSchema = z.object({
     rows: z.array(z.object({
-        // The original row number from the uploaded file — carried through so a failure in the
-        // publish summary points at the row the admin can actually find in their spreadsheet,
-        // not its position in the (possibly-excluded-down) batch that was submitted.
         rowIndex: z.number().int().positive(),
         title: z.string().min(1),
         description: z.string().min(1),

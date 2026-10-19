@@ -6,8 +6,6 @@ interface TaskSourceBadgeProps {
   aiMeta: Task['aiMeta'];
 }
 
-// No badge at all for a plain manually-created task (no aiMeta) — the badge only exists to
-// call out the *unusual* cases: this task wasn't typed into the New Task form by a person.
 export const TaskSourceBadge = ({ aiMeta }: TaskSourceBadgeProps) => {
   if (!aiMeta) return null;
 

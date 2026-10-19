@@ -6,7 +6,6 @@ import { IconChip } from '../iconChip';
 export interface PrioritySelectOption<V extends string> {
   value: V;
   label: string;
-  /** Gradient classes for the icon circle, from the shared priority meta. */
   solid: string;
   icon: LucideIcon;
 }
@@ -16,17 +15,10 @@ interface PrioritySelectProps<V extends string> {
   onChange: (value: V) => void;
   options: PrioritySelectOption<V>[];
   disabled?: boolean;
-  /** Kept for existing callers; the pills always fill the row they are in. */
   fullWidth?: boolean;
-  /** Kept for existing callers (it styled the old dropdown's trigger); the pills ignore it. */
   triggerClassName?: string;
 }
 
-/**
- * The priority field as a row of pills, the same shape as the event types and the labels: every level visible and
- * one tap away, each led by its coloured icon circle, the picked one tinted blue with a tick. Three or four levels
- * share the row; on a narrow screen they wrap two by two. A person who may only view it sees the plain chip.
- */
 export function PrioritySelect<V extends string>({ value, onChange, options, disabled = false }: PrioritySelectProps<V>) {
   const current = options.find((o) => o.value === value) ?? options[0];
   if (disabled) return <IconChip icon={current.icon} tone={current.solid} label={current.label} />;

@@ -4,23 +4,13 @@ import { Button, Textarea, ToggleChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { QUICK_REASONS, hasReason, toggleReason } from './sendBackNote';
 
-// The approve / send-back controls a reviewer sees on a checklist waiting for approval. The review
-// queue (ChecklistApprovals) and the detail page's review bar (ChecklistReviewBar) used to carry two
-// hand-built copies of this with different labels, shadows and spinners; both render these now.
-
 interface ReviewActionsProps {
-  /** Send back opens whatever the caller uses to collect a note (inline form, or pick mode). */
   onSendBack: () => void;
   onApprove: () => void;
-  /** Any review request in flight: both buttons lock so a reviewer can't fire two at once. */
   busy: boolean;
-  /** Specifically the approve request, which puts the spinner on the Approve button. */
   approving: boolean;
-  /** Number of questions the reviewer ticked to send back on their own. */
   pickedCount?: number;
-  /** Shows the keyboard keys (S, A) next to the labels, on screens with a keyboard. */
   showKeys?: boolean;
-  /** Buttons share the row equally on a phone (a thumb-wide target) and shrink back from sm up. */
   stretch?: boolean;
 }
 
@@ -68,23 +58,17 @@ interface SendBackFormProps {
   onNoteChange: (value: string) => void;
   onCancel: () => void;
   onSubmit: () => void;
-  /** Whether the send button is enabled (caller decides what "enough" is: a note, a picked question...). */
   canSubmit: boolean;
-  /** The send-back request is in flight. */
   isSending: boolean;
-  /** Any review request in flight, so Cancel locks too. */
   busy: boolean;
   submitLabel: string;
   placeholder: string;
   maxLength?: number;
   autoFocus?: boolean;
-  /** Shows the one-tap reasons ("Photo unclear", ...) above the note box. */
   quickReasons?: boolean;
-  /** Small line under the note box, e.g. how many question notes will be added. */
   helper?: string;
 }
 
-// Note box plus Cancel / confirm, the second half of the send-back flow in both places.
 export const SendBackForm = ({
   note, onNoteChange, onCancel, onSubmit, canSubmit, isSending, busy, submitLabel, placeholder, maxLength, autoFocus, quickReasons = false, helper,
 }: SendBackFormProps) => {
@@ -92,8 +76,6 @@ export const SendBackForm = ({
   return (
     <>
       {quickReasons && (
-        // One scrolling row on a phone (four chips wrapped to two rows and pushed the note box down the
-        // screen); they wrap as before from sm up. `shrink-0` keeps each chip its natural width.
         <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label="Quick reasons">
           {QUICK_REASONS.map((reason) => (
             <ToggleChip key={reason} on={hasReason(note, reason)} disabled={busy} onClick={() => onNoteChange(toggleReason(note, reason))}>

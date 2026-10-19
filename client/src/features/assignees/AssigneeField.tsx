@@ -26,23 +26,13 @@ interface AssigneeFieldProps {
   users?: AssignableUser[];
   isLoading?: boolean;
   disabled?: boolean;
-  /** Suppress the built-in "Assignees" label — for callers (e.g. an icon-led row layout) that
-   *  already provide their own label next to this field. */
   hideLabel?: boolean;
-  /** Ticket's assignee is one person, not a list — picking someone new replaces the current
-   *  selection instead of adding to it, the dropdown closes on pick (normal single-select
-   *  behaviour), and an explicit "Unassigned" item is offered to clear it. Delegation's own
-   *  multi-assignee behaviour (the default) is unchanged. */
   single?: boolean;
-  /** Second line under each person in the picker. Defaults to their department's name (looked up
-   *  from the cached departments list); return null/undefined for no line. */
   hintFor?: (user: AssignableUser) => string | null | undefined;
 }
 
 const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
 
-/** "[avatar] First name" on a phone, the full name from sm up, and a small "Main" tag on the
- *  first person of several (the primary assignee). Display only: the whole row is one button. */
 const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => {
   const name = nameOf(user);
   return (
@@ -59,22 +49,13 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
   );
 };
 
-// The picked people as name chips, and one tap target (the whole row) that opens the picker. Removing
-// someone only happens inside the picker (untick, or "Unassigned"), so a stray tap on a chip can't
-// silently drop a person. Shared by Delegation (multi-assignee: TaskForm/TaskDetail split the result
-// back into assigneeId + additionalAssigneeIds) and Ticket (single-assignee, via `single`).
 export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
-  // PC has full parity with ADMIN throughout this app.
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'PC';
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [sheetOpen, setSheetOpen] = useState(false);
-  // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
-  // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
-  // Who was picked when the list opened goes first. Frozen at open time so rows don't jump about
-  // while someone ticks several people in a row.
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   const { data: departments } = useDepartmentsQuery(!disabled && !hintFor);
@@ -90,7 +71,6 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
   };
 
-  // In selectedIds order, so the first one (the primary assignee) is the one marked "Main".
   const selectedUsers = selectedIds
     .map((id) => (users ?? []).find((u) => u.id === id))
     .filter((u): u is AssignableUser => !!u);
@@ -112,8 +92,6 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     ? selectedUsers.length ? `Assignee: ${nameOf(selectedUsers[0])}. Change` : 'Choose an assignee'
     : selectedUsers.length ? `Assignees: ${selectedUsers.map(nameOf).join(', ')}. Add or remove people` : 'Add people';
 
-  // One person (Ticket): a full-width row, avatar and name on the left, "Change" on the right, so the
-  // whole row reads as one control instead of a name chip beside a loose pill.
   const picked = selectedUsers[0];
   const singleTrigger = (
     <button
@@ -149,7 +127,6 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
       type="button"
       aria-label={pickerLabel}
       title={single ? 'Change assignee' : 'Add or remove people'}
-      // The same bordered row as the one-person picker (Ticket): the people as chips, "Add" on the right.
       className="group/assign flex w-full flex-wrap items-center gap-1.5 min-h-10 max-w-full min-w-0 rounded-lg border border-border/60 bg-surface p-1 pr-2.5 text-left cursor-pointer outline-none transition-colors duration-150 ease-out hover:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
     >
       {chips}
@@ -194,22 +171,12 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         </label>
       )}
       <div className="flex flex-wrap items-center gap-1.5 min-h-10">
-        {/* Read-only: the names, with no picker affordance. */}
         {disabled && (
           <div className="flex w-full flex-wrap items-center gap-1.5 min-h-10 rounded-lg border border-border/60 bg-surface p-1">{chips.length ? chips : <span className="pl-1.5 t-meta text-text-light">Nobody yet</span>}</div>
         )}
 
         {!disabled && (
-          // modal={false} is load-bearing, not a preference. Radix's DropdownMenu defaults to
-          // modal, which takes its own scroll lock and puts `pointer-events: none` on everything
-          // outside itself. Nested inside the Dialog that renders this form, that second lock wins
-          // — and because the checkbox items call preventDefault on select (so you can tick
-          // several people without the menu closing), the menu is still open after you pick
-          // someone and the modal body stays frozen. Non-modal keeps the dialog scrollable while
-          // the list is open, which is the behaviour a picker inside a scrolling form needs.
           isPhone ? (
-            // Phones get a bottom sheet: a 224px menu with 36px rows is hard to hit, and a long team
-            // needs a search box.
             <PickerShell
               bare
               open={sheetOpen}
@@ -243,32 +210,11 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
             <DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              // `pointer-events-auto` is required, not cosmetic. This menu is portalled to
-              // document.body, and the Dialog wrapping this form sets `pointer-events: none`
-              // there while it's open. With modal={true} Radix put `pointer-events: auto` on the
-              // menu itself; with modal={false} (needed so the dialog stays scrollable) it
-              // doesn't — so the list inherited none and the wheel/touchpad had nothing to scroll.
-              //
-              // `overscroll-contain` stops a scroll that reaches the end of this list from
-              // chaining into the dialog body behind it.
-              //
-              // max-h-72 because the inherited `max-h-(--radix-…-available-height)` can resolve
-              // to a couple of rows inside a short modal.
               className="w-56 max-h-72 pointer-events-auto overscroll-contain"
-              // See Combobox's identical comment: constrains flip/shift to the modal's own content
-              // element instead of the viewport, so a trigger near the bottom of the modal doesn't
-              // spill the checklist out past the modal's card.
               collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
               collisionPadding={16}
-              // Portal into the dialog rather than document.body. This is what actually makes the
-              // list scrollable with a trackpad: Dialog's react-remove-scroll blocks wheel/touch
-              // outside its own subtree, and a body-portalled menu is outside it. Falls back to
-              // the body portal when this field isn't inside a dialog (e.g. TaskDetail's inline
-              // use), where there's no scroll lock to be outside of.
               container={triggerEl?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? undefined}
             >
-              {/* Single mode's own explicit way to clear the pick — multi-select has no
-                  equivalent since removing is just clicking the avatar off. */}
               {single && (
                 <>
                   <DropdownMenuItem onSelect={() => onChange([])} className="gap-2 text-text-muted">
@@ -305,8 +251,6 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                       key={u.id}
                       checked={checked}
                       onCheckedChange={() => toggle(u.id)}
-                      // Multi-select stays open across picks (so you can tick several people in a
-                      // row); single-select closes on pick, the normal dropdown convention.
                       onSelect={(e) => { if (!single) e.preventDefault(); }}
                       className="gap-2"
                     >
@@ -326,8 +270,6 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
           </DropdownMenu>
           )
         )}
-
-        {/* Disabled (read-only) view has no clickable trigger to fold this label into. */}
 
       </div>
 

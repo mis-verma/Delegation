@@ -30,15 +30,9 @@ import { Badge } from '../../components/ui/badge';
 interface ChecklistPanelProps {
   ticketId: string;
   checklists: Checklist[];
-  /** The ticket's assignee, who works items that have nobody on them. */
   workerIds?: string[];
 }
 
-// Same card language as the Delegation side's own (currently dormant) ChecklistItemRow — bigger
-// icon square, badge-style metadata chips, a hero image strip with a hover overlay, and full-size
-// buttons instead of tiny text links. This used to be its own smaller, denser version of the same
-// idea; bringing it in line means a ticket's checklist and a delegation's checklist finally read as
-// the same feature instead of two different-looking ones.
 const ItemRow = ({
   item, ticketId, isAdmin, canWork,
 }: {
@@ -254,8 +248,6 @@ const ItemRow = ({
   );
 };
 
-// Same rounded-xl card, animated progress bar, and smooth collapse as the Delegation side's own
-// ChecklistBlock — a flat "3/5" counter next to a plain title used to be the only progress signal.
 const ChecklistBlock = ({
   checklist, ticketId, isAdmin, currentUserId, workerIds,
 }: {
@@ -263,7 +255,6 @@ const ChecklistBlock = ({
   ticketId: string;
   isAdmin: boolean;
   currentUserId?: string;
-  /** The ticket's assignee: they work any item that has nobody on it (same rule as the server). */
   workerIds: string[];
 }) => {
   const [open, setOpen] = useState(true);
@@ -355,9 +346,6 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'PC';
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
-  // Same draft shape/component the Delegation checklist builder and the admin template builder
-  // already share (components/checklistItemDraftRow) — was its own hand-rolled raw input grid
-  // here, a third, differently-styled copy of the exact same "label + assignee + photo proof" row.
   const [itemDrafts, setItemDrafts] = useState<ChecklistItemDraft[]>([emptyChecklistItemDraft()]);
 
   const { data: assignableUsers } = useAssignableUsersQuery();
@@ -419,9 +407,6 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
         )}
       </div>
 
-      {/* The create-checklist card — same header/template/footer language as the Delegation
-          side's NewChecklistForm, minus its centered max-w-4xl sizing (that was built for a wide
-          modal; this sits inside a narrower detail panel, so it stays full-width instead). */}
       {adding && (
         <div className="flex flex-col gap-4 sm:gap-5 p-3.5 sm:p-5 border border-border rounded-2xl bg-surface min-w-0">
           <div className="flex items-center gap-3 pb-4 border-b border-border/60">

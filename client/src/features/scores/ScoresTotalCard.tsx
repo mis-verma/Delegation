@@ -8,13 +8,10 @@ import { ModuleFigures } from './ModuleFigures';
 import { CountsLine, ScorePct } from './ScorePct';
 
 interface ScoresTotalCardProps {
-  /** The explorer's total row: the whole scope, or the one thing you opened. */
   total: ExplorerRow;
   modules: readonly ScoreModule[];
-  /** What the total is about ("Whole organisation", "Sales"). */
   title: string;
   windowLabel: string;
-  /** True when the window was cut at today. */
   capped: boolean;
 }
 
@@ -38,7 +35,6 @@ const ModuleBlock = ({ module, row }: { module: ScoreModule; row: ExplorerRow })
   );
 };
 
-/** The header of the page: the Overall score for everything in view, and each module's three figures with how they are calculated. */
 export const ScoresTotalCard = ({ total, modules, title, windowLabel, capped }: ScoresTotalCardProps) => (
   <section aria-label={`${title}, totals`} className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
     <div className="flex items-start justify-between gap-3">

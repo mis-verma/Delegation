@@ -19,22 +19,13 @@ interface DepartmentSectionProps {
   node: DepartmentNode;
   isOpen: boolean;
   forceOpen: boolean;
-  /** Takes the department's own id, so callers can pass one stable, id-accepting callback down
-   *  instead of a fresh per-item closure on every render (see StoreSection/OrgStructurePage). */
   onToggle: (id: string) => void;
-  /** Shown only in the "Departments without a store" bucket, where the store link itself is the point. */
   showUnassignedStoreHint?: boolean;
-  /** Reassigns a dragged person into this department. Omit to render read-only (no drop target,
-   *  no draggable rows). */
   onDropUser?: (userId: string, patch: OrgMovePatch) => void;
-  /** Passed straight through to each UserRow, see OrgStructurePage for why these two stay
-   *  reference-stable across renders. Omit alongside onDropUser to render rows non-draggable. */
   onUserDragStart?: (user: DepartmentNode['users'][number]) => void;
   onUserDragEnd?: () => void;
 }
 
-// Memoized: without this, expanding/collapsing one department (or a sibling store) re-renders
-// every department section, and every user row inside it, across the whole org tree.
 export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, showUnassignedStoreHint, onDropUser, onUserDragStart, onUserDragEnd }: DepartmentSectionProps) => {
   const open = isOpen || forceOpen;
   const panelId = useId();
@@ -55,8 +46,6 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'move';
       }}
-      // enter/leave are left to bubble: the parent store reads them (via data-org-dept) to drop its
-      // own highlight while the pointer is over this department.
       onDragEnter={() => {
         if (onDropUser) setIsDropTarget(true);
       }}
@@ -70,25 +59,21 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         setIsDropTarget(false);
         const dragged = readDraggedUser(e);
         if (!dragged || dragged.departmentId === department.id) return;
-        // A department that belongs to a store carries the person to that store too.
         onDropUser(dragged.id, { departmentId: department.id, ...(department.storeId ? { storeId: department.storeId } : {}) });
       }}
       className={cn(
-        // Outline, not ring: no box-shadows on this page. -outline-offset keeps it inside the card edge.
         '@container flex flex-col rounded-2xl border overflow-hidden bg-surface transition-colors duration-200',
         isDropTarget
           ? 'border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 outline outline-2 -outline-offset-2 outline-primary-500/40'
           : 'border-border hover:border-primary-300'
       )}
     >
-      {/* Score pill beside the toggle, not inside it (it is a link); the chevron rides with it. */}
       <div className="relative">
         <button
           type="button"
           onClick={forceOpen ? undefined : () => onToggle(department.id)}
           aria-expanded={open}
           aria-controls={panelId}
-          // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
           aria-disabled={forceOpen || undefined}
           className={cn(
             'flex w-full min-h-11 items-start gap-3 p-4 pr-28 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',

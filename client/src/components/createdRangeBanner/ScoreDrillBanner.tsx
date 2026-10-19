@@ -3,13 +3,10 @@ import type { ScoreDrill } from '../../lib/scoreDrill';
 
 interface ScoreDrillBannerProps {
   drill: ScoreDrill;
-  /** What the page lists, in the plural: "delegations", "tickets". */
   noun: string;
-  /** A department or store taken from the address, when the page has no filter chip of its own for it. */
   scopeLabel?: string;
 }
 
-/** Shown on a list page opened from a score: says which items it is narrowed to, with one tap to clear. */
 export const ScoreDrillBanner = ({ drill, noun, scopeLabel }: ScoreDrillBannerProps) => {
   if (!drill.active) return null;
   return (

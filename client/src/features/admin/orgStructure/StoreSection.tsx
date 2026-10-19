@@ -20,12 +20,9 @@ interface StoreSectionProps {
   node: StoreNode;
   isOpen: boolean;
   forceOpen: boolean;
-  /** Takes the store's own id, see DepartmentSection's onToggle for why. */
   onToggle: (id: string) => void;
   isDeptOpen: (id: string) => boolean;
   onToggleDept: (id: string) => void;
-  /** Reassigns a dragged person: into a department inside this store, or (dropped on the store's
-   *  own header) directly onto the store with no department. Omit to render read-only. */
   onDropUser?: (userId: string, patch: OrgMovePatch) => void;
   onUserDragStart?: (user: StoreNode['directUsers'][number]) => void;
   onUserDragEnd?: () => void;
@@ -54,10 +51,6 @@ const StoreSectionComponent = ({
   );
 
   return (
-    // No box-shadow: a card changes border colour on hover, same as every other card.
-    // Drop target for "assign directly to this store, no department". Nested departments are their
-    // own targets: a drop there never reaches this handler, and their enter events (which do bubble
-    // up) switch this highlight off so only one target lights up at a time.
     <div
       onDragOver={(e) => {
         if (!onDropUser) return;
@@ -80,22 +73,18 @@ const StoreSectionComponent = ({
         onDropUser(dragged.id, { departmentId: null, storeId: node.store.id });
       }}
       className={cn(
-        // Outline, not ring: no box-shadows on this page. -outline-offset keeps it inside the panel edge.
         'group/store rounded-2xl border overflow-hidden transition-colors duration-200',
         isDropTarget
           ? 'border-coral-400 bg-coral-500/10 dark:bg-coral-500/15 outline outline-2 -outline-offset-2 outline-coral-500/40'
           : 'border-border bg-surface hover:border-coral-300'
       )}
     >
-      {/* The score pill is a link, so it sits beside the toggle button, not inside it; the chevron rides with it
-          and lets clicks fall through to the button. */}
       <div className="relative">
         <button
           type="button"
           onClick={forceOpen ? undefined : () => onToggle(node.store.id)}
           aria-expanded={open}
           aria-controls={panelId}
-          // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
           aria-disabled={forceOpen || undefined}
           className={cn(
             'flex w-full min-h-11 items-center gap-3 p-4 pr-28 sm:p-5 sm:pr-32 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
@@ -143,14 +132,11 @@ const StoreSectionComponent = ({
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {/* A small label so the level reads at a glance: this row is the store's departments. */}
                   <p className="flex items-center gap-2 t-meta font-display font-bold text-text-muted">
                     <Layers className="size-3.5" aria-hidden />
                     Departments
                     <span className="rounded-md bg-border/60 px-1.5 text-text-secondary tabular-nums">{node.departments.length}</span>
                   </p>
-                {/* The hierarchy as branches: the store is the root above, each department hangs off
-                    the trunk as a node, and its people hang off the department in turn. */}
                 <TreeList label={`Departments in ${node.store.name}`}>
                   {node.departments.map((d) => (
                     <TreeItem key={d.department.id} tone="coral">
@@ -188,13 +174,6 @@ const StoreSectionComponent = ({
   );
 };
 
-// Custom comparator, not a default shallow-props memo(): `isDeptOpen` is a closure over
-// OrgStructurePage's whole `expandedDepts` Set, so its identity changes on every single
-// department toggle anywhere in the tree. A default shallow compare would see that as "a prop
-// changed" and re-render every StoreSection, not just the one containing the toggled department,
-// defeating the memoization this component exists for. Comparing the actually-resolved open/
-// closed state of this store's own departments instead means an unrelated store's section only
-// re-renders when something about IT changes.
 const arePropsEqual = (prev: StoreSectionProps, next: StoreSectionProps): boolean => {
   if (
     prev.node !== next.node ||

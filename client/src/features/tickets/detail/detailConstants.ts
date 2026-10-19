@@ -1,7 +1,6 @@
 import type { TicketStatus, RestrictedStatus } from '../../../api/ticket';
 import { TICKET_STATUS_LABEL } from '../../../lib/ticketStatusLabel';
 
-/** The hand-in action's name everywhere it is offered: the status menu, the dialog and its button. */
 export const HAND_IN_LABEL = 'Mark completed';
 
 export const STATUS_UPDATE_OPTIONS: { value: RestrictedStatus; label: string }[] = [
@@ -20,8 +19,6 @@ export const STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
 
 export const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
-/** Section heading inside the ticket sheet (Status history, Photos, Checklists): small, the same style as the form's field labels. */
 export const DETAIL_SECTION_HEADING = 'flex items-center gap-2 t-meta font-display font-semibold text-text-secondary';
 
-/** The gradient icon tile in front of a section heading, the same as Activity's. */
 export const DETAIL_SECTION_TILE = 'flex size-6 shrink-0 items-center justify-center rounded-md text-white bg-linear-to-br from-primary-500 to-primary-600';

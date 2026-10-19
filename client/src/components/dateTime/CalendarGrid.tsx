@@ -12,22 +12,17 @@ function cn(...inputs: ClassValue[]) {
 
 export interface DayState {
   disabled?: boolean;
-  /** Filled navy: the picked day, or either end of a range. */
   solid?: boolean;
-  /** Tinted band between the two ends. */
   inRange?: boolean;
-  /** Round the left/right edge. Both default to true; a range's start drops the right one, its end the left. */
   roundLeft?: boolean;
   roundRight?: boolean;
 }
 
 interface CalendarGridProps {
-  /** Any date inside the month on show. */
   month: Date;
   onMonthChange: (month: Date) => void;
   getDayState: (day: Date) => DayState;
   onSelect: (day: Date) => void;
-  /** Reports the day under the pointer, for a range preview. `null` when it leaves the grid. */
   onHover?: (day: Date | null) => void;
   today: Date;
 }
@@ -35,15 +30,6 @@ interface CalendarGridProps {
 const navButton =
   'flex items-center justify-center size-9 pointer-coarse:size-11 rounded-full bg-surface-hover/70 text-text-muted hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
 
-/**
- * One month with the controls both pickers share:
- *  - the month title is a button that opens a month and year jump, so a date next year is two taps,
- *    not twelve;
- *  - arrow keys move between days (Up/Down by a week) and cross into the next month; only one day is
- *    a tab stop, so Tab doesn't walk 30 buttons;
- *  - every day has its full date as its accessible name;
- *  - cells are 44px on touch and the grid is only as many rows as the month needs.
- */
 export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHover, today }: CalendarGridProps) => {
   const [mode, setMode] = useState<'days' | 'months'>('days');
   const [jumpYear, setJumpYear] = useState(month.getFullYear());
@@ -53,7 +39,6 @@ export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHo
   const grid = useMemo(() => buildMonthGrid(month), [month]);
   const monthIndex = month.getMonth();
 
-  // The one day that can take Tab: the picked day, else today, else the first day that can be picked.
   const tabStop = useMemo(() => {
     const inMonth = grid.filter((d) => d.getMonth() === monthIndex);
     return (
@@ -64,7 +49,6 @@ export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHo
     );
   }, [grid, monthIndex, today, getDayState]);
 
-  // After an arrow key crosses into another month, focus lands once that month has rendered.
   useEffect(() => {
     const target = pendingFocus.current;
     if (!target) return;

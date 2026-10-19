@@ -7,10 +7,6 @@ import type { ExplorerRow } from '../../../api/scores';
 import { OrgScoresContext, scoresHref, type ScoreKind } from './orgScoreData';
 import { rateTone } from '../../dashboard/dashboardDisplay';
 
-/**
- * A small score pill for a row in the Org structure tree: this month's overall in its colour, tapping it opens
- * the Scores page on that row. Renders nothing outside an OrgScoresContext; a dash while loading.
- */
 export const ScorePill = ({ kind, id, name }: { kind: ScoreKind; id: string; name: string }) => {
   const ctx = useContext(OrgScoresContext);
   if (!ctx) return null;
@@ -58,18 +54,12 @@ interface ScoreStripProps {
   kind: ScoreKind;
   id: string;
   name: string;
-  /** undefined while loading; null when the scores could not load or nothing was due. */
   row: ExplorerRow | null | undefined;
   from: string;
   to: string;
-  /** True when the request failed, so the strip says so instead of "nothing due". */
   failed?: boolean;
 }
 
-/**
- * One tappable strip on a People & Teams card: this month's overall score with a thin bar, and a chevron into
- * the Scores page for the full picture. It sits above a card's stretched title link (relative z-10).
- */
 export const ScoreStrip = ({ kind, id, name, row, from, to, failed }: ScoreStripProps) => {
   const overall = row?.overall ?? null;
   const due = row?.totalDue ?? 0;

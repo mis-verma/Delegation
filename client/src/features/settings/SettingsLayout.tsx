@@ -13,8 +13,6 @@ export const SettingsLayout = () => {
     <div className="flex flex-col gap-3 sm:gap-6 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={SettingsIcon} title="Settings" subtitle="Your account and how the app looks for you." />
 
-      {/* The same segmented switch as the rest of the app: equal parts filling a phone's width, the picked one white
-          with a blue ring and a blue icon. */}
       <nav aria-label="Settings sections" className="max-w-full">
         <div className="grid grid-cols-3 gap-1 p-1 rounded-xl border border-border/60 bg-surface-hover/60 sm:inline-grid">
           {NAV.map(({ to, icon: Icon, label }) => (

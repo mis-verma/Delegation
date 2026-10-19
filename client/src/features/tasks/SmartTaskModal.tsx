@@ -81,11 +81,9 @@ const derivePriorityHint = (text: string): Draft["priority"] | null => {
     return "medium";
 };
 
-
 const SKIP_CONFIRMATION_PATTERN =
     /\b(please|just|go ahead(?:\s+and)?)\s+create\s+(it|this|now)\b|\bcreate\s+it\s+(now|directly|right away)\b|\bskip\s+(the\s+)?confirmation\b|\bwithout\s+confirmation\b|\bdon'?t\s+ask,?\s+(just\s+)?create\b/i;
 
-// Helper: Secure ID Generator avoiding global closure leaks
 const createId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
 const formatMessageTime = (timestamp: number | string) =>
@@ -109,9 +107,6 @@ const CONVERSATION_STATUS_TINT: Record<SmartTaskConversationStatus, string> = {
     abandoned: "bg-surface-hover",
 };
 
-// Chat input is typed quickly and typo-prone ("tommorow", "tomorow", "devyash" for "devyansh") —
-// an exact .includes() check silently misses those. Levenshtein distance catches common
-// misspellings without needing to hand-list every variant.
 const levenshteinDistance = (a: string, b: string): number => {
     const rows: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) rows[i][0] = i;
@@ -126,19 +121,11 @@ const levenshteinDistance = (a: string, b: string): number => {
     return rows[a.length][b.length];
 };
 
-// Length-gated: without this, a genuinely different short word ("day") can fall within
-// maxDistance of an unrelated keyword ("today", edit distance 2) and get wrongly treated as a
-// typo of it. Real typos of a keyword are almost always within 1 character of its own length
-// ("tommorow"/"todey"), so a word whose length is off by more than that can't be a typo of it.
 const containsFuzzyWord = (text: string, keyword: string, maxDistance = 2): boolean =>
     text.split(/\s+/).some(
         (word) => Math.abs(word.length - keyword.length) <= 1 && levenshteinDistance(word, keyword) <= maxDistance
     );
 
-// Tolerance scales with name length: short names (<=4 letters, e.g. "Ravi"/"Kavi"/"Amit"/"Amir")
-// require an exact match — a single-edit distance there is just as likely to be a different real
-// name as a typo. Longer names get 1-2 edits of slack, since a rushed typo ("devyash" for
-// "devyansh") is far more likely than two different long names colliding within that distance.
 const namesAreCloseMatch = (a: string, b: string): boolean => {
     if (a === b) return true;
     const maxDistance = b.length <= 4 ? 0 : b.length <= 7 ? 1 : 2;
@@ -155,17 +142,10 @@ const findUserByName = (query: string, users?: AssignableUser[]): AssignableUser
     });
     if (exact) return exact;
 
-    // Typo-tolerant fallback — same idea as containsFuzzyWord above, applied to names.
     const queryWords = cleanQuery.split(/\s+/);
     return users.find((u) => queryWords.some((w) => namesAreCloseMatch(w, u.firstName.toLowerCase())));
 };
 
-// Last-resort fallback for when the AI's own extraction misses the assignee entirely — e.g. "for
-// marketting devyansh" has no connector word ("ko", "assign to", "from", "via") linking the name to
-// its role, so the model has nothing to latch onto and returns an empty assigneeName/assigneeRaw.
-// Scans the raw message for any word that closely matches a real assignable user's first name —
-// typo-tolerant (see namesAreCloseMatch) rather than exact, since a name typed inline with no
-// surrounding cue is exactly the kind of word a user is likely to rush and misspell.
 const findMentionedUser = (rawText: string, users?: AssignableUser[]): AssignableUser | undefined => {
     if (!users?.length) return undefined;
     const words = rawText.toLowerCase().match(/[a-z]+/g) ?? [];
@@ -187,12 +167,6 @@ const NAME_GUESS_STOPWORDS = new Set([
     "jaldi", "turant",
 ]);
 
-// Last-resort guess for when BOTH the AI extraction and findMentionedUser turn up nothing — the
-// most common cause is the named person simply isn't a registered user yet, so there's no one for
-// findMentionedUser to match against. Strips known filler/task/date/department words and guesses
-// the assignee is whatever proper-noun-shaped word is left, taking the last one (every reported
-// case put the name at the end: "...for marketing department devyansh"). Callers must flag this to
-// the user as a guess, not assert it as a confirmed extraction — see buildDraftFromParse.
 const guessUnmatchedName = (rawText: string, departments?: Department[]): string | null => {
     const deptWords = new Set((departments ?? []).flatMap((d) => d.name.toLowerCase().split(/\s+/)));
     const candidates = (rawText.toLowerCase().match(/[a-z]+/g) ?? []).filter(
@@ -231,8 +205,6 @@ const resolveDueDateLocally = (answer: string, reference: Date = new Date()): Da
         }
     }
 
-    // "next day" (singular, no count) means tomorrow — the inDaysMatch regex above needs an
-    // actual number/word count ("next 3 days") to fire, so a bare "next day" falls through to here.
     if (/\bnext\s+day\b/.test(lower)) {
         base.setDate(base.getDate() + 1);
         return base;
@@ -250,8 +222,6 @@ const resolveDueDateLocally = (answer: string, reference: Date = new Date()): Da
         }
     }
 
-    // "next month" (bare, optionally "same day"/"same date") means +1 month on the same
-    // day-of-month — the count-based match above needs an actual number/word count to fire.
     if (/\bnext\s+month\b/.test(lower)) {
         base.setMonth(base.getMonth() + 1);
         return base;
@@ -264,10 +234,6 @@ const resolveDueDateLocally = (answer: string, reference: Date = new Date()): Da
         return base;
     };
 
-    // Exact keyword matches are checked for EVERYTHING (today/tomorrow/every weekday) before any
-    // fuzzy typo-tolerance is attempted for anything — "today" and "monday" (and a couple of other
-    // weekday pairs) sit within typo-distance of each other, so fuzzy-matching one before checking
-    // whether the OTHER was typed exactly would silently swap the resolved day.
     if (/\btomorrow\b/.test(lower) || lower.includes("kal")) {
         base.setDate(base.getDate() + 1);
         return base;
@@ -280,7 +246,6 @@ const resolveDueDateLocally = (answer: string, reference: Date = new Date()): Da
         return resolveWeekday(exactWeekdayIndex);
     }
 
-    // Nothing matched exactly — only now fall back to typo tolerance.
     if (containsFuzzyWord(lower, "tomorrow")) {
         base.setDate(base.getDate() + 1);
         return base;
@@ -297,9 +262,6 @@ const resolveDueDateLocally = (answer: string, reference: Date = new Date()): Da
     return Number.isNaN(parsedTimestamp) ? null : new Date(parsedTimestamp);
 };
 
-// Separate from derivePriorityHint above: this parses a DIRECT answer to "low, medium, or high?",
-// where a bare "high" is the expected response — derivePriorityHint's stricter phrase-matching
-// (e.g. requiring "high priority") would miss that entirely.
 const resolvePriorityAnswer = (answer: string): Draft["priority"] => {
     const lower = answer.toLowerCase();
     if (/\b(high|urgent|asap|critical)\b/.test(lower)) return "high";
@@ -307,7 +269,6 @@ const resolvePriorityAnswer = (answer: string): Draft["priority"] => {
     return "medium";
 };
 
-// Deterministic Slot Resolution Strategy Pattern
 const SLOT_RESOLVERS: Record<
     Slot,
     (
@@ -320,8 +281,6 @@ const SLOT_RESOLVERS: Record<
         const match = findUserByName(answer, users);
         const resolvedName = match ? `${match.firstName} ${match.lastName ?? ""}`.trim() : answer.trim();
 
-        // A matched user already has a home department on file — if nothing in the conversation
-        // has pinned one down yet, use theirs instead of asking a now-redundant department question.
         const autoDept = !draft.departmentId && match?.departmentId
             ? departments?.find((d) => d.id === match.departmentId)
             : undefined;
@@ -378,16 +337,10 @@ const buildDraftFromParse = (
         ? users?.find((u) => u.id === result.assignee?.id)
         : findUserByName(rawName, users) ?? findMentionedUser(rawText, users);
 
-    // Prefer whatever department the message actually stated; only fall back to the matched
-    // user's own home department when the message didn't say one at all — a matched assignee
-    // already implies a known, real department, so there's no need to ask for it separately.
     const matchedDept =
         findDepartmentByName(result.departmentRaw ?? "", departments) ??
         (matchedUser?.departmentId ? departments?.find((d) => d.id === matchedUser.departmentId) : undefined);
 
-    // Only guess when a department is also present and this is a delegation (not a bare issue
-    // report) — that's the pattern behind every reported case, and it keeps a plain message with
-    // no assignee intended at all ("fix the printer tomorrow") from getting a made-up name guessed.
     const guessedName =
         !matchedUser && !rawName && matchedDept && result.category === "delegated_task"
             ? guessUnmatchedName(rawText, departments)
@@ -437,9 +390,6 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                         <div
                             className={`text-sm leading-relaxed px-3.5 py-2.5 shadow-sm ${
                                 isBot
-                                    // Opacity-tinted, not a solid `-50` swatch — the primary scale's raw hex
-                                    // values don't change in dark mode (see index.css), so a solid light
-                                    // swatch here would render as a stark white card on a navy modal.
                                     ? "bg-primary-500/10 dark:bg-primary-500/15 text-primary-900 dark:text-primary-200 rounded-2xl rounded-bl-sm"
                                     : "bg-gradient-to-br from-primary-600 to-primary-800 text-white rounded-2xl rounded-br-sm"
                             }`}
@@ -499,7 +449,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
     const { data: assignableUsers, isLoading: isLoadingUsers } = useAssignableUsersQuery();
     const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
     const { user: currentUser } = useAuth();
-    // PC has full parity with ADMIN throughout this app.
     const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "PC";
 
     useEffect(() => {
@@ -659,9 +608,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                 setUnmatchedAssigneeName(updatedDraft.assigneeId ? null : trimmedInput);
             }
 
-            // Resolving the assignee can auto-fill their home department as a side effect (see
-            // SLOT_RESOLVERS.assignee) — if that just happened, the "which department" question
-            // still sitting in the queue from the initial parse is now redundant, so drop it.
             const departmentAutoFilled = slot === "assignee" && !currentDraft.departmentId && !!updatedDraft.departmentId;
             const nextQueue = departmentAutoFilled ? queue.filter((s) => s !== "department") : queue;
 
@@ -672,8 +618,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
         }, 220);
     };
 
-    // The review is already on screen and Create is the decision, so there is no "Create this task?" popup in
-    // front of it: the success toast confirms it. Only an input that said "no confirmation needed" creates by itself.
     const handleCreate = useCallback(() => {
         if (!review || !parsed) return;
 
@@ -791,7 +735,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
 
                 {!review && view === "chat" && (
                     <>
-                        {/* Chat History Container */}
                         <div className="rounded-xl border border-border/50 bg-surface-hover/30 p-3">
                             <div ref={scrollRef} className="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1">
                                 <MessageBubbles messages={messages} />
@@ -812,9 +755,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                         </div>
 
                         {unmatchedAssigneeName && isAdmin && (
-                            // Opacity-tinted, not the raw `-50`/`-300`/`-800` swatches this used to be —
-                            // those hex values are identical in dark mode (see index.css), so this
-                            // banner used to render as a pale card on a navy modal in dark theme.
                             <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
                                 <span className="text-xs text-primary-800 dark:text-primary-200">
                                     No user found for &quot;{unmatchedAssigneeName}&quot;.
@@ -932,7 +872,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                     </div>
                 )}
 
-                {/* Form Review Panel */}
                 {review && (
                     <div className="flex flex-col gap-5 pt-2 border-t border-border/60">
                         <Input

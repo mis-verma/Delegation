@@ -16,31 +16,10 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { users, departments, projects } from './core.js';
 
-// ---------------------------------------------------------------------------
-// Shared enum value arrays
-// ---------------------------------------------------------------------------
-
-// 'draft' sits before the normal workflow: a delegation saved before it's ready to assign/act on,
-// visible only to whoever created it (see task.service.ts#list's status === 'draft' branch) until
-// it's "published" — an ordinary status-change PATCH to 'todo', the same mechanism every other
-// status move already goes through.
-//
-// 'pending_approval' is the single review stage: a verifier (ADMIN/PC/MANAGER-in-department/named
-// reviewer — task.service.ts's CAN_VERIFY_BY_ROLE) approves straight into done or rejects back to
-// in_progress via verify()/PATCH /tasks/:id/verify. Used to be two stages (a QC pass into
-// pending_verification, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to one brief
-// check by request; see git history if the two-stage version is ever needed again.
-//
-// 'on_hold' is work paused with a written reason. It is entered only from todo or in_progress and
-// left only back to in_progress (task.service.ts's update()). The due date keeps running while a
-// delegation is held, so it still shows as delayed. Appended last so the enum migration is a plain
-// ALTER with no reordering of the existing values.
 export const TASK_STATUSES = ['draft', 'todo', 'in_progress', 'pending_approval', 'done', 'on_hold'] as const;
 export const TASK_CATEGORIES = ['issue', 'delegation'] as const;
 export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const;
 export const TASK_REMINDER_CHANNELS = ['notification', 'alarm', 'email', 'sms'] as const;
-// Reused (imported) by ChecklistImage, ChecklistInstanceImage,
-// ChecklistInstanceItemSubmissionImage, TicketAttachment.
 export const CAPTURE_METHODS = ['LIVE', 'GALLERY'] as const;
 export const AI_INPUT_MODES = ['voice', 'text'] as const;
 export const AI_CHANNELS = ['whatsapp', 'web'] as const;
@@ -48,17 +27,10 @@ export const TODO_PRIORITIES = ['low', 'medium', 'high'] as const;
 export const SMART_TASK_CONVERSATION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const;
 export const MESSAGE_SENDERS = ['bot', 'user'] as const;
 export const CONVERSATION_CHANNELS = ['whatsapp'] as const;
-// Raw webhook source, for ProcessedInboundMessage's dedupe key below — distinct from
-// CONVERSATION_CHANNELS, which is the conversation model's own channel value (currently only ever
-// "whatsapp" there, whichever provider actually delivered it).
 export const INBOUND_MESSAGE_CHANNELS = ['whatsapp', 'doubletick'] as const;
 export const CONVERSATION_SLOTS = ['assignee', 'department', 'dueDate', 'priority'] as const;
-// PendingTaskConversation.draft.category uses a different value set than
-// Task.category ("delegated_task" vs "delegation") — kept as a distinct enum.
 export const DRAFT_TASK_CATEGORIES = ['issue', 'delegated_task'] as const;
 
-// Task.aiMeta — "Mongo's answer to Postgres JSONB" per source comment; kept as
-// a single JSON column rather than flattened columns, matching source intent.
 export type TaskAiMeta = {
   rawInput: string | null;
   inputMode: (typeof AI_INPUT_MODES)[number] | null;
@@ -69,9 +41,6 @@ export type TaskAiMeta = {
   model: string | null;
 };
 
-// ---------------------------------------------------------------------------
-// Task — core work item (delegation or issue)
-// ---------------------------------------------------------------------------
 export const tasks = mysqlTable(
   'Task',
   {
@@ -87,9 +56,6 @@ export const tasks = mysqlTable(
     reminderChannel: mysqlEnum('reminderChannel', TASK_REMINDER_CHANNELS).notNull().default('notification'),
     reminderSentAt: datetime('reminderSentAt', { mode: 'date' }),
     projectId: varchar('projectId', { length: 191 }).references(() => projects.id),
-    // Self-referencing FK for subtasks: a task with a non-null parentTaskId is
-    // a subtask of another Task. Return type annotated to break the circular
-    // type inference `tasks` would otherwise have on itself.
     parentTaskId: varchar('parentTaskId', { length: 191 }).references((): AnyMySqlColumn => tasks.id),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
@@ -98,14 +64,8 @@ export const tasks = mysqlTable(
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
     submittedAt: datetime('submittedAt', { mode: 'date' }),
-    // Renamed from Mongoose `submisssionNote` (triple-s typo, confirmed unused elsewhere).
     submissionNote: text('submissionNote'),
     aiMeta: json('aiMeta').$type<TaskAiMeta>(),
-    // Soft-delete: remove() sets this instead of deleting the row (and its children) outright, so
-    // a delegation and its checklist/attachment/comment history stay recoverable and the audit
-    // trail's DELETE `before` snapshot stops being the only record it ever existed. Every read path
-    // (list/getById/update/verify/reports) must AND in `isNull(tasks.deletedAt)` — see NOT_DELETED
-    // below — or a "deleted" task keeps showing up everywhere.
     deletedAt: datetime('deletedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -117,15 +77,10 @@ export const tasks = mysqlTable(
     index('Task_status_createdAt_idx').on(table.status, table.createdAt),
     index('Task_category_status_createdAt_idx').on(table.category, table.status, table.createdAt),
     index('Task_parentTaskId_idx').on(table.parentTaskId),
-    // Org-wide analytics range scans by creation date.
     index('Task_createdAt_idx').on(table.createdAt),
-    // Mongoose also indexed {additionalAssigneeIds:1,createdAt:-1}; that array
-    // now lives in the taskAdditionalAssignees junction table below, so the
-    // equivalent index is on that table's userId column instead.
   ],
 );
 
-// Task.additionalAssigneeIds — many-to-many junction (Task <-> User)
 export const taskAdditionalAssignees = mysqlTable(
   'TaskAdditionalAssignee',
   {
@@ -140,11 +95,6 @@ export const taskAdditionalAssignees = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// TaskDependency — many-to-many "blocked by" relationship between Tasks.
-// A row means: taskId cannot start/complete until dependsOnTaskId is done
-// (app-layer enforced; MySQL cannot express "done" as a FK constraint).
-// ---------------------------------------------------------------------------
 export const taskDependencies = mysqlTable(
   'TaskDependency',
   {
@@ -159,9 +109,6 @@ export const taskDependencies = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// Tag — free-form label, reusable across Tasks
-// ---------------------------------------------------------------------------
 export const tags = mysqlTable(
   'Tag',
   {
@@ -174,7 +121,6 @@ export const tags = mysqlTable(
   (table) => [uniqueIndex('Tag_name_key').on(table.name)],
 );
 
-// Task <-> Tag many-to-many junction
 export const taskTags = mysqlTable(
   'TaskTag',
   {
@@ -189,9 +135,6 @@ export const taskTags = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// TaskAttachment — file uploaded directly to a Task
-// ---------------------------------------------------------------------------
 export const taskAttachments = mysqlTable(
   'TaskAttachment',
   {
@@ -208,12 +151,6 @@ export const taskAttachments = mysqlTable(
   (table) => [index('TaskAttachment_taskId_idx').on(table.taskId)],
 );
 
-// ---------------------------------------------------------------------------
-// TaskReviewer — explicit reviewer, additive on top of the role-based verify rule (ADMIN/PC
-// always, MANAGER/HOD within the task's own department — see task.service.ts's assertCanVerify).
-// Naming someone here lets them approve/reject this specific task regardless of role or
-// department, same convention as ChecklistDefinitionReviewer/ChecklistInstanceReviewer.
-// ---------------------------------------------------------------------------
 export const taskReviewers = mysqlTable(
   'TaskReviewer',
   {
@@ -228,9 +165,6 @@ export const taskReviewers = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// TaskChecklist — a checklist attached to a Task
-// ---------------------------------------------------------------------------
 export const taskChecklists = mysqlTable('TaskChecklist', {
   id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
   title: varchar('title', { length: 191 }).notNull(),
@@ -239,9 +173,6 @@ export const taskChecklists = mysqlTable('TaskChecklist', {
   updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
 });
 
-// ---------------------------------------------------------------------------
-// TaskChecklistItem — a single line item within a TaskChecklist
-// ---------------------------------------------------------------------------
 export const taskChecklistItems = mysqlTable(
   'TaskChecklistItem',
   {
@@ -250,7 +181,6 @@ export const taskChecklistItems = mysqlTable(
     isDone: boolean('isDone').notNull().default(false),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     dueAt: datetime('dueAt', { mode: 'date' }),
-    // Kept in sync with isDone by a service-layer helper (was a Mongoose pre('save') hook).
     completedAt: datetime('completedAt', { mode: 'date' }),
     taskChecklistId: varchar('taskChecklistId', { length: 191 }).notNull().references(() => taskChecklists.id),
     requiredImageCount: int('requiredImageCount').notNull().default(0),
@@ -262,14 +192,10 @@ export const taskChecklistItems = mysqlTable(
   },
   (table) => [
     index('TaskChecklistItem_taskChecklistId_idx').on(table.taskChecklistId),
-    // The task compliance report buckets checklist items by createdAt.
     index('TaskChecklistItem_createdAt_idx').on(table.createdAt),
   ],
 );
 
-// ---------------------------------------------------------------------------
-// TaskImage — photo proof captured against a TaskChecklistItem
-// ---------------------------------------------------------------------------
 export const taskImages = mysqlTable(
   'TaskImage',
   {
@@ -287,17 +213,6 @@ export const taskImages = mysqlTable(
   (table) => [index('TaskImage_taskChecklistItemId_idx').on(table.taskChecklistItemId)],
 );
 
-// ---------------------------------------------------------------------------
-// TaskComment — a comment on a Task (location embed flattened to columns)
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// TaskStatusUpdate — audit trail entry for a Task's status changes.
-//
-// Mirrors TicketStatusUpdate: tickets have always required a remark to move status and kept the
-// history; delegations changed status with nothing recorded, so there was no way to see who moved
-// a delegation, when, or why. `remark` is NOT NULL for the same reason it is on tickets — an entry
-// with no explanation is the thing this table exists to prevent.
-// ---------------------------------------------------------------------------
 export const taskStatusUpdates = mysqlTable(
   'TaskStatusUpdate',
   {
@@ -329,8 +244,6 @@ export const taskComments = mysqlTable(
   (table) => [index('TaskComment_taskId_createdAt_idx').on(table.taskId, table.createdAt)],
 );
 
-// TaskComment.attachments — embedded array with no identity of its own in the
-// source; promoted to a real child table with cascading delete.
 export const taskCommentAttachments = mysqlTable(
   'TaskCommentAttachment',
   {
@@ -346,9 +259,6 @@ export const taskCommentAttachments = mysqlTable(
   (table) => [index('TaskCommentAttachment_commentId_idx').on(table.commentId)],
 );
 
-// ---------------------------------------------------------------------------
-// Todo — personal, owner-only todo item (unrelated to Task workflow)
-// ---------------------------------------------------------------------------
 export const todos = mysqlTable(
   'Todo',
   {
@@ -361,14 +271,9 @@ export const todos = mysqlTable(
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  // Every read in todo.service.ts (listForUser/update/remove) filters on userId — with no index
-  // at all here, every one of those was a full table scan.
   (table) => [index('Todo_userId_idx').on(table.userId)],
 );
 
-// ---------------------------------------------------------------------------
-// SmartTaskConversation — AI-assisted chat that may result in a created Task
-// ---------------------------------------------------------------------------
 export const smartTaskConversations = mysqlTable(
   'SmartTaskConversation',
   {
@@ -382,15 +287,10 @@ export const smartTaskConversations = mysqlTable(
   (table) => [index('SmartTaskConversation_userId_createdAt_idx').on(table.userId, table.createdAt)],
 );
 
-// SmartTaskConversation.messages — embedded array promoted to a child table
-// with an explicit ordering column (timestamp) and cascading delete.
 export const smartTaskConversationMessages = mysqlTable(
   'SmartTaskConversationMessage',
   {
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-    // No `.references()` here (kept plain) — the default FK constraint name
-    // Drizzle would generate exceeds MySQL's 64-char identifier limit; the
-    // constraint is instead declared explicitly below with a short name.
     conversationId: varchar('conversationId', { length: 191 }).notNull(),
     from: mysqlEnum('from', MESSAGE_SENDERS).notNull(),
     text: text('text').notNull(),
@@ -408,10 +308,6 @@ export const smartTaskConversationMessages = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// PendingTaskConversation — in-progress WhatsApp/bot task-creation flow
-// (embedded `draft` sub-document flattened to draft-prefixed columns)
-// ---------------------------------------------------------------------------
 export const pendingTaskConversations = mysqlTable(
   'PendingTaskConversation',
   {
@@ -422,7 +318,6 @@ export const pendingTaskConversations = mysqlTable(
     pendingSlot: mysqlEnum('pendingSlot', CONVERSATION_SLOTS).notNull(),
     slotQueue: json('slotQueue').$type<(typeof CONVERSATION_SLOTS)[number][]>().notNull().default([]),
 
-    // --- flattened `draft` embedded object ---
     draftTitle: varchar('draftTitle', { length: 191 }).notNull(),
     draftContext: text('draftContext').notNull().default(''),
     draftCategory: mysqlEnum('draftCategory', DRAFT_TASK_CATEGORIES).notNull(),
@@ -437,8 +332,6 @@ export const pendingTaskConversations = mysqlTable(
     draftConfidence: float('draftConfidence'),
     draftWonBy: varchar('draftWonBy', { length: 191 }),
 
-    // TTL target in Mongo (`{expireAfterSeconds: 0}`); MySQL has no native TTL —
-    // a scheduled cleanup job must run `DELETE ... WHERE expiresAt < NOW()`.
     expiresAt: datetime('expiresAt', { mode: 'date' }).notNull(),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -449,15 +342,6 @@ export const pendingTaskConversations = mysqlTable(
   ],
 );
 
-// ---------------------------------------------------------------------------
-// ProcessedInboundMessage — dedupe record for WhatsApp/DoubleTick webhook deliveries
-// ---------------------------------------------------------------------------
-// Meta and DoubleTick both retry a webhook delivery on any hiccup on their end (timeout, 5xx,
-// slow ack), and neither guarantees at-most-once delivery. Both controllers ack immediately with
-// res.sendStatus(200) then do all the real work async — with no dedupe, two deliveries of the
-// same message that race each other can both find "no active conversation" and both create a
-// task. Claiming the (channel, messageId) pair here first, before doing anything else, is what
-// makes a duplicate delivery a no-op instead of a duplicate task.
 export const processedInboundMessages = mysqlTable(
   'ProcessedInboundMessage',
   {

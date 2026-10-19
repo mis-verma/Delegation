@@ -2,14 +2,9 @@ import { useWatch, type Control } from 'react-hook-form';
 import { Check } from 'lucide-react';
 import type { TicketFields } from './ticketFormSchema';
 
-/**
- * Footer line that says what is still missing, mirroring buildTicketSchema's rules. It lives in its
- * own component so only this line re-renders on every keystroke, not the whole form.
- */
 export const FormProgress = ({ control, requirePerson, showOnPhone }: {
   control: Control<TicketFields>;
   requirePerson: boolean;
-  /** A phone only shows the line once Create has been pressed; before that it is noise. */
   showOnPhone: boolean;
 }) => {
   const [title, description, mode, categoryId, departmentId, assigneeId, dueDate, dueTime] = useWatch({

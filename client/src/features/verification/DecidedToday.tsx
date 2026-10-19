@@ -66,11 +66,9 @@ const SkeletonRow = () => (
 );
 
 interface DecidedTodayProps {
-  /** Takes the reviewer back to the waiting list from the empty state. */
   onShowWaiting: () => void;
 }
 
-/** Today's decisions on checklists: approved, sent back and submitted, newest first. */
 export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
   const { data, isPending, isError, refetch } = useChecklistDecisionsQuery();
   const canReopen = useCanReopen();

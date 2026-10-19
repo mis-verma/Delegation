@@ -9,17 +9,10 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 
-// Shared with ChecklistBuilder.tsx's `scheduleValid` gate. Only an EQUAL opens/cutoff time is a
-// real problem — a genuinely zero-length window that can never be completed. A cutoff EARLIER
-// than open time is not a mismatch: it's this app's real, supported overnight window (see
-// checklistDisplay.ts's instanceDeadline — "opens 18:00, cutoff 07:00" is the documented example),
-// which rolls the deadline to the next calendar day.
 // eslint-disable-next-line react-refresh/only-export-components
 export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && opensTime === cutoffTime;
 
-// True when cutoff-before-open means the window rolls past midnight into the next calendar day —
-// purely informational (not a validation error, see hasScheduleTimeMismatch above).
 // eslint-disable-next-line react-refresh/only-export-components
 export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
@@ -88,8 +81,6 @@ export const BuilderSchedulePanel = ({
 }: BuilderSchedulePanelProps) => {
   const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
   const activeStores = useMemo(() => (stores ?? []).filter((s) => s.isActive !== false), [stores]);
-  // Chips to show: every active store, plus any picked store that has since been switched off or
-  // removed, so an old checklist's selection can always be unticked.
   const chipStores = useMemo(() => {
     const known = new Set((stores ?? []).map((s) => s.id));
     const inactivePicked = (stores ?? []).filter((s) => s.isActive === false && storeIds.includes(s.id));
@@ -124,7 +115,6 @@ export const BuilderSchedulePanel = ({
         )}
       >
         {storesPending ? (
-          // Same pill shape and wrap as the real chips, so the row doesn't jump when they arrive.
           <div className="flex flex-wrap gap-2" aria-busy="true">
             {['w-28', 'w-36', 'w-24', 'w-32'].map((w, i) => <Skeleton key={i} className={`min-h-11 sm:min-h-8 rounded-full ${w}`} />)}
           </div>
@@ -156,7 +146,6 @@ export const BuilderSchedulePanel = ({
           {RECURRENCE_OPTIONS.map((opt) => (
             <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)}>
               {opt.label}
-              {/* Read out as "Daily: Repeats every day"; the shared chip has no aria-label prop. */}
               <span className="sr-only">: {opt.description}</span>
             </ToggleChip>
           ))}
@@ -178,7 +167,6 @@ export const BuilderSchedulePanel = ({
             <DatePicker
               value={parseDateStr(startDate)}
               onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
-              // A one-time checklist due yesterday would be missed the moment it is made.
               minDate={recurrence === 'ONE_TIME' ? startOfToday() : undefined}
               placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
               triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm ${startDate ? 'pr-10' : ''}`}

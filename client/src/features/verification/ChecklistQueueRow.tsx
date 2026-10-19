@@ -13,21 +13,14 @@ const SWIPE_LOCK_PX = 12;
 interface ChecklistQueueRowProps {
   row: ChecklistRow;
   now: number;
-  /** The row the review pane is showing, or the one the keyboard is on. */
   active: boolean;
-  /** Show the department next to the store (off on the department-scoped Approvals page). */
   showDepartment?: boolean;
-  /** 'below-lg': the row has its own Approve / Send back buttons only below lg, where the review pane
-   *  is not beside it. 'always': the review opens as a sheet at every width, so the row keeps them. */
   inlineActions?: 'below-lg' | 'always';
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
 }
 
-// One checklist waiting on a reviewer. The title opens it; the chips say whether it is worth
-// opening. On a touch screen a swipe right approves (the Undo toast is the confirm step) and a swipe
-// left starts a send-back. The buttons stay the main way, a swipe is only a shortcut.
 export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   row, now, active, showDepartment = true, inlineActions = 'below-lg', onOpen, onApprove, onSendBack,
 }: ChecklistQueueRowProps) {
@@ -45,7 +38,6 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   };
 
   const onTouchStart = (e: TouchEvent) => {
-    // A touch laptop at lg has the review pane and keyboard keys beside the list: no swipe there.
     if (e.touches.length !== 1 || (inlineActions === 'below-lg' && window.matchMedia('(min-width: 1024px)').matches)) return;
     const t = e.touches[0];
     gesture.current = { x: t.clientX, y: t.clientY, dx: 0, axis: null };
@@ -76,14 +68,12 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   const lgHidden = inlineActions === 'below-lg' ? 'lg:hidden' : '';
   const waiting = formatWaiting(row.waitingSince, now);
   const waitingDays = (now - row.waitingSince) / 86_400_000;
-  // Who raised it for review and when, on every row: the submit time when there is one, otherwise who it was for.
   const submitted = instance.submittedAt
     ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}` : 'Submitted'} · ${formatDateTime(instance.submittedAt)}`
     : `Not submitted yet${row.assigneeNames.length ? ` · ${row.assigneeNames.slice(0, 2).join(', ')}${row.assigneeNames.length > 2 ? ` +${row.assigneeNames.length - 2}` : ''}` : ''}`;
 
   return (
     <li className="relative rounded-xl">
-      {/* Shown behind the row while it is dragged on a touch screen. */}
       <div ref={approveHintRef} aria-hidden className={cn('absolute inset-0 flex items-center justify-start gap-2 pl-4 rounded-xl bg-success/15 text-success t-meta font-display font-semibold opacity-0', lgHidden)}>
         <Check size={16} /> Approve
       </div>
@@ -103,7 +93,6 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           risk.criticalFailed > 0 && !active && 'border-danger/40',
         )}
       >
-        {/* The press scale sits on the button, not the row: the row's transform is the swipe. */}
         <button
           type="button"
           data-queue-row={id}

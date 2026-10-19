@@ -5,16 +5,11 @@ import { useMyExtraWorkingDaysQuery } from '../admin/holidays/hook';
 
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-/**
- * "You are working on Sunday": the next extra working day (overtime) that covers this person, with its
- * reason, so nobody is surprised by checklists on a day that is normally off. Nothing shows when there is none.
- */
 export const OvertimeNotice = ({ today }: { today: string }) => {
   const { data } = useMyExtraWorkingDaysQuery();
   const next = (data ?? []).find((d) => d.date >= today);
   if (!next) return null;
   const isToday = next.date === today;
-  // An admin may already end the reason with a full stop; don't add a second one.
   const reason = next.reason.trim();
   const reasonSentence = /[.!?]$/.test(reason) ? reason : `${reason}.`;
   return (

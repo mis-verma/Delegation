@@ -11,7 +11,6 @@ import {
 import type { AuditLog } from '../../../api/auditLogs';
 import { AuditLogDiff, DiffChange, FactPill } from './AuditLogDiff';
 
-// How many changed fields show directly in the row before the rest hide behind a toggle.
 const INLINE_CHANGES = 3;
 
 const LINK_CLASS = 'font-semibold text-primary-700 dark:text-primary-300 hover:underline underline-offset-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
@@ -27,8 +26,6 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
   const priority = snapshotPriority(log);
   const link = entityLink(log);
 
-  // The name written down at the time wins, so an entry still reads right after the person is
-  // renamed or removed. Older entries fall back to the account, then to "System".
   const actorName = log.actorName && log.source !== 'SYSTEM'
     ? log.actorName
     : log.actor ? [log.actor.firstName, log.actor.lastName].filter(Boolean).join(' ') : 'System';
@@ -36,8 +33,6 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
   const showSource = !!source && log.source !== 'APP';
 
   const isDelete = log.action === 'DELETE';
-  // A record with only one side (a new record, or a one-way event like a password reset) has
-  // nothing to compare, so it shows its key details instead of before -> after pairs.
   const isOneSided = !isDelete && (log.before === null || log.after === null);
   const isChangeKind = !isDelete && !isOneSided;
 
@@ -48,8 +43,6 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
   const ActionIcon = action.icon;
 
   return (
-    // A timeline entry: a coloured node for what happened and a line down to the next entry, then the
-    // card. The line of the last entry in a day is hidden by the parent's last-child rule.
     <article className="group/row flex items-stretch gap-3 pb-2.5 last:pb-0">
       <div className="flex flex-col items-center shrink-0 pt-3">
         <span aria-hidden className={cn('flex size-8 items-center justify-center rounded-full text-white ring-4 ring-background', action.tone)}>

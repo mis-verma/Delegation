@@ -5,10 +5,6 @@ import type { AuditEntityType } from '../../api/auditLogs';
 import { ActivityTimeline } from './ActivityTimeline';
 import { TONE } from './activityTones';
 
-/**
- * The field-by-field change log (who changed which value from what to what) for Admin and PC only,
- * folded away under the plain Activity feed so the section stays calm. Renders nothing for anyone else.
- */
 export const FullChangeLog = ({ entityType, entityId }: { entityType: AuditEntityType; entityId: string }) => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);

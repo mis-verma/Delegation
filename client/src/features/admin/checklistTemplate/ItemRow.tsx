@@ -17,8 +17,6 @@ import type { AssignableUser } from '../../../api/users';
 
 const UNASSIGNED = '__unassigned__';
 
-// 16px on a phone (iOS zooms the page for anything smaller), the compact 12px from sm up; 44px
-// tall on touch.
 const PHOTO_INPUT_CLASS =
   'w-12 sm:w-10 h-11 sm:h-7 px-1 text-base sm:text-xs font-display font-medium text-center transition-all bg-surface border border-border rounded-lg text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500';
 
@@ -38,8 +36,6 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   const minRef = useRef<HTMLInputElement>(null);
   const maxRef = useRef<HTMLInputElement>(null);
 
-  // Whole numbers only, and the minimum can never pass the maximum. A bad entry goes back to what
-  // is saved with a short reason, instead of failing quietly on the server.
   const handleMinBlur = () => {
     if (!minRef.current) return;
     const value = Math.max(0, Math.floor(Number(minRef.current.value) || 0));
@@ -81,14 +77,10 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
     if (ok) deleteItem.mutate(item.id);
   };
 
-  // The saved assignee can be missing from the loaded options (still loading, a different
-  // department's list, someone who has since left). Without a stand-in option the select would
-  // quietly show "Unassigned" for a step that does have someone, and look like a change to undo.
   const assigneeLoaded = !item.defaultAssigneeId || !!assignableUsers?.some(u => u.id === item.defaultAssigneeId);
 
   return (
     <article className="group flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 sm:p-5 bg-surface border-b border-border/60 last:border-b-0 transition-colors duration-300 ease-in-out hover:bg-surface-hover/40">
-      {/* Step Index & Label */}
       <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
         <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-surface-hover text-text-muted text-xs font-display font-bold shrink-0 mt-0.5 sm:mt-0 select-none">
           {index + 1}
@@ -118,10 +110,8 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
         )}
       </div>
 
-      {/* Controls Bar */}
       <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto shrink-0">
 
-        {/* Photo Requirements Group */}
         <div className="flex items-center gap-2 p-1.5 bg-surface-hover border border-border rounded-xl transition-colors focus-within:border-primary-300 dark:focus-within:border-primary-500/50">
           <div className="px-1.5 text-text-muted border-r border-border">
             <ImageIcon className="w-4 h-4" />
@@ -157,7 +147,6 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </label>
         </div>
 
-        {/* Live Photo Toggle */}
         <button
           type="button"
           aria-pressed={item.requiresLivePhoto}
@@ -177,7 +166,6 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           Live only
         </button>
 
-        {/* Assignee Selector */}
         <div className="relative group/select">
           <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-text-muted group-hover/select:text-primary-500 transition-colors">
             {!departmentId ? <Lock className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
@@ -211,7 +199,6 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
         </div>
 
-        {/* Delete Button */}
         <button
           type="button"
           onClick={handleDelete}

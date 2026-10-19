@@ -20,12 +20,10 @@ export const ForgotPasswordForm = () => {
 
   return (
     <div className="w-full h-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 py-2">
-      {/* Left Column: Hero & Overview */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-start text-left relative">
         <AuthBackground tagline="Built for teams that move fast and never miss what matters." />
       </div>
 
-      {/* Right Column: Sleek Glass Card */}
       <div className="w-full lg:w-1/2 max-w-sm sm:max-w-md flex justify-center">
         <div
           className="relative z-10 w-full border rounded-2xl shadow-xl flex flex-col gap-4 p-5 sm:p-6"

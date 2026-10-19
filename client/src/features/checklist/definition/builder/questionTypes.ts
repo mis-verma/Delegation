@@ -8,18 +8,14 @@ import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 export type QuestionGroup = 'basic' | 'media' | 'verify';
 
 export interface QuestionTypeEntry {
-  /** Stable id — itemType, except STANDARD which splits into checkbox vs photo. */
   id: string;
   label: string;
-  /** One line shown under the label in the type menu. */
   hint: string;
   icon: LucideIcon;
   group: QuestionGroup;
   patch: Partial<ItemDraft>;
 }
 
-// The one catalog of question types — the palette, the per-question type menu and each card's
-// icon all read from here, so a type is named and drawn the same way everywhere.
 export const QUESTION_TYPES: QuestionTypeEntry[] = [
   { id: 'YES_NO', label: 'Yes / No', hint: 'Two buttons, with optional rules', icon: CheckCircle2, group: 'basic', patch: { itemType: 'YES_NO' } },
   { id: 'PASS_FAIL', label: 'Pass / Fail', hint: 'Inspection result, with optional rules', icon: ShieldCheck, group: 'basic', patch: { itemType: 'PASS_FAIL' } },
@@ -46,14 +42,12 @@ export const QUESTION_GROUPS: { id: QuestionGroup; label: string }[] = [
   { id: 'verify', label: 'Verification' },
 ];
 
-// Opacity tints, not raw -50 swatches, so the tiles sit right on both light and dark surfaces.
 export const GROUP_TILE: Record<QuestionGroup, string> = {
   basic: 'bg-primary-500/10 text-primary-700 dark:bg-primary-400/15 dark:text-primary-200',
   media: 'bg-warning/15 text-warning',
   verify: 'bg-success/12 text-success dark:bg-success/15',
 };
 
-/** Which catalog entry a draft is — STANDARD reads as Photo when it asks for photos. */
 export const questionTypeOf = (draft: Pick<ItemDraft, 'itemType' | 'requiredImageCount'>): QuestionTypeEntry => {
   if (draft.itemType === 'STANDARD') {
     return QUESTION_TYPES.find((t) => t.id === (Number(draft.requiredImageCount) > 0 ? 'PHOTO' : 'CHECKBOX'))!;

@@ -18,37 +18,17 @@ interface TaskTimelineProps {
 const DAY_MS = 86_400_000;
 const startOfDay = (value: string | Date) => new Date(value).setHours(0, 0, 0, 0);
 
-/** Column width per day. Fixed rather than fluid so a 3-week span stays readable and scrolls. */
 const DAY_WIDTH_REM = 3.25;
-/** Beyond this the axis is unreadable at any width, so the span is clamped and the rest scrolls. */
 const MAX_DAYS = 45;
 
 type Bar = {
   task: Task;
-  /** Whole days from the axis start to the bar's first day. */
   offset: number;
-  /** Bar length in days; always at least 1 so a same-day delegation is still visible. */
   span: number;
   clippedStart: boolean;
   clippedEnd: boolean;
 };
 
-/**
- * The delegation Gantt: one row per delegation, bars placed and sized on a shared day axis.
- *
- * A bar runs from the delegation's start to its due date. `startDate` is optional in the schema,
- * so `createdAt` is the fallback — that is when the work actually became live, and a bar has to
- * begin somewhere. A delegation with no due date has no end and therefore no bar; those are
- * listed under the chart rather than dropped, since "nobody has scheduled this" is exactly the
- * thing a timeline should surface.
- *
- * Bar colour is priority, matching the rail in the List view, so the same delegation reads the
- * same way in both. Overdue is drawn as a ring rather than a fifth colour, which would collide
- * with the priority scale.
- *
- * The axis spans the data, clamped to MAX_DAYS. Bars that fall outside get flat ends and a title
- * saying so, rather than being silently rescaled or hidden.
- */
 const TaskTimelineComponent = ({
   tasks,
   assigneeNames,
@@ -68,15 +48,11 @@ const TaskTimelineComponent = ({
     const barStart = (t: Task) => startOfDay(t.startDate ?? t.createdAt);
     const barEnd = (t: Task) => startOfDay(t.dueDate!);
 
-    // Axis starts at the earliest of (earliest bar start, today) so "today" is always locatable,
-    // and ends at the latest due date.
     let axisStart = Math.min(...scheduled.map(barStart), startOfDay(new Date()));
     const axisEnd = Math.max(...scheduled.map(barEnd));
 
     let total = Math.floor((axisEnd - axisStart) / DAY_MS) + 1;
     if (total > MAX_DAYS) {
-      // Keep the most recent window: a year-old delegation shouldn't compress everything current
-      // into two pixels.
       axisStart = axisEnd - (MAX_DAYS - 1) * DAY_MS;
       total = MAX_DAYS;
     }
@@ -87,8 +63,6 @@ const TaskTimelineComponent = ({
       const rawStart = barStart(task);
       const rawEnd = barEnd(task);
       const clampedStart = Math.max(rawStart, axisStart);
-      // A due date before the start date is bad data, not a negative-width bar — treat the bar as
-      // ending on its start day.
       const clampedEnd = Math.min(Math.max(rawEnd, clampedStart), axisStart + (total - 1) * DAY_MS);
 
       return {
@@ -113,8 +87,6 @@ const TaskTimelineComponent = ({
   return (
     <>
       <div className="flex flex-col gap-4">
-        {/* Bars are now full-strength colour and colour is the only thing carrying priority on the
-            chart, so it has to be decodable without hovering every bar. */}
         {days.length > 0 && (
           <div className="flex items-center gap-4 flex-wrap px-1">
             {(['high', 'medium', 'low'] as Task['priority'][]).map((key) => (
@@ -133,11 +105,8 @@ const TaskTimelineComponent = ({
 
         {days.length > 0 && (
           <div className="rounded-lg border border-border/60 bg-surface overflow-hidden">
-            {/* The label column is sticky so a row stays identifiable once the axis is scrolled;
-                the scroll lives on this container so the page body never scrolls sideways. */}
             <div className="overflow-x-auto">
               <div className="min-w-fit">
-                {/* Axis */}
                 <div className="flex sticky top-0 z-20 bg-primary-800">
                   <div className="sticky left-0 z-30 w-52 md:w-64 shrink-0 px-3 py-2.5 bg-primary-800">
                     <span className="text-xs font-semibold text-white tracking-tight">Delegation</span>
@@ -151,8 +120,6 @@ const TaskTimelineComponent = ({
                         }`}
                         style={{ width: `${DAY_WIDTH_REM}rem` }}
                       >
-                        {/* Month shown on the first column and whenever it rolls over, so the
-                            axis is readable without repeating "Aug" thirty times. */}
                         {index === 0 || day.getDate() === 1
                           ? day.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
                           : day.getDate()}
@@ -161,7 +128,6 @@ const TaskTimelineComponent = ({
                   </div>
                 </div>
 
-                {/* Rows */}
                 <ul className="flex flex-col">
                   {bars.map(({ task, offset, span, clippedStart, clippedEnd }) => {
                     const priority = PRIORITY_MAP[task.priority];
@@ -191,10 +157,6 @@ const TaskTimelineComponent = ({
                                 {task.title}
                               </span>
                             </span>
-                            {/* Overdue is stated here rather than drawn as an outline on the bar.
-                                A ring around a bar that is already the priority colour reads as a
-                                drop shadow, and on a high-priority (red) bar it was invisible
-                                anyway. Words can't be confused with the priority scale. */}
                             <span className="text-xs font-medium truncate">
                               {overdue ? (
                                 <span className="text-danger font-semibold">Overdue</span>
@@ -210,7 +172,6 @@ const TaskTimelineComponent = ({
                         </div>
 
                         <div className="relative py-3" style={{ width: chartWidth }}>
-                          {/* Track behind the bar, plus a today marker that reads across rows. */}
                           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-5 flex">
                             {days.map((day, index) => (
                               <div
@@ -251,8 +212,6 @@ const TaskTimelineComponent = ({
           </div>
         )}
 
-        {/* Not dropped: a delegation nobody has given a due date is the one a timeline most needs
-            to point at. It just cannot be drawn on a date axis. */}
         {undated.length > 0 && (
           <section className="flex flex-col gap-2">
             <header className="flex items-center gap-2.5">

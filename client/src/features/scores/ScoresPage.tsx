@@ -27,26 +27,12 @@ import {
 import { useScoreExplorer } from './useScoreExplorer';
 import { useScoreWindow } from './useScoreWindow';
 
-// The person screen (category bars, store checklist metrics, photo proof) is only needed once someone is opened.
 const PersonDetailSection = lazy(() => import('./PersonDetailSection').then((m) => ({ default: m.PersonDetailSection })));
 
 type ChecklistShow = 'list' | 'matrix';
 const SHOW_OPTIONS: readonly ChecklistShow[] = ['list', 'matrix'];
 const SHOW_LABEL: Record<ChecklistShow, string> = { list: 'List', matrix: 'Fill matrix' };
 
-/**
- * Scores: every way of cutting the same numbers on one page. One period bar, one filter bar, a "View as"
- * switch (department, store, person, checklist, module), a header total, and a table you can open row by row
- * (department to people, person to checklists, down to the actual items). Everything reads the Score Explorer,
- * so a number here is the number on the Scorecard, the Overview and a person's own card.
- *
- * Under Checklists the rows can also be shown as the daily fill matrix (?matrix=1): rings per checklist per day for
- * the same window and filters.
- *
- * The address holds the whole state (?from=&to=, ?view=, ?store=, ?dept=, ?module=, ?rec=, ?trail=), so back,
- * refresh and a shared link land on the same screen. Admin and PC see the organisation; a department head sees
- * their own department.
- */
 export const ScoresPage = () => {
   const { user } = useAuth();
   const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -55,7 +41,6 @@ export const ScoresPage = () => {
   const win = useScoreWindow();
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
-  // ---- state from the address -------------------------------------------------------------
   const trail = useMemo(() => parseTrail(params.get('trail')), [params]);
   const parent = trail[trail.length - 1] ?? null;
   const allowedViews = viewsFor(parent?.kind ?? null, orgWide);
@@ -69,7 +54,6 @@ export const ScoresPage = () => {
   const recurrence = module && module !== 'checklist' ? 'all' : parseRecurrence(params.get('rec'));
   const filtered = !!storeId || !!departmentId || !!module || recurrence !== 'all';
 
-  // The fill matrix is a way of showing the Checklists view; inside one person there is no matrix (the report has no person cut).
   const canMatrix = view === 'checklist' && parent?.kind !== 'person';
   const matrix = canMatrix && params.get('matrix') === '1';
 
@@ -91,8 +75,6 @@ export const ScoresPage = () => {
   const storeOptions = useMemo(() => (stores ?? []).map((s) => ({ value: s.id, label: s.name })), [stores]);
   const departmentOptions = useMemo(() => (departments ?? []).map((d) => ({ value: d.id, label: d.name })), [departments]);
 
-  // ---- table state --------------------------------------------------------------------------
-  // Worst first: the rows that need attention lead, rows with nothing due sink to the bottom.
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -101,17 +83,14 @@ export const ScoresPage = () => {
   const modules = useMemo(() => (shownView === 'checklist' ? (['checklist'] as const) : modulesForFilter(module)), [shownView, module]);
   const ranks = useMemo(() => rankById(data?.rows ?? []), [data]);
   const sorted = useMemo(() => sortRows(data?.rows ?? [], sortKey, ascending), [data, sortKey, ascending]);
-  // Work with nobody assigned is the last row of People, kept apart from the people.
   const visibleRows = useMemo(() => (data?.unassigned && shownView === 'person' ? [...sorted, data.unassigned] : sorted), [sorted, data, shownView]);
   const openRow = visibleRows.find((r) => `${r.kind}:${r.id}` === openKey) ?? null;
 
   const sortBy = (key: SortKey) => {
     if (key === sortKey) setAscending((v) => !v);
-    // Names read A to Z; a figure starts worst first.
     else { setSortKey(key); setAscending(true); }
   };
 
-  // ---- navigation -------------------------------------------------------------------------------
   const setTrail = useCallback((next: typeof trail, nextView?: ExplorerView) => {
     patch({ trail: serializeTrail(next), view: nextView ?? null, matrix: null });
     setOpenKey(null);
@@ -134,9 +113,7 @@ export const ScoresPage = () => {
   };
   const clearFilters = () => patch({ store: null, dept: null, module: null, rec: null });
 
-  // ---- derived text ---------------------------------------------------------------------------------
   const rootLabel = orgWide ? 'Org' : 'Department';
-  // A trail item from an old address (Team Overview) has no name yet: take it from the departments list or the answer.
   const nameOfTrail = (item: (typeof trail)[number], isLast: boolean) =>
     item.name || (item.kind === 'department' ? departmentOptions.find((o) => o.value === item.id)?.label : undefined) || (isLast ? data?.parent?.name : undefined) || '...';
   const parentName = parent ? nameOfTrail(parent, true) : '';
@@ -166,7 +143,6 @@ export const ScoresPage = () => {
     <div className="flex w-full flex-col gap-6">
       <h1 className="sr-only">Scores</h1>
 
-      {/* ONE period bar, the same one the Overview and the Scorecard use, reading and writing the same address. */}
       <AnalyticsControlBar
         groupBy="week"
         onGroupByChange={() => undefined}
@@ -206,7 +182,6 @@ export const ScoresPage = () => {
           <ScoresTotalCard total={data.total} modules={modulesForFilter(module)} title={totalTitle} windowLabel={win.label} capped={data.window.capped} />
 
           <section aria-label={`By ${VIEW_LABEL[shownView].toLowerCase()}`} className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
-            {/* Where you are: Org / Sales / Ravi, every step a way back. */}
             <nav aria-label="Where you are" className="flex flex-wrap items-center gap-1.5">
               {trail.length > 0 && (
                 <Button type="button" variant="ghost" size="sm" onClick={goBack} aria-label="Back one level" className="pointer-coarse:min-w-11">
@@ -289,7 +264,6 @@ export const ScoresPage = () => {
                 action={filtered ? { label: 'Clear filters', onClick: clearFilters } : undefined}
               />
             ) : (
-              // No dim while the next period loads: the old numbers stay until the new ones land.
               <div className="flex flex-col gap-3">
                 <ScoresMobileList view={shownView} rows={visibleRows} ranks={ranks} modules={modules} onOpen={(r) => setOpenKey(`${r.kind}:${r.id}`)} />
                 <ScoresTable

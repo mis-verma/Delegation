@@ -10,7 +10,6 @@ export interface ComplianceQuickFilterCounts {
   overdue: number;
 }
 
-// Done = finished. Missed = past its cutoff and not finished. On track = not finished, cutoff not reached yet.
 const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'due', 'overdue'], {
   all: 'All runs',
   completed: 'Done',
@@ -21,7 +20,6 @@ const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'due', 
 const NO_COUNTS: ComplianceQuickFilterCounts = { all: 0, completed: 0, due: 0, overdue: 0 };
 
 interface ChecklistComplianceQuickStatsProps {
-  /** Undefined until the summary arrives (or when it failed): never rendered as zeros. */
   counts: ComplianceQuickFilterCounts | undefined;
   active: ComplianceQuickFilterKey;
   onToggle: (key: ComplianceQuickFilterKey) => void;
@@ -31,7 +29,6 @@ interface ChecklistComplianceQuickStatsProps {
 }
 
 export const ChecklistComplianceQuickStats = ({ counts, active, onToggle, isLoading, isError, onRetry }: ChecklistComplianceQuickStatsProps) => {
-  // A failed summary used to read as a confident "0 0 0 0". Say it failed instead.
   if (isError && !counts) return <InlineError message="We couldn't load the checklist counts." onRetry={onRetry} />;
 
   return (

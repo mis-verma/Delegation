@@ -11,33 +11,22 @@ import { cn } from '@/lib/utils';
 import { IconChip } from '../../components/iconChip';
 import type { Tag } from '../../api/tags';
 
-/** Server caps `tagIds` at 12; enforced here too so a full set fails at the field, not on submit. */
 const MAX_LABELS = 12;
 
-/**
- * Offered as one-tap creates while no labels exist yet. Each becomes a real Tag only when tapped, in the colour
- * its name suggests.
- */
 const STARTER_LABELS = ['Travel', 'Billing', 'Expense', 'Marketing', 'Audit', 'Tax'];
 
 interface LabelsFieldProps {
-  /** Every label that exists. */
   tags: Tag[];
   selectedIds: string[];
   onChange: (next: string[]) => void;
-  /** Whether this user may coin a new label. `POST /tags` is ADMIN/PC only. */
   canCreate: boolean;
   disabled?: boolean;
-  /** Drop the "Labels n/12" heading, for a caller that already labels the row itself. */
   hideHeading?: boolean;
-  /** Labels already saved on the record that can't be taken off (a ticket's labels are permanent). They stay
-   *  ticked in the picker and a tap does nothing. */
   lockedIds?: string[];
 }
 
 type View = 'pick' | 'create' | 'manage';
 
-/** One row of colour swatches. A 44px tap area on touch around each 28px dot. */
 const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: string) => void; label: string }) => (
   <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
     {LABEL_COLORS.map((c) => {
@@ -68,18 +57,12 @@ const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: 
   </div>
 );
 
-/** A label: its coloured icon and name, bare like TagChip (no border, no fill). */
 const LabelChip = ({ tag, className }: { tag: Pick<Tag, 'name' | 'color'>; className?: string }) => (
   <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={cn(BARE_LABEL_CLASS, className)} title={`Label: ${tag.name}`} />
 );
 
-/** Labels shown as pills before the rest fold behind "+N more". */
 const PILL_LIMIT = 10;
 
-/**
- * One label as a pickable pill, the same shape as the event types and priorities: the label's colour circle with a
- * tag, its name, and a tick once it is on. A label that can't come off (a ticket's) shows a lock instead.
- */
 const LabelPill = ({ tag, on, lockedOn, disabled, onToggle }: { tag: Tag; on: boolean; lockedOn: boolean; disabled: boolean; onToggle: () => void }) => (
   <button
     type="button"
@@ -117,15 +100,6 @@ const BackBar = ({ title, onBack }: { title: string; onBack: () => void }) => (
   </div>
 );
 
-/**
- * Label field shared by Delegation and Tickets, in the create forms and the detail sheets, built the way the
- * Priority and Assignee fields are: one full-width field that shows the picked labels as chips, and a picker that
- * opens from it (a bottom sheet on a phone, a popover from sm up) with a searchable, tickable list.
- *
- * Admin/PC also get "New label" (a name, a colour, a live preview) and "Manage labels" (recolour or delete)
- * inside the same picker. Everyone else picks from the shared list. Labels are one list for Delegation and
- * Tickets, and the name is unique, case-insensitively.
- */
 export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled = false, hideHeading = false, lockedIds }: LabelsFieldProps) => {
   const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
@@ -133,11 +107,8 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const updateTag = useUpdateTagMutation();
 
   const [open, setOpen] = useState(false);
-  // The dialog this field sits in, if any: the popover renders inside it so the dialog's focus trap does not pull
-  // focus out of the name box.
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
   const [view, setView] = useState<View>('pick');
-  // Who was picked when the list opened goes first, frozen so rows do not jump while several are ticked.
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [name, setName] = useState('');
   const [newColor, setNewColor] = useState<string | null>(null);
@@ -145,7 +116,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const [recolorId, setRecolorId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // A create that finishes later must append to the selection as it is then, not as it was when it started.
   const selectedRef = useRef(selectedIds);
   useEffect(() => { selectedRef.current = selectedIds; }, [selectedIds]);
 
@@ -187,7 +157,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
       { name: labelName, color },
       {
         onSuccess: (tag) => {
-          // In the shared list at once, so the chip shows its real name and colour before the refetch lands.
           queryClient.setQueryData<Tag[]>(['tags'], (old) => (old?.some((t) => t.id === tag.id) ? old : [...(old ?? []), tag]));
           if (!selectedRef.current.includes(tag.id) && selectedRef.current.length < MAX_LABELS) onChange([...selectedRef.current, tag.id]);
           done?.();
@@ -234,7 +203,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     </label>
   );
 
-  // Read-only: the chips, nothing to open.
   if (disabled) {
     return (
       <div className="flex flex-col gap-2">
@@ -394,7 +362,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     </div>
   );
 
-  // Picked labels first, then the rest alphabetically; long lists fold after PILL_LIMIT.
   const cloud = [...selected, ...tags.filter((t) => !selectedIds.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name))];
   const shownPills = showAll ? cloud : cloud.slice(0, Math.max(PILL_LIMIT, selected.length));
   const foldedCount = cloud.length - shownPills.length;

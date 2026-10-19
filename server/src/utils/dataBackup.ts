@@ -16,30 +16,21 @@ import {
   checklistInstanceImages, checklistInstanceItemSubmissionImages,
 } from '../db/schema/index.js'
 
-// The one place a data backup is made: the `npm run backup:data` script and the nightly job both call
-// this. It dumps every row of the Ticket, Delegation (Task) and recurring Checklist tables to JSON
-// under server/backups/<name>/<group>/<table>.json. Read-only: it never changes the database.
-// People, departments and stores are not in it, and neither are password hashes or sessions.
-
-// Table lists are heterogeneous mysqlTable shapes, hence AnyMySqlTable: a dump loop, not app logic.
 const GROUPS: Record<string, AnyMySqlTable[]> = {
   ticket: [tickets, ticketStatusUpdates, ticketAttachments, ticketComments, checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems],
   delegation: [tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments],
   checklist: [checklistDefinitions, checklistDefinitionStores, checklistDefinitionAssignees, checklistDefinitionItems, checklistDefinitionItemAuditUsers, checklistInstances, checklistInstanceAssignees, checklistInstanceItems, checklistInstanceItemSubmissions, checklistInstanceItemSubmissionAccessories, checklistInstanceImages, checklistInstanceItemSubmissionImages],
 }
 
-/** Folders the nightly job creates start with this, so pruning never touches a backup somebody made by hand. */
 export const AUTO_BACKUP_PREFIX = 'auto-'
 
 const backupsRoot = () => join(process.cwd(), 'backups')
 
 export interface BackupResult {
-  /** Folder name under server/backups. */
   name: string
   dir: string
   tables: number
   rows: number
-  /** Table name and row count, in the order written. */
   detail: { group: string; table: string; rows: number }[]
 }
 
@@ -62,7 +53,6 @@ export const runDataBackup = async (prefix = ''): Promise<BackupResult> => {
   return { name, dir, tables: detail.length, rows: detail.reduce((n, d) => n + d.rows, 0), detail }
 }
 
-/** Deletes the oldest automatic backups, keeping the newest `keep`. Returns how many were removed. */
 export const pruneAutoBackups = async (keep = 14): Promise<number> => {
   let names: string[]
   try {
@@ -70,7 +60,6 @@ export const pruneAutoBackups = async (keep = 14): Promise<number> => {
   } catch {
     return 0
   }
-  // The ISO stamp sorts the same as time, so a plain sort is oldest first.
   const auto = names.filter((n) => n.startsWith(AUTO_BACKUP_PREFIX)).sort()
   const doomed = auto.slice(0, Math.max(0, auto.length - keep))
   for (const name of doomed) await rm(join(backupsRoot(), name), { recursive: true, force: true })
@@ -79,14 +68,8 @@ export const pruneAutoBackups = async (keep = 14): Promise<number> => {
 
 export const offsiteConfigured = () => !!(env.AWS_S3_BUCKET && env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)
 
-/**
- * Copies one backup folder to the S3 bucket under backups/<name>/..., encrypted at rest. Returns how
- * many files were uploaded, or null when no bucket is configured (so the caller can say "local only").
- * Old copies are not deleted here: let a bucket lifecycle rule expire them.
- */
 export const copyBackupToS3 = async (backup: BackupResult): Promise<number | null> => {
   if (!offsiteConfigured()) return null
-  // Loaded only now: the SDK is big and most runs (and the CLI script) never need it.
   const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
   const client = new S3Client({
     region: env.AWS_REGION,

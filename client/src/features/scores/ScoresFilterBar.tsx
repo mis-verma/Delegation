@@ -24,14 +24,12 @@ interface ScoresFilterBarProps {
   departmentId: string;
   module: ExplorerModule | undefined;
   recurrence: ExplorerRecurrence;
-  /** Shown as a plain line when the server holds the viewer to one department. */
   departmentLockedNote: boolean;
   onChange: (patch: { store?: string; dept?: string; module?: ExplorerModule | ''; rec?: ExplorerRecurrence }) => void;
   onClear: () => void;
   filtered: boolean;
 }
 
-/** ONE filter bar: store, department, module and checklist kind. A control that cannot apply to what you are looking at is left out, not greyed. */
 export const ScoresFilterBar = ({ stores, departments, storeId, departmentId, module, recurrence, departmentLockedNote, onChange, onClear, filtered }: ScoresFilterBarProps) => {
   const showRecurrence = !module || module === 'checklist';
   const fieldCount = [!!stores, !!departments, true, showRecurrence].filter(Boolean).length;

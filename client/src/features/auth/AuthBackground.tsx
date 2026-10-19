@@ -6,9 +6,6 @@ interface AuthBackgroundProps {
     tagline?: string;
 }
 
-// What this column used to be missing — three lines of text and two faint circles floating in a
-// tall, otherwise empty column read as unfinished, not minimal. These highlights are what fills
-// that space with something concrete about the actual product, not filler copy.
 const HIGHLIGHTS: { icon: LucideIcon; text: string }[] = [
     { icon: CheckSquare, text: 'Assign tasks and see who’s behind' },
     { icon: TicketCheck, text: 'Track every ticket from raised to closed' },
@@ -23,7 +20,6 @@ export const AuthBackground = ({
 
     return (
         <div className="flex flex-col justify-center gap-10 h-full w-full relative z-10 py-1">
-            {/* Ambient background decoration shapes */}
             <span className="absolute -left-20 top-1/2 -translate-y-1/2 size-72 rounded-full border border-coral-400/20 pointer-events-none" />
             <span className="absolute -right-10 top-4 size-48 rounded-full border border-primary-400/20 pointer-events-none" />
             <span className="absolute -right-6 top-1/2 -translate-y-1/2 size-20 rounded-full bg-coral-500/10 pointer-events-none" />

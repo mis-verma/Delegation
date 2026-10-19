@@ -23,12 +23,10 @@ interface TaskTableProps {
   assigneeNames: Map<string, string>;
   departmentNames?: Map<string, string>;
   onOpen: (task: Task, mode?: 'view' | 'edit') => void;
-  /** Same visibility the cards use — the Fields row governs columns here too. */
   fields: CardFieldVisibility;
   newlyAssignedTaskIds?: Set<string>;
 }
 
-// Overdue reads as "14d overdue" (same wording as the cards), anything else as the short date.
 const dueText = (iso: string, overdue: boolean) => {
   const days = Math.round((new Date(iso).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
   if (overdue && days < 0) return `${Math.abs(days)}d overdue`;
@@ -39,9 +37,6 @@ const dueText = (iso: string, overdue: boolean) => {
 
 const MAX_TABLE_LABELS = 2;
 
-// Solid navy header rather than a tinted surface row: it anchors the top of a dense grid and
-// reads as a header at a glance even when the table is scrolled horizontally away from the
-// sticky title column. Same treatment on every table in the product.
 const HEAD_ROW_CLASS = 'bg-primary-800';
 const HEAD_CLASS =
   'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
@@ -52,21 +47,6 @@ const namesFor = (task: Task, assigneeNames: Map<string, string>) =>
     .map((id) => assigneeNames.get(id))
     .filter((n): n is string => !!n);
 
-/**
- * Dense tabular view of the same delegations the board and list render.
- *
- * Earns its place next to them by being the only view where one row is one line: 40 delegations
- * are comparable at a glance across status, assignee and due date, which is what the board's
- * columns and the list's stacked cards can't do. It fetches nothing of its own and applies no
- * filtering — `tasks` arrives already scoped, filtered and sorted by TaskList.
- *
- * Columns follow the same `fields` visibility as the cards, so the "Customize cards" control in
- * Options governs this view too rather than the table inventing a second column picker.
- *
- * A table is inherently wider than a phone, so the scroll lives on this component's own container
- * (never the page body) and the title column stays sticky so a horizontally scrolled row is still
- * identifiable.
- */
 const TaskTableComponent = ({
   tasks,
   assigneeNames,
@@ -196,8 +176,6 @@ const TaskTableComponent = ({
                     </td>
                   )}
 
-                  {/* Not behind a `fields` flag: labels have no equivalent entry in the card-field
-                      picker, and this is the one view wide enough to show a full set of them. */}
                   <td className={CELL_CLASS}>
                     {task.tags?.length ? (
                       <div className="flex items-center gap-1 flex-nowrap" title={task.tags.map((t) => t.name).join(', ')}>
@@ -247,8 +225,6 @@ const TaskTableComponent = ({
         </table>
       </div>
 
-      {/* Rendered here for the same reason the board and list do it: useTaskStatusMove hands back
-          the gate as a node so a surface can't offer the move UI and skip the remark dialog. */}
       {statusRemarkDialog}
 
       <p className="sr-only" aria-live="polite">

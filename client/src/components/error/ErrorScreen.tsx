@@ -10,18 +10,12 @@ interface ErrorScreenProps {
   onRetry?: () => void;
 }
 
-// A missing page is a search, a lost connection is the network, anything else is a plain warning.
 const lookFor = (code?: string | number): { Icon: LucideIcon; tile: string; tag: string } => {
   if (code === 404) return { Icon: SearchX, tile: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', tag: 'Page not found' };
   if (typeof navigator !== 'undefined' && !navigator.onLine) return { Icon: WifiOff, tile: 'bg-warning/10 text-warning', tag: 'You are offline' };
   return { Icon: AlertTriangle, tile: 'bg-danger/10 text-danger', tag: code ? `Error ${code}` : 'Something went wrong' };
 };
 
-/**
- * The full-page "this didn't work" screen (route errors, a page that failed to load, 404). One calm card: the logo,
- * a small icon, a short title and line, then Try again and Back to dashboard, side by side from sm and stacked
- * full-width on a phone so either is easy to hit with a thumb.
- */
 export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps) => {
   const navigate = useNavigate();
   const { Icon, tile, tag } = lookFor(code);

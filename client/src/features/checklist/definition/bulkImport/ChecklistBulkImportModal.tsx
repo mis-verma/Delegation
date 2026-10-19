@@ -32,8 +32,6 @@ type Option = { value: string; label: string };
 
 const ACCEPTED_EXTENSIONS = '.csv,.xlsx,.xls,.pdf';
 
-// Empty = must fix before continuing (danger ring). Fuzzy = auto-matched, worth a second look
-// (warning ring) until the admin confirms or changes it. Exact/manually-picked = no ring at all.
 const fieldRing = (value: string, confidence: BulkImportMatchConfidence) => {
   if (!value) return 'ring-2 ring-danger/40';
   if (confidence === 'fuzzy') return 'ring-2 ring-warning/40';
@@ -54,9 +52,6 @@ interface ReviewRowViewProps {
   onChange: (rowIndex: number, patch: Partial<ReviewRow>) => void;
 }
 
-// One row of the review table. Memoized, and fed only stable props (`onChange` is a useCallback,
-// untouched rows keep their object identity through updateRow), so editing one row re-renders that
-// row's three Comboboxes and nothing else.
 const ReviewRowView = memo(function ReviewRowView({ row, checklistOptions, storeOptions, userOptions, onChange }: ReviewRowViewProps) {
   const { rowIndex } = row;
   const rowNumber = rowIndex + 1;
@@ -140,15 +135,12 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     setOpensTime('');
     setCutoffTime('');
     setSummary(null);
-    // Otherwise a failed upload's error banner would greet the next time the modal opens.
     previewMutation.reset();
     publishMutation.reset();
   };
 
   const handleClose = async () => {
-    // Closing mid-publish would hide the result (and any failures) while the server keeps writing.
     if (publishMutation.isPending) return;
-    // A reviewed table or a chosen schedule is work worth keeping: ask before throwing it away.
     if (step === 'review' || step === 'schedule') {
       const leave = await confirm({
         title: 'Close this import?',
@@ -191,7 +183,6 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     setDragOver(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    // The browse button filters by type; a dropped file is not filtered, so check it here.
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
     if (!ACCEPTED_EXTENSIONS.split(',').map((x) => x.trim().toLowerCase()).includes(ext)) {
       toast.error('That file type is not supported. Use CSV, Excel or PDF.');
@@ -207,13 +198,11 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
   );
   const canContinueFromReview = includedRows.length > 0 && unresolvedCount === 0;
 
-  // Functional update + untouched rows keep their identity, so memoized ReviewRowViews skip re-rendering.
   const updateRow = useCallback((rowIndex: number, patch: Partial<ReviewRow>) => {
     setRows((prev) => prev.map((r) => (r.rowIndex === rowIndex ? { ...r, ...patch } : r)));
   }, []);
 
   const handlePublish = async () => {
-    // A start date or time window is applied to every checklist in the batch, live ones included.
     if (startDate || opensTime || cutoffTime) {
       const count = new Set(includedRows.map((r) => r.checklistDefinitionId)).size;
       const ok = await confirm({

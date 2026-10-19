@@ -6,7 +6,6 @@ const EXTRACTION_TIMEOUT_MS = 20_000
 
 const getClient = lazyClient("GEMINI_API_KEY", () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }))
 
-// @google/genai wants its own Type enum rather than plain JSON Schema strings.
 const GEMINI_SCHEMA = {
     type: Type.OBJECT,
     properties: {

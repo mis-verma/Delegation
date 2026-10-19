@@ -12,8 +12,6 @@ interface RiskChipsProps {
   className?: string;
 }
 
-// The "should I open this one?" read-out on a checklist row: how well it was answered, what is
-// missing, whether it was sent back before, and a green "No issues" tag when there is nothing to check.
 export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsProps) {
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
@@ -26,7 +24,6 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
           title="A question marked critical was not answered acceptably"
         />
       )}
-      {/* No accepted-answer rules means nothing could fail: it shows 100%, not a missing chip. */}
       <IconChip icon={Gauge} tone={complianceTone(risk.compliance ?? 100)} label={`Compliance ${risk.compliance ?? 100}%`} />
       {risk.badAnswers > 0 && (
         <IconChip icon={AlertTriangle} tone="bg-warning" label={plural(risk.badAnswers, 'bad answer', 'bad answers')} title="Answers outside the accepted rule" />

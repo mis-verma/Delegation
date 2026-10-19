@@ -18,21 +18,8 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface NotificationBellProps {
-  // 'light' (default) is tuned for the app's own light-surface header. 'dark' swaps the trigger
-  // button to white/opacity variants for use on a fixed-navy chrome (e.g. AdminHeader) — the
-  // popover panel itself is unaffected since it's a portal, not a child of that chrome's background.
   tone?: 'light' | 'dark';
-  // The unread badge's `ring-surface` was meant to punch a clean gap between the red dot and
-  // whatever sits behind it — on AdminHeader's neutral bg-surface bar the badge and its "gap" ring
-  // are effectively the same color, so it just reads as a slightly fuzzy outline around the dot
-  // instead of a clean edge. Off by default there; still on for the app-wide Header, which hasn't
-  // asked to drop it.
   badgeRing?: boolean;
-  /** `tone: 'light'` only — tints the bell itself warning-amber instead of plain gray, the one
-   *  spot in the app-wide Header that gets its own color rather than the neutral icon-button
-   *  treatment (a resting bell is otherwise indistinguishable from any other gray icon button).
-   *  Scoped to a prop rather than changing 'light''s default so AdminHeader's own bell — same
-   *  tone value, different chrome — isn't affected by a change made for the other header. */
   accent?: boolean;
 }
 
@@ -43,7 +30,6 @@ interface NotificationListProps {
   isError: boolean;
   filter: NotificationFilter;
   onOpen: (n: Notification) => void;
-  /** Phone sheet: bigger rows and three message lines instead of two. */
   roomy?: boolean;
   onSwipeRead: (n: Notification) => void;
 }
@@ -58,8 +44,6 @@ const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon
   </div>
 );
 
-// The rows (or the error / empty state), shared by the desktop popover and the phone sheet. Grouped
-// under Today / Yesterday / Earlier, so the list reads like a timeline rather than one long run.
 const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead, roomy = false }: NotificationListProps) => {
   const dragged = useRef(false);
   if (isError) {
@@ -152,7 +136,6 @@ const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead,
   );
 };
 
-// All / Unread: two quiet pills in the panel header.
 const NotificationTabs = ({ value, onChange, unread }: { value: NotificationFilter; onChange: (v: NotificationFilter) => void; unread: number }) => (
   <div role="group" aria-label="Show notifications" className="inline-flex items-center gap-1 p-1 rounded-full bg-surface-hover border border-border/60">
     {(['all', 'unread'] as const).map((key) => (
@@ -176,9 +159,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const panelRef = useRef<HTMLDivElement>(null);
-  // Rings the bell for a beat when a notification lands while the panel is closed — the toast
-  // (useNotificationSocket) already surfaces it, this is what makes the bell itself say "new" if
-  // someone glances at the header a second later instead of catching the toast.
   const [justArrived, setJustArrived] = useState(false);
   const arrivalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -193,9 +173,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       setJustArrived(true);
       arrivalTimer.current = setTimeout(() => setJustArrived(false), 1600);
     },
-    // Safe here: NotificationBell only ever renders inside Header/AdminHeader, both of which sit
-    // under <RouterProvider> (App.tsx's own bare useNotificationSocket() call, above the Router,
-    // deliberately doesn't pass this — see that hook's own comment).
     navigate,
   });
   useEffect(() => () => { if (arrivalTimer.current) clearTimeout(arrivalTimer.current); }, []);
@@ -210,8 +187,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
     if (path) navigate(path);
   };
 
-  // One bell for both layouts. On desktop it is the Popover's trigger (asChild); on a phone it just
-  // opens the sheet. 44px on touch screens, 40px with a mouse.
   const bell = (onClick?: () => void) => (
     <button
       type="button"
@@ -224,7 +199,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
           : accent
             ? cn("text-primary-600 dark:text-primary-300 hover:bg-primary-500/10", open && "bg-primary-500/10")
             : cn(
-                // Its own soft blue tile: the bell is the one header control that carries news.
                 "border-primary-500/15 bg-primary-500/[0.08] text-primary-600 dark:text-primary-300 hover:bg-primary-500/15",
                 open && "bg-primary-500/15"
               ),
@@ -265,8 +239,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
     </button>
   );
 
-  // One panel for every screen: a side sheet from the right edge (full width on a phone), so the list always has the
-  // whole height and never hangs off the bell or gets cut against an edge.
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       {bell(() => { haptic('tap'); setOpen(true); })}
@@ -274,7 +246,6 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         side="right"
         showCloseButton={false}
         ref={panelRef}
-        // The panel itself takes focus on open, not the X: no focus ring before anyone touches anything.
         onOpenAutoFocus={(e) => { e.preventDefault(); panelRef.current?.focus({ preventScroll: true }); }}
         className="w-full sm:max-w-[400px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none">
         <SheetHeader className="flex flex-col gap-2.5 border-b border-border/60 px-4 pt-3 pb-3 text-left shrink-0">

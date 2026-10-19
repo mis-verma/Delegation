@@ -28,7 +28,6 @@ import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } f
 import { MIN_PASSWORD_LENGTH, copyText, generatePassword } from './passwordTools';
 import { fullName } from './userDisplay';
 
-
 const buildUserSchema = (isEditing: boolean) =>
   z
     .object({
@@ -38,20 +37,15 @@ const buildUserSchema = (isEditing: boolean) =>
       phone: z
         .string()
         .trim()
-        // Same rule as the server: 10 to 15 digits once spaces, dashes, brackets and a leading + go.
         .refine((v) => !v || /^\d{10,15}$/.test(v.replace(/[\s\-().[\]{}]/g, '').replace(/^\+/, '')), 'Enter a valid phone number (10 to 15 digits)')
         .optional(),
       password: z.string().optional(),
       role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const),
       departmentId: z.string().optional(),
       storeId: z.string().optional(),
-      // Picks which uniform list an audit checks this person against. '' = not set: they get the
-      // question's main list.
       gender: z.enum(['', 'FEMALE', 'MALE']),
-      // An admin-defined dress type. '' = none: they get their gender's list.
       dressTypeId: z.string(),
       reportsToId: z.string(),
-      // Weekly day(s) off: no daily checklists for this person on these days.
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
     })
     .superRefine((data, ctx) => {
@@ -71,19 +65,13 @@ type UserFields = z.infer<ReturnType<typeof buildUserSchema>>;
 interface UserFormProps {
   onClose: () => void;
   user?: AdminUser;
-  /** Called with the newly-created user right after a successful create (not fired when editing). */
   onCreated?: (user: AdminUser) => void;
-  /** Seeds fields on a fresh create (e.g. a name, and department if it was also mentioned, typed in
-   *  Smart Add that didn't match anyone) without treating this as an edit: `user` above is what
-   *  triggers edit mode. */
   prefill?: { firstName?: string; lastName?: string; departmentId?: string };
 }
 
 const isDuplicateEmail = (err: unknown) =>
   err instanceof ApiError ? err.status === 409 : err instanceof Error && /already/i.test(err.message);
 
-// Small pencil beside a picked department or store: opens that record's own edit form on top of this
-// one, so a wrong name or store can be fixed without closing the person's form.
 const EditPickedButton = ({ label, onClick }: { label: string; onClick: () => void }) => (
   <button
     type="button"
@@ -140,16 +128,11 @@ const GenderPicker = ({ value, onChange }: { value: string; onChange: (value: ''
 export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) => {
   const isEditing = Boolean(user);
   const confirm = useConfirm();
-  // A PC cannot create or promote an admin (the server refuses it too), so Admin is not offered.
   const { user: me } = useAuth();
   const roleChoices = ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN'));
-  // Tracked locally (seeded from `user`, then updated straight from each mutation's response)
-  // rather than re-read from `user` on every render: `user` is a snapshot captured when this
-  // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Set after a successful create: swaps the form for a one-time "share this password" panel.
   const [created, setCreated] = useState<{ user: AdminUser; password: string; codeSent: boolean } | null>(null);
   const [emailCode, setEmailCode] = useState(true);
 
@@ -164,13 +147,8 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
 
   const schema = useMemo(() => buildUserSchema(isEditing), [isEditing]);
 
-  // Quick-add: "Create new department/store" from inside the Combobox below opens the real
-  // Department/Store form nested on top of this one, then feeds the freshly-created id straight
-  // back into this form's field instead of making the admin close this modal, go create it
-  // elsewhere, and reopen.
   const [creatingDepartment, setCreatingDepartment] = useState<string | null>(null);
   const [creatingStore, setCreatingStore] = useState<string | null>(null);
-  // The department / store already picked above, opened for editing without leaving this form.
   const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
   const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
 
@@ -207,8 +185,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   });
   const isPending = mutation.isPending || isSubmitting;
 
-  // Dress types that fit the chosen gender (a type for anyone always fits). The one already picked
-  // stays listed even if it was switched off or no longer fits, so the field never shows blank.
   const { data: dressTypes, isLoading: isDressTypesLoading } = useDressTypesQuery();
   const dressTypeOptions = useMemo(
     () =>
@@ -219,9 +195,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   );
   const [creatingDressType, setCreatingDressType] = useState<string | null>(null);
 
-  // Who they can report to: active people in a head or admin role, never the person being edited.
-  // The one already chosen stays listed even if they have since been deactivated, so the field
-  // never shows blank. The server also refuses loops.
   const { data: allUsers, isLoading: isUsersLoading } = useUsersQuery();
   const reportsToOptions = useMemo(
     () =>
@@ -231,8 +204,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     [allUsers, user?.id, user?.reportsToId],
   );
 
-  // Closing from any route (X, Esc, overlay, Cancel) goes through here, so unsaved edits are never
-  // lost to a stray click. Nothing to lose once the account exists and only the password panel shows.
   const requestClose = async () => {
     if (isPending) return;
     if (isDirty && !created) {
@@ -248,8 +219,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     onClose();
   };
 
-  // After a create, the password panel holds the only copy of the temporary password. Esc, the
-  // overlay or a stray click must not throw it away silently.
   const requestCloseCreated = async () => {
     const leave = await confirm({
       title: 'Close without sharing the password?',
@@ -261,8 +230,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     if (leave) onClose();
   };
 
-  // Picking a department fills in its store, but only while the store is empty or still holds the
-  // value filled in last time, so a store chosen on purpose is never overwritten.
   const autoFilledStore = useRef<string | null>(null);
   const handleDepartmentChange = (id: string, apply: (value: string) => void) => {
     apply(id);
@@ -284,9 +251,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     const reportsToId = data.reportsToId || null;
 
     if (isEditing && user) {
-      // Send only what actually changed. The form used to resend everything, so an old phone number
-      // that no longer passes today's rules (or any other untouched field) made a plain role change
-      // fail with a 400 the person could not explain.
       const payload: UpdateUserPayload = {};
       if (data.firstName !== user.firstName) payload.firstName = data.firstName;
       if ((data.lastName ?? '') !== (user.lastName ?? '')) payload.lastName = data.lastName ?? '';
@@ -304,7 +268,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         onClose();
         return;
       }
-      // A role decides what this person can see and do, so changing it is confirmed, not a quiet save.
       if (payload.role) {
         const ok = await confirm({
           title: `Change ${fullName(user)} to ${ROLE_META[payload.role].label}?`,
@@ -317,10 +280,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       return;
     }
 
-    // The zod schema's superRefine (above) already blocks submission without a valid password
-    // when creating. This guard makes that guarantee visible to the type checker too, instead
-    // of asserting past it, so a future edit that loosens the schema fails loudly here rather
-    // than silently sending an undefined password to the API.
     if (!data.password) return;
     const password = data.password;
 
@@ -350,8 +309,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     );
   };
 
-  // A taken email is a problem with one field, so it is shown on that field and focused. Anything
-  // else is a problem with the whole save and goes in the banner at the bottom.
   function handleSaveError(err: unknown) {
     if (isDuplicateEmail(err) && err instanceof Error && /phone/i.test(err.message)) {
       setError('phone', { type: 'server', message: 'Someone already uses this phone number' });
@@ -599,7 +556,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                         value={field.value}
                         onChange={(value) => {
                           field.onChange(value);
-                          // A type made for the other gender no longer fits: clear it.
                           const picked = dressTypes?.find((t) => t.id === getValues('dressTypeId'));
                           if (picked?.gender && value && picked.gender !== value) {
                             setValue('dressTypeId', '', { shouldDirty: true });

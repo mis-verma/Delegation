@@ -4,9 +4,7 @@ import { useNow } from '../../lib/useNow';
 import { formatSpan, type Completion, type Compliance, type ItemScore } from '../../lib/itemScore';
 
 interface ItemScoreCardProps {
-  /** The item's score at a given time (lib/itemScore ticketScore / taskScore). The card ticks every 30s. */
   scoreAt: (now: number) => ItemScore;
-  /** "ticket" or "delegation", for the wording. */
   noun: string;
 }
 
@@ -44,7 +42,6 @@ const Cell = ({ label, word, tone, icon: Icon }: { label: string; word: string; 
   </div>
 );
 
-/** The one line under the two cells: what the clock says right now, in plain words. */
 const statusLine = (s: ItemScore, now: number, noun: string) => {
   if (!s.scored) return `No due time, so this ${noun} does not count in the scores.`;
   const due = s.dueAt!.getTime();
@@ -56,11 +53,6 @@ const statusLine = (s: ItemScore, now: number, noun: string) => {
   return gap <= 0 ? `Handed in ${formatSpan(gap)} before the due time.` : `Handed in ${formatSpan(gap)} after the due time.`;
 };
 
-/**
- * How this one item counts in Completion and Compliance on the Scores page, live: the countdown ticks every
- * 30 seconds, and a status change from anyone lands through the socket refresh of the detail query. Same rules as
- * the server (lib/itemScore).
- */
 export const ItemScoreCard = ({ scoreAt, noun }: ItemScoreCardProps) => {
   const now = useNow(30_000);
   const score = scoreAt(now);

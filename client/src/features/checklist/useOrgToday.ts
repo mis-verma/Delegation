@@ -3,12 +3,6 @@ import { todayPeriodBoundIso } from './checklistDisplay';
 
 const dayKey = () => todayPeriodBoundIso().slice(0, 10);
 
-/**
- * Today as the org's calendar day (YYYY-MM-DD), kept fresh: a page left open past midnight, or a
- * phone woken from sleep, rolls over to the new day instead of showing yesterday as "today".
- * Re-checked every minute and whenever the tab becomes visible or focused again; the state only
- * changes when the day actually does, so it never causes a needless render.
- */
 export const useOrgToday = (): string => {
   const [today, setToday] = useState(dayKey);
 

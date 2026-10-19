@@ -17,27 +17,17 @@ const CHIP = 'shrink-0 inline-flex items-center gap-1 t-meta font-display font-s
 
 interface UserRowProps {
   user: AdminUser;
-  /** Shows the "Dept head" chip. Only passed from inside a department. */
   isHead?: boolean;
-  /** Plain-language reason this person's store does not match their department's store. */
   storeMismatch?: string;
-  /** Stable across renders (see OrgStructurePage's onUserDragStart/onUserDragEnd) so passing
-   *  them doesn't defeat this row's own memoization. */
   onDragStart?: (user: AdminUser) => void;
   onDragEnd?: () => void;
-  /** Extra classes for the row, e.g. a border when the row sits on its own in a bucket. */
   className?: string;
 }
 
-// Memoized: a large org can render hundreds of these inside StoreSection/DepartmentSection,
-// without this, toggling one accordion elsewhere re-renders every row in the tree.
 export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragEnd, className }: UserRowProps) => {
-  // Local only: doesn't need to be known outside this one row, so it can't defeat memoization
-  // on any ancestor the way a top-down "which user is dragging" prop would.
   const [isBeingDragged, setIsBeingDragged] = useState(false);
   const draggable = !!onDragStart;
   const name = `${user.firstName} ${user.lastName ?? ''}`.trim();
-  // The chain: who this person reports to, shown on the row so the ladder can be read off the tree.
   const orgApi = useOrgMove();
   const reportsToName = user.reportsToId ? orgApi?.nameOf(user.reportsToId) : undefined;
 
@@ -45,7 +35,6 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
     <div
       draggable={draggable}
       onDragStart={(e) => {
-        // React events bubble out of portals, so ignore a drag that began in the Move to menu.
         if (!draggable || !e.currentTarget.contains(e.target as Node)) return;
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData(
@@ -60,8 +49,6 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
         onDragEnd?.();
       }}
       className={cn(
-        // @container: the role chip and the Move to label depend on how wide this row is, not on the
-        // screen, because the same row sits in a narrow department column and a full-width list.
         '@container group flex min-h-14 items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent transition-colors duration-200 hover:bg-surface hover:border-border/70',
         draggable && 'cursor-grab active:cursor-grabbing',
         isBeingDragged && 'opacity-40',

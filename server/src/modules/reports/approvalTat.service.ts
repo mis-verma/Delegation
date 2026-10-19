@@ -7,26 +7,21 @@ import { checklistInstanceAssignees } from "../../db/schema/checklistInstance.js
 import { users } from "../../db/schema/core.js"
 import { and, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm"
 
-// The reviewer's promise: anything handed in for approval is decided within this long.
 export const APPROVAL_TAT_HOURS = 24
 const WINDOW_MS = APPROVAL_TAT_HOURS * 60 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
 
 export type ApprovalTatCounts = { met: number; breached: number; pending: number }
 
-/** What is waiting for a decision right now, whatever the period: how many, and how many past 24 hours. */
 export type ApprovalWaiting = { now: number; over24h: number }
 
 export type ApprovalTatResult = ApprovalTatCounts & {
     windowHours: number
-    /** met / (met + breached) as a whole percent; null when nothing has come due yet. */
     rate: number | null
     byKind: { delegation: ApprovalTatCounts; ticket: ApprovalTatCounts; checklist: ApprovalTatCounts }
-    /** Hand-ins in the period that got a decision: how many, and the average hours from hand-in to decision. */
     decided: number
     avgDecisionHours: number | null
     avgDecisionHoursByKind: { delegation: number | null; ticket: number | null; checklist: number | null }
-    /** Waiting for approval now (not tied to the period). */
     waiting: { delegation: ApprovalWaiting; ticket: ApprovalWaiting; checklist: ApprovalWaiting; total: ApprovalWaiting }
 }
 
@@ -34,16 +29,9 @@ type HandIn = { submittedAt: Date; verifiedAt: Date | null }
 
 const EMPTY = (): ApprovalTatCounts => ({ met: 0, breached: 0, pending: 0 })
 
-// A decision made BEFORE the latest hand-in belongs to an earlier round (the item was sent back and
-// handed in again), so it does not count as a decision on this one.
 const decidedAt = (row: HandIn): number | null =>
     row.verifiedAt && row.verifiedAt.getTime() >= row.submittedAt.getTime() ? row.verifiedAt.getTime() : null
 
-// One hand-in, judged against the 24 hour promise:
-//   decided within 24h          -> met
-//   decided later               -> breached
-//   still waiting past 24h      -> breached (the clock ran out with no decision)
-//   still waiting, under 24h    -> pending (not due yet, left out of the rate)
 const judge = (rows: HandIn[], now: number): ApprovalTatCounts => {
     const counts = EMPTY()
     for (const row of rows) {
@@ -61,7 +49,6 @@ const judge = (rows: HandIn[], now: number): ApprovalTatCounts => {
     return counts
 }
 
-// Total hours from hand-in to decision over the decided hand-ins, and how many there were.
 const decisionTime = (rows: HandIn[]): { hours: number; count: number } => {
     let hours = 0
     let count = 0
@@ -79,17 +66,12 @@ const avg = (part: { hours: number; count: number }) => (part.count > 0 ? Math.r
 const sum = (...parts: ApprovalTatCounts[]): ApprovalTatCounts =>
     parts.reduce((acc, p) => ({ met: acc.met + p.met, breached: acc.breached + p.breached, pending: acc.pending + p.pending }), EMPTY())
 
-// Waiting since: the hand-in time, or the last update for rows handed in before it was recorded.
 const waitingOf = (rows: { submittedAt: Date | null; updatedAt: Date }[], now: number): ApprovalWaiting => ({
     now: rows.length,
     over24h: rows.filter((r) => now - (r.submittedAt ?? r.updatedAt).getTime() > WINDOW_MS).length,
 })
 
 export const approvalTatService = {
-    /**
-     * Hand-ins whose submit time falls in [from, to): delegations, tickets and checklist runs together,
-     * with the average time to a decision. Plus what is waiting for a decision right now.
-     */
     async summary(from: Date, to: Date, now = Date.now(), departmentId?: string): Promise<ApprovalTatResult> {
         const taskDept: SQL | undefined = departmentId ? eq(tasks.departmentId, departmentId) : undefined
         const ticketDept: SQL | undefined = departmentId ? eq(tickets.departmentId, departmentId) : undefined
@@ -101,8 +83,6 @@ export const approvalTatService = {
                 .select({ submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt })
                 .from(tasks)
                 .where(and(isNull(tasks.deletedAt), isNotNull(tasks.submittedAt), gte(tasks.submittedAt, from), lt(tasks.submittedAt, to), taskDept)),
-            // Tickets are judged from the "pending approval" step in their status history. A ticket
-            // handed in more than once keeps only its latest hand-in (below).
             db
                 .select({ ticketId: ticketStatusUpdates.ticketId, submittedAt: ticketStatusUpdates.createdAt, verifiedAt: tickets.verifiedAt })
                 .from(ticketStatusUpdates)
@@ -118,7 +98,6 @@ export const approvalTatService = {
                 .select({ submittedAt: checklistInstances.submittedAt, verifiedAt: checklistInstances.verifiedAt })
                 .from(checklistInstances)
                 .where(and(isNotNull(checklistInstances.submittedAt), gte(checklistInstances.submittedAt, from), lt(checklistInstances.submittedAt, to), runDept)),
-            // Waiting now: the same sets the approval queues list.
             db
                 .select({ submittedAt: tasks.submittedAt, updatedAt: tasks.updatedAt })
                 .from(tasks)
@@ -132,7 +111,6 @@ export const approvalTatService = {
                 .from(checklistInstances)
                 .where(and(
                     eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"),
-                    // A run whose checklist was deleted drops out of every queue.
                     sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitions} d WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL)`,
                     runDept,
                 )),

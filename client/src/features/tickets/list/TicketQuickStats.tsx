@@ -9,13 +9,10 @@ export interface TicketQuickFilterCounts {
   delayed: number;
 }
 
-// "Due Soon" rather than the catalogue's default "Due" — on Tickets the bucket means "approaching
-// its TAT deadline", which is a narrower claim than the other modules' plain "Due".
 const TILES = statusTiles<TicketQuickFilterKey>(['pending', 'completed', 'due', 'delayed'], { due: 'Due Soon' });
 
 interface TicketQuickStatsProps {
   counts: TicketQuickFilterCounts;
-  /** Everything in scope, unfiltered — the number the page header used to state in words. */
   total: number;
   active: TicketQuickFilterKey | null;
   onToggle: (key: TicketQuickFilterKey) => void;

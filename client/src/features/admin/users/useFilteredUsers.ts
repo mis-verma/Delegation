@@ -11,8 +11,6 @@ export type UserView = 'cards' | 'table';
 
 const SORT_KEYS: UserSortKey[] = ['name', 'role', 'department', 'store', 'status', 'newest', 'lastActive'];
 
-// The direction each sort starts in: "Newest" and "Last active" read best newest first, the rest
-// read best A to Z (role: the role with most access first, status: active first).
 const DEFAULT_DIR: Record<UserSortKey, SortDir> = {
   name: 'asc',
   role: 'asc',
@@ -23,7 +21,6 @@ const DEFAULT_DIR: Record<UserSortKey, SortDir> = {
   lastActive: 'desc',
 };
 
-// Admin first, User last.
 const ROLE_RANK = new Map<Role, number>([...ROLE_ORDER].reverse().map((r, i) => [r, i]));
 
 export interface UserFilters {
@@ -54,11 +51,6 @@ const lastActiveValue = (p: UserPresence | undefined) => {
   return p.lastActiveAt ? new Date(p.lastActiveAt).getTime() : -1;
 };
 
-/**
- * Search, filters, sort, view and page for the Users tab, all kept in the URL so a filtered list
- * can be shared or survives a refresh. Any change to search or filters sends the list back to
- * page 1. Params it does not own (like the Directory's ?tab=) are left alone.
- */
 export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceById, pageSize }: Options) => {
   const [params, setParams] = useSearchParams();
 
@@ -96,8 +88,6 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
     }, { replace: true });
   }, [setParams]);
 
-  // The search box types into local state and reaches the URL a moment later, so every keystroke
-  // does not re-render the whole Directory.
   const [searchText, setSearchText] = useState(urlQ);
   useEffect(() => {
     if (searchText.trim() === urlQ) return;
@@ -124,7 +114,6 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
 
   const setSort = useCallback((key: UserSortKey) => update({ sort: key === 'name' ? null : key, dir: null }), [update]);
 
-  // Header click: same column flips direction, a new column starts in its natural direction.
   const toggleSort = useCallback((key: UserSortKey) => {
     if (key === sort) update({ sort: key === 'name' ? null : key, dir: dir === 'asc' ? 'desc' : 'asc' });
     else update({ sort: key === 'name' ? null : key, dir: null });
@@ -133,8 +122,6 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
   const setView = useCallback((next: UserView) => update({ view: next === 'table' ? 'table' : null }, true), [update]);
   const setPage = useCallback((next: number) => update({ page: next > 1 ? String(next) : null }, true), [update]);
 
-  // Everything except the status segment, so the Active / Deactivated counts describe the
-  // people the other filters leave in.
   const beforeStatus = useMemo(() => {
     const tokens = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
     return users.filter((u) => {
@@ -164,7 +151,6 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
       switch (sort) {
         case 'role': return (ROLE_RANK.get(a.role) ?? 0) - (ROLE_RANK.get(b.role) ?? 0);
         case 'department': {
-          // People with no department sort last in either direction.
           const x = text(a.departmentId, departmentNames);
           const y = text(b.departmentId, departmentNames);
           if (!x !== !y) return (x ? -1 : 1) * sign;
@@ -192,7 +178,6 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
     [filtered, safePage, pageSize],
   );
 
-  // Status has its own segmented control, so it is not counted here.
   const activeFilterCount =
     Number(!!filters.role) + Number(!!filters.department) + Number(!!filters.store) +
     Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads);

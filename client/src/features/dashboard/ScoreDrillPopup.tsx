@@ -11,16 +11,11 @@ interface ScoreDrillPopupProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  /** Which module the figures are for: names the second measure right (Answers right, or Met deadline) and says how each is calculated. */
   module: ModuleKey;
-  /** "Oct 1 to Oct 9", "This month": the window the figures are for. */
   windowLabel: string;
-  /** Whose scores these are, when it is not the signed-in person. */
   subject?: string;
   figures: { key: SeriesKey; value: number | null; note: string }[];
-  /** Where the finished items live. Left out where the list cannot be narrowed to this subject. */
   completedHref: string | null;
-  /** Where the late items live. */
   lateHref: string | null;
   onGo: (href: string) => void;
 }
@@ -45,15 +40,8 @@ const GoButton = ({ icon: Icon, label, hint, primary, onClick }: { icon: typeof 
   </button>
 );
 
-/**
- * What a tapped score is made of, in a small popup: the three figures with the counts behind them, and one
- * tap to the finished items or the late ones. It replaces jumping straight to the late list, which hid the
- * score you had tapped and gave no way to see what was done.
- */
 export const ScoreDrillPopup = ({ open, onOpenChange, title, module, windowLabel, subject, figures, completedHref, lateHref, onGo }: ScoreDrillPopupProps) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
-    {/* px/pt only on a phone: a plain p-5 overrode the sheet's safe-area bottom padding and sat the
-        buttons on the iPhone home bar. Our own close button, 44px on touch (the built-in one is 40px). */}
     <DialogContent showCloseButton={false} className="sm:max-w-sm gap-4 px-5 pt-5 sm:p-6">
       <DialogClose
         aria-label="Close"

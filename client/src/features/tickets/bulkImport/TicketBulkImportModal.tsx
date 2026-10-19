@@ -45,9 +45,6 @@ const PRIORITY_OPTIONS = [
   { value: 'CRITICAL', label: 'Critical' },
 ];
 
-// Title and Description are the two fields the server actually requires — empty is always an
-// error. Assignee/Department/Store/Category are optional on a ticket, so an empty match is only
-// an error when text was actually typed in the source file and didn't resolve to a real record.
 const requiredFieldRing = (value: string) => (!value ? 'ring-2 ring-danger/40' : '');
 const optionalFieldRing = (value: string, rawText: string | undefined, confidence: BulkImportMatchConfidence) => {
   if (!value) return rawText ? 'ring-2 ring-danger/40' : '';

@@ -23,14 +23,11 @@ const settingsSchema = z.object({
   maxUploadFiles: z.number().int().positive('Must be a positive whole number'),
   allowedImageTypes: z.array(z.string()).min(1, 'Select at least one file type'),
   maintenanceMode: z.boolean(),
-  // Kept as a plain string in the form (never null) — simpler than teaching RHF/Textarea about a
-  // null value for what's really just "empty". Converted to `null` for the API on submit instead.
   maintenanceMessage: z.string().max(500, 'Keep it under 500 characters'),
   notifyTaskDeadlineReminders: z.boolean(),
   notifyChecklistOverdueReminders: z.boolean(),
   accessTokenExpiresMinutes: z.number().int().min(1, 'Must be at least 1 minute').max(1440, 'Must be 1440 minutes (1 day) or less'),
   refreshTokenExpiresDays: z.number().int().min(1, 'Must be at least 1 day').max(365, 'Must be 365 days or less'),
-  // 0 is a valid, meaningful value here ("keep forever") — not an error state like the fields above.
   auditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   notificationRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   inboundMessageRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
@@ -71,10 +68,6 @@ interface LogoUploadProps {
   isRemoving?: boolean;
 }
 
-// Same hover-to-change-overlay interaction as components/avatar/AvatarUpload, but a square-ish
-// bordered box with object-contain instead of a circular crop — logos are rarely square, and a
-// circular crop would clip most of them. Falls back to the bundled default logo.png (never blank
-// initials, since an org has no "name" to initial the way a person's avatar does).
 const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUploadProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = Boolean(isUploading || isRemoving);
@@ -147,9 +140,6 @@ export const SettingsPage = () => {
   const uploadLogoMutation = useUploadLogoMutation();
   const removeLogoMutation = useRemoveLogoMutation();
 
-  // Logo uploads immediately on file pick, same as AvatarUpload elsewhere — not gated behind the
-  // form's own "Save changes" button, so kept as local state seeded from the query rather than an
-  // RHF field. orgName stays a real form field below since it saves with everything else.
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const {
@@ -172,7 +162,6 @@ export const SettingsPage = () => {
     }
   }, [settings, reset]);
 
-  // Leaving with unsaved edits (another menu link, back button, closing the tab) asks first.
   const blocker = useBlocker(isDirty);
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
@@ -231,10 +220,7 @@ export const SettingsPage = () => {
         subtitle="Branding, defaults, notifications, sessions and retention. These apply to everyone."
       />
 
-      {/* A plain form, not the shared Form component: that one draws its own narrow padded card (max-w-lg,
-          big padding, shadow) for sign-in style forms, which squeezed this whole page into a 512px box. */}
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 w-full" noValidate>
-        {/* Two columns from lg: identity and defaults on the left, behaviour and housekeeping on the right. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           <div className="flex flex-col gap-5">
             <SettingsCard icon={Building2} title="Branding" hint="Shown in the header, footer, login screen, and as the sender name on emails.">
@@ -306,8 +292,6 @@ export const SettingsPage = () => {
                               checked ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover'
                             }`}
                           >
-                            {/* sr-only, not hidden: `hidden` drops the checkbox out of the tab order, making it
-                                unreachable by keyboard. The whole pill is the visible control. */}
                             <input
                               type="checkbox"
                               className="sr-only"
@@ -460,8 +444,6 @@ export const SettingsPage = () => {
           </p>
         )}
 
-        {/* Save bar: appears the moment something changes and stays in reach at the bottom of the
-            screen, so a long form never needs a scroll back to the end to save. */}
         {(isDirty || mutation.isPending) && (
           <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
             <p className="text-sm font-display font-medium text-text-secondary">You have unsaved changes</p>

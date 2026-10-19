@@ -11,25 +11,18 @@ export interface TicketStatusOption {
 }
 
 interface TicketStatusMenuProps {
-  /** Every move the viewer may make from here. */
   options: TicketStatusOption[];
   current: TicketStatus;
   onPick: (status: TicketStatus) => void;
   isBusy?: boolean;
 }
 
-// The usual next step from each status, as a plain verb.
 const NEXT_STEP: Partial<Record<TicketStatus, TicketStatusOption>> = {
   OPEN: { value: 'IN_PROGRESS', label: 'Start work' },
   IN_PROGRESS: { value: 'PENDING_APPROVAL', label: HAND_IN_LABEL },
   ON_HOLD: { value: 'IN_PROGRESS', label: 'Resume' },
 };
 
-/**
- * The ticket sheet's status control: the next step as one plain button ("Start work", "Mark
- * completed", "Resume") and a small More menu for every other move. With no usual next step
- * (a verifier on a closed ticket, say) the menu stands alone as "Change status".
- */
 export const TicketStatusMenu = ({ options, current, onPick, isBusy = false }: TicketStatusMenuProps) => {
   const next = NEXT_STEP[current];
   const primary = next && options.some(o => o.value === next.value) ? next : null;

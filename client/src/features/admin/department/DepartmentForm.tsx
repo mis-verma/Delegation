@@ -14,7 +14,6 @@ import { CardChip } from '../directory/orgScores';
 import type { Department } from '../../../api/departments';
 import type { AdminUser } from '../../../api/admin';
 
-// Built per render of the form so the duplicate-name check can read the cached department list.
 const buildDepartmentSchema = (existing: Department[] | undefined, ignoreId: string | undefined) =>
   z.object({
     name: z
@@ -36,21 +35,11 @@ type DepartmentFields = z.infer<ReturnType<typeof buildDepartmentSchema>>;
 interface DepartmentFormProps {
   onClose: () => void;
   department?: Department;
-  /** Called with the newly-created department right after a successful create (not fired when
-   *  editing). Lets a caller opening this as a nested "quick create" (e.g. from UserForm's
-   *  department Combobox) auto-select the result instead of the admin re-picking it themselves. */
   onCreated?: (department: Department) => void;
-  /** Seeds the name field, e.g. whatever the admin had already typed into a Combobox's search
-   *  box before hitting "Create new department". */
   prefillName?: string;
-  /** True when this opens on top of another modal (the user form's quick add / edit). It then stays
-   *  non-modal so the two dialogs do not fight over focus and scroll lock. On its own (from the
-   *  Departments tab) it is a normal modal, exactly like the user form. */
   nested?: boolean;
 }
 
-// Read-only: who currently leads this department. Changing a head means changing that person's
-// role or department on the People page, so this only shows the answer and flags a gap.
 const DepartmentHeads = ({ heads, isPending, headOptional }: { heads: AdminUser[]; isPending: boolean; headOptional: boolean }) => (
   <FormField label="Department head" icon={UserCog}>
     {isPending ? (
@@ -133,8 +122,6 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     <Modal
       open
       onClose={requestClose}
-      // Non-modal only when opened on top of another Modal (the user form's quick add / edit), same
-      // reasoning as DatePicker/DateRangePicker. On its own it is a normal modal like the user form.
       modal={!nested}
       icon={<Building2 className="w-5 h-5" />}
       title={isEditing ? 'Edit department' : 'New department'}

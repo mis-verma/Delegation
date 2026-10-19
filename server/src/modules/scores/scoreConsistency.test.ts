@@ -7,7 +7,6 @@ const blocks = (checklist: number, ticket: number, delegation: number): CountBlo
     delegation: { due: delegation, done: delegation, onTime: delegation },
 })
 
-// A consistent organisation: 10 runs, 6 tickets, 4 delegations, each cut adds up exactly.
 const base = (): ConsistencyInput => ({
     from: "2026-10-01",
     to: "2026-10-13",
@@ -62,7 +61,6 @@ describe("evaluateConsistency", () => {
 
     it("flags, never fails, a checklist gap caused by shared runs, and names the cause and the gap", () => {
         const input = base()
-        // Two runs are shared across departments and people, so those cuts add up to more than the organisation.
         input.departments = [blocks(6, 3, 2), blocks(6, 3, 2)]
         input.people = [blocks(6, 2, 2), blocks(6, 3, 2), blocks(0, 1, 0)]
         input.sharing = { runsAcrossDepartments: 2, runsWithSeveralAssignees: 2, runsWithoutAssignee: 0 }

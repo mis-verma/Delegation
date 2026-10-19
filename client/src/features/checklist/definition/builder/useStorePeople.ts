@@ -2,18 +2,12 @@ import { useCallback, useMemo } from 'react';
 import { useAssignableUsersQuery } from '../../hook';
 
 export interface StorePeople {
-  /** Active people of the selected stores, the only ones the pickers list. null while loading, or
-   *  when no store is picked yet (nothing to compare against, so nobody counts as hidden). */
   storePersonIds: ReadonlySet<string> | null;
-  /** Every active person in the organisation. null while loading. */
   activePersonIds: ReadonlySet<string> | null;
   isReady: boolean;
   refetch: () => void;
 }
 
-// The two lists the builder compares picked people against. A person picked for a store that was
-// later unticked (or who has since been deactivated) stays in the form's state but disappears from
-// every picker, so each step needs to know who is still visible.
 export const useStorePeople = (storeIds: string[]): StorePeople => {
   const storeQuery = useAssignableUsersQuery(undefined, undefined, storeIds, storeIds.length > 0);
   const activeQuery = useAssignableUsersQuery();
@@ -37,7 +31,6 @@ export const useStorePeople = (storeIds: string[]): StorePeople => {
 
 export const peopleCount = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
-/** Splits picked ids into the ones the pickers still show and the ones they no longer do. */
 export const splitByVisible = (ids: string[], visible: ReadonlySet<string> | null) => {
   if (!visible) return { shown: ids, hidden: [] as string[] };
   const shown: string[] = [];

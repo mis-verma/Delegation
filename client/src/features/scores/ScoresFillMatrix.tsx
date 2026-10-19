@@ -20,17 +20,10 @@ interface ScoresFillMatrixProps {
   departmentId?: string;
   storeName?: string;
   departmentName?: string;
-  /** True when a store or department filter narrows the matrix: the empty state then offers to clear it. */
   filtered: boolean;
   onClearFilters: () => void;
 }
 
-/**
- * The daily fill matrix inside Scores: one ring per daily checklist per day (per store), for the Scores window and
- * filters. It reads the same period report as the Report page and draws it with the same FillMatrix, so the rings
- * are identical. Daily checklists only: the report is built from daily runs, so weekly and monthly ones stay in the
- * list.
- */
 export const ScoresFillMatrix = ({ from, to, today, windowLabel, storeId, departmentId, storeName, departmentName, filtered, onClearFilters }: ScoresFillMatrixProps) => {
   const tooLong = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS > MAX_SPAN_DAYS;
   const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(from, to, storeId, departmentId, !tooLong);

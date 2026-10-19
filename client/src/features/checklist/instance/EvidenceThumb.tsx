@@ -6,7 +6,6 @@ import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { formatTimeOnly } from '../checklistDisplay';
 import type { CaptureMethod } from '../../../api/ticket';
 
-// Structural, so both an item's images and an audit submission's images fit.
 export interface EvidenceImage {
   id:               string;
   url:              string;
@@ -18,15 +17,11 @@ export interface EvidenceImage {
 
 interface EvidenceThumbProps {
   image:        EvidenceImage;
-  /** Alt text when the file has no name of its own. */
   fallbackAlt?: string;
-  /** Shows the remove button. Left out once the answer is final (the server refuses the delete too). */
   onDelete?:    (imageId: string) => void;
   deleting?:    boolean;
 }
 
-// One evidence photo or video with its Live/Gallery and time stamps. Photos open enlarged in the
-// shared lightbox; videos keep their own (larger) controls since the lightbox only shows images.
 export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 'Evidence', onDelete, deleting }: EvidenceThumbProps) {
   const [open, setOpen] = useState(false);
   const closeLightbox = useCallback(() => setOpen(false), []);
@@ -80,7 +75,6 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
           onClick={() => onDelete(image.id)}
           disabled={deleting}
           aria-label={`Delete ${alt}`}
-          // The after: layer pads the 24px circle out to a 44px hit area on touch screens.
           className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger hover:border-danger/40 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-danger/40 after:absolute after:-inset-2.5 sm:after:-inset-1.5 after:content-['']"
         >
           <X size={11} aria-hidden />

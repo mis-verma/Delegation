@@ -1,18 +1,8 @@
-// One-off command-line script (run like: `npm run wipe:checklists`) that deletes every recurring
-// checklist definition — and, via ON DELETE CASCADE, every instance/item/submission/image
-// generated under it — emptying the Checklist feature (Definitions, Instances, Compliance board,
-// My Checklists) completely. Does NOT touch the separate ticket-linked checklist tables
-// (Checklist/ChecklistItem/ChecklistTemplate in ticket.ts) — those are a different feature and
-// weren't part of what this was asked to clear.
 import 'dotenv/config'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import { checklistDefinitions } from '../db/schema/index.js'
 import { env } from '../config/env.js'
 
-// Unconditional and irreversible (no confirmation, no dry-run) — a mistaken `.env` pointed at the
-// real database, or a copy-pasted command run in the wrong terminal, wipes the entire recurring-
-// checklist feature with no way back. Requires both an explicit --yes flag and, in production,
-// an explicit override on top of that, so it can never fire from muscle-memory alone.
 const confirmed = process.argv.includes('--yes')
 const productionOverride = process.argv.includes('--allow-production')
 

@@ -26,10 +26,6 @@ declare global {
     }
 }
 
-// Mirrors doubletick.controller.ts's own draftToConfirmInput/formatTaskConfirmation exactly —
-// kept as separate local copies (like the rest of this controller vs. doubletick.controller.ts)
-// rather than a shared import, since the two providers' payload shapes and error handling
-// otherwise have nothing in common to abstract over.
 function draftToConfirmInput(draft: ConversationDraftLike) {
     return {
         title: draft.title,
@@ -78,12 +74,6 @@ export const whatsappController = {
         const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
         if(!message) return;
 
-        // Meta retries a webhook delivery on any hiccup on their end — claim the message id first
-        // so a retried delivery of the same message is a no-op instead of a second task/reply.
-        // No id at all means we have nothing to dedupe against — Meta's real payloads always
-        // include one, so this only fires on a malformed delivery, and dropping it (fail-closed)
-        // beats silently processing every retry as a brand new message (the old `message.id &&`
-        // guard fell through to that instead of stopping here).
         if (!message.id) {
             console.error("WhatsApp webhook: message missing id, dropping (can't dedupe)");
             return;
@@ -92,10 +82,6 @@ export const whatsappController = {
 
         const from = message.from as string;
 
-        // Everything below runs after the ack above — WhatsApp already has its 200, so nothing
-        // here can reach the client through the normal response cycle anymore. Any error from
-        // here on must be caught and reported back to the sender over WhatsApp itself, rather
-        // than bubbling up to errorHandler with no response left to send.
         try {
             let text: string;
             let inputMode: "voice" | "text";
@@ -117,7 +103,6 @@ export const whatsappController = {
                 return;
             }
 
-            // Matched on digits only (last 10), so "+91 98765-43210" in a profile still matches the sender id.
             const sender = await findActiveUserByPhone(from);
             if (!sender) {
                 await sendWhatsAppMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
@@ -127,11 +112,6 @@ export const whatsappController = {
             const rankFallback = priorityForCreatorRank(sender.rank ?? 5);
             const conversation = await findActiveConversation(from);
 
-            // Same slot-filling conversation flow doubletick.controller.ts already used —
-            // previously this handler skipped straight to task creation regardless of how much
-            // information the message actually contained, so a WhatsApp message missing an
-            // assignee/department/due date got a task auto-created with those fields blank
-            // instead of getting asked, unlike the identical input arriving via DoubleTick.
             if (conversation) {
                 try {
                     if (CANCEL_PATTERN.test(text)) {
@@ -156,9 +136,6 @@ export const whatsappController = {
                         return;
                     }
 
-                    // advanceConversation already deleted the row as part of returning "done" (see
-                    // its own comment) — nothing left to clean up here even if createFromSmartInput
-                    // throws below; the user just gets the error message and can resend to restart.
                     const task = await taskService.createFromSmartInput(
                         draftToConfirmInput(updatedDraft),
                         { sub: sender.id, role: sender.role, departmentId: sender.departmentId ?? undefined },

@@ -45,8 +45,6 @@ export const useUpdateSettingsMutation = () => {
         mutationFn : (payload : UpdateSettingsPayload) => settingApi.update(payload).then(r => r.data),
         onSuccess : (updated ) => {
             queryClient.setQueryData(SETTINGS_KEY.all, updated)
-            // orgName can change here too — keep Header/Footer/login-screen's public query in sync
-            // instead of leaving them to catch up on their own 30s poll.
             queryClient.invalidateQueries({ queryKey: ["public-settings"] })
             toast.success("Settings updated")
         },
@@ -80,12 +78,9 @@ export const useRemoveLogoMutation = () => {
         onError: (err) => toast.error(errorMessage(err, "Failed to remove logo")),
     })
 }
-// Shared with the route prefetch so a hover on the Admin link and the People & Teams page use one entry.
 export const usersQueryOptions = () => ({
     queryKey: USER_KEYS.all,
     queryFn: () => adminApi.getAll().then(r => r.data),
-    // Every user mutation invalidates this list itself, so there is no need to refetch the
-    // whole roster each time the window regains focus.
     staleTime: 5 * 60_000,
 });
 
@@ -99,8 +94,6 @@ export const useUsersQuery = (enabled: boolean = true) => {
     });
 };
 
-// Optimistic edits to the roster cache. Only the exact roster key is touched, never the
-// per-user detail entries that share its prefix.
 type RosterContext = { previous: AdminUser[] | undefined } | undefined;
 type Client = ReturnType<typeof useQueryClient>;
 
@@ -116,21 +109,14 @@ const restoreRoster = (queryClient: Client, context: RosterContext) => {
     if (context?.previous) queryClient.setQueryData(USER_KEYS.all, context.previous);
 };
 
-// Drops undefined values so a payload key left out (or sent as undefined) never blanks a field.
 const definedEntries = <T extends object>(payload: T): Partial<T> =>
     Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined)) as Partial<T>;
 
-// People pickers elsewhere (tasks, tickets, checklists) read the assignable list, which can change
-// whenever someone is added, moved, switched off or removed.
 const invalidateUserLists = (queryClient: Client) => {
     queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
     queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
 };
 
-// Polled rather than pushed over the socket — presence changing a few seconds late is fine for
-// "who's around right now," and it's one query instead of a 5th always-on socket subscription
-// (App.tsx already runs one each for tickets/tasks/checklists/notifications). Only used by
-// admin/PC-visible screens, so it's never running for the vast majority of logged-in sessions.
 export const usePresenceQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
@@ -148,8 +134,6 @@ export const useCreateUserMutation = () => {
         mutationFn: (payload: CreateUserPayload) => adminApi.create(payload).then(r => ({ ...r.data, setupCodeSent: r.setupCodeSent === true })),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
-            // Also covers the "/users/assignable" lookups (tasks & tickets hooks) so a newly
-            // created user shows up immediately in assignee pickers, not just admin's user list.
             queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
             toast.success('User created');
         },
@@ -158,7 +142,6 @@ export const useCreateUserMutation = () => {
 };
 
 type UpdateUserOptions = {
-    /** Toast text on success; a function gets the saved user. Defaults to "User updated". */
     successMessage?: string | ((updated: AdminUser) => string);
 };
 
@@ -186,7 +169,6 @@ export const useUpdateUserMutation = (options?: UpdateUserOptions) => {
     });
 };
 
-// Move several people at once. Optimistic like a single edit, rolled back if the server refuses.
 export const useBulkUpdateUsersMutation = () => {
     const queryClient = useQueryClient();
     return useMutation<{ updated: number }, unknown, BulkUpdateUsersPayload & { successMessage?: string }, RosterContext>({
@@ -217,7 +199,6 @@ export const useOffboardingQuery = (id: string, enabled: boolean) => {
         queryFn: () => adminApi.getOffboarding(id).then(r => r.data),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
-        // The counts move whenever someone works, so never reuse a stale answer for a decision.
         staleTime: 0,
     });
 };
@@ -236,9 +217,7 @@ export const useOffboardUserMutation = () => {
         onSuccess: (_data, { id }) => {
             invalidateUserLists(queryClient);
             queryClient.invalidateQueries({ queryKey: USER_KEYS.detail(id) });
-            // Categories list who receives their tickets, and that may have just changed hands.
             queryClient.invalidateQueries({ queryKey: ['categories'] });
-            // Their tickets, tasks and checklists changed hands too.
             queryClient.invalidateQueries({ queryKey: ['tickets'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
             queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
@@ -312,10 +291,6 @@ const DEPARTMENT_KEY = {
     all: ["departments"] as const,
 };
 
-// The real definition lives in tickets/hook.ts (used by far more callers, and the one with
-// `retry: handleQueryRetry` wired up) — this used to be its own independent copy of the exact
-// same query, which meant retry behavior and any future change could quietly drift between the
-// two. Re-exported instead so every existing `from '../hook'` import site keeps working unchanged.
 export { useDepartmentsQuery } from '../tickets/hook';
 
 export const useCreateDepartmentMutation = () => {
@@ -337,7 +312,6 @@ export const useUpdateDepartmentMutation = () => {
             departmentApi.update(id, payload).then(r => r.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: DEPARTMENT_KEY.all });
-            // People carry a department id, so the roster is out of date too.
             invalidateUserLists(queryClient);
             toast.success('Department updated');
         },
@@ -359,7 +333,7 @@ export const useDeleteDepartmentMutation = () => {
 }
 
 const STORE_KEY = {
-    all: ["stores"] as const, // matches useStoresQuery's queryKey in features/tickets/hook.ts
+    all: ["stores"] as const,
 };
 
 export const useCreateStoreMutation = () => {
@@ -381,7 +355,6 @@ export const useUpdateStoreMutation = () => {
             storeApi.update(id, payload).then(r => r.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STORE_KEY.all });
-            // People carry a store id, so the roster is out of date too.
             invalidateUserLists(queryClient);
             toast.success('Store updated');
         },

@@ -16,13 +16,9 @@ export type ApiResponse<T> = { success: boolean; data: T };
 export type CreateTodoPayload = { text: string; dueDate?: string; priority?: TodoPriority };
 export type UpdateTodoPayload = { text?: string; completed?: boolean; dueDate?: string | null; priority?: TodoPriority };
 
-/** Mirrors the server's TodoSummaryRow (todo.service.ts) — powers the sidebar's "To-Do" count
- *  badge and its hover breakdown. Todos are already always strictly per-user, so there's no
- *  "mine vs everything I can see" distinction to make here. */
 export type TodoSummary = {
     total: number;
     newToday: number;
-    /** Open work: due (on track) plus overdue. */
     pending: number;
     due: number;
     overdue: number;

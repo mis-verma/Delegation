@@ -24,8 +24,6 @@ export const ChecklistItemRow = ({
   canWork:  boolean;
 }) => {
   const [remarks, setRemarks] = useState(item.remarks ?? '');
-  // The remark box and photo buttons stay folded until asked for (or already in use), so a list of items is a
-  // list, not a wall of forms.
   const [expanded, setExpanded] = useState(() => !!item.remarks || (item.images?.length ?? 0) > 0 || item.requiredImageCount > 0);
 
   const updateItem    = useUpdateTaskChecklistItemMutation(taskId);
@@ -55,7 +53,6 @@ export const ChecklistItemRow = ({
           : 'bg-surface border-border hover:border-border-hover'
       }`}
     >
-      {/* Header Row */}
       <div className="flex items-start gap-2.5">
         <span
           className={`mt-px flex items-center justify-center size-5 rounded-md shrink-0 transition-colors ${
@@ -97,7 +94,6 @@ export const ChecklistItemRow = ({
           )}
         </div>
 
-        {/* Admin actions — always visible on touch (no hover), reveal-on-hover on pointer devices */}
         <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100 transition-opacity focus-within:opacity-100">
           {isAdmin && item.isDone && (
             <button
@@ -126,7 +122,6 @@ export const ChecklistItemRow = ({
         </div>
       </div>
 
-      {/* Hero image strip */}
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2 pl-7.5">
           {images.map(img => (
@@ -159,7 +154,6 @@ export const ChecklistItemRow = ({
         </div>
       )}
 
-      {/* Body & Actions */}
       <div className="pl-7.5 flex flex-col gap-2">
         {(!canWork || item.isDone) && item.remarks && (
           <div className="border-l-2 border-border-hover pl-2 t-meta text-text-secondary">

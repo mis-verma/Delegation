@@ -10,40 +10,19 @@ interface TicketTimelineProps {
 const DAY_MS = 86_400_000;
 const startOfDay = (value: string | Date) => new Date(value).setHours(0, 0, 0, 0);
 
-/**
- * Minimum column width per day. A short span stretches to fill the card (no empty strip to the
- * right on a wide screen); a long one holds this floor so day numbers stay readable and scrolls.
- */
 const DAY_WIDTH_REM = 3.25;
-/** Beyond this the axis is unreadable at any width, so the span is clamped and the rest scrolls. */
 const MAX_DAYS = 45;
 
-/** Label column: narrower on phones and tablets so the chart keeps room, wider where titles fit. */
 const LABEL_WIDTH = 'w-44 sm:w-52 lg:w-64 xl:w-72';
 
 type Bar = {
   ticket: Ticket;
-  /** Whole days from the axis start to the bar's first day. */
   offset: number;
-  /** Bar length in days; always at least 1 so a same-day ticket is still visible. */
   span: number;
   clippedStart: boolean;
   clippedEnd: boolean;
 };
 
-/**
- * The ticket Gantt: one row per ticket, bars placed and sized on a shared day axis.
- *
- * A bar runs from the ticket's start day (when a start-to-due range was picked) or else its creation, to
- * its TAT due date. Without a picked start the bar begins at `createdAt`, when the clock actually
- * started. A ticket with no `tatDueAt` has no end and therefore no bar; those are listed under the
- * chart rather than dropped, since "nobody has a target date for this" is exactly the thing a
- * timeline should surface.
- *
- * Bar colour is priority, matching the dot in List/Board, so the same ticket reads the same way
- * everywhere. Overdue is stated as a word on the row (driven by the server-computed `isOverdue`
- * flag, same as everywhere else in Ticket's UI) rather than a second bar colour.
- */
 const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
   const { days, bars, undated } = useMemo(() => {
     const scheduled = tickets.filter((t) => !!t.tatDueAt);
@@ -56,15 +35,11 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
     const barStart = (t: Ticket) => startOfDay(t.startDate ?? t.createdAt);
     const barEnd = (t: Ticket) => startOfDay(t.tatDueAt!);
 
-    // Axis starts at the earliest of (earliest bar start, today) so "today" is always locatable,
-    // and ends at the latest due date.
     let axisStart = Math.min(...scheduled.map(barStart), startOfDay(new Date()));
     const axisEnd = Math.max(...scheduled.map(barEnd));
 
     let total = Math.floor((axisEnd - axisStart) / DAY_MS) + 1;
     if (total > MAX_DAYS) {
-      // Keep the most recent window: a year-old ticket shouldn't compress everything current into
-      // two pixels.
       axisStart = axisEnd - (MAX_DAYS - 1) * DAY_MS;
       total = MAX_DAYS;
     }
@@ -75,8 +50,6 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
       const rawStart = barStart(ticket);
       const rawEnd = barEnd(ticket);
       const clampedStart = Math.max(rawStart, axisStart);
-      // A due date before creation is bad data, not a negative-width bar — treat the bar as
-      // ending on its start day.
       const clampedEnd = Math.min(Math.max(rawEnd, clampedStart), axisStart + (total - 1) * DAY_MS);
 
       return {

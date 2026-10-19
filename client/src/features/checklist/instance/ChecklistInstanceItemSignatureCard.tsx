@@ -16,8 +16,6 @@ interface ChecklistInstanceItemSignatureCardProps {
 
 export const ChecklistInstanceItemSignatureCard = memo(function ChecklistInstanceItemSignatureCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemSignatureCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  // Starts empty (the pad always does) — seeding it with the saved signature meant that after a
-  // Reopen, Save was enabled on a blank pad and quietly resubmitted the old signature.
   const [draft, setDraft] = useState<string | null>(null);
   const interactive = canWork && !isLocked;
   const label = item.signatureLabels?.[0] || 'Signature';
@@ -31,9 +29,6 @@ export const ChecklistInstanceItemSignatureCard = memo(function ChecklistInstanc
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, signatureValue: item.signatureValue ?? undefined })}
       />
 
-      {/* The saved signature itself is NOT gated on `interactive` — it's evidence, and must stay
-          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
-          capture UI (blank pad + Save) is for the still-editable case. */}
       {item.isDone && item.signatureValue ? (
         <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-1.5">
           <img src={item.signatureValue} alt={label} loading="lazy" className="w-full h-[140px] object-contain rounded-sm bg-white" />

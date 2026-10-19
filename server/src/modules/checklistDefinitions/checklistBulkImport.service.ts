@@ -109,7 +109,6 @@ const parseXlsxRows = async (buffer: Buffer): Promise<BulkImportRawRow[]> => {
     return rows
 }
 
-
 const splitPdfLine = (line: string): string[] => {
     if (line.includes(",")) return line.split(",").map((s) => s.trim())
     if (line.includes("\t")) return line.split("\t").map((s) => s.trim())
@@ -245,12 +244,8 @@ export const checklistBulkImportService = {
                     reviewerIds: existing.reviewerIds.length ? existing.reviewerIds : undefined,
                     assigneeRoles: existing.assigneeRoles ?? undefined,
                     icon: existing.icon ?? undefined,
-                    // Every stored question column goes back untouched (id, critical flag, good-answer
-                    // rule, audit lists, ...): update() writes null for anything omitted.
                     items: existing.items.map(toItemInput),
                 }
-                // Each definition the import touches gets its own audit row, so a bulk import is
-                // as traceable as the equivalent edits made by hand.
                 await checklistDefinitionService.update(definitionId, input, actorId)
 
                 storesAdded += unionedStoreIds.length - existing.storeIds.length

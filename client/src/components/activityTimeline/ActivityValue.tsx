@@ -7,8 +7,6 @@ import type { AuditEntityType } from '../../api/auditLogs';
 
 const EMPTY = '—';
 
-// Delegation's own statuses onto the shared chip palette — same mapping TaskDetail's header chip
-// uses, so a status reads identically in the header and in its own history.
 const TASK_STATUS_CHIP: Record<string, StatusChipStatus> = {
   draft: 'open',
   todo: 'open',
@@ -25,11 +23,6 @@ const TICKET_STATUS_CHIP: Record<string, StatusChipStatus> = {
   ON_HOLD: 'on_hold',
 };
 
-/**
- * One side of a change. Status and priority render as the exact chips the card and header show,
- * so "On Hold → In Progress" here looks like the thing it changed, not a generic text box. Every
- * other field falls back to a plain value pill.
- */
 export const ActivityValue = ({
   entityType,
   field,
@@ -43,8 +36,6 @@ export const ActivityValue = ({
   text: string;
   side: 'before' | 'after';
 }) => {
-  // The old value is the one you're reading past, so it steps back rather than getting struck
-  // through (a line-through on 11px text was the hardest thing in the old row to read).
   const dim = side === 'before' ? 'opacity-60' : '';
 
   if (typeof raw === 'string' && field === 'status') {
@@ -72,7 +63,6 @@ export const ActivityValue = ({
     if (meta) return <PriorityChip meta={meta} className={dim} />;
   }
 
-  // Labels: each name in its own colour, same chip as the card and the field.
   if (field === 'tagIds' && Array.isArray(raw) && text !== EMPTY) {
     return (
       <span className={`inline-flex flex-wrap items-center gap-1 ${dim}`}>

@@ -5,10 +5,6 @@ import type { Ticket } from '../api/ticket';
 import type { Task } from '../api/task';
 import { isTicketHandedIn, isTaskHandedIn } from './handedIn';
 
-// The filters a score link puts on a list page (see features/dashboard/scoreDrill.ts): the items that
-// came DUE in a window, optionally only the ones finished late or not finished, for one department or
-// store. Read from the address, applied on top of the list the page already loaded, and cleared in one tap.
-
 export type ScoreDrillSla = 'closed_late' | 'closed_on_time' | 'done_late' | 'not_done';
 const SLA_VALUES: readonly ScoreDrillSla[] = ['closed_late', 'closed_on_time', 'done_late', 'not_done'];
 
@@ -20,19 +16,15 @@ const SLA_WORDS: Record<ScoreDrillSla, string> = {
 };
 
 export interface ScoreDrill {
-  /** True when the address carries at least one of these filters. */
   active: boolean;
   due: CreatedRange | null;
   sla: ScoreDrillSla | null;
-  /** Tickets only: a department or store taken from the address. */
   departmentId: string | null;
   storeId: string | null;
-  /** The window and the late or not-done part in words, for the banner. */
   description: string;
   clear: () => void;
 }
 
-/** `scope: true` also reads departmentId and storeId from the address (the ticket list has no filter of its own for them). */
 export const useScoreDrill = (scope: boolean): ScoreDrill => {
   const [searchParams, setSearchParams] = useSearchParams();
   const dueRange = useDueRange();
@@ -74,20 +66,17 @@ const inDue = (drill: ScoreDrill, at: string | null | undefined) => {
   return t >= drill.due.from && t < drill.due.to;
 };
 
-/** A ticket counts when it was due in the window. Late means closed after its due time (the list has no hand-in time). */
 export const ticketMatchesDrill = (drill: ScoreDrill, t: Ticket): boolean => {
   if (!inDue(drill, t.tatDueAt)) return false;
   if (drill.departmentId && t.departmentId !== drill.departmentId) return false;
   if (drill.storeId && t.storeId !== drill.storeId) return false;
   if (drill.sla === 'not_done') return !isTicketHandedIn(t);
-  // Judged from the hand-in time (else the closing time), as the score does.
   const finishedAt = t.submittedAt ?? t.closedAt;
   if (drill.sla === 'closed_late') return isTicketHandedIn(t) && !!finishedAt && !!t.tatDueAt && new Date(finishedAt).getTime() > new Date(t.tatDueAt).getTime();
   if (drill.sla === 'closed_on_time') return isTicketHandedIn(t) && !!finishedAt && !!t.tatDueAt && new Date(finishedAt).getTime() <= new Date(t.tatDueAt).getTime();
   return true;
 };
 
-/** A delegation counts when it was due in the window. Late means handed in (or approved) after the due time. */
 export const taskMatchesDrill = (drill: ScoreDrill, t: Task): boolean => {
   if (!inDue(drill, t.dueDate)) return false;
   if (drill.sla === 'not_done') return !isTaskHandedIn(t);

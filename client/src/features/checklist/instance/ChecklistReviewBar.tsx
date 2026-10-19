@@ -7,21 +7,15 @@ import { ReviewActions, SendBackForm } from './ReviewActions';
 
 type Props = {
   instanceId: string;
-  /** Questions the reviewer has ticked to send back. */
   selectedCount: number;
   selecting: boolean;
   onStartSelecting: () => void;
   onStopSelecting: () => void;
-  /** Called after a successful send-back so the page can clear its selection. */
   onSent: () => void;
   selectedIds: string[];
-  /** After an approve or a send-back went through: the page takes the reviewer back to where they came from. */
   onDecided?: () => void;
 };
 
-// Reviewer's decision bar for a checklist waiting on approval. Approve is one tap. "Send back"
-// switches the page into pick mode: tick only the questions that weren't done properly, say what to
-// fix, and just those go back to whoever fills the checklist in. Everything else stays done.
 export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onStartSelecting, onStopSelecting, onSent, selectedIds, onDecided }: Props) => {
   const verifyMut = useVerifyChecklistInstanceMutation();
   const sendBackMut = useSendBackChecklistInstanceMutation();

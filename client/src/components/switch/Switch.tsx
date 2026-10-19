@@ -11,9 +11,6 @@ interface SwitchProps {
   className?: string;
 }
 
-// Plain on/off control for a single boolean setting — no shared shadcn Switch existed in this
-// codebase yet. Flat border-only styling (no box-shadow on the track or knob) to match the app's
-// standing no-card-shadow convention rather than the usual drop-shadow knob.
 export const Switch = ({ checked, onChange, id, disabled, className }: SwitchProps) => (
   <button
     type="button"

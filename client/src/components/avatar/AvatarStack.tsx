@@ -14,9 +14,6 @@ interface AvatarStackProps {
   className?: string;
 }
 
-// Overlapping avatar preview — lets a collapsed group (a store, a department) show who's in it
-// at a glance instead of only a number, the same "who's here" pattern used by Linear/GitHub
-// team lists.
 export const AvatarStack = ({ people, max = 4, size = 'sm', className }: AvatarStackProps) => {
   if (people.length === 0) return null;
   const shown = people.slice(0, max);

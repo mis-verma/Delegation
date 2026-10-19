@@ -1,7 +1,5 @@
 import type { KeyboardEvent } from 'react';
 
-// Roving focus for a custom `role="radio"` group: only the checked radio is in the tab order, and
-// the arrow keys (plus Home/End) move the choice and the focus together, like native radios.
 export const onRadioKeyDown = (e: KeyboardEvent<HTMLElement>, index: number, count: number, select: (next: number) => void) => {
   let next: number;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % count;

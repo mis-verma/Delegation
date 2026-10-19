@@ -8,14 +8,12 @@ import { useCreateTodoMutation, useUpdateTodoMutation } from './hook';
 import type { Todo, TodoPriority } from '../../api/todos';
 
 interface TodoFormModalProps {
-  /** Omit to add a new to-do; pass one to edit it. */
   todo?: Todo;
   onClose: () => void;
 }
 
 const PRIORITIES: TodoPriority[] = ['low', 'medium', 'high'];
 
-// Quick due dates, at 6 pm that day (the same evening default the calendar uses for a new item).
 const at6pm = (daysFromToday: number) => {
   const d = new Date();
   d.setDate(d.getDate() + daysFromToday);
@@ -34,11 +32,6 @@ const PILL = 'inline-flex items-center gap-1.5 h-8 pointer-coarse:h-9 px-2.5 rou
 const PILL_ON = 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300';
 const PILL_OFF = 'border-border/60 bg-surface text-text-secondary hover:border-border-hover';
 
-/**
- * Add or edit a personal to-do, kept as simple as a note: one line to write it (a round check in front, like a
- * to-do app), a row of quick due dates with a full picker beside them, and the three priorities as pills. Only the
- * person sees their to-dos, which a small line at the bottom says.
- */
 export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   const isEdit = !!todo;
   const [text, setText] = useState(todo?.text ?? '');
@@ -97,7 +90,6 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
       }
     >
       <form id="todo-form" onSubmit={handleSubmit} className="flex flex-col gap-4 px-4 pb-3 pt-0 sm:px-5" noValidate>
-        {/* The to-do itself: one roomy line with a round check in front, as in a to-do app. */}
         <div className="flex flex-col gap-1">
           <label
             htmlFor="todo-text"
@@ -127,7 +119,6 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
           </div>
         </div>
 
-        {/* When: three quick days, then any date and time. */}
         <div className="flex flex-col gap-2">
           <span className={SECTION_LABEL}><CalendarDays size={13} className="text-text-light" aria-hidden="true" />Due</span>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -152,7 +143,6 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
           </div>
         </div>
 
-        {/* How much it matters: the three levels as coloured pills. */}
         <div className="flex flex-col gap-2">
           <span className={SECTION_LABEL}><Flag size={13} className="text-text-light" aria-hidden="true" />Priority</span>
           <div role="radiogroup" aria-label="Priority" className="grid grid-cols-3 gap-1.5">

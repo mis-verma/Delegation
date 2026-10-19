@@ -9,15 +9,12 @@ const STEP_BUTTON =
   'flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 interface CalendarMonthPickerProps {
-  /** The month on screen, e.g. "October 2026". */
   label: string;
   year: number;
   month: number;
   onPick: (year: number, month: number) => void;
 }
 
-// The month title is a button: tap it to jump straight to any month of any year instead of stepping
-// there one arrow at a time.
 export const CalendarMonthPicker = ({ label, year, month, onPick }: CalendarMonthPickerProps) => {
   const [open, setOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(year);
@@ -28,7 +25,6 @@ export const CalendarMonthPicker = ({ label, year, month, onPick }: CalendarMont
     <Popover
       open={open}
       onOpenChange={(next) => {
-        // Start from the month on screen every time it opens.
         if (next) setPickerYear(year);
         setOpen(next);
       }}

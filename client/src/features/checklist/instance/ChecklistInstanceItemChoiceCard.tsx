@@ -14,24 +14,14 @@ interface ChecklistInstanceItemChoiceCardProps {
   isLocked:   boolean;
 }
 
-// Shared by MULTIPLE_CHOICE and DROPDOWN — same options list and textValue field, only the
-// picker widget differs (chip buttons vs the shared dropdown), matching how the two read in the
-// reference design (a chip row reads better inline than a dropdown once there are only a
-// handful of options, but DROPDOWN keeps the compact control it's named for).
 export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceItemChoiceCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemChoiceCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const interactive = canWork && !isLocked;
-  // A saved answer used to stay clickable and silently overwrite itself (even while waiting for
-  // approval). Changing it now goes through Reopen, like every other item type.
   const editable = interactive && !item.isDone;
   const options = useMemo(() => item.options ?? [], [item.options]);
-  // A reopened question keeps its old answer on file but is open again: nothing shows as picked, and the
-  // old answer is mentioned in small text instead.
   const textValue = item.isDone ? item.textValue ?? '' : '';
   const previousAnswer = !item.isDone && item.textValue ? item.textValue : null;
 
-  // The dropdown has no native "Select an option" row, so an unanswered one gets a placeholder entry
-  // that choose() ignores. An answer that is no longer in the list still shows rather than blanking.
   const dropdownOptions = useMemo<SelectDropdownOption<string>[]>(() => {
     const list = options.map((opt) => ({ value: opt, label: opt }));
     if (!textValue) return [{ value: '', label: 'Select an option' }, ...list];

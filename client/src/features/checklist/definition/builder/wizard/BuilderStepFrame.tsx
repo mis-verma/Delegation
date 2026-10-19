@@ -12,9 +12,6 @@ export const BuilderStepFrame = ({ stepIndex, title, description, children }: Bu
   const frameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only move focus to the heading when it would help: not when a field in this step already took
-    // it (the name field's autoFocus), and not on the very first load, where nothing is focused yet
-    // and the page should simply start at the top.
     const active = document.activeElement;
     if (!active || active === document.body || frameRef.current?.contains(active)) return;
     headingRef.current?.focus();
@@ -26,7 +23,6 @@ export const BuilderStepFrame = ({ stepIndex, title, description, children }: Bu
         <h2 ref={headingRef} tabIndex={-1} className="font-display t-section font-bold text-text outline-none">
           {title}
         </h2>
-        {/* Desktop-only: on a phone the step name plus the stepper above already say where you are. */}
         {description && <p className="hidden sm:block text-sm font-display text-text-muted">{description}</p>}
       </div>
       {children}

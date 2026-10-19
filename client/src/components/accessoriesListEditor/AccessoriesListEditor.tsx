@@ -6,13 +6,9 @@ interface AccessoriesListEditorProps {
   placeholder?: string;
   accessories:  string[];
   onChange:     (accessories: string[]) => void;
-  /** Small control shown on the right of the label row (e.g. a "Copy items from" menu). */
   labelAction?: ReactNode;
 }
 
-// An editable list of short named entries — the options of a choice question, or the things an
-// auditor ticks off on an AUDIT item. Type and press Enter (or the + button); each entry is a
-// removable chip.
 export const AccessoriesListEditor = ({
   label = 'Accessories checklist',
   placeholder = 'Type and press Enter',
@@ -37,8 +33,6 @@ export const AccessoriesListEditor = ({
       e.preventDefault();
       add();
     }
-    // Backspace on an empty field removes the last chip, like a tag input.
-    // Not on a touch screen, where the keyboard's backspace is hit by accident; the chip's own x is the way there.
     if (e.key === 'Backspace' && !draft && accessories.length && !window.matchMedia('(pointer: coarse)').matches) remove(accessories[accessories.length - 1]);
   };
 

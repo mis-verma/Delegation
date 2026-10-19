@@ -10,17 +10,9 @@ interface EmptyStateAction {
 export interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
-  /** Omit for the compact variant's single-line form. */
   description?: string;
-  /** 'success' is the "queue actually cleared" read (Verification Queue, checklist approvals) —
-   *  everything else (nothing here yet, nothing matched a filter) stays neutral. */
   tone?: 'neutral' | 'success';
-  /** The next step (e.g. "Clear filters"). Shown on both sizes; the compact one draws it as a
-   *  small outline button under the title. Leave it off for a board column. */
   action?: EmptyStateAction;
-  /** 'default' is the full page-level treatment (icon tile, bold title, generous padding) used
-   *  wherever an empty state is the main thing on screen. 'compact' is the single-line form for
-   *  tight spaces — a board column, a filtered-out table. */
   size?: 'default' | 'compact';
   className?: string;
 }
@@ -35,13 +27,6 @@ const TONE_COMPACT_ICON_CLASS = {
   success: 'text-success',
 } as const;
 
-/**
- * One shared "nothing to show" pattern for every list/board/queue in the app — before this,
- * Delegations, Tickets, Checklists, and the Verification Queue each hand-rolled their own (three
- * different icon treatments, three different title/copy weights, padding anywhere from py-7 to
- * py-24), so the exact same "empty" moment read as a different app depending which page you were
- * on. Icon and copy stay caller-supplied — only the wrapper, sizing, and typography are fixed.
- */
 export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', action, size = 'default', className = '' }: EmptyStateProps) => {
   if (size === 'compact') {
     return (

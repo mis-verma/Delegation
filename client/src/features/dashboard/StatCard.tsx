@@ -140,7 +140,6 @@ export const StatCard = ({
       }
       className={rootClass}
     >
-      {/* Stretched-link overlay: gives full card link mechanics without nesting interactive children in <a> */}
       {href && (
         <Link
           viewTransition
@@ -150,7 +149,6 @@ export const StatCard = ({
         />
       )}
 
-      {/* Decorative ambient ring shapes */}
       {highlight && decorative && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-0" aria-hidden="true">
           <span className="absolute -top-9 -right-7 size-28 rounded-full border border-white/10 opacity-70" />
@@ -232,7 +230,6 @@ export const StatCard = ({
         )}
       </div>
 
-      {/* Bottom Row: Trend Badge, Caption, and Link Arrow Indicator */}
       {(hasTrend || caption || isLink) && (
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 relative z-10 pointer-events-none">
           {hasTrend && (

@@ -5,14 +5,11 @@ import { cn } from '@/lib/utils';
 interface CaptureButtonProps {
   icon: LucideIcon;
   label: string;
-  /** Live capture (opens the camera) gets the primary tint; the gallery picker stays neutral. */
   live: boolean;
   accept: string;
   onFiles: (files: FileList | null) => void;
 }
 
-// A file picker dressed as a Button (size sm: 44px tall on touch). The hidden input sits inside the
-// label, so a tap anywhere on the button opens the picker and the focus ring still shows.
 export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: CaptureButtonProps) => (
   <label
     className={cn(

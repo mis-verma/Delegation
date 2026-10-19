@@ -16,8 +16,6 @@ async function transcribeWithWhisper(buffer: Buffer, mimeType: string): Promise<
     return transcription.text;
 }
 
-// Gemini can read audio directly as inline data - no separate transcription endpoint, just
-// a generateContent call with the audio bytes attached and a prompt asking for the transcript.
 async function transcribeWithGemini(buffer: Buffer, mimeType: string): Promise<string> {
     const response = await getGemini().models.generateContent({
         model: "gemini-flash-latest",
@@ -34,10 +32,6 @@ async function transcribeWithGemini(buffer: Buffer, mimeType: string): Promise<s
     return text;
 }
 
-// Prefers Whisper when it's configured (dedicated transcription model, generally more
-// accurate for speech-to-text); falls back to Gemini if OpenAI isn't set up or its call
-// fails for any reason, so a voice note still gets transcribed either way. Shared by the
-// WhatsApp voice-note path below and the web Smart Add recorder (task.ai.controller.ts).
 export async function transcribeVoiceNote(buffer: Buffer, mimeType: string): Promise<string> {
     if (process.env.OPENAI_API_KEY) {
         try {

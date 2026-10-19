@@ -23,7 +23,6 @@ const approvalSchema = z
   .refine((q) => Date.parse(q.from) < Date.parse(q.to), 'From must be before To');
 
 exceptionRouter.use(authenticate);
-// Oversight only: each role gets what its own ticket and checklist scoping already allows.
 exceptionRouter.get('/', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
   res.json({ success: true, data: await exceptionService.list(req.user!) });
 }));

@@ -11,10 +11,8 @@ import { STATE } from './fillMatrixState';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
 
-// Indexed by getUTCDay(), so Sunday is first.
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-// Hoisted: building an Intl formatter is the expensive part, and every cell label formats a date.
 const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 const shortDate = (date: string) => SHORT_DATE.format(new Date(`${date}T00:00:00Z`));
@@ -35,7 +33,6 @@ const Ring = ({ percent, tone, dashed, size = 28, children }: { percent: number;
   );
 };
 
-// size-11 on touch for a real tap target, back to the compact size-10 on desktop.
 const CELL_BOX = 'inline-flex items-center justify-center size-11 sm:size-10';
 
 const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
@@ -45,14 +42,12 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
   const Icon = s.icon;
 
-  // A month column adds its runs up: the share filled (on time or late), with the split in the tooltip.
   if (cell.state === 'summary') {
     const due = cell.due ?? 0;
     const detail = due === 0 && !cell.open
       ? 'Nothing was due'
       : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
     const monthName = new Date(`${cell.date}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    // A tap opens the split (hover only on a mouse), so a phone can read it too.
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -137,24 +132,15 @@ MatrixRow.displayName = 'MatrixRow';
 
 interface FillMatrixProps {
   data: WeeklyReport;
-  /** Org-local today (YYYY-MM-DD), to mark today's column. */
   today: string;
-  /** The period in words, for the table caption. */
   label: string;
 }
 
-/**
- * The daily fill matrix: one row per daily checklist per store, one ring per day (one cell per month on a long
- * window), with its completion, met deadline and answers right. Shared by the Report page and the Scores page, so
- * both draw the same rings from the same server report. The table scrolls sideways inside its own frame with the
- * checklist name held in place; the page itself never scrolls sideways.
- */
 export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
   const isMonthView = data.kind === 'month';
   const holidayDays = Object.keys(data.holidays).sort();
   return (
     <>
-      {/* A scroll area has to be reachable and named for keyboard and screen-reader users. */}
       <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">Daily checklist fill status, {label}</caption>

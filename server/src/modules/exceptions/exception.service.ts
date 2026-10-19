@@ -11,7 +11,6 @@ import {
 } from "../checklistInstances/checklistInstance.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
-// An urgent ticket nobody has moved for this long is an exception (one setting for all priorities).
 const STALE_TICKET_HOURS = 4
 const PER_KIND_LIMIT = 20
 const HOUR_MS = 3_600_000
@@ -42,7 +41,6 @@ export const exceptionService = {
         const now = Date.now()
         const items: ExceptionItem[] = []
 
-        // Tickets: only what this person can already see in the ticket list.
         const ticketScope = await visibilityFilter(user)
         const ticketRows = await db
             .select({
@@ -82,7 +80,6 @@ export const exceptionService = {
             })
         }
 
-        // Checklist runs: org-wide for Admin/PC, own department for HODs (no department = nothing, fail closed).
         const orgWide = user.role === "ADMIN" || user.role === "PC"
         if (orgWide || (isHod(user) && user.departmentId)) {
             const missed = await db
@@ -115,8 +112,6 @@ export const exceptionService = {
                 })
             }
         }
-
-        // Approvals waiting are not repeated here: the "Needs your approval" card already lists them, oldest first.
 
         return items.sort((a, b) => (a.severity === b.severity ? a.since.localeCompare(b.since) : a.severity === "high" ? -1 : 1))
     },

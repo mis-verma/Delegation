@@ -14,9 +14,6 @@ interface ChecklistInstanceItemCashTallyCardProps {
   isLocked:   boolean;
 }
 
-// NUMBER_ENTRY sibling — same numericValue field and range validation (see
-// ChecklistInstanceItemNumberEntryCard), plus a display-only variance line against the
-// definition-authored cashExpectedAmount, when set.
 export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanceItemCashTallyCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemCashTallyCardProps) {
   const inputId = useId();
   const reasonId = useId();
@@ -30,8 +27,6 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
     ((item.numberEntryMin != null && parsed < item.numberEntryMin) ||
       (item.numberEntryMax != null && parsed > item.numberEntryMax));
   const variance = parsed != null && item.cashExpectedAmount != null ? parsed - item.cashExpectedAmount : null;
-  // A short or over drawer now needs a reason (the server enforces it too) — it used to save
-  // exactly like a matching count.
   const [reason, setReason] = useState(item.conditionalReasonValue ?? '');
   const needsReason = variance != null && variance !== 0;
   const canSubmit = interactive && parsed != null && !Number.isNaN(parsed) && !outOfRange && (!needsReason || reason.trim().length > 0);
@@ -56,10 +51,6 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
         )}
       />
 
-      {/* The counted amount input itself is NOT gated on `interactive` — it's the only place this
-          evidence is shown (there's no separate read-only display), so it must stay visible,
-          just disabled, after the item (or the whole instance) locks. Only the Save button and
-          the save-error message are for the still-editable case. */}
       <div className="flex flex-col gap-2">
         {interactive && <ItemError error={setItemDone.error} fallback="Couldn't save that count." />}
 

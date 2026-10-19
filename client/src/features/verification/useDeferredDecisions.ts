@@ -2,20 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notifyError } from '../../lib/queryHelpers';
 
-// Approve and Send back take effect after a short Undo window: the row leaves the list right away,
-// a toast offers Undo for ten seconds, and only then does the request go out. Anything still waiting
-// is sent immediately when the page is left or hidden, so a decision is never lost.
-
 const UNDO_WINDOW_MS = 10_000;
 
 export interface DecisionRequest {
-  /** The run being decided. */
   id: string;
-  /** Toast wording, e.g. "Approved" / "Sent back". */
   verb: string;
-  /** Title shown in the toast. */
   label: string;
-  /** Sends the decision. `keepalive` is true when the page is closing and the request must outlive it. */
   run: (options: { keepalive: boolean }) => Promise<unknown>;
 }
 
@@ -26,13 +18,11 @@ interface Queued {
 }
 
 interface Options {
-  /** Runs once a decision was saved (refresh the lists). The row stays hidden until it resolves. */
   afterSaved?: () => Promise<unknown> | void;
   delayMs?: number;
 }
 
 export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: Options = {}) => {
-  // Runs that were decided and are not back from the server yet (waiting out Undo, or being saved).
   const [heldIds, setHeldIds] = useState<ReadonlySet<string>>(() => new Set());
   const queued = useRef(new Map<string, Queued>());
   const afterSavedRef = useRef(afterSaved);
@@ -58,8 +48,7 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
     toast.dismiss(entry.toastId);
     try {
       await entry.request.run({ keepalive });
-      // The decision is saved. A failed refresh must not read as a failed decision.
-      try { await afterSavedRef.current?.(); } catch { /* the next refetch catches up */ }
+      try { await afterSavedRef.current?.(); } catch { }
     } catch (err) {
       notifyError(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`);
     } finally {
@@ -99,7 +88,6 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onPageHide);
-      // Leaving the page (route change or unmount): send whatever is still waiting out its Undo.
       flushAll(false);
     };
   }, [flushAll]);

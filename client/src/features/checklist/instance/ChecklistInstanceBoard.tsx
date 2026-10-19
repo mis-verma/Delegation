@@ -30,8 +30,6 @@ interface BoardColumnProps {
   items: ChecklistInstance[];
 }
 
-// Memoized so a re-render of the page (a filter popover opening, say) doesn't rebuild every card in
-// all three columns. `items` only changes identity when the bucketed instances actually change.
 const BoardColumn = memo(({ col, items }: BoardColumnProps) => (
   <div
     className={`${col.mobileOrder} lg:order-none flex-col gap-2.5 lg:gap-3 lg:rounded-2xl lg:border lg:p-2.5 transition-colors duration-300 ${col.containerClass} max-lg:border-0 max-lg:bg-transparent ${items.length === 0 ? 'hidden lg:flex' : 'flex'}`}

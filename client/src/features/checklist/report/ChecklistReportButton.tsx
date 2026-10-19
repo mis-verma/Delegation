@@ -3,8 +3,6 @@ import { FileDown } from 'lucide-react';
 import { Button } from '../../../components';
 import { ChecklistReportDialog } from './ChecklistReportDialog';
 
-// The entry point for the checklist completion and compliance report: one outline button that opens
-// the download dialog. Dropped into a page header's actions; owns its own open state.
 export const ChecklistReportButton = () => {
   const [open, setOpen] = useState(false);
   return (

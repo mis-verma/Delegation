@@ -1,24 +1,11 @@
 import { ShieldCheck, ShieldX } from 'lucide-react';
 
 interface VerificationNoteBannerProps {
-  /** The verifier's note. Nothing renders when there isn't one. */
   note: string | null | undefined;
-  /** Whether the item came back approved (task `done` / ticket `CLOSED`) or was sent back. */
   approved: boolean;
-  /** Only used to distinguish "Approved" from "Sent back" — an approved item with no verifier
-   *  recorded is still a change request, not a verification. */
   verifiedBy?: string | null;
 }
 
-/**
- * A verifier's decision note, shown on a task or ticket detail panel.
- *
- * Tasks and Tickets each had their own copy of this — identical logic (bail on no note, approved
- * vs sent-back, same two labels, same two icons) with different styling: the task version was
- * `p-3 rounded-xl text-xs` with a bare 14px icon, the ticket version `p-4 rounded-2xl text-sm`
- * with the icon in a tinted tile. Same message, two visual weights, depending on which detail
- * panel you happened to open. This is the ticket treatment, which was the more legible of the two.
- */
 export const VerificationNoteBanner = ({ note, approved, verifiedBy }: VerificationNoteBannerProps) => {
   if (!note) return null;
 

@@ -3,7 +3,6 @@ import { Button, EmptyState, InlineError, Skeleton } from '../../components';
 import { ChecklistQueueRow } from './ChecklistQueueRow';
 import type { ChecklistRow } from './verificationModel';
 
-// Same card shape as a real row, so nothing shifts when the data arrives.
 const SkeletonRow = () => (
   <li className="flex flex-col gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface" aria-hidden>
     <div className="flex items-start justify-between gap-3">
@@ -25,23 +24,18 @@ interface ChecklistListProps {
   now: number;
   activeId: string | null;
   isPending: boolean;
-  /** The first load failed; with data on screen a failed refresh is not shown. */
   loadFailed: boolean;
   onRetry: () => void;
   filtersActive: boolean;
   onClearFilters: () => void;
-  /** Opens today's decisions from the empty state. Omit to leave the action out. */
   onShowDecided?: () => void;
-  /** "Approve N with no issues": how many, progress while it runs, and the handler. Omit to hide the button. */
   cleanCount?: number;
   bulk?: { done: number; total: number } | null;
   onApproveAllClean?: () => void;
-  /** Load more. */
   hasMore: boolean;
   remaining: number;
   isFetchingMore: boolean;
   onLoadMore: () => void;
-  /** Opens the keyboard shortcut list (keyboard screens only). Omit to hide it. */
   onShowShortcuts?: () => void;
   showDepartment?: boolean;
   inlineActions?: 'below-lg' | 'always';
@@ -51,7 +45,6 @@ interface ChecklistListProps {
   onSendBack: (id: string) => void;
 }
 
-/** The checklist rows with their loading, error, empty and load-more states. */
 export const ChecklistList = ({
   rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,

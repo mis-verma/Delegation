@@ -20,16 +20,12 @@ export type ChecklistItemDraft = {
   requiresLivePhoto:  boolean;
 };
 
-// Tightly coupled to ChecklistItemDraft/ChecklistItemDraftRow right below — only affects Fast
-// Refresh granularity, not runtime correctness.
 // eslint-disable-next-line react-refresh/only-export-components
 export const emptyChecklistItemDraft = (): ChecklistItemDraft => ({
   id: crypto.randomUUID(),
   label: '', assigneeId: '', dueAt: '', requiredImageCount: '0', maxImageCount: '', requiresLivePhoto: false,
 });
 
-/** Swaps the item at `index` with its neighbor in the given direction; a no-op at either end of
- *  the array. Shared by both checklist-draft builders so reordering logic lives in one place. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function moveDraftItem<T>(items: T[], index: number, direction: 'up' | 'down'): T[] {
   const target = direction === 'up' ? index - 1 : index + 1;
@@ -52,12 +48,8 @@ interface ChecklistItemDraftRowProps {
   canRemove:               boolean;
   onChange:                (patch: Partial<ChecklistItemDraft>) => void;
   onRemove:                () => void;
-  /** Templates don't carry a due date — hide the field entirely rather than showing a dead input. */
   showDueDate?:            boolean;
-  /** Set (to an explanatory placeholder) when the assignable list depends on a not-yet-chosen
-   *  department — disables the select instead of showing an empty, seemingly-broken dropdown. */
   assigneeDisabledReason?: string;
-  /** Reordering is opt-in — omit both to render the row without move controls at all. */
   onMoveUp?:               () => void;
   onMoveDown?:             () => void;
   canMoveUp?:              boolean;
@@ -67,17 +59,11 @@ interface ChecklistItemDraftRowProps {
 const FIELD_INPUT_CLASS =
   'w-full px-3 py-2 text-sm text-text-secondary bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all';
 
-// Shared by the delegation checklist builder (NewChecklistForm) and the admin checklist template
-// builder (ChecklistTemplateFormUI) — both were drafting the same shape (label + assignee + photo
-// requirements) through two separately-styled, separately-maintained components before this.
 export const ChecklistItemDraftRow = ({
   index, draft, assignableUsers, canRemove, onChange, onRemove, showDueDate = true, assigneeDisabledReason,
   onMoveUp, onMoveDown, canMoveUp = false, canMoveDown = false,
 }: ChecklistItemDraftRowProps) => {
   const assigneeDisabled = !!assigneeDisabledReason;
-  // Steps start expanded so a newly-added one is immediately editable; collapsing is purely a
-  // "declutter a long procedure" affordance, not a save/draft state, so it's fine to live only in
-  // local state and reset if the row ever remounts.
   const [expanded, setExpanded] = useState(true);
   const canReorder = !!onMoveUp || !!onMoveDown;
 
@@ -90,14 +76,8 @@ export const ChecklistItemDraftRow = ({
     minPhotos === 0 && !maxPhotos ? 'No photo required' : maxPhotos ? `${minPhotos}–${maxPhotos} photos` : `${minPhotos}+ photos`;
 
   return (
-    // `@container` + `@sm:`/`@lg:` below size the configuration grid off this row's own rendered
-    // width, not the viewport — it's dropped into modals of very different widths (a narrow
-    // template-builder dialog vs. a wider one), and a viewport breakpoint would size the grid for
-    // a browser window it isn't actually filling, cramming 3-4 columns into a few hundred pixels.
     <div className="@container group relative flex flex-col bg-surface rounded-xl border border-border shadow-xs transition-colors duration-200 hover:border-border-hover overflow-hidden">
 
-      {/* Header: always visible — step number, label, an at-a-glance summary once collapsed, and
-          the row's controls (reorder / collapse / remove). */}
       <div className="flex items-start gap-3 p-4 sm:p-5">
         <div className="flex shrink-0 items-center justify-center w-7 h-7 mt-0.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-bold select-none">
           {index + 1}
@@ -179,7 +159,6 @@ export const ChecklistItemDraftRow = ({
       {expanded && (
         <div className="flex flex-col gap-4 px-4 sm:px-5 pb-4 sm:pb-5 pl-0 @sm:pl-[3.25rem]">
 
-          {/* Assignment — who's responsible, and by when (when relevant) */}
           <div className={`grid grid-cols-1 ${showDueDate ? '@sm:grid-cols-2' : ''} gap-4`}>
             <div className="flex flex-col gap-1.5">
               <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
@@ -198,7 +177,6 @@ export const ChecklistItemDraftRow = ({
               </select>
             </div>
 
-            {/* Due Date — only meaningful when this draft belongs to a real delegation, not a template */}
             {showDueDate && (
               <div className="flex flex-col gap-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
@@ -214,9 +192,6 @@ export const ChecklistItemDraftRow = ({
             )}
           </div>
 
-          {/* Photo proof — grouped as one unit since min/max counts and the live-capture toggle
-              are all answering the same question (what evidence does completing this step need),
-              rather than reading as three unrelated fields. */}
           <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-surface-hover/50 border border-border/60">
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary tracking-wide">
@@ -251,7 +226,6 @@ export const ChecklistItemDraftRow = ({
 
               <label className="group/toggle col-span-2 @sm:col-span-1 flex items-center gap-2.5 cursor-pointer pb-2">
                 <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
-                  {/* sr-only (not hidden) so keyboard users can still tab to it */}
                   <input
                     type="checkbox"
                     className="sr-only peer"

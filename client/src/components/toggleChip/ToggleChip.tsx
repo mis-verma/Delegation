@@ -10,14 +10,11 @@ interface ToggleChipProps {
   on: boolean;
   onClick: () => void;
   children: ReactNode;
-  /** 'good' tints the selected state green (acceptable answers); the default is the primary tint. */
   tone?: 'primary' | 'good';
   disabled?: boolean;
   className?: string;
 }
 
-// The one selectable pill: weekdays, answer options, "Yes is good", filters. A flat tint when on,
-// a border-colour change on hover (no shadow, per the app's card convention).
 export const ToggleChip = ({ on, onClick, children, tone = 'primary', disabled, className }: ToggleChipProps) => (
   <button
     type="button"
@@ -38,7 +35,6 @@ export const ToggleChip = ({ on, onClick, children, tone = 'primary', disabled, 
   </button>
 );
 
-// The dashed "add another" pill that sits at the end of a chip row.
 export const AddChip = ({ onClick, children, disabled }: { onClick: () => void; children: ReactNode; disabled?: boolean }) => (
   <button
     type="button"

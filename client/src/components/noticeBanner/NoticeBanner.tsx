@@ -19,9 +19,6 @@ interface NoticeBannerProps {
   className?: string;
 }
 
-// One status banner for "waiting for approval", "sent back", "opens at 9:00" and similar. A
-// verifier's decision note on a task or ticket still uses VerificationNoteBanner; this is for plain
-// state messages that carry no note.
 export const NoticeBanner = ({ tone = 'info', icon: Icon, children, className }: NoticeBannerProps) => (
   <div role="status" className={cn('flex items-start gap-2.5 p-3.5 rounded-lg border text-xs font-display leading-relaxed', TONE[tone], className)}>
     <Icon size={16} className="shrink-0 mt-px" aria-hidden />

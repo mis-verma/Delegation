@@ -10,14 +10,10 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 interface ChecklistInstanceItemNumberEntryCardProps {
   item:       ChecklistInstanceItem;
   instanceId: string;
-  canWork:    boolean; // assignee or admin — allowed to submit a reading
-  isLocked:   boolean; // instance already APPROVED — frozen, no further changes
+  canWork:    boolean;
+  isLocked:   boolean;
 }
 
-// NUMBER_ENTRY counterpart to ChecklistInstanceItemCard — a reading instead of a checkbox/photo.
-// The server (checklistInstance.service.ts's assertNumberEntrySatisfied) is the source of truth
-// for the min/max check; this only mirrors it locally so the button can be disabled before a
-// round trip, not to replace the server-side validation.
 export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInstanceItemNumberEntryCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemNumberEntryCardProps) {
   const inputId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
@@ -50,10 +46,6 @@ export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInsta
         )}
       />
 
-      {/* The reading input itself is NOT gated on `interactive` — it's the only place this
-          evidence is shown (there's no separate read-only display), so it must stay visible,
-          just disabled, after the item (or the whole instance) locks. Only the Save button and
-          the save-error message are for the still-editable case. */}
       <div className="flex flex-col gap-2">
         {interactive && <ItemError error={setItemDone.error} fallback="Couldn't save that reading." />}
 

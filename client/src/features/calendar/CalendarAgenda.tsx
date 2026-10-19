@@ -16,7 +16,6 @@ import {
 interface CalendarAgendaProps {
   day: Date;
   today: Date;
-  /** Already sorted by time. */
   items: CalendarItem[];
   isPending: boolean;
   onOpenItem: (link: string) => void;
@@ -31,10 +30,6 @@ const CREATE_ACTIONS: { kind: CalendarCreateKind; label: string }[] = [
 const STATE_WORD = { completed: 'Done', overdue: 'Overdue', pending: 'Open' } as const;
 const STATE_TONE = { completed: 'text-success', overdue: 'text-danger', pending: 'text-text-muted' } as const;
 
-/**
- * The picked day's list, the way a phone calendar app shows a day: the time on the left, a bar in the item's
- * colour, then its title with its kind and state in one small line. A small "+ Add" sits in the header.
- */
 export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCreate }: CalendarAgendaProps) => {
   const heading = day.toLocaleDateString(undefined, { day: 'numeric', month: 'long', ...(day.getFullYear() !== today.getFullYear() && { year: 'numeric' }) });
   const isPastDay = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
@@ -115,7 +110,6 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
                     <span className="w-14 shrink-0 pt-px text-right t-meta font-display font-semibold tabular-nums text-text-muted">
                       {item.date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                     </span>
-                    {/* The item's colour as a bar, as calendar apps mark an event. */}
                     <span className={cn('w-1 shrink-0 rounded-full', CALENDAR_ITEM_DOT_CLASS[item.type])} aria-hidden="true" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className={cn('line-clamp-2 t-meta font-display font-semibold leading-snug', item.completed ? 'text-text-muted line-through decoration-text-light' : 'text-text')}>{item.title}</span>

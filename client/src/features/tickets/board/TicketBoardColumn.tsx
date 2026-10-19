@@ -15,12 +15,8 @@ export interface TicketBoardColumnProps {
   departmentNames?: Map<string, string>;
 }
 
-// Closed tickets only ever pile up, so the Closed column shows the last two weeks and keeps the
-// rest behind a button. Without this, one long-running board renders hundreds of finished cards.
 const CLOSED_WINDOW_MS = 14 * 86_400_000;
 
-// memo: see TicketBoardColumnsRow's comment — this is the piece that actually stops a drag
-// pickup/drop elsewhere on the board from re-rendering every column's cards.
 export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, departmentNames }: TicketBoardColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !draggable });
   const config = STATUS_CONFIG[status];

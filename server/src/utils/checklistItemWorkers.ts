@@ -4,13 +4,6 @@ import { checklists, taskAdditionalAssignees, taskChecklists, tasks, tickets } f
 import { AppError } from "./AppError.js"
 import type { AccessTokenPayload } from "../middleware/auth/auth.js"
 
-// Who may tick a checklist item, add its remark or attach its photos, on a delegation or a ticket:
-// - Admin and PC: any item.
-// - An item with a person on it: that person.
-// - An item with nobody on it: whoever is doing the delegation or ticket it belongs to. Without this,
-//   an unassigned item could only be cleared by Admin/PC, and the checklist gate then kept the work
-//   from ever being marked completed.
-// `workerIds` is only called for unassigned items, so the extra lookup is skipped otherwise.
 export const assertCanWorkChecklistItem = async (
     user: AccessTokenPayload,
     item: { assigneeId: string | null },
@@ -26,7 +19,6 @@ export const assertCanWorkChecklistItem = async (
     throw AppError.forbidden(message)
 }
 
-// The people doing the delegation a checklist sits on: its main assignee and the additional ones.
 export const taskChecklistWorkerIds = async (taskChecklistId: string): Promise<string[]> => {
     const [row] = await db.select({ taskId: tasks.id, assigneeId: tasks.assigneeId })
         .from(taskChecklists)
@@ -40,7 +32,6 @@ export const taskChecklistWorkerIds = async (taskChecklistId: string): Promise<s
     return [row.assigneeId, ...additional.map((a) => a.userId)].filter((id): id is string => !!id)
 }
 
-// The person doing the ticket a checklist sits on.
 export const ticketChecklistWorkerIds = async (checklistId: string): Promise<string[]> => {
     const [row] = await db.select({ assigneeId: tickets.assigneeId })
         .from(checklists)

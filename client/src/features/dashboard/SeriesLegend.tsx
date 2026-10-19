@@ -1,6 +1,5 @@
 import { SERIES_COLOR, type SeriesKey } from './scoreMetrics';
 
-/** The legend under a score chart: one neutral chip per measure, its colour dot first. Shared by Bars and Trend so they match. */
 export const SeriesLegend = ({ series, labels }: { series: SeriesKey[]; labels: Record<SeriesKey, string> }) => (
   <div className="flex flex-wrap items-center gap-1.5">
     {series.map((k) => (

@@ -68,8 +68,6 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   noActions: item.noActions ?? [],
 });
 
-// "Morning check" becomes "Morning check (copy)" — trimmed so even a very long name still fits the
-// 191-character limit.
 const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.length).trimEnd()} (copy)`;
 
 const SIGNATURE_LABELS: Record<string, string[]> = {
@@ -77,8 +75,6 @@ const SIGNATURE_LABELS: Record<string, string[]> = {
   DUAL_SIGNATURE: ['Employee', 'Supervisor'],
 };
 
-// The "good answer" rule, only for the types that can be scored. A choice rule drops options the
-// question no longer offers, so renaming an option can't leave a rule nothing can match.
 const acceptablePayload = (d: ItemDraft) => {
   if (d.itemType === 'YES_NO' || d.itemType === 'PASS_FAIL') {
     return d.acceptableAnswers.length ? { acceptableAnswers: d.acceptableAnswers } : {};
@@ -96,14 +92,9 @@ const acceptablePayload = (d: ItemDraft) => {
   return {};
 };
 
-// Only the dress types this question has a real list for are stored: an added type left empty is
-// dropped, so it never shadows the gender list with a blank one.
 const storedTypeLists = (byType: Record<string, string[]>): Record<string, string[]> =>
   Object.fromEntries(Object.entries(byType).filter(([, list]) => list.length > 0));
 
-// `sections` re-groups the list once more as a safety net: the saved order is this flat order, so
-// questions of one section must sit together whatever path last touched the list. `storePersonIds`
-// drops auditors the stores no longer include (the server rejects them); null = nothing to compare.
 const buildItemPayloads = (
   itemDrafts: ItemDraft[],
   sections: string[],
@@ -112,8 +103,6 @@ const buildItemPayloads = (
   normalizeItemOrder(itemDrafts, sections)
     .filter(d => d.label.trim())
     .map(d => ({
-      // A loaded question's key IS its server id; a new or copied one has a random key the server
-      // doesn't recognise and simply mints a fresh id for.
       id: d.key,
       label: d.label.trim(),
       section: d.section ?? undefined,
@@ -151,8 +140,6 @@ const buildItemPayloads = (
       } : {}),
     }));
 
-// The first thing to fix on the Questions step, worded with the question's number, and the key of
-// the question to scroll to. null = every question is ready.
 const firstItemProblem = (
   itemDrafts: ItemDraft[],
   storePersonIds: ReadonlySet<string> | null,
@@ -178,17 +165,11 @@ const STEPS = [
   { key: 'review', label: 'Review' },
 ] as const;
 
-// Shown next to the Next button so it's clear *why* it's blocked, not just that it is. The
-// Questions step's reason is worked out per question (it names the one to fix).
 const STEP_BLOCK_REASON: Record<number, string> = {
   0: 'Give this checklist a name to continue.',
   1: "Pick a store and a start date. Opening and closing can't be the same time.",
 };
 
-// A snapshot of every field this form can edit, as a plain JSON string rather than a
-// field-by-field dirty flag per setter: this form has ~13 independently-editable fields and
-// marking each one's setter by hand is exactly the kind of thing that quietly goes stale the next
-// time a field is added.
 type BuilderSnapshot = {
   name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
   startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode;
@@ -202,8 +183,6 @@ const BLANK_SNAPSHOT: BuilderSnapshot = {
   assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
 };
 
-// Mirrors the loaded page: breadcrumb line, header, then the wizard card with its stepper row and a
-// step body. min-h (not a fixed height) so it never clips or leaves a hole.
 const BuilderSkeleton = () => (
   <div className="flex flex-col gap-6 w-full py-2 sm:py-4" aria-busy="true">
     <Skeleton className="h-4 w-72 max-w-full rounded" />
@@ -234,8 +213,6 @@ export const ChecklistBuilder = () => {
   const isEditing = !!definitionId;
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
-  // "Duplicate checklist" lands here as /builder?copyFrom=<id>: a NEW checklist, pre-filled with
-  // another one's settings, questions, stores, people and schedule.
   const [searchParams] = useSearchParams();
   const copyFromId = isEditing ? '' : searchParams.get('copyFrom') ?? '';
   const isCopying = !!copyFromId;
@@ -257,17 +234,12 @@ export const ChecklistBuilder = () => {
   const [startDate, setStartDate] = useState('');
   const [opensTime, setOpensTime] = useState('');
   const [cutoffTime, setCutoffTime] = useState('');
-  // DAILY only: Mon-Sat by default (Sunday off), matching the server default for new checklists.
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [responseMode, setResponseMode] = useState<ChecklistResponseMode>('SHARED');
-  // Additive on top of the role-based verify rule, see ChecklistReviewersField.
   const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
-  // Ordered list of section names the admin has created for this checklist (e.g. "Opening",
-  // "Closing", "Operational"). Items without a section render in an "Ungrouped" bucket instead.
   const [sections, setSections] = useState<string[]>([]);
-  // Which section a newly-added item lands in, set by clicking a section pill in the items list.
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [step, setStep] = useState(() => {
     if (!definitionId) return 0;
@@ -285,38 +257,19 @@ export const ChecklistBuilder = () => {
 
   const [hydratedId, setHydratedId] = useState<string | undefined>(undefined);
   const [copiedFromId, setCopiedFromId] = useState<string | undefined>(undefined);
-  // Captured once at hydrate time, not read live off `existing` at submit time: if a background
-  // refetch (e.g. another admin's edit invalidating this query) pulls in a newer version while
-  // this form is still open, submitting THAT version would defeat the whole conflict check: it'd
-  // look like "nothing changed" even though this form's fields are now stale relative to it.
   const [loadedVersion, setLoadedVersion] = useState<number | undefined>(undefined);
 
-  // Unsaved-changes guard: the baseline is the snapshot taken once at hydrate (or at the
-  // create-mode defaults) and refreshed after a successful save. It is only compared against the
-  // live values when someone actually tries to leave (see isDirtyNow), never on a render, so a
-  // keystroke no longer stringifies the whole form.
   const [baseline, setBaseline] = useState(() => snapshotKey(BLANK_SNAPSHOT));
 
-  // Pre-fills every field from a saved checklist: to edit it, or as the starting point of a copy.
-  // A copy gets a new name and fresh question ids; everything else is carried over as it is.
   const applyDefinition = (def: ChecklistDefinition, asCopy: boolean) => {
     const nextName = asCopy ? copiedChecklistName(def.name) : def.name;
-    // Trimmed on the way in, not just on submit: a whitespace-only stored value would otherwise
-    // render as "unchanged" blank text but silently turn into a real change (cleared to undefined)
-    // the moment the admin saves anything else on this checklist.
     const nextDescription = def.description?.trim() ?? '';
-    // A copy of a one-time checklist would otherwise carry that date, which has already passed, so
-    // the admin has to pick a new one.
     const nextStartDate = asCopy && def.recurrence === 'ONE_TIME' ? '' : def.startDate.slice(0, 10);
     const weekdays = def.activeWeekdays ?? ALL_WEEKDAYS;
     const seenSections: string[] = [];
     for (const item of def.items) {
       if (item.section && !seenSections.includes(item.section)) seenSections.push(item.section);
     }
-    // Re-normalized on load (not just after a drag) in case the stored order was ever written by
-    // a path that doesn't guarantee same-section contiguity (e.g. a bulk import or direct API
-    // call): the builder and instance-detail views both assume items sharing a section sit
-    // together.
     const hydratedItemDrafts = normalizeItemOrder(
       def.items.map((item) => (asCopy ? cloneItemDraft(toItemDraft(item)) : toItemDraft(item))),
       seenSections,
@@ -335,10 +288,6 @@ export const ChecklistBuilder = () => {
     setReviewerIds(def.reviewerIds);
     setItemDrafts(hydratedItemDrafts);
     setSections(seenSections);
-    // Built from the values computed above, NOT the state setters just called: those won't be
-    // visible on `name`/`itemDrafts`/etc. until the next render, so snapshotting off the state
-    // variables here would capture the PRE-hydrate (blank) values. A copy isn't "unsaved work"
-    // either (leaving straight away loses nothing), so it starts clean, same as an edit.
     setBaseline(snapshotKey({
       name: nextName,
       description: nextDescription,
@@ -367,12 +316,6 @@ export const ChecklistBuilder = () => {
     applyDefinition(copySource, true);
   }
 
-  // Brand-new checklist only (a copy brings its own reviewers): PC is the org's default reviewer, so a fresh checklist starts with every
-  // PC-role user pre-picked instead of an empty reviewer list nobody remembers to fill in. Still
-  // just a starting point: the maker can remove any of them or add a department's HOD from the
-  // grouped picker below. Applied the same way `existing` hydrates above (a guarded state update
-  // during render, not inside an effect) and folded into `baseline` too, so this doesn't itself
-  // count as an unsaved change the moment the form opens.
   const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
   const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying);
   if (!isEditing && !isCopying && !reviewerDefaultApplied && orgWideUsers.data) {
@@ -384,8 +327,6 @@ export const ChecklistBuilder = () => {
     }
   }
 
-  // The latest form values, kept for the leave-page guards below. Written after each commit and
-  // only read from event callbacks, so "is this dirty?" costs nothing until someone navigates.
   const liveRef = useRef<{ snapshot: BuilderSnapshot; baseline: string } | null>(null);
   useEffect(() => {
     liveRef.current = {
@@ -401,12 +342,6 @@ export const ChecklistBuilder = () => {
     return !!live && snapshotKey(live.snapshot) !== live.baseline;
   }, []);
 
-  // Escape hatch for "I just saved, don't warn me on the way out": handleSubmit's onSuccess
-  // calls this before navigating so the guard below doesn't immediately re-fire on its own
-  // redirect to the new/updated checklist's detail page.
-  // The baseline update below only lands on the NEXT render, but onSuccess navigates in the same
-  // tick, so the blocker still saw the form as dirty and popped "Discard unsaved changes?" right
-  // after "Checklist created". A ref is read at navigation time, so it skips the guard immediately.
   const justSavedRef = useRef(false);
   const markClean = () => {
     justSavedRef.current = true;
@@ -416,8 +351,6 @@ export const ChecklistBuilder = () => {
     }));
   };
 
-  // Who is still visible in the pickers. Picked people the selected stores no longer include stay in
-  // the form's state, so every count and the save itself compare against these lists.
   const people = useStorePeople(storeIds);
   const { storePersonIds, activePersonIds } = people;
   const refetchPeople = people.refetch;
@@ -428,8 +361,6 @@ export const ChecklistBuilder = () => {
     justSavedRef.current = false;
   }, [definitionId, copyFromId]);
 
-  // Latest-wins counter for the clean-up below: toggling stores quickly must not let an older answer
-  // prune people the newer selection still includes.
   const pruneToken = useRef(0);
   const handleStoreIdsChange = (ids: string[]) => {
     const removedAStore = storeIds.some((id) => !ids.includes(id));
@@ -455,7 +386,7 @@ export const ChecklistBuilder = () => {
       )));
       const left = live.assigneeIds.filter((id) => valid.has(id)).length;
       toast.info(`Removed ${peopleCount(dropped.size)} who ${dropped.size === 1 ? 'is' : 'are'} not in the selected stores`, left === 0 && live.assigneeIds.length > 0 ? { description: 'Nobody is left to fill it in, so saving makes it a draft.' } : undefined);
-    }).catch(() => { /* The notices on the Assign and Questions steps still flag anyone left over. */ });
+    }).catch(() => { });
   };
 
   const confirm = useConfirm();
@@ -484,9 +415,6 @@ export const ChecklistBuilder = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocker.state]);
 
-  // useBlocker only covers in-app navigation (Link clicks, navigate() calls, browser back/
-  // forward within this SPA). A real tab close or hard refresh bypasses the router entirely, so
-  // this is the only way to warn for that case. The browser controls the prompt's own wording.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (!isDirtyNow()) return;
@@ -497,30 +425,17 @@ export const ChecklistBuilder = () => {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirtyNow]);
 
-  // Identified by the draft's stable `key`, not its array position: an index captured in a
-  // row's closure can point at the wrong item if the array is reordered (drag, another row's
-  // removal) between render and click. Stable (setState only) so memoised rows can keep it.
   const updateDraft = useCallback((key: string, patch: Partial<ItemDraft>) =>
     setItemDrafts(drafts => drafts.map(d => (d.key === key ? { ...d, ...patch } : d))), [setItemDrafts]);
 
-  // Inserted via normalizeItemOrder rather than a plain append: appending to the end of the flat
-  // array would land the new item after whichever section happens to be last in storage order,
-  // not inside its own section's block, breaking the "same-section items are contiguous"
-  // assumption every other view relies on.
-  // Returns whether the question was added, so the add pop-up stays open (and keeps what was typed)
-  // when the checklist is already full.
   const addItem = useCallback((patch: Partial<ItemDraft>): boolean => {
     if ((liveRef.current?.snapshot.itemDrafts.length ?? 0) >= MAX_CHECKLIST_ITEMS) {
       toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
       return false;
     }
-    // `section` goes last: the patch from AddQuestionModal is a whole draft carrying section: null,
-    // which used to override the picked section and drop every new item into Ungrouped.
     const draft = { ...emptyItemDraft(), ...patch, section: activeSection };
     setItemDrafts(drafts => normalizeItemOrder([...drafts, draft], sections));
     toast.success('Question added');
-    // After the add pop-up has closed and handed focus back, bring the new card into view: on a
-    // phone the type grid sits below the list, so the card is otherwise off screen.
     window.setTimeout(() => revealAfterRender(() => questionFieldOf(draft.key), false, 'center'), 80);
     return true;
   }, [activeSection, sections, setItemDrafts]);
@@ -531,8 +446,6 @@ export const ChecklistBuilder = () => {
   const handleImportTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (!template) return;
-    // Every existing draft stays, including one whose label is still empty: dropping it would throw
-    // away a question the admin had already configured.
     const kept = itemDrafts;
     const have = new Set(kept.map(d => d.label.trim().toLowerCase()).filter(Boolean));
     const fresh = template.items.filter(item => !have.has(item.label.trim().toLowerCase()));
@@ -548,7 +461,6 @@ export const ChecklistBuilder = () => {
       maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
       requiresLivePhoto: item.requiresLivePhoto,
     }));
-    // The server caps a checklist at 200 questions: trim the template to fit and say so.
     const room = Math.max(0, MAX_CHECKLIST_ITEMS - kept.length);
     const taken = incoming.slice(0, room);
     if (taken.length < incoming.length) {
@@ -558,11 +470,6 @@ export const ChecklistBuilder = () => {
     }
     setItemDrafts(normalizeItemOrder([...kept, ...taken], sections));
 
-    // A recurring checklist assigns people at the whole-definition level, not per item (unlike a
-    // Task/Ticket checklist item's own assigneeId), so a template item's defaultAssigneeId has no
-    // matching per-item field to land in here. Used to be silently dropped; now it seeds the
-    // definition's assignee list instead, additive only (same convention as the department
-    // bulk-select in ChecklistAssigneesField, never replaces an existing selection).
     const templateAssigneeIds = template.items.map(i => i.defaultAssigneeId).filter((id): id is string => !!id);
     if (templateAssigneeIds.length && storePersonIds) {
       setAssigneeIds(prev => [...new Set([...prev, ...splitByVisible(templateAssigneeIds, storePersonIds).shown])]);
@@ -571,18 +478,8 @@ export const ChecklistBuilder = () => {
 
   const basicsValid = !!name.trim();
   const scheduleValid = storeIds.length > 0 && !!startDate && !hasScheduleTimeMismatch(opensTime, cutoffTime);
-  // Every draft needs a real label, not just the ones with one already: a blank-label draft used
-  // to be waved through here (on the theory that it was just an in-progress row), but every item
-  // actually reaches itemDrafts via AddQuestionModal, which already requires a label before it
-  // lets you add the item, so a blank label here only ever means an already-configured item had
-  // its title accidentally cleared later, and buildItemPayloads silently drops it on submit.
-  // Recomputed only when the drafts change. (Non-empty list + every label real is the same test as
-  // "at least one payload", without building the payloads on every keystroke.)
-  // The first thing to fix on the Questions step, worded with the question's number, and the key to
-  // scroll to when Next is pressed.
   const itemProblem = firstItemProblem(itemDrafts, storePersonIds);
   const itemsValid = itemProblem === null;
-  // Only people the pickers still show count: a hidden one is rejected by the server on save.
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
   const hasPeople = visibleAssigneeCount > 0;
   const sectionValidity = useMemo(
@@ -596,7 +493,6 @@ export const ChecklistBuilder = () => {
     return STEP_BLOCK_REASON[index] ?? '';
   };
 
-  // Next on a step that isn't ready explains why (below) and takes you to the first thing to fix.
   const handleNext = () => {
     if (isStepValid(step)) { goToStep(step + 1); return; }
     if (step === 0) revealAfterRender(() => document.getElementById('checklist-name'), true);
@@ -630,18 +526,12 @@ export const ChecklistBuilder = () => {
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       responseMode,
       assigneeIds: splitByVisible(assigneeIds, storePersonIds).shown,
-      // A reviewer can work anywhere, so only people who are no longer active are left out.
       reviewerIds: reviewersToSave.length ? reviewersToSave : undefined,
-      // Role labels are retired: saving clears any old ones so cards stop showing them.
       assigneeRoles: [],
-      // Built here, at save time, rather than on every keystroke.
       items: buildItemPayloads(itemDrafts, sections, storePersonIds),
     };
 
     if (isEditing) {
-      // loadedVersion is always set by this point: hydrate runs synchronously as soon as
-      // `existing` loads, and the loading/error branches above return before this is reachable
-      // while it's still unset. The guard is defensive, not an expected path.
       if (loadedVersion == null) return;
       updateDefinition.mutate({ id: definitionId!, payload: { ...payload, version: loadedVersion } }, {
         onSuccess: ({ definition }) => { markClean(); navigate(`/admin/scheduled-checklists/${definition.id}`); },
@@ -658,9 +548,6 @@ export const ChecklistBuilder = () => {
 
   if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy)) return <BuilderSkeleton />;
 
-  // 404 means the checklist was actually deleted: retrying just repeats the same doomed request
-  // (see lib/queryHelpers.ts's handleQueryRetry), so this gets its own message and a way back
-  // instead of the generic "try refreshing" banner below, whose Retry can never succeed here.
   if ((isEditing && isDeleted) || (isCopying && copySourceDeleted)) {
     return (
       <div className="w-full p-4 sm:p-6">
@@ -685,16 +572,11 @@ export const ChecklistBuilder = () => {
     );
   }
 
-  // Only the active step is built (not all six on every render, which meant a keystroke in the
-  // Items step also rebuilt the Schedule, Assign and Review trees).
   const renderStep = () => {
     switch (step) {
       case 0:
         return (
           <BuilderStepFrame stepIndex={step} title="Basics" description="Give this checklist a name your team will recognize.">
-            {/* Fields sit straight on the wizard card, like every other step: a second bordered
-                card inside it (with a "Checklist Details" heading under the step's own "Basics")
-                was a box in a box. */}
             <div className="flex flex-col gap-5 max-w-2xl">
               <ChecklistDetailsFields
                 name={name}
@@ -732,9 +614,6 @@ export const ChecklistBuilder = () => {
             <div className="flex flex-col gap-6">
               <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
               <div className="grid grid-cols-1 xl:grid-cols-[19rem_1fr] gap-5 xl:gap-6 items-start">
-                {/* Below xl (phones, tablets, a laptop with the sidebar open): questions first, the type
-                    grid after them, so the question column keeps its width. xl and up: a sticky sidebar
-                    next to the list, scrolling inside itself when the screen is short. */}
                 <div className={`${PANEL_CLASS} order-last xl:order-first p-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto`}>
                   <QuestionTypePalette onAdd={addItem} storeIds={storeIds} />
                 </div>
@@ -882,9 +761,7 @@ export const ChecklistBuilder = () => {
       />
       </div>
 
-      {/* Main Wizard Card */}
       <div className={PANEL_CLASS}>
-        {/* Stepper Header with Progress Bar */}
         <div className="flex flex-col gap-3 px-4 sm:px-6 pt-2 sm:pt-5 pb-2 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
           <div className="flex items-center gap-2 sm:hidden min-w-0">
             <span className="line-clamp-1 t-card font-display font-bold text-text">{name.trim() || (isEditing ? existing?.name : 'New checklist')}</span>
@@ -904,10 +781,7 @@ export const ChecklistBuilder = () => {
           <ChecklistProgressBar done={step + 1} total={STEPS.length} bare thin className="hidden xl:flex" />
         </div>
 
-        {/* Wizard Content Step */}
         <div className="flex flex-col gap-6 sm:gap-8 px-4 pt-4 pb-0 sm:px-8 sm:pt-8">
-          {/* Enter-only: waiting for an exit animation (mode="wait") made every step change take
-              twice as long, over a heavy mount. */}
           <motion.div
             key={step}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 24 }}
@@ -917,7 +791,6 @@ export const ChecklistBuilder = () => {
             {renderStep()}
           </motion.div>
 
-          {/* Footer Navigation Bar */}
           <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
             {step === STEPS.length - 1 && mutation.isError && (
               <p role="alert" className="order-first flex w-full items-start gap-1.5 t-meta font-display font-medium text-danger">
@@ -940,9 +813,6 @@ export const ChecklistBuilder = () => {
 
             {step < STEPS.length - 1 && (
               <div className="flex flex-col items-end gap-1.5">
-                {/* isStepValid, not a raw sectionValidity[step] index: sectionValidity only
-                    covers the first 4 (required) steps; a step past that (Reviewers) has nothing
-                    to validate and reads as undefined/always-valid rather than blocked. */}
                 {!isStepValid(step) && (
                   <p className="t-meta font-display text-warning flex items-start gap-1 text-right">
                     <AlertCircle size={12} className="shrink-0 mt-px" />

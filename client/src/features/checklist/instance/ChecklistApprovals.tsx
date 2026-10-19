@@ -15,13 +15,8 @@ import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const NO_INSTANCES: ChecklistInstance[] = [];
 
-// Oldest first, nothing filtered: the department head works the list top to bottom.
 const OLDEST_FIRST: ChecklistFilters = { q: '', store: null, dept: null, person: null, age: 'any', attention: false, sort: 'oldest' };
 
-// HOD (MANAGER) equivalent of the Verification page's checklist list, scoped to one department by
-// the server (pending-verification already narrows to the caller's own department), so this page
-// needs no department filter. It shows the same risk chips and opens the same review as a sheet.
-// Tickets and Delegations stay out: those are Admin-only (see App.tsx's AdminOnlyRoute).
 export const ChecklistApprovals = () => {
   const now = useNow();
   const query = useChecklistQueueQuery();
@@ -64,7 +59,6 @@ export const ChecklistApprovals = () => {
   const startSendBack = useCallback((id: string) => { startSendBackFor(id); setOpenId(id); }, [startSendBackFor]);
   const closeSheet = useCallback(() => setOpenId(null), []);
 
-  // Never claim "completely clear" until the queue has actually loaded.
   const subtitle = query.isPending
     ? <span className="block h-4 w-56 animate-pulse rounded-md bg-surface-active" aria-hidden />
     : query.isError && !query.data

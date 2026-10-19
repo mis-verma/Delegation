@@ -54,9 +54,6 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 const LIST_PATH = '/admin/scheduled-checklists';
 const INSTANCE_LIMIT = 100;
 
-// Why a checklist has no run yet — the same rules the server's generator applies
-// (checklistInstanceGenerator.job.ts), so an admin sees the actual reason instead of "it'll show
-// up automatically" while nothing ever does. Dates are the org's local (India) calendar day.
 const noRunReason = (definition: ChecklistDefinition): string => {
   const todayKey = orgDayKey(Date.now());
   const startKey = orgDayKey(new Date(definition.startDate).getTime());
@@ -76,13 +73,8 @@ interface RateTileProps {
   label: string;
   rate: number | null;
   emptyLabel: string;
-  /** For rates where a HIGHER number is worse news (e.g. flagged-answer rate) — reads the same
-   *  green/amber/red thresholds from the other end instead of showing a high bad number as green. */
   invert?: boolean;
-  /** For a live fill (today's / this run's progress): neutral text, green once done, not the
-   *  good/bad rate colours, which would paint a half-filled morning run red. */
   live?: boolean;
-  /** One line saying what the number covers. */
   caption?: string;
 }
 
@@ -90,8 +82,6 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
   const toneClass = live ? (r: number) => (r === 100 ? 'text-success' : 'text-text') : invert ? inverseRateToneClass : rateToneClass;
   const barClass = live ? (r: number) => (r === 100 ? 'bg-success' : 'bg-primary-500') : invert ? inverseRateBarClass : rateBarClass;
   return (
-    // Below sm the tile is a compact row (label left, number right, bar underneath); from sm up it
-    // is the stacked tile.
     <div className={cn(PANEL_CLASS, 'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2.5 sm:p-4')}>
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
@@ -106,8 +96,6 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           <p className={cn('font-display text-2xl sm:text-3xl font-bold tracking-tight', toneClass(rate))}>
             {rate}%
           </p>
-          {/* Coloured by how good the rate is (red/amber/green), not by done/total, so this stays
-              a hand-built track rather than ChecklistProgressBar. */}
           <div className="col-span-2 h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
             <div
               className={cn('h-full w-full rounded-full origin-left transition-transform duration-500 ease-out', barClass(rate))}
@@ -128,10 +116,6 @@ const groupByStatus = (instances: ChecklistInstance[]) =>
       const done = i.items.filter((x) => x.isDone).length;
       return instanceProgressStatus(done, i.items.length) === status;
     });
-    // TODO/IN_PROGRESS groups can hide overdue instances indistinguishably among merely-not-yet-
-    // started ones — this is the only urgency signal at the group-header level; without it,
-    // telling "how many of these are actually overdue" means reading every row's own small chip.
-    // COMPLETED instances are never overdue.
     const overdueCount = status === 'COMPLETED' ? 0 : inGroup.filter((i) => isInstanceOverdue(i, false)).length;
     return { status, instances: inGroup, overdueCount };
   }).filter((group) => group.instances.length > 0);
@@ -157,9 +141,6 @@ export const ChecklistDefinitionDetail = () => {
   const navigate = useNavigate();
   const { data: definition, isPending, isError, error, refetch } = useChecklistDefinitionQuery(definitionId);
   const isDeleted = error instanceof ApiError && error.status === 404;
-  // The instance list is now paginated server-side (default 50). This panel shows a recent
-  // history for one definition rather than an audit of all time, so it asks for the newest
-  // 100 explicitly instead of silently receiving whatever the default happens to be.
   const {
     data: instances,
     isPending: instancesPending,
@@ -170,10 +151,8 @@ export const ChecklistDefinitionDetail = () => {
 
   const { user } = useAuth();
   const setActiveMutation = useSetChecklistDefinitionActiveMutation();
-  // ADMIN and PC manage checklists alike (the server allows both).
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
 
-  // Names only for the tooltip on "N stores". Not "Unknown store" until the stores list has loaded.
   const storeNames = useMemo(() => {
     if (!definition || !stores) return null;
     const nameById = new Map(stores.map((s) => [s.id, s.name]));
@@ -184,10 +163,6 @@ export const ChecklistDefinitionDetail = () => {
 
   if (isPending) return <PageSkeleton />;
 
-  // A 404 here means the checklist was actually deleted, not a hiccup worth retrying — retrying
-  // it just repeats the same doomed request (see lib/queryHelpers.ts's handleQueryRetry). Show
-  // what actually happened and a way back, instead of a generic "check your connection" banner
-  // whose Retry button can never succeed.
   if (isDeleted) {
     return (
       <div className="w-full py-8">
@@ -222,7 +197,6 @@ export const ChecklistDefinitionDetail = () => {
         ]}
       />
 
-      {/* Actions (the breadcrumb above is the way back). Duplicate is icon-only on a phone. */}
       <div className="flex items-center justify-end gap-2">
         <Button
           variant="outline"
@@ -241,7 +215,6 @@ export const ChecklistDefinitionDetail = () => {
         </Button>
       </div>
 
-      {/* Main Overview Card */}
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-5 sm:p-6')}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3.5 min-w-0">
@@ -262,7 +235,6 @@ export const ChecklistDefinitionDetail = () => {
             </div>
           </div>
 
-          {/* Same pause/resume toggle as the card; read-only roles just see the state. */}
           {canManage && definitionState(definition) === 'draft' ? (
             <div className="flex items-center gap-2 shrink-0">
               <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" />
@@ -290,7 +262,6 @@ export const ChecklistDefinitionDetail = () => {
           )}
         </div>
 
-        {/* Metadata Badges & Tags */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-display text-text-secondary pt-4 border-t border-border/60">
           <div className="flex items-center gap-1.5">
             <Store size={14} className="text-text-muted shrink-0" />
@@ -324,7 +295,6 @@ export const ChecklistDefinitionDetail = () => {
         </div>
       </div>
 
-      {/* Metric Rate Tiles */}
       <div className={cn('grid grid-cols-1 gap-3 sm:gap-4', definition.currentRate !== null ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3')}>
         {definition.currentRate !== null && (
           <RateTile
@@ -357,7 +327,6 @@ export const ChecklistDefinitionDetail = () => {
         />
       </div>
 
-      {/* Runs Section */}
       <section className="flex flex-col gap-4" aria-labelledby="runs-heading">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <h2 id="runs-heading" className="t-card font-display font-bold text-text">

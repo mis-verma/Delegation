@@ -2,9 +2,6 @@ import { runScores } from '../checklist/checklistCompliance';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 
-// Pure helpers for the Verification page: the risk read-out for a checklist run, its sort order,
-// and the small bits of text built from them. No React in here, so rows can memoise on the output.
-
 export const UNASSIGNED = '__unassigned__';
 export const ALL = 'all';
 
@@ -31,22 +28,16 @@ export const DAY_MS = 86_400_000;
 
 export interface ChecklistRisk {
   completion: number;
-  /** Weighted compliance %, null when nothing in the run is scored. */
   compliance: number | null;
   badAnswers: number;
   missingPhotos: number;
-  /** Total number of times questions in this run were sent back before. */
   sentBackTimes: number;
   ticketsRaised: number;
   criticalFailed: number;
-  /** Questions that need photos, and how many of those have them all. */
   photosNeeded: number;
   photosHave: number;
-  /** How many questions the review pane lists under "Needs a look". */
   needsLookCount: number;
-  /** Safe to approve without opening: fully compliant, photos in, never sent back. */
   clean: boolean;
-  /** Any bad answer, missing photo, send-back history or critical failure. */
   needsAttention: boolean;
 }
 
@@ -91,27 +82,22 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
   };
 };
 
-/** One checklist run as the queue shows it: the run plus everything derived once, not per render. */
 export interface ChecklistRow {
   id: string;
   instance: ChecklistInstance;
   risk: ChecklistRisk;
-  /** When the run started waiting for a reviewer (submitted time, else the period start). */
   waitingSince: number;
   deadline: number;
-  /** Department ids of the people assigned, or [UNASSIGNED] when none is known. */
   deptIds: string[];
   deptName: string;
   storeName: string | null;
   assigneeNames: string[];
-  /** Lower-cased title, store and people, for the search box. */
   haystack: string;
 }
 
 export const waitingSinceOf = (instance: Pick<ChecklistInstance, 'submittedAt' | 'periodStart'>): number =>
   new Date(instance.submittedAt ?? instance.periodStart).getTime();
 
-/** "Under an hour", "5 hours", "1 day", "3 days" — how long something has been waiting. */
 export const formatWaiting = (since: number, now: number): string => {
   const diff = Math.max(0, now - since);
   const hours = Math.floor(diff / 3_600_000);
@@ -122,7 +108,6 @@ export const formatWaiting = (since: number, now: number): string => {
 };
 
 const byCompliance = (a: ChecklistRow, b: ChecklistRow) => {
-  // Unscored runs count as 100%, the same as they are shown, so they sort after every run that failed something.
   const ac = a.risk.compliance ?? 100;
   const bc = b.risk.compliance ?? 100;
   return ac - bc || a.waitingSince - b.waitingSince;
@@ -135,7 +120,6 @@ const COMPARATORS: Record<SortKey, (a: ChecklistRow, b: ChecklistRow) => number>
   compliance: byCompliance,
 };
 
-/** Sorts without touching the input. Runs with a critical failure float to the top, whatever the sort. */
 export const sortChecklistRows = (rows: ChecklistRow[], sort: SortKey): ChecklistRow[] => {
   const compare = COMPARATORS[sort];
   return [...rows].sort((a, b) => {

@@ -6,10 +6,6 @@ import { IconChip, PANEL_CLASS } from '../../../components';
 import { useChecklistScoringGapsQuery } from '../hook';
 import { RECURRENCE_LABEL } from '../checklistDisplay';
 
-// Answer compliance only counts questions that have a good answer set. This lists the live
-// checklists that still have questions without one, so an admin knows exactly where to go to fix
-// the "No data" on the tile below. Renders nothing when there is nothing to fix (or while loading,
-// and on a failed load: this is a hint, never a blocker).
 export const ChecklistScoringGaps = () => {
   const { data: gaps } = useChecklistScoringGapsQuery();
   const [open, setOpen] = useState(false);

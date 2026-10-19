@@ -1,9 +1,3 @@
-// Creates the throwaway load-test database (run like:
-//   $env:DB_NAME_OVERRIDE = "taskmatrix_loadtest"; npm run loadtest:createdb).
-//
-// It connects with the same user, password and host the app already uses (nothing is typed or
-// printed), and creates only the database named by DB_NAME_OVERRIDE. It refuses unless that name
-// contains "loadtest" and the host is this machine.
 import 'dotenv/config'
 import mysql from 'mysql2/promise'
 import { env } from '../config/env.js'
@@ -23,7 +17,6 @@ const run = async () => {
         process.exit(1)
     }
 
-    // Same server, no database selected yet: the new one does not exist.
     const server = new URL(env.DATABASE_URL)
     server.pathname = ''
     const connection = await mysql.createConnection(server.toString())

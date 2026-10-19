@@ -16,7 +16,6 @@ interface DepartmentGroup {
   tasks: Task[];
 }
 
-/** One department's pending pile. Click through to review it item by item or approve in bulk. */
 const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen: (id: string) => void }) => (
   <button
     type="button"
@@ -55,39 +54,32 @@ const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
 
 interface TicketTaskQueueProps {
   tab: QueueTab;
-  /** Already narrowed by store / person / age / search. */
   tickets: Ticket[];
   tasks: Task[];
   isPending: boolean;
-  /** The department open in the drill-in, if any. */
   departmentId: string | null;
   departmentNameOf: (id: string | null) => string;
   filtersActive: boolean;
   onOpenDepartment: (id: string) => void;
   onClearDepartment: () => void;
   onClearFilters: () => void;
-  /** The page's clock, so every row measures its waiting time against the same "now". */
   now: number;
   personNameById: ReadonlyMap<string, string>;
-  /** The page's Undo window: a decision hides the row at once and is sent after ten seconds. */
   decisions: {
     heldIds: ReadonlySet<string>;
     schedule: (request: DecisionRequest) => void;
     hold: (ids: string[]) => void;
     release: (ids: string[]) => void;
   };
-  /** Refreshes the lists after a decision was saved. */
   refresh: () => Promise<unknown>;
 }
 
-/** Tickets and delegations waiting for review: department cards, then a department's own list with bulk approve. */
 export const TicketTaskQueue = ({
   tab, tickets: allTickets, tasks: allTasks, isPending, departmentId, departmentNameOf, filtersActive, onOpenDepartment, onClearDepartment, onClearFilters,
   now, personNameById, decisions, refresh,
 }: TicketTaskQueueProps) => {
   const confirm = useConfirm();
   const { heldIds, schedule, hold, release } = decisions;
-  // A row that was just approved or sent back is gone straight away, while its Undo is still running.
   const tickets = useMemo(() => allTickets.filter((t) => !heldIds.has(t.id)), [allTickets, heldIds]);
   const tasks = useMemo(() => allTasks.filter((t) => !heldIds.has(t.id)), [allTasks, heldIds]);
 
@@ -112,8 +104,6 @@ export const TicketTaskQueue = ({
 
   const group = groups.find((g) => g.id === departmentId);
 
-  // Selection is meaningless once you leave the department it was made in, or switch tab. Reset
-  // while rendering (React's way to reset state when an input changes) rather than in an effect.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
   const selectionKey = `${departmentId}:${tab}`;
@@ -146,8 +136,6 @@ export const TicketTaskQueue = ({
   const sendBackTicket = useMemo(() => sendBackItem('ticket'), [sendBackItem]);
   const sendBackTask = useMemo(() => sendBackItem('task'), [sendBackItem]);
 
-  // Approving several at once asks first, and then runs one request after another right away: ten
-  // separate Undo toasts would be noise, so the whole batch is confirmed up front instead.
   const bulkApprove = async () => {
     if (!group || selectedIds.size === 0) return;
     const ticketIds = group.tickets.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
@@ -166,7 +154,7 @@ export const TicketTaskQueue = ({
       ...ticketIds.map((id) => approveTicketRun(id)({ keepalive: false })),
       ...taskIds.map((id) => approveTaskRun(id)({ keepalive: false })),
     ]);
-    try { await refresh(); } catch { /* the next refetch catches up */ }
+    try { await refresh(); } catch { }
     release(ids);
     setBulkApproving(false);
     setSelectedIds(new Set());
@@ -205,8 +193,6 @@ export const TicketTaskQueue = ({
     );
   }
 
-  // The department in the URL no longer matches a group (everything in it was just approved, or the
-  // filters changed): back out cleanly instead of leaving a dead empty screen.
   if (!group) {
     return (
       <div className="flex flex-col items-center gap-3">

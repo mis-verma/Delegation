@@ -1,6 +1,5 @@
 import { z } from "zod"
 
-// A calendar day as YYYY-MM-DD. Checked for real (2026-02-31 passes a plain regex and isn't a day).
 const calendarDay = z.string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-10-02")
     .refine((value) => {
@@ -13,12 +12,10 @@ export const createHolidaySchema = z.object({
     name: z.string().trim().min(1, "Give the holiday a name").max(100),
 })
 
-// The "add the usual national holidays for this year" button sends several at once.
 export const createHolidaysSchema = z.object({
     holidays: z.array(createHolidaySchema).min(1).max(60),
 })
 
-// GET /holidays/preview?date=: what adding this date would do to that day's runs.
 export const previewHolidayQuerySchema = z.object({ date: calendarDay })
 
 export const listHolidaysQuerySchema = z.object({

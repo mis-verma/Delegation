@@ -1,8 +1,3 @@
-// Command-line backup (run like: `npm run backup:data`; on the live server `node dist/src/scripts/backupData.js`).
-// Dumps every row of the Ticket, Delegation (Task) and recurring Checklist tables to JSON under
-// server/backups/<timestamp>/<group>/<table>.json, a rollback point to take before any destructive
-// script (see wipeChecklists.ts). The same code runs automatically every night (jobs/dataBackup.job.ts).
-// Read-only: never deletes or modifies anything in the database. Pass --offsite to also copy it to S3.
 import 'dotenv/config'
 import { connectDB, disconnectDB } from '../config/db.js'
 import { copyBackupToS3, runDataBackup } from '../utils/dataBackup.js'

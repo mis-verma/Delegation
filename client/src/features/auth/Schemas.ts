@@ -5,11 +5,6 @@ export const loginSchema = z.object({
     .string()
     .min(1, "Email is required")
     .email("Enter a valid email address"),
-  // Presence only, no strength/length check — the server (auth.validation.ts's loginSchema)
-  // deliberately doesn't re-check strength on login either, since an existing account's password
-  // could pre-date current rules. This used to require 8+ characters here, which the server never
-  // enforced, so any legacy/seeded account with a shorter password could never log in through the
-  // UI at all: the form rejected it before the request was ever sent.
   password: z
     .string()
     .min(1, "Password is required"),

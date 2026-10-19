@@ -53,13 +53,6 @@ const ExceptionRow = memo(({ item }: { item: ExceptionItem }) => {
 });
 ExceptionRow.displayName = 'ExceptionRow';
 
-/**
- * What has gone wrong and still needs someone: overdue or stale urgent tickets, checklist runs that
- * closed unsubmitted today, and approvals waiting past 24 hours. The server scopes every row to what
- * the viewer may see (Admin/PC org-wide, Manager/Senior their own area), so this card only draws.
- * Calm by design: nothing wrong is "All clear", not a hidden card, because that is the answer an
- * overseer wants.
- */
 export const ExceptionsCard = () => {
   const { user, token } = useAuth();
   const allowed = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
@@ -77,7 +70,6 @@ export const ExceptionsCard = () => {
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // An older server without this endpoint (404) or a role it refuses (403) is not an error to show on a glance screen.
   const unavailable = query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
   if (!allowed || unavailable) return null;
   const peopleRows = people.data ?? [];

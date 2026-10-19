@@ -53,7 +53,6 @@ const TrendTooltip = ({ active, payload, series }: { active?: boolean; payload?:
 };
 
 interface ScoreTrendProps {
-  /** Overview draws completion beside compliance; the other tabs draw one measure. */
   metric?: ScoreMetric;
   scope: ScoreScope;
   id: string | undefined;
@@ -62,11 +61,6 @@ interface ScoreTrendProps {
   to: string;
 }
 
-/**
- * Completion and compliance over time for one module: the selected window cut into a few buckets (the
- * last 7 days, the weeks of a month, the months of a quarter or a year), so a score has a direction.
- * Every bucket is scored by the same server rules as the card itself.
- */
 export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }: ScoreTrendProps) => {
   const series = seriesFor(metric);
   const isMobile = useIsMobile();
@@ -77,7 +71,6 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
     ...SCORE_QUERY_OPTIONS,
   });
   const points = useMemo(() => data?.buckets.map((b) => pointOf(b, module)) ?? [], [data, module]);
-  // A slice with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.
   const chartPoints = useMemo(() => points.map((p) => (p.due > 0 ? p : { ...p, completion: 100, compliance: 100, ontime: 100 })), [points]);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const point = chartPoints[props.index ?? -1];

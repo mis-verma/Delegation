@@ -34,7 +34,6 @@ import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/d
 
 type SaveState = 'idle' | 'saving' | 'error';
 
-
 const useAutoGrow = (value: string) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -58,7 +57,6 @@ const NotSaved = ({ onRetry }: { onRetry: () => void }) => (
     </button>
   </p>
 );
-
 
 const useAutoSavedText = (value: string, save: (next: string) => Promise<unknown>) => {
   const [text, setText] = useState(value);
@@ -165,7 +163,6 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, onDirtyChange, childr
   );
 };
 
-
 interface TaskFooterProps {
   task: Task;
   canMove: boolean;
@@ -246,7 +243,6 @@ const TaskFooter = ({ task, canMove, canApprove, nextStatus, onAdvance, onBack, 
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* Desktop closes from the header X. A phone with nothing else down here keeps a full-width Close. */}
           {!showAdvance && (
             <Button variant="outline" size="sm" onClick={onClose} className="sm:hidden flex-1">
               Close
@@ -281,7 +277,6 @@ const STEP_ICON: Record<Task['status'], typeof Check> = {
 const formatStepDate = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const formatStepTime = (date: Date) => date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
-/** One row of the stepper. `current` gets a neutral border and bold text, nothing louder. */
 const StepRow = ({
   label, icon: StepIcon, done, current, reached, isLast, stamp, author, note,
 }: {
@@ -401,7 +396,6 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
   );
 };
 
-
 const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
@@ -451,11 +445,9 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
 
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
-// Past its due date and still being worked (handed in, done and drafts are not late), the same rule as the lists.
 const taskIsLate = (task: Task) =>
   !!task.dueDate && !(['done', 'pending_approval', 'draft'] as Task['status'][]).includes(task.status) && new Date(task.dueDate).getTime() < Date.now();
 
-/** "Today", "Tomorrow" or the day, the words the ticket sheet uses for its due time. */
 const taskDueWords = (iso: string) => {
   const day = new Date(iso);
   const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -541,7 +533,6 @@ const TaskEditLayout = ({
         </div>
         {saveLabel && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
 
-        {/* Straight under the title, as on the ticket sheet: what it is about, then where it stands. */}
         <PlainDescriptionEditor
           value={task.description ?? ''}
           disabled={!canEditText}
@@ -564,7 +555,6 @@ const TaskEditLayout = ({
       )}
 
       <div className="flex flex-col gap-2">
-        {/* The same property tiles as the ticket sheet: the people lead, then priority and department, then the dates. */}
         <dl className="grid grid-cols-2 gap-2">
           <TicketPropertyRow tileOnly wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
             <AssigneeField
@@ -601,7 +591,6 @@ const TaskEditLayout = ({
           <TicketPropertyRow tileOnly wide label="Due" icon={CalendarDays} tone={dueTone(taskIsLate(task))}>
             {isViewOnly ? (
               task.dueDate ? (
-                // Same words as the ticket sheet: "Late since 9 Oct", "Today", "Tomorrow", or the day.
                 <span className={cn(PROPERTY_VALUE_CLASS, taskIsLate(task) && 'text-danger')}>
                   {task.startDate && !taskIsLate(task) ? `${formatRangeDate(task.startDate)} to ${taskDueWords(task.dueDate)}` : taskIsLate(task) ? `Late since ${formatRangeDate(task.dueDate)}` : taskDueWords(task.dueDate)}
                 </span>
@@ -624,7 +613,6 @@ const TaskEditLayout = ({
         )}
       </div>
 
-      {/* How this delegation counts in the scores right now; ticks while open, and status changes arrive by socket. */}
       <ItemScoreCard scoreAt={(now) => taskScore(task, now)} noun="delegation" />
 
       <DetailLabelsField
@@ -657,7 +645,6 @@ const TaskEditLayout = ({
 
       <TaskStatusStepper task={task} nameOf={nameOf} />
 
-      {/* Reference, not work: who raised it, then Activity folded away until asked for (loads only then). */}
       <div className="flex flex-col gap-3 border-t border-border/50 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
@@ -780,7 +767,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   return (
     <Modal
       open
-      // No second line: "Saving… / Saved" under the title already says changes save on their own.
       onClose={onClose}
       dirty={dirtyFields.title || dirtyFields.description}
       size="xl"
@@ -839,7 +825,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           isDeleting={deleteMutation.isPending}
         />
       </div>
-
 
       {advanceTo && (
         <TaskStatusRemarkDialog

@@ -9,12 +9,9 @@ export interface ActivityEvent {
   kind: ActivityKind;
   at: string;
   actor: { name: string; role: string | null } | null;
-  /** Before and after for status, due date, priority and assignee (people by name). */
   from?: string | null;
   to?: string | null;
-  /** The reason given with a status move, when one was recorded. */
   remark?: string | null;
-  /** Names of the fields an "edited" entry touched. Never their values. */
   fields?: string[];
 }
 
@@ -23,7 +20,6 @@ export interface ActivitySummary {
   createdAt: string;
   createdBy: string | null;
   assignee: string | null;
-  /** When it moved into its current status. */
   statusSince: string;
   dueAt: string | null;
 }

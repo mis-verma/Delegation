@@ -9,23 +9,14 @@ import type { CsvColumn } from "../../utils/csv.js";
 
 export type ReportModule = "tickets" | "tasks" | "checklists";
 
-// How many parent rows to pull per round-trip. MySQL/Drizzle has no true server-side streaming
-// cursor the way Mongoose's `.cursor()` gave us over MongoDB — this paginates instead (keyset-ish:
-// ordered by createdAt/periodStart desc, id asc as a stable tiebreaker) so a large export still
-// only holds one page in memory at a time rather than the whole table.
 const PAGE_SIZE = 500;
 
-// Mirrors TaskList's own filter bar (taskFilters.ts's CATEGORY_PREDICATES) so "Export" downloads
-// exactly what's on screen, not the whole table — "delegation"/"task" both store category
-// "delegation" on the Task row, split by whether aiMeta was recorded (AI/WhatsApp-created vs
-// typed into the New Task form).
 export type TaskExportFilters = {
     category?: "issue" | "delegation" | "task";
     status?: string;
     priority?: string[];
     departmentId?: string;
     assigneeIds?: string[];
-    /** Checklists-only: scope to one store. Ignored by tickets/tasks. */
     storeId?: string;
 };
 
@@ -82,11 +73,6 @@ export const REPORT_COLUMNS: Record<ReportModule, CsvColumn[]> = {
 const assigneeUsers = alias(users, "assigneeUsers");
 const raisedByUsers = alias(users, "raisedByUsers");
 
-// Explicit row shapes for each paginated query below. Necessary (not just style): without an
-// explicit annotation, TS's inference for `page` gets tangled in a spurious circular-reference
-// error, because each loop iteration's query condition depends on `cursor`, which is itself
-// reassigned from that same query's last result row — annotating the shape up front breaks the
-// cycle for the type-checker (the runtime logic has no such cycle, it's a TS quirk).
 type TicketReportRow = {
     id: string; title: string; status: string; priority: string;
     createdAt: Date; closedAt: Date | null; tatHours: number | null; isOverdue: boolean;
@@ -186,9 +172,6 @@ export const reportService = {
         if (extra?.priority?.length) conditions.push(inArray(tasks.priority, extra.priority as (typeof tasks.priority.enumValues)[number][]));
         if (extra?.departmentId) conditions.push(eq(tasks.departmentId, extra.departmentId));
 
-        // additionalAssigneeIds is now a many-to-many junction table, so "assignee is one of
-        // these ids OR an additional-assignee row exists for one of these ids" becomes an OR
-        // between a plain column match and an EXISTS-style subquery against the junction table.
         if (extra?.assigneeIds?.length) {
             conditions.push(or(
                 inArray(tasks.assigneeId, extra.assigneeIds),
@@ -234,9 +217,6 @@ export const reportService = {
 
             if (page.length === 0) break;
 
-            // A task can have a primary assignee plus extra ones (additionalAssigneeIds) — list
-            // everyone, not just the primary, so a two-person task doesn't silently show one name.
-            // Batched in one query per page rather than N+1 per task.
             const pageIds = page.map((t) => t.id);
             const extras = pageIds.length
                 ? await db.select({
@@ -286,9 +266,6 @@ export const reportService = {
             extra?.storeId ? eq(checklistInstances.storeId, extra.storeId) : undefined,
         ];
 
-        // Same "resolve assignee ids to a set of instance ids first" convention as
-        // checklistInstance.service.ts's instanceConditions — assignees live in the junction
-        // table, not on the instance row itself.
         if (extra?.assigneeIds?.length) {
             conditions.push(inArray(
                 checklistInstances.id,

@@ -12,13 +12,8 @@ export const createTicketSchema = z.object({
     categoryId : objectId.optional(),
     departmentId : objectId.optional(),
     tatHours : z.number().positive().optional(),
-    // First day of a start-to-due range; informational (see Ticket.startDate).
     startDate : z.string().datetime({ offset: true }).optional(),
-    // Labels. Capped the same as Task's — a ticket carrying more than a dozen isn't labelled,
-    // it's noise. Reuses Task's own `tags` table (see ticketTags in db/schema/ticket.ts).
     tagIds : z.array(objectId).max(12).optional(),
-    // Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
-    // MANAGER/HOD within the ticket's own department). Same convention as Task's reviewerIds.
     reviewerIds : z.array(objectId).max(20).optional()
 })
 export const updateTicketSchema = createTicketSchema.partial().extend({
@@ -29,72 +24,36 @@ export const updateTicketSchema = createTicketSchema.partial().extend({
 
 export const paginatioinSchema = z.object({
     page : z.coerce.number().int().min(1).default(1),
-    // Board/list views deliberately request up to 500 in one shot to bucket/filter client-side
-    // (see BOARD_LIMIT in client's tickets/hook.ts) — cap must cover that, not just the 20-per-page
-    // paginated list default.
     limit : z.coerce.number().int().min(1).max(500).default(20),
     status : z.enum(TICKET_STATUSES).optional(),
-    // Narrows the list to tickets assigned to one person (e.g. the Team Overview drill-down), inside
-    // whatever the caller can already see. Ignored for USER/AGENT, who only see their own anyway.
     assigneeId : objectId.optional(),
-    // Backs the on-time/overdue stat-card drill-downs on OrgOverview (AnalyticsSummaryStrip) —
-    // the exact tickets behind a real ownerStats() count, not a client-side filter over whatever
-    // page happened to already be loaded.
-    // z.coerce.boolean() is a footgun for a query STRING specifically: it coerces via JS's
-    // Boolean(value), and Boolean("false") is true (any non-empty string is truthy) — so
-    // `?overdue=false` silently coerced to `true`, making every "on-time" (overdue=false)
-    // drilldown request the *overdue* tickets instead and come back empty. Map the two real
-    // string values explicitly instead; anything else still falls through to z.boolean()'s own
-    // validation.
     overdue : z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
-    // Which date from/to apply to. The on-time and closed-late drill-downs use tatDueAt, the same
-    // "due in the window" set tatReport's on-time split and the scores use, so a tile's percentage and
-    // its list describe the exact same tickets.
     dateField : z.enum(["createdAt", "closedAt", "tatDueAt"]).optional().default("createdAt"),
-    // Drill-down for the SLA tiles, using the same definitions as the reports: overdue_open =
-    // overdue right now and not closed or waiting for approval; closed_late / closed_on_time = hand-in
-    // time (submittedAt, else closedAt) vs tatDueAt among closed tickets that have a TAT.
     sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
 })
 
-// GET /tickets/summary. 'mine' (default) = raised by or assigned to the caller, which is what the
-// sidebar badge shows; 'visible' = everything the caller's role can see.
 export const ticketSummaryQuerySchema = z.object({
     scope : z.enum(["mine", "visible"]).optional(),
 })
 
 export const tatReportQuerySchema = z.object({
-    // 'none' = one bucket named 'range' covering the whole from/to window. 'hour' is gone: with no
-    // from/to the server defaults to the last 12 buckets (last 30 days for day), never unbounded.
     groupBy : z.enum(["day", "week", "month", "year", "none"]).default("day"),
-    // Client sends computeRange()'s toISOString() output — matching createTaskSchema's
-    // startDate/dueDate convention here catches a malformed value as a clean 400 instead of
-    // an Invalid Date silently reaching the raw SQL template in tatReport().
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
-    // Only honored for ADMIN/PC callers — MANAGER/SENIOR get their own departmentId/storeId
-    // forced by the controller regardless of what's sent here (see ticket.controller.ts).
     departmentId : objectId.optional(),
     storeId : objectId.optional(),
 })
 
-// Same from/to convention as tatReportQuerySchema above — a malformed value fails validation as a
-// clean 400 instead of an Invalid Date silently reaching ownerStats()'s raw SQL template.
 export const ownerStatsQuerySchema = z.object({
     scope : z.enum(["department", "store", "user", "org"]).default("org"),
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
-    // Only honored for ADMIN/PC callers — MANAGER/SENIOR get their own departmentId/storeId
-    // forced by the controller regardless of what's sent here (see ticket.controller.ts).
     departmentId : objectId.optional(),
     storeId : objectId.optional(),
 })
 
-// PC/Admin verification action on a ticket that's PENDING_APPROVAL: APPROVE closes it for good,
-// REJECT bounces it back to IN_PROGRESS. A note is required when rejecting so the assignee
-// knows what to fix; optional when approving.
 export const verifyTicketSchema = z.object({
     action : z.enum(["APPROVE", "REJECT"]),
     note : z.string().optional(),
@@ -103,15 +62,8 @@ export const verifyTicketSchema = z.object({
     path : ["note"],
 })
 
-// The restricted status-update flow: a non-verifier (assignee/creator/manager) moving a ticket
-// to In Progress, On Hold, or In Review (labelled "Completed" for a plain USER — see
-// ticketStatusLabel.ts on the client) must always explain why via a remark. Photos are optional
-// evidence, captured either live or picked from the gallery — captureMethod is a plain string
-// here (not an enum) since it arrives as a multipart form field.
 export const statusUpdateSchema = z.object({
     status : z.enum(RESTRICTED_STATUSES),
-    // Only On Hold needs an explanation (why it's stuck, and when work resumes). In Progress and
-    // Completed (sent for approval) are a single tap with no remark.
     remark : z.string().trim().optional(),
     captureMethod : z.enum(["LIVE", "GALLERY"]).optional(),
 }).refine(v => v.status !== "ON_HOLD" || !!v.remark, {

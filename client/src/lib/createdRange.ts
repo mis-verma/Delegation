@@ -1,30 +1,20 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 
-// "Only items created between these two moments" as two URL params, so a chart bar can link straight
-// to a list page narrowed to that bar's period, and the link works when shared or reloaded.
 const CREATED_FROM_PARAM = 'createdFrom';
 const CREATED_TO_PARAM = 'createdTo';
 
-/** `/tasks` plus the params for [start, end). */
 export const createdRangeHref = (path: string, start: Date, end: Date) =>
   `${path}?${CREATED_FROM_PARAM}=${encodeURIComponent(start.toISOString())}&${CREATED_TO_PARAM}=${encodeURIComponent(end.toISOString())}`;
 
 const DAY_FORMAT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export interface CreatedRange {
-  /** Inclusive start, exclusive end, in ms. */
   from: number;
   to: number;
-  /** "6 Oct 2026" for one day, "6 Oct 2026 to 12 Oct 2026" for more. */
   label: string;
 }
 
-/**
- * The created-between filter from the URL, or null when there is none (or it is malformed, in which
- * case it is ignored rather than showing an empty list). `matches` is the list filter, `clear` drops
- * the two params and keeps every other one.
- */
 const useUrlDateRange = (fromParam: string, toParam: string) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawFrom = searchParams.get(fromParam);
@@ -49,7 +39,6 @@ const useUrlDateRange = (fromParam: string, toParam: string) => {
     [range],
   );
 
-  // Sets the range from two calendar days, both included: a one-day pick is [that day, the next day).
   const set = useCallback(
     (firstDay: Date, lastDay: Date) => {
       const start = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate());
@@ -82,8 +71,6 @@ const useUrlDateRange = (fromParam: string, toParam: string) => {
   return { range, matches, set, clear };
 };
 
-/** The created-between filter, from `?createdFrom=&createdTo=`. */
 export const useCreatedRange = () => useUrlDateRange(CREATED_FROM_PARAM, CREATED_TO_PARAM);
 
-/** The due-between filter (To-Do), from `?dueFrom=&dueTo=`: the same shape, a different pair of params. */
 export const useDueRange = () => useUrlDateRange('dueFrom', 'dueTo');

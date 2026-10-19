@@ -1,22 +1,12 @@
-// How one ticket or one delegation counts in the Scores right now, for the score card on its detail sheet. The
-// same rules as the server's score folds (server/src/modules/scores/scoreBlocks.ts, foldTickets and foldTasks),
-// applied to a single item, so the card and the Scores page never disagree:
-//   - nothing counts until the item is due (its due time has passed) or it is handed in / closed;
-//   - completion: handed in or closed counts as done;
-//   - compliance: handed in on or before the due time. Judged from the hand-in time, so a slow approval
-//     never makes the worker late. A ticket that was ever reopened or sent back fails compliance.
-// Change these together with scoreBlocks.ts.
 
 export type Completion = 'done' | 'not_done' | 'not_counted';
 export type Compliance = 'on_time' | 'late' | 'missed' | 'reopened' | 'not_counted';
 
 export interface ItemScore {
-  /** False when there is no due time at all (or a draft): the item never counts. */
   scored: boolean;
   completion: Completion;
   compliance: Compliance;
   dueAt: Date | null;
-  /** When the work was handed in (or closed, for an older ticket), if it was. */
   finishedAt: Date | null;
   reopenCount: number;
 }
@@ -33,7 +23,6 @@ const judge = (dueAt: Date, finishedAt: Date | null, done: boolean, now: number,
   const completion: Completion = done ? 'done' : 'not_done';
   if (reopened) return { completion, compliance: 'reopened' };
   if (!done) return { completion, compliance: 'missed' };
-  // Done with no finish time on record cannot be late.
   return { completion, compliance: !finishedAt || finishedAt <= dueAt ? 'on_time' : 'late' };
 };
 
@@ -54,14 +43,12 @@ export const taskScore = (
   now: number,
 ): ItemScore => {
   const dueAt = toDate(t.dueDate);
-  // Same fallback as the server: handed in, else approved, else last touched.
   const finishedAt = toDate(t.submittedAt) ?? toDate(t.verifiedAt) ?? toDate(t.updatedAt);
   if (!dueAt || t.status === 'draft') return { scored: false, completion: 'not_counted', compliance: 'not_counted', dueAt, finishedAt, reopenCount: 0 };
   const done = t.status === 'done' || t.status === 'pending_approval';
   return { scored: true, dueAt, finishedAt: done ? finishedAt : null, reopenCount: 0, ...judge(dueAt, done ? finishedAt : null, done, now, false) };
 };
 
-/** "3h 20m", "2d 4h", "12m": a short span for a countdown or a lateness. */
 export const formatSpan = (ms: number) => {
   const mins = Math.max(0, Math.round(Math.abs(ms) / 60_000));
   if (mins < 60) return `${mins}m`;

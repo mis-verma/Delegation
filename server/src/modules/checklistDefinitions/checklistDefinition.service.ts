@@ -23,21 +23,12 @@ import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 
-// create/update/setActive/remove all end by broadcasting to every store this definition touches —
-// a definition can span several, and the Templates grid / builder open elsewhere need to hear
-// about all of them, not just the first.
 const emitToStores = (event: string, storeIds: string[], payload: unknown) => {
     for (const storeId of storeIds) emitChecklistEvent(event, { storeId }, payload)
 }
 
-// Soft-delete: remove() sets `deletedAt` instead of deleting the row (which used to cascade
-// through the entire items/stores/assignees/reviewers/instances tree — see remove()'s own
-// comment). Independent of `isActive` (a separate pause/resume switch) — every read path below
-// (list/getById/update/setActive/listAllChecklistDefinitions) must AND this in, and so must the
-// instance-generation sweep (checklistInstanceGenerator.job.ts).
 const NOT_DELETED = isNull(checklistDefinitions.deletedAt)
 
-// Mon–Sat (0 = Sunday). Same default migration 0023 applied to every existing daily checklist.
 const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6]
 
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
@@ -53,8 +44,6 @@ export type ListChecklistDefinitionsFilter = {
 
 const DEFINITION_DEFAULT_PAGE_SIZE = 50
 
-// Same shape/reasoning as checklistInstance.service.ts's own paginate/buildMeta — list() used to
-// hydrate every matching definition (items, stores, assignees, reviewers) on every call.
 const paginateDefinitions = (page?: number, limit?: number) => {
     const safePage = Math.max(1, Math.trunc(page ?? 1) || 1)
     const safeLimit = Math.min(200, Math.max(1, Math.trunc(limit ?? DEFINITION_DEFAULT_PAGE_SIZE) || DEFINITION_DEFAULT_PAGE_SIZE))
@@ -69,30 +58,17 @@ const buildDefinitionsMeta = (p: { page: number; limit: number }, total: number)
     hasNext: p.page * p.limit < total,
 })
 
-// currentRate: how far along the run(s) happening RIGHT NOW are (today's run for a daily checklist,
-// this week's for a weekly one), across every store; null when no run is live today (a day off, a
-// future start date). completionRate below is the lifetime figure over every run ever generated.
 type DefinitionStats = { completionRate: number | null; qualityRate: number | null; issueRate: number | null; currentRate: number | null }
 
 const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, DefinitionStats>> => {
     const map = new Map<string, DefinitionStats>()
     if (!definitionIds.length) return map
 
-    // Unbounded scan over every instance+item this definition has ever generated — unlike
-    // checklistInstance.service.ts's near-identical summary() aggregate, this used to recompute on
-    // every single list()/getById() call with no caching at all. Same short-TTL posture as
-    // summary(): these rates move whenever anyone ticks an item, so there's no clean "just
-    // changed" moment to invalidate on, and a fixed key per (sorted) id set means concurrent
-    // viewers of the same page/definition share one computation instead of each re-running it.
-    // periodStart/periodEnd are org-local calendar days written as UTC, so "now" has to be shifted
-    // into org-local time before it's compared with them (same offset the generator uses).
     const localNow = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const rows = await cached(
         cacheKey("checklist-definition-stats", [...definitionIds].sort().join(",")),
         30,
         async () => {
-            // db.execute() on the mysql2 driver resolves to the raw mysql2 tuple [rows, fields],
-            // NOT a plain row array — must destructure element 0 (see task.service.ts#complianceReport).
             const [rows] = await db.execute(sql`
                 SELECT
                     ci.definitionId AS definitionId,
@@ -130,9 +106,6 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, D
             currentRate: currentItems ? Math.round((Number(r.currentDone) / currentItems) * 100) : null,
             completionRate: totalItems ? Math.round((Number(r.doneItems) / totalItems) * 1000) / 10 : null,
             qualityRate: itemsRequiringPhotos ? Math.round((Number(r.photoCompliantItems) / itemsRequiringPhotos) * 1000) / 10 : null,
-            // Share of gated Yes/No-style items whose answer landed on the flagged branch —
-            // higher is worse (paired with `lowerIsBetter` wherever it's shown), null when this
-            // definition has no items an author actually gated with a conditional action.
             issueRate: gatedBooleanItems ? Math.round((Number(r.flaggedItems) / gatedBooleanItems) * 1000) / 10 : null,
         })
     }
@@ -160,8 +133,6 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         assigneeIdsByDefinition.set(link.definitionId, list)
     }
 
-    // The departments the checklist's people belong to: shown on the card so it is clear which teams
-    // it is for. Derived from the assignees, not stored, so it can never drift from who is assigned.
     const assigneeIdList = [...new Set(assigneeLinks.map((l) => l.userId))]
     const assigneeDepartments = assigneeIdList.length
         ? await db.select({ userId: users.id, departmentName: departments.name })
@@ -211,11 +182,6 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
     }))
 }
 
-// The client scopes the assignee/auditor pickers to the checklist's own target stores, but that's
-// just UI - nothing stopped a POST from naming a userId who belongs to a completely different
-// store (or no store at all). A checklist assigned to someone who can never see it in their own
-// store's queue isn't "assigned", it's silently lost, so this is enforced again here regardless of
-// what the client sent.
 const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], roleLabel: string) => {
     if (!userIds.length) return
     const uniqueIds = [...new Set(userIds)]
@@ -235,11 +201,6 @@ const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], 
     }
 }
 
-// Reviewers don't need to belong to the checklist's stores (they approve across them), but they do
-// have to exist and still work here: an unknown or departed id used to reach the insert and surface
-// as the generic "Referenced record does not exist" FK message. Reviewers the checklist already has
-// are left alone (`alreadyLinked`), so a person who has left since being added never blocks an
-// unrelated edit or a bulk import.
 const closedForToday = (def: { recurrence: string; opensTime: string | null; cutoffTime: string | null }): boolean => {
     if (def.recurrence !== "DAILY" || !def.cutoffTime) return false
     if (def.opensTime && def.cutoffTime < def.opensTime) return false
@@ -261,12 +222,6 @@ const assertReviewersValid = async (reviewerIds: string[] | undefined, alreadyLi
     if (rows.length !== fresh.length) throw AppError.badRequest("Some reviewers don't exist or have left.")
 }
 
-// Turns a stored definition item (as hydrateDefinitions returns it, audit users included) back into
-// the shape update() accepts. Anything that re-submits a definition's questions (the bulk import
-// does) MUST go through this: update() writes `?? null` for every field the input omits, so a
-// hand-built copy that forgets one column silently erases it on the next save. Every persisted
-// column is spread, including `id` (keeps today's runs linked to their question); only the row
-// bookkeeping is dropped, and nulls become undefined where the input schema has no null form.
 type StoredDefinitionItem = Awaited<ReturnType<typeof hydrateDefinitions>>[number]["items"][number]
 export const toItemInput = (item: StoredDefinitionItem): UpdateChecklistDefinitionInput["items"][number] => {
     const { createdAt: _createdAt, updatedAt: _updatedAt, definitionId: _definitionId, ...columns } = item
@@ -283,11 +238,6 @@ export const toItemInput = (item: StoredDefinitionItem): UpdateChecklistDefiniti
     }
 }
 
-// Internal, unbounded — for callers that must see every matching definition regardless of page
-// size (checklistBulkImport.service.ts's matchRows fuzzy-matches an uploaded row's checklist name
-// against every definition that exists; silently only searching the first page would misfile rows
-// for any org with more definitions than one page, which is worse than the query cost this
-// function exists to avoid). The paginated, HTTP-facing list() below is for the templates grid.
 export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefinitionsFilter, "storeId" | "recurrence" | "isActive"> = {}) => {
     const conditions = [NOT_DELETED]
     if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
@@ -307,7 +257,6 @@ export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefi
     return hydrateDefinitions(definitionRows)
 }
 
-// Question types that can carry a good-answer rule (see ChecklistDefinitionItem.acceptableAnswers).
 const SCORABLE_TYPES = new Set(["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN", "NUMBER_ENTRY", "RATING"])
 const RANGE_TYPES = new Set(["NUMBER_ENTRY", "RATING"])
 
@@ -319,11 +268,6 @@ const hasGoodAnswerRule = (item: { itemType: string; acceptableAnswers: string[]
 const GAP_LABELS_SHOWN = 5
 
 export const checklistDefinitionService = {
-    /**
-     * Live checklists whose questions could be scored but have no good answer set, so Answer
-     * compliance has nothing to count for them. One row per live definition that has at least one such
-     * question; fully set-up and score-less (no scorable question) checklists are left out.
-     */
     async scoringGaps() {
         const rows = await db
             .select({
@@ -367,9 +311,6 @@ export const checklistDefinitionService = {
             conditions.push(filter.draft ? and(eq(checklistDefinitions.isActive, false), noPeople)! : sql`NOT (${checklistDefinitions.isActive} = 0 AND ${noPeople})`)
         }
         if (filter.storeId) {
-            // Mongo/Mongoose matched an array field against a scalar as "array contains this
-            // value" — the equivalent here is a lookup against the junction table first, then
-            // filtering the definitions to just those ids.
             const links = await db
                 .select({ definitionId: checklistDefinitionStores.definitionId })
                 .from(checklistDefinitionStores)
@@ -407,9 +348,6 @@ export const checklistDefinitionService = {
 
         const definitionId = createId()
 
-        // Wrapped in a transaction (source had none) — creating a definition fans out into
-        // four related tables (stores, assignees, items, item auditors); a partial failure
-        // half-way through must not leave an orphaned/incomplete definition behind.
         await db.transaction(async (tx) => {
             await tx.insert(checklistDefinitions).values({
                 id: definitionId,
@@ -422,7 +360,6 @@ export const checklistDefinitionService = {
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
                 responseMode: input.responseMode ?? "SHARED",
-                // Daily checklists skip Sunday unless the admin picks their own working days.
                 activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
                 isActive: hasActivePeople,
                 createdBy: user.sub,
@@ -484,10 +421,6 @@ export const checklistDefinitionService = {
             }
         })
 
-
-        // The checklist is already saved at this point. If stamping out today's runs fails, report
-        // success anyway: the admin retrying would create a duplicate checklist, and the scheduled
-        // generator job picks the missing runs up on its next sweep.
         if (hasActivePeople) {
             try {
                 const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
@@ -522,9 +455,6 @@ export const checklistDefinitionService = {
         let lateToday = false
         const activePeopleCount = await countActiveUsers(input.assigneeIds)
 
-        // Captured before the update so a store REMOVED from storeIds still hears that this
-        // definition no longer applies to it, not just the (possibly different) stores it ends up
-        // targeting afterward.
         const oldStoreLinks = await db.select({ storeId: checklistDefinitionStores.storeId })
             .from(checklistDefinitionStores).where(eq(checklistDefinitionStores.definitionId, id))
         const affectedStoreIds = [...new Set([...oldStoreLinks.map(l => l.storeId), ...input.storeIds])]
@@ -533,9 +463,6 @@ export const checklistDefinitionService = {
         await assertReviewersValid(input.reviewerIds, oldReviewerLinks.map(l => l.userId))
 
         await db.transaction(async (tx) => {
-            // Locked (not a plain select) so two concurrent update() calls can't both read the
-            // same version and both pass the check below — the second waits for the first's
-            // transaction to commit (bumping the version), then genuinely sees the new value.
             const [existing] = await tx
                 .select({ id: checklistDefinitions.id, version: checklistDefinitions.version, isActive: checklistDefinitions.isActive })
                 .from(checklistDefinitions)
@@ -543,10 +470,6 @@ export const checklistDefinitionService = {
                 .for("update")
                 .limit(1)
             if (!existing) throw AppError.notFound("Checklist not found")
-            // Optimistic-concurrency guard: the client sends back whichever version it loaded the
-            // checklist at. If someone else has saved a change since, this no longer matches, and
-            // a full-replace write here would silently discard their changes with no warning —
-            // reject instead and ask the admin to reload and reapply their edit.
             if (existing.version !== input.version) {
                 throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
             }
@@ -566,9 +489,7 @@ export const checklistDefinitionService = {
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
-                // Omitted (an older client) keeps the current mode.
                 ...(input.responseMode ? { responseMode: input.responseMode } : {}),
-                // Omitted (an older client) keeps whatever days were already set.
                 ...(input.recurrence !== "DAILY" ? { activeWeekdays: null } : input.activeWeekdays !== undefined ? { activeWeekdays: input.activeWeekdays } : {}),
                 isActive: nextActive,
                 version: existing.version + 1,
@@ -590,11 +511,6 @@ export const checklistDefinitionService = {
                     input.reviewerIds.map(userId => ({ definitionId: id, userId })),
                 )
             }
-            // A question the builder loaded comes back with its id. Keeping that id (rather than
-            // minting a new one on every save) is what lets a run that's already started stay linked
-            // to its question, so a rename or move reaches it instead of reading as "one question
-            // deleted, another added". Only ids that really belong to THIS checklist are honoured, and
-            // each at most once; a new question, a copied one or anyone else's id gets a fresh id.
             const existingItemRows = await tx.select({ id: checklistDefinitionItems.id }).from(checklistDefinitionItems)
                 .where(eq(checklistDefinitionItems.definitionId, id))
             const existingItemIds = new Set(existingItemRows.map((r) => r.id))
@@ -648,12 +564,6 @@ export const checklistDefinitionService = {
                 }
             }
            
-            // Deletes the OLD item rows (every row for this definition NOT among the ones just
-            // inserted above) so the fresh insert-then-delete-stale pattern actually replaces the
-            // item list. This used to delete `inArray(..., newItemIds)` — the rows just inserted —
-            // which discarded every edit silently: the new rows were inserted then immediately
-            // deleted in the same transaction, leaving the untouched originals as the "current"
-            // items. `notInArray` is what makes stale-row cleanup instead of self-sabotage.
             await tx.delete(checklistDefinitionItems).where(
                 newItemIds.length
                     ? and(eq(checklistDefinitionItems.definitionId, id), notInArray(checklistDefinitionItems.id, newItemIds))
@@ -661,8 +571,6 @@ export const checklistDefinitionService = {
             )
         })
 
-        // Only touch runs if this definition is still active - an admin editing a deactivated
-        // checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
         let liveRuns: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
         if (pausedForNoPeople) {
             try {
@@ -672,16 +580,10 @@ export const checklistDefinitionService = {
             }
         }
         if (isActiveAfter) {
-            // The edit is already committed. A failure here must not read as a failed save (a retry
-            // would hit the version check and 409), so log it and report zero runs touched; the
-            // scheduled generator job catches today's runs up.
             try {
                 const definitionForGeneration = await loadDefinitionForGeneration(id)
                 if (definitionForGeneration) {
                     const now = new Date()
-                    // First bring this period's existing runs up to date — rebuilt if nobody started
-                    // them, merged (answers kept) if someone did, see syncLiveInstances — THEN stamp out
-                    // any that are missing, e.g. for a store the edit just added.
                     liveRuns = await syncLiveInstances(definitionForGeneration, now)
                     await generateInstanceForDefinition(definitionForGeneration, now)
                 }
@@ -710,39 +612,23 @@ export const checklistDefinitionService = {
             if ((await countActiveUsers(assigned.map((a) => a.userId))) === 0) throw AppError.badRequest("Nobody active is assigned to fill this checklist in yet. Edit it, add the people, and it goes live by itself.")
         }
         await db.update(checklistDefinitions).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
-        // Pause takes effect now, not at midnight: today's run nobody started leaves everyone's list and is
-        // never counted as missed. Resume brings the current run straight back instead of waiting for the
-        // next sweep. Either side failing must not undo the switch, so it is logged, and the sweep catches up.
         try {
             if (!input.isActive) {
                 await dropUntouchedCurrentRunsFor(id)
             } else {
                 const definition = await loadDefinitionForGeneration(id)
                 if (definition) await generateInstanceForDefinition(definition, new Date())
-                // The older runs hidden while paused come back on people's lists; clear their cached counts.
                 await clearSummariesForDefinition(id)
             }
         } catch (err) {
             console.error(`[checklistDefinition.setActive] ${id} switched, but its current runs were not updated`, err)
         }
         const updated = await this.getById(id)
-        // Its own action: deactivating a checklist silently stops instances being generated, which
-        // is the kind of change people later swear nobody made.
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: input.isActive ? "ACTIVATE" : "DEACTIVATE", actorId, after: updated })
         emitToStores("checklist-definition:updated", updated.storeIds, { definitionId: id })
         return updated
     },
 
-    // Soft delete: sets deletedAt instead of removing the row. Used to be a single `db.delete()`
-    // relying on the Drizzle schema's `onDelete: 'cascade'` chain (definition -> items, stores,
-    // assignees, reviewers, and every generated ChecklistInstance -> that instance's own
-    // assignees/items -> images/submissions -> submission accessories/images) to clean up every
-    // descendant table in one statement. None of that runs now: every item, store, assignee,
-    // reviewer, and — most importantly — every historical instance (with its submitted photos and
-    // answers) stays exactly as it was, so the checklist's full audit trail survives a "delete."
-    // Every read path in this file (list/getById/update/setActive/listAllChecklistDefinitions)
-    // hides it from here on via NOT_DELETED, and the instance-generation sweep
-    // (checklistInstanceGenerator.job.ts) excludes it too so it never generates another run.
     async remove(id: string, actorId: string) {
         const existing = await this.getById(id).catch(() => null)
         if (!existing) throw AppError.notFound("Checklist not found")
@@ -753,8 +639,6 @@ export const checklistDefinitionService = {
         return existing
     },
 
-    // Undo for remove(). The delete only stamps deletedAt (every item, run and photo is kept), so putting it
-    // back is clearing that stamp: the checklist, its runs and its schedule all come back as they were.
     async restore(id: string, actorId: string) {
         const [row] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
             .where(and(eq(checklistDefinitions.id, id), isNotNull(checklistDefinitions.deletedAt))).limit(1)

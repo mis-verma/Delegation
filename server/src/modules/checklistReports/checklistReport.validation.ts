@@ -5,9 +5,6 @@ export const MAX_RANGE_DAYS = 366
 const DAY_MS = 86_400_000
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
-// "YYYY-MM-DD" is taken as the org-local day it already is. A full ISO timestamp is a real instant,
-// so it is shifted by the org offset to find the org-local day it falls on (periodStart is stored
-// as that org-local day written as UTC midnight, see utils/period.ts).
 const toLocalDay = (value: string): string | null => {
     if (DATE_ONLY.test(value)) {
         return Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) ? null : value
@@ -17,7 +14,6 @@ const toLocalDay = (value: string): string | null => {
     return new Date(ms + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10)
 }
 
-// Empty strings from a cleared filter on the client mean "no filter".
 const optionalId = z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().min(1).max(191).optional())
 const optionalDate = z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
@@ -35,8 +31,6 @@ const baseSchema = z.object({
     groupBy: z.enum(CHECKLIST_REPORT_GROUPINGS).default("both"),
 })
 
-// Resolves the defaults (last 30 days ending today, org-local) and enforces the range rules, so the
-// service always receives two valid YYYY-MM-DD strings with from <= to and at most 366 days apart.
 const resolveRange = <T extends z.infer<typeof baseSchema>>(q: T, ctx: z.RefinementCtx) => {
     const today = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10)
     const to = q.to ? toLocalDay(q.to)! : today

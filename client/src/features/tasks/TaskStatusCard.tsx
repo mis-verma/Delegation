@@ -17,14 +17,9 @@ const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
 interface TaskStatusCardProps {
   task: Task;
   nameOf: (id: string | null | undefined) => string | undefined;
-  /** Used for the "waiting for the <department> manager to pick someone" line. */
   departmentName?: string;
 }
 
-/**
- * Where a delegation stands: the status chip, who it is waiting on, and when it is due. The stepper
- * below shows the path; the Score card (ItemScoreCard) shows how it counts.
- */
 export const TaskStatusCard = ({ task, nameOf, departmentName }: TaskStatusCardProps) => {
   const now = useNow();
   const { who, due } = waitingLine(task, now, nameOf, departmentName);

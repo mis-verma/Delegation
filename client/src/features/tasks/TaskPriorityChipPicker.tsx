@@ -4,10 +4,6 @@ import type { Task } from '../../api/task';
 
 const OPTIONS = (['low', 'medium', 'high'] as const).map((p) => ({ value: p, label: PRIORITY_MAP[p].label, solid: PRIORITY_MAP[p].solid, icon: PRIORITY_MAP[p].icon }));
 
-/**
- * Delegation and To-Do priority, on the shared PrioritySelect (the app's one dropdown, with the gradient priority
- * tiles). `fullWidth` fills the field in a form; without it the select sits inline beside other controls.
- */
 export const TaskPriorityChipPicker = ({
   value,
   onChange,

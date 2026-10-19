@@ -9,8 +9,6 @@ interface ResetPasswordDialogProps {
   onClose: () => void;
 }
 
-// The "Reset password" item in a person's menu: just the password section, in its own small dialog,
-// so resetting a password never means opening the whole profile form.
 export const ResetPasswordDialog = ({ user, onClose }: ResetPasswordDialogProps) => (
   <Modal
     open

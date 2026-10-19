@@ -93,7 +93,6 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
   const date = new Date(e.at);
   return (
     <li className="relative">
-      {/* One node per entry on the rail: a gradient disc in the colour of the action, with its icon in white. */}
       <span className={cn(NODE_CLASS, TONE[tone])} title={e.kind.replace('_', ' ')} aria-hidden>
         <Icon size={14} strokeWidth={2.5} />
       </span>
@@ -114,12 +113,6 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
   );
 };
 
-/**
- * A plain history for the people who work on a delegation or ticket: who made it, who moved it, who
- * approved or sent it back, and when its due date, priority or assignee changed, with a one-glance
- * summary on top. It never shows descriptions, remarks on other fields or attachments. The server decides
- * who may read a record's history and answers 403 to everyone else, in which case nothing renders.
- */
 export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEntity; entityId: string }) => {
   const [shown, setShown] = useState(PAGE);
   const { data, isPending, error, isError } = useQuery({

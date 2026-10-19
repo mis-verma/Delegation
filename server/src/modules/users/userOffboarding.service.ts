@@ -26,11 +26,6 @@ import { invalidateAuthUsers } from "../../middleware/auth/authCache.js"
 import { assertCanDeactivate, revokeSessions } from "./userGuards.js"
 import { refreshLiveChecklistsForDefinitions } from "./userChecklistSync.js"
 
-// What someone still holds when they leave. Deactivating (never deleting) keeps their name on every
-// old record, so this is only about work that is still OPEN and would otherwise be left with nobody:
-// open tickets and tasks, the checklists they fill in or review, the categories that route to them,
-// projects they own, open checklist items assigned to them. Being audited is removed outright
-// (nobody is checked once they have left), no transfer needed.
 export type OffboardingSummary = {
     openTickets: number
     openTasks: number
@@ -38,7 +33,6 @@ export type OffboardingSummary = {
     categories: { id: string; name: string }[]
     auditQuestions: number
     hasOpenWork: boolean
-    // Added fields (the original ones above are unchanged).
     reviewerChecklists: { id: string; name: string }[]
     projectsOwned: { id: string; name: string }[]
     projectMemberships: number
@@ -104,9 +98,6 @@ export const userOffboardingService = {
             checklists,
             categories: cats,
             auditQuestions: audits.length,
-            // Project owner can't be left empty, and open checklist items would silently lose their
-            // person, so those need someone to take over too. Reviewer roles, project memberships and
-            // template defaults can simply be dropped.
             hasOpenWork: openTickets.length > 0 || openTasks.size > 0 || checklists.length > 0 || cats.length > 0
                 || projectsOwned.length > 0 || taskItems.length > 0 || ticketItems.length > 0,
             reviewerChecklists,
@@ -118,9 +109,6 @@ export const userOffboardingService = {
         }
     },
 
-    // Switch a person off properly: hand their open work to someone, take them out of checklists and
-    // audits, end their sessions and mark them inactive, all or nothing. They keep their name on every
-    // old ticket, task and checklist; they just can't log in or be picked any more.
     async offboard(userId: string, input: { transferToUserId?: string }, actorId: string) {
         const [user] = await db.select({ id: users.id, role: users.role, firstName: users.firstName, lastName: users.lastName, isActive: users.isActive })
             .from(users).where(eq(users.id, userId)).limit(1)
@@ -142,8 +130,6 @@ export const userOffboardingService = {
             transferee = { id: row.id, storeId: row.storeId }
         }
 
-        // A checklist's people must belong to its stores. The new person can take a checklist over only
-        // if they do; if not, the checklist can still lose this person as long as someone else is left.
         const checklistPlans: { id: string; name: string; addTransferee: boolean }[] = []
         for (const c of summary.checklists) {
             const stores = await db.select({ storeId: checklistDefinitionStores.storeId }).from(checklistDefinitionStores)
@@ -172,13 +158,9 @@ export const userOffboardingService = {
         const leaverName = `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
         const reviewerDefinitionIds = new Set<string>()
 
-        // What really moved, counted from the database's own affected-row counts inside the
-        // transaction rather than from the earlier read (which could be stale by now).
         const moved = { tickets: 0, tasks: 0, taskChecklistItems: 0, ticketChecklistItems: 0, projects: 0, reviewerSwaps: 0 }
 
         await db.transaction(async (tx) => {
-            // Re-check the last-admin rule under a lock, then switch the person off FIRST: from here
-            // on nothing new can be handed to them, and a second offboard of the same person fails.
             await assertCanDeactivate(userId, user.role, actorId, tx)
             const now = new Date()
             const [off] = await tx.update(users)
@@ -191,7 +173,6 @@ export const userOffboardingService = {
                 const [t] = await tx.select({ isActive: users.isActive }).from(users).where(eq(users.id, transferee.id)).limit(1)
                 if (!t?.isActive) throw AppError.badRequest("The person taking over must be an active user.")
             } else {
-                // Nobody to hand to: make sure nothing that needs a new owner appeared since the check above.
                 const [stillTicket] = await tx.select({ id: tickets.id }).from(tickets)
                     .where(and(eq(tickets.assigneeId, userId), ne(tickets.status, "CLOSED"), isNull(tickets.deletedAt))).limit(1)
                 const [stillTask] = await tx.select({ id: tasks.id }).from(tasks)
@@ -216,7 +197,6 @@ export const userOffboardingService = {
             })
 
             if (transferee) {
-                // Tickets and delegations: one audit row each, so the history shows who took it over.
                 const ticketIds = (await tx.select({ id: tickets.id }).from(tickets)
                     .where(and(eq(tickets.assigneeId, userId), ne(tickets.status, "CLOSED"), isNull(tickets.deletedAt)))).map((r) => r.id)
                 for (const ids of chunk(ticketIds)) {
@@ -235,7 +215,6 @@ export const userOffboardingService = {
                     await tx.insert(auditLogs).values(ids.map((id) => handoverAudit("Task", id)))
                 }
 
-                // Tasks where they were an extra assignee: swap them for the new person (once).
                 const extra = await tx.select({ taskId: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees)
                     .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
                     .where(and(eq(taskAdditionalAssignees.userId, userId), ne(tasks.status, "done"), isNull(tasks.deletedAt)))
@@ -258,24 +237,20 @@ export const userOffboardingService = {
                     if (!already) await tx.insert(categoryAssignees).values({ categoryId: c.id, userId: transferee.id })
                 }
 
-                // Projects they own go to the new person (an owner can't be empty).
                 const [ownedRes] = await tx.update(projects).set({ ownerId: transferee.id, updatedAt: now }).where(eq(projects.ownerId, userId))
                 moved.projects = ownedRes.affectedRows
             }
             await tx.delete(categoryAssignees).where(eq(categoryAssignees.userId, userId))
 
-            // Open checklist lines assigned to them go to the new person, or are left unassigned.
             const [taskItemRes] = await tx.update(taskChecklistItems).set({ assigneeId: newOwner, updatedAt: now })
                 .where(and(eq(taskChecklistItems.assigneeId, userId), eq(taskChecklistItems.isDone, false)))
             moved.taskChecklistItems = taskItemRes.affectedRows
             const [ticketItemRes] = await tx.update(checklistItems).set({ assigneeId: newOwner, updatedAt: now })
                 .where(and(eq(checklistItems.assigneeId, userId), eq(checklistItems.isDone, false)))
             moved.ticketChecklistItems = ticketItemRes.affectedRows
-            // Templates keep working: the default person is swapped, or cleared.
             await tx.update(checklistTemplateItems).set({ defaultAssigneeId: newOwner, updatedAt: now })
                 .where(eq(checklistTemplateItems.defaultAssigneeId, userId))
 
-            // Project membership: swap for the new person (once), or just drop the leaver.
             const memberships = await tx.select({ projectId: projectMembers.projectId }).from(projectMembers).where(eq(projectMembers.userId, userId))
             for (const { projectId } of memberships) {
                 if (!transferee) break
@@ -287,7 +262,6 @@ export const userOffboardingService = {
             }
             await tx.delete(projectMembers).where(eq(projectMembers.userId, userId))
 
-            // Checklists they review: the new person takes the seat (once), or the seat is dropped.
             const reviewerRows = await tx.select({ definitionId: checklistDefinitionReviewers.definitionId }).from(checklistDefinitionReviewers)
                 .where(eq(checklistDefinitionReviewers.userId, userId))
             for (const { definitionId } of reviewerRows) {
@@ -332,17 +306,14 @@ export const userOffboardingService = {
             })
         })
 
-        // Open sockets of the person who left drop now (they can't reconnect: they're inactive).
         await invalidateAuthUsers(userId)
         disconnectUserSockets(userId)
 
-        // Today's checklists follow straight away: the person who left drops off, the new one takes over.
         await refreshLiveChecklistsForDefinitions(
             [...checklistPlans.map((p) => p.id), ...auditedDefinitionIds, ...reviewerDefinitionIds],
             `offboarding ${userId}`,
         )
 
-        // One heads-up to the person who took over, instead of one per item.
         if (transferee) {
             const items = moved.tickets + moved.tasks + moved.projects + summary.checklists.length + summary.categories.length
             if (items > 0) {

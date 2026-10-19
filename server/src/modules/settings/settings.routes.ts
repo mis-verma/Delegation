@@ -5,8 +5,6 @@ import { logoUpload } from "../../config/upload.js"
 
 export const settingsRouter = Router()
 
-// Ahead of the authenticate gate below on purpose: the client needs to know whether the app is
-// under maintenance before it can assume anyone is logged in.
 settingsRouter.get("/status", settingsController.status)
 
 settingsRouter.use(authenticate)

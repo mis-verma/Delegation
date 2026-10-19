@@ -20,9 +20,6 @@ export const ticketCommentService = {
             authorId: user.sub,
         })
 
-        // A plain LEFT JOIN rather than the relational query API's `with` (which Drizzle
-        // implements via LATERAL joins on mysql2) — the actual database this app runs against
-        // (MariaDB 10.11) doesn't support LATERAL joins at all.
         const [row] = await db
             .select({
                 comment: ticketComments,

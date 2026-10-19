@@ -22,17 +22,14 @@ interface ScoreRowDialogProps {
   windowLabel: string;
   window: ItemLinkWindow;
   orgWide: boolean;
-  /** Who the rows of this level belong to (the person, department or store you opened), for checklist and module rows. */
   parentSubject: DrillSubject;
   onClose: () => void;
   onDrill: (row: ExplorerRow, view: ExplorerView) => void;
 }
 
-/** The subject whose items a row's links open: the row itself for people, departments and stores, else what you opened. */
 const subjectOf = (row: ExplorerRow, parentSubject: DrillSubject): DrillSubject =>
   row.kind === 'department' || row.kind === 'store' || row.kind === 'person' ? { kind: row.kind, id: row.id } : parentSubject;
 
-/** One row in full: each module's figures with the counts behind them, the buttons that open what is inside it, and links to the actual items. */
 export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, parentSubject, onClose, onDrill }: ScoreRowDialogProps) => (
   <Dialog open={!!row} onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="gap-4 p-5 sm:max-w-lg sm:p-6">
@@ -57,7 +54,6 @@ export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, par
           <div className="flex flex-col gap-3">
             {modules.map((m) => {
               const b = row[m];
-              // Work with nobody behind it (Unassigned, an overall total) has no one list to open.
               const links: DrillLink[] = b.due > 0 && row.kind !== 'unassigned' && row.kind !== 'total' ? itemLinksFor(orgWide, subjectOf(row, parentSubject), window, row, m) : [];
               return (
                 <div key={m} className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">

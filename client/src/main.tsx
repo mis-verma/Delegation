@@ -14,12 +14,9 @@ import { registerServiceWorker } from './lib/pwa.ts';
 import { listenForInstallPrompt } from './lib/installPrompt';
 import { OfflineBanner } from './components/offlineBanner/OfflineBanner.tsx';
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
 
-    // retry/retryDelay: see queryHelpers.ts. Retries a busy or rate-limited server with a spread-out
-    // backoff instead of failing at once (or retrying a doomed 403/404 three times).
     queries: { staleTime: 30_000, retry: handleQueryRetry, retryDelay: queryRetryDelay },
   },
 });
@@ -31,7 +28,6 @@ if (import.meta.env.DEV) {
   document.body.classList.add('debug-screens');
 }
 
-// A light buzz on every tap on a phone (Android browsers; iPhone Safari has no vibration). Settings can turn it off.
 installTapHaptics();
 
 createRoot(document.getElementById('root')!).render(

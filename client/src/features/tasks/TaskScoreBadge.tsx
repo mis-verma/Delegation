@@ -2,7 +2,6 @@ import { TASK_SCORE, taskScorePercent } from './taskDisplay';
 import { cn } from '@/lib/utils';
 import type { Task } from '../../api/task';
 
-// Done is green, anything underway is the app's blue, not started is neutral grey.
 const scoreColor = (status: Task['status']) => {
   const score = TASK_SCORE[status];
   if (score >= 1) return 'text-success';
@@ -17,7 +16,6 @@ interface RingProps {
   className?: string;
 }
 
-// A small progress ring: a faint full circle with the earned part drawn over it.
 const ScoreRing = ({ percent, size, stroke, className }: RingProps) => {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -44,7 +42,6 @@ interface TaskScoreBadgeProps {
   status: Task['status'];
 }
 
-/** The small score pill, on cards and beside the status chip in the detail sheet's status card. */
 export const TaskScoreBadge = ({ status }: TaskScoreBadgeProps) => {
   const percent = taskScorePercent(status);
   const color = scoreColor(status);

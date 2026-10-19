@@ -8,17 +8,8 @@ interface ImageLightboxProps {
   onClose: () => void;
 }
 
-/** Pull the photo down this far (px) to close. */
 const SWIPE_CLOSE_PX = 96;
 
-// Shared full-screen preview, used by the ticket and delegation detail sheets' attachments and
-// ImageUploader's local previews, so "tap to preview" behaves the same everywhere.
-//
-// Built on Radix Dialog (its own portal on document.body, z-[90], above dialogs at z-[70] and
-// popovers at z-[80]) so it stacks cleanly on top of the sheet it was opened from: Escape, the
-// focus trap and outside taps all go to this layer first and never close the sheet underneath.
-// Closes on the X, a tap on the dark backdrop, Escape, the phone back gesture, or pulling the photo
-// down. No fade or shadow; it just appears.
 export const ImageLightbox = ({ src, onClose }: ImageLightboxProps) => {
   const open = !!src;
   useCloseOnBack(open, onClose);
@@ -58,8 +49,6 @@ export const ImageLightbox = ({ src, onClose }: ImageLightboxProps) => {
         <DialogPrimitive.Content
           aria-label="Image preview"
           aria-describedby={undefined}
-          // The content fills the screen so the photo can be centred; a tap on the dark area around
-          // the photo (the content itself, not the image) closes it.
           onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
           className="fixed inset-0 z-[90] flex items-center justify-center p-4 outline-none"
         >

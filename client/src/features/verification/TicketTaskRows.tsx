@@ -15,12 +15,6 @@ import { TaskDetail } from '../tasks/TaskDetail';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 
-// The ticket and delegation rows of the queue. Each row now carries what a reviewer needs to decide
-// without opening it: who raised it, its priority and department, how long it has waited against the
-// 24 hour promise, the note it was handed in with, and a strip of the photos attached. Approve and
-// Send back go through the page's Undo window (see useDeferredDecisions) instead of firing at once.
-
-/** Visually-hidden native checkbox + styled box, same pattern StoreMultiSelect.tsx uses. */
 const SelectCheckbox = ({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) => (
   <label className="relative flex items-center justify-center size-11 sm:size-6 shrink-0 cursor-pointer" onClick={(e) => e.stopPropagation()}>
     <input type="checkbox" className="peer sr-only" checked={checked} onChange={onChange} aria-label={label} />
@@ -35,7 +29,6 @@ const SelectCheckbox = ({ checked, onChange, label }: { checked: boolean; onChan
   </label>
 );
 
-/** One attached file, reduced to what a thumbnail needs. */
 export interface EvidenceFile {
   id: string;
   url: string;
@@ -45,7 +38,6 @@ export interface EvidenceFile {
 
 const HOUR_MS = 3_600_000;
 
-// Against the 24 hour promise: quiet under 12 hours, amber from 12, red past 24.
 const waitingLook = (sinceMs: number, now: number) => {
   const hours = (now - sinceMs) / HOUR_MS;
   if (hours >= 24) return { tone: 'bg-danger', text: 'text-danger', suffix: ', over 24h' };
@@ -85,28 +77,18 @@ const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
 interface QueueRowProps {
   icon: ReactNode;
   title: string;
-  /** Plain-text facts under the title, e.g. "Raised by Asha, handled by Ravi". */
   facts: string;
-  /** Chips: priority and department, then how long it has waited. */
   chips: ReactNode;
-  /** The remark the person handed it in with, if there is one. */
   note: string | null;
   evidence: EvidenceFile[];
   onOpen: () => void;
   onApprove: () => void;
   onSendBack: (note: string) => void;
-  /** Bulk-select checkbox, only inside a department's ticket/delegation list. */
   selection?: { checked: boolean; onToggle: () => void };
-  /** Checklist completion (done/not-done, photo evidence), the thing a verifier needs to check
-   *  before approving. Controlled by the parent: a delegation's checklist has to be fetched the
-   *  first time it opens, keyed off the same flag. */
   expanded: boolean;
   onToggleExpanded: () => void;
-  /** Render-prop so the preview's per-item flag button can reach this row's correction note. */
   preview: (flagForCorrection: (label: string) => void) => ReactNode;
-  /** Done / total / missing-photo rollup, shown as a badge before the row is expanded. */
   summary?: { total: number; done: number; missingPhotos: number };
-  /** Called when the pointer or focus first lands on the row, so slow data can be fetched early. */
   onWarm?: () => void;
 }
 
@@ -114,8 +96,6 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
   const [rejecting, setRejecting] = useState(false);
   const [text, setText] = useState('');
 
-  // A flagged item opens the correction panel and drops a reference to itself into the note, so
-  // the verifier does not retype what they just read. Flagging the same item twice adds it once.
   const flagForCorrection = (label: string) => {
     setRejecting(true);
     const line = `• ${label}: needs attention`;
@@ -138,8 +118,6 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
         <div className="flex items-start gap-3 min-w-0 flex-1">
           {selection && <SelectCheckbox checked={selection.checked} onChange={selection.onToggle} label={`Select ${title}`} />}
 
-          {/* Its own button, not the whole row, so a clickable row never wraps the action buttons
-              and the note box. It opens the real ticket or delegation detail. */}
           <button
             type="button"
             onClick={onOpen}
@@ -200,7 +178,6 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
         )}
       </div>
 
-      {/* What it was handed in with: the person's own words, then the photos they attached. */}
       {(note || evidence.length > 0) && (
         <div className="flex flex-col gap-2.5 sm:pl-12">
           {note && (
@@ -239,7 +216,6 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
 
 interface SelectableProps {
   selected?: boolean;
-  /** One stable toggle for the whole list; the row passes its own id back. Omit to hide the checkbox. */
   onToggleSelect?: (id: string) => void;
 }
 
@@ -255,13 +231,9 @@ const asEvidence = (list: { id: string; url: string; mimeType: string; originalF
   list.map((a) => ({ id: a.id, url: a.url, mimeType: a.mimeType, name: a.originalFilename }));
 
 export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { ticket: Ticket } & DecisionProps & SelectableProps) {
-  // The ticket list already returns full checklist/item/image data, so no extra fetch is needed.
   const [expanded, setExpanded] = useState(false);
-  // TicketDetail opens as a side sheet over this page, so the department, filters and scroll
-  // position behind it survive a look at one ticket.
   const [showDetail, setShowDetail] = useState(false);
 
-  // The latest hand-in: when it was sent for approval, what was said, and which photos came with it.
   const handIns = ticket.statusUpdates.filter((u) => u.toStatus === 'PENDING_APPROVAL');
   const latest = handIns.length ? handIns.reduce((a, b) => (new Date(b.createdAt) > new Date(a.createdAt) ? b : a)) : null;
   const since = new Date(latest?.createdAt ?? ticket.updatedAt).getTime();
@@ -298,9 +270,6 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
 });
 
 export const TaskRow = memo(function TaskRow({ task, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { task: Task } & DecisionProps & SelectableProps) {
-  // A delegation's LIST response never carries checklist data, only getById does. Fetched when the
-  // row expands (or, a moment earlier, when the pointer first lands on it), so opening the queue does
-  // not fire a detail request per pending delegation.
   const [expanded, setExpanded] = useState(false);
   const [warmed, setWarmed] = useState(false);
   const { data: fullTask, isPending: isDetailPending } = useTaskQuery(task.id, expanded || warmed);
@@ -331,8 +300,6 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         expanded={expanded}
         onToggleExpanded={() => setExpanded((v) => !v)}
         onWarm={() => setWarmed(true)}
-        // Once expanded, fullTask.checklists is the fresher source; until then the list endpoint's
-        // batched rollup keeps the badge showing without waiting on the per-row fetch.
         summary={expanded && fullTask ? summarizeChecklists(fullTask.checklists) : task.checklistSummary}
         preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}

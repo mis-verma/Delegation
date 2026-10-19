@@ -18,7 +18,6 @@ interface RowProps {
   onDelete: (type: DressType) => void;
 }
 
-// A card on a phone (details on top, controls underneath), a single row from sm.
 const DressTypeRow = memo(({ type, busy, onToggleActive, onEdit, onDelete }: RowProps) => (
   <li
     className={cn(
@@ -89,11 +88,6 @@ const DressTypeRowSkeleton = () => (
   </div>
 );
 
-/**
- * The catalog of dress types an audit can check people against (Saree, Coat and pant, Kurta...).
- * Each type is for women, men or anyone; the lists of items per type are set on the audit question
- * in the checklist builder, and a person's type on their profile.
- */
 export const DressTypesPage = () => {
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);

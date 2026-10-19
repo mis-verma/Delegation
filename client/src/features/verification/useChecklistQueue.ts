@@ -13,7 +13,6 @@ import {
 const CHECKLIST_PAGE_SIZE = 50;
 const STALE_MS = 30_000;
 
-/** The clock, ticking once a minute, so "2 days" and the age filter stay honest on a page left open. */
 export const useNow = (): number => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -23,9 +22,6 @@ export const useNow = (): number => {
   return now;
 };
 
-// The runs waiting on this reviewer, 50 a page. One query for the whole screen: search, sort and
-// filters work on what is loaded, and the Verification page and the department Approvals page share
-// the cache. No refetch on window focus; a decision invalidates ['checklist-instances'] anyway.
 export const useChecklistQueueQuery = () => {
   const { token } = useAuth();
   return useInfiniteQuery({
@@ -47,7 +43,6 @@ export interface QueueLookups {
   people: { id: string; name: string; departmentId: string | null }[];
 }
 
-/** Stores, departments and people, loaded once and shared (5-minute cache in the hooks). */
 export const useQueueLookups = (): QueueLookups => {
   const { data: storesData } = useStoresQuery();
   const { data: departmentsData } = useDepartmentsQuery();
@@ -69,7 +64,6 @@ export const useQueueLookups = (): QueueLookups => {
   return useMemo(() => ({ stores, departments, people }), [stores, departments, people]);
 };
 
-/** Every loaded run with its risk read-out, store, people and department worked out once. */
 export const useChecklistRows = (instances: ChecklistInstance[], lookups: QueueLookups): ChecklistRow[] =>
   useMemo(() => {
     const storeById = new Map(lookups.stores.map((s) => [s.id, s.name]));
@@ -108,7 +102,6 @@ export interface ChecklistFilters {
   sort: SortKey;
 }
 
-/** The rows the reviewer should see: hidden (just decided) ones dropped, filters applied, then sorted. */
 export const useVisibleChecklistRows = (
   rows: ChecklistRow[],
   filters: ChecklistFilters,

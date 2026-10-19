@@ -13,7 +13,6 @@ import { DepartmentLine, NumCell, NumHead, SortHead } from './scoreTableParts';
 const MEASURES: readonly Measure[] = ['completion', 'compliance'];
 const measureName = (m: ScoreModule, measure: Measure) => (measure === 'completion' ? SCORE_LABEL.completion : complianceLabel(m));
 
-/** Left and inactive people and stores, in words, as the shared chip. */
 const StatusTag = ({ row }: { row: ExplorerRow }) => {
   if (row.left) return <ScoreChip label="Left" icon={UserMinus} />;
   if (row.inactive) return <ScoreChip label="Inactive" icon={PowerOff} />;
@@ -28,7 +27,6 @@ const SharedMarker = ({ row }: { row: ExplorerRow }) => {
   );
 };
 
-/** Name, tags and the small notes under it: shared runs, a recurrence, nothing due. */
 const NameBlock = ({ row, view }: { row: ExplorerRow; view: ExplorerView }) => (
   <span className="flex min-w-0 flex-col gap-0.5 text-left">
     <span className="flex flex-wrap items-center gap-1.5">
@@ -59,7 +57,6 @@ interface ScoresTableProps {
   caption: string;
 }
 
-/** Tablet and desktop: a sortable table, the modules as column groups, the header held in view while the rows scroll. */
 export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascending, onSort, onOpen, onDrill, caption }: ScoresTableProps) => (
   <div className={TABLE_FRAME_CLASS}>
     <table className="w-full border-collapse text-left">

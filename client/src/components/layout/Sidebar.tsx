@@ -54,7 +54,6 @@ const TASK_CHILDREN: NavChild[] = [
 
 const PENDING_APPROVALS_CHILD: NavChild = { to: '/tasks?status=pending_approval', label: 'Pending Approvals' };
 const SMART_DELEGATIONS_CHILD: NavChild = { to: '/tasks/smart', label: 'Smart Delegations' };
-// Only Admin and PC can delete or restore a delegation (server route gate), so only they get Archived.
 const TASK_ADMIN_CHILDREN: NavChild[] = [
   { to: '/tasks/team', label: 'Team Delegations' },
   { to: '/tasks/archived', label: 'Archived' },
@@ -66,7 +65,6 @@ const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'H
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
 
 const NAV: NavItem[] = [
-  // One icon per module, the same in the sidebar, the bottom bar and the dashboard cards.
   { to: '/', icon: LayoutGrid, label: 'Dashboard' },
   { to: '/tasks', icon: ClipboardList, label: 'Delegation', children: TASK_CHILDREN },
   { to: '/tickets', icon: TicketCheck, label: 'Tickets' },
@@ -84,14 +82,8 @@ const isChildActive = (child: NavChild, location: { pathname: string; search: st
     ? `${location.pathname}${location.search}` === child.to
     : location.pathname === child.to;
 
-// Collapsed rail: the name of each icon appears right beside it, instantly (no delay) on hover or
-// keyboard focus. The browser's own `title` tooltip waits about a second and looks out of place. The
-// tooltip renders in a portal, so the rail's overflow clipping cannot cut it off.
 const RailTip = ({ label, show, children }: { label: string; show: boolean; children: ReactNode }) => (
   <Tooltip delayDuration={0}>
-    {/* A plain wrapper is the trigger, not the NavLink itself: Radix merges className onto an
-        asChild target as a string, which turns NavLink's className function into text and wipes every
-        class on the link (layout, colours, hover). */}
     <TooltipTrigger asChild>
       <div className="flex flex-1 min-w-0">{children}</div>
     </TooltipTrigger>
@@ -125,17 +117,10 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   const isPC = user?.role === 'PC';
   const isManager = user?.role === 'MANAGER';
   const isSenior = user?.role === 'SENIOR';
-  // Roles without a review queue of their own can still be named a reviewer on a checklist.
   const canBeNamedReviewer = !!user && !isAdmin && !isPC && !isManager && !isSenior && user.role !== 'APPROVAL_MANAGER';
   const { data: reviewQueue } = usePendingVerificationChecklistInstancesQuery(1, canBeNamedReviewer);
   const hasReviewsWaiting = canBeNamedReviewer && (reviewQueue?.pages[0]?.meta?.total ?? 0) > 0;
   const seesSmartDelegations = isAdmin || isPC || isManager;
-  // Used to auto-expand every section with children, always — so an admin landing on /tickets
-  // still had Delegation's 3 sub-links pre-opened, eating enough height that the nav overflowed
-  // and pushed the Admin-only section (Verification Queue, Team Overview, Admin) below the fold —
-  // invisible, since this list hides its own scrollbar. Only auto-expanding the section the
-  // current route is actually inside keeps that "already open where you are" convenience without
-  // silently hiding the sections below it everywhere else.
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
     () => new Set(
       NAV.filter((item) => item.children?.length && location.pathname.startsWith(item.to)).map((item) => item.to),
@@ -158,10 +143,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     .join('')
     .toUpperCase();
 
-  // Each item's count badge + hover breakdown (see SidebarSummaryBadge) — every query here is
-  // "mine" regardless of role, matching the sidebar's own "what's on my plate" purpose rather than
-  // the org-wide totals the dashboard/admin pages already show. `enabled: !!user` (implicitly, via
-  // each hook's own `!!token` check) keeps these from firing before login.
   const { data: taskSummary } = useTaskSummaryQuery();
   const { data: ticketSummary } = useTicketSummaryQuery();
   const { data: todoSummary } = useTodoSummaryQuery();
@@ -170,9 +151,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     Delegation: taskSummary,
     Tickets: ticketSummary,
     'To-Do': todoSummary,
-    // Checklists' summary shape predates this feature (KpiStrip/ComplianceBoard/CompareDashboard
-    // already depend on it) and carries a couple of extra fields (pending/totalItems/doneItems)
-    // this badge doesn't need — narrowed to just the five it reads.
     Checklists: checklistSummary && {
       total: checklistSummary.total,
       newToday: checklistSummary.newToday,
@@ -182,10 +160,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     },
   };
 
-  // On a shorter viewport, a role with several nav sections (e.g. ADMIN, with its own Admin-only
-  // block below the main list) can still outgrow the nav's available height even collapsed. The
-  // list hides its own scrollbar for a cleaner look, which then hides the fact that it scrolls at
-  // all — this fade is the only remaining sign there's more below, so it doesn't just cut off.
   const navRef = useRef<HTMLElement>(null);
   const [navOverflowsBelow, setNavOverflowsBelow] = useState(false);
 
@@ -210,21 +184,14 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       return {
         ...item,
         ...(isAdmin || isPC ? { quickCreateTo: '/admin/scheduled-checklists/builder' } : {}),
-        // History: ADMIN/PC (every store) and department heads (their department). Approvals: the
-        // department heads, who sign off their own department's checklists.
         ...(isAdmin || isPC || isManager || isSenior
           ? { children: [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD, ...(isManager || isSenior ? [CHECKLIST_APPROVALS_CHILD] : [])] }
-          // Someone named as a reviewer on a checklist, whatever their role: a link appears only while
-          // something is waiting for them, so everyone else's menu stays as it was.
           : hasReviewsWaiting ? { children: [REVIEW_QUEUE_CHILD] } : {}),
       };
     }
     if (item.label === 'Delegation') {
       return {
         ...item,
-        // The create flow is a modal opened from state on TaskList itself (SmartTaskModal), not a
-        // route — `?create=1` is a signal TaskList reads on mount to open it immediately, the same
-        // deep-link-into-a-modal pattern Tickets/To-Do below use for the same reason.
         quickCreateTo: '/tasks?create=1',
         children: [
           ...(seesSmartDelegations ? [SMART_DELEGATIONS_CHILD] : []),
@@ -245,7 +212,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   const adminNavItems: NavItem[] = [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
-    // Scores for a department head. Admin and PC reach Scores through the Scorecard instead.
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
     ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
@@ -265,10 +231,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     const hasChildren = !!children?.length;
     const isExpanded = expandedKeys.has(to);
     const showLabel = isDrawer || isOpen;
-    // One short fade when the sidebar first mounts (login / full page load). It used to stagger
-    // each row by 40ms with a slide, so the last items were still arriving ~600ms after load, which
-    // read as the sidebar lagging. Now every row fades in together in 150ms.
-    // `motion-reduce:animate-none` keeps it out of the way for anyone who asked for less motion.
     const entranceProps = {
       className: 'animate-in fade-in duration-150 ease-out motion-reduce:animate-none',
       style: { animationFillMode: 'backwards' as const },
@@ -334,15 +296,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           >
             {({ isActive }) => (
               <>
-                {/* Same look as the Admin sidebar: a soft tinted pill marks the current page (no solid fill),
-                    and on the collapsed rail a small pip on the left edge says the same. */}
                 {!showLabel && (isActive || hasActiveChild) && (
                   <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-full bg-primary-600 dark:bg-primary-400" />
                 )}
                 <span
                   className={[
-                    // No grey tile behind every icon: a row of identical boxes read as busy. The
-                    // icon sits straight on the row, which fills solid when active and tints on hover.
                     'relative z-10 flex items-center justify-center shrink-0 size-8 rounded-lg transition-colors duration-150',
                     isActive || hasActiveChild ? 'bg-primary-500/12 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300' : 'text-text-muted group-hover/link:text-text',
                   ].join(' ')}
@@ -397,8 +355,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               onClick={handleNavClick}
               title={`New ${label}`}
               aria-label={`New ${label}`}
-              // On the desktop rail the + only appears while the row is hovered or focused, so a column of
-              // plus signs does not sit next to every item all the time. The mobile drawer keeps it visible.
               className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:opacity-0 md:group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             >
               <Plus size={16} strokeWidth={2.5} />
@@ -407,10 +363,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         </div>
 
         {hasChildren && showLabel && (
-          // `height: auto` is not animatable in CSS, but `grid-template-rows: 0fr -> 1fr` is, and
-          // it measures the content the same way framer-motion's height:auto did. The submenu
-          // stays mounted so it can animate both ways; `inert` keeps its links out of the tab
-          // order and the accessibility tree while it's closed.
           <div
             inert={!isExpanded}
             aria-hidden={!isExpanded}
@@ -590,12 +542,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   return (
     <>
-      {/* Scrim stays mounted and fades via opacity; `pointer-events-none` when closed is what
-          makes an always-present full-screen overlay harmless. AnimatePresence was only ever
-          buying the exit fade, which a CSS transition on a mounted node gives for free. */}
-      {/* No backdrop blur: blurring the whole page behind the menu is heavy on a budget Android phone and
-          made opening and closing lag. A plain dim does the same job. touch-manipulation removes the
-          tap delay some browsers add. */}
       <div
         onClick={onNavigate}
         aria-hidden="true"
@@ -606,16 +552,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
       <aside
         inert={!isOpen}
-        // bg-surface was missing entirely — the drawer panel had no background of its own, so its
-        // nav list sat directly over the blurred, dimmed page behind the scrim: icons and labels
-        // floating over a smeared ghost of the page underneath, not a real panel. shadow-2xl (not
-        // the app's usual borderless card treatment) is deliberate here — this is a slide-in sheet
-        // over the rest of the app, the one case the app's own "cards use borders, not shadows"
-        // rule doesn't cover; real elevation is what says "this is above everything else."
-        // Shadow only while open — parked off-screen at -translate-x-full, the shadow-2xl blur still
-        // reached ~20px onto the visible page and drew a grey band down the left edge of every
-        // mobile screen.
-        // Swipe the menu to the left to close it, the way most apps behave.
         onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
         onTouchEnd={(e) => {
           if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
@@ -629,9 +565,6 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       </aside>
 
       <div className="hidden md:block relative shrink-0 h-full z-20 p-3">
-        {/* Width comes straight from the --sidebar-width-* tokens. It used to be a pair of JS
-            pixel constants that a comment asked you to keep "numerically in sync" with those
-            tokens; that file is gone. One source of truth, and the rail transitions in CSS. */}
         <aside
           className={`flex flex-col h-full rounded-2xl border border-border overflow-hidden py-5 bg-surface transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
             isOpen ? 'w-(--sidebar-width-expanded) px-4' : 'w-(--sidebar-width-collapsed) px-3'

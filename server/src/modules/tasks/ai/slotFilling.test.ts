@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { resolveDueDateLocally, resolvePriorityAnswer, derivePriorityHint, containsFuzzyWord, levenshteinDistance } from "./slotFilling.js"
 
-// A fixed Wednesday so weekday/relative-day math is deterministic regardless of when the suite runs.
-const REFERENCE = new Date("2026-08-19T10:00:00.000Z") // Wednesday
+const REFERENCE = new Date("2026-08-19T10:00:00.000Z")
 
 const dayOf = (date: Date) => date.toISOString().slice(0, 10)
 
@@ -28,7 +27,6 @@ describe("resolveDueDateLocally", () => {
     })
 
     it("resolves a weekday name to the next occurrence, never the same day", () => {
-        // REFERENCE is a Wednesday — asking for "wednesday" again must mean next week, not today.
         const result = resolveDueDateLocally("wednesday", REFERENCE)
         expect(dayOf(result!)).toBe("2026-08-26")
     })
@@ -39,9 +37,6 @@ describe("resolveDueDateLocally", () => {
     })
 
     it("tolerates a small typo in a weekday name via fuzzy matching", () => {
-        // "mondey" (1 edit from "monday") — chosen because it doesn't also sit within fuzzy
-        // distance of "today"/"tomorrow", unlike e.g. "frday", which the exact-before-fuzzy
-        // ordering above can't disambiguate from "today" once it's already a typo itself.
         const result = resolveDueDateLocally("mondey", REFERENCE)
         expect(dayOf(result!)).toBe("2026-08-24")
     })
@@ -56,8 +51,6 @@ describe("resolveDueDateLocally", () => {
     })
 
     it("does not fuzzy-match \"today\" to the weekday \"monday\" (edit distance 2)", () => {
-        // Regression: the weekday fuzzy-match used to run before the exact today/tomorrow check,
-        // so "today" (2 edits from "monday") was silently rescheduled to next Monday.
         const result = resolveDueDateLocally("today", REFERENCE)
         expect(dayOf(result!)).toBe(dayOf(REFERENCE))
     })

@@ -9,9 +9,7 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 interface ItemRemarksFieldProps {
   item: ChecklistInstanceItem;
   instanceId: string;
-  /** The run is overdue and this item isn't done: a reason is needed, so the chip asks for one. */
   required: boolean;
-  /** canWork && !isLocked. Without it the saved remark still shows, read-only (reviewers). */
   canEdit: boolean;
 }
 
@@ -32,7 +30,6 @@ const COPY: Record<Mode, { title: string; hint: string; placeholder: string; sav
   },
 };
 
-// An audit question waved off as a whole: nobody's left to check, so the wording says so.
 const AUDIT_NA_COPY = {
   hint: "Say why there's nobody to check today. The whole audit counts as done, and the reviewer sees your reason.",
   placeholder: 'e.g. Store was closed today',
@@ -47,16 +44,12 @@ interface RemarkDialogProps {
   onClose: () => void;
 }
 
-// The pop-up itself. Only mounted while open, so the dozens of closed items on a long checklist
-// don't each carry a Radix dialog, a mutation observer and a confirm hook.
 const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: RemarkDialogProps) => {
   const [value, setValue] = useState(saved);
   const mutation = useSetChecklistInstanceItemDoneMutation(instanceId);
   const confirm = useConfirm();
   const dirty = value.trim() !== saved;
 
-  // Escape, overlay click and Cancel all come through here; typed text is never thrown away
-  // without asking.
   const handleOpenChange = async (next: boolean) => {
     if (next) return;
     if (dirty) {
@@ -81,7 +74,6 @@ const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: Remar
       );
       return;
     }
-    // Empty saves as a clear (null), so a remark can be removed, not only replaced.
     mutation.mutate(
       { itemId: item.id, isDone: item.isDone, remarks: text || null },
       { onSuccess: onClose },
@@ -130,27 +122,15 @@ const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: Remar
   );
 };
 
-/**
- * The note row under every checklist item, audit questions included. On an audit this note is about
- * the question as a whole; each person's own remark still lives inside the audit card.
- *
- * The saved remark is shown as text on the card, not hidden behind a chip. It used to render only
- * while the item was unticked, so ticking it made the remark disappear for everyone, reviewers
- * included, who never saw it at all. Now: visible whenever it exists, editable or clearable while
- * the run is open, and the same row offers "Not applicable" for a step that doesn't apply.
- */
 export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceId, required, canEdit }: ItemRemarksFieldProps) {
   const [mode, setMode] = useState<Mode | null>(null);
   const closeDialog = useCallback(() => setMode(null), []);
 
   const saved = item.remarks?.trim() ?? '';
   const missing = required && !item.isDone && !saved;
-  // An audit can be waved off as a whole only while nobody's been checked yet: doing it over people
-  // who were really audited would throw those checks away (the server refuses too).
   const auditStarted = item.itemType === 'AUDIT' && item.submissions.some((s) => s.isDone);
   const canMarkNa = canEdit && !item.isDone && !auditStarted;
 
-  // N/A items show their reason on their own card (NotApplicableItemCard).
   if (item.isNotApplicable) return null;
   if (!canEdit && !saved) return null;
 
@@ -167,7 +147,6 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
                 onClick={() => setMode('remark')}
                 aria-label="Edit remark"
                 title="Edit remark"
-                // The after: layer pads the 28px button out to a 44px hit area without growing the row.
                 className="relative flex items-center justify-center size-7 shrink-0 rounded-md text-text-light hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-2 sm:after:inset-0 after:content-['']"
               >
                 <Pencil size={13} />

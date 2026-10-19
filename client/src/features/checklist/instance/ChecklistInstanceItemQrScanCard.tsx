@@ -18,11 +18,6 @@ interface ChecklistInstanceItemQrScanCardProps {
 
 const READOUT_CLASS = 'text-xs font-display px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-text-secondary w-fit max-w-full break-all';
 
-// Live camera QR/barcode scanning: jsQR only decodes QR codes (not 1D formats like Code128/EAN),
-// which is what the reference design's scan icon calls for — grabs frames from a hidden <video>
-// onto an offscreen <canvas> every animation frame and runs jsQR against the pixel data until it
-// finds a code. A manual text-entry fallback covers devices without a camera, or a denied
-// permission, without blocking the item.
 export const ChecklistInstanceItemQrScanCard = memo(function ChecklistInstanceItemQrScanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemQrScanCardProps) {
   const codeInputId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
@@ -101,9 +96,6 @@ export const ChecklistInstanceItemQrScanCard = memo(function ChecklistInstanceIt
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined })}
       />
 
-      {/* The scanned value display is NOT gated on `interactive` — it's evidence, and must stay
-          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
-          scan/manual-entry/save controls are for the still-editable case. */}
       {scannedValue && !interactive && (
         <p className={READOUT_CLASS}>Scanned: {scannedValue}</p>
       )}
@@ -113,10 +105,6 @@ export const ChecklistInstanceItemQrScanCard = memo(function ChecklistInstanceIt
           <ItemError error={setItemDone.error} fallback="Couldn't save that code." />
           <ItemError error={error} fallback="Couldn't use the camera." />
 
-          {/* Always mounted while the item is open (just hidden until scanning) — startScan()
-              attaches the camera stream to videoRef BEFORE flipping isScanning, so when this only
-              rendered once isScanning was true the ref was still null, the stream went nowhere
-              and the scanner sat on a black box forever. */}
           {!item.isDone && (
             <div className={`relative w-full max-w-sm rounded-lg overflow-hidden border border-border bg-black ${isScanning ? '' : 'hidden'}`}>
               <video ref={videoRef} muted playsInline className="w-full h-[220px] object-cover" />

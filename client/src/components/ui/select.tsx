@@ -66,12 +66,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          // z-[80] — above Dialog's z-[70] (see dialog.tsx); this content is portalled to
-          // document.body as a sibling of the dialog, so a Select opened from inside a modal
-          // (e.g. Applies / Department in the checklist template form) needs its own higher
-          // z-index to actually render on top of it instead of invisibly underneath.
           "relative z-[80] max-h-(--radix-select-content-available-height) min-w-[12rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto",
-          // No shadow — border-only, matching Modal/Popover/DropdownMenu's own convention.
           "bg-surface rounded-2xl border border-border p-1.5",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
           position === "popper" &&

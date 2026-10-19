@@ -28,8 +28,6 @@ const renderFormattedText = (text: string) => {
   });
 };
 
-/** Description as plain small body text, the same size as the form fields:
- *  no icon, no box. Long text is clamped to six lines with a Show more link. */
 export const TicketDescription = ({ description }: TicketDescriptionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -40,7 +38,6 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
     <section className="flex flex-col gap-1">
       {trimmedText ? (
         <div className="flex flex-col gap-1">
-          {/* 72ch keeps a line readable once the left column is wider than a phone. */}
           <p
             className={`max-w-[72ch] text-sm text-text leading-relaxed whitespace-pre-wrap break-words select-text ${
               isLongText && !isExpanded ? 'line-clamp-6' : ''

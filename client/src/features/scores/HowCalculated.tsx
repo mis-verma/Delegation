@@ -6,17 +6,14 @@ import { HOW_LINE_LABEL, HOW_LINE_ORDER, figureLabel, howCalculated, type ScoreF
 interface HowCalculatedProps {
   figure: ScoreFigure;
   module?: ScoreModule;
-  /** Overrides the screen-reader name ("How is Completion calculated"). */
   label?: string;
 }
 
 interface HintPopoverProps {
-  /** Screen-reader name of the "?" button. */
   label: string;
   children: ReactNode;
 }
 
-/** The "?" button and its popover: the one shape every score explanation takes. A tap works on a phone. */
 export const HintPopover = ({ label, children }: HintPopoverProps) => (
   <Popover>
     <PopoverTrigger asChild>
@@ -34,11 +31,6 @@ export const HintPopover = ({ label, children }: HintPopoverProps) => (
   </Popover>
 );
 
-/**
- * A small "?" that opens the same four lines for any score: what is counted, divided by what, which dates,
- * and what is left out. The text comes from lib/scoreLabels, so it reads the same wherever the number does.
- * A popover, so a tap works on a phone.
- */
 export const HowCalculated = ({ figure, module, label }: HowCalculatedProps) => {
   const name = figureLabel(figure, module);
   const lines = howCalculated(figure, module);

@@ -30,8 +30,6 @@ export const useUpdateMyProfileMutation = () => {
         mutationFn : (payload : UpdateMyProfilePayload) => meApi.update(payload).then(r => r.data),
         onSuccess : (updated) => {
             queryClient.setQueryData(ME_KEY.profile, updated);
-            // Keeps the header/sidebar initials in sync right away — same "firstName only" name
-            // convention useLoginMutation uses when it first builds the cached user.
             updateUser({ name: updated.firstName });
             toast.success("Profile updated");
         },
@@ -44,9 +42,6 @@ export const useChangeMyPasswordMutation = () => {
     return useMutation({
         mutationFn : (payload : ChangeMyPasswordPayload) => meApi.changePassword(payload),
         onSuccess : () => {
-            // Changing the password revokes every existing session server-side (this one
-            // included) — sign out locally too and send them to sign back in, same flow as
-            // ResetPasswordForm's own "Password reset, please sign in again" pattern.
             toast.success("Password changed — please sign in again.");
             logout();
         },
@@ -75,7 +70,6 @@ export const useRemoveMyAvatarMutation = () => {
 export const categoriesQueryOptions = () => ({
     queryKey : CATEGORY_KEY.all,
     queryFn : () => categoryApi.getAll().then(r => r.data),
-    // Admin edits categories rarely, and every edit invalidates this key.
     staleTime : 5 * 60_000,
 });
 

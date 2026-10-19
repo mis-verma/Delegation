@@ -5,32 +5,17 @@ import { cn } from '@/lib/utils';
 interface TicketPropertyRowProps {
   label: string;
   children: ReactNode;
-  /** Rail-only row: not worth a tile on a phone (the header and summary already carry the gist). */
   railOnly?: boolean;
-  /** The icon tile for this property. */
   icon?: LucideIcon;
-  /** Gradient classes for that tile. */
   tone?: string;
-  /** A phone tile that spans the whole row (the assignee, whose picker is wide). */
   wide?: boolean;
-  /** Folded away on a phone until "More details" is opened. Always shown from lg. */
   phoneHidden?: boolean;
-  /** First tile on a phone (the assignee leads), without changing the rail's order. */
   first?: boolean;
-  /** Always a tile, at every width: for a sheet with no right-hand rail (the delegation sheet). */
   tileOnly?: boolean;
-  /** Whole row on a phone, half from sm up: for a value too wide for a half-width phone tile (a select). */
   wideOnPhone?: boolean;
-  /** Half-width phone tile with a select inside: the icon moves next to the label and the control gets the
-   *  whole tile width below it, instead of a side icon squeezing the select. */
   stackOnPhone?: boolean;
 }
 
-/**
- * One property of the ticket. On a phone the properties are a tidy two-column grid of tiles (icon, small label,
- * value), so the sheet has the same steady structure whatever a ticket carries; from lg the same markup is a
- * row in the right-hand rail. One DOM for both layouts (no hidden duplicate controls).
- */
 export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false }: TicketPropertyRowProps) => (
   <div
     className={cn(

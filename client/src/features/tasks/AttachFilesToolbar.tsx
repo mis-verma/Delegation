@@ -8,12 +8,9 @@ const BTN_CLASS =
 interface AttachFilesToolbarProps {
   onFiles: (files: FileList) => void;
   disabled?: boolean;
-  /** Outlined buttons, for use on their own rather than inside a field's toolbar band. */
   bordered?: boolean;
 }
 
-// Two plain, labelled buttons: File (any accepted file, gallery photos included) and Photo, which
-// opens the camera straight away on a phone (`capture`; desktops ignore it and show a file picker).
 export const AttachFilesToolbar = ({ onFiles, disabled, bordered = false }: AttachFilesToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);

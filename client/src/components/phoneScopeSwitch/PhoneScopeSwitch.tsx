@@ -2,21 +2,12 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PhoneScopeSwitchProps<T extends string> {
-  /** The two choices, e.g. "Assigned to me" and "Created by me". `shortLabel` (e.g. "Mine",
-   *  "By me") replaces the label on screens under 360px wide, where two long labels plus a filter
-   *  button don't fit. */
   options: Array<{ value: T; label: string; shortLabel?: string; icon?: LucideIcon }>;
   value: T;
-  /** The value that means "no choice", picked again when the active one is tapped. */
   allValue: T;
   onChange: (next: T) => void;
 }
 
-/**
- * Phone only: the one filter a person on a small screen needs on Tickets and Delegation. A two-part segmented
- * control, each side with its icon; tap one to show only that, tap it again to show everything. The full filter
- * sheet and the date picker stay on bigger screens.
- */
 export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, onChange }: PhoneScopeSwitchProps<T>) => (
   <div role="group" aria-label="Show" className="sm:hidden grid grid-cols-2 gap-1 flex-1 min-w-0 rounded-xl border border-border/60 bg-surface-hover/60 p-1">
     {options.map((o) => {

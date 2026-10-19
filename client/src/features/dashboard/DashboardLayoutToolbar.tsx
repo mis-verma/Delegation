@@ -6,20 +6,13 @@ interface DashboardLayoutToolbarProps {
   onStart: () => void;
   onReset: () => void;
   onDone: () => void;
-  /** Cards hidden right now, for the "bring back" row. */
   hiddenCards: { id: string; label: string }[];
   onShow: (id: string) => void;
-  /** Phone: the instructions say "move up or down" instead of "drag". */
   touch?: boolean;
 }
 
-// One entry point for the whole feature: a quiet ghost button at rest, becoming the active-mode
-// toolbar (what's happening + the two ways out — start fresh, or keep it) once customizing starts.
-// Same bar, same position, so nothing jumps around the moment the mode flips.
 export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone, hiddenCards, onShow, touch = false }: DashboardLayoutToolbarProps) => {
   if (!isCustomizing) {
-    // Desktop: just the icon, a quiet square that takes far less room above the stats than a labelled button.
-    // Phone: a 44px "Customize" button, because an icon alone is easy to miss and to miss-tap.
     return (
       <div className="flex items-center justify-end">
         <button

@@ -1,9 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// A solid, softly coloured icon tile whose colour comes from the thing's own name, so it never
-// changes and neighbouring cards differ (instead of every card wearing the same gold or navy tile).
-// Gold and orange are left out on purpose.
 const TILE_COLORS = ['bg-blue-500', 'bg-violet-500', 'bg-teal-500', 'bg-pink-500', 'bg-indigo-500', 'bg-emerald-500', 'bg-sky-500', 'bg-rose-500'];
 
 const tileColor = (name: string) => {
@@ -14,9 +11,7 @@ const tileColor = (name: string) => {
 
 interface ColorIconTileProps {
   icon: LucideIcon;
-  /** What the colour is picked from. */
   name: string;
-  /** `md` is the 40px card tile, `sm` the 32px table-row tile. */
   size?: 'md' | 'sm';
   className?: string;
 }

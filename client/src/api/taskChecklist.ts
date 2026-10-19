@@ -66,11 +66,6 @@ export type UpdateTaskChecklistItemPayload = {
   isDone?:             false;
 };
 
-// A checklist's items, and each item's images, are typed as always-present arrays — same "typed
-// as always there, not guaranteed at runtime" shape as ticket.checklists/comments/attachments,
-// which have already crashed renders this exact way. Guarded at the boundary, nested one level
-// (an item's own `images` defaults independently of whether the checklist's `items` array itself
-// needed defaulting), so ChecklistBlock's `checklist.items.filter(...)` can never crash.
 const taskChecklistItemDefaults = withArrayDefaults({ images: arrayField(z.unknown()) });
 export const taskChecklistDefaults = withArrayDefaults({ items: arrayField(taskChecklistItemDefaults) });
 const normalizeChecklist = (raw: unknown) => normalizeWith<TaskChecklist>(taskChecklistDefaults, raw);

@@ -34,10 +34,8 @@ import type { Draft } from '../../api/drafts';
 import { useDraftsQuery } from '../drafts/hook';
 import { DraftsDialog } from '../drafts/DraftsDialog';
 
-// Module scope so the array is referentially stable, same convention as TaskList's own VIEW_TABS.
 const VIEW_TABS: ViewTab<TicketView>[] = [
   { key: 'list', label: 'List', icon: LayoutList },
-  // Phones get cards only, same as Delegation: a kanban board needs width a phone doesn't have.
   { key: 'board', label: 'Board', icon: Kanban, mobileHidden: true },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
   { key: 'timeline', label: 'Timeline', icon: GanttChartSquare, mobileHidden: true },
@@ -62,11 +60,6 @@ export const TicketList = () => {
   const { data: categories } = useCategoriesQuery();
   const { data: assignableUsers } = useAssignableUsersQuery();
   const { data: tags } = useTagsQuery();
-  // useMemo, not a plain `new Map(...)` on every render — TicketBoard's own drag state
-  // (activeTicket) re-renders TicketList's whole tree on every pickup/drop, and an unstable Map
-  // reference here would defeat the board's column memoization further down, forcing every ticket
-  // card to redo its own rendering work before the card can visually lift (the same "laggy
-  // pickup" bug fixed on the Delegation board — see TaskBoard.tsx's Column memo comment).
   const departmentNames = useMemo(
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments],
@@ -79,22 +72,15 @@ export const TicketList = () => {
     () => new Map((categories ?? []).map(c => [c.id, c.name])),
     [categories],
   );
-  // For Table's "Raised by" column — same assignable-users roster the Assignee/Raised By filters
-  // already use, so a raiser outside that roster (rare) just shows as "—" rather than crashing.
   const assigneeNames = useMemo(
     () => new Map((assignableUsers ?? []).map(u => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])),
     [assignableUsers],
   );
 
-  // Read once, same as the deep-link's own `assigneeIdFilter` — fetching a second time with
-  // organizer.assigneeIdFilter (derived only after organizer runs) meant the rendered list came
-  // from an earlier, unfiltered fetch while the correctly-scoped fetch was thrown away.
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
   const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, assigneeIdFilter);
-  // Opened from a chart bar: only tickets created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
-  // Opened from a score: only tickets due in that window, late or not done, for that department or store.
   const scoreDrill = useScoreDrill(true);
   const ticketsInRange = useMemo(() => {
     const everything = allTicketsData ?? [];
@@ -102,32 +88,21 @@ export const TicketList = () => {
     return scoreDrill.active ? created.filter((t) => ticketMatchesDrill(scoreDrill, t)) : created;
   }, [allTicketsData, createdRange, scoreDrill]);
   const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
-  // Top of the results, so a page change brings the new page's first ticket into view.
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const changePage = (page: number) => {
     organizer.setPage(page);
     resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  // Named setups of this page (layout, filters, sort, grouping), kept in this browser for this person.
   const savedViews = useSavedViews<TicketViewSnapshot>(`savedViews:tickets:${user?.id ?? 'anon'}`);
   const activeSavedViewId = savedViews.views.find((v) => JSON.stringify(v.state) === JSON.stringify(organizer.snapshot))?.id ?? null;
 
-  // `/tickets?open=<id>` opens that ticket's detail sheet directly, then drops the param so it
-  // doesn't reopen on every render. Mirrors TaskList's existing `?open=` handling — the Dashboard's
-  // Recent Activity rows deep-link into both, and previously both kinds of row just dumped you on
-  // the unfiltered list to go find the item you'd already clicked.
   useEffect(() => {
     const openId = searchParams.get('open');
     if (!openId || !allTicketsData) return;
     const match = allTicketsData.find((t) => t.id === openId);
-    // Syncing from an external system (the URL, set by whatever navigated here) into local state,
-    // not reacting to React state — and the param is stripped immediately after, so this fires
-    // once per navigation rather than looping.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) setSelectedTicket(match);
     else {
-      // Not in the loaded list (filtered out by a person link, or older than the list reaches):
-      // ask for that one ticket. The server answers 403/404 when it was removed or isn't visible.
       queryClient
         .fetchQuery({ ...ticketDetailQueryOptions(openId), retry: false, staleTime: 30_000 })
         .then((ticket) => setSelectedTicket(ticket))
@@ -144,9 +119,6 @@ export const TicketList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, allTicketsData]);
 
-  // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
-  // route of its own to land on (TicketForm opens from local state, not a route), so it deep-
-  // links here instead and this effect is what actually opens the form on arrival.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -176,10 +148,6 @@ export const TicketList = () => {
       />
 
       <div className="flex flex-col gap-3 sm:gap-4">
-        {/* Same header treatment as Delegation: the visible title block is gone — you arrive from
-            a nav item that already says Tickets, and the lead "Total" tile states the same count
-            as a number you can click. The heading stays in the accessibility tree so the page
-            still has one landmark to land on. */}
         <h1 className="sr-only">Tickets</h1>
 
         <TicketQuickStats
@@ -191,19 +159,10 @@ export const TicketList = () => {
           isLoading={isPending}
         />
 
-        {/* One controls band below the stats, matching Delegation: view toggle + active filters
-            on the left, the create action and Options on the right. */}
         <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap min-w-0">
-          {/* View lives in the toolbar, not inside Options — same as Delegation. It changes what
-              the whole page looks like, so it reads as a place you are rather than a setting you
-              went and configured. */}
-          {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
-              effect is what switches a saved Board/Table view back to List on a small screen. */}
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} storageKey={`view:tickets:${user?.id ?? 'anon'}`} />
           </div>
-          {/* Phones get one simple switch instead of saved views and the date picker. The filter
-              sheet stays for team leads and above (see Options below). */}
           <PhoneScopeSwitch
             options={[
               { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck },
@@ -225,12 +184,6 @@ export const TicketList = () => {
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
-          {/* `sm:ml-auto`, not a bare `ml-auto` — on mobile the Create button below is hidden and
-              only Options is left, so an unconditional auto-margin pushed a single pill hard right
-              and left a ~220px dead gap in front of it. Desktop still gets the intentional
-              controls-left / actions-right split. */}
-          {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
-              wrap in after it, instead of Options jumping sideways each time a chip appears. */}
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
             {draftCount > 0 && (
@@ -240,8 +193,6 @@ export const TicketList = () => {
                 <span className="t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{draftCount}</span>
               </Button>
             )}
-            {/* One click opens the form. Admin/PC also get a small chevron for Bulk import (same
-                gate as the server route: creating tickets for other people in bulk is theirs only). */}
             <div className="hidden md:flex items-center">
               <Button
                 size="sm"
@@ -272,8 +223,6 @@ export const TicketList = () => {
               )}
             </div>
 
-            {/* Front-line staff only ever see their own tickets, so on a phone the scope pills are all
-                they need. Anyone who looks after a team keeps filters and export on a phone too. */}
             <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TicketSettingsMenu
               isOpen={showOptions}
@@ -297,8 +246,6 @@ export const TicketList = () => {
         </div>
       </div>
 
-      {/* Main Display Area. The anchor sits just above the results, with room for the sticky
-          navbar so a page change doesn't tuck the first ticket under it. */}
       <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden />
       {isPending && <TicketListSkeleton view={organizer.view} />}
 
@@ -309,8 +256,6 @@ export const TicketList = () => {
         />
       )}
 
-      {/* Every page is loaded, up to a safety stop. Reaching it means older tickets exist that no
-          view here shows, so say so rather than let the list look complete. */}
       {!isPending && !isError && (allTicketsData?.length ?? 0) >= BOARD_MAX_TICKETS && (
         <NoticeBanner tone="warning" icon={AlertCircle}>
           Showing the newest {BOARD_MAX_TICKETS.toLocaleString()} tickets. Older ones are not listed here.
@@ -320,7 +265,6 @@ export const TicketList = () => {
       {!isPending && !isError && organizer.sorted.length === 0 && (
         <EmptyState
           icon={Inbox}
-          // Short and compact on phones, same as Delegation's empty state.
           size={isMobile ? 'compact' : undefined}
           title={isMobile ? 'Nothing here' : 'No tickets found'}
           description={isMobile ? undefined : organizer.hasActiveFilters
@@ -368,7 +312,6 @@ export const TicketList = () => {
         </div>
       )}
 
-      {/* Popups & Modals */}
       {showForm && <TicketForm onClose={() => setShowForm(false)} />}
       {openDraft && <TicketForm key={openDraft.id} draft={openDraft} onClose={() => setOpenDraft(null)} />}
       <DraftsDialog

@@ -3,10 +3,6 @@ import { db } from "../../config/db.js"
 import { checklistDefinitions, checklistDefinitionAssignees } from "../../db/schema/index.js"
 import { generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances } from "../../jobs/checklistInstanceGenerator.job.js"
 
-// Today's live checklist runs follow a person's changes straight away: the same pattern the
-// offboarding flow uses (load the definition, sync the runs already stamped out today, then stamp
-// out anything newly due). Always best-effort: a failure is logged and never fails the user change
-// that triggered it, because the nightly sweep corrects any run this misses.
 export const refreshLiveChecklistsForDefinitions = async (definitionIds: Iterable<string>, label: string) => {
     for (const definitionId of new Set(definitionIds)) {
         try {
@@ -21,8 +17,6 @@ export const refreshLiveChecklistsForDefinitions = async (definitionIds: Iterabl
     }
 }
 
-// Every active checklist these people are assigned to gets its live runs refreshed. Used when a
-// person's week-off days, department or store change (which decide who gets which run).
 export const refreshLiveChecklistsForUsers = async (userIds: string[], label: string) => {
     if (!userIds.length) return
     try {

@@ -9,26 +9,13 @@ import { PublicLayout } from './components/layout';
 import { useTicketSocket } from './features/tickets/useTicketSocket';
 import { useTaskSocket } from './features/tasks/useTaskSocket';
 import { useChecklistSocket } from './features/checklist/useChecklistSocket';
-// Imported directly (not via features/checklist's barrel) so mounting it here doesn't drag the
-// whole checklist feature — Builder, Compliance Board, etc — into the main entry chunk; those stay
-// behind their own lazy() route imports below.
 import { useNotificationSocket } from './features/notifications/useNotificationSocket';
 import { MyErrorBoundary, NotFoundPage, MaintenancePage } from './components/error';
 import { RouteFallback } from './components/skeleton';
 
-// Maintenance flags/queries now live in lib/maintenance.ts — this whole-app build-time one, the
-// per-page list the Dashboard shell checks, and the runtime admin-toggled one below. Reading the
-// env var in two places would let them drift.
 import { MAINTENANCE_ALL, usePublicSettingsQuery } from './lib/maintenance';
 
-// Lazy like every other route. It was the one eager import among them, so its whole admin shell
-// — nav tree, header, breadcrumbs — was downloaded by every user on first paint, including the
-// large majority who are not ADMIN and can never reach a route inside it.
 const AdminLayout = lazy(() => import('./features/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
-// The three auth forms were the other eager imports. Between them they pull react-hook-form,
-// @hookform/resolvers and the whole of zod (via features/auth/Schemas) into the entry chunk, so
-// every already-signed-in user downloaded a login screen they will never see again before first
-// paint. Lazy, they load only on the one navigation that actually needs them.
 const ForcePasswordChange = lazy(() => import('./features/auth/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
 const LoginForm = lazy(() => import('./features/auth/LoginForm').then(m => ({ default: m.LoginForm })));
 const ForgotPasswordForm = lazy(() => import('./features/auth/ForgotPasswordForm').then(m => ({ default: m.ForgotPasswordForm })));
@@ -75,14 +62,9 @@ const ChecklistWeeklyReport = lazy(() => import('./features/checklist').then(m =
 
 const ProtectedRoute = () => {
   const { token, user } = useAuth();
-  // Same admin exemption as the per-page maintenance check in Dashboard.tsx: whoever flipped this
-  // on is the person who needs to get back in to flip it off again.
   const { data: maintenance } = usePublicSettingsQuery();
   if (!token) return <Navigate to="/login" replace />;
-  // An admin set this password, so it is temporary: nothing else loads until they choose their own.
   if (user?.mustChangePassword) return <Suspense fallback={null}><ForcePasswordChange /></Suspense>;
-  // PC can switch maintenance on in Settings (server allows ADMIN and PC), so PC must stay exempt
-  // too or they lock themselves out of the page that turns it off.
   if (maintenance?.maintenanceMode && !(user && ADMIN_AREA_ROLES.includes(user.role))) {
     return <MaintenancePage message={maintenance.maintenanceMessage ?? undefined} />;
   }
@@ -93,58 +75,25 @@ const ProtectedRoute = () => {
   );
 };
 
-// Same destination logic as useLoginMutation's own onSuccess redirect (features/auth/hooks.ts) —
-// this used to always send an already-authenticated visitor to '/', so an ADMIN/PC who reopened
-// /login (bookmark, back button, stale tab) landed somewhere different than a fresh login would
-// have sent them, for the exact same account.
 const AuthRoute = () => {
   const { token, user } = useAuth();
   if (!token) return <Outlet />;
   return <Navigate to={user && ADMIN_AREA_ROLES.includes(user.role) ? '/admin' : '/'} replace />;
 };
 
-
-// One factory instead of five hand-rolled "if (!token) redirect; if role not allowed, redirect;
-// else Outlet" components below, each repeating the same two checks against its own separately
-// hand-typed role set. That repetition is what let a guard's allowed roles silently drift from
-// ADMIN_AREA_ROLES (the post-login redirect's own role set, in features/auth/hooks.ts) with
-// nothing to catch it — a role added to one but not the other means either a login that
-// "succeeds" but immediately bounces back out of /admin, or a role that's guard-eligible here but
-// never actually routed there on login.
 const createRoleGuard = (...roles: Role[]) => () => {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
   return user && roles.includes(user.role) ? <Outlet /> : <Navigate to="/" replace />;
 };
 
-// Two separately-named guards, same underlying ADMIN-or-PC role set (kept in sync with the
-// post-login redirect via ADMIN_AREA_ROLES) — each still named for what it gates at its own call
-// site below, not collapsed into one shared element, since the route tree reads clearer with a
-// guard named after its subtree.
 const AdminRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 
-// Stricter than PCRoute/AdminRoute (both ADMIN-or-PC) — for the handful of pages that are
-// ADMIN-only even within the admin/PC audience: Verification Queue and Team Overview used to be
-// PC's job too (the removed comments here said as much), but access was deliberately narrowed to
-// ADMIN alone.
 const AdminOnlyRoute = createRoleGuard('ADMIN');
 
-// Verification Queue specifically (not Team Overview, which stays under AdminOnlyRoute above).
-// PC is the primary audience — verification is their whole job (see task/ticket/checklist
-// service.ts's CAN_VERIFY_BY_ROLE) — and the sidebar has always linked PC here (Sidebar.tsx's
-// adminNavItems), so excluding the role from the route itself was a dead link, not a deliberate
-// narrowing. APPROVAL_MANAGER stays too: harmless now that the old separate final-approval stage
-// is gone, but not worth stripping their access as a side effect of an unrelated workflow change.
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 
-// The Admin section's landing page: ADMIN or PC, same as the rest of /admin/* under the outer
-// AdminRoute — PC has the same org-wide server-side rights as ADMIN everywhere else in this
-// section, and this page's own `canSeeStoresTab` gate (OrgOverview.tsx) has always treated PC as
-// eligible; the route just hadn't been opened to match. Was ADMIN-only with PC redirected to
-// /admin/directory instead — kept here as the one still-relevant fallback: any *other* role
-// reaching this route (shouldn't normally happen, AdminRoute already screens for ADMIN/PC) lands
-// on a real page rather than a dead end.
 const AdminOverviewRoute = () => {
   const { user } = useAuth();
   return user && ADMIN_AREA_ROLES.includes(user.role) ? <OrgOverview /> : <Navigate to="/admin/directory" replace />;
@@ -152,9 +101,6 @@ const AdminOverviewRoute = () => {
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
 
-// Scores: ADMIN/PC see the organisation inside the admin shell, MANAGER/SENIOR their own department inside the
-// regular app shell. One route, so a shared link works for either; the layout is the only thing that differs.
-// Everyone else is sent home (the API answers 403 to them as well).
 const ScoresLayout = () => {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
@@ -170,19 +116,14 @@ const ScoresLayout = () => {
   return <Navigate to="/" replace />;
 };
 
-// Old addresses of pages that were merged into Scores. The period (?from=&to=&range=) travels with the person;
-// `set` adds what the old page meant (which view to open).
 const RedirectToScores = ({ set }: { set: Record<string, string> }) => {
   const { search } = useLocation();
   const next = new URLSearchParams(search);
-  // Old pages grouped by week or month with ?by=; Scores has no grouping.
   next.delete('by');
   for (const [key, value] of Object.entries(set)) next.set(key, value);
   return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
 };
 
-// Team Overview kept its drill-down in the address (?departmentId=&personId=). Scores keeps it as a trail; the
-// names are filled in by the Scores page once it has them.
 const TeamRedirect = () => {
   const { search } = useLocation();
   const old = new URLSearchParams(search);
@@ -197,8 +138,6 @@ const TeamRedirect = () => {
   return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
 };
 
-// Checklist History (past audits + checklists): ADMIN/PC see every store, MANAGER/SENIOR only their
-// own department. Same split the API enforces, this just keeps everyone else off the page.
 const HistoryRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const router = createBrowserRouter([
@@ -207,8 +146,6 @@ const router = createBrowserRouter([
     errorElement: <MyErrorBoundary />,
     children: [
       {
-        // Suspense sits above AuthRoute's Outlet because PublicLayout has none of its own and the
-        // three forms below are now lazy — same reason AdminLayout's route carries one.
         element: (
           <Suspense fallback={<RouteFallback />}>
             <AuthRoute />
@@ -257,10 +194,6 @@ const router = createBrowserRouter([
           { path: '/tasks', element: <TaskList /> },
           {
             path: '/tasks/smart',
-            // Locked to the "delegation" bucket — CATEGORY_PREDICATES already defines that as
-            // "delegation category AND aiMeta present" (i.e. actually created through the AI:
-            // Smart Add on the web, or the WhatsApp bot), not just every delegation. Same
-            // TaskQuickStats/board/table/timeline views as the main Delegation page, just scoped.
             element: (
               <TaskList
                 lockCategory="delegation"
@@ -277,9 +210,6 @@ const router = createBrowserRouter([
           { path: '/checklists', element: <MyChecklists /> },
           { path: '/checklists/:instanceId', element: <ChecklistInstanceDetail /> },
           { path: '/dashboard', element: <Navigate to="/" replace /> },
-          // Anyone can be named a reviewer on a checklist, whatever their role, so this page is open to every
-          // signed-in person. The server returns only what that person may review (their department's runs for
-          // a head, the runs they are named on for anyone else), and an empty list says so.
           { path: '/checklists/approvals', element: <ChecklistApprovals /> },
           {
             element: <HistoryRoute />,
@@ -297,15 +227,10 @@ const router = createBrowserRouter([
           {
             element: <PCRoute />,
             children: [
-              // Org-wide task browser (department/person/day/status filters) — PC and ADMIN
-              // both need this, so it lives here instead of under AdminRoute/AdminLayout,
-              // which is gated to ADMIN only.
               { path: '/tasks/team', element: <AdminTaskList /> },
             ],
           },
           {
-            // ADMIN-only — see AdminOnlyRoute's comment above for why this was narrowed from
-            // PC-or-ADMIN. Team Overview now lives in Scores (Departments, then People).
             element: <AdminOnlyRoute />,
             children: [
               { path: '/team', element: <TeamRedirect /> },
@@ -320,7 +245,6 @@ const router = createBrowserRouter([
         ],
       },
       {
-        // Scores: Admin and PC inside the admin shell, Manager and Senior inside the regular shell.
         path: '/admin/scores',
         element: <ScoresLayout />,
         children: [{ index: true, element: <ScoresPage /> }],
@@ -334,8 +258,6 @@ const router = createBrowserRouter([
         element: <AdminRoute />,
         children: [
           {
-            // Its own boundary: App has no Suspense of its own — every other lazy route resolves
-            // inside Dashboard's or AdminLayout's — so a lazy layout route needs one above it.
             element: (
               <Suspense fallback={<RouteFallback />}>
                 <AdminLayout />
@@ -343,7 +265,6 @@ const router = createBrowserRouter([
             ),
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
-              // Rankings and Store and Dept Scores were merged into Scores.
               { path: '/admin/rankings', element: <RedirectToScores set={{ view: 'department' }} /> },
               { path: '/admin/scorecard', element: <ScorecardPage /> },
               { path: '/admin/checklist-store-daily', element: <RedirectToScores set={{ view: 'store' }} /> },

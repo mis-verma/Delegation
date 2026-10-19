@@ -10,21 +10,12 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistItemCardHeaderProps {
   item: ChecklistInstanceItem;
-  // Whether the item's still open for editing (canWork && !isLocked) — NOT gated on item.isDone
-  // itself, since the reopen button below needs exactly the opposite (isDone) alongside this.
   interactive: boolean;
-  // Omitted by cards with no item-level reopen (AUDIT reopens one person's row at a time, inside
-  // the card) — no button renders without it. Only an admin ever sees the button (useCanReopen).
   onReopen?: () => void;
   reopenPending?: boolean;
-  // Per-type info line between the label and the "Completed" line (NumberEntry/CashTally's
-  // range/unit/expected-amount hint) — most cards have none.
   subtitle?: ReactNode;
 }
 
-// Leading icon tile + label + "Completed" line + reopen button, shared by every instance item card
-// (only the reopen button's mutate payload differs per item type, which stays in each card as the
-// `onReopen` callback). The text column spaces its lines with gap, so a subtitle needs no margin.
 export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPending, subtitle }: ChecklistItemCardHeaderProps) => {
   const canReopen = useCanReopen();
   const { user } = useAuth();

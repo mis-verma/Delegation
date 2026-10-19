@@ -1,6 +1,3 @@
-// Hourly sweep that finds ChecklistInstance rows which just crossed their deadline still
-// incomplete and haven't been flagged yet, notifies their assignees + the store's PCs (escalation),
-// then stamps `overdueNotifiedAt` so the same instance is never re-notified on a later tick.
 import { scheduleJob } from '../utils/jobTracker.js';
 import { and, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
@@ -10,14 +7,8 @@ import { settingsService } from "../modules/settings/settings.service.js"
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 import { missedInstanceIds } from "../modules/checklistInstances/checklistMissedRun.js"
 
-// Same rationale as GENERATOR_BATCH_SIZE in checklistInstanceGenerator.job.ts — keeps every
-// unattended sweep job bounded, even though in practice far fewer than this go overdue per hour.
 const NOTIFIER_BATCH_SIZE = 500;
 
-// The deadline, the org-local "now" and the deleted-checklist rule come from the same expressions the rest
-// of the module uses, so this job cannot drift from what the pages show: a 09:00 cutoff is overdue at 09:00
-// org time (not 14:30). A run ends at its deadline (checklistMissedRun.ts), so this fires once, as it
-// closes: its people are NOT told to fill it in (they no longer can), only the store's PCs hear it was missed.
 const isOverdueAndIncomplete = sql`(
     NOT EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id})
     OR EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id} AND i.isDone = 0)
@@ -52,8 +43,6 @@ const notifyOverdueInstances = async () => {
         assigneeIdsByInstance.set(link.instanceId, list)
     }
 
-    // Each instance isolated in its own try/catch — one bad row (a notification failure, a
-    // transient DB blip) must not stop the rest of this tick's batch from being notified.
     const notifiedIds: string[] = []
     for (const row of rows) {
         try {
@@ -77,9 +66,6 @@ const notifyOverdueInstances = async () => {
     }
 }
 
-// Runs once immediately (so a server restart doesn't wait up to an hour to catch up), then hourly
-// at :15 — offset from the instance generator's own :00 sweep so the two don't tick at the exact
-// same moment for no reason.
 export const startChecklistOverdueNotifier = () => {
     notifyOverdueInstances().catch((err) => console.error("Initial checklist overdue notification sweep failed:", err))
     scheduleJob("checklist-overdue-notifier", "15 * * * *", 60, () => {

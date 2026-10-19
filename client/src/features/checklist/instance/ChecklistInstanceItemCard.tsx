@@ -22,8 +22,8 @@ import { formatDateTime } from '../checklistDisplay';
 interface ChecklistInstanceItemCardProps {
   item:       ChecklistInstanceItem;
   instanceId: string;
-  canWork:    boolean; // assignee or admin — allowed to upload/complete
-  isLocked:   boolean; // instance already APPROVED — frozen, no further changes
+  canWork:    boolean;
+  isLocked:   boolean;
 }
 
 export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemCardProps) {
@@ -40,7 +40,6 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
   const photosSatisfied = item.requiredImageCount > 0 && qualifying >= item.requiredImageCount;
   const interactive = canWork && !isLocked;
   const canReopen = useCanReopen();
-  // A finished step is final for everyone except an admin: the tick stops toggling back.
   const canToggle = interactive && (!item.isDone || canReopen);
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
@@ -48,9 +47,6 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
     uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod });
   };
 
-  // Plain items with no photo requirement keep the original snappy "click anywhere to toggle"
-  // interaction — no need for the fuller evidence-capture card below. The tick is never disabled
-  // while the save is in flight: the hook already updates the card at once and rolls back on error.
   if (item.requiredImageCount === 0) {
     return (
       <button
@@ -63,12 +59,10 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
         className={cn(
           PANEL_CLASS,
           'group flex items-center gap-3 p-3.5 sm:p-4 text-left transition-colors duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]',
-          // A settled tick (done, not yours to undo) reads as finished, not as a broken control.
           canToggle ? 'cursor-pointer hover:border-primary-500/50 active:bg-surface-hover/50' : interactive ? 'cursor-default' : 'cursor-not-allowed opacity-75',
           item.isDone && 'border-border/40 bg-surface/60',
         )}
       >
-        {/* Round check, same as the To-Do list: empty ring, green with a tick when done. */}
         <span
           className={`flex items-center justify-center size-6 rounded-full border-2 shrink-0 transition-colors duration-200 ${
             item.isDone ? 'bg-success border-success text-white' : 'border-text-light text-transparent group-hover:text-text-light/70'
@@ -90,7 +84,6 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
 
   return (
     <ItemCardShell isLocked={isLocked}>
-      {/* Evidence requirement badge */}
       <IconChip
         icon={isVideoItem ? Video : Camera}
         tone={photosSatisfied ? 'bg-success' : 'bg-warning'}
@@ -111,14 +104,12 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false })}
       />
 
-      {/* Evidence media strip */}
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {images.map(img => (
             <EvidenceThumb
               key={img.id}
               image={img}
-              // Evidence on a finished item stays put (the server refuses too). Reopen to swap it.
               onDelete={interactive && !item.isDone ? deleteImage.mutate : undefined}
               deleting={deleteImage.isPending}
             />

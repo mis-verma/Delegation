@@ -11,17 +11,12 @@ export type AdminUser = {
     departmentId: string | null;
     storeId: string | null;
     isActive: boolean;
-    /** When they were deactivated (null while active). */
     deactivatedAt?: string | null;
     avatarUrl: string | null;
     phone?: string | null;
-    /** Picks which uniform checklist an audit gives this person; null = not set (main list). */
     gender?: Gender | null;
-    /** Which admin-defined dress type an audit checks this person against; null = none (their gender's list). */
     dressTypeId?: string | null;
-    /** Who this person reports to (for a head, their own head); null = nobody. */
     reportsToId?: string | null;
-    /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
     weekOffDays?: number[] | null;
     createdAt: string;
 };
@@ -45,16 +40,12 @@ export type CreateUserPayload = {
 };
 
 export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
-    /** null clears it. */
     reportsToId?: string | null;
-    /** "" clears it (the server turns it into null). */
     phone?: string;
     isActive?: boolean;
     departmentId?: string | null;
     storeId?: string | null;
-    /** null clears it back to "not set". */
     gender?: Gender | null;
-    /** null clears it (back to their gender's list). */
     dressTypeId?: string | null;
     weekOffDays?: number[];
 };
@@ -76,7 +67,6 @@ export type PaginatedResponse<T> = {
 export type UserPresence = {
     id: string;
     online: boolean;
-    /** Null for an account that's never had a socket connect (never logged in on the web app). */
     lastActiveAt: string | null;
 };
 
@@ -90,8 +80,6 @@ export type OffboardingSummary = {
 };
 
 export const adminApi = {
-    // No page/limit -> the full roster (org structure's tree, assignable-user pickers, etc. all
-    // rely on getting everyone back). Use getPage for the admin directory's paginated list view.
     getAll: () => apiFetch<ApiResponse<AdminUser[]>>("/users"),
 
     getPage: (page = 1, limit = 20) =>
@@ -108,18 +96,15 @@ export const adminApi = {
     update: (id: string, payload: UpdateUserPayload) =>
         apiFetch<ApiResponse<AdminUser>>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
 
-    /** Move several people at once (department, store or role). Admin/PC only. */
     bulkUpdate: (payload: BulkUpdateUsersPayload) =>
         apiFetch<ApiResponse<{ updated: number }>>("/users/bulk", { method: "PATCH", body: JSON.stringify(payload) }),
 
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/users/${id}`, { method: "DELETE" }),
 
-    /** What this person still holds (open tickets, tasks, checklists, categories). */
     getOffboarding: (id: string) =>
         apiFetch<ApiResponse<OffboardingSummary>>(`/users/${id}/offboarding`),
 
-    /** Hand their open work to someone and switch them off. They keep their name on old records. */
     offboard: (id: string, payload: { transferToUserId?: string }) =>
         apiFetch<ApiResponse<{ summary: OffboardingSummary; transferredTo: string | null }>>(`/users/${id}/offboard`, {
             method: "POST",

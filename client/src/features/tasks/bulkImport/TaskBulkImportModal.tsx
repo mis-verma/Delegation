@@ -39,10 +39,6 @@ const PRIORITY_OPTIONS = [
   { value: 'high', label: 'High' },
 ];
 
-// Title is the one field the server actually requires — empty is always an error. Assignee and
-// Department are optional on a delegation, so an empty match is only an error when text was
-// actually typed in the source file and didn't resolve to a real record; leaving the cell blank
-// is the same as leaving the field blank in the create-delegation form.
 const requiredFieldRing = (value: string) => (!value ? 'ring-2 ring-danger/40' : '');
 const optionalFieldRing = (value: string, rawText: string | undefined, confidence: BulkImportMatchConfidence) => {
   if (!value) return rawText ? 'ring-2 ring-danger/40' : '';

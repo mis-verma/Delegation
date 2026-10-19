@@ -11,7 +11,6 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
-// One of the card's two score figures: a small name, the number in its colour, a thin bar under it.
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
   <div className="flex min-w-0 flex-col gap-1">
     <div className="flex items-baseline justify-between gap-2">
@@ -33,15 +32,10 @@ interface ChecklistInstanceCardProps {
   instance: ChecklistInstance;
 }
 
-// Memoized: MyChecklists re-renders on every filter/sort/option change and the list can run to 50
-// cards, all of which keep the same `instance` object between those renders.
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate } = getInstanceView(instance);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
-  // A shared checklist is done once ONE assignee finishes it. If that was someone else, say so, so
-  // this person does not think they still have to fill it.
-  // A short loop over the run's questions; cheap enough to run each render.
   const doneByOthers = (() => {
     if (!isComplete || !user) return null;
     const names = new Set<string>();
@@ -77,7 +71,6 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         <p className="t-meta font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
       )}
 
-      {/* The score footer: how much is done, and how much of it was right. */}
       <div className="mt-auto grid grid-cols-2 gap-3 border-t border-border/50 pt-2.5">
         <Metric
           label="Done"

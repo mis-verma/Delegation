@@ -3,16 +3,9 @@ import { sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import { jobRuns } from "../db/schema/core.js"
 
-// Every background job is scheduled through here instead of calling cron.schedule directly, so the
-// System Health page can answer "is it actually running?" from the database: when it last ran, how
-// long it took, whether it failed, and what it said. A tick that throws is recorded and swallowed
-// (cron would otherwise leave an unhandled rejection); a tick that returns normally counts as OK.
-// Housekeeping must never take the server down, and neither may the bookkeeping about it.
-
 type RegisteredJob = { name: string; expression: string; everyMinutes: number }
 const registry = new Map<string, RegisteredJob>()
 
-/** Jobs this process scheduled, whether or not they have run yet. */
 export const registeredJobs = (): RegisteredJob[] => [...registry.values()]
 
 const recordRun = async (job: RegisteredJob, startedAt: Date, error: unknown) => {

@@ -17,8 +17,6 @@ const QUESTION_NOTE_MAX = 200;
 const personName = (s: ChecklistInstanceItemSubmission) =>
   `${s.userId.firstName}${s.userId.lastName ? ` ${s.userId.lastName}` : ''}${s.userId.isActive === false ? ' (left)' : ''}`;
 
-// The audit trail line under every question: what kind of task it is, what was done, when and by whom.
-// Reviewers only (this panel is behind the Verification and department Approvals pages).
 const auditTrailLine = (item: ChecklistInstanceItem): string => {
   const kind = item.itemType === 'AUDIT' ? 'Audit task' : 'Checklist task';
   if (item.itemType === 'AUDIT') return kind;
@@ -27,9 +25,6 @@ const auditTrailLine = (item: ChecklistInstanceItem): string => {
   return `${kind} \u00b7 ${action} ${formatDateTime(item.completedAt)}${item.completedByName ? ` by ${item.completedByName}` : ''}`;
 };
 
-// Audit questions are answered per person. This lists every person with the action taken, the time,
-// the reason when they could not be checked, and the photos, so nothing the checker recorded is hidden
-// behind the "x of y people checked" count.
 const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
   const [open, setOpen] = useState(false);
   if (item.submissions.length === 0) return null;
@@ -79,8 +74,6 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
   );
 };
 
-// How this question's answer was saved and edited: one line per change with who and when. Opens on
-// demand and loads the run's whole history once, shared by every question's expander.
 const ItemHistory = ({ item }: { item: ChecklistInstanceItem }) => {
   const [open, setOpen] = useState(false);
   const { data, isPending, isError } = useChecklistItemHistoryQuery(item.instanceId, open);
@@ -120,30 +113,21 @@ const ItemHistory = ({ item }: { item: ChecklistInstanceItem }) => {
 
 interface ReviewRowProps {
   item: ChecklistInstanceItem;
-  /** A department head, PC or Admin who is not filling this run in: may waive a failing question. */
   canWaive: boolean;
   canRaiseTicket: boolean;
   flags: ItemFlags;
   selected: boolean;
   disabled: boolean;
   onToggle: (itemId: string) => void;
-  /** This question's own note for the send-back; only shown while it is ticked. */
   note: string;
   onNoteChange?: (itemId: string, note: string) => void;
-  /** The reviewer's note from the last send-back, shown on questions that were fixed since. */
   previousNote: string | null;
-  /** When the run closed (ms). A question completed after this is flagged as answered late. */
   deadlineMs: number | null;
 }
 
 const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
   const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
-  // Each question is its own small card, with space between cards, so a reviewer can read the run at a glance:
-  // a light red wash and border where the answer was wrong (a "No" when Yes was wanted, an out-of-range number,
-  // or a question already sent back), green where it was right. A question with no accepted-answer rule, a
-  // waived one and a not-applicable one stay plain. Ticking a card to send it back deepens the red, so "wrong
-  // answer" and "I am sending this back" can still be told apart.
   const verdict = answerVerdict(item);
   const wrong = flags.bad || flags.sentBack;
   const right = verdict === 'good' && !flags.sentBack && !flags.missingPhotos;
@@ -211,13 +195,7 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
         {item.itemType !== 'AUDIT' && <ItemHistory item={item} />}
       </div>
 
-      {/* What the reviewer can do with this question, in one labelled row at the bottom of its card:
-          Send back on the left, Waive (only where it counts against compliance) on the right. The whole
-          label is the tap target, 44px tall on a touch screen. */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border/50 pt-1.5">
-        {/* `relative` is load-bearing: the checkbox inside is visually hidden (absolutely positioned). Without
-            this label as its anchor it sat outside the sheet's scrolling body, and ticking it made the browser
-            scroll the whole sheet up to reach it: the header vanished and a blank gap opened under the buttons. */}
         <label
           className={cn(
             'relative inline-flex min-h-11 sm:min-h-9 select-none items-center gap-2 rounded-lg pr-3 transition-colors duration-150',
@@ -268,22 +246,15 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
 
 interface InstanceReviewPanelProps {
   items: ChecklistInstanceItem[];
-  /** Show the Waive button on failing questions. The server still decides who may. */
   canWaive?: boolean;
   canRaiseTicket?: boolean;
-  /** Questions the reviewer has ticked to send back. */
   selected: ReadonlySet<string>;
   onToggle: (itemId: string) => void;
-  /** True while a review request is in flight. */
   disabled?: boolean;
-  /** Per-question send-back notes, by question id. Leave out to hide the note boxes. */
   notes?: Readonly<Record<string, string>>;
   onNoteChange?: (itemId: string, note: string) => void;
-  /** The run's note from its last send-back, shown on questions fixed since. */
   lastSendBackNote?: string | null;
-  /** Shows the completion / compliance line on top. The review pane has its own score tiles. */
   showScores?: boolean;
-  /** When the run closed (ms), so late answers can be flagged. Leave out to skip the flag. */
   deadlineMs?: number | null;
 }
 
@@ -291,10 +262,6 @@ const SectionTitle = ({ children }: { children: string }) => (
   <h3 className="t-card font-display font-semibold text-text">{children}</h3>
 );
 
-// The body of a checklist waiting for review: failing questions first and open, everything else
-// folded away, each with what was answered, any remark and photos, and a tick box to send just that
-// question back (with an optional note of its own). Used by the Verification page's review pane and
-// the department Approvals page, so both review the same way.
 export const InstanceReviewPanel = memo(function InstanceReviewPanel({
   items, canWaive = false, canRaiseTicket = false, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
 }: InstanceReviewPanelProps) {

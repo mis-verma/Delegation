@@ -3,9 +3,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { checklistInstanceApi, type FormerPersonName } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 
-// Names only: the light endpoint skips the per-person aggregates the Former People page needs. If
-// it fails (an older server without the route), fall back to the full list so a "(left)" name still
-// resolves instead of the page showing "Unknown".
 const fetchNames = async (): Promise<FormerPersonName[]> => {
   try {
     return await checklistInstanceApi.getFormerPeopleNames();

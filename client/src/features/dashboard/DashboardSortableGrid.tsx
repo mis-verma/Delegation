@@ -49,9 +49,6 @@ interface DashboardSortableGridProps {
   onHide: (id: DashboardCardId) => void;
 }
 
-// The drag-and-drop layer of the dashboard grid. Loaded lazily by HomePage only after the viewer
-// starts Customize, so the sensors, DndContext and sortable machinery never cost anything for
-// someone who just wants to look at their numbers.
 const DashboardSortableGrid = ({ order, sizes, renderCard, onMove, onSizeChange, onHide }: DashboardSortableGridProps) => {
   const [activeDragId, setActiveDragId] = useState<DashboardCardId | null>(null);
   const sensors = useSensors(
@@ -85,9 +82,6 @@ const DashboardSortableGrid = ({ order, sizes, renderCard, onMove, onSizeChange,
         </div>
       </SortableContext>
 
-      {/* A floating copy of whatever's being dragged, lifted by a slight tilt and a stronger border
-          rather than a shadow; the card left behind in the grid is what the frame's own opacity
-          drop shows, not a second placeholder drawn here. */}
       <DragOverlay>
         {activeDragId && (
           <div className="rotate-1 rounded-2xl border border-primary-500/50 cursor-grabbing">{renderCard(activeDragId)}</div>

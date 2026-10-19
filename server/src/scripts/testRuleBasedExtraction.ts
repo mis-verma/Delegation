@@ -1,5 +1,3 @@
-// One-off script to test the rule-based (non-AI) extraction algorithm in isolation.
-// Run like: `npx tsx src/scripts/testRuleBasedExtraction.ts "Harsh ko MDO department ke liye dashboard banana hai, kal tak."`
 import "dotenv/config"
 import { connectDB, disconnectDB } from "../config/db.js"
 import { extractWithRules } from "../modules/tasks/ai/providers/ruleBased.provider.js"

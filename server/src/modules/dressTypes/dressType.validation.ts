@@ -5,7 +5,6 @@ const nameSchema = z.string().trim().min(1, "Give the dress type a name").max(80
 
 export const createDressTypeSchema = z.object({
     name: nameSchema,
-    // null / missing = offered for anyone; the client uses this to filter the picker by gender.
     gender: z.enum(GENDERS).nullable().optional(),
 })
 

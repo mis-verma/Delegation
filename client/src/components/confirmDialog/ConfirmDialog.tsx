@@ -66,8 +66,6 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
   );
 };
 
-// Provider + hook intentionally live in one file (the hook is meaningless without its provider);
-// only affects Fast Refresh granularity, not runtime correctness.
 // eslint-disable-next-line react-refresh/only-export-components
 export const useConfirm = () => {
   const ctx = useContext(ConfirmContext);
@@ -75,7 +73,5 @@ export const useConfirm = () => {
   return ctx;
 };
 
-/** Same as useConfirm but returns null outside the provider instead of throwing, for shared
- *  components (Modal) that may render somewhere the provider doesn't reach. */
 // eslint-disable-next-line react-refresh/only-export-components
 export const useOptionalConfirm = () => useContext(ConfirmContext);

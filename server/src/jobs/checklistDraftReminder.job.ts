@@ -1,10 +1,3 @@
-// Hourly sweep that finds ChecklistInstance rows someone started (completed at least one item)
-// and then stopped for a while, still with time left before the deadline, and haven't been
-// nudged yet — sends one "finish this" reminder per instance, then stamps `draftReminderSentAt`
-// so it's never repeated. Deliberately narrower than checklistOverdueNotifier.job.ts: this only
-// ever looks at instances that are NOT yet overdue (once the deadline passes, that job takes
-// over) and that have real progress on them (an untouched instance isn't a "forgotten draft," it
-// just hasn't been started — nothing to remind anyone to finish).
 import { scheduleJob } from '../utils/jobTracker.js';
 import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
@@ -16,15 +9,9 @@ import { missedFromPastDayExpr } from "../modules/checklistInstances/checklistMi
 
 const REMINDER_BATCH_SIZE = 500;
 
-// Deadline and org-local "now" are the shared expressions, so a reminder never goes to someone whose
-// run is already locked.
-
 const notifyDraftInstances = async () => {
     if (env.CHECKLIST_DRAFT_REMINDER_HOURS <= 0) return
 
-    // Aggregated per instance: how many items are done vs total, and when the first one was
-    // completed — "started, stalled, and not finished" only shows up once you group the items,
-    // unlike the overdue sweep's plain EXISTS conditions.
     const rows = await db.select({
         id: checklistInstances.id,
         title: checklistInstances.title,
@@ -62,8 +49,6 @@ const notifyDraftInstances = async () => {
         assigneeIdsByInstance.set(link.instanceId, list)
     }
 
-    // Each instance isolated in its own try/catch — same reasoning as the overdue sweep: one bad
-    // row must not stop the rest of this tick's batch from being reminded.
     const notifiedIds: string[] = []
     for (const row of rows) {
         try {
@@ -87,7 +72,6 @@ const notifyDraftInstances = async () => {
     }
 }
 
-// A checklist where every question is done but nobody pressed Submit: after an hour, one nudge.
 const notifyUnsubmittedInstances = async () => {
     if (env.CHECKLIST_DRAFT_REMINDER_HOURS <= 0) return
 
@@ -100,7 +84,6 @@ const notifyUnsubmittedInstances = async () => {
         .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
         .where(and(
             isNull(checklistInstances.submitReminderSentAt),
-            // Recent runs only: an old finished-but-unsent run is not worth a late nudge.
             sql`${checklistInstances.periodEnd} >= DATE_SUB(NOW(), INTERVAL 3 DAY)`,
             inArray(checklistInstances.verificationStatus, ["NOT_SUBMITTED", "REJECTED"]),
         ))
@@ -133,17 +116,10 @@ const notifyUnsubmittedInstances = async () => {
     }
 }
 
-// Approval chase. A run that has sat in PENDING_APPROVAL for 24h gets ONE reminder to its reviewers
-// (or, when none were named, the department head(s) and store PCs); after 48h ONE escalation to every
-// Admin/PC. approvalReminderSentAt / approvalEscalatedAt make each a one-shot, and both are cleared
-// when the run leaves PENDING_APPROVAL (checklistInstance.service.ts), so a resubmission can be
-// chased again. "Waiting since" is updatedAt: it is only written when the run enters or leaves
-// PENDING_APPROVAL (same assumption pendingApprovalPreview makes).
 const APPROVAL_REMINDER_HOURS = 24
 const APPROVAL_ESCALATION_HOURS = 48
 const HOUR_MS = 3_600_000
 
-// A checklist whose template was soft-deleted has nothing left to approve it into.
 const parentNotDeleted = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
@@ -151,7 +127,6 @@ const parentNotDeleted = sql`NOT EXISTS (
 
 export type StaleApproval = { id: string; title: string; storeId: string; waitingSince: Date }
 
-// Runs due a reminder and runs due an escalation right now, oldest first, each set bounded.
 export const findStaleApprovals = async (now: Date = new Date()): Promise<{ reminders: StaleApproval[]; escalations: StaleApproval[] }> => {
     const columns = { id: checklistInstances.id, title: checklistInstances.title, storeId: checklistInstances.storeId, waitingSince: checklistInstances.updatedAt }
     const select = (hours: number, stamp: typeof checklistInstances.approvalReminderSentAt | typeof checklistInstances.approvalEscalatedAt) =>
@@ -195,7 +170,6 @@ export const notifyStaleApprovals = async (now: Date = new Date()) => {
         const reviewersBy = groupUserIds(reviewerLinks)
         const assigneesBy = groupUserIds(assigneeLinks)
 
-        // One instance failing must not stop the rest; it is stamped only after its notify went through.
         const notifiedIds: string[] = []
         for (const row of reminders) {
             try {
@@ -232,23 +206,16 @@ export const notifyStaleApprovals = async (now: Date = new Date()) => {
     }
 }
 
-// Hourly at :45 (the other checklist sweeps sit at :00, :15 and :30). Returns the promise so a
-// failure reaches the System Health heartbeat.
 export const startChecklistApprovalReminder = () => {
     notifyStaleApprovals().catch((err) => console.error("Initial checklist approval reminder sweep failed:", err))
     scheduleJob("checklist-approval-reminder", "45 * * * *", 60, () => notifyStaleApprovals())
 }
 
-// Runs once immediately (so a server restart doesn't wait up to an hour to catch up), then hourly
-// at :30 — offset from the instance generator's (:00) and overdue notifier's (:15) own sweeps so
-// none of the three tick at the same moment for no reason.
 const sweep = async () => {
     await notifyDraftInstances()
     await notifyUnsubmittedInstances()
 }
 
-// The scheduled run returns the promise so a failure reaches the System Health heartbeat instead of
-// being swallowed here.
 export const startChecklistDraftReminder = () => {
     sweep().catch((err) => console.error("Initial checklist draft reminder sweep failed:", err))
     scheduleJob("checklist-draft-reminder", "30 * * * *", 60, sweep)

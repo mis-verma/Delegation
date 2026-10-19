@@ -25,25 +25,17 @@ import {
 import { userOffboardingService } from "./userOffboarding.service.js";
 import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
 
-// The offboarding flow imports these from here, so they stay exported from this module.
 export { assertCanDeactivate, revokeSessions };
 
-// Drizzle wraps the driver's error: the MySQL code sits on `.cause`. 1451 = a row somewhere still
-// points at this one (the delete is blocked by a foreign key).
 const isReferencedError = (err: unknown) => {
     const e = err as { code?: string; cause?: { code?: string } } | null;
     return e?.code === 'ER_ROW_IS_REFERENCED_2' || e?.cause?.code === 'ER_ROW_IS_REFERENCED_2';
 };
 
-// An assertion function narrowing `T | undefined` (a plain row is now `undefined` when missing,
-// not Mongoose's `null`) to `T`, throwing AppError.notFound otherwise.
 function assertFound<T>(entity: T | undefined, message: string = 'User not found'): asserts entity is T {
     if (!entity) throw AppError.notFound(message);
 }
 
-// Explicit column list that NEVER includes passwordHash — every read in this service goes
-// through this, per the conventions doc's warning that `db.select()` with no column list
-// would otherwise leak the bcrypt hash to API responses.
 const publicUserColumns = {
     id: users.id,
     email: users.email,
@@ -71,7 +63,6 @@ const getSafeById = async (id: string) => {
     return user;
 };
 
-// What an audit row records about a person. Never includes the password hash.
 const userSnapshot = (u: {
     email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
     phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
@@ -94,7 +85,6 @@ const userSnapshot = (u: {
 const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined) =>
     JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
 
-// A department or store id that doesn't exist would otherwise surface as a raw foreign-key error.
 const assertOrgRefs = async (departmentId?: string | null, storeId?: string | null, dressTypeId?: string | null) => {
     if (departmentId) {
         const [d] = await db.select({ id: departments.id }).from(departments).where(eq(departments.id, departmentId)).limit(1);
@@ -110,9 +100,6 @@ const assertOrgRefs = async (departmentId?: string | null, storeId?: string | nu
     }
 };
 
-// "Reports to": the person has to exist and be active, cannot be the user themself, and cannot sit
-// below the user in the chain (A reports to B reports to A is a loop, and a loop would send an alert
-// round in circles). `userId` is null while creating, when there is no chain below the new person yet.
 const MAX_CHAIN_DEPTH = 25;
 const assertReportsTo = async (userId: string | null, reportsToId: string | null | undefined) => {
     if (!reportsToId) return;
@@ -127,8 +114,6 @@ const assertReportsTo = async (userId: string | null, reportsToId: string | null
     }
 };
 
-// Best-effort removal of an avatar file from /uploads/avatars. Always called AFTER the database
-// change that stops referencing it has succeeded, so a failed update never loses the picture.
 const unlinkAvatarFile = (avatarUrl: string | null | undefined) => {
     if (!avatarUrl) return;
     const filePath = path.resolve(process.cwd(), "uploads", "avatars", path.basename(avatarUrl));
@@ -137,14 +122,10 @@ const unlinkAvatarFile = (avatarUrl: string | null | undefined) => {
     });
 };
 
-// The one place a password changes (own change and admin reset): new hash + the moment of change
-// (which kills still-live access tokens), every session ended, outstanding reset links spent, and
-// the audit row, all in ONE transaction. If the audit write fails, the password does not change.
 const applyPasswordChange = async (
     id: string,
     passwordHash: string,
     audit: { actorId: string; email: string },
-    // true when an admin set the password: the person must pick their own before using the app.
     mustChangePassword = false,
 ) => {
     await db.transaction(async (tx) => {
@@ -164,11 +145,7 @@ const applyPasswordChange = async (
 };
 
 export const userService = {
-    // page/limit are optional — pass both to get a paginated slice (the admin directory list),
-    // omit both to get the full roster unchanged (every other caller: OrgStructure's tree, etc.).
     async list(page?: number, limit?: number) {
-        // id as a tiebreaker: rows created in the same second would otherwise swap places between
-        // pages and show up twice or not at all.
         if (page && limit) {
             const [rows, totalRows] = await Promise.all([
                 db.select(publicUserColumns).from(users).orderBy(desc(users.createdAt), asc(users.id)).offset((page - 1) * limit).limit(limit),
@@ -192,8 +169,6 @@ export const userService = {
     },
 
     async create(input: CreateUserInput, actorId: string) {
-        // The schema already trims and lowercases the email; this keeps the service safe for
-        // callers that bypass it.
         const email = input.email.trim().toLowerCase();
         const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
         if (existing) throw AppError.conflict('Email already registered');
@@ -210,7 +185,6 @@ export const userService = {
                 id,
                 email,
                 passwordHash,
-                // Admin-set starting password: temporary, replaced by the person at their first sign-in.
                 mustChangePassword: true,
                 firstName: input.firstName,
                 lastName: input.lastName ?? null,
@@ -225,12 +199,9 @@ export const userService = {
                 rank,
             });
         } catch (err) {
-            // Two creates racing for the same email/phone: the unique index wins, the loser gets a clean 409.
             throw mapDuplicateUserError(err);
         }
 
-        // Re-select (through the passwordHash-free column list) rather than constructing the
-        // return value by hand, so `createdAt`/`updatedAt` DB defaults are reflected accurately.
         const user = await getSafeById(id);
         assertFound(user);
 
@@ -251,24 +222,17 @@ export const userService = {
 
         const newRole = input.role ?? before.role;
         const roleChanged = newRole !== before.role;
-        // Changing your own role could strip your own admin rights (or grant yourself more).
         if (roleChanged && id === actorId) throw AppError.badRequest("You can't change your own role.");
 
         const deactivating = input.isActive === false && before.isActive;
         const reactivating = input.isActive === true && !before.isActive;
         if (deactivating) {
-            // Quick fail for the obvious cases; the last-admin check is repeated inside the transaction.
             if (id === actorId) throw AppError.badRequest("You can't deactivate your own account.");
-            // A plain switch-off would orphan open tickets, tasks, checklists and categories. That
-            // takes the hand-over flow (POST /users/:id/offboard), which moves the work first.
             const summary = await userOffboardingService.summary(id);
             if (summary.hasOpenWork) throw AppError.badRequest("Use Deactivate with hand-over: this person still has open work.");
         }
 
         const normalizedEmail = input.email !== undefined ? input.email.trim().toLowerCase() : undefined;
-        // Same pre-check create() does — without it, changing a user's email to one already in
-        // use hits the DB's unique index instead, which throws a raw ER_DUP_ENTRY the caller sees
-        // as a generic 500-ish error rather than a clean, expected 409.
         if (normalizedEmail !== undefined && normalizedEmail !== before.email) {
             const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
             if (existing) throw AppError.conflict('Email already registered');
@@ -291,7 +255,6 @@ export const userService = {
         if (input.isActive !== undefined) set.isActive = input.isActive;
         if (roleChanged) {
             set.role = newRole;
-            // A new role means the old role's default rank no longer fits, unless one was given.
             set.rank = deriveDefaultRank(newRole, input.rank);
         } else if (input.rank !== undefined) {
             set.rank = input.rank;
@@ -299,8 +262,6 @@ export const userService = {
         if (deactivating) set.deactivatedAt = new Date();
         if (reactivating) set.deactivatedAt = null;
 
-        // Role, activation and deactivation changes are the ones that must never happen without a
-        // trail, so their audit row is written in the same transaction and a failure rolls it back.
         const sensitive = roleChanged || deactivating || reactivating;
         const leavesAdmin = before.role === 'ADMIN' && before.isActive && roleChanged;
 
@@ -327,8 +288,6 @@ export const userService = {
             throw mapDuplicateUserError(err);
         }
         assertFound(user);
-        // authenticate() caches role/active/department/store for a short while; drop it now so a
-        // demotion or deactivation applies on the very next request.
         await invalidateAuthUsers(id);
 
         if (!sensitive) {
@@ -338,13 +297,10 @@ export const userService = {
             });
         }
 
-        // Anything that changes what a live socket may see (rooms are built from role, department
-        // and store) or whether the person may be connected at all drops their sockets now.
         if (roleChanged || user.departmentId !== before.departmentId || user.storeId !== before.storeId || user.isActive !== before.isActive) {
             disconnectUserSockets(id);
         }
 
-        // Week-off days, department and store decide who gets which of today's checklist runs.
         if (!sameDays(user.weekOffDays, before.weekOffDays) || user.departmentId !== before.departmentId || user.storeId !== before.storeId) {
             await refreshLiveChecklistsForUsers([id], `updating ${id}`);
         }
@@ -352,8 +308,6 @@ export const userService = {
         return user;
     },
 
-    // Moves many people at once (department, store and/or role). One transaction, the same guards
-    // as update() (own role, last admin, rank recompute), one audit row per person who changed.
     async bulkUpdate(input: BulkUpdateUsersInput, actorId: string) {
         const { ids, departmentId, storeId, role } = input;
         await assertOrgRefs(departmentId, storeId);
@@ -365,7 +319,6 @@ export const userService = {
             if (role !== undefined) {
                 const me = rows.find((r) => r.id === actorId);
                 if (me && me.role !== role) throw AppError.badRequest("You can't change your own role.");
-                // Every active admin in the selection is being demoted: someone outside it must stay.
                 if (role !== "ADMIN" && rows.some((r) => r.role === "ADMIN" && r.isActive)) {
                     const admins = await lockAdmins(tx);
                     if (!admins.some((a) => a.isActive && !ids.includes(a.id))) throw AppError.badRequest(LAST_ADMIN_MESSAGE);
@@ -404,9 +357,6 @@ export const userService = {
         return { updated: changed.length };
     },
 
-    // A user editing their own profile — same shape of update as `update` above, just scoped to
-    // the narrower set of fields updateOwnProfileSchema allows and always self-attributed (the
-    // actor editing this record IS this record).
     async updateOwnProfile(id: string, input: UpdateOwnProfileInput) {
         const before = await getSafeById(id);
         assertFound(before);
@@ -438,8 +388,6 @@ export const userService = {
         return user;
     },
 
-    // A user changing their own password — has to prove they know the current one first, unlike
-    // resetPassword below (an admin setting someone else's password directly with no such check).
     async changeOwnPassword(id: string, currentPassword: string, newPassword: string) {
         const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
         assertFound(user, 'User not found');
@@ -447,16 +395,9 @@ export const userService = {
         const valid = await comparePassword(currentPassword, user.passwordHash);
         if (!valid) throw AppError.badRequest('Current password is incorrect');
 
-        // Changing a password is exactly the moment a stolen refresh token should stop working, so
-        // every existing session — this one's included — ends. The client signs back in right after.
         await applyPasswordChange(id, await hashPassword(newPassword), { actorId: id, email: user.email }, false);
     },
 
-    // Real delete is only for an account with no history (one created by mistake). Anyone who has
-    // worked in the system is referenced by tickets, tasks, checklists or audits, and removing them
-    // would leave those records pointing at nobody, so they are deactivated instead (offboard in
-    // userOffboarding.service.ts). Sessions, reset links and notifications are disposable and go with
-    // the account; if anything real still points at the person the whole delete rolls back.
     async remove(id: string, actorId: string) {
         const user = await getSafeById(id);
         assertFound(user);
@@ -464,7 +405,6 @@ export const userService = {
 
         try {
             await db.transaction(async (tx) => {
-                // Deleting an active admin counts as taking an admin away.
                 if (user.role === 'ADMIN' && user.isActive) await assertAnotherActiveAdmin(tx, [id]);
 
                 await tx.delete(refreshTokens).where(eq(refreshTokens.userId, id));
@@ -490,31 +430,22 @@ export const userService = {
             throw err;
         }
 
-        // Only after the delete has committed: the picture is no longer referenced by anyone.
         unlinkAvatarFile(user.avatarUrl);
         disconnectUserSockets(id);
 
         return user;
     },
 
-    // Admin-initiated reset: an ADMIN/PC sets this user's password directly (e.g. they're locked
-    // out), as opposed to auth.service.ts's self-service "email me a reset link" flow. Never logs
-    // the new password itself - only the fact that a reset happened.
     async resetPassword(id: string, newPassword: string, actorId: string) {
         const user = await getSafeById(id);
         assertFound(user);
 
-        // The admin chose or generated this password, so it is temporary: the person has to replace it at
-        // their next sign-in and no admin ever holds anyone's real password.
         await applyPasswordChange(id, await hashPassword(newPassword), { actorId, email: user.email }, true);
     },
 
-    // Replaces this user's profile picture. The previous file is deleted only after the database
-    // points at the new one, so a failed update never leaves the user with no picture at all.
     async setAvatar(id: string, url: string, actorId: string) {
         const user = await getSafeById(id);
         if (!user) {
-            // The upload is already on disk; nobody references it, so drop it.
             unlinkAvatarFile(url);
             throw AppError.notFound('User not found');
         }
@@ -565,19 +496,10 @@ export const userService = {
         return updated;
     },
 
-
     async listAssignable(user: AccessTokenPayload, departmentId?: string, storeId?: string, storeIds?: string[]) {
         const isScoped = user.role !== "ADMIN" && user.role !== "PC";
-        // Choosing a department lists THAT department's people for every role, so a ticket or
-        // delegation raised for another department can name who should take it (front-line staff
-        // used to be silently handed their own department's list instead). Only names and roles come
-        // back for non-admins (the controller drops email). Without a department, a scoped caller
-        // still only gets their own department, store and themselves, below.
         const effectiveDepartmentId = departmentId
         const effectiveStoreId = isScoped && storeId !== user.storeId ? undefined : storeId
-        // A checklist can target several stores at once, so the assignee picker needs "assignable
-        // in ANY of these stores", not just the first one - a scoped caller (non-ADMIN/PC) can only
-        // ever see their own store regardless of what the checklist's store list contains.
         const effectiveStoreIds = storeIds?.length
             ? (isScoped ? storeIds.filter((id) => id === user.storeId) : storeIds)
             : undefined
@@ -595,8 +517,6 @@ export const userService = {
             conditions.push(or(...onConditions)!)
         }
 
-        // The controller drops `email` for callers who are not ADMIN/PC; internal callers (the bulk
-        // importers match people by email) still get it from here.
         return db.select({
             id: users.id,
             firstName: users.firstName,
@@ -610,9 +530,6 @@ export const userService = {
             .orderBy(asc(users.firstName), asc(users.lastName), asc(users.id));
     },
 
-    // Who's online right now (Redis, live) plus when everyone was last seen (DB, durable) — the
-    // two questions "who's active" actually needs, in one call so the client isn't stitching two
-    // responses together itself.
     async presence() {
         const [rows, onlineIds] = await Promise.all([
             db.select({ id: users.id, lastActiveAt: users.lastActiveAt }).from(users),

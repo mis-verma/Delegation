@@ -43,27 +43,8 @@ interface TaskCardProps {
   onOpen: (task: Task, mode?: 'view' | 'edit') => void;
   index?: number;
   fields: CardFieldVisibility;
-  /** True when this task has an unread "you were just assigned this" notification — shows a small
-   *  callout naming who raised it, until the card is opened. */
   isNewlyAssigned?: boolean;
-  /**
-   * Moves this delegation to another status. Supplied by the board, which routes it through the
-   * same remark dialog a drag goes through.
-   *
-   * Drag is mouse-only (see TaskBoard's DraggableCard), so without this a keyboard or touch user
-   * had no way to move a card from the board at all — and once the board can group by department
-   * or assignee, drag stops being a status control even for mouse users. Omitted on the drag
-   * overlay and anywhere the move isn't available.
-   */
   onMove?: (task: Task, toStatus: Task['status']) => void;
-  /**
-   * Draws priority as a colored rail down the card's leading edge.
-   *
-   * Opt-in rather than always on: in the List view a full-width row has no priority column, so the
-   * rail is what carries priority and it scans down a long stack far faster than reading a chip on
-   * each row. On the board, cards are already grouped into narrow columns and can be grouped BY
-   * priority, where a second priority signal on every card is noise.
-   */
   priorityRail?: boolean;
 }
 
@@ -90,20 +71,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const showVerifyActions = task.status === 'pending_approval' && isVerifier;
 
   const showChecklistBar = fields.subtasks && progress !== null;
-  // A single due/overdue IconChip in the main chip row now — same pill Ticket and Checklist cards
-  // already use for their own due date. This used to be two different-looking treatments
-  // (a bespoke gradient progress bar mid-card, a StatusChip pill in the footer) that were also
-  // mutually exclusive for no reason a viewer could see, and disagreed with each other's wording
-  // ("3d left" vs "3 days left") whenever both could have applied.
   const showDueCell = fields.dueDate && !!task.dueDate;
-  // Plain once it is done; amber on the due day itself; red when it has slipped.
-  // A delegation whose clock has stopped (done, or handed in for approval) shows its date plainly,
-  // with no countdown and no "overdue" (same rule as isOverdueTask).
   const clockStopped = OVERDUE_EXEMPT_STATUSES.has(task.status);
   const dueIsToday = !!task.dueDate && !clockStopped && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
   const dueTone = task.status === 'done' ? 'text-text-secondary' : isOverdue ? 'text-danger' : dueIsToday ? 'text-warning' : 'text-text';
-  // The footer shows Done / In review / verify actions for these states, so the score pill would
-  // just be a second reading of the same status.
   const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
 
   const prefetchHandlers = usePrefetchTask(task.id);
@@ -122,9 +93,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       tabIndex={0}
       className={`group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden [-webkit-tap-highlight-color:transparent] ${priorityRail ? 'pl-4' : ''}`}
     >
-      {/* Absolutely positioned so it hugs the rounded edge without becoming a flex child that
-          every other row in the card has to lay out around. aria-hidden because the priority is
-          already announced by the chip in the card's own footer. */}
       {priorityRail && (
         <span
           aria-hidden
@@ -139,9 +107,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </div>
       )}
 
-      {/* Title gets the card's full width. Move/Delete used to sit beside it and squeezed a
-          ~250px column's title down to "Security camera offlin…"; they're a small floating
-          toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
       <div className="flex items-start gap-2">
         <h4 className={`flex-1 min-w-0 t-card sm:text-sm font-display font-semibold text-text leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
@@ -149,9 +114,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         <TaskSourceBadge aiMeta={task.aiMeta} />
       </div>
 
-      {/* One always-visible "..." menu instead of two icons that only appeared on hover: Open, Move to
-          and Delete live inside. It sits inside dnd-kit's drag listeners on the board, so its press
-          must not pick the card up. */}
       <div className="absolute top-2 right-2 z-10" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -177,9 +139,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 <DropdownMenuSubContent className="w-52 rounded-xl">
                   <DropdownMenuLabel className="t-meta text-text-muted font-medium">Move to</DropdownMenuLabel>
                   {MOVABLE_STATUSES.map((status) => {
-                    // Same pipeline rules as TaskMoveMenu and the server (isMoveBlocked): "Done" only
-                    // through approval, "Pending Approval" only from "In Progress", and so on. Shown
-                    // disabled rather than hidden: the option exists, just not from here.
                     const blocked = isMoveBlocked(task.status, status);
                     return (
                       <DropdownMenuItem
@@ -222,8 +181,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       </div>
 
       {coverPhoto && (
-        // aspect-video gave a ~250px-wide column a ~140px image — the single heaviest thing on the
-        // card and the least informative. 5:2 keeps it recognisable at roughly two-thirds the height.
         <img
           src={`${UPLOADS_BASE}${coverPhoto.url}`}
           alt=""
@@ -238,14 +195,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </p>
       )}
 
-      {/* Checklist completion, governed by the "Subtasks" field toggle. Same shared component
-          Tickets use, so the two card types read identically. */}
       {showChecklistBar && <ChecklistProgressBar done={doneItems} total={totalItems} />}
 
-      {/* One pill row: department, priority, category, due date and the score badge all read as
-          the same kind of thing now, matching Ticket/Checklist cards' own chip row. The score
-          badge is suppressed whenever the footer already carries a status badge for the same fact
-          — otherwise a finished delegation showed "Mark 100%" here and "Done" three lines below it. */}
       {(fields.department || fields.priority || fields.category || showScoreBadge) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {fields.department && departmentName && <DepartmentChip name={departmentName} />}
@@ -261,12 +212,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </div>
       )}
 
-      {/* Raised-by and the timestamps were three separate bands. They're all the same kind of thing
-          — quiet text metadata — so they share one wrapping row, which keeps pills and plain text
-          from alternating down the card. */}
       {(fields.created || fields.updated) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-semibold text-text-light tabular-nums">
-          {/* Both on: one "updated" time, with the created time in its tooltip. */}
           {fields.created && !fields.updated && (
             <span className="flex items-center gap-1" title={`Created ${formatShortDateTime(task.createdAt)}`}>
               <CalendarPlus size={12} strokeWidth={2.5} />
@@ -286,10 +233,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </div>
       )}
 
-      {/* Two labelled facts the board is read for: who raised it and when it is due. Each has a small
-          caption and a value in full-size text, so neither is a grey afterthought in a row of icons. A
-          finished delegation shows its due date in plain text (nothing left to chase); an open one turns
-          amber on its due day and red once it has passed. */}
       {((fields.raisedBy && raisedByName) || showDueCell) && (
         <div className={`grid gap-2 rounded-lg bg-surface-hover/50 px-2.5 py-2 ${((fields.raisedBy && raisedByName) && showDueCell) ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {fields.raisedBy && raisedByName && (
@@ -363,9 +306,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           <span />
         )}
 
-        {/* Same reason as the delete button above: Approve/Reject are real controls sitting inside
-            the card's drag surface, so their presses must not start a drag or bubble up to the
-            card's own "open detail" click. */}
         <div
           className="shrink-0"
           onPointerDown={(e) => { if (showVerifyActions) e.stopPropagation(); }}

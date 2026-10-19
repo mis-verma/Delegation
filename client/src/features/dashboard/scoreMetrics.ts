@@ -2,27 +2,21 @@ import type { Scores } from '../../api/scores';
 import { roundPct } from '../../lib/percent';
 import { SCORE_LABEL, SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
 
-// The three percentages every module is judged on, and the tab that picks which to look at.
 export type SeriesKey = 'completion' | 'compliance' | 'ontime';
 export type ScoreMetric = 'overview' | SeriesKey;
 export type ModuleKey = 'checklist' | 'ticket' | 'delegation';
 
 export const METRIC_OPTIONS: readonly ScoreMetric[] = ['overview', 'completion', 'compliance', 'ontime'];
-// 'overview' is the overall score (completion and compliance counted equally). Its tab says "Overall",
-// the short form of the "Overall score" name used everywhere else, because the measure tabs share one
-// narrow row of four.
 export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: SCORE_LABEL_SHORT.overall, completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL_SHORT.onTime };
 export const isMetric = (v: unknown): v is ScoreMetric => typeof v === 'string' && (METRIC_OPTIONS as readonly string[]).includes(v);
 
 export const SERIES_LABEL: Record<SeriesKey, string> = { completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL.onTime };
-// Blue in three weights, so the three read as one family and a colour means the same in every view.
 export const SERIES_COLOR: Record<SeriesKey, string> = {
   completion: 'var(--color-primary-500)',
   compliance: 'var(--color-series-compliance)',
   ontime: 'var(--color-primary-400)',
 };
 
-/** Overview shows completion beside compliance; every other tab shows one measure on its own. */
 export const seriesFor = (metric: ScoreMetric): SeriesKey[] => (metric === 'overview' ? ['completion', 'compliance'] : [metric]);
 
 interface ModuleNumbers {
@@ -43,11 +37,6 @@ export const MODULE_ROWS: readonly { key: ModuleKey; label: string }[] = [
 
 type ModuleScores = Pick<Scores, ModuleKey>;
 
-/**
- * One module's counts in the words every score view uses: Done, Late (finished, but after the
- * deadline) and Not done. Late and Not done never count the same item twice, so for tickets an open
- * ticket is "not done", never also "late".
- */
 export const moduleCounts = (s: ModuleScores, key: ModuleKey): { due: number; done: number; onTime: number; late: number; notDone: number } => {
   if (key === 'checklist') {
     const c = s.checklist;
@@ -61,7 +50,6 @@ export const moduleCounts = (s: ModuleScores, key: ModuleKey): { due: number; do
   return { due: d.due, done: d.done, onTime: d.onTime, late: Math.max(0, d.done - d.onTime), notDone: d.overdue };
 };
 
-/** A module's Overall score: completion and compliance counted equally. Null when nothing was due. */
 export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null => {
   const m = s[key];
   if (m.due === 0) return null;
@@ -69,14 +57,7 @@ export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null =>
   return parts.length ? roundPct(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
 };
 
-/**
- * The one Overall score every view uses (Scorecard, Overview leaders, leaderboard, rankings): the
- * completion and compliance of every module that had something due, all counted equally. Null when
- * nothing was due.
- */
 export const overallOf = (s: ModuleScores & { overall?: number | null }): number | null => {
-  // The server computes this from unrounded figures; when it sends one, that is the number, so no screen
-  // can differ from another by re-deriving it.
   if (s.overall !== undefined) return s.overall;
   const values: number[] = [];
   for (const { key } of MODULE_ROWS) {
@@ -88,11 +69,6 @@ export const overallOf = (s: ModuleScores & { overall?: number | null }): number
   return values.length ? roundPct(values.reduce((a, b) => a + b, 0) / values.length) : null;
 };
 
-/**
- * One measure taken across all three modules, weighted by what each module had due, so a module with 2
- * items does not count like one with 200. The Scorecard rows and the Team Overview cards both use this, so
- * the same person never reads two different Completion or On time figures.
- */
 export const acrossModules = (s: ModuleScores): { due: number; done: number; onTime: number; late: number; notDone: number; completion: number | null; compliance: number | null; ontime: number | null } => {
   const parts = [
     { due: s.checklist.due, done: s.checklist.completed, onTime: s.checklist.onTime, compliance: s.checklist.compliancePct },
@@ -116,20 +92,16 @@ export const acrossModules = (s: ModuleScores): { due: number; done: number; onT
   };
 };
 
-/** Everything due across the three modules: what the minimum-volume rule for ranking checks. */
 export const totalDue = (s: ModuleScores): number => s.checklist.due + s.ticket.due + s.delegation.due;
 
-/** Column heads for a per-module score table, the same words the screens use. */
 export const MODULE_EXPORT_HEAD = [SCORE_LABEL.overall, `${SCORE_LABEL.completion} %`, `${SCORE_LABEL.compliance} %`, `${SCORE_LABEL.onTime} %`, 'Due', 'Done', 'Late', 'Not done'] as const;
 
-/** One module's cells under MODULE_EXPORT_HEAD: numbers only, empty where there is no figure. */
 export const moduleExportCells = (s: ModuleScores, key: ModuleKey): (number | null)[] => {
   const m = s[key];
   const n = moduleCounts(s, key);
   return [moduleOverall(s, key), m.completionPct, m.compliancePct, m.onTimePct, n.due, n.done, n.late, n.notDone];
 };
 
-/** One module's three percentages with the counts behind them, in words. */
 export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
   if (key === 'checklist') {
     const c = s.checklist;
@@ -165,5 +137,4 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
   };
 };
 
-/** Fewest items (or checklist runs) due before a person, department or store may be ranked or named a winner. The server's `rankable` flag uses the same number. */
 export const MIN_RANK_VOLUME = 5;

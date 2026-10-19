@@ -13,15 +13,12 @@ import { ExtraWorkingDaysSection } from './ExtraWorkingDaysSection';
 
 const DAY_MS = 86_400_000;
 
-// Only the fixed-date national holidays. Festival dates (Diwali, Holi, Eid, Dussehra...) move every
-// year, so those are added by hand rather than guessed.
 const FIXED_NATIONAL = [
   { month: '01', day: '26', name: 'Republic Day' },
   { month: '08', day: '15', name: 'Independence Day' },
   { month: '10', day: '02', name: 'Gandhi Jayanti' },
 ];
 
-// Hoisted: constructing an Intl formatter per row per render is the costly part.
 const FULL_DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' });
 const MONTH_SHORT = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' });
@@ -30,7 +27,6 @@ const MONTH_LONG = new Intl.DateTimeFormat(undefined, { month: 'long', timeZone:
 const asUtc = (date: string) => new Date(`${date}T00:00:00Z`);
 const dayNumber = (date: string) => asUtc(date).getTime() / DAY_MS;
 
-// The date picker works in local Dates; the API and the list work in plain YYYY-MM-DD strings.
 const toDateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const fromDateKey = (key: string) => {
   const [y, m, d] = key.split('-').map(Number);
@@ -48,7 +44,6 @@ const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday;
   const day = asUtc(holiday.date);
   return (
     <li className={cn(PANEL_CLASS, 'flex items-center gap-3.5 p-3 sm:p-3.5 transition-colors duration-150 hover:border-border-hover')}>
-      {/* A calendar leaf: the month on top, the day number big, so a list of dates scans at a glance. */}
       <div
         aria-hidden
         className={cn(
@@ -62,7 +57,6 @@ const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday;
         <span className={cn('text-xl font-display font-bold tabular-nums pt-0.5', past ? 'text-text-muted' : 'text-text')}>{day.getUTCDate()}</span>
       </div>
       <div className="flex-1 min-w-0">
-        {/* Past days read quieter through the muted text token, not opacity, which fails contrast. */}
         <p className={cn('text-sm font-display font-semibold leading-snug', past ? 'text-text-muted' : 'text-text')}>{holiday.name}</p>
         <p className="text-xs font-display text-text-muted">
           {WEEKDAY.format(day)}
@@ -93,7 +87,6 @@ const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday;
 });
 HolidayRow.displayName = 'HolidayRow';
 
-// Same card shape as a real row, so the list does not jump when the holidays land.
 const HolidayRowSkeleton = () => (
   <div className={cn(PANEL_CLASS, 'flex items-center gap-3.5 p-3 sm:p-3.5')}>
     <Skeleton className="size-14 rounded-xl shrink-0" />
@@ -113,20 +106,13 @@ const Stat = ({ value, label }: { value: string; label: string }) => (
 
 const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
 
-/**
- * Company-wide days off (national holidays). On a holiday the daily checklist generator creates no
- * run, so nobody has anything to miss and no completion or compliance score drops. A checklist
- * someone has already started that day stays, since their answers are real.
- */
 export const HolidaysPage = () => {
   const confirm = useConfirm();
-  // Kept fresh, so a page left open past midnight does not treat yesterday as today.
   const today = useOrgToday();
   const thisYear = useMemo(() => Number(today.slice(0, 4)), [today]);
   const [year, setYear] = useState(thisYear);
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
-  // Below lg the form sits behind a button so the list is not pushed down the screen.
   const [formOpen, setFormOpen] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -135,7 +121,6 @@ export const HolidaysPage = () => {
   const createMany = useCreateHolidaysMutation();
   const { mutate: removeHoliday, isPending: removing } = useDeleteHolidayMutation();
 
-  // The year as one calendar-ordered list, grouped under its month.
   const months = useMemo(() => {
     const groups: { key: string; label: string; items: Holiday[] }[] = [];
     for (const h of [...(holidays ?? [])].sort((a, b) => a.date.localeCompare(b.date))) {
@@ -155,9 +140,6 @@ export const HolidaysPage = () => {
   const remaining = useMemo(() => (holidays ?? []).filter(h => h.date >= today).length, [holidays, today]);
   const dateValue = useMemo(() => (date ? fromDateKey(date) : null), [date]);
 
-  // Adding a day that is today or earlier can wipe checklists that already exist for it. Ask the
-  // server how many first, and say so before doing it. Dates already on the list are skipped (the
-  // add will just report the duplicate). Resolves true when it is fine to go ahead.
   const confirmClears = useCallback(async (dates: string[], label: string): Promise<boolean> => {
     const known = new Set((holidays ?? []).map(h => h.date));
     const risky = dates.filter(d => d <= today && !known.has(d));
@@ -197,7 +179,6 @@ export const HolidaysPage = () => {
   };
 
   const handleDelete = useCallback(async (holiday: Holiday) => {
-    // Today and later get their daily checklists back; a past day is never filled in retroactively.
     const day = FULL_DAY.format(asUtc(holiday.date));
     const ok = await confirm({
       title: `Remove ${holiday.name}?`,
@@ -213,7 +194,6 @@ export const HolidaysPage = () => {
     if (ok) removeHoliday(holiday.id);
   }, [confirm, removeHoliday, today]);
 
-  // The server accepts 2000 to 2100 only; past that the page would show "couldn't load" with a Retry that can never work.
   const goPrevYear = useCallback(() => setYear(y => Math.max(2000, y - 1)), []);
   const goNextYear = useCallback(() => setYear(y => Math.min(2100, y + 1)), []);
   const goThisYear = useCallback(() => setYear(thisYear), [thisYear]);
@@ -241,7 +221,6 @@ export const HolidaysPage = () => {
         }
       />
 
-      {/* While another year's counts load, the previous year's numbers stay up: dim them so they do not read as this year's. */}
       <div className={cn('grid grid-cols-3 gap-2.5 sm:gap-3 transition-opacity duration-200', isPlaceholderData && 'opacity-50')} aria-busy={isPlaceholderData}>
         <Stat value={String(total)} label={`Holidays in ${year}`} />
         <Stat value={String(remaining)} label="Still to come" />
@@ -270,7 +249,6 @@ export const HolidaysPage = () => {
             />
           )}
 
-          {/* keepPreviousData keeps the old year on screen while the next loads: dim it meanwhile. */}
           <div className={cn('flex flex-col gap-6 transition-opacity duration-200', isFetching && !isPending && 'opacity-60')}>
             {months.map(group => (
               <section key={group.key} aria-label={group.label} className="flex flex-col gap-2.5">
@@ -284,7 +262,6 @@ export const HolidaysPage = () => {
         </div>
 
         <aside className="flex flex-col gap-4 order-1 lg:order-2 lg:sticky lg:top-4">
-          {/* On a phone the form folds away behind this button, so the list is the first thing on screen. */}
           <Button
             type="button"
             variant="outline"
@@ -331,7 +308,6 @@ export const HolidaysPage = () => {
             </div>
           </form>
 
-          {/* Background reading: desktop only, so a phone gets the list first. */}
           <div className="hidden lg:block">
             <NoticeBanner tone="info" icon={Info}>
               Nobody can miss a checklist that does not exist, so scores do not drop. One a person has already started that
@@ -341,7 +317,6 @@ export const HolidaysPage = () => {
         </aside>
       </div>
 
-      {/* The opposite of a holiday: days people work although they are normally off. */}
       <div className="border-t border-border/60 pt-6">
         <ExtraWorkingDaysSection year={year} today={today} />
       </div>

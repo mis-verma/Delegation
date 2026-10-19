@@ -28,11 +28,6 @@ export type CreateCategoryPayload = {
 
 export type UpdateCategoryPayload = Partial<CreateCategoryPayload> & { isActive?: boolean };
 
-// What the server sends: plain ids on the row (`departmentId`, `assigneeIds`) with the populated
-// records next to them (`department`, `assignees`). Every screen was written against one object shape
-// (`departmentId: { id, name }`, `assigneeIds: [{ id, firstName, ... }]`), and reading the raw row
-// gave undefined there: a category's department and responsible person never filled in on a new
-// ticket, the Categories list showed a dash and the edit form lost both. Normalised once, here.
 type CategoryRow = {
     id: string;
     name: string;

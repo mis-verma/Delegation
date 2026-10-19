@@ -13,28 +13,16 @@ import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 export interface ItemTypeFieldsProps {
   draft: ItemDraft;
   onChange: (patch: Partial<ItemDraft>) => void;
-  /** Every store this checklist targets, so an auditor can come from any of them. */
   storeIds?: string[];
-  /** Active people of the checklist's stores. Picked auditors outside it are flagged and left out
-   *  of the count. Omit when there is nothing to compare against (the add-question pop-up). */
   validPersonIds?: ReadonlySet<string> | null;
 }
 
-// ─── Shared field primitives ────────────────────────────────────────────────────────────────
-// One label style, one input style, one switch: so every question type's settings read as the
-// same form rather than a different mini-widget per type.
-
 const LABEL = 't-meta font-display font-medium text-text-muted';
-// The shared Input is a tall (h-12) rounded-xl field. These settings sit inside a question card, so
-// they use a compact 36px field (44px on touch) and keep the caption style used by the other labels.
 const INPUT = 'h-11 sm:h-9 rounded-lg px-3 font-display tabular-nums';
 const INPUT_LABEL = 'font-display font-medium tracking-normal px-0';
 
-// Per-question ids: several questions are open at once, so a fixed id ("number-min") made every
-// label focus the first question's input.
 const fid = (draft: ItemDraft, name: string) => `${name}-${draft.key}`;
 
-// The shared Switch is just the control, so it gets a clickable label (and a 44px touch row) here.
 const SwitchField = ({ id, checked, onChange, label, hint }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) => (
   <div className="flex items-center gap-2.5 w-fit">
     <Switch id={id} checked={checked} onChange={onChange} />
@@ -51,8 +39,6 @@ const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: R
     <span>{children}</span>
   </p>
 );
-
-// ─── Per-type settings ──────────────────────────────────────────────────────────────────────
 
 const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { noun: 'photos' | 'videos' }) => (
   <div className="flex flex-col gap-3">
@@ -95,8 +81,6 @@ const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { nou
   </div>
 );
 
-// STANDARD is both "Checkbox" (no photos) and "Photo" (≥1 photo). A checkbox offers a one-tap way
-// to ask for proof instead of showing photo counters nobody asked for.
 const StandardFields = (props: ItemTypeFieldsProps) => {
   const { draft, onChange } = props;
   if (Number(draft.requiredImageCount) > 0) return <PhotoCountFields {...props} noun="photos" />;
@@ -137,10 +121,6 @@ const AuditFields = ({ draft, onChange, storeIds, validPersonIds }: ItemTypeFiel
           onRemove={() => onChange({ auditUserIds: shown })}
         />
       )}
-      {/* Same bulk-pick UI as the Assign step: a real-world audit (e.g. a uniform/ID check) often
-          covers a whole team, not one or two people picked by hand. Whoever's assigned to run this
-          checklist works through everyone picked here themselves; this isn't a list of separate
-          self-reporters. */}
       <UserBulkPicker
         storeIds={storeIds ?? []}
         selected={shown}
@@ -223,8 +203,6 @@ const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
 
 const RATING_SCALES = ['3', '5', '10'];
 
-// Radix tabs give the radio-style arrow-key behaviour for free; the active segment is a border
-// change rather than the tabs' default drop shadow.
 const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
   <Tabs value={draft.ratingScale} onValueChange={(ratingScale) => onChange({ ratingScale })} className="w-fit gap-1.5">
     <span className={LABEL}>Out of</span>
@@ -248,8 +226,6 @@ const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
 
 const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   const hasTarget = draft.gpsTargetLat.trim() !== '' || draft.gpsTargetLng.trim() !== '' || draft.gpsRadiusMeters.trim() !== '';
-  // Stays open while the three fields are all empty mid-edit (the radius backspaced out, say);
-  // only "Remove spot" closes it.
   const [open, setOpen] = useState(hasTarget);
   if (!hasTarget && !open) {
     return (
@@ -352,10 +328,6 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   );
 };
 
-// ─── Acceptable answer ──────────────────────────────────────────────────────────────────────
-// What counts as a GOOD answer. Scored into the checklist's compliance %, separately from whether
-// the question was completed. Left empty, the question simply isn't scored.
-
 const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   const { itemType, acceptableAnswers: accepted } = draft;
   let body: ReactNode;
@@ -425,7 +397,6 @@ const note = (text: string) => () => <Note>{text}</Note>;
 
 type FieldRenderer = (props: ItemTypeFieldsProps) => ReactNode;
 
-// Single source of truth for "what does this question type need to be configured?"
 const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   STANDARD: StandardFields,
   VIDEO_UPLOAD: VideoFields,
@@ -445,10 +416,6 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   DATE_TIME: note('Staff pick a date and time.'),
 };
 
-// Any question can be marked critical: it counts double in the compliance %, and a bad answer is
-// flagged to the reviewer.
-// Types that take a good-answer rule (mirrors the server's SCORABLE_TYPES). The rest are never
-// scored, so a critical flag there only matters once a reviewer sends the question back.
 const SCORABLE_TYPES: ChecklistItemType[] = ['YES_NO', 'PASS_FAIL', 'MULTIPLE_CHOICE', 'DROPDOWN', 'NUMBER_ENTRY', 'RATING'];
 
 const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
@@ -468,17 +435,9 @@ export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /></> : null;
 };
 
-// The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export;
-// only affects Fast Refresh granularity (a full reload instead of a hot-swap when this file
-// changes), not runtime correctness.
-// The types that show photo/video counters. An Audit question keeps its own rule (a checked person
-// always needs at least one photo, enforced by the server), so it has no setting here.
 const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD'];
 const num = (v: string) => (v.trim() === '' ? null : Number(v));
 
-// What's wrong with this question, in words an admin can act on, or null when it's ready. Mirrors
-// the server's zod rules (checklistDefinition.validation.ts) so a bad setting is caught on the
-// question itself instead of as a generic error at the final Save.
 // eslint-disable-next-line react-refresh/only-export-components
 export const itemDraftProblem = (draft: ItemDraft, validPersonIds?: ReadonlySet<string> | null): string | null => {
   if (draft.label.trim().length > 191) return 'Keep the question under 191 characters.';
@@ -533,13 +492,9 @@ export const itemDraftProblem = (draft: ItemDraft, validPersonIds?: ReadonlySet<
   return null;
 };
 
-// Switching an item's type used to change only `itemType`, carrying every other setting along,
-// e.g. a Photo item switched to Text box still required 1 photo, with no upload button shown to
-// staff, so it could never be completed. This resets whatever the new type can't use.
 // eslint-disable-next-line react-refresh/only-export-components
 export const patchForTypeSwitch = (draft: ItemDraft, itemType: ItemDraft['itemType']): Partial<ItemDraft> => {
   const patch: Partial<ItemDraft> = { itemType };
-  // Audit is not a photo type here (it has no counters), so switching to it clears them too.
   if (!PHOTO_TYPES.includes(itemType)) {
     patch.requiredImageCount = '0';
     patch.maxImageCount = '';

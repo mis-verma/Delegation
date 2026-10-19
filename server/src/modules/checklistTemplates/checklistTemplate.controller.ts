@@ -9,7 +9,6 @@ import {
 import { asyncHandler } from "../../utils/asyncHandler.js"
 
 export const checklistTemplateController = {
-    // GET /checklist-templates?appliesTo=TASK|TICKET
     list: asyncHandler(async (req: Request, res: Response) => {
         const appliesTo = req.query.appliesTo as "TASK" | "TICKET" | undefined
         const templates = await checklistTemplateService.list(appliesTo)

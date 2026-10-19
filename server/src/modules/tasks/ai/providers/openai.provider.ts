@@ -18,8 +18,6 @@ const ExtractionZod = z.object({
     confidence: z.number(),
 });
 
-// Verify OPENAI_MODEL against your account's available models before deploying —
-// pin it explicitly rather than trusting a hardcoded default here.
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 export async function extractWithOpenAI(rawInput: string, referenceDate: Date): Promise<RawExtraction> {

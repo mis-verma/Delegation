@@ -24,11 +24,8 @@ interface UserRowProps extends UserActionHandlers {
 const CELL_CLASS = 'px-3 py-3 align-middle text-xs text-text-secondary';
 const NOT_SET = <span className="text-text-light">Not set</span>;
 
-// The left edge says how far this person's access reaches, the same colours as the card's top strip.
 const REACH_EDGE = { all: 'border-l-primary-500', department: 'border-l-coral-500', own: 'border-l-transparent' } as const;
 
-// The sticky cells must stay solid while scrolling, so the selected and hover tints are mixed into
-// the surface colour instead of laid over it with transparency.
 const STICKY_BG = 'bg-surface group-hover/row:bg-surface-hover';
 const STICKY_SELECTED = 'bg-[color-mix(in_oklab,var(--color-primary-500)_8%,var(--color-surface))]';
 
@@ -52,8 +49,6 @@ const UserRowComponent = ({
 
   return (
     <tr
-      // Clicking anywhere on the row opens Edit. The row itself is focusable, like TicketTable's,
-      // and only reacts to keys pressed on the row (not on the checkbox or action menu inside it).
       onClick={() => onEdit(user)}
       tabIndex={0}
       onKeyDown={(e) => {

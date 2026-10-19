@@ -8,13 +8,9 @@ import { useSubmitChecklistInstanceMutation } from '../hook';
 interface ChecklistSubmitBarProps {
   instanceId: string;
   total: number;
-  /** True when the run was sent back and is now fixed: the wording says "again". */
   resubmit: boolean;
 }
 
-// Shown once every question is done (never before: a half-filled checklist has no Submit). Ticking
-// the last one does not send the checklist by itself: the person confirms with one Submit, so nothing
-// reaches the reviewer by accident or half-finished. After it goes through, they land back on My Checklists.
 export const ChecklistSubmitBar = memo(function ChecklistSubmitBar({ instanceId, total, resubmit }: ChecklistSubmitBarProps) {
   const submit = useSubmitChecklistInstanceMutation();
   const navigate = useNavigate();

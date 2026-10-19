@@ -24,13 +24,7 @@ import {
   YES_NO_VALUES,
 } from './checklistDefinition.js';
 
-// PENDING_APPROVAL is the single review stage: a verifier (ADMIN/PC/MANAGER-in-department/named
-// reviewer — checklistInstance.service.ts's CAN_VERIFY_BY_ROLE) approves straight into APPROVED or
-// rejects back to REJECTED via verify()/PATCH /checklist-instances/:id/verify. Used to be two
-// stages (a QC pass into PENDING, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to
-// one brief check by request; see git history if the two-stage version is ever needed again.
 export const CHECKLIST_VERIFICATION_STATUSES = ['NOT_SUBMITTED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const;
-
 
 export const checklistInstances = mysqlTable(
   'ChecklistInstance',
@@ -45,8 +39,6 @@ export const checklistInstances = mysqlTable(
     opensTime: varchar('opensTime', { length: 5 }), 
     cutoffTime: varchar('cutoffTime', { length: 5 }), 
     periodKey: varchar('periodKey', { length: 191 }).notNull(),
-    // Which slice of the checklist's people this run belongs to: '' for a shared run, 'dept:<id>' or
-    // 'user:<id>' when the checklist's response mode gives each department / person their own run.
     scopeKey: varchar('scopeKey', { length: 191 }).notNull().default(''),
     periodStart: datetime('periodStart', { mode: 'date' }).notNull(),
     periodEnd: datetime('periodEnd', { mode: 'date' }).notNull(),
@@ -54,42 +46,16 @@ export const checklistInstances = mysqlTable(
     verificationStatus: mysqlEnum('verificationStatus', CHECKLIST_VERIFICATION_STATUSES)
       .notNull()
       .default('NOT_SUBMITTED'),
-    // When the person filling it in pressed Submit (everything done, sent for review), and who. Null
-    // until then, and cleared again if the run is reopened. Ticking the last question no longer
-    // submits by itself: the person confirms with one button.
     submittedAt: datetime('submittedAt', { mode: 'date' }),
     submittedBy: varchar('submittedBy', { length: 191 }).references(() => users.id),
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
-    // Bumped every time a PC/Admin rejects this instance — drives the "first-attempt approval"
-    // quality metric in complianceReport (an APPROVED instance only counts toward quality if it
-    // was never rejected first) and lets the UI distinguish "never rejected" from "fixed and
-    // resubmitted."
     rejectionCount: int('rejectionCount').notNull().default(0),
-    // Set once the overdue-notifier sweep has sent its one-time "this is overdue" notification for
-    // this instance (assignees + store PCs) — stays null the whole time an instance is on-track or
-    // already complete. Lets the hourly sweep query `WHERE overdueNotifiedAt IS NULL` instead of
-    // re-notifying every already-flagged instance on every run.
     overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
-    // Set once checklistDraftReminder.job.ts has sent its one-time "you started this but didn't
-    // finish" nudge (someone completed at least one item, then stopped, well before the deadline)
-    // — same one-shot convention as overdueNotifiedAt, so the same instance is never re-nudged on
-    // a later sweep. Deliberately separate from overdueNotifiedAt: a "still on time, please
-    // finish" reminder and a "you missed the deadline" alert are different messages that can both
-    // legitimately fire for the same instance (draft reminder first, overdue notice later if it's
-    // still incomplete).
     draftReminderSentAt: datetime('draftReminderSentAt', { mode: 'date' }),
-    // Same one-shot convention for "every question is done but it was never submitted": the person
-    // gets one nudge to press Submit, so a finished checklist does not sit there unseen by the reviewer.
     submitReminderSentAt: datetime('submitReminderSentAt', { mode: 'date' }),
-    // The first time every question was done. Lateness is judged from this, so an admin reopen or a
-    // send-back followed by a good redo cannot turn an on-time run into a late one. Null until then
-    // (and on runs finished before this column existed: reports fall back to the last answer's time).
     completedFirstAt: datetime('completedFirstAt', { mode: 'date' }),
-    // One-shot stamps for the approval chase (checklistDraftReminder.job.ts): a reminder to the
-    // reviewers after 24h in PENDING_APPROVAL, an escalation to Admin/PC after 48h. Both are cleared
-    // when the run leaves PENDING_APPROVAL so a resubmission can chase again.
     approvalReminderSentAt: datetime('approvalReminderSentAt', { mode: 'date' }),
     approvalEscalatedAt: datetime('approvalEscalatedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -103,14 +69,9 @@ export const checklistInstances = mysqlTable(
       table.scopeKey,
     ),
     index('ChecklistInstance_periodStart_idx').on(table.periodStart),
-    // Per-store analytics: store + period range.
     index('ChecklistInstance_storeId_periodStart_idx').on(table.storeId, table.periodStart),
-    // listPendingVerification filters on this column on every PC/Admin/HOD queue poll — without
-    // it that query is a full table scan of ChecklistInstance as the table grows.
     index('ChecklistInstance_verificationStatus_idx').on(table.verificationStatus),
-    // The overdue-notifier sweep filters on this column every hourly run.
     index('ChecklistInstance_overdueNotifiedAt_idx').on(table.overdueNotifiedAt),
-    // The draft-reminder sweep filters on this column every run, same reason as the index above.
     index('ChecklistInstance_draftReminderSentAt_idx').on(table.draftReminderSentAt),
   ],
 );
@@ -131,10 +92,6 @@ export const checklistInstanceAssignees = mysqlTable(
   ],
 );
 
-
-// Copied from the definition's checklistDefinitionReviewers at generation time (same convention
-// as checklistInstanceAssignees) — an explicit per-instance reviewer list, additive on top of the
-// role-based verify rule.
 export const checklistInstanceReviewers = mysqlTable(
   'ChecklistInstanceReviewer',
   {
@@ -164,7 +121,6 @@ export const checklistInstanceItems = mysqlTable(
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
-    // Copied from ChecklistDefinitionItem.isCritical: counts double in compliance.
     isCritical: boolean('isCritical').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),
@@ -185,51 +141,24 @@ export const checklistInstanceItems = mysqlTable(
     gpsAccuracy: float('gpsAccuracy'),
     gpsCapturedAt: datetime('gpsCapturedAt', { mode: 'date' }),
     signatureLabels: json('signatureLabels').$type<string[]>(),
-    signatureValue: text('signatureValue'), // PNG data URL
+    signatureValue: text('signatureValue'),
     secondSignatureValue: text('secondSignatureValue'), 
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
-    // Copied from the checklist question (see ChecklistDefinitionItem.acceptableAnswers).
     acceptableAnswers: json('acceptableAnswers').$type<string[]>(),
     acceptableMin: float('acceptableMin'),
     acceptableMax: float('acceptableMax'),
-    // Mirrors ChecklistDefinitionItem's two-branch model — copied in at generation time (see
-    // checklistInstanceGenerator.job.ts) so this instance keeps the rule even if the definition
-    // is edited later.
     yesActions: json('yesActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     noActions: json('noActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     conditionalReasonValue: text('conditionalReasonValue'),
-    // Free-text note the assignee can leave on any item — required by the client once the item's
-    // parent instance is overdue and this item is still not done, so a genuinely-skipped step
-    // always carries an explanation instead of just silently sitting incomplete.
     remarks: text('remarks'),
-    // "This step doesn't apply here" (no cash drawer at this store, no delivery today). Counts as
-    // done for progress and approval, skips the item's own value/photo rules, and always carries
-    // a reason in `remarks` so the reviewer sees why it was skipped.
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
-    // Why a reviewer sent THIS question back (see sendBack in checklistInstance.service.ts). Shown on
-    // the question until it is completed again, which clears it.
     sendBackNote: text('sendBackNote'),
-    // How many times a reviewer has sent THIS question back. Never reset when the question is
-    // redone: the compliance reports count a question with sendBackCount > 0 as a failed check even
-    // if the second attempt was fine (first-attempt quality).
     sendBackCount: int('sendBackCount').notNull().default(0),
-    // The user who had completed the question when it was last sent back (who got it wrong). No FK
-    // on purpose: it is history, and must survive that user being removed.
     sentBackFrom: varchar('sentBackFrom', { length: 191 }),
-    // A reviewer's WAIVER: this question would count against compliance (a bad answer or a send-back) but
-    // the reviewer excused it, with a reason (store closed for stock-taking, power cut). A waived question
-    // is left out of compliance entirely, like "not applicable". Who waived it is kept as plain history
-    // (no FK) so it survives that user being removed; the reason is shown to the person and in the audit log.
     waivedAt: datetime('waivedAt', { mode: 'date' }),
     waivedBy: varchar('waivedBy', { length: 191 }),
     waiveReason: text('waiveReason'),
-    // The checklist question this run's question was stamped from (ChecklistDefinitionItem.id). It
-    // lets an edit to the checklist reach a run that's already started: the run's question is found
-    // again even if it was renamed or moved, instead of looking like one question removed and
-    // another added. Deliberately NOT a foreign key: taking a question out of the checklist must not
-    // touch a run that holds answers to it. Null on runs stamped before this column existed (those
-    // are matched by wording instead, see matchRunItems in checklistInstanceGenerator.job.ts).
     definitionItemId: varchar('definitionItemId', { length: 191 }),
     issueId: varchar('issueId', { length: 191 }).references(() => tickets.id),
     reviewTicketId: varchar('reviewTicketId', { length: 191 }).references(() => tickets.id),
@@ -250,12 +179,7 @@ export const checklistInstanceItemSubmissions = mysqlTable(
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     remarks: text('remarks'),
     isDone: boolean('isDone').notNull().default(false),
-    // "Can't be checked today" (absent, on leave): counts as submitted so the audit can finish, skips
-    // the ticks and photos, and always carries the reason in `remarks`. Only with isDone = true.
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
-    // Which dress type this person is being checked against today (DressType.id). Stamped from the
-    // person's profile when the run is built (only if that type has a list on the question), and
-    // changeable by whoever fills the audit in. Null = "Standard": the gender list, then the main list.
     dressTypeId: varchar('dressTypeId', { length: 191 }).references(() => dressTypes.id, { onDelete: 'set null' }),
     completedAt: datetime('completedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -314,7 +238,6 @@ export const checklistInstanceImages = mysqlTable(
     }).onDelete('cascade'),
   ],
 );
-
 
 export const checklistInstanceItemSubmissionImages = mysqlTable(
   'ChecklistInstanceItemSubmissionImage',

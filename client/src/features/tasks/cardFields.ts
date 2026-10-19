@@ -72,7 +72,6 @@ export const useCardFieldVisibility = () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibility));
     } catch {
-      // localStorage unavailable (private mode, quota) — preference just won't persist.
     }
   }, [visibility]);
 
@@ -81,9 +80,6 @@ export const useCardFieldVisibility = () => {
   return { visibility, toggle };
 };
 
-// `solid` feeds the shared IconChip's icon circle (see components/iconChip) everywhere this
-// renders as a chip (TaskCard, TaskTable) — a full-strength color, not a translucent tint, since a
-// white icon needs real contrast to read against it.
 export const CATEGORY_CONFIG: Record<Task['category'], { label: string; icon: LucideIcon; solid: string }> = {
   issue: { label: 'Issue', icon: Bug, solid: 'bg-danger' },
   delegation: { label: 'Delegation', icon: UserCheck, solid: 'bg-info' },
@@ -103,8 +99,5 @@ export const formatShortDateTime = (iso: string) => {
   return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 };
 
-// Primary assignee + extras as one flat list — the UI treats "assignees" as a single unified
-// concept even though the backend stores them as assigneeId (primary) + additionalAssigneeIds
-// (extras) to keep the AI/WhatsApp parsing and reporting pipelines (all single-assignee) unchanged.
 export const taskAssigneeIds = (task: Pick<Task, 'assigneeId' | 'additionalAssigneeIds'>): string[] =>
   [task.assigneeId, ...(task.additionalAssigneeIds ?? [])].filter((id): id is string => !!id);

@@ -2,11 +2,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../button';
 
 interface PeriodStepperProps {
-  /** What is showing now, e.g. "28 Sep to 4 Oct" or "2026". */
   label: string;
   onPrev: () => void;
   onNext: () => void;
-  /** Adds a "jump back to now" button, e.g. "This week" or "This year". */
   todayLabel?: string;
   onToday?: () => void;
   prevLabel?: string;
@@ -15,7 +13,6 @@ interface PeriodStepperProps {
   nextDisabled?: boolean;
 }
 
-// Previous / next period control shared by the weekly report and the holiday calendar.
 export const PeriodStepper = ({ label, onPrev, onNext, todayLabel, onToday, prevLabel = 'Previous', nextLabel = 'Next', prevDisabled, nextDisabled }: PeriodStepperProps) => (
   <div className="flex items-center gap-2 flex-wrap">
     <Button variant="outline" size="sm" className="size-11 sm:size-8 px-0" onClick={onPrev} disabled={prevDisabled} aria-label={prevLabel}>

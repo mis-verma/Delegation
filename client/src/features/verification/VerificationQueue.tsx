@@ -33,7 +33,6 @@ const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
 const NO_INSTANCES: ChecklistInstance[] = [];
 
-// After a decision the keyboard focus lands on the next row, so a reviewer can keep going.
 const focusRow = (id: string | null) => {
   if (!id) return;
   requestAnimationFrame(() => {
@@ -58,13 +57,11 @@ export const VerificationQueue = () => {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const confirm = useConfirm();
 
-  // Tickets and delegations: one query each, every page, plus the server's own totals.
   const ticketsQuery = useTicketsByStatusQuery('PENDING_APPROVAL');
   const tasksQuery = usePendingTasksQuery('pending_approval');
   const tickets = ticketsQuery.data?.data ?? NO_TICKETS;
   const tasks = tasksQuery.data?.data ?? NO_TASKS;
 
-  // Checklists: 50 a page, everything derived once.
   const checklistQuery = useChecklistQueueQuery();
   const instances = useMemo(() => checklistQuery.data?.pages.flatMap((p) => p.data) ?? NO_INSTANCES, [checklistQuery.data]);
   const checklistTotal = checklistQuery.data?.pages[0]?.meta?.total ?? instances.length;
@@ -72,7 +69,6 @@ export const VerificationQueue = () => {
   const lookups = useQueueLookups();
   const allRows = useChecklistRows(instances, lookups);
 
-  // Approve / Send back wait out a 10 second Undo; the row is hidden meanwhile.
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule, hold, release } = useDeferredDecisions({ afterSaved: refresh });
   const visibleRows = useVisibleChecklistRows(allRows, params, heldIds, now);
@@ -83,7 +79,6 @@ export const VerificationQueue = () => {
     [decisionsQuery.data],
   );
 
-  // ----- filters -----
   const filtersActive = !!(params.q.trim() || params.store || params.dept || params.person || params.age !== 'any' || params.attention);
   const clearFilters = useCallback(() => patch({ q: '', store: null, dept: null, person: null, age: 'any', attention: false }), [patch]);
 
@@ -106,17 +101,13 @@ export const VerificationQueue = () => {
   const filteredTickets = useMemo(() => sortByCreated(filterTickets(tickets, ticketTaskFilter), params.sort), [tickets, ticketTaskFilter, params.sort]);
   const filteredTasks = useMemo(() => sortByCreated(filterTasks(tasks, ticketTaskFilter), params.sort), [tasks, ticketTaskFilter, params.sort]);
 
-  // ----- counts for the tabs and header -----
   const heldInLoaded = useMemo(() => allRows.reduce((n, r) => n + (heldIds.has(r.id) ? 1 : 0), 0), [allRows, heldIds]);
   const checklistCount = filtersActive || !hasMore ? visibleRows.length : Math.max(visibleRows.length, checklistTotal - heldInLoaded);
   const inDept = <T extends { departmentId: string | null }>(list: T[]) =>
     params.dept ? list.filter((i) => (i.departmentId ?? UNASSIGNED) === params.dept).length : list.length;
-  // Rows decided a moment ago are hidden while their Undo runs, so they don't count as waiting.
   const notHeld = <T extends { id: string }>(list: T[]) => list.filter((i) => !heldIds.has(i.id));
   const heldTickets = tickets.length - notHeld(tickets).length;
   const heldTasks = tasks.length - notHeld(tasks).length;
-  // The server's count, not the rows in hand: every page is loaded, but this stays right even if
-  // the loader's safety stop was ever reached.
   const ticketTotal = Math.max(0, (ticketsQuery.data?.total ?? tickets.length) - heldTickets);
   const taskTotal = Math.max(0, (tasksQuery.data?.total ?? tasks.length) - heldTasks);
   const ticketCount = filtersActive ? inDept(notHeld(filteredTickets)) : ticketTotal;
@@ -135,7 +126,6 @@ export const VerificationQueue = () => {
     return times.length ? Math.min(...times) : null;
   }, [allRows, heldIds, tickets, tasks]);
 
-  // ----- selection: the row the keyboard is on, and the one open in the review pane -----
   const [cursor, setCursor] = useState<string | null>(null);
   const rowById = useMemo(() => new Map(visibleRows.map((r) => [r.id, r])), [visibleRows]);
   const openRow = params.open ? (rowById.get(params.open) ?? null) : null;
@@ -143,8 +133,6 @@ export const VerificationQueue = () => {
   const draft = useReviewDraft(openRow?.id ?? null);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // On a wide screen the review pane beside the list starts on the first checklist, not on an empty "Pick a checklist"
-  // box. Once per visit: closing it afterwards stays closed.
   const autoOpened = useRef(false);
   useEffect(() => {
     if (autoOpened.current || !isDesktop || params.view !== 'waiting' || params.open || visibleRows.length === 0) return;
@@ -152,7 +140,6 @@ export const VerificationQueue = () => {
     patch({ open: visibleRows[0].id });
   }, [isDesktop, params.view, params.open, visibleRows, patch]);
 
-  // Callbacks read the latest state from here, so the memoised rows get functions that never change.
   const latest = useRef<Latest>({ rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch });
   useEffect(() => {
     latest.current = { rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch };
@@ -236,7 +223,6 @@ export const VerificationQueue = () => {
     onHelp: () => setHelpOpen(true),
   });
 
-  // ----- Approve all clean -----
   const cleanRows = useMemo(() => visibleRows.filter((r) => r.risk.clean), [visibleRows]);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const approveAllClean = useCallback(async () => {
@@ -262,20 +248,17 @@ export const VerificationQueue = () => {
       }
       setBulk({ done: saved + failed, total: ids.length });
     }
-    try { await refresh(); } catch { /* the next refetch catches up */ }
+    try { await refresh(); } catch { }
     release(ids);
     setBulk(null);
     if (failed === 0) toast.success(`Approved ${saved} ${saved === 1 ? 'checklist' : 'checklists'}`);
     else toast.error(`Approved ${saved} of ${ids.length}. ${failed} could not be saved and are back in the list.`);
   }, [cleanRows, confirm, filtersActive, hold, release, refresh]);
 
-  // ----- page frame -----
   const reviewedCount = decidedToday === null ? null : decidedToday + heldIds.size;
   const dayTotal = reviewedCount === null ? 0 : reviewedCount + waitingTotal;
   const loadingTotals = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending;
 
-  // The subtitle sits inside the header's <p>, where the shared Skeleton's <div> is not allowed, so
-  // this is a span with the same shimmer look.
   const subtitle = loadingTotals
     ? <span className="block h-4 w-56 skeleton-shimmer rounded-md bg-surface-active" aria-hidden />
     : waitingTotal === 0
@@ -313,8 +296,6 @@ export const VerificationQueue = () => {
     <div className="flex flex-col gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
 
-      {/* Search and one Options button, always. What used to be two tab strips (Waiting or Decided today,
-          and All / Checklists / Tickets / Delegations) now lives inside Options with the other filters. */}
       <QueueToolbar
         params={params}
         patch={patch}
@@ -337,7 +318,6 @@ export const VerificationQueue = () => {
           )}
 
           {showChecklists && (
-            // The list/review split only makes sense with rows to review; an empty or failed list takes the full width.
             <div className={cn('grid grid-cols-1 gap-4 items-start', splitPane && 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')}>
               <ChecklistList
                 rows={visibleRows}

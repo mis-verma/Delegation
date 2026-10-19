@@ -17,27 +17,18 @@ import { selectPersonWork, type ReportState, type TeamPeriodRange } from './team
 
 interface PersonChecklistViewProps {
   personName: string;
-  /** Only used for the export sheet's "Department" row. */
   departmentName: string;
   departmentId: string;
   personId: string;
-  /** Created in the period (the category bars' cohort). */
   tasks: Task[];
   tickets: Ticket[];
   workLoading: boolean;
-  /** This person's scores row (the Scorecard's numbers); undefined means nothing was due. */
   scores: ScoreReportRow | undefined;
-  /** The page-level period: it drives the checklist report, the delegation/ticket counts and the
-   *  wording below, so every number on this screen is for the same window. */
-  /** The window in words: "This month", "1 Oct 2026 to 14 Oct 2026". */
   periodLabel: string;
-  /** The window after a verb or noun: "this month", "from 1 Oct 2026 to 14 Oct 2026". */
   periodPhrase: string;
   range: TeamPeriodRange;
-  /** This person's row from the checklist report; undefined means no checklist ran for them. */
   checklist: ChecklistReportMetrics | undefined;
   reportState: ReportState;
-  /** True while the previous period's numbers are still on screen. */
   isRefreshing: boolean;
   onRetryReport: () => void;
 }
@@ -46,12 +37,9 @@ const STAT_TILE_CLASS = 'flex flex-col gap-1 rounded-xl border border-border/60 
 
 interface BigStatProps {
   label: string;
-  /** null renders as a muted "-"; `detail` then says why there is no number. */
   value: string | null;
   valueClassName?: string;
-  /** The raw counts behind the number, e.g. "7 of 7 completed". */
   detail: string;
-  /** Optional one-line plain explanation. */
   hint?: string;
 }
 
@@ -68,11 +56,6 @@ const BigStat = ({ label, value, valueClassName, detail, hint }: BigStatProps) =
 
 const pctText = (pct: number | null) => (pct === null ? null : formatPct(pct));
 
-// One person, one period, two kinds of work. Store checklists (the recurring runs people fill in
-// from My Checklists) come first: they come from the checklist report and are what most of the
-// team does every day. Below them, the older delegation/issue/ticket breakdown, whose bars each
-// jump straight to that person's filtered list. Photo proof and the Todo bar come from the
-// task-checklist aggregation (task.service.ts's complianceReport), scoped to this person.
 export const PersonChecklistView = ({
   personName,
   departmentName,
@@ -94,7 +77,6 @@ export const PersonChecklistView = ({
   const phrase = periodPhrase;
   const taskTotals = useTeamTaskChecklistTotals(range, departmentId, personId);
 
-  // The same selector the person card uses, so the card and this screen always agree.
   const { tasks: periodTasks, tickets: periodTickets } = useMemo(
     () => selectPersonWork(tasks, tickets, personId, departmentId, range),
     [tasks, tickets, personId, departmentId, range],
@@ -104,16 +86,12 @@ export const PersonChecklistView = ({
     navigate(`/tasks?assigneeIds=${personId}&category=${category}`);
   const goToTickets = () => navigate(`/tickets?assigneeIds=${personId}`);
 
-  // Drafts are not real work yet, so they are in no count (selectPersonWork already leaves them out).
   const countDoneTotal = (list: Task[]) => ({ done: list.filter((t) => t.status === 'done').length, total: list.length });
   const taskStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.task));
   const issueStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.issue));
   const delegationStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.delegation));
   const ticketStats = { done: periodTickets.filter((t) => t.status === 'CLOSED').length, total: periodTickets.length };
 
-  // Tickets and delegations that came DUE in the period, done out of due: the scores report's own numbers, the
-  // same as the Scorecard. Store checklist runs are NOT in here (they have their own section above), and the
-  // bars below count what was CREATED in the period, so the two are labelled apart.
   const workDue = (scores?.ticket.due ?? 0) + (scores?.delegation.due ?? 0);
   const workDone = (scores?.ticket.closed ?? 0) + (scores?.delegation.done ?? 0);
   const workRate = workDue > 0 ? roundPct((workDone / workDue) * 100) : null;
@@ -121,7 +99,6 @@ export const PersonChecklistView = ({
   const photo = taskTotals.data;
   const todoStats = { done: photo?.doneItems ?? 0, total: photo?.totalItems ?? 0 };
 
-  // Numbers as numbers (85, not "85%"), so the sheet can sum and sort; empty where there is no figure.
   const buildExportRows = (): TableRows => [
     ['Store checklists', 'Value'],
     ['Checklists due', checklistDue],
@@ -150,8 +127,6 @@ export const PersonChecklistView = ({
     ['Todo Task (checklist items)', todoStats.done, todoStats.total],
   ];
 
-  // No per-category colour: the chart colours each bar by its own rate, so red means a low rate,
-  // not "this is the Issue bar".
   const bars: CategoryBar[] = [
     { key: 'task', label: 'Direct Task', onClick: () => goToTasks('task'), ...taskStats },
     { key: 'issue', label: 'Issue', onClick: () => goToTasks('issue'), ...issueStats },
@@ -165,7 +140,6 @@ export const PersonChecklistView = ({
   const onTimeOfFinished = m ? m.onTimeOfFinishedPct ?? m.onTimePct : null;
 
   return (
-    // No dim while the next period loads (the old numbers stay put); the page header says "Updating…".
     <div className={cn(PANEL_CLASS, 'p-4 sm:p-6 flex flex-col gap-6')} aria-busy={isRefreshing}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5 min-w-0">
@@ -173,15 +147,12 @@ export const PersonChecklistView = ({
           <p className="t-meta font-display font-medium text-text-muted">Store checklists, delegations, issues and tickets, {phrase}</p>
         </div>
 
-        {/* Downloads exactly what's on screen, generated in the browser (see lib/exportTable), so
-            the file can never disagree with what this person is looking at. */}
         <ExportMenu
           aria-label="Export this person's numbers"
           disabled={reportState === 'loading'}
           filename={`${personName.toLowerCase().replace(/\s+/g, '-')}-team-overview`}
           sheetName="Team Overview"
           title={exportTitle({ what: `Team overview, ${personName}`, from: range.from, to: range.to, period: periodLabel, filters: { Department: departmentName } })}
-          // Three small tables: 9 checklist figures, 2 work figures, 5 categories.
           getRows={() => ({ rows: buildExportRows(), count: 11 + 4 + 5 })}
         />
       </div>

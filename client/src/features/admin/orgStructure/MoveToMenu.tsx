@@ -10,8 +10,6 @@ interface MoveToMenuProps {
   currentDepartmentId: string | null;
 }
 
-// The touch and keyboard way to reassign someone: drag-and-drop is the fast path with a mouse,
-// but it does nothing on a phone and nothing for a keyboard user. Same effect, same toast.
 export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenuProps) => {
   const move = useOrgMove();
   const [open, setOpen] = useState(false);
@@ -42,8 +40,6 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
         <button
           type="button"
           aria-label={`Move ${userName} to another department`}
-          // Icon only while the row is narrow (a department column), label once the row has room.
-          // Always at least 44px square on touch screens, 32px with a mouse.
           className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent text-xs font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <ArrowRightLeft className="size-3.5" aria-hidden />

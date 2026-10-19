@@ -7,7 +7,6 @@ import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import type { AuditPerson, AuditStatus } from './ChecklistAuditHelpers';
 
-// Search only earns its space once the list is long enough to need it.
 const SEARCH_FROM = 8;
 
 export const AuditStatusChip = ({ status }: { status: AuditStatus }) => {
@@ -89,8 +88,6 @@ interface AuditPeopleListProps {
   className?: string;
 }
 
-// One row per person, 56px tall. Used as the left column on large screens and inside the phone
-// sheet. Search shows up only for long lists.
 export const AuditPeopleList = ({ people, selectedId, onSelect, className }: AuditPeopleListProps) => {
   const [query, setQuery] = useState('');
   const searchable = people.length > SEARCH_FROM;
@@ -134,8 +131,6 @@ interface AuditPersonPickerProps {
   onSelect:   (id: string) => void;
 }
 
-// Phone and tablet: one full-width button showing who is open ("Ravi Shah, person 2 of 8"). It opens
-// the shared bottom sheet with the whole list, so the page itself never grows with the headcount.
 export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: AuditPersonPickerProps) => {
   const [open, setOpen] = useState(false);
   const index = Math.max(people.findIndex(p => p.id === selectedId), 0);

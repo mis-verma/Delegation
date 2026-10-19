@@ -5,7 +5,6 @@ import { Button, Input, NoticeBanner, PANEL_CLASS } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { useChangeMyPasswordMutation } from '../settings/hook';
 
-// Same rule the server enforces everywhere a password is set.
 const RULES = [
   { key: 'length', label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
   { key: 'upper', label: 'A capital letter', test: (v: string) => /[A-Z]/.test(v) },
@@ -23,8 +22,6 @@ const VisibilityToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () =>
   </button>
 );
 
-// Shown instead of the whole app while the account still has a password an admin made. The admin
-// never learns the one chosen here; after saving, the person signs in again with it.
 export const ForcePasswordChange = () => {
   const { user, logout } = useAuth();
   const change = useChangeMyPasswordMutation();

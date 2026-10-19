@@ -36,8 +36,6 @@ export type TaskBulkImportPreviewResponse = {
 };
 
 export type TaskBulkImportApplyRow = {
-  /** Original row number from the uploaded file — so a failure in the publish summary points at
-   *  a row the admin can actually find in their spreadsheet, not its position in this batch. */
   rowIndex: number;
   title: string;
   description?: string;

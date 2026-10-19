@@ -36,12 +36,10 @@ const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] =
 ];
 
 const FIELD_LABEL = FIELD_LABEL_CLASS;
-// One control height for every control in the filter panel (button, Combobox, Tabs, switch row): 44px on a phone, 36px from sm up.
 const CONTROL_H = 'h-11 sm:h-9';
 
 interface ComplianceRowProps {
   instance: ChecklistInstance;
-  /** null while the stores list is still loading, so the row never claims "Unknown store" too early. */
   storeName: string | null;
   nameById: Map<string, string>;
   namesLoading: boolean;
@@ -55,15 +53,8 @@ const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle' | 'covered', { ic
   idle: { icon: Minus, tone: 'bg-text-light' },
 };
 
-// One instance's roll-up: overall progress, plus a per-assignee breakdown of how many of this
-// shared instance's items *that specific person* personally completed (via each item's
-// completedBy), the closest honest signal this schema supports for "did this person do their
-// part," since items are completable by any assignee, not owned individually.
 const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: ComplianceRowProps) => {
-  // One pass over the items instead of a filter per assignee, per metric.
   const stats = useMemo(() => {
-    // Not applicable questions are left out of the counts as well as the percent, so "6/8" and "75%"
-    // always describe the same questions (the History list counts them the same way).
     let total = 0;
     let done = 0;
     let flagged = 0;
@@ -87,8 +78,6 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
   const { total, done, flagged, byPerson, progress } = stats;
   const status = instanceProgressStatus(done, total);
   const complete = status === 'COMPLETED';
-  // Who actually filled it in, most questions first. When the checklist is finished, an assignee who
-  // filled nothing is "covered" (someone else did it for the whole team), not pending.
   const fillers = useMemo(
     () => [...byPerson.entries()].sort((a, b) => b[1].completed - a[1].completed).map(([id]) => nameById.get(id) ?? 'a teammate'),
     [byPerson, nameById],
@@ -131,9 +120,6 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
           {instance.assigneeIds.map(id => {
             const theirs = byPerson.get(id);
             const completedByThem = theirs?.completed ?? 0;
-            // A flagged answer only ever attributes to whoever actually completed that item, the
-            // same honest-signal limitation the comment above already calls out for plain
-            // completion counts (a shared instance has no per-item "owner" beyond completedBy).
             const flaggedByThem = theirs?.flagged ?? 0;
             const covered = complete && completedByThem === 0;
             const look = PERSON_TONE[flaggedByThem > 0 ? 'flag' : covered ? 'covered' : total > 0 && completedByThem === total ? 'done' : completedByThem > 0 ? 'started' : 'idle'];
@@ -155,7 +141,6 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
 });
 ComplianceRow.displayName = 'ComplianceRow';
 
-// Same shape as a real row (title + chips, bar, assignee chips) so nothing jumps when data lands.
 const ComplianceRowSkeleton = () => (
   <div className={cn(PANEL_CLASS, 'flex min-h-36 flex-col gap-3', CARD_PAD)}>
     <div className="flex items-start justify-between gap-3">
@@ -173,8 +158,6 @@ const ComplianceRowSkeleton = () => (
   </div>
 );
 
-// One applied filter, with an X to drop just that one without opening the panel.
-// The chip stays 32px tall; on a touch screen the X gets a 44px hit area through its ::after.
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
   <span className="flex h-8 items-center gap-1 rounded-full border border-border bg-surface-hover pl-3 pr-1 t-meta font-display font-medium text-text-secondary">
     {label}
@@ -194,13 +177,8 @@ const shortDay = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', 
 const personName = (p: { firstName: string; lastName: string | null; email?: string }) =>
   `${p.firstName} ${p.lastName ?? ''}`.trim() || p.email || 'Unknown';
 
-// The board spans every store org-wide, so it's the one list here that realistically reaches
-// thousands of rows. Paging at 50 keeps what renders (and hydrates) bounded.
 const PAGE_SIZE = 50;
 
-// Admin-only dashboard answering "who has/hasn't filled their checklist", dynamically filterable
-// by store and by person. Spans every checklist definition's generated instances (unlike
-// ChecklistDefinitionDetail, which only shows instances for one definition at a time).
 const QUICK_TILE_LABEL: Record<Exclude<ComplianceQuickFilterKey, 'all'>, string> = {
   completed: 'Done',
   due: 'On track',
@@ -208,9 +186,6 @@ const QUICK_TILE_LABEL: Record<Exclude<ComplianceQuickFilterKey, 'all'>, string>
 };
 
 export const ChecklistComplianceBoard = () => {
-  // Trend + rate-tile report, same component the Overview page's own Audits tab uses, reused
-  // (not rebuilt) so this page reads as a report at a glance instead of opening straight onto the
-  // per-instance/per-person list below.
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [range, setRangeState] = useState<DateRangeValue>({ from: null, to: null });
   const reportFrom = range.from ? range.from.toISOString() : undefined;
@@ -219,21 +194,12 @@ export const ChecklistComplianceBoard = () => {
   const [storeId, setStoreIdState] = useState('');
   const [assigneeId, setAssigneeIdState] = useState('');
   const [status, setStatusState] = useState<'' | ChecklistInstanceStatus>('');
-  // Off by default: a deleted checklist's history is kept for audit purposes, but shouldn't
-  // clutter the board every viewer sees day to day; this is the explicit "show me anyway" switch.
   const [includeDeleted, setIncludeDeletedState] = useState(false);
-  // Layered on top of the store/person/status filters above, same as TicketList's quickFilter:
-  // click a tile to narrow the list further, click it again (or "Total") to clear.
   const [quickFilter, setQuickFilter] = useState<ComplianceQuickFilterKey>('all');
   const [page, setPage] = useState(1);
 
-  // Every filter resets the page, because page 4 of the old result set is meaningless against the
-  // new one and usually past its end. Done in the setters rather than an effect watching them,
-  // an effect would render the stale page once before correcting itself.
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setAssigneeId = (value: string) => { setAssigneeIdState(value); setPage(1); };
-  // The tile and the Status control narrow the same thing, so picking a status drops the tile (and a
-  // tile drops the status below): only one of them is ever on, and no chip contradicts the list.
   const setStatus = (value: '' | ChecklistInstanceStatus) => {
     setStatusState(value);
     if (value) setQuickFilter('all');
@@ -255,7 +221,6 @@ export const ChecklistComplianceBoard = () => {
     setPage(1);
   };
   const hasFilters = !!(storeId || assigneeId || status || includeDeleted || range.from || range.to || quickFilter !== 'all');
-  // The Filters button's badge counts the controls inside the panel; the stat tiles below have their own highlight.
   const filterCount = [storeId, assigneeId, status, includeDeleted, range.from || range.to].filter(Boolean).length;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const clearFilters = () => {
@@ -268,21 +233,13 @@ export const ChecklistComplianceBoard = () => {
     setPage(1);
   };
 
-  // ONE window for the tiles and the list under them: the picked dates, else this month up to today (what the
-  // server uses when no window is sent), so a tile's number is always the size of the list it opens.
   const orgToday = useOrgToday();
   const listFrom = reportFrom ?? `${orgToday.slice(0, 8)}01`;
   const listTo = reportTo ?? orgToday;
 
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
-  // Scoped to the selected store, for the Person filter's own option list.
   const { data: people = [], isSuccess: peopleLoaded } = useAssignableUsersQuery(undefined, storeId || undefined);
-  // Unscoped roster so assignee chips resolve to real names even for instances outside whichever
-  // store is currently selected in the filter above.
   const { data: allPeople = [], isPending: allPeoplePending } = useAssignableUsersQuery();
-  // Deactivated people are not in the assignable roster, but their name still has to read right on
-  // old runs, and they can be picked in the Person filter. The light names endpoint (not the full
-  // former-people aggregates). Failure here just means no "(left)" tag, never a broken page.
   const { data: formerPeople = [], isPending: formerPending } = useFormerPeopleNamesQuery();
 
   const nameById = useMemo(() => {
@@ -293,13 +250,11 @@ export const ChecklistComplianceBoard = () => {
   }, [allPeople, formerPeople]);
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
   const namesLoading = allPeoplePending || formerPending;
-  // Names the store/person picked, so the stats heading says whose numbers they are.
   const scopeLabel = [assigneeId ? nameById.get(assigneeId) : undefined, storeId ? storeNameById.get(storeId) : undefined]
     .filter(Boolean)
     .join(', ');
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
-  // Current people of the picked store first, then everyone who has left (their runs still show here).
   const personOptions = useMemo(
     () => [
       ...people.map(p => ({ value: p.id, label: personName(p) })),
@@ -308,16 +263,11 @@ export const ChecklistComplianceBoard = () => {
     [people, formerPeople],
   );
 
-  // A person picked before the store changed may not work in the new store. Once that store's roster
-  // is in, drop the pick instead of leaving the Person box naming someone the list can't match.
-  // (Former people are kept: the names endpoint has no store to check them against.)
   if (assigneeId && storeId && peopleLoaded && !people.some(p => p.id === assigneeId) && !formerPeople.some(p => p.id === assigneeId)) {
     setAssigneeIdState('');
     setPage(1);
   }
 
-  // The tile and the Status control narrow the same dimension, so they resolve to one server
-  // `status`, the tile wins when set.
   const effectiveStatus: ChecklistInstanceStatus | undefined =
     quickFilter === 'completed' ? 'COMPLETED'
     : quickFilter === 'due' ? 'DUE'
@@ -336,11 +286,8 @@ export const ChecklistComplianceBoard = () => {
   });
   const visibleInstances = instancePage?.data;
   const totalPages = instancePage?.meta.totalPages ?? 1;
-  // Rows can shrink under the viewer (a delete, a status change). Step back instead of showing an empty page.
   if (instancePage && page > totalPages) setPage(Math.max(1, totalPages));
 
-  // Counted by the database rather than by reducing the fetched page: a tile that says "23"
-  // derived from the page would silently become the page size the moment the list paginates.
   const { data: counts, isPending: summaryPending, isError: summaryError, refetch: refetchSummary } = useChecklistInstanceSummaryQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
@@ -362,7 +309,6 @@ export const ChecklistComplianceBoard = () => {
         actions={<ChecklistReportButton />}
       />
 
-      {/* One Filters button for the whole page: everything that narrows the stats and the list lives behind it. */}
       <section aria-label="Filters" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
           <Button
@@ -381,7 +327,6 @@ export const ChecklistComplianceBoard = () => {
           {storeId && <ActiveFilterChip label={storeNameById.get(storeId) ?? 'Store'} onRemove={() => setStoreId('')} />}
           {assigneeId && <ActiveFilterChip label={nameById.get(assigneeId) ?? 'Person'} onRemove={() => setAssigneeId('')} />}
           {status && <ActiveFilterChip label={STATUS_OPTIONS.find((o) => o.value === status)?.label ?? 'Status'} onRemove={() => setStatus('')} />}
-          {/* Picked by tapping a tile below: shown here too, so the list never looks narrowed for no visible reason. */}
           {quickFilter !== 'all' && (
             <ActiveFilterChip label={QUICK_TILE_LABEL[quickFilter]} onRemove={() => toggleQuickFilter(quickFilter)} />
           )}
@@ -468,8 +413,6 @@ export const ChecklistComplianceBoard = () => {
 
       <ChecklistScoringGaps />
 
-      {/* linkCards={false} on purpose: these cards' click destination on the Overview page is this
-          exact page, so here they are plain tiles. (Leaving them linked sent a click to History.) */}
       <ChecklistInstanceKpiSection
         groupBy={groupBy}
         from={reportFrom}
@@ -525,8 +468,6 @@ export const ChecklistComplianceBoard = () => {
       )}
 
       {!!visibleInstances?.length && (
-        // keepPreviousData keeps the old page on screen while the next one loads. No dimming: the rows
-        // swap in place, and aria-busy tells a screen reader a refresh is under way.
         <div className="flex flex-col gap-3" aria-busy={isFetching}>
           {visibleInstances.map((instance) => (
             <ComplianceRow

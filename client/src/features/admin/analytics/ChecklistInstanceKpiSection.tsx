@@ -10,22 +10,12 @@ interface ChecklistInstanceKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** /admin/checklist-compliance (the org-wide destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
-  /** Off by default (server-side too) so a deleted checklist's historical runs stay out of these
-   *  rates. Passed down from the Compliance Board's own "Show deleted checklists" toggle when this
-   *  section is embedded there. */
   includeDeleted?: boolean;
-  /** False on the Checklist Compliance page itself: the cards would only link back to where the viewer already is. */
   linkCards?: boolean;
-  /** Narrow every figure and the trend to one store and/or one person. */
   storeId?: string;
   assigneeId?: string;
-  /** Names of the active store/person filters, shown as the heading so the numbers say whose they are. */
   scopeLabel?: string;
-  /** The Overview window (ISO instants). When given, and no person or deleted-checklist filter is on, the completion,
-   *  answers right and runs figures come from the score explorer (the same answer the Scores page shows). Without it
-   *  the section reads its own report, as the Compliance Board does. */
   windowFrom?: string;
   windowTo?: string;
 }
@@ -33,13 +23,10 @@ interface ChecklistInstanceKpiSectionProps {
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
 export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, windowFrom, windowTo, linkCards = true }: ChecklistInstanceKpiSectionProps) => {
-  // A picked range is one whole-range figure (the same as the headline strip above), so the cards
-  // read a 'none' report; the chart still reads the grouped series so it has points to draw.
   const hasRange = Boolean(from || to);
   const chartQuery = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const cardQuery = useChecklistInstanceComplianceReportQuery(hasRange ? 'none' : groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const { data: rows } = cardQuery;
-  // The explorer cannot filter by person or include deleted checklists, so those views keep the report numbers.
   const fromExplorer = !!windowFrom && !!windowTo && !assigneeId && !includeDeleted;
   const scores = useOverviewScores(windowFrom, windowTo, { storeId, enabled: fromExplorer });
   const checklist = fromExplorer ? scores.total?.checklist : undefined;
@@ -55,14 +42,11 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const issues = latestWithTrend(rows, 'issueRate', 'rate');
   const dueRuns = latestWithTrend(rows, 'dueRuns', 'count');
 
-  // Every figure is a rate across all runs in the period, not a list of records. The per-run rows
-  // live on the compliance board (ADMIN/PC) or the history page (managers and senior staff).
   const href = !linkCards ? undefined : isOrgWideRole ? '/admin/checklist-compliance' : '/checklists/history';
 
   const itemsDoneCard = {
     icon: Repeat,
     iconTint: 'text-primary-600 dark:text-primary-400',
-    // Item based: questions done out of questions that apply, not the share of whole checklists.
     label: 'Items done',
     caption: 'Counts questions, not whole checklists',
     how: { figure: 'itemsDone' as const },
@@ -74,7 +58,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
     trend: completion.trend,
     href,
   };
-  // Answers that landed inside their accepted-answer rule, out of the answers that have one.
   const answersRightCard = {
     icon: CheckCheck,
     iconTint: 'text-primary-600 dark:text-primary-400',
@@ -102,7 +85,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const approvedCard = {
     icon: ShieldCheck,
     iconTint: 'text-coral-600 dark:text-coral-400',
-    // A run the reviewer ever sent back stops counting here, even once it is fixed and approved.
     label: 'Approved first time',
     value: formatPercent(approval.value),
     raw: approval.value,
@@ -115,7 +97,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const flaggedCard = {
     icon: AlertTriangle,
     iconTint: 'text-danger',
-    // Share of Yes/No answers that landed on the flagged branch. Rising is bad news.
     label: 'Flagged answers',
     value: formatPercent(issues.value),
     raw: issues.value,
@@ -137,8 +118,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
     caption: 'Runs due or finished',
     href,
   };
-  // Whole checklists done out of due, for the window: the figure the Overview headline strip shows. It takes the
-  // place of the runs count, which moves into its caption.
   const completionCard = {
     icon: ListChecks,
     iconTint: 'text-primary-600 dark:text-primary-400',

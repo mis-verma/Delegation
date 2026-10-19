@@ -12,20 +12,11 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 interface NotApplicableItemCardProps {
   item: ChecklistInstanceItem;
   instanceId: string;
-  /** canWork && !isLocked — shows "Undo" (to an admin, or to anyone once a reject reopened it). */
   canEdit: boolean;
 }
 
-/**
- * Stands in for an item's own card once it's marked Not applicable. The type card (photo slots,
- * Yes/No buttons, number box…) would otherwise sit there empty yet "done", which reads as a bug;
- * this says plainly that the step was skipped on purpose, and why.
- */
 export const NotApplicableItemCard = memo(function NotApplicableItemCard({ item, instanceId, canEdit }: NotApplicableItemCardProps) {
   const mutation = useSetChecklistInstanceItemDoneMutation(instanceId);
-  // Marked-not-applicable is finished work like any other: only an admin can take it back. The one
-  // exception is a run a reviewer sent back, which reopens every step (isDone false) so its owner
-  // can answer it properly this time.
   const canReopen = useCanReopen();
   const canUndo = canEdit && (!item.isDone || canReopen);
   const reason = item.remarks?.trim();

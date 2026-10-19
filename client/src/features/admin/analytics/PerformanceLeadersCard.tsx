@@ -14,11 +14,8 @@ import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, typ
 import { formatPercent } from './analyticsDisplay';
 
 interface PerformanceLeadersCardProps {
-  /** The window every ranking covers: the picked range, or the page's default window. */
   from?: string;
   to?: string;
-  /** Opens the full ranking page instead of this card duplicating it: this is the glance view,
-   *  that is the drill-in. */
   onViewFull: () => void;
 }
 
@@ -32,9 +29,7 @@ interface LeaderEntryProps {
   tone: keyof typeof TONE_CLASS;
   label: string;
   row: RankedRow | null;
-  /** What to show when there is no row to name. */
   emptyText: string;
-  /** Where the named row opens: its row on the Scorecard. */
   hrefFor: (id: string) => string;
 }
 
@@ -85,7 +80,6 @@ interface DimensionColumnProps {
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
-  /** Where a row goes when it is clicked: that department or store on the Scorecard. */
   hrefFor: (id: string) => string;
   className?: string;
 }
@@ -116,7 +110,6 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry,
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-          {/* Two "Not enough data yet" rows said the same thing twice; say it once. */}
           {!top && !low && !hasEligible ? (
             <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @md:col-span-2">Not enough data yet</p>
           ) : (
@@ -138,12 +131,8 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry,
   );
 };
 
-// The owner-level "who's top, who's low" summary, scoped to the page's own date range and shown on
-// the Overview itself. It reads the same ranked rows as the full Rankings page (useOwnerRankings),
-// so the two never disagree. Rows open that department or store on the Scorecard, for the same window.
 export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLeadersCardProps) => {
   const headingId = useId();
-  // The same org days the explorer is asked for, so a row opens on exactly the window the card shows.
   const scoreWindow = useOverviewScoreWindow(from, to);
   const dayFrom = scoreWindow?.from;
   const dayTo = scoreWindow?.to;
@@ -152,7 +141,6 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
     retryDepartments, retryStores, updating,
   } = useOwnerRankings(from, to);
 
-  // The names on the card (top and needs attention, per group) with the figures behind each.
   const exportRows = (): TableRows => {
     const out: TableRows[number][] = [['Group', 'Position', 'Name', SCORE_LABEL.overall, 'Tickets closed %', 'Delegations done %', 'Checklists done %', 'Items']];
     for (const [group, rows] of [['Departments', departmentRows], ['Stores', storeRows]] as const) {

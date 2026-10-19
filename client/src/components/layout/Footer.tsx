@@ -10,8 +10,6 @@ const LINKS = [
   { to: '/settings', label: 'Settings' },
 ];
 
-// The company that owns the product, named on the copyright line. Deliberately not the editable
-// workspace name (orgName): that can be renamed in Settings, the copyright holder cannot.
 const COPYRIGHT_HOLDER = 'Verma Jewellers';
 
 export const Footer = () => {

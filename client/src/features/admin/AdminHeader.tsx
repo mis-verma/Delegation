@@ -14,30 +14,14 @@ import {
 } from 'lucide-react';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { Dropdown, type DropdownAction } from '../../components/dropdown';
-// Same greeting logic HomePage's DashboardHeader already uses — one shared source instead of a
-// second copy that could drift to a different morning/afternoon/evening boundary.
 import { greeting } from '../dashboard/dashboardDisplay';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ROLE_META } from './roleBadge';
 import { cn } from '@/lib/utils';
 import type { Role } from '../../api/auth';
 
-// Matches DashboardHeader's own clock: cheap enough to tick on an interval without re-rendering
-// the whole header every second, and 30s is plenty of precision for a minute-resolution display.
 const CLOCK_REFRESH_MS = 30_000;
 
-// size-11 (44px) — the minimum recommended touch target, not the size-9/size-8 this used to be;
-// on a header full of icon-only buttons, undersized targets are the easiest spot to mis-tap on a
-// phone.
-//
-// Deliberately doesn't include `inline-flex` here (every other utility in this string is safe to
-// share) — two call sites below toggle their own display with `hidden`/responsive variants, and
-// an unconditional `inline-flex` baked into this shared constant sits at the exact same
-// specificity as `hidden`, so which one wins came down to Tailwind's internal generation order
-// rather than source intent. In the built app `inline-flex` won regardless of viewport, so the
-// desktop-only "Dashboard" link never actually hid on mobile — it stayed in the header and pushed
-// the layout into horizontal overflow. Each call site now supplies its own `inline-flex` (or
-// `hidden`/`sm:inline-flex` pair) so there's only ever one unconditional display utility in play.
 const ICON_BUTTON =
   'items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
@@ -51,13 +35,6 @@ interface AdminHeaderProps {
   pageLabel: string;
 }
 
-// Admin's own header chrome — a light, neutral floating card (bg-surface + border, the same
-// token-based treatment every other admin surface uses), not the bold navy gradient this used to
-// carry. The sidebar still owns that navy "chrome" rail; the header no longer needs to match it —
-// running two saturated navy bars stacked on top of each other read as busier and less
-// professional than one calm surface under a colored rail. The sidebar already owns the brand
-// mark, so this surfaces admin-specific context instead: which section you're in, right where a
-// page title would otherwise go.
 export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
@@ -77,7 +54,6 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   }, []);
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
-  // Phones: the theme toggle moves in here so the section title in the bar has room to show whole.
   const isMobile = useIsMobile();
   const accountActions: DropdownAction[] = [
     { label: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -89,8 +65,6 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   return (
     <header className="relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09]">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
-        {/* Left: sidebar toggle + dynamic "you are here" title (the brand mark already lives in
-            the sidebar, so this slot carries context instead of repeating it) */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             id="admin-sidebar-toggle"
@@ -102,13 +76,6 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             <PanelLeft size={19} strokeWidth={2} />
           </button>
 
-          {/* A standalone, always-visible way back to the regular user dashboard — it existed
-              before only inside the account dropdown (still does, kept for muscle memory), which
-              took two clicks to find rather than one. Text version from sm up only: below that,
-              an icon-only copy of this plus the greeting plus the icon cluster on the right left
-              the greeting with no room at all and forced it into a hard mid-word truncation
-              ("Good aftern...") — the dropdown already carries this on mobile, so it's dropped
-              there instead of duplicated. */}
           <Link
             to="/"
             className={`${ICON_BUTTON} w-auto gap-1.5 px-3 hidden sm:inline-flex`}
@@ -120,9 +87,6 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
 
           <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />
 
-          {/* Phones: the section you're in, with today's date under it (same pattern as the main
-              app header) — a greeting squeezed between the toggle and the icons only ever showed
-              as "Good morn…". Desktop keeps the greeting with the section underneath. */}
           <div className="sm:hidden flex flex-col min-w-0 leading-tight">
             <span className="t-card font-display font-bold text-text tracking-tight truncate">{pageLabel || 'Admin'}</span>
             <span className="text-xs font-medium text-text-muted">{currentDate}</span>
@@ -135,11 +99,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
           </div>
         </div>
 
-        {/* Right: quick actions + account */}
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
-          {/* gap-2 (8px), not gap-1 — the minimum spacing between two adjacent touch targets so a
-              slightly-off tap on one doesn't land on the other. */}
-          {/* Bare icon buttons, as in the main header: no boxed pill around them. */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <NotificationBell badgeRing={false} />
             <button

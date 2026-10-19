@@ -5,9 +5,6 @@ import { asyncHandler } from "../../utils/asyncHandler.js"
 import type { ChecklistRecurrence } from "./checklistDefinition.service.js"
 
 export const checklistDefinitionController = {
-    // GET /checklist-definitions?storeId=&recurrence=&isActive=&page=&limit=
-    // Paginated. Responds `{ success, data, meta }` — `data` is the same array shape as before,
-    // so a caller that ignores `meta` still works, it just gets the first page.
     list: asyncHandler(async (req: Request, res: Response) => {
         const { storeId, recurrence, isActive, draft } = req.query
         const { page, limit } = listChecklistDefinitionsQuerySchema.parse(req.query)
@@ -22,7 +19,6 @@ export const checklistDefinitionController = {
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-definitions/scoring-gaps: live checklists with questions that have no good answer set
     scoringGaps: asyncHandler(async (_req: Request, res: Response) => {
         const data = await checklistDefinitionService.scoringGaps()
         res.json({ success: true, data })
@@ -42,8 +38,6 @@ export const checklistDefinitionController = {
     update: asyncHandler(async (req: Request, res: Response) => {
         const input = updateChecklistDefinitionSchema.parse(req.body)
         const { definition, liveRuns, wentLive, paused, lateToday } = await checklistDefinitionService.update(req.params.id, input, req.user!.sub)
-        // `liveRuns`: what the edit did to today's runs — how many were rebuilt from it and how many
-        // were already in progress and so kept their old version (see refreshUntouchedInstances).
         res.json({ success: true, data: definition, liveRuns, wentLive, paused, lateToday })
     }),
 

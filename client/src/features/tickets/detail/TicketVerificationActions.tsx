@@ -13,11 +13,6 @@ interface TicketVerificationActionsProps {
 
 const SEND_BACK_SUGGESTIONS = ['Photo missing', 'Not fixed yet', 'Wrong item'];
 
-/**
- * The reviewer's decision, as one small card: a line saying it is waiting on them, then Approve (one tap, closes
- * the ticket) beside Send back (opens its own dialog with a required note saying what needs fixing). Send back is
- * orange, not red: it is a redo, not a failure.
- */
 export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, onSendBack }: TicketVerificationActionsProps) => {
   const [sendingBack, setSendingBack] = useState(false);
 
@@ -34,7 +29,6 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, o
           </div>
         </div>
 
-        {/* 44px buttons on a phone, 40px from sm. Approve first. */}
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="primary"

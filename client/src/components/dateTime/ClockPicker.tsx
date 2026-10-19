@@ -7,8 +7,6 @@ const HOUR_MARKS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const MINUTE_MARKS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 const QUICK_TIMES = [9, 12, 15, 18];
 
-// A bigger clock on touch screens, where small marks are too small to hit and neighbouring marks
-// would overlap if they simply grew.
 const DIAL_MOUSE = { size: 176, radius: 70, mark: 'size-8' };
 const DIAL_TOUCH = { size: 232, radius: 94, mark: 'size-10' };
 
@@ -18,23 +16,13 @@ const segment = (on: boolean) => cn(
 );
 
 interface ClockPickerProps {
-  /** The day and time chosen so far. `null` until a day is picked. */
   value: Date | null;
   onChange: (next: Date) => void;
-  /** What this time is for ("Start time", "Due time"). */
   label?: string;
-  /** Earliest moment allowed, e.g. now for a due time today. An earlier pick is refused with a message. */
   minAt?: Date | null;
-  /** Called when the person starts using the clock, e.g. so a picker's auto-close timer is cancelled. */
   onTouch?: () => void;
 }
 
-/**
- * The app's own clock for picking a time: tap or drag round the face to set the hour, then the
- * minutes (one-minute steps while dragging), flip AM and PM, or start from a one-tap working-day
- * time. It replaces the browser's built-in time control, which looks and behaves differently on
- * every phone and browser.
- */
 export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPickerProps) => {
   const coarse = useMediaQuery('(pointer: coarse)');
   const dial = coarse ? DIAL_TOUCH : DIAL_MOUSE;
@@ -64,7 +52,6 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
     if (!value) return;
     const next = new Date(value);
     next.setHours((h12 % 12) + (isPM ? 12 : 0));
-    // A drag reports every pixel; only a real change is passed on.
     if (next.getTime() === value.getTime()) return;
     apply(next);
   };
@@ -83,7 +70,6 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
     apply(next);
   };
 
-  // Clock face as a dial: pointer position to an angle, the angle to an hour or a minute.
   const fromPointer = (e: React.PointerEvent) => {
     if (!value || !faceRef.current) return;
     const rect = faceRef.current.getBoundingClientRect();
@@ -106,7 +92,6 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
   const endDrag = () => {
     if (!dragging.current) return;
     dragging.current = false;
-    // Hour chosen, so the clock moves on to the minutes.
     if (mode === 'hour') setMode('minute');
   };
 
@@ -181,8 +166,6 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
         {!value ? 'Pick a day first' : mode === 'hour' ? 'Tap or drag to set the hour' : 'Tap or drag to set the minutes'}
       </span>
 
-      {/* The whole face is the control: a tap or a drag anywhere sets the time. The numbers are
-          labels for it (and keyboard stops), so they ignore the pointer themselves. */}
       <div
         ref={faceRef}
         className={cn('relative shrink-0 touch-none select-none rounded-full', !value && 'opacity-50')}

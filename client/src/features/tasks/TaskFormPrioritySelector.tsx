@@ -6,11 +6,9 @@ interface TaskFormPrioritySelectorProps {
   value: Task['priority'];
   onChange: (value: Task['priority']) => void;
   disabled?: boolean;
-  /** Suppress the built-in "Priority" label, for callers that already provide their own. */
   hideLabel?: boolean;
 }
 
-// The same icon-chip dropdown To-Do, the delegation form and the ticket form use.
 export const TaskFormPrioritySelector = ({ value, onChange, disabled = false, hideLabel = false }: TaskFormPrioritySelectorProps) => (
   <div className={`group/field flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && <span className={FIELD_LABEL_CLASS}>Priority</span>}

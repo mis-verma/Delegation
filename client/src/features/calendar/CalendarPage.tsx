@@ -14,17 +14,12 @@ import { CalendarAgenda } from './CalendarAgenda';
 import { CalendarMonthPicker } from './CalendarMonthPicker';
 import { buildMonthGrid, dayKey, defaultDueFor, type CalendarCreateKind, type CalendarItem } from './calendarDisplay';
 
-// Loaded on demand, like the list pages' own forms, so the Calendar chunk stays light and the
-// form code only downloads when someone actually creates something from a day.
 const TaskForm = lazy(() => import('../tasks/TaskForm').then((m) => ({ default: m.TaskForm })));
 const TicketForm = lazy(() => import('../tickets/TicketForm').then((m) => ({ default: m.TicketForm })));
 
 const NAV_BUTTON =
   'flex items-center justify-center size-9 pointer-coarse:size-10 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50';
 
-// Checklist instances have no org-wide query yet (see HomePage.tsx's own comment on the same gap)
-// — they stay "mine" for every role, same as the Dashboard. Tasks and Tickets go org-wide for
-// ADMIN/PC, personal otherwise; Events are global to begin with.
 export const CalendarPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -34,9 +29,6 @@ export const CalendarPage = () => {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
 
-  // "now" only needs to be approximately current for the overdue checks and "today" highlight
-  // below — memoized so it's read once per mount, same pattern HomePage.tsx uses for the same
-  // reason (calling Date.now()/new Date() directly in a render-path memo is impure).
   // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), []);
   const today = useMemo(() => new Date(now), [now]);
@@ -102,7 +94,6 @@ export const CalendarPage = () => {
       out.push({
         id: `event-${e.id}`,
         title: e.title,
-        // Deadline/Announcement/Broadcast, not one flat "event" bucket — see calendarDisplay.ts.
         type: e.type,
         date: new Date(e.eventDate),
         completed: false,
@@ -128,9 +119,6 @@ export const CalendarPage = () => {
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
   const monthLabel = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-  // A quick "how busy does this look" read, same KPI-strip convention every other list page
-  // (Tickets, Tasks) already uses — "This month" follows whichever month is being browsed, while
-  // Today/This week stay pinned to the real today regardless of which month is on screen.
   const stats = useMemo(() => {
     const inMonth = items.filter((i) => i.date.getFullYear() === year && i.date.getMonth() === month);
     const weekStart = new Date(today);
@@ -146,14 +134,12 @@ export const CalendarPage = () => {
     };
   }, [items, itemsByDay, year, month, today]);
 
-  // The selected day drives the agenda and is always inside the month on screen. Defaults to today.
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const selectedItems = useMemo(
     () => [...(itemsByDay.get(dayKey(selectedDay)) ?? [])].sort((a, b) => a.date.getTime() - b.date.getTime()),
     [selectedDay, itemsByDay],
   );
 
-  // Picking a grey out-of-month cell carries the view over to that month.
   const selectDay = (date: Date) => {
     setSelectedDay(date);
     if (date.getFullYear() !== year || date.getMonth() !== month) setCursor(new Date(date.getFullYear(), date.getMonth(), 1));
@@ -168,7 +154,6 @@ export const CalendarPage = () => {
   const goToMonth = (delta: number) => showMonth(new Date(year, month + delta, 1));
   const goToToday = () => showMonth(new Date());
 
-  // Swipe the month sideways on a phone, as in a calendar app: left for the next month, right for the previous.
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const onSwipeStart = (e: TouchEvent) => { const t = e.touches[0]; swipe.current = t ? { x: t.clientX, y: t.clientY } : null; };
   const onSwipeEnd = (e: TouchEvent) => {
@@ -181,8 +166,6 @@ export const CalendarPage = () => {
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goToMonth(dx < 0 ? 1 : -1);
   };
 
-  // Which form is open, and the due date it starts with. The forms invalidate the ['tasks'] and
-  // ['tickets'] query prefixes themselves, so the new item lands on its day without any wiring here.
   const [creating, setCreating] = useState<{ kind: CalendarCreateKind; due: Date | undefined } | null>(null);
   const startCreate = (kind: CalendarCreateKind, day: Date) => {
     selectDay(day);
@@ -193,7 +176,6 @@ export const CalendarPage = () => {
   return (
     <div className="flex min-w-0 flex-col gap-3 sm:gap-6 w-full animate-in fade-in duration-500 ease-out">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        {/* The page name is already in the header on a phone; the month bar leads instead. */}
         <div className="hidden sm:flex items-center gap-3 min-w-0">
           <EntityIconTile icon={CalendarIcon} />
           <div className="flex min-w-0 flex-col gap-0.5">

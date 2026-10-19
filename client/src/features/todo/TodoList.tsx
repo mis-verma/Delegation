@@ -15,16 +15,11 @@ import type { Todo, TodoPriority } from '../../api/todos';
 interface TodoListProps {
   quickFilter?: TodoQuickFilterKey | null;
   priority?: TodoPriorityFilter;
-  /** An extra filter applied first, for example a created or due date range. */
   rangeFilter?: (todo: Todo) => boolean;
-  /** Omit to keep the server's own order — the drawer renders this list with no props. */
   sort?: TodoSortKey;
-  /** Offered on the "nothing matched" empty state when filters are the reason it's empty. */
   onClearFilters?: () => void;
 }
 
-// Unticked circle takes the priority's colour, so how urgent something is shows before you read
-// the chip (the same idea as most to-do apps' priority rings).
 const RING_CLASS: Record<TodoPriority, string> = {
   high: 'border-danger',
   medium: 'border-warning',
@@ -48,8 +43,6 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
   const priorityFiltered = priority === 'all' ? quickFiltered : quickFiltered.filter((t) => t.priority === priority);
   const todos = sort ? sortTodos(priorityFiltered, sort) : priorityFiltered;
 
-  // Both mutations patch the cache optimistically, so a row flips (toggle) or leaves (delete)
-  // at once; no in-flight states needed.
   const toggleComplete = (todo: Todo) => updateMut.mutate({ id: todo.id, payload: { completed: !todo.completed } });
 
   const renderRow = (todo: Todo, index: number) => {
@@ -74,10 +67,8 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
             ? 'border-border/40 dark:border-white/[0.04] bg-surface/60'
             : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50'
         }`}
-        // Stagger caps at 8 steps so a long list doesn't make its last row wait.
         style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
       >
-        {/* 44px hit area around a 24px circle. */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); toggleComplete(todo); }}
@@ -174,12 +165,9 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
   const completed = todos.filter((t) => t.completed);
 
   return (
-    // @container: this renders full-width on the To-Do page and inside the ~340px To-Do drawer,
-    // so the two-column layout switches on the list's own width, not the viewport.
     <div className="@container flex flex-col gap-5">
       <div className="flex flex-col @lg:flex-row gap-6 @lg:gap-5 items-start">
         <TodoColumn label="Pending" dotClassName="bg-primary-600" todos={pending} emptyMessage="All done. Nothing left to do." renderRow={renderRow} />
-        {/* Completed is capped: it only ever grows. */}
         <TodoColumn label="Completed" dotClassName="bg-success" todos={completed} emptyMessage="Ticked-off to-dos show up here." renderRow={renderRow} maxVisible={5} />
       </div>
 
@@ -194,7 +182,6 @@ interface TodoColumnProps {
   todos: Todo[];
   emptyMessage: string;
   renderRow: (todo: Todo, index: number) => ReactNode;
-  /** Show at most this many rows, with a "show the rest" toggle below. Omit for no cap. */
   maxVisible?: number;
 }
 

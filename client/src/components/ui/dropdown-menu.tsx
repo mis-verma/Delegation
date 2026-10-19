@@ -8,8 +8,6 @@ function DropdownMenu({
   modal = false,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  // See Select's comment: defaulting to non-modal avoids the classic "nested inside a Dialog"
-  // pointer-events lock conflict between Radix's modal primitives.
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={modal} {...props} />
 }
 
@@ -30,15 +28,6 @@ function DropdownMenuContent({
   container,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
-  /**
-   * Where to portal the menu. Defaults to `document.body`.
-   *
-   * Pass the dialog's content element for a menu opened from inside a modal. Radix Dialog wraps
-   * its content in react-remove-scroll, which blocks wheel and touch events on everything OUTSIDE
-   * that subtree — and a body-portalled menu is outside it. The result is a menu you can see and
-   * click but cannot scroll with a trackpad or a touch drag, however tall its list gets. Portalled
-   * into the dialog instead, it sits inside the allowed subtree and scrolls normally.
-   */
   container?: HTMLElement | null;
 }) {
   return (
@@ -47,12 +36,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          // z-[80] — above Dialog's z-[70] (see dialog.tsx), since this menu is routinely opened
-          // from inside a modal (e.g. the assignee picker in a task/delegation form) and, when
-          // portalled to document.body as a sibling of the dialog, needs a higher z-index of its
-          // own to actually render on top of it rather than invisibly underneath.
           "z-[80] max-h-(--radix-dropdown-menu-content-available-height) min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto",
-          // No shadow — border-only, matching Modal/Popover's own elevation-free convention.
           "bg-surface rounded-xl border border-border p-1.5",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
           className,

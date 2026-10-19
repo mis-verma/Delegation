@@ -3,10 +3,8 @@ import { Switch } from '../../components';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
 
 interface DashboardMobileCustomizeProps {
-  /** Every card this screen can show, in the saved order, hidden ones included. */
   order: DashboardCardId[];
   hidden: DashboardCardId[];
-  /** Moves a card to where another one sits (the neighbour it swaps with). */
   onMove: (activeId: DashboardCardId, overId: DashboardCardId) => void;
   onToggle: (id: DashboardCardId) => void;
 }
@@ -14,11 +12,6 @@ interface DashboardMobileCustomizeProps {
 const ARROW_CLASS =
   'inline-flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-text-secondary transition-colors outline-none hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-surface cursor-pointer disabled:cursor-not-allowed';
 
-/**
- * Customize on a phone: a plain list with Up and Down buttons and a switch per card. Dragging a card
- * across a scrolling phone page is fiddly and easy to trigger by accident, so a phone gets buttons that
- * are 44px and 8px apart instead. The drag grid stays for larger screens.
- */
 export const DashboardMobileCustomize = ({ order, hidden, onMove, onToggle }: DashboardMobileCustomizeProps) => (
   <ul className="flex flex-col gap-2" aria-label="Dashboard cards">
     {order.map((id, index) => {

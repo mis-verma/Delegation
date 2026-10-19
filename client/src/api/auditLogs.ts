@@ -2,9 +2,6 @@ import { apiFetch } from './http';
 import type { ApiResponse } from './checklistDefinitions';
 import type { Role } from './auth';
 
-// Exactly the entityType/action strings every module's auditService.record() call actually
-// passes today (server/src/modules/**/*.service.ts) — free-form strings on the wire, not a real
-// enum, so this list is a snapshot to build filter dropdowns from, not a hard contract.
 export const AUDIT_ENTITY_TYPES = [
   'Ticket', 'Task', 'ChecklistDefinition', 'ChecklistTemplate', 'ChecklistInstance',
   'ChecklistInstanceItem', 'ChecklistInstanceImage', 'ChecklistInstanceItemSubmissionImage',
@@ -18,8 +15,6 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-// Where a change came from: 'APP' is a signed-in person, 'WHATSAPP' the bot, 'SYSTEM' a scheduled
-// job. The server filter takes the same free-form string.
 export const AUDIT_SOURCES = ['APP', 'WHATSAPP', 'SYSTEM'] as const;
 export type AuditSource = (typeof AUDIT_SOURCES)[number];
 
@@ -32,16 +27,13 @@ export type AuditLog = {
   entityId: string;
   action: string;
   actorId: string;
-  /** The person's name as it was when they made the change; stays right after a rename or removal. */
   actorName: string | null;
-  /** 'APP', 'SYSTEM' or 'WHATSAPP'; null on older entries. */
   source: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   actor: { id: string; email: string; firstName: string; lastName: string | null; role: Role } | null;
-  /** What the record is called now (ticket/delegation title, checklist name); null when it no longer exists or has no name. */
   entityTitle?: string | null;
 };
 
@@ -58,7 +50,6 @@ export type AuditLogFilter = {
   entityId?: string;
   actorId?: string;
   action?: string;
-  /** One tab of the Audit Log page: a family of sections. */
   group?: AuditGroup;
   source?: string;
   from?: string;
@@ -67,8 +58,6 @@ export type AuditLogFilter = {
   limit?: number;
 };
 
-// Same shape as checklistInstances.ts's own buildQuery — kept local since neither file imports
-// the other and there's no third caller yet to justify a shared util for four lines.
 const buildQuery = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

@@ -7,8 +7,6 @@ import { TemplateBlock } from './TemplateBlock';
 import { Button, EmptyState, InlineError, PageHeader, Skeleton } from '../../../components';
 import { plural } from '../../checklist/checklistDisplay';
 
-// Same height as a collapsed TemplateBlock header (44px control + 8px padding each side + border),
-// so the list does not jump when the real rows land.
 const TemplateRowSkeleton = () => (
   <div className="flex items-center gap-3 px-4 py-2 min-h-15.5 rounded-xl border border-border/80 bg-surface">
     <Skeleton className="size-7 rounded-lg shrink-0" />
@@ -25,9 +23,6 @@ export const ChecklistTemplateList = () => {
   const { data: departments = [] } = useDepartmentsQuery();
   const departmentNames = new Map(departments.map(d => [d.id, d.name]));
 
-  // Single-function state renderer — matches UserList/DepartmentList/StoreList's pattern instead
-  // of four independent top-level conditionals, where a future edit to one guard without updating
-  // the others could render two panels at once.
   const renderContent = () => {
     if (isPending) return (
       <section aria-label="Loading templates" aria-busy="true" className="flex flex-col gap-3">
@@ -50,7 +45,6 @@ export const ChecklistTemplateList = () => {
 
     return (
       <section aria-label="Template list" className="flex flex-col gap-3">
-        {/* Count only once the list has loaded, never beside an error or a skeleton. */}
         <p className="text-xs font-display font-medium text-text-muted tabular-nums">{plural(templates.length, 'template')}</p>
         {templates.map(t => (
           <TemplateBlock

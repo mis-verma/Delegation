@@ -1,6 +1,3 @@
-// One-off command-line script for account recovery when someone forgets their password and email
-// (SMTP_*) isn't configured for the normal forgot-password flow. Run like:
-//   npm run reset:password -- someone@example.com NewPassw0rd!
 import 'dotenv/config'
 import { eq } from 'drizzle-orm'
 import { connectDB, disconnectDB, db } from '../config/db.js'

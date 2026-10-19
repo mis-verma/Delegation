@@ -3,9 +3,6 @@ import { ORG_TZ_OFFSET_MS } from '../../checklist/checklistDisplay';
 import type { TatReportRow } from '../../../api/ticket';
 import { formatPct, roundPct } from '../../../lib/percent';
 
-// One place for every number and period label on the Overview page, so the same figure never reads
-// two ways (a rate was "76%" in one tile and "75.8%" in the next, a delta was "+4%" when it was
-// really four points). One locale for the whole page.
 export const ANALYTICS_LOCALE = 'en-IN';
 
 type ReportRow = { bucket: string; [key: string]: unknown };
@@ -17,18 +14,11 @@ const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 
 const NO_DATA = 'No data';
 
-/** The name of the single bucket the server returns for groupBy=none. */
 const RANGE_BUCKET = 'range';
 
-// ---------------------------------------------------------------------------------------------
-// Number formatters
-// ---------------------------------------------------------------------------------------------
-
-/** Percent with up to one decimal: 76 -> "76%", 99.6 -> "99.6%" (never rounds up to 100). Null or NaN -> "No data". */
 export const formatPercent = (value: number | null | undefined): string =>
   formatPct(value, NO_DATA);
 
-/** A change in a rate, in percentage points: "+4 pts", "-3 pts", "0 pts". Null -> "No data". */
 const formatPoints = (delta: number | null | undefined): string => {
   if (delta == null || !Number.isFinite(delta)) return NO_DATA;
   const rounded = Math.round(delta);
@@ -36,7 +26,6 @@ const formatPoints = (delta: number | null | undefined): string => {
   return `${rounded > 0 ? '+' : '-'}${Math.abs(rounded)} pts`;
 };
 
-/** Elapsed hours: "3.5 h" under 48 hours, then whole days ("3 d"). Null -> "No data". */
 export const formatDuration = (hours: number | null | undefined): string => {
   if (hours == null || !Number.isFinite(hours)) return NO_DATA;
   const h = Math.max(0, hours);
@@ -44,11 +33,6 @@ export const formatDuration = (hours: number | null | undefined): string => {
   return `${Math.round(h / 24)} d`;
 };
 
-// ---------------------------------------------------------------------------------------------
-// Period labels
-// ---------------------------------------------------------------------------------------------
-
-/** "3 Oct", "Wk 40", "Oct 2026", "2026", or "Selected period" for the single whole-range bucket. */
 const formatBucket = (bucket: string, groupBy: DisplayGroupBy): string => {
   if (groupBy === 'none' || bucket === RANGE_BUCKET) return 'Selected period';
   if (groupBy === 'day') {
@@ -66,11 +50,6 @@ const formatBucket = (bucket: string, groupBy: DisplayGroupBy): string => {
   return bucket;
 };
 
-/**
- * The caption under a tile's number while it has no number to show. Three states a viewer can act
- * on differently: still loading (wait), failed (try again), or loaded but nothing to count (the
- * figure is simply empty for this period). Returns '' once there is a real value.
- */
 export const statCaption = ({ isPending, isError, hasData, noDataText }: { isPending: boolean; isError: boolean; hasData: boolean; noDataText: string }): string => {
   if (isError) return "Couldn't load";
   if (isPending) return 'Loading';
@@ -81,7 +60,6 @@ export const statCaption = ({ isPending, isError, hasData, noDataText }: { isPen
 const formatDayMonth = (d: Date, withYear: boolean) =>
   `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${withYear ? ` ${d.getFullYear()}` : ''}`;
 
-/** "1 Oct to 14 Oct" (the year is added when the range crosses years or is not this year). */
 const formatRangeSpan = (from: string | Date, to: string | Date): string => {
   const a = new Date(from);
   const b = new Date(to);
@@ -89,10 +67,6 @@ const formatRangeSpan = (from: string | Date, to: string | Date): string => {
   return `${formatDayMonth(a, withYear)} to ${formatDayMonth(b, withYear)}`;
 };
 
-/**
- * Names the period the headline tiles cover. With a range picked it is that range; with none it
- * is the current bucket of the chosen grouping ("October so far").
- */
 export const periodHeading = (groupBy: DisplayGroupBy, from?: string, to?: string, now: Date = new Date()): string => {
   if (from && to) return `Selected period: ${formatRangeSpan(from, to)}`;
   if (groupBy === 'day') return 'Today so far';
@@ -101,12 +75,10 @@ export const periodHeading = (groupBy: DisplayGroupBy, from?: string, to?: strin
   return `${MONTHS_LONG[now.getMonth()]} so far`;
 };
 
-// URL-safe calendar dates ('2026-10-03', browser-local) for the range kept in the page address.
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 export const toDateParam = (d: Date): string => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-/** A local-midnight Date from 'YYYY-MM-DD', or null when the text is missing or not a real date. */
 export const parseDateParam = (value: string | null | undefined): Date | null => {
   const m = value ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
   if (!m) return null;
@@ -114,7 +86,6 @@ export const parseDateParam = (value: string | null | undefined): Date | null =>
   return toDateParam(date) === value ? date : null;
 };
 
-/** What the page covers when no range is picked: the server's default window for the grouping. */
 export const defaultWindowLabel = (groupBy: DisplayGroupBy): string => {
   if (groupBy === 'day') return 'Last 30 days';
   if (groupBy === 'week') return 'Last 12 weeks';
@@ -124,11 +95,6 @@ export const defaultWindowLabel = (groupBy: DisplayGroupBy): string => {
 
 const endOfLocalDay = (y: number, m: number, d: number) => new Date(y, m, d, 23, 59, 59, 999);
 
-/**
- * The one explicit window every section shares when no range is picked: the last 12 buckets of the
- * chosen grouping (30 days for Day), ending at the close of today. Same span `defaultWindowLabel`
- * names, so the label and the numbers can never disagree.
- */
 export const defaultWindow = (groupBy: DisplayGroupBy, now: Date = new Date()): { from: string; to: string } => {
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -141,17 +107,9 @@ export const defaultWindow = (groupBy: DisplayGroupBy, now: Date = new Date()): 
   return { from: from.toISOString(), to: endOfLocalDay(y, m, d).toISOString() };
 };
 
-// The org's own calendar day as instants: the days a report bucket names are org days, so the window a
-// tile opens must start and end at the org's midnight, not this browser's. A browser in another time zone
-// otherwise opens a list that is a few hours off the number on the tile.
 const orgDayStart = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d) - ORG_TZ_OFFSET_MS);
 const orgDayEnd = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d + 1) - ORG_TZ_OFFSET_MS - 1);
 
-/**
- * The calendar window a report bucket covers, as ISO strings (org days), so a tile that shows the latest
- * bucket can open the list of exactly those records. Null for the whole-range bucket or a label that
- * does not parse.
- */
 export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: string; to: string } | null => {
   if (groupBy === 'none' || bucket === RANGE_BUCKET) return null;
   if (groupBy === 'day') {
@@ -164,7 +122,6 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
     const m = /^(\d{4})-W(\d{1,2})$/.exec(bucket);
     if (!m) return null;
     const year = Number(m[1]);
-    // ISO week 1 contains January 4th; its Monday is the start. Plain UTC calendar arithmetic on day labels.
     const jan4Weekday = new Date(Date.UTC(year, 0, 4)).getUTCDay();
     const mondayDay = 4 - ((jan4Weekday + 6) % 7) + (Number(m[2]) - 1) * 7;
     return { from: orgDayStart(year, 0, mondayDay).toISOString(), to: orgDayEnd(year, 0, mondayDay + 6).toISOString() };
@@ -180,12 +137,6 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
   return { from: orgDayStart(y, 0, 1).toISOString(), to: orgDayEnd(y, 11, 31).toISOString() };
 };
 
-/**
- * The rows up to the newest bucket that actually has data. A report zero-fills the current period,
- * so on the first day of a month its bucket reads "0 runs due" and every tile built from it would
- * say "Nothing counted". A row counts as empty when it reports `dueRuns: 0` (checklists, delegations)
- * or no tickets raised and none closed (tickets), and a report that is empty throughout is left alone.
- */
 const isEmptyRow = (row: ReportRow) =>
   row.dueRuns === 0 || row.totalItems === 0 || (row.createdCount === 0 && row.closedCount === 0);
 
@@ -195,7 +146,6 @@ export const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
   return end === 0 ? rows : rows.slice(0, end);
 };
 
-/** "Oct 2026 vs Sep 2026" for the latest-versus-previous tiles; "Selected period" for a whole range. */
 export const describeLatestPeriod = (allRows: ReportRow[] | undefined, groupBy: DisplayGroupBy): { label: string; isWholeRange: boolean } => {
   const rows = allRows && withoutEmptyTail(allRows);
   const latest = rows?.[rows.length - 1];
@@ -206,34 +156,19 @@ export const describeLatestPeriod = (allRows: ReportRow[] | undefined, groupBy: 
   return { label: previous ? `${current} vs ${formatBucket(previous.bucket, groupBy)}` : current, isWholeRange: false };
 };
 
-// ---------------------------------------------------------------------------------------------
-// Trend chart points (shared by the chart and its export, so the file has exactly the drawn points)
-// ---------------------------------------------------------------------------------------------
-
-/** Only the most recent buckets are drawn: a long series is unreadable on a phone. A daily series
- *  keeps a full month; week, month and year stay at 24. */
 const MAX_POINTS_DAY = 31;
 const MAX_POINTS_OTHER = 24;
-/** When the early buckets are empty, at least this many of the newest are still drawn. */
 const MIN_CONTEXT_POINTS = 6;
 
-/** The report endpoints name the single whole-range bucket 'range' (groupBy=none), whatever grouping
- *  the page asked for, so the label follows the bucket, not the control. */
 export const trendBucketLabel = (bucket: string, groupBy: DisplayGroupBy) => formatBucket(bucket, bucket === RANGE_BUCKET ? 'none' : groupBy);
 
 export const visibleTrendPoints = <T extends Record<string, unknown>>(data: T[], seriesKeys: readonly string[], groupBy: DisplayGroupBy): T[] => {
   const recent = data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER));
-  // Months before the first figure are empty space: start at the first bucket with data, but keep
-  // a few buckets of context so a brand-new report does not shrink to a single point.
   const firstWithData = recent.findIndex((row) => seriesKeys.some((k) => row[k] != null));
   if (firstWithData <= 0) return recent;
   return recent.slice(Math.min(firstWithData, Math.max(0, recent.length - MIN_CONTEXT_POINTS)));
 };
 
-/**
- * One plain line for when the chart draws fewer points than the report holds (only the newest buckets
- * are drawn, and empty ones before the first figure are skipped), so a long series is never cut silently.
- */
 export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGroupBy): string | null => {
   if (shown >= total) return null;
   const unit = groupBy === 'day' ? 'day' : groupBy === 'week' ? 'week' : groupBy === 'month' ? 'month' : groupBy === 'year' ? 'year' : 'period';
@@ -243,33 +178,21 @@ export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGrou
     : `Starts at the first ${unit} with figures.`;
 };
 
-// ---------------------------------------------------------------------------------------------
-// Trends
-// ---------------------------------------------------------------------------------------------
-
-// A trend whose label is the sentinel below is treated by StatCard as "no badge", so it never shows.
 export const NO_TREND: Trend = { direction: 'up', label: '—' };
 
-/** The change in a rate between two periods, labelled in percentage points. */
 const rateTrend = (current: number, previous: number): Trend => {
   const delta = Math.round(current) - Math.round(previous);
   return { direction: delta >= 0 ? 'up' : 'down', label: formatPoints(delta) };
 };
 
-/**
- * Closed-on-time rate for one ticket bucket: of the closed tickets that have a TAT, the share
- * closed by their deadline. Tickets without a TAT are not in the denominator (closedWithTatCount).
- */
 export const slaMetRate = (row?: TatReportRow): number | null => {
   if (!row) return null;
   const denominator = row.closedWithTatCount;
   if (!denominator || denominator <= 0) return null;
   const late = Math.min(row.closedLateCount ?? 0, denominator);
-  // One decimal like every other percentage, so the trend line and the card beside it read the same.
   return roundPct((1 - late / denominator) * 100);
 };
 
-// The report rows carry only the bucket label, so the grouping is read back from its shape.
 const groupByOfBucket = (bucket: string): DisplayGroupBy | null => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(bucket)) return 'day';
   if (/^\d{4}-W\d{1,2}$/.test(bucket)) return 'week';
@@ -278,19 +201,12 @@ const groupByOfBucket = (bucket: string): DisplayGroupBy | null => {
   return null;
 };
 
-/** True while the bucket's last day is still ahead of `now`: its total is only part of a period. */
 const isBucketOpen = (bucket: string, now: Date): boolean => {
   const unit = groupByOfBucket(bucket);
   const range = unit ? bucketRange(bucket, unit) : null;
   return range != null && new Date(range.to).getTime() > now.getTime();
 };
 
-/**
- * The newest bucket's value and how it moved from the bucket before it. A single bucket (the
- * whole-range result) or a missing previous value gives no trend badge at all. A count for a bucket
- * that has not finished yet is not compared with a full previous bucket (that would always read as a
- * drop), so it gets no badge either.
- */
 export const latestWithTrend = (
   allRows: ReportRow[] | undefined,
   key: string,
@@ -298,8 +214,6 @@ export const latestWithTrend = (
   now: Date = new Date(),
 ): { value: number | null; trend: Trend } => {
   if (!allRows || allRows.length === 0) return { value: null, trend: NO_TREND };
-  // A trailing bucket with no runs due (day one of a period) is skipped: the tiles show the last
-  // bucket that has numbers, and the one before it for the trend.
   const rows = withoutEmptyTail(allRows);
 
   const latest = rows[rows.length - 1];

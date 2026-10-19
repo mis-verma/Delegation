@@ -23,10 +23,7 @@ export interface TicketViewSnapshot {
 }
 const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
 
-// Module scope, not recreated per render/hook call — referencing it from inside a useMemo would
-// otherwise need it in the dependency array, and a fresh object every render would defeat the memo.
 const QUICK_FILTER_PREDICATES: Record<TicketQuickFilterKey, (t: Ticket) => boolean> = {
-  // Handed in (waiting for approval) counts as completed, the same as in the scores.
   pending: (t) => !isTicketHandedIn(t),
   completed: (t) => isTicketHandedIn(t),
   due: (t) => !!t.tatDueAt && !isTicketHandedIn(t) && !t.isOverdue,
@@ -58,8 +55,6 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     setPage(1);
   };
 
-  // Backs the stat row's lead "Total" tile: clears the bucket filter only, leaving search/scope/
-  // field filters alone — unlike handleResetFilters, which clears everything.
   const clearQuickFilter = () => {
     setQuickFilter(null);
     setPage(1);
@@ -73,14 +68,6 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     setPage(1);
   };
 
-  // Every computed value below is memoized on the state that actually changes it — opening the
-  // detail sheet, a modal, or Options toggles unrelated state (selectedTicket/showForm/showOptions)
-  // that lives in TicketList, which re-renders this hook's caller. Without memoization every one
-  // of these re-filtered/re-sorted/re-grouped the full ticket list and hand a fresh array down to
-  // TicketGroupedList/TicketCard on every such toggle, forcing every card to redo its own render
-  // work before the sheet/modal could even start its (otherwise instant) open animation — the same
-  // "laggy pickup" root cause fixed on the Task/Ticket boards' drag state, just triggered by a
-  // click instead of a drag.
   const scopeFiltered = useMemo(
     () => (user ? allTickets.filter(t => SCOPE_FILTER_PREDICATES[scopeFilter](t, user.id)) : allTickets),
     [allTickets, user, scopeFilter],
@@ -131,7 +118,6 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     (filters.raisedByIds.length > 0 ? 1 : 0) +
     (filters.labelIds.length > 0 ? 1 : 0);
 
-  // Everything that makes up "how I have this page set up", for a saved view.
   const snapshot: TicketViewSnapshot = { view, filters, sort, scopeFilter, search, groupBy, quickFilter };
   const applySnapshot = (s: TicketViewSnapshot) => {
     setView(s.view);
@@ -156,8 +142,6 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     groupBy, setGroupBy,
     page, setPage, safePage, totalPages,
     quickFilter, toggleQuickFilter, clearQuickFilter, quickCounts,
-    // The number the page header's "N total tickets" subtitle used to state — scope-aware, so it
-    // matches what the tiles beside it are counting.
     scopedTotal: scopeFiltered.length,
     handleResetFilters,
     sorted, pagedSorted, groups, activeCount, hasActiveFilters,

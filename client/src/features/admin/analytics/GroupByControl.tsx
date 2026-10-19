@@ -23,16 +23,11 @@ interface GroupByControlProps {
   onGroupByChange: (groupBy: GroupBy) => void;
   range: DateRangeValue;
   onRangeChange: (range: DateRangeValue) => void;
-  /** Leaves the date picker out, for a caller that lays the range controls out itself. */
   hideRange?: boolean;
 }
 
-// The picker reports {from, to: null} on the first tap of a two-tap pick. Callers must never see
-// that half-finished range (a query with only a start date silently runs to "now"), so the draft
-// stays inside this control and only a complete range, or a cleared one, is passed up.
 const useCompleteRangeOnly = (range: DateRangeValue, onRangeChange: (range: DateRangeValue) => void) => {
   const [draft, setDraft] = useState<{ base: DateRangeValue; value: DateRangeValue } | null>(null);
-  // A draft started against an older range is stale once the range changes from outside.
   const shown = draft && draft.base === range ? draft.value : range;
 
   const handleChange = (next: DateRangeValue) => {
@@ -52,8 +47,6 @@ const useCompleteRangeOnly = (range: DateRangeValue, onRangeChange: (range: Date
 
 const GroupByTabs = memo(({ groupBy, onGroupByChange }: Pick<GroupByControlProps, 'groupBy' | 'onGroupByChange'>) => (
   <Tabs value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
-    {/* Full-width four-up grid on a phone so every option is a 44px-tall target; a compact pill
-        group from sm up. */}
     <TabsList aria-label="Group by" className="grid w-full grid-cols-4 sm:inline-flex sm:flex-nowrap sm:w-fit h-auto">
       {GROUP_BY_OPTIONS.map((o) => (
         <TabsTrigger key={o.value} value={o.value} className="min-h-11 sm:min-h-9">
@@ -76,10 +69,6 @@ export const GroupByControl = ({ groupBy, onGroupByChange, range, onRangeChange,
   );
 };
 
-// ---------------------------------------------------------------------------------------------
-// The page's time-window bar
-// ---------------------------------------------------------------------------------------------
-
 type PresetKey = 'week' | 'month' | 'lastMonth' | 'last30' | 'quarter' | 'year';
 
 type PeriodTab = PresetKey | 'all' | 'custom';
@@ -90,7 +79,6 @@ const PERIOD_TAB_LABEL: Record<PeriodTab, string> = {
 
 const PRESETS: PresetKey[] = ['week', 'month', 'lastMonth', 'last30', 'quarter', 'year'];
 
-/** A preset's window as calendar days of the org's own today (never the device clock): ends today, except Last month. */
 const presetRange = (key: PresetKey, now: Date): { from: Date; to: Date } => {
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -115,34 +103,23 @@ const activePreset = (range: DateRangeValue, now: Date): PresetKey | null => {
 };
 
 interface AnalyticsControlBarProps extends Omit<GroupByControlProps, 'hideRange'> {
-  /** Epoch ms of the newest report fetch, or null before the first one lands. */
   updatedAt: number | null;
   isRefreshing: boolean;
   onRefresh: () => void;
-  /** Extra buttons beside Refresh (the page has no title bar of its own to hold them). */
   actions?: ReactNode;
-  /** For a page with no grouping of its own (the Scorecard): only the period is offered. */
   hideGroupBy?: boolean;
 }
 
 const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_LOCALE, { hour: 'numeric', minute: '2-digit' });
 
-/**
- * One place that says which time window the page is showing and lets you change it: a preset or custom
- * range, the grouping, what that resolves to, and when the numbers were last fetched. Sticks to the top
- * of the page from lg up; below that it scrolls away so it never eats a phone or a landscape screen.
- * On a phone the period is ONE select (plus a compact Show by), so the headline numbers stay in view.
- */
 export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions, hideGroupBy = false }: AnalyticsControlBarProps) => {
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
-  // The org's calendar day, so a phone in another time zone names the same week and month as the server.
   const orgToday = useOrgToday();
   const now = useMemo(() => parseDateParam(orgToday) ?? new Date(), [orgToday]);
   const [pickingCustom, setPickingCustom] = useState(false);
   const preset = activePreset(range, now);
   const hasRange = Boolean(range.from && range.to);
   const isCustom = hasRange && preset === null;
-  // One tab row for the period: the presets and the long view (no range: the last 12 periods).
   const periodValue: PeriodTab = preset ?? (hasRange ? 'custom' : 'all');
   const showCustomPicker = isCustom || pickingCustom;
   const choosePeriod = (key: PeriodTab) => {
@@ -153,14 +130,11 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
     setPickingCustom(false);
     onRangeChange(key === 'all' ? { from: null, to: null } : presetRange(key, now));
   };
-  // Without a grouping of its own (the Scorecard) the long view is the last twelve weeks.
   const longLabel = hideGroupBy ? 'Last 12 weeks' : defaultWindowLabel(groupBy);
   const labels = { ...PERIOD_TAB_LABEL, all: longLabel };
   const rangeText = hasRange && range.from && range.to
     ? `${range.from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short' })} to ${range.to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`
     : longLabel;
-  // Year grouping with no dates picked: the charts reach back twelve years, but scores and rankings can
-  // only cover one year, so say so once instead of letting two windows share one label.
   const yearNote = !hasRange && !hideGroupBy && groupBy === 'year'
     ? 'Charts cover the last 12 years. Scores, rankings and leaders cover the last 12 months.'
     : null;
@@ -171,7 +145,6 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
 
   return (
     <div className={cn(PANEL_CLASS, 'z-20 flex flex-col gap-3 lg:sticky lg:top-0', CARD_PAD)}>
-      {/* Phone: the period is one select, Show by a second one beside it. */}
       <div className="flex flex-col gap-3 sm:hidden">
         <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3'}>
           <SelectDropdown label="Period" aria-label="Period" triggerClassName="rounded-lg font-display" value={showCustomPicker ? 'custom' : periodValue} onChange={choosePeriod} options={[...PERIOD_TABS, 'custom' as const].map((key) => ({ value: key, label: labels[key] }))} />
@@ -187,7 +160,6 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           <span className={FIELD_LABEL_CLASS}>Period</span>
           <div className="flex flex-wrap items-center gap-2">
             <PeriodTabControl value={periodValue} options={PERIOD_TABS} labels={labels} onChange={choosePeriod} />
-            {/* Any other dates: the picker, dressed as one more option; lit when the range is custom. */}
             {customPicker(
               'w-auto shrink-0',
               `h-11 sm:h-9 w-auto gap-1.5 pl-2.5 ${hasRange ? 'pr-10' : 'pr-3'} rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'}`,
@@ -203,7 +175,6 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           <span className="line-clamp-2">{rangeText}</span>
         </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* Show by sits on this row (bigger screens): beside the period tabs it no longer fit and broke onto two lines. */}
           {!hideGroupBy && (
             <div className="hidden sm:flex items-center gap-2 sm:mr-2">
               <span className="t-meta font-display font-semibold text-text-secondary">Show by</span>

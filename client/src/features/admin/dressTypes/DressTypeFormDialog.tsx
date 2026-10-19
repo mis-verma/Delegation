@@ -16,30 +16,20 @@ const GENDER_OPTIONS: { value: DressTypeGender | null; label: string }[] = [
 
 interface DressTypeFormDialogProps {
   onClose: () => void;
-  /** Set to edit an existing type; leave out to create one. */
   dressType?: DressType;
-  /** Called with the new type right after a successful create (not when editing), so a caller can
-   *  select or add it straight away. */
   onCreated?: (dressType: DressType) => void;
-  /** Seeds the name, e.g. what was typed into a Combobox before "Create new type". */
   prefillName?: string;
-  /** True when this opens on top of another modal. It then stays non-modal so the two dialogs do
-   *  not fight over focus and scroll lock, same as DepartmentForm and StoreForm. */
   nested?: boolean;
 }
 
-// Matches the server's limit for a dress type name.
 const NAME_MAX = 80;
 
-// Same pill as ToggleChip, as a radio: ToggleChip is an aria-pressed toggle, which a screen reader
-// announces as a toggle button, not as one choice out of three.
 const CHIP_BASE =
   'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer ' +
   'transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 const GENDER_NOUN = { FEMALE: 'women', MALE: 'men' } as const;
 
-/** Small dialog to add or rename a dress type and say who it is for. */
 export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName, nested = false }: DressTypeFormDialogProps) => {
   const isEditing = !!dressType;
   const { data: types } = useDressTypesQuery();
@@ -56,8 +46,6 @@ export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName
   const isDirty = trimmed !== (dressType?.name ?? prefillName ?? '').trim() || gender !== (dressType?.gender ?? null);
   const requestClose = useDiscardGuard(isDirty, isPending, onClose);
 
-  // Narrowing a type to one gender while people hold it: some of them may be the other gender (and
-  // all of them are, when it flips from Women to Men). Not blocked, but said before saving.
   const holders = dressType?.peopleCount ?? 0;
   const genderWarning = dressType && gender && gender !== dressType.gender && holders > 0
     ? `${holders} ${holders === 1 ? 'person has' : 'people have'} this type now. Anyone who is not ${GENDER_NOUN[gender]} will need another type on the People page.`
@@ -144,7 +132,6 @@ export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName
                     type="button"
                     role="radio"
                     aria-checked={checked}
-                    // One tab stop for the group; arrow keys move the choice, like a native radio set.
                     tabIndex={checked ? 0 : -1}
                     onClick={() => setGender(option.value)}
                     onKeyDown={(e) => {

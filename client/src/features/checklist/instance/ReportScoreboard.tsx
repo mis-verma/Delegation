@@ -15,17 +15,13 @@ import { rankScoreboard, type RankedScoreboardItem, type ScoreboardItem } from '
 export type { ScoreboardItem } from './reportScoreboardRank';
 
 interface ScoreboardProps {
-  /** "department" or "store", used in the words on the page. */
   noun: string;
   items: ScoreboardItem[] | undefined;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
-  /** True while the previous window's numbers are still on screen (React Query placeholder data). Shown as text, never as a dim. */
   updating?: boolean;
-  /** "this week", "last month", "2026": the window the winner is for. */
   windowLabel: string;
-  /** Opens that department's or store's checklists in the matrix. */
   onOpen: (id: string) => void;
 }
 
@@ -120,10 +116,6 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
 ));
 Card.displayName = 'ScoreboardCard';
 
-/**
- * The ranking rule in one line. A big screen reads it in place; a phone gets a "?" that opens it, so the
- * list stays the first thing on screen.
- */
 const RuleNote = ({ noun }: { noun: string }) => {
   const rule = `Checklist score is completion and answers right counted equally. A ${noun} needs at least ${MIN_RANK_VOLUME} due runs to be ranked or win. Ties go to the higher score, then answers right, then completion, then more runs.`;
   return (
@@ -144,11 +136,6 @@ const RuleNote = ({ noun }: { noun: string }) => {
   );
 };
 
-
-/**
- * Departments or stores side by side, best first. The winner of the picked week, month or year is the top
- * score, shown in a banner, and every name and figure opens that group's checklists in the matrix.
- */
 export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updating, windowLabel, onOpen }: ScoreboardProps) => {
   const { ranked, winner, rankOf } = useMemo(() => rankScoreboard(items), [items]);
 

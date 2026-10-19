@@ -19,8 +19,6 @@ const MALE = 'male';
 
 const GENDER_LABEL = { FEMALE: 'Women', MALE: 'Men' } as const;
 
-// "Copy items from": replaces the target list with a copy of another one, so a type that is nearly
-// the same as one you already filled in takes two taps instead of retyping it.
 const CopyItemsMenu = ({ targetId, sources, onCopy }: { targetId: string; sources: CopySource[]; onCopy: (items: string[]) => void }) => {
   const options = sources.filter((s) => s.id !== targetId && s.items.length > 0);
   if (options.length === 0) return null;
@@ -44,11 +42,6 @@ const CopyItemsMenu = ({ targetId, sources, onCopy }: { targetId: string; source
   );
 };
 
-/**
- * The per-person lists of an audit question, below the main list: one for women, one for men, and
- * any number of admin-defined dress types, each with its own list. A person is checked against the
- * list of their dress type, else their gender's, else the main one.
- */
 export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) => {
   const confirm = useConfirm();
   const { data: catalog, isLoading, isError, refetch } = useDressTypesQuery();

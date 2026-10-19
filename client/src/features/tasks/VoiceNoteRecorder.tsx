@@ -27,10 +27,6 @@ const formatDuration = (ms: number) => {
 const TRANSCRIBE_ERROR_MESSAGE = "Sorry, I couldn't transcribe that. Please try again or type your message.";
 const MIC_BLOCKED_MESSAGE = "Microphone access is blocked. Turn it on in your browser's site settings, or type your message instead.";
 
-// Records a short voice note (native MediaRecorder, no extra dependency), transcribes it via
-// POST /tasks/ai/transcribe, and hands the resulting text back to the caller — which feeds it
-// through the exact same parse/review pipeline a typed message would use. No preview/scrub step:
-// a bad transcript just produces a low-confidence draft the review panel already surfaces.
 export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: VoiceNoteRecorderProps) => {
   const [status, setStatus] = useState<RecorderStatus>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -60,7 +56,6 @@ export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: Voi
     }
   };
 
-  // Release the mic if this unmounts mid-recording (e.g. the modal is closed).
   useEffect(() => () => {
     clearTimer();
     stopTracks();
@@ -92,7 +87,6 @@ export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: Voi
         clearTimer();
         const duration = Date.now() - startedAtRef.current;
 
-        // Cancelled, or stopped almost instantly (changed their mind) — discard, no upload.
         if (cancelledRef.current || duration < MIN_DURATION_MS) {
           setStatus('idle');
           setElapsedMs(0);
@@ -124,7 +118,6 @@ export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: Voi
       setStatus('recording');
       setElapsedMs(0);
 
-      // Auto-stop (not cancel) at the cap — by two minutes there's almost certainly real content.
       intervalRef.current = setInterval(() => {
         const elapsed = Date.now() - startedAtRef.current;
         setElapsedMs(elapsed);

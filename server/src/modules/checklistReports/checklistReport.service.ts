@@ -15,7 +15,6 @@ import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type 
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
 
-
 export type ReportMetrics = {
     assigned: number
     completed: number
@@ -92,7 +91,6 @@ export const REPORT_NOTES = [
 const NO_DEPARTMENT_KEY = "__none__"
 const NO_DEPARTMENT_LABEL = "No department"
 
-
 const parentNotDeletedExpr = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
@@ -100,11 +98,9 @@ const parentNotDeletedExpr = sql`NOT EXISTS (
 
 const item = checklistInstanceItems
 
-
 const boolScored = sql`(${item.itemType} IN ('YES_NO','PASS_FAIL') AND JSON_LENGTH(${item.acceptableAnswers}) > 0 AND ${item.booleanAnswer} IS NOT NULL)`
 const textScored = sql`(${item.itemType} IN ('MULTIPLE_CHOICE','DROPDOWN') AND JSON_LENGTH(${item.acceptableAnswers}) > 0 AND ${item.textValue} IS NOT NULL AND ${item.textValue} <> '')`
 const numScored = sql`(${item.itemType} IN ('NUMBER_ENTRY','RATING') AND (${item.acceptableMin} IS NOT NULL OR ${item.acceptableMax} IS NOT NULL) AND ${item.numericValue} IS NOT NULL)`
-
 
 const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL)`
 const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL AND (${boolScored} OR ${textScored} OR ${numScored}))`
@@ -120,7 +116,6 @@ const goodExpr = sql<number>`SUM(CASE
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
     ELSE 0 END)`
 
-
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
 const weightedScoredBody = sql`(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
 const weightedGoodBody = sql`(CASE
@@ -135,7 +130,6 @@ const weightedGoodBody = sql`(CASE
 export const weightedScoredExpr = sql<number>`SUM(${weightedScoredBody})`
 export const weightedGoodExpr = sql<number>`SUM(${weightedGoodBody})`
 
-
 const creditedToDepartment = (departmentId: string) => sql`EXISTS (
     SELECT 1 FROM ${users} cu
     WHERE cu.id = (CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)
@@ -144,9 +138,7 @@ const creditedToDepartment = (departmentId: string) => sql`EXISTS (
 export const weightedScoredForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedScoredBody} ELSE 0 END)`
 export const weightedGoodForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedGoodBody} ELSE 0 END)`
 
-
 const creditedUser = sql<string | null>`(CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)`
-
 
 export type RunRow = {
     id: string
@@ -198,7 +190,6 @@ export const runGroupBy = [
 ] as const
 
 export type RunFlagContext = { offDayRules: OffDayRules; assigneesByRun: Map<string, RunAssignee[]>; offsetMs: number; now: number }
-
 
 export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     const { offDayRules, assigneesByRun, offsetMs, now } = ctx
@@ -263,7 +254,6 @@ const addItems = (into: ItemAcc, from: ItemAcc) => {
     into.wGood += from.wGood
 }
 
-
 const toMetrics = (r: RunTally, i: ItemAcc): ReportMetrics => ({
     assigned: r.assigned,
     completed: r.completed,
@@ -286,24 +276,16 @@ const toMetrics = (r: RunTally, i: ItemAcc): ReportMetrics => ({
     weightedScored: i.wScored,
 })
 
-
-// Worst completion first so the people who need a conversation are at the top; a missing
-// percentage (nothing assigned) sorts last.
 const byCompletionThenName = (a: { completionPct: number | null }, b: { completionPct: number | null }, an: string, bn: string) =>
     (a.completionPct ?? 101) - (b.completionPct ?? 101) || an.localeCompare(bn)
 
 const resolveDepartmentScope = (user: AccessTokenPayload, requested?: string): { departmentId?: string; locked: boolean } => {
     if (user.role === "ADMIN" || user.role === "PC") return { departmentId: requested, locked: false }
     if (user.role === "MANAGER" || user.role === "SENIOR") {
-        // No department on the record means no people to show, not "everyone": this id matches nothing.
         return { departmentId: user.departmentId ?? "no-department", locked: true }
     }
     throw AppError.forbidden()
 }
-
-// ---------------------------------------------------------------------------
-// Report
-// ---------------------------------------------------------------------------
 
 export const checklistReportService = {
 
@@ -327,7 +309,6 @@ export const checklistReportService = {
             parentNotDeletedExpr,
         ]
         if (storeId) runConditions.push(eq(checklistInstances.storeId, storeId))
-        // One recurrence only (DAILY, WEEKLY, ...). Left out, every kind of checklist counts.
         if (query.recurrence) runConditions.push(sql`${checklistInstances.recurrence} = ${query.recurrence}`)
         if (onlyUserId) {
             runConditions.push(sql`EXISTS (
@@ -367,7 +348,6 @@ export const checklistReportService = {
                 .where(and(runWhere, departmentId ? eq(users.departmentId, departmentId) : undefined, onlyUserId ? eq(users.id, onlyUserId) : undefined)),
             db.select({ id: departments.id, name: departments.name }).from(departments),
             db.select({ id: stores.id, name: stores.name }).from(stores),
-            // Holidays and extra working days in the window, so an idle daily run on a holiday is not a miss.
             loadOffDayRules(from, to),
         ])
 
@@ -379,15 +359,8 @@ export const checklistReportService = {
         const flagCtx: RunFlagContext = { offDayRules, assigneesByRun, offsetMs, now }
         const flagsByRun = new Map<string, RunFlags>(runRows.map((r) => [r.id, runFlagsOf(r, flagCtx)]))
         const countedRuns = [...flagsByRun.values()].filter((f) => !f.skip)
-        // Runs that are not counted but carry answers (an unfinished daily run on a holiday): their answers
-        // must not count either, so a skipped run is skipped everywhere.
         const skippedRunIds = [...flagsByRun.values()].filter((f) => f.skip).map((f) => f.id)
 
-        // Item-level numbers per run and per credited person (who completed the answer, or who had done it
-        // when it was sent back), with that person's department. Grouping by run keeps every split below
-        // (person, department, store, checklist) a plain in-memory sum of the same rows, over the counted
-        // runs only: a skipped run is skipped everywhere, so its answers never count either. Answers with
-        // nobody credited are kept too: they only count where every answer on a run counts (totals, stores).
         const cu = alias(users, "cu")
         const itemWhere = and(runWhere, sql`(${item.isDone} = 1 OR ${item.sendBackCount} > 0)`)
         const itemMetrics = {
@@ -413,9 +386,6 @@ export const checklistReportService = {
             map.set(key, into)
         }
 
-        // Which (run, person) pairs exist inside this report. An answer is credited to a person's own row only
-        // on a run that person is assigned to: the same rule for a person card and a list row (a person card
-        // is this report filtered to one person), so the two can never differ.
         const assignedKeys = new Set(assigneeRows.map((a) => `${a.instanceId}|${a.userId}`))
 
         type Person = { row: (typeof assigneeRows)[number]; runs: RunOutcome[]; items: ItemAcc; shared: Set<string> }
@@ -441,14 +411,10 @@ export const checklistReportService = {
                 deptByKey.set(key, dept)
             }
             dept.people.add(a.userId)
-            // A run shared by two people of one department counts once for that department (tallyRuns de-duplicates by run id).
             dept.runs.push(flags)
             if (flags.departmentSpan > 1) dept.shared.add(flags.id)
         }
 
-        // The same per-person figures, split by the store each run belongs to, and each store's own totals
-        // (every run once, every answer on it). Equal to building this report once per store with that
-        // store as the filter, in one pass.
         type StorePerson = { userId: string; storeId: string; runs: RunOutcome[]; items: ItemAcc }
         const storePeople = new Map<string, StorePerson>()
         const storeRuns = new Map<string, RunOutcome[]>()
@@ -472,7 +438,6 @@ export const checklistReportService = {
             }
         }
 
-        // One row per checklist (definition), every run once, answers as in totals.
         type DefinitionAcc = { title: string; recurrence: string; runs: RunOutcome[] }
         const definitionRuns = new Map<string, DefinitionAcc>()
         const definitionItems = new Map<string, ItemAcc>()
@@ -484,8 +449,6 @@ export const checklistReportService = {
             }
         }
 
-        // Totals take every answer on the counted runs; with a person or department filter, only the answers
-        // that filter is about.
         const totalItems = emptyItemAcc()
         const unassignedItems = emptyItemAcc()
         for (const r of itemRows) {
@@ -569,7 +532,6 @@ export const checklistReportService = {
     },
 }
 
-
 type ColumnDef = CsvColumn & { width: number; tone?: boolean }
 
 const METRIC_COLUMNS: ColumnDef[] = [
@@ -605,7 +567,6 @@ export const DEPARTMENT_COLUMNS: ColumnDef[] = [
 
 const exportColumns = (grouping: "person" | "department") => (grouping === "department" ? DEPARTMENT_COLUMNS : PERSON_COLUMNS)
 
-// CSV is one table, so "both" falls back to people.
 export const csvGrouping = (groupBy: ChecklistReportGrouping): "person" | "department" => (groupBy === "department" ? "department" : "person")
 
 export const streamReportCsv = async (res: Response, report: ChecklistReport, grouping: "person" | "department") => {
@@ -617,7 +578,6 @@ export const streamReportCsv = async (res: Response, report: ChecklistReport, gr
 }
 
 const TONE_FILL = { good: "FFD1FAE5", warn: "FFFEF3C7", bad: "FFFEE2E2" } as const
-// Same cut-offs as rateToneClass in the client (80 and 50).
 const toneFor = (value: number) => (value >= 80 ? TONE_FILL.good : value >= 50 ? TONE_FILL.warn : TONE_FILL.bad)
 
 const addSheet = (

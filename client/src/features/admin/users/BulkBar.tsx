@@ -11,15 +11,12 @@ interface BulkBarProps {
   departments: { id: string; name: string }[];
   stores: { id: string; name: string }[];
   disabled: boolean;
-  /** '' means "no department". */
   onMoveDepartment: (departmentId: string) => void;
   onMoveStore: (storeId: string) => void;
   onChangeRole: (role: Role) => void;
   onClear: () => void;
 }
 
-// Sticks to the bottom of the screen while people are ticked in the table, so the actions are in
-// reach however far down the list you scrolled. Every action asks for a confirmation first.
 export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment, onMoveStore, onChangeRole, onClear }: BulkBarProps) => {
   const departmentItems = useMemo<DropdownAction[]>(
     () => [
@@ -35,7 +32,6 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
     ],
     [stores, onMoveStore],
   );
-  // A PC cannot make anyone an admin (the server refuses it too).
   const { user: me } = useAuth();
   const roleItems = useMemo<DropdownAction[]>(
     () => ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN')).map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),

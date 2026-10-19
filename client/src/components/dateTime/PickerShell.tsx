@@ -9,44 +9,26 @@ import { cn } from '@/lib/utils';
 interface PickerShellProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The button that opens the picker. */
   trigger: ReactNode;
-  /** Sits beside the trigger inside the same wrapper, e.g. a clear button. */
   triggerAside?: ReactNode;
-  /** Classes for the wrapper around trigger and aside. */
   wrapperClassName?: string;
-  /** No wrapper element at all: the trigger is rendered as is, so a selector that sits straight in a
-   *  flex row keeps its own sizing. */
   bare?: boolean;
-  /** Heading of the phone sheet (the popover has none). */
   title: string;
-  /** Pinned under the content on a phone, e.g. a Done button. */
   sheetFooter?: ReactNode;
-  /** Classes for the desktop popover. */
   popoverClassName?: string;
-  /** Render the desktop popover inside this element (the form dialog) instead of the page body. A popover in the
-   *  body sits outside a dialog's focus trap, which pulls focus back out of any field typed into inside it. */
   popoverContainer?: HTMLElement | null;
   children: ReactNode;
 }
 
-/**
- * Where a picker opens, chosen by screen: a bottom sheet on a phone (full width, thumb-sized, never
- * clipped by the screen edge or the keyboard) and a popover under the trigger from `sm` up. Both
- * are modal for the reason the pickers always were: opened from inside a form dialog, a non-modal
- * layer loses every pick to the dialog's own focus trap.
- */
 export const PickerShell = ({
   open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, popoverContainer, children,
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
-  // The phone back gesture closes the sheet instead of leaving the page.
   useCloseOnBack(open && isPhone, () => onOpenChange(false));
 
   if (isPhone) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        {/* asChild trigger, so the clear button beside it stays a separate control. */}
         {bare ? (
           <DialogTrigger asChild>{trigger}</DialogTrigger>
         ) : (
@@ -69,7 +51,6 @@ export const PickerShell = ({
             </DialogClose>
           </div>
           <DialogDescription className="sr-only">Make your choice below.</DialogDescription>
-          {/* With no footer the last row would sit under the home bar, so the body pads for it. */}
           <div className={cn('flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 flex flex-col gap-3', sheetFooter ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]')}>{children}</div>
           {sheetFooter && (
             <div className="shrink-0 border-t border-border/60 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{sheetFooter}</div>

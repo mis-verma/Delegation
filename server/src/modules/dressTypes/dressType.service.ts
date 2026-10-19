@@ -14,7 +14,6 @@ const isDuplicateError = (err: unknown) => {
     return e?.code === "ER_DUP_ENTRY" || e?.cause?.code === "ER_DUP_ENTRY"
 }
 
-// Case-insensitive on purpose: gives a clean 409 before the unique index has to.
 const assertNameFree = async (name: string, exceptId?: string) => {
     const sameName = sql`lower(${dressTypes.name}) = ${name.toLowerCase()}`
     const [existing] = await db.select({ id: dressTypes.id }).from(dressTypes)
@@ -27,9 +26,7 @@ const toPublic = (row: typeof dressTypes.$inferSelect, peopleCount: number, audi
     name: row.name,
     gender: row.gender ?? null,
     isActive: row.isActive,
-    // ACTIVE people only: a deactivated person holding the type is not who anyone needs to move.
     peopleCount,
-    // Live audit questions (on checklists that are not deleted) with a non-empty tick-list for this type.
     auditQuestionCount,
 })
 
@@ -38,9 +35,6 @@ const countPeople = async (id: string) => {
     return Number(row?.n ?? 0)
 }
 
-// How many live definition questions carry a non-empty list for each dress type, from ONE query:
-// the (few) audit questions that have an accessoriesByType at all, counted per type here.
-// Questions of soft-deleted checklists are left out.
 const auditQuestionCounts = async (): Promise<Map<string, number>> => {
     const rows = await db.select({ byType: checklistDefinitionItems.accessoriesByType })
         .from(checklistDefinitionItems)
@@ -58,8 +52,6 @@ const auditQuestionCounts = async (): Promise<Map<string, number>> => {
     return counts
 }
 
-// Admin-defined ways of dressing for work. A person points at one (User.dressTypeId) and an audit
-// question carries a tick-list per type (ChecklistDefinitionItem.accessoriesByType).
 export const dressTypeService = {
     async list() {
         const [rows, counts, questionCounts] = await Promise.all([
@@ -112,10 +104,6 @@ export const dressTypeService = {
         return updated
     },
 
-    // Refused while ACTIVE people are still set to this type: the foreign key (ON DELETE SET NULL) would
-    // silently move them onto their gender list and change what they are audited on. Turning the type
-    // off (isActive) is the safe alternative and is always allowed. Deactivated people holding it don't
-    // block; the key clears for them.
     async remove(id: string, actorId: string) {
         const [before] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
         if (!before) throw AppError.notFound("Dress type not found")

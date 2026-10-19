@@ -30,8 +30,6 @@ const shortDay = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', 
 const personName = (u: { firstName: string; lastName: string | null }) =>
   u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName;
 
-
-// One applied filter, with an X to drop just that one without opening the panel.
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
   <span className="flex items-center gap-1 h-8 pointer-coarse:h-11 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
     {label}
@@ -62,9 +60,6 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
     [users],
   );
 
-  // The picker works in Date objects; the filter (and the API) works in ISO date strings. This
-  // component is the one place that converts between the two, same as ReportExportPanel does for
-  // its own DateRangePicker.
   const dateRange: DateRangeValue = {
     from: filter.from ? new Date(filter.from) : null,
     to: filter.to ? new Date(filter.to) : null,
@@ -73,8 +68,6 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
   const onDateRangeChange = (range: DateRangeValue) =>
     onChange({
       from: range.from ? range.from.toISOString() : undefined,
-      // endOfDay: the picker returns a plain calendar date at local midnight (no showTime), so a
-      // "to" bound serialized as-is would silently exclude almost the entire last day.
       to: range.to ? endOfDay(range.to).toISOString() : undefined,
     });
 

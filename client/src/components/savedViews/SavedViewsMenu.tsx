@@ -8,19 +8,13 @@ import { SAVED_VIEW_NAME_MAX, type SavedView } from './useSavedViews';
 
 interface SavedViewsMenuProps<T> {
   views: SavedView<T>[];
-  /** Saves what is on screen right now under this name. */
   onSave: (name: string) => void;
   onApply: (view: SavedView<T>) => void;
   onRemove: (id: string) => void;
-  /** The view whose state matches the screen right now, so it can show a tick. */
   activeId?: string | null;
   className?: string;
 }
 
-/**
- * "Views": the saved combinations of layout, filters, sort and grouping for a list page. Apply one
- * with a tap, save the current screen under a name, delete the ones you no longer use.
- */
 export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, className }: SavedViewsMenuProps<T>) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -86,7 +80,6 @@ export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, 
             maxLength={SAVED_VIEW_NAME_MAX}
             placeholder="Name this view"
             aria-label="Name for the new saved view"
-            // 16px on a phone: smaller makes iOS zoom the page when the field is focused.
             className="h-11 sm:h-9 flex-1 min-w-0 rounded-lg border border-border bg-background px-3 text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
           />
           <Button type="submit" variant="primary" size="sm" disabled={!name.trim()}>Save</Button>

@@ -12,7 +12,6 @@ const run = async () => {
 
     await connectDB();
 
-    // `phone` is unique on this table, so at most one row can ever match.
     const [conversation] = await db.select().from(pendingTaskConversations).where(eq(pendingTaskConversations.phone, phone)).limit(1);
 
     if (!conversation) {
@@ -22,8 +21,6 @@ const run = async () => {
         console.log(`  pendingSlot: ${conversation.pendingSlot}`);
         console.log(`  slotQueue:   ${JSON.stringify(conversation.slotQueue)}`);
         console.log(`  expiresAt:   ${conversation.expiresAt}`);
-        // `draft` used to be a single embedded object in Mongo; it's flattened into draft*
-        // columns here (see db/schema/task.ts), so it's reassembled for display purposes only.
         console.log(`  draft:       ${JSON.stringify({
             title: conversation.draftTitle,
             context: conversation.draftContext,

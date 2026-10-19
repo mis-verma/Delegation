@@ -23,8 +23,6 @@ export type TaskBulkImportRawRow = {
     labelNames: string[]
 }
 
-// A date is "invalid" only when text was actually typed and couldn't be parsed — an empty cell
-// is a legitimate "no date" the same as leaving the field blank in the create-delegation form.
 type DateField = { raw: string; iso: string | null; valid: boolean }
 
 export type TaskBulkImportMatchedRow = {
@@ -41,8 +39,6 @@ export type TaskBulkImportMatchedRow = {
     assigneeMatchConfidence: MatchConfidence
     departmentId: string | null
     departmentMatchConfidence: MatchConfidence
-    // Never "none" — an unrecognized or blank priority text still resolves to a real, usable
-    // value (the same default the create-delegation form itself uses), it just isn't "matched".
     priority: "low" | "medium" | "high"
     priorityMatched: boolean
     startDate: DateField
@@ -75,8 +71,6 @@ export type TaskBulkImportSummary = {
     failed: { rowIndex: number; message: string }[]
 }
 
-// Accepted column headers, case-insensitive — same tolerance approach as the checklist
-// bulk-importer's HEADER_ALIASES (see checklistBulkImport.service.ts).
 const HEADER_ALIASES: Record<string, "title" | "description" | "assigneeName" | "priority" | "startDate" | "dueDate" | "departmentName" | "labels"> = {
     "title": "title",
     "delegation title": "title",
@@ -116,10 +110,6 @@ const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): T
         const v = String(value ?? "").trim()
         if (v) mapped[canonical] = v
     }
-    // A fully blank row (e.g. a trailing empty line) carries nothing worth previewing. Unlike
-    // the checklist importer, a row missing only `title` (the one truly required field) is still
-    // kept — it surfaces in the review table as unresolved rather than silently vanishing, which
-    // would otherwise look like rows went missing from the upload.
     if (!mapped.title && !mapped.assigneeName && !mapped.departmentName && !mapped.description) return null
     return {
         rowIndex,
@@ -158,8 +148,6 @@ const parseXlsxRows = async (buffer: Buffer): Promise<TaskBulkImportRawRow[]> =>
         sheet.getRow(r).eachCell({ includeEmpty: true }, (cell, colNumber) => {
             const header = headers[colNumber]
             if (!header) return
-            // A real Excel date cell arrives as a Date at UTC midnight of that day. String() of it is
-            // a long server-local text, so hand resolveDate the plain YYYY-MM-DD instead.
             record[header] = cell.value instanceof Date
                 ? cell.value.toISOString().slice(0, 10)
                 : String(cell.value ?? "").trim()
@@ -175,21 +163,13 @@ const PRIORITIES = ["low", "medium", "high"] as const
 const resolvePriority = (raw: string | undefined): { priority: "low" | "medium" | "high"; matched: boolean } => {
     const n = raw?.trim().toLowerCase()
     if (n && (PRIORITIES as readonly string[]).includes(n)) return { priority: n as "low" | "medium" | "high", matched: true }
-    // Blank is a normal default, not a mismatch — only flag `matched: false` when text was
-    // actually given and didn't resolve, mirroring the assignee/department "text vs empty"
-    // distinction used everywhere else in this file.
     return { priority: "medium", matched: !n }
 }
 
-// Sheets here are filled in Indian style, so a numeric date is read day first: 05/03/2026 is
-// 5 March, never May 3 (which is what `new Date(raw)` made of it). ISO 2026-03-05 is read as written.
 const DAY_FIRST_DATE = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/
 const ISO_DATE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/
 const MINUTE_MS = 60_000
 
-// The instant a calendar day starts (00:00) or ends (23:59) in the org's own timezone, the same
-// 23:59 the create form puts on a due day (endOfDay in the client's taskDisplay.tsx). Null for a
-// day that doesn't exist, like 31/02.
 const orgDayBoundary = (year: number, month: number, day: number, edge: "start" | "end"): Date | null => {
     const probe = new Date(Date.UTC(year, month - 1, day))
     if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null
@@ -210,8 +190,6 @@ const resolveDate = (raw: string | undefined, edge: "start" | "end"): DateField 
     } else if (iso) {
         parts = { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) }
     } else {
-        // Anything else ("5 Mar 2026", a full timestamp): let Date read it, then take the org-local
-        // calendar day it falls on so it still lands on that day's start or end.
         const parsed = new Date(text)
         if (Number.isNaN(parsed.getTime())) return { raw, iso: null, valid: false }
         const local = new Date(parsed.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * MINUTE_MS)
@@ -225,8 +203,6 @@ const resolveDate = (raw: string | undefined, edge: "start" | "end"): DateField 
 
 export const taskBulkImportService = {
     async parseFile(buffer: Buffer, mimetype: string): Promise<{ rows: TaskBulkImportRawRow[] }> {
-        // "application/vnd.ms-excel" is also what some browsers/OSes report a .csv as (same
-        // ambiguity handled the same way by the checklist bulk-importer and task attachments).
         if (mimetype === "text/csv" || mimetype === "application/vnd.ms-excel") {
             return { rows: parseCsvRows(buffer) }
         }
@@ -237,9 +213,6 @@ export const taskBulkImportService = {
     },
 
     async matchRows(rawRows: TaskBulkImportRawRow[], actor: AccessTokenPayload): Promise<TaskBulkImportPreviewResult> {
-        // `listAssignable` with no department/store filter — for ADMIN/PC (the only roles this
-        // route is gated to, see task.routes.ts) that's every active user, same roster the normal
-        // create-delegation form's Assignee field offers them.
         const [assignableUsers, { data: departments }, allTags] = await Promise.all([
             userService.listAssignable(actor),
             departmentService.list(),
@@ -293,11 +266,6 @@ export const taskBulkImportService = {
         }
     },
 
-    // Each row is an outright insert, not a merge (unlike the checklist importer's applyBatch,
-    // which only ever widens an existing definition's storeIds/assigneeIds) — so one bad row must
-    // not sink the rest of the batch. taskService.create() already does its own DB write,
-    // notification, and audit record per call; this just calls it once per row inside its own
-    // try/catch and keeps going.
     async applyBatch(rows: TaskBulkImportApplyRow[], actor: AccessTokenPayload): Promise<TaskBulkImportSummary> {
         if (!rows.length) throw AppError.badRequest("No rows to apply.")
 

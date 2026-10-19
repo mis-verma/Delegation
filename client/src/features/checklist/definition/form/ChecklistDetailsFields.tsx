@@ -14,8 +14,6 @@ interface ChecklistDetailsFieldsProps {
   onIconChange: (value: ChecklistIcon) => void;
 }
 
-// Same quiet, borderless-until-focus fields and icon-led headings as the New Delegation / New
-// Ticket forms, so building a checklist feels like the rest of the app's create flows.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
 
 export const ChecklistDetailsFields = ({

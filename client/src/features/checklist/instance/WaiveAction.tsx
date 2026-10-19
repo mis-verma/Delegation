@@ -6,11 +6,6 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 const MIN_REASON = 5;
 
-/**
- * For a reviewer: excuse a question that counts against compliance (a bad answer or a send-back), with a
- * written reason, or take that waiver back. A waived question leaves compliance entirely. The person it
- * was scored against sees the reason on the question, and it is written to the audit log.
- */
 export const WaiveAction = ({ instanceId, item }: { instanceId: string; item: Pick<ChecklistInstanceItem, 'id' | 'label' | 'waivedAt'> }) => {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');

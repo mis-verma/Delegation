@@ -44,7 +44,6 @@ export const Dropdown = ({ trigger, items, align = 'end' }: DropdownProps) => (
         const Icon = item.icon;
         const isDestructive = item.variant === 'destructive';
         
-        // Base classes applied to the item row for consistent hover/focus states
         const itemClasses = cn(
           "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer outline-none active:scale-[0.98]",
           isDestructive

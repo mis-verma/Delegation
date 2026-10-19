@@ -7,25 +7,12 @@ import type { CreateCategoryInput, UpdateCategoryInput } from "./category.valida
 import { auditService } from "../audit/audit.service.js";
 import { cached, invalidate, cacheKey } from "../../config/queryCache.js";
 
-// Same reasoning as departments: read constantly, written rarely. `attachRelations` also
-// runs a second query per list call, so the cache saves both.
 const CACHE_PREFIX = "lookup:Category";
 const CACHE_TTL_SECONDS = 300;
 const dropCache = () => invalidate(CACHE_PREFIX);
 
-// NOTE: the conventions doc suggests Drizzle's relational query API (`db.query.x.findMany({
-// with: ... })`) for populate-style reads. That generates LATERAL-join SQL which this
-// environment's actual database (MariaDB 10.11, not real MySQL) rejects with a syntax error
-// (`ER_PARSE_ERROR` near the lateral derived table) — confirmed by hand against the local DB.
-// So every populate-equivalent read below uses a manual leftJoin/inArray query instead (the
-// doc's explicitly-sanctioned fallback: "or a manual join").
-
 type CategoryRow = typeof categories.$inferSelect;
 
-// Replaces Mongoose's `.populate("departmentId", "name").populate("assigneeIds", "firstName
-// lastName email")`. `departmentId`/`assigneeIds` stay as plain ids (still needed as-is for
-// edit forms / write round-trips); `department` and `assignees` carry the populated data for
-// display.
 const attachRelations = async (rows: CategoryRow[]) => {
     if (rows.length === 0) return [];
 
@@ -90,9 +77,6 @@ export const categoryService = {
         if (existing) throw AppError.conflict("Name is already exists");
 
         const id = createId();
-        // Wrapped in a transaction (source had none) — the category row and its assignee
-        // junction rows must succeed or fail together, per the conventions doc's transaction
-        // guidance for multi-table writes that weren't atomic in the original Mongoose code.
         await db.transaction(async (tx) => {
             await tx.insert(categories).values({
                 id,
@@ -121,13 +105,9 @@ export const categoryService = {
 
         const { assigneeIds, ...rest } = input;
 
-        // Wrapped in a transaction (source had none) — see create() above.
         await db.transaction(async (tx) => {
             await tx.update(categories).set({ ...rest, updatedAt: new Date() }).where(eq(categories.id, id));
 
-            // Many-to-many replace-the-whole-array: delete-all-and-reinsert is the simplest safe
-            // approach here (no other table's FK points at CategoryAssignee rows) — only touch
-            // the junction table when assigneeIds was actually part of this update.
             if (assigneeIds !== undefined) {
                 await tx.delete(categoryAssignees).where(eq(categoryAssignees.categoryId, id));
                 if (assigneeIds.length) {
@@ -147,8 +127,6 @@ export const categoryService = {
 
     async remove(id: string, actorId: string) {
         const category = await getByIdOrThrow(id);
-        // CategoryAssignee.categoryId has onDelete: 'cascade', so junction rows are removed
-        // automatically along with the category row.
         await db.delete(categories).where(eq(categories.id, id));
         await auditService.record({ entityType: "Category", entityId: id, action: "DELETE", actorId, before: category });
         await dropCache();

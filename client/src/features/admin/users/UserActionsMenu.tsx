@@ -15,24 +15,16 @@ export interface UserActionHandlers {
 
 interface UserActionsMenuProps extends UserActionHandlers {
   user: AdminUser;
-  /** A change to this person is in flight. */
   isBusy?: boolean;
-  /** You cannot deactivate or delete your own account from here. */
   isSelf?: boolean;
 }
 
-// The one place a person's actions live, on both the card and the table row. Edit is also what a
-// click on the card or name does, so the menu is for everything else. Delete is tucked at the
-// bottom and only offered once someone is deactivated: switching a person off is the normal way
-// to remove them, and it keeps their name on old records.
 const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete }: UserActionsMenuProps) => {
-  // A PC cannot change an admin account (the server refuses it too), so there is nothing to offer.
   const { user: me } = useAuth();
   const lockedAdmin = me?.role === 'PC' && user.role === 'ADMIN';
   const { mutate: sendCode } = useSendPasswordCodeMutation();
   const items = useMemo<DropdownAction[]>(() => {
     const list: DropdownAction[] = [{ label: 'Edit', icon: Pencil, onClick: () => onEdit(user) }];
-    // Not for yourself: a reset signs you out at once. Your own password is changed from your profile.
     if (!isSelf) list.push({ label: 'Reset password', icon: KeyRound, onClick: () => onResetPassword(user) });
     if (!isSelf && user.isActive) list.push({ label: 'Email password code', icon: MailCheck, onClick: () => sendCode(user.id) });
     if (!isSelf) {

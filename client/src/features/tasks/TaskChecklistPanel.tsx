@@ -12,15 +12,9 @@ interface TaskChecklistPanelProps {
   checklists:     TaskChecklist[];
   isAdmin:        boolean;
   currentUserId?: string;
-  /** The delegation's assignees, who work items that have nobody on them. */
   workerIds?: string[];
 }
 
-/**
- * The delegation's own checklists, inside the detail sheet. The server will not let a delegation be
- * marked completed while an item is neither done nor explained by a remark (assertChecklistsResolved),
- * so they have to be workable right here.
- */
 export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId, workerIds }: TaskChecklistPanelProps) => {
   const [adding, setAdding] = useState(false);
   const { doneItems, totalItems } = getChecklistProgress(checklists);

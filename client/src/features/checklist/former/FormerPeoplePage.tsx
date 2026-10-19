@@ -18,7 +18,6 @@ import type { FormerPerson, PersonRun } from '../../../api/checklistInstances';
 const fullName = (p: Pick<FormerPerson, 'firstName' | 'lastName'>) => `${p.firstName} ${p.lastName ?? ''}`.trim();
 const DAY_MS = 86_400_000;
 
-// "3 weeks ago", for when someone left. Coarse on purpose: the exact date sits beside it.
 const ago = (iso: string) => {
   const days = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / DAY_MS));
   if (days === 0) return 'today';
@@ -57,8 +56,6 @@ const PersonButton = memo(({ person, selected, onSelect }: { person: FormerPerso
 ));
 PersonButton.displayName = 'PersonButton';
 
-// A compact tile (number over label, no icon box) below sm so three fit one row on a phone; the
-// full icon tile from sm up.
 const StatTile = ({ icon: Icon, value, label, tone }: { icon: LucideIcon; value: number; label: string; tone: string }) => (
   <div className={cn(PANEL_CLASS, 'flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2.5 sm:p-3.5 min-w-0')}>
     <span className={cn('hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0', tone)} aria-hidden>
@@ -101,7 +98,6 @@ const RunRow = memo(({ run }: { run: PersonRun }) => {
 });
 RunRow.displayName = 'RunRow';
 
-// Row-shaped, same card as a run or audit row, so nothing jumps when the history lands.
 const Loading = () => (
   <div className="flex flex-col gap-2.5">
     {Array.from({ length: 4 }).map((_, i) => (
@@ -114,7 +110,6 @@ const Loading = () => (
   </div>
 );
 
-// The page's own skeleton: a list column and a detail column, like the real layout.
 const PageLoading = () => (
   <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
     <div className="flex flex-col gap-2">
@@ -223,7 +218,6 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
           <TabsTrigger value="runs">Checklists</TabsTrigger>
           <TabsTrigger value="audits">Audits on them</TabsTrigger>
         </TabsList>
-        {/* Keyed by person so switching people starts each tab on page 1. */}
         <TabsContent value="runs"><RunsTab key={person.id} personId={person.id} /></TabsContent>
         <TabsContent value="audits"><AuditsTab key={person.id} personId={person.id} /></TabsContent>
       </Tabs>
@@ -231,9 +225,6 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
   );
 };
 
-// Admin > Checklists > Former People: everyone who has been deactivated, with their checklist
-// history kept readable after they leave. Lives here (not under Users) on purpose: it is about the
-// checklists they worked on, and the Users page stays about current accounts.
 export const FormerPeoplePage = () => {
   const { data: people, isPending, isError, refetch } = useFormerPeopleQuery();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -246,8 +237,6 @@ export const FormerPeoplePage = () => {
     return q ? (people ?? []).filter(p => fullName(p).toLowerCase().includes(q) || (p.departmentName ?? '').toLowerCase().includes(q)) : (people ?? []);
   }, [people, query]);
 
-  // On a wide screen the first person is open straight away, so the right side is never an empty
-  // "pick someone" box. On a phone the list comes first and a tap opens the history.
   const selected = useMemo(
     () => (people ?? []).find(p => p.id === selectedId) ?? (isDesktop ? visible[0] ?? null : null),
     [people, selectedId, isDesktop, visible],
@@ -276,7 +265,6 @@ export const FormerPeoplePage = () => {
       {people && people.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
           <div className={cn('flex flex-col gap-3', selected && !isDesktop && 'hidden')}>
-            {/* The page subtitle (with this count) is hidden on a phone, so the total lives here. */}
             <p className="sm:hidden text-xs font-display text-text-muted px-1">
               {people.length} {people.length === 1 ? 'person has' : 'people have'} left. Tap a name to see their checklist history.
             </p>

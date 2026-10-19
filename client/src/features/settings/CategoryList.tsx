@@ -112,7 +112,6 @@ export const CategoryList = () => {
   const activeModal = showForm || editingCategory;
 
   return (
-    // No max-w wrapper of its own: SettingsLayout (the parent route) already constrains the width.
     <div className="flex flex-col gap-3 sm:gap-4 w-full">
       <div className="flex flex-col gap-1">
         <p className="t-meta font-display text-text-muted">

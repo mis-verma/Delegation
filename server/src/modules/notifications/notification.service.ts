@@ -1,19 +1,12 @@
-// Drizzle client + table/type definitions — replaces the old Mongoose Notification/User models.
 import { db } from '../../config/db.js';
 import { notifications, users } from '../../db/schema/core.js';
 import { eq, and, or, desc, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { missedInstanceIds } from '../checklistInstances/checklistMissedRun.js';
-import { AppError } from '../../utils/AppError.js'; // helper for creating consistent HTTP error objects (e.g. 404 Not Found)
+import { AppError } from '../../utils/AppError.js';
 import { getIO } from '../../sockets/socket.js';
-import { pushService } from './push.service.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
+import { pushService } from './push.service.js';
 
-// Ticket/task mutations call notificationService.notify* AFTER their own write is already
-// committed, with no shared transaction — the write already succeeded regardless of whether the
-// notification does. Awaiting one of these bare would let a notification-insert failure (bad
-// recipient row, transient DB blip) surface as a 500 for an operation that actually went through,
-// risking a client retry/duplicate submission. Wrap those calls in this instead: same posture as
-// taskDeadlineReminder.job.ts's per-email .catch() — log and move on, never fail the request over it.
 export const notifySafely = async (fn: () => Promise<unknown>) => {
   try {
     await fn();
@@ -22,25 +15,16 @@ export const notifySafely = async (fn: () => Promise<unknown>) => {
   }
 };
 
-// Shape of the data needed to create a single notification
 type CreateNotificationInput = {
-  recipientId: string; // who the notification is for
-  type: string; // a short machine-readable category, e.g. "TICKET_ASSIGNED"
-  title: string; // short headline shown in the UI
-  message: string; // the full human-readable text
-  ticketId?: string; // optional link back to the related ticket, if any
-  taskId?: string; // optional link back to the related task, if any
-  checklistInstanceId?: string; // optional link back to the related recurring checklist instance, if any
+  recipientId: string;
+  type: string;
+  title: string;
+  message: string;
+  ticketId?: string;
+  taskId?: string;
+  checklistInstanceId?: string;
 };
 
-// A recurring ChecklistInstance, reduced to just the fields its verification notifications need.
-// Kept separate from VerifiableEntity below since it supports MULTIPLE assignees (assigneeIds)
-// instead of one, and has no storeId/userId concept.
-// NOTE: these input types are intentionally kept loose (`any`) — callers in task.service.ts,
-// ticket.service.ts, checklistInstance.service.ts and taskDeadlineReminder.job.ts have NOT been
-// migrated to Drizzle yet and still pass Mongoose documents (ObjectId fields, needing
-// `.toString()`). Do not tighten these types until every caller is migrated too — the exported
-// function signatures are deliberately unchanged from the Mongoose version.
 type VerifiableChecklistInstance = {
   _id: any;
   title: string;
@@ -48,9 +32,6 @@ type VerifiableChecklistInstance = {
   assigneeIds?: any[];
 };
 
-// A ticket or task, reduced to just the fields the PC-verification notifications need.
-// additionalAssigneeIds only exists on Task (extra people beyond the primary assigneeId) — a
-// ticket passed in here just won't have it, so it's undefined and skipped.
 type VerifiableEntity = {
   _id: any;
   title: string;
@@ -59,21 +40,16 @@ type VerifiableEntity = {
   userId?: any;
   assigneeId?: any;
   additionalAssigneeIds?: any[];
-  /** People named as reviewers on this item; they can approve it, so they hear it is waiting. */
   reviewerIds?: string[];
 };
 
-// Active Admins and PCs: the people who can approve anything, used when nobody closer is found.
 const activeVerifierIds = async () =>
   (await db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['ADMIN', 'PC']), eq(users.isActive, true)))).map((u) => u.id);
 
-// Sends a notification to one specific user over their personal Socket.IO "room" (user:<id>),
-// so if they have the app open, the notification appears instantly without needing to refresh.
 const emitToUser = (userId: string, notification: unknown) => {
   getIO().to(`user:${userId}`).emit('notification:new', notification);
 };
 
-// "1 day", "2 days", "5 hours": how long a run has been waiting, in plain words.
 const formatWaiting = (hours: number) => {
   const days = Math.floor(hours / 24);
   if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`;
@@ -81,17 +57,11 @@ const formatWaiting = (hours: number) => {
   return `${h} hour${h === 1 ? '' : 's'}`;
 };
 
-// The notification service is the in-app notification system: it creates notification records in the
-// database and also pushes them live over websockets so users see them immediately.
 export const notificationService = {
-  // Creates the SAME notification for multiple recipients at once (e.g. notify both the assignee and their manager).
   async notifyMany(recipientIds: string[], base: Omit<CreateNotificationInput, 'recipientId'>) {
-    const uniqueIds = [...new Set(recipientIds)]; // de-duplicate ids, in case the same person would receive it twice (e.g. they're both the assignee and the manager)
-    if (!uniqueIds.length) return []; // nothing to do if there's no one to notify
+    const uniqueIds = [...new Set(recipientIds)];
+    if (!uniqueIds.length) return [];
 
-    // Notification.id is a client-generated cuid (see src/db/schema/core.ts), not a DB
-    // auto-increment column, so mysql2's `insertId` can't be used to recover it — generate
-    // every row's id (and a shared timestamp) up front instead of re-selecting afterwards.
     const now = new Date();
     const rows = uniqueIds.map((recipientId) => ({
       id: createId(),
@@ -107,20 +77,15 @@ export const notificationService = {
       updatedAt: now,
     }));
 
-    // create one notification row per recipient, all sharing the same title/message/type/ticketId
     await db.insert(notifications).values(rows);
-    // push each newly created notification to its owner in real time via websockets
     rows.forEach((row) => emitToUser(row.recipientId, row));
     void pushService.deliver(rows).catch((err) => console.error('Push delivery failed', err));
     return rows;
   },
 
-  // Called whenever a ticket gets assigned to someone - notifies the assignee AND that department's managers/HODs,
-  // so both the person doing the work and the people overseeing the department know about it.
   async notifyTicketAssigned(ticket: { _id: any; title: string; departmentId?: any; assigneeId?: any }) {
-    const recipientIds: string[] = []; // will collect everyone who should be notified about this assignment
+    const recipientIds: string[] = [];
 
-    // if the ticket has an assignee, they should definitely be told they've been assigned something
     const assigneeId = ticket.assigneeId ? ticket.assigneeId.toString() : null;
     if (assigneeId) recipientIds.push(assigneeId);
 
@@ -156,9 +121,6 @@ export const notificationService = {
     });
   },
 
-  // A ticket raised with nobody to work it (sent to a department, or a category with no owner). Without
-  // this nobody heard about it: the department's heads (Manager/Senior) are told so they can pick someone,
-  // and when the department has none, or there is no department, the Admins and PCs are.
   async notifyTicketUnassigned(ticket: { _id: any; title: string; departmentId?: any }, actorId: string) {
     let recipientIds: string[] = [];
     if (ticket.departmentId) {
@@ -179,17 +141,12 @@ export const notificationService = {
     });
   },
 
-  // Called whenever a delegation (task) gets assigned to someone - notifies the assignee(s) (the
-  // primary assigneeId plus any additionalAssigneeIds) so they know a new delegation is waiting on
-  // them, naming who raised it. Unlike notifyTicketAssigned this doesn't also notify department
-  // managers - that wasn't asked for here and tasks don't carry the same "department oversight"
-  // expectation tickets do.
   async notifyTaskAssigned(task: { _id: any; title: string; userId: any; assigneeId?: any; additionalAssigneeIds?: any[] }) {
     const creatorId = task.userId.toString();
     const recipientIds = [
       ...(task.assigneeId ? [task.assigneeId.toString()] : []),
       ...(task.additionalAssigneeIds ?? []).map((id) => id.toString()),
-    ].filter((id) => id !== creatorId); // no need to notify someone they assigned a delegation to themselves
+    ].filter((id) => id !== creatorId);
 
     if (!recipientIds.length) return [];
 
@@ -208,10 +165,6 @@ export const notificationService = {
     });
   },
 
-  // Delegation equivalent of notifyTicketUnassigned: published (not a draft) with nobody on it, which
-  // is what front-line staff do when they send work to a department. The department's heads
-  // (its Manager; a Senior can't open other people's delegations) are told so they can pick someone; with no department, or no active head in it,
-  // the Admins and PCs are. Same TASK_ASSIGNED type, so the notification opens the delegation.
   async notifyTaskUnassigned(task: { _id: string; title: string; departmentId?: string | null }, actorId: string) {
     let recipientIds: string[] = [];
     if (task.departmentId) {
@@ -232,11 +185,6 @@ export const notificationService = {
     });
   },
 
-  // Called when a ticket/task is handed in for approval (ticket -> PENDING_APPROVAL, task ->
-  // pending_approval). Tells everyone who can approve it: the PCs of its department or store, the
-  // department's Manager (who may approve their own department's work) and any named reviewers. When
-  // nobody like that exists (no department, no PC there), every active Admin and PC is told instead, so
-  // nothing waits for approval with no one aware of it. The people who did the work are never told.
   async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET') {
     const scopeConditions = [];
     if (entity.departmentId) scopeConditions.push(eq(users.departmentId, entity.departmentId.toString()));
@@ -272,8 +220,6 @@ export const notificationService = {
     });
   },
 
-  // Called after a PC/Admin approves or rejects - tells the assignee (and the original raiser,
-  // if different) the outcome, including the PC's note when there is one.
   async notifyVerificationResult(entity: VerifiableEntity, action: 'APPROVE' | 'REJECT', note: string | undefined, kind: 'TICKET' | 'TASK' = 'TICKET') {
     const recipientIds: string[] = [];
     if (entity.assigneeId) recipientIds.push(entity.assigneeId.toString());
@@ -291,10 +237,6 @@ export const notificationService = {
     });
   },
 
-  // Called when a ticket is put ON_HOLD through the restricted status-update flow - tells the
-  // assignee (and the original raiser, if different) it's stalled, including the remark that
-  // explains why. Whoever actually made the change is excluded, since notifying yourself about
-  // your own action is just noise.
   async notifyTicketOnHold(entity: VerifiableEntity, remark: string, actorId: string, kind: 'TICKET' | 'TASK' = 'TICKET') {
     const recipientIds: string[] = [];
     if (entity.assigneeId && entity.assigneeId.toString() !== actorId) recipientIds.push(entity.assigneeId.toString());
@@ -312,10 +254,6 @@ export const notificationService = {
     });
   },
 
-  // Checklist-instance equivalent of notifyPendingVerification, scoped by storeId (a recurring
-  // checklist instance does have one — matches notifyPendingVerification's storeId check).
-  // Was comparing instance.storeId against users.departmentId (copied as-is from the old Mongoose
-  // source) — two unrelated id spaces, so this never matched and PCs were never notified.
   async notifyChecklistPendingVerification(instance: VerifiableChecklistInstance) {
     if (!instance.storeId) return [];
     const pcs = await db
@@ -333,10 +271,6 @@ export const notificationService = {
     });
   },
 
-  // One reminder (checklistDraftReminder.job.ts) once a run has sat in PENDING_APPROVAL for a day.
-  // Goes to the run's own reviewers; when none were named, to the head(s) of the assignees'
-  // departments (MANAGER/SENIOR in that department) and the store's PCs, the people who could
-  // approve it anyway. Same type as the original "ready for your review" notification.
   async notifyChecklistApprovalReminder(instance: VerifiableChecklistInstance & { reviewerIds?: any[]; hoursWaiting: number }) {
     let recipientIds = (instance.reviewerIds ?? []).map((id) => id.toString());
     if (!recipientIds.length) {
@@ -369,9 +303,6 @@ export const notificationService = {
       checklistInstanceId: instance._id.toString(),
     });
 
-    // A heads-up to whoever the reviewers report to (their own head), so a late approval is not only
-    // known to the person who is late. Skips anyone already told above and the people who did the work
-    // (nobody is flagged about their own checklist).
     const assigneeSet = new Set((instance.assigneeIds ?? []).map((id) => id.toString()));
     const alreadyTold = new Set(recipientIds);
     const heads = await db
@@ -393,7 +324,6 @@ export const notificationService = {
     return sent;
   },
 
-  // Second and last chase, after two days: tells every Admin and PC.
   async notifyChecklistApprovalEscalation(instance: VerifiableChecklistInstance & { hoursWaiting: number }) {
     const people = await db
       .select({ id: users.id })
@@ -410,8 +340,6 @@ export const notificationService = {
     });
   },
 
-  // Checklist-instance equivalent of notifyVerificationResult — notifies every assignee on the
-  // instance (not just one), since a recurring checklist can be shared by several people.
   async notifyChecklistVerificationResult(instance: VerifiableChecklistInstance, action: 'APPROVE' | 'REJECT', note: string | undefined) {
     const recipientIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (!recipientIds.length) return [];
@@ -425,10 +353,6 @@ export const notificationService = {
     });
   },
 
-  // Fired by checklistInstance.service.ts when a Builder-authored conditional rule's
-  // NOTIFY_AREA_MANAGER action triggers (e.g. "if answer is No, notify Area Manager"). The app has
-  // no separate "Area Manager" role yet, so every ADMIN — the closest existing escalation contact —
-  // gets notified instead of a store-specific area manager.
   async notifyAreaManagersOfChecklistFlag(instance: VerifiableChecklistInstance, item: { label: string }) {
     const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, 'ADMIN'));
     const recipientIds = admins.map((a) => a.id);
@@ -442,12 +366,6 @@ export const notificationService = {
     });
   },
 
-  // Fired once per instance by checklistOverdueNotifier.job.ts, the moment it crosses its
-  // deadline still incomplete — notifies every assignee (the people who should have filled it
-  // in) AND the store's PCs (escalation, mirroring notifyChecklistPendingVerification's PC
-  // lookup), so both the person who missed it and whoever oversees that store hear about it.
-  // `closed`: the run has ended and its people can no longer fill it in (see checklistMissedRun.ts). They get
-  // no reminder to do something they cannot do; only the store's PCs hear that it was missed.
   async notifyChecklistOverdue(instance: VerifiableChecklistInstance & { closed?: boolean }) {
     const assigneeIds = instance.closed ? [] : (instance.assigneeIds ?? []).map((id) => id.toString());
     const pcs = instance.storeId
@@ -484,10 +402,6 @@ export const notificationService = {
     return results;
   },
 
-  // Fired once per instance by checklistDraftReminder.job.ts — someone started filling this in
-  // (completed at least one item) then stopped, well before the deadline. A gentler, earlier
-  // nudge than notifyChecklistOverdue above: assignees only, no PC escalation, since nothing has
-  // actually been missed yet.
   async notifyChecklistDraftReminder(instance: VerifiableChecklistInstance & { remaining: number }) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (!assigneeIds.length) return [];
@@ -499,7 +413,6 @@ export const notificationService = {
     });
   },
 
-  // Everything on the checklist is done, but nobody pressed Submit yet: one nudge to the people filling it in.
   async notifyChecklistSubmitReminder(instance: VerifiableChecklistInstance) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (!assigneeIds.length) return [];
@@ -511,7 +424,6 @@ export const notificationService = {
     });
   },
 
-  // Returns the most recent 50 notifications for a given user, newest first - used to populate the notifications dropdown/list in the UI
   async listForUser(userId: string) {
     const rows = await db
       .select()
@@ -519,35 +431,27 @@ export const notificationService = {
       .where(eq(notifications.recipientId, userId))
       .orderBy(desc(notifications.createdAt))
       .limit(50);
-    // A notification about a checklist whose day has ended still shows its message, but the client
-    // must not send the person to a run they can no longer fill: flag those.
     const missed = await missedInstanceIds(rows.map((r) => r.checklistInstanceId).filter((id): id is string => !!id));
     return rows.map((r) => ({ ...r, checklistMissed: !!r.checklistInstanceId && missed.has(r.checklistInstanceId) }));
   },
 
-  // Marks a single notification as read - but only if it actually belongs to this user
-  // (the { id, recipientId: userId } filter stops one user from marking someone else's notification as read)
   async markRead(id: string, userId: string) {
     const [existing] = await db
       .select()
       .from(notifications)
       .where(and(eq(notifications.id, id), eq(notifications.recipientId, userId)))
       .limit(1);
-    if (!existing) throw AppError.notFound('Notification not found'); // nothing matched (wrong id, or not this user's notification) -> fail with a 404
+    if (!existing) throw AppError.notFound('Notification not found');
 
     await db
       .update(notifications)
-      .set({ isRead: true, updatedAt: new Date() }) // flip the isRead flag on, so the UI stops showing it as "new"
+      .set({ isRead: true, updatedAt: new Date() })
       .where(eq(notifications.id, id));
 
-    // No Drizzle equivalent of findOneAndUpdate's `{ new: true }` — re-select to return the
-    // updated row.
     const [updated] = await db.select().from(notifications).where(eq(notifications.id, id)).limit(1);
     return updated;
   },
 
-  // Marks EVERY unread notification belonging to this user as read in one bulk update -
-  // this is what powers a "mark all as read" button, instead of the user clicking each one individually
   async markUnread(userId: string, ids: string[]) {
     if (!ids.length) return;
     await db

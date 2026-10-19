@@ -32,13 +32,10 @@ interface TaskOptionsDialogProps {
   onChange:         (patch: Partial<TaskFilters>) => void;
   onClearAll:       () => void;
   activeCount:      number;
-  /** How many delegations match right now, and out of how many — header subtitle + footer button. */
   resultCount:      number;
   totalCount:       number;
   sort:             TaskSortKey;
   onSortChange:     (key: TaskSortKey) => void;
-  /** Read-only here — the view is switched from the toolbar strip. Used only to hide rows that
-   *  don't apply to the current view. */
   view:             TaskViewKey;
   groupBy:          BoardGroupBy;
   onGroupByChange:  (key: BoardGroupBy) => void;
@@ -46,16 +43,12 @@ interface TaskOptionsDialogProps {
   onToggleField:    (key: CardFieldKey) => void;
   assignableUsers?: AssignableUser[];
   tags?:            Tag[];
-  /** Already filtered to active stores by TaskList. */
   storeOptions:     { id: string; name: string }[];
-  /** Already narrowed to the selected store's departments by TaskList. */
   departmentOptions: { id: string; name: string }[];
   isAdmin?:         boolean;
   canExport:        boolean;
   onExport:         () => void;
-  /** Omit the Category section — for a page already locked to one category (Smart Delegations). */
   hideCategory?:    boolean;
-  /** Omitted when there's no signed-in user to scope by — the section is then not rendered. */
   scope?: {
     value:    TaskScopeKey;
     onChange: (next: TaskScopeKey) => void;
@@ -70,7 +63,6 @@ const CATEGORY_CHIPS: { value: Exclude<CategoryFilterKey, 'all'>; label: string;
   { value: 'task', label: 'Direct Task', icon: CheckSquare, tone: 'bg-success' },
 ];
 
-// Same palette the card and detail header use for each status.
 const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus | null> = {
   draft: null,
   todo: 'open',
@@ -83,11 +75,6 @@ const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus | null> = {
 const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done', 'draft'];
 const PRIORITY_ORDER: Task['priority'][] = ['high', 'medium', 'low'];
 
-/**
- * Delegation's Filter and sort sheet — same shell and chip language as Tickets' (see
- * TicketSettingsMenu): who you're looking at, how the board groups and sorts, what the cards show,
- * then every filter as icon chips. Changes apply as you tap; the footer says how many match.
- */
 export const TaskOptionsDialog = ({
   isOpen, setIsOpen, filters, onChange, onClearAll, activeCount, resultCount, totalCount,
   sort, onSortChange, view, groupBy, onGroupByChange, fieldVisibility, onToggleField,
@@ -132,7 +119,6 @@ export const TaskOptionsDialog = ({
         onExport={canExport ? onExport : undefined}
         showLabel={`Show ${resultCount} ${resultCount === 1 ? 'delegation' : 'delegations'}`}
       >
-        {/* Not on a phone: the page's own Assigned to me / Created by me switch already does this. */}
         {scope && (
           <div className="max-sm:hidden">
           <OptionSection icon={Eye} label="Show">
@@ -149,8 +135,6 @@ export const TaskOptionsDialog = ({
           </div>
         )}
 
-        {/* Group is board-only (columns are the board's structure); Timeline lays bars on a date
-            axis, so it ignores sort and neither control shows there. */}
         {view !== 'timeline' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {view === 'board' && (
@@ -242,7 +226,6 @@ export const TaskOptionsDialog = ({
           </ChoiceWrap>
         </OptionSection>
 
-        {/* Matched as OR server-side: a delegation carrying any picked label passes. */}
         {!!tags?.length && (
           <OptionSection icon={TagIcon} label="Labels" aside={filters.tagIds.length > 0 && <ChoiceClear onClick={() => onChange({ tagIds: [] })} />}>
             <ChoiceWrap>
@@ -260,8 +243,6 @@ export const TaskOptionsDialog = ({
           </OptionSection>
         )}
 
-        {/* Store before Department: picking a store narrows the departments offered (TaskList
-            clears a department that no longer belongs). Each hidden when there's no choice. */}
         {storeOptions.length > 1 && (
           <OptionSection icon={Store} label="Store" aside={!!filters.storeId && <ChoiceClear onClick={() => onChange({ storeId: '' })} />}>
             <ChoiceWrap>

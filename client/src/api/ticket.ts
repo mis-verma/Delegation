@@ -8,11 +8,8 @@ export type Priority       = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AssignmentMode = 'AUTO' | 'MANUAL';
 export type TicketStatus   = 'OPEN' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'CLOSED' | 'ON_HOLD';
 
-// 'none' = one bucket named 'range' for the whole from/to window. 'hour' is no longer accepted by
-// the server; it stays in the union only until features/tickets/hook.ts stops referencing it.
 export type TatReportGroupBy = "day" | "week" | "month" | "year" | "none"
 
-/** Server-side SLA filters on GET /tickets, the same definitions the reports use. */
 export type TicketSlaFilter = 'overdue_open' | 'closed_late' | 'closed_on_time';
 
 export type TatReportRow = {
@@ -20,15 +17,10 @@ export type TatReportRow = {
   createdCount : number;
   closedCount : number;
   avgTatHours : number | null;
-  /** Currently overdue and still open (not CLOSED). */
   overdueCount : number;
-  /** Closed tickets whose closedAt is after their TAT due time. */
   closedLateCount : number;
-  /** Closed tickets that have a TAT: the denominator for "closed on time". Optional until every
-   *  server build returns it; without it the UI falls back to closedCount. */
   closedWithTatCount? : number;
   completionRate : number | null;
-  /** Closed in the bucket / created in the bucket: two different cohorts, so it can pass 100. Same number as completionRate. NOT the Scorecard completion (closed / due). */
   closedVsCreatedPct? : number | null;
 }
 
@@ -40,15 +32,12 @@ export type OwnerStatsRow = {
   closed : number;
   overdueCount : number;
   avgTatHours : number | null;
-  /** Tickets CREATED in the window (same as total). The Scorecard counts tickets DUE in the window instead. */
   createdCount? : number;
   createdAndClosedCount? : number;
 }
 
 export type CaptureMethod = 'LIVE' | 'GALLERY';
 
-// The restricted set of statuses a non-verifier (assignee/creator/manager) can move a ticket to
-// via the status-update flow — see ticket.validation.ts on the server for the matching schema.
 export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL'] as const;
 export type RestrictedStatus = typeof RESTRICTED_STATUSES[number];
 
@@ -92,7 +81,6 @@ export type TicketStatusUpdate = {
   fromStatus: TicketStatus;
   toStatus:   RestrictedStatus;
   remark:     string;
-  /** Id of the person who made the change. The server sends their details as `changedByUser`. */
   changedBy:  string | null;
   changedByUser: { id: string; email: string; firstName: string; role: string } | null;
   photos:     TicketAttachment[];
@@ -116,7 +104,6 @@ export type TicketAttachment = {
   sizeBytes:        number;
   captureMethod:    CaptureMethod;
   ticketId:         string;
-  /** Set when the photo was sent as proof with a status change. Those stay on the record. */
   statusUpdateId?:  string | null;
   uploadedBy:       { id: string; email: string; firstName: string; role: string } | null;
   createdAt:        string;
@@ -131,7 +118,6 @@ export type Ticket = {
   assignmentMode: AssignmentMode;
   tatHours:       number | null;
   tatDueAt:       string | null;
-  /** First day of a start-to-due range, when one was picked. Informational: the TAT clock runs from creation. */
   startDate:      string | null;
   userId:         string;
   assigneeId:     string | null;
@@ -140,11 +126,8 @@ export type Ticket = {
   departmentId:   string | null;
   createdAt:      string;
   updatedAt:      string;
-  /** When the ticket was closed; null while open. */
   closedAt:       string | null;
-  /** When the assignee handed it in for approval, if they did. */
   submittedAt?: string | null;
-  /** Times it went back to work after being handed in or closed; any at all fails compliance. */
   reopenCount?: number;
   declinedAt?: string | null;
   declinedBy?: string | null;
@@ -160,9 +143,6 @@ export type Ticket = {
   verifiedAt:       string | null;
   verificationNote: string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
-  /** Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
-   *  MANAGER/HOD within the ticket's own department). Anyone named here can approve/reject this
-   *  ticket regardless of role or department. */
   reviewers:        { id: string; firstName: string; lastName: string | null; email: string }[];
 };
 
@@ -187,10 +167,8 @@ export type CreateTicketPayload = {
   categoryId?:     string;
   departmentId?:   string;
   tatHours?:       number;
-  /** First day of a start-to-due range (ISO). Informational. */
   startDate?:      string;
   tagIds?:         string[];
-  /** User ids to name as explicit reviewers — see Ticket['reviewers']. */
   reviewerIds?:    string[];
 };
 
@@ -198,21 +176,15 @@ export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId'
 
 export type VerifyTicketPayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 
-/** Mirrors the server's TicketSummaryRow (ticket.service.ts) — powers the sidebar's "Tickets"
- *  count badge and its hover breakdown. Always "mine" (raiser/assignee), not org-wide, regardless
- *  of role — see the summary() doc comment server-side for why. */
 export type TicketSummary = {
   total:     number;
   newToday:  number;
-  /** Open work: due (on track) plus overdue. */
   pending:   number;
   due:       number;
   overdue:   number;
   completed: number;
 };
 
-/** Dashboard's "Needs your approval" card — one row per ticket currently awaiting an ADMIN/PC's
- *  sign-off. Org-wide (not "mine" like TicketSummary above), matching who can act on it. */
 export type TicketPendingApproval = {
   id: string;
   title: string;
@@ -245,16 +217,11 @@ export type UpdateChecklistItemPayload = {
   isDone?:             false;
 };
 
-// comments/attachments/checklists/statusUpdates are the exact fields that crashed TicketDetail
-// (unguarded `.length`/`.map` on values the type claims are always arrays) — guarded here, once,
-// at the boundary every ticketApi caller goes through, instead of every consumer defending itself.
 const ticketArrayDefaults = withArrayDefaults({
   comments: arrayField(z.unknown()),
   attachments: arrayField(z.unknown()),
   checklists: arrayField(z.unknown()),
   statusUpdates: arrayField(z.unknown()),
-  // Ticket rows that existed before this feature shipped have no tags at all — guarded the same
-  // way the others are so an old ticket doesn't crash a `.map()` somewhere expecting an array.
   tags: arrayField(z.unknown()),
   reviewers: arrayField(z.unknown()),
 });
@@ -299,7 +266,6 @@ export const ticketApi = {
   addStatusUpdate: async (id: string, payload: { status: RestrictedStatus; remark?: string; captureMethod?: CaptureMethod; files?: File[] }) => {
     const formData = new FormData();
     formData.append('status', payload.status);
-    // Only On Hold needs one; the server stores a blank remark for the other moves.
     if (payload.remark) formData.append('remark', payload.remark);
     if (payload.captureMethod) formData.append('captureMethod', payload.captureMethod);
     (await shrinkImages(payload.files ?? [])).forEach(f => formData.append('images', f));
@@ -362,8 +328,6 @@ export const ticketApi = {
       body:   JSON.stringify({ body }),
     }),
 
-  // departmentId/storeId are only honored for ADMIN/PC callers — MANAGER/SENIOR get their own
-  // scope forced server-side regardless of what's passed here (see ticket.controller.ts).
   getTatReport : ( groupBy : TatReportGroupBy = "day", from?: string, to?: string, departmentId?: string, storeId?: string) => {
     const params = new URLSearchParams({ groupBy });
     if (from) params.set('from', from);
@@ -373,11 +337,6 @@ export const ticketApi = {
     return apiFetch<ApiResponse<TatReportRow[]>>(`/tickets/reports/tat?${params.toString()}`);
   },
 
-  // Real GROUP BY aggregate behind the department/store ranking tables, the team leaderboard, and
-  // the org-wide on-time/overdue stat cards — see ticket.service.ts#ownerStats for why this
-  // replaced reducing over a single newest-100-tickets page client-side.
-  // departmentId/storeId are only honored for ADMIN/PC callers — MANAGER/SENIOR get their own
-  // scope forced server-side regardless of what's passed here (see ticket.controller.ts).
   getOwnerStats : (scope : OwnerStatsScope, from?: string, to?: string, departmentId?: string, storeId?: string) => {
     const params = new URLSearchParams({ scope });
     if (from) params.set('from', from);

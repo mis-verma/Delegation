@@ -8,23 +8,15 @@ export const AuditUniformChip = ({ label }: { label: string }) => (
 );
 
 interface AuditDressTypePickerProps {
-  /** Types this person can wear, already filtered by gender. */
   options:   { id: string; name: string }[];
-  /** The type picked for this person; null = the usual list. */
   currentId: string | null;
-  /** Id being saved right now (null = "Usual"); only meaningful while `pending`. */
   pendingId: string | null;
   pending:   boolean;
-  /** Stops all chips (e.g. while ticks are still saving). */
   disabled?: boolean;
-  /** Shows the one-line "this clears your ticks" hint. */
   warn:      boolean;
   onPick:    (id: string | null) => void;
 }
 
-// "What are they wearing?" as a wrapping set of single-choice chips: Usual plus one per type. A
-// group of aria-pressed buttons rather than a radiogroup, so arrow keys never switch the type (and
-// clear the ticks) by accident: each chip is its own tab stop and needs Enter or Space.
 export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, disabled, warn, onPick }: AuditDressTypePickerProps) => {
   const labelId = useId();
   const chips: { id: string | null; name: string }[] = [{ id: null, name: 'Usual' }, ...options];
@@ -66,8 +58,6 @@ export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, d
   );
 };
 
-// Label on the left, optional count beside it, optional action on the right. The fixed min height
-// keeps headers with and without an action level.
 export const AuditSectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNode; action?: ReactNode }) => (
   <div className="flex items-center justify-between gap-3 min-h-8 pointer-coarse:min-h-11">
     <p className="flex items-center gap-1.5 text-sm sm:text-xs font-semibold text-text-secondary">
@@ -81,14 +71,11 @@ export const AuditSectionHeader = ({ label, meta, action }: { label: string; met
 interface AuditTickRowProps {
   name:        string;
   checked:     boolean;
-  /** Submitted and not ticked: drawn as a clear miss. */
   missing:     boolean;
   interactive: boolean;
   onToggle:    () => void;
 }
 
-// A big, full-width row: tap anywhere on it to tick. Checked reads as a success tint plus a filled
-// check circle, so the state is never carried by colour alone.
 export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: AuditTickRowProps) => {
   const className = cn(
     'flex w-full items-center gap-3 min-h-13 sm:min-h-11 px-3 py-2 rounded-lg border text-left select-none',
@@ -141,14 +128,11 @@ export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: 
 interface AuditCaptureButtonProps {
   icon:    LucideIcon;
   label:   string;
-  /** Live capture (opens the camera) gets the primary tint; the gallery picker stays neutral. */
   live:    boolean;
   accept:  string;
   onFiles: (files: FileList | null) => void;
 }
 
-// Same behaviour as CaptureButton (hidden file input inside a label, camera when live) but 48px
-// tall and flexible in width, so Take photo and Gallery sit side by side across a phone.
 export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }: AuditCaptureButtonProps) => (
   <label
     className={cn(

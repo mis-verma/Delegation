@@ -10,14 +10,10 @@ import { scoresHref } from '../directory/orgScoreData';
 
 interface DepartmentCardProps {
   department: Department;
-  /** undefined = stores are still loading, null = no store assigned, string = the store's name. */
   storeLabel: string | null | undefined;
-  /** undefined while the people list is loading, null if it failed; otherwise active people only. */
   activeCount: number | null | undefined;
   inactiveCount: number;
-  /** Who heads it: undefined while people load, null when nobody does. */
   headName: string | null | undefined;
-  /** This month's score row: undefined while loading, null when nothing was due. */
   score: ExplorerRow | null | undefined;
   scoreWindow: { from: string; to: string; failed: boolean };
   isUpdating: boolean;
@@ -27,10 +23,6 @@ interface DepartmentCardProps {
   onDelete: (department: Department) => void;
 }
 
-/**
- * A department at a glance: its name and store, three chips (members, head, state) and this month's score.
- * A tap anywhere opens the department on the Scores page; Edit, Deactivate and Delete live in the menu.
- */
 export const DepartmentCard = memo(({
   department, storeLabel, activeCount, inactiveCount, headName, score, scoreWindow,
   isUpdating, isDeleting, onToggleActive, onEdit, onDelete,
@@ -42,7 +34,6 @@ export const DepartmentCard = memo(({
         <EntityIconTile icon={Building2} tone="primary" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="min-w-0">
-            {/* The card's one primary action; its ::after stretches over the card, the menu and score strip sit above it. */}
             <Link
               viewTransition
               to={href}
@@ -104,7 +95,6 @@ export const DepartmentCard = memo(({
 });
 DepartmentCard.displayName = 'DepartmentCard';
 
-// Same rows and gaps as the card above (header, chips, score strip), so the grid does not jump when the real rows arrive.
 export const DepartmentCardSkeleton = () => (
   <div className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3')} aria-hidden>
     <div className="flex items-start gap-3">

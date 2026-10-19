@@ -3,7 +3,7 @@ import { todoController } from "./todo.controller.js"
 import { authenticate } from "../../middleware/auth/auth.js"
 
 export const todoRouter = Router()
-todoRouter.use(authenticate) // personal to-dos — just needs to be logged in, no role restriction
+todoRouter.use(authenticate)
 
 todoRouter.get("/", todoController.list)
 todoRouter.get("/summary", todoController.summary)

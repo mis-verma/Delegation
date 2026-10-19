@@ -10,26 +10,17 @@ interface ChecklistInstanceTableProps {
   instances: ChecklistInstance[];
   storeNameById: Map<string, string>;
   peopleNameById: Map<string, string>;
-  /** Stores/people are still loading: unresolved names show a placeholder instead of a wrong label. */
   lookupsPending?: boolean;
 }
 
-// Solid navy header + dense rows, same treatment as TicketTable/TaskTable — the Table-view
-// sibling of MyChecklists' grouped card grid. Flat and already-sorted (no re-grouping here),
-// same convention as TicketTable receiving its rows pre-scoped from TicketList.
 const HEAD_ROW_CLASS = 'bg-primary-800';
 const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
-// group-hover so the hover tint lands on every cell at once, including the opaque sticky first
-// column (which would otherwise keep its resting background while the rest of the row lights up).
 const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary transition-colors duration-200 ease-in-out group-hover:bg-surface-hover';
 
 interface TableRowProps {
   instance: ChecklistInstance;
-  /** Resolved store name, or undefined while stores load or when the run has none. */
   storeName: string | undefined;
-  /** Pre-joined so the memoized row only sees a primitive. */
   assignees: string;
-  /** How many people the run is assigned to, for when none of them resolve to a name. */
   assigneeCount: number;
   storePending: boolean;
   assigneesPending: boolean;
@@ -40,8 +31,6 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
   const { done, total, isComplete, chipStatus, deadlineTime, verification } = getInstanceView(instance);
   const href = `/checklists/${instance.id}`;
 
-  // The whole row is the click target. The title stays a real link for keyboard and middle-click;
-  // its own click has already navigated (and been defaultPrevented), so don't navigate twice.
   const onRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
     if (e.defaultPrevented) return;
     navigate(href);
@@ -101,17 +90,8 @@ TableRow.displayName = 'ChecklistInstanceTableRow';
 export const ChecklistInstanceTable = ({ instances, storeNameById, peopleNameById, lookupsPending = false }: ChecklistInstanceTableProps) => {
   return (
     <div className={`${PANEL_CLASS} w-full overflow-x-auto`}>
-      {/* table-layout: fixed makes the max-w-[*] caps on the title/assignees cells below actually
-          bound the column widths (auto layout sizes columns from content first, so a long title
-          or assignee list would otherwise just widen the column instead of truncating) — paired
-          with a colgroup so every column gets an explicit share instead of the equal-width
-          default fixed layout falls back to when no widths are specified anywhere. */}
       <table className="w-full min-w-[60rem] border-collapse table-fixed">
         <caption className="sr-only">{instances.length} {instances.length === 1 ? 'checklist' : 'checklists'}</caption>
-        {/* Verification sits right after Status (same slot TicketTable gives Priority — the
-            second-most-actionable field, the one that actually needs an admin decision) instead
-            of at the far end past the horizontal scroll; Recurrence (static scheduling metadata
-            nobody acts on) moved down to make room. */}
         <colgroup>
           <col className="w-[20rem]" />
           <col className="w-[7rem]" />

@@ -18,11 +18,8 @@ interface ActivityTimelineProps {
   limit?: number;
 }
 
-// How many field changes a row shows before "Show all" — enough to read what happened at a
-// glance without one big edit pushing every other entry off screen.
 const INLINE_DIFF_ROWS = 2;
 const PAGE_STEP = 20;
-// Past this many characters a value reads as a sentence, not a chip.
 const LONG_TEXT = 36;
 
 type Filter = 'all' | 'status' | 'edits';
@@ -49,11 +46,9 @@ const dayLabel = (date: Date) => {
   return { lead: null, full };
 };
 
-// Upper-case AM/PM, same as the due-date chips everywhere else ("3:27 PM").
 const timeLabel = (date: Date) =>
   date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
 
-// Consecutive rows (already newest-first from the API) bucketed by calendar day.
 const groupByDay = (rows: AuditLog[]) => {
   const groups: Array<{ key: string; date: Date; rows: AuditLog[] }> = [];
   for (const row of rows) {
@@ -72,8 +67,6 @@ const actorFullName = (log: AuditLog) =>
 const isStatusMove = (log: AuditLog) =>
   log.action !== 'CREATE' && log.action !== 'DELETE' && log.before?.status !== log.after?.status;
 
-// What the person did, written to follow their name: "moved it to In progress", "changed due date and
-// priority". A status move names where it went, so a long history reads without opening anything.
 const phraseFor = (log: AuditLog, diffRows: DiffRow[]) => {
   const thing = entityTypeConfig(log.entityType).label.toLowerCase();
   if (log.action === 'CREATE') return `created this ${thing}`;
@@ -90,18 +83,6 @@ const phraseFor = (log: AuditLog, diffRows: DiffRow[]) => {
   return `changed ${list(others)}`;
 };
 
-/**
- * Per-entity "who changed what, when" — the compact counterpart to the org-wide Admin → Audit Log
- * browser (features/admin/auditLog/), reusing the same query hook and diff helpers rather than a
- * second implementation of either.
- *
- * Grouped by day. Each entry: action dot on the rail, person + role, clock time, a verb-first
- * sentence, then the changed fields as from → to chips. Status and priority use the same chips the
- * card shows. All / Status / Edits narrows the loaded entries.
- *
- * ADMIN/PC only, same as the underlying `/audit-logs` endpoint (audit rows carry full before/after
- * snapshots) — renders nothing at all for any other role.
- */
 export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = PAGE_STEP }: ActivityTimelineProps) => {
   const { user } = useAuth();
   const canView = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -235,7 +216,6 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
   );
 };
 
-// Each kind of date field gets its own colour and icon: finished is green, handed in blue, a deadline orange.
 const dateLook = (key: string): { icon: LucideIcon; tone: ActivityTone } => {
   if (/verified/i.test(key)) return { icon: ShieldCheck, tone: 'success' };
   if (/closed|completed|finished/i.test(key)) return { icon: CircleCheck, tone: 'success' };
@@ -249,8 +229,6 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       const beforeRaw = log.before?.[row.key];
       const afterRaw = log.after?.[row.key];
       const wasEmpty = row.before === '—';
-      // Sentences (description, remarks) don't fit a pill — they wrap into a lopsided pair with a
-      // stray arrow. Show old one quiet and struck-free above, new one in a soft block.
       if (row.before.length > LONG_TEXT || row.after.length > LONG_TEXT) {
         return (
           <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:gap-3">
@@ -271,7 +249,6 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
           </li>
         );
       }
-      // A date field is one calendar card, "was, an arrow, now", the same as the Activity feed's date change.
       if (/(At|Date)$|due/i.test(row.key) && !/^(status|priority)$/.test(row.key)) {
         const when = dateLook(row.key);
         return (
@@ -306,7 +283,6 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
 const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: AuditIdResolvers }) => {
   const [expanded, setExpanded] = useState(false);
   const action = actionConfig(log.action);
-  // A status move gets its own glyph, so a long history scans as "moves vs. edits" before reading a word.
   const Icon = log.action === 'UPDATE' && isStatusMove(log) ? ArrowRightLeft : action.icon;
   const tone: ActivityTone = log.action === 'CREATE' ? 'primary' : log.action === 'DELETE' ? 'danger' : isStatusMove(log) ? 'info' : 'coral';
   const diffRows = diffAuditLog(log.before, log.after, resolvers);
@@ -314,10 +290,7 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
   const phrase = phraseFor(log, diffRows);
   const date = new Date(log.createdAt);
   const isSnapshot = log.action === 'CREATE' || log.action === 'DELETE';
-  // Status first: it's the change people scan for.
   const ordered = [...diffRows].sort((a, b) => Number(b.key === 'status') - Number(a.key === 'status'));
-  // CREATE/DELETE snapshots list every column, which is noise inline, so those stay behind the toggle.
-  // A status-only move already says where it went in the sentence, so it needs no chips under it.
   const statusOnly = ordered.length === 1 && ordered[0].key === 'status';
   const inlineRows = isSnapshot || statusOnly ? [] : ordered.slice(0, INLINE_DIFF_ROWS);
   const hiddenCount = isSnapshot ? ordered.length : ordered.length - inlineRows.length;
@@ -325,7 +298,6 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
 
   return (
     <li className="relative">
-      {/* One node per entry on the rail: a gradient disc in the colour of the action, with its icon in white. */}
       <span className={`${NODE_CLASS} ${TONE[tone]}`} title={action.label} aria-hidden>
         <Icon size={14} strokeWidth={2.5} />
       </span>
@@ -348,7 +320,6 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
 
         {!isSnapshot && shown.length > 0 && <ChangeList log={log} rows={shown} />}
 
-        {/* CREATE/DELETE: full snapshot only on request. */}
         <AnimatePresence initial={false}>
           {isSnapshot && expanded && (
             <motion.div

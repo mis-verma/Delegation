@@ -33,14 +33,12 @@ import { HintPopover, HowCalculated } from '../scores/HowCalculated';
 import { dashboardViewFor } from './dashboardView';
 import { FIELD_LABEL_CLASS } from '../scores/controlStyles';
 
-// Short enough for four equal columns in the narrow side panel.
 const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Company', person: 'Person', department: 'Department', store: 'Store' };
 type ScoreView = 'bars' | 'dials' | 'trend';
 const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
 const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend' };
 const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine };
 
-// What a person last chose is remembered per account, so the card opens the way they left it.
 interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
 const PREFS_KEY = 'tm-scores-prefs';
 const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
@@ -62,7 +60,6 @@ const RING: Record<RateTone, [string, string]> = {
   neutral: ['var(--color-primary-400)', 'var(--color-primary-700)'],
 };
 
-// Column set shared by the department and people tables in the full report.
 const REPORT_COLUMNS = [
   'Checklists due', 'Checklists done', 'Checklists missed', 'Checklist completion %', 'Checklist compliance %', 'Checklist on-time %',
   'Tickets due', 'Tickets closed', 'Tickets closed on time', 'Ticket completion %', 'Ticket compliance %', 'Ticket on-time %',
@@ -74,7 +71,6 @@ const reportCells = (r: ScoreReportRow) => [
   r.delegation.due, r.delegation.done, r.delegation.onTime, r.delegation.overdue, r.delegation.completionPct, r.delegation.compliancePct, r.delegation.onTimePct,
 ];
 
-// Two tables under one title: departments, then people, then the notes on how each figure is counted.
 const reportRows = (report: ScoreReport): TableRows => [
   ['Departments'],
   ['Department', ...REPORT_COLUMNS],
@@ -93,17 +89,11 @@ interface ScoreTileProps {
   score: number | null;
   detail: string;
   loading: boolean;
-  /** Tapping the tile opens the popup with the figures and the way to the finished and late items. */
   onOpen: () => void;
-  /** The score now minus the previous period's, shown when Compare is on. */
   change?: number | null;
 }
 
-// A small dial, then the number, the name and the counts under it, three across even on a phone. The dial
-// is a picture only (its end labels would be about 3px at this size); everything you read is real text at
-// a readable size and wraps instead of being cut off.
 const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileProps) => {
-  // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const tileClass = 'flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
@@ -134,20 +124,16 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
   return <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} className={tileClass}>{body}</button>;
 };
 
-// Days in a window, both ends included, and a day moved by n days ('YYYY-MM-DD' in, out).
 const spanDays = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 const shiftDay = (day: string, n: number) => {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
-// How a window of that length is cut for the trend.
 const periodForSpan = (days: number): ScorePeriod => (days <= 1 ? 'day' : days <= 7 ? 'week' : days <= 31 ? 'month' : days <= 92 ? 'quarter' : 'year');
 
-// Front-line staff only switch between these two.
 const SIMPLE_PERIODS: readonly ScorePeriod[] = ['week', 'month'];
 
-// One labelled control in the side panel: a small caption over the control, so each row says what it picks.
 const PanelRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
     <span className={FIELD_LABEL_CLASS}>{label}</span>
@@ -155,36 +141,24 @@ const PanelRow = ({ label, children }: { label: string; children: React.ReactNod
   </div>
 );
 
-/**
- * Checklist, ticket and delegation scores for a day, week, month, quarter or year. Everyone sees their
- * own. A department head can also open their own department. Admin and PC can open any person,
- * department or store, or the whole organisation. `initialScope`: where the card opens.
- */
 export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref }: {
   initialScope?: ScoreScope;
-  /** The page's own period ('YYYY-MM-DD' days). When given, the card follows it and hides its own period controls. */
   window?: { from: string; to: string; label: string };
-  /** A page with every department, store and person side by side; shown as a link in the header. */
   moreHref?: string;
 } = {}) => {
   const { user } = useAuth();
   const role = user?.role;
-  // The role decides the card (dashboardView.ts). Front-line staff get the simple card: their own bars for a
-  // Week or a Month, no views, measures, people or Export.
   const { orgWide, isHod, scores: scoreRules } = dashboardViewFor(role);
   const simple = scoreRules.simple;
   const scopes = useMemo<ScoreScope[]>(
-    // Admin and PC also get the whole organisation in one view: every checklist, ticket and delegation.
     () => (orgWide ? ['org', 'person', 'department', 'store'] : isHod ? ['person', 'department'] : ['person']),
     [orgWide, isHod],
   );
   const canPickPerson = scoreRules.canPickPeople;
   const canExportReport = orgWide || isHod;
-  // Not rendered at all for User and Agent, so there is nothing to find in the page.
   const canExport = scoreRules.canExport;
 
   const [scope, setScope] = useState<ScoreScope>(() => (initialScope === 'org' && !orgWide ? 'person' : initialScope));
-  // The Admin card keeps its own saved settings: picking Day on the dashboard must not change it.
   const prefsId = `${user?.id ?? 'anon'}${initialScope === 'org' ? '-admin' : ''}`;
   const initialPrefs = useMemo(() => loadPrefs(prefsId), [prefsId]);
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
@@ -193,29 +167,22 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
   const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
-  // On a phone the card is a glance: this month's bars, nothing to set. Not when a page sets the window.
   const isPhone = useIsMobile();
-  // The simple (front-line) card keeps its Week | Month switch on a phone too, so it is never the glance.
   const glance = isPhone && !pageWindow && !simple;
   const metric: ScoreMetric = simple || glance ? 'overview' : metricChoice;
   const navigate = useNavigate();
 
-  // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
   const remember = (next: Partial<ScorePrefs>) => {
     try {
       localStorage.setItem(`${PREFS_KEY}-${prefsId}`, JSON.stringify({ ...loadPrefs(prefsId), ...next }));
     } catch {
-      /* nothing to do */
     }
   };
   const setPeriod = (next: ScorePeriod) => { setPeriodState(next); remember({ period: next }); };
   const setCompare = (next: boolean) => { setCompareState(next); remember({ compare: next }); };
   const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
-  // Closed by default at every size, so the card opens on the chart. (A wide card shows the controls as a side panel instead.)
   const [moreOpen, setMoreOpen] = useState(false);
   const [everOpened, setEverOpened] = useState(false);
-  // When the CARD itself is wide (not the screen: a half-width card on a big screen is still narrow) the controls are
-  // a permanent side panel beside the chart. Measured with the same width the CSS container query uses.
   const cardRef = useRef<HTMLElement>(null);
   const [isWide, setIsWide] = useState(false);
   useEffect(() => {
@@ -226,7 +193,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     return () => observer.disconnect();
   }, []);
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
-  // A ranked row opens that department (or person, or store) on the card itself.
   const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
   const activeView: ScoreView = glance || simple ? 'bars' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
@@ -248,14 +214,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     return (stores.data ?? []).map((s) => ({ value: s.id, label: s.name }));
   }, [scope, people.data, departments.data, stores.data, orgWide, user?.departmentId]);
 
-  // Department and Store open on the viewer's own, so nobody starts at an empty picker. Picking
-  // something else overrides it; switching view puts it back.
   const ownDefault = scope === 'department' ? user?.departmentId ?? '' : scope === 'store' ? user?.storeId ?? '' : '';
   const effectivePick = picked || ownDefault;
   const ready = scope === 'person' || scope === 'org' || !!effectivePick;
   const targetId = effectivePick || undefined;
 
-  // In simple mode only Week and Month exist; anything else saved earlier reads as Month.
   const shownPeriod: ScorePeriod = glance ? 'month' : simple && period !== 'week' ? 'month' : period;
   const orgToday = useOrgToday();
   const range = pageWindow ?? windowFor(shownPeriod, glance ? 0 : offset, orgToday);
@@ -385,7 +348,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       />
   ) : null;
 
-  // Front-line staff: their own scores as a glance (one Overall dial and a card per module), not the chart.
   if (simple && !pageWindow) {
     return (
       <>
@@ -589,8 +551,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       ) : query.isError && !data ? (
         <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
       ) : (
-        // No dim while the next window loads: the old numbers stay as they are until the new ones land, and a plain
-        // line says they are still the previous window's.
         <div className="flex flex-col gap-2">
         {query.isPlaceholderData && (
           <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
@@ -611,18 +571,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             { key: 'ticket', title: MODULE_LABEL.ticket },
             { key: 'delegation', title: MODULE_LABEL.delegation },
           ] as { key: ModuleKey; title: string }[]).map(({ key, title }) => {
-            // Overview keeps the headline score; the other tabs show that one measure for every module.
             const now = data ? numbersFor(data, key) : null;
             const before = previous ? numbersFor(previous, key) : null;
             const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
               n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
-            // Overview shows the overall score, the same rule as the Report page and the Scorecard: completion and
-            // compliance counted equally (completion alone when nothing was checked).
             const headline = (d: typeof data) => (d ? moduleOverall(d, key) : null);
             const score = pick(now, headline(data));
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
-            // The overall score is the average of these two, so the dial says them.
             const overviewDetail = !now ? '' : `${SCORE_LABEL.completion} ${formatPct(now.completion)}, ${complianceLabel(key).toLowerCase()} ${formatPct(now.compliance)}`;
             return (
               <ScoreTile

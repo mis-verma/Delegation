@@ -44,8 +44,6 @@ const TicketGroupedListComponent = ({
                   key={ticket.id}
                   ticket={ticket}
                   onClick={onSelectTicket}
-                  // The group header already names the department / the person, so the card
-                  // doesn't repeat it. No department at all means no chip.
                   departmentName={
                     groupBy === 'department' ? undefined : departmentNames.get(ticket.departmentId ?? '')
                   }

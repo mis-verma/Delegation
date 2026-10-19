@@ -2,7 +2,6 @@ import { memo, useRef, useState, type PointerEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Button } from '../../../components';
 
-// Roughly a short scribble on the 480px-wide canvas — enough to rule out taps and dots.
 const MIN_INK_PX = 40;
 
 interface SignaturePadCanvasProps {
@@ -11,15 +10,10 @@ interface SignaturePadCanvasProps {
   onChange: (dataUrl: string | null) => void;
 }
 
-// Shared drawing surface for SIGNATURE and DUAL_SIGNATURE — pointer events cover mouse, touch,
-// and stylus in one handler set, so it works the same on a store tablet as a desktop browser.
-// Emits a PNG data URL once a stroke is drawn, null again after Clear.
 export const SignaturePadCanvas = memo(function SignaturePadCanvas({ label, disabled, onChange }: SignaturePadCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasDrawn, setHasDrawn] = useState(false);
-  // Total ink drawn so far, in canvas px. A tap (or a stray dot) used to emit a blank PNG that
-  // the server accepted as a signature; now something only counts once there's a real stroke.
   const inkRef = useRef(0);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -52,10 +46,6 @@ export const SignaturePadCanvas = memo(function SignaturePadCanvas({ label, disa
     const { x, y } = pointFromEvent(e);
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
-    // Deliberately NOT a theme token — a signature is ink on paper, meant to read the same
-    // regardless of the app's light/dark theme (and stay legible in an exported/printed PNG,
-    // which has no access to CSS variables at all), so both this stroke color and the canvas's
-    // own white background below are a fixed pairing rather than dark-mode-reactive.
     ctx.strokeStyle = '#1e293b';
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -92,8 +82,6 @@ export const SignaturePadCanvas = memo(function SignaturePadCanvas({ label, disa
           </Button>
         )}
       </div>
-      {/* Themed mat around the canvas's own fixed white "paper" — keeps a dark-mode page from
-          bordering straight onto an unframed white rectangle. */}
       <div className="rounded-lg border border-border bg-surface p-1.5">
         <canvas
           ref={canvasRef}

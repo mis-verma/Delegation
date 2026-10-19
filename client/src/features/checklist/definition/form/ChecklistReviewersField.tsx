@@ -5,25 +5,14 @@ import { useAssignableUsersQuery, useDepartmentsQuery } from '../../hook';
 import { LABEL_CLASS } from './formConstants';
 
 interface ChecklistReviewersFieldProps {
-  /** Every store this checklist targets — reviewers are scoped to "belongs to any of these",
-   *  same as assignees. */
   storeIds: string[];
   selected: string[];
   totalSelected?: number;
   onChange: (ids: string[]) => void;
-  /** A brand-new checklist (not an edit or a copy), which starts with PC pre-selected. */
   isNew?: boolean;
   className?: string;
 }
 
-// Explicit reviewers, additive on top of the role-based verify rule (ADMIN/PC always, any
-// MANAGER/HOD in the assignees' own department) — naming someone here lets them approve/reject
-// this checklist's instances regardless of role or department. Deliberately no bulk "select
-// everyone"/"select a department" shortcuts here (unlike ChecklistAssigneesField) — a reviewer
-// list is meant to stay small and hand-picked, not mirror the whole staff roster. Grouped by
-// department (via UserMultiSelect's `departments` prop) so a department's HOD — badged "HOD" —
-// is easy to spot and add without scanning the full org roster. A new checklist starts with every
-// PC user pre-picked — still just a starting point the maker can remove from or add to.
 export const ChecklistReviewersField = ({
   storeIds,
   selected,
@@ -42,7 +31,6 @@ export const ChecklistReviewersField = ({
   return (
     <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
       <div className="flex items-center justify-between gap-2">
-        {/* A caption for the checkbox list below, not a label for one control, so a span. */}
         <span id={labelId} className={LABEL_CLASS}>
           <ShieldCheck size={14} className="text-text-muted shrink-0" />
           <span>Reviewers <span className="text-text-muted/70 font-medium">(Optional)</span></span>

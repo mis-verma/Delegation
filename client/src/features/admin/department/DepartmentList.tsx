@@ -34,7 +34,6 @@ const PAGE_SIZE = 24;
 const SKELETON_COUNT = 6;
 const GRID_CLASS = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3";
 
-// Kept as a named function so hovering/focusing "New department" can start the download early.
 const loadDepartmentForm = () => import("./DepartmentForm");
 
 const DepartmentForm = lazy(() =>
@@ -51,12 +50,9 @@ export const DepartmentList = () => {
   const [searchText, setSearchText] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [sort, setSort] = useState<SortKey>('name');
   const [view, setView] = useDirectoryView();
-  // Phones always get cards, whatever the shared view says.
   const isNarrow = useMediaQuery('(max-width: 639px)');
   const showTable = view === 'table' && !isNarrow;
 
-  // Filtering/pagination is client-side (full roster, not a server page) so the Active/Inactive
-  // split can be seen and filtered at all.
   const { data: allDepartments, isPending, isError, refetch } = useDepartmentsQuery();
   const departments = useMemo(() => allDepartments ?? [], [allDepartments]);
   const { data: users, isError: usersError, refetch: refetchUsers } = useUsersQuery();
@@ -73,10 +69,8 @@ export const DepartmentList = () => {
     inactive: departments.filter(d => !d.isActive).length,
   }), [departments]);
 
-  // undefined until the roster arrives, so a card never claims "0 members" while it is still loading.
   const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'departmentId') : undefined), [users]);
 
-  // Who heads each department (Manager or Senior placed in it), first one by name. Undefined until people load.
   const headByDepartment = useMemo(() => {
     if (!users) return undefined;
     const heads = new Map<string, string>();
@@ -158,7 +152,6 @@ export const DepartmentList = () => {
   const handleDelete = useCallback(async (department: Department) => {
     const count = memberCounts?.get(department.id);
 
-    // Not empty: deleting would strand people, so the only forward step offered is deactivating.
     if (count && hasPeople(count)) {
       const total = count.active + count.inactive;
       const stranded = `${peopleText(count)} ${total === 1 ? 'is' : 'are'} in this department. Move them first, or they will be left without one.`;
@@ -198,7 +191,6 @@ export const DepartmentList = () => {
   }, []);
 
   const renderContent = () => {
-    // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
     if (isPending) {
       if (showTable) return <OrgTableSkeleton />;
       return (
@@ -300,7 +292,6 @@ export const DepartmentList = () => {
         </OptionSection>
       </OrgToolbar>
 
-      {/* A failed refresh never hides the list; it just says so. */}
       {isError && allDepartments && (
         <InlineError message="Couldn't refresh departments. Showing the last list we loaded." onRetry={() => refetch()} />
       )}

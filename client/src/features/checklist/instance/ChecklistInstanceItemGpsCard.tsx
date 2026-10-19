@@ -15,8 +15,6 @@ interface ChecklistInstanceItemGpsCardProps {
   isLocked:   boolean;
 }
 
-// Mirrors checklistInstance.service.ts's haversineMeters — client-side only for the live "how far
-// are you" hint shown before saving; the server re-checks the same math and is the real gate.
 const EARTH_RADIUS_METERS = 6371000;
 const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -79,9 +77,6 @@ export const ChecklistInstanceItemGpsCard = memo(function ChecklistInstanceItemG
         })}
       />
 
-      {/* The captured coordinates are NOT gated on `interactive` — they're evidence, and must stay
-          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
-          capture/save controls are for the still-editable case. */}
       {captured && (
         <div className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-xs font-display text-text-secondary">
           <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary-500" /> {captured.lat.toFixed(6)}, {captured.lng.toFixed(6)} (±{Math.round(captured.accuracy)}m)</span>

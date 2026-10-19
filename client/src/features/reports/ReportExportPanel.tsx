@@ -17,8 +17,6 @@ type TaskExportFilters = Pick<ReportExportParams, 'category' | 'status' | 'prior
 interface ReportExportPanelProps {
   reportModule: ReportModule;
   description: string;
-  /** Current page filters (category/status/priority/department/assignee) to scope the export to
-   *  what's on screen — e.g. TaskList's active filters, so "Export" doesn't silently ignore them. */
   filters?: TaskExportFilters;
 }
 
@@ -29,8 +27,6 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
   const [mode, setMode] = useState<RangeMode>('monthly');
   const [format, setFormat] = useState<ReportFormat>('csv');
   const [customRange, setCustomRange] = useState<DateRangeValue>({ from: null, to: null });
-  // Checklists-only: name-wise scoping by store and by person, mirroring the compliance board's
-  // own Store/Person filters — this export used to only ever take a date range.
   const [storeId, setStoreId] = useState(NO_STORE_FILTER);
   const [assigneeId, setAssigneeId] = useState(NO_PERSON_FILTER);
   const isChecklists = reportModule === 'checklists';
@@ -132,7 +128,6 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
         </div>
       )}
 
-      {/* Format Toggle */}
       <div className="flex flex-col gap-2">
         <span className="t-meta font-display font-medium text-text-secondary tracking-wide">
           Format

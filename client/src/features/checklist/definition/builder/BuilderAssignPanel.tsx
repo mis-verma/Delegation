@@ -23,17 +23,11 @@ const MODES: { value: ChecklistResponseMode; title: string; hint: string; icon: 
   { value: 'PER_USER', title: 'One per person', hint: 'Everyone chosen fills in their own copy.', icon: <User size={16} /> },
 ];
 
-// Plain-language name of each response mode, shared with the Review step's "Who fills it" row.
 // eslint-disable-next-line react-refresh/only-export-components
 export const RESPONSE_MODE_TITLE: Record<ChecklistResponseMode, string> = Object.fromEntries(
   MODES.map((m) => [m.value, m.title]),
 ) as Record<ChecklistResponseMode, string>;
 
-// Who fills this checklist in, and how many copies of it there are each time it comes round — real
-// people only. The "Assign by role" chips that used to sit above this were a fixed list of made-up
-// roles (Store Manager, Cashier…) that assigned nobody, so they're gone. Reviewers are their own
-// step (BuilderReviewersPanel).
-// What the choice means in numbers, for the people picked so far, so "how many copies" is not abstract.
 const copiesSummary = (mode: ChecklistResponseMode, people: number, departments: number) => {
   if (people === 0) return 'Pick the people below to see how many copies this makes.';
   if (mode === 'SHARED') return `One copy for each store. ${people} ${people === 1 ? 'person' : 'people'} can fill it; the first to finish completes it for everyone.`;
@@ -43,8 +37,6 @@ const copiesSummary = (mode: ChecklistResponseMode, people: number, departments:
 
 export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange, responseMode, onResponseModeChange, people }: BuilderAssignPanelProps) => {
   const { data: users } = useAssignableUsersQuery(undefined, undefined, storeIds);
-  // Only people the list below still shows count: someone picked for a store that was since
-  // unticked is hidden there, and the server would reject them.
   const { shown, hidden } = splitByVisible(assigneeIds, people.storePersonIds);
   const storePersonIds = people.storePersonIds;
   const { hidden: gone } = splitByVisible(hidden, people.activePersonIds);

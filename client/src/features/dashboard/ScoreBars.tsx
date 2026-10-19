@@ -9,7 +9,6 @@ import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { SeriesLegend } from './SeriesLegend';
 import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
-// A faint lane behind every bar shows how far from 100% it is.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
 
 const MODULES: { key: ModuleKey; name: string }[] = [
@@ -60,7 +59,6 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
   );
 };
 
-// Just the module name. A module with nothing due is shown by its empty outlined bar, not by extra words.
 const ModuleTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) => (
   <g transform={`translate(${x ?? 0},${(y ?? 0) + 6})`}>
     <text textAnchor="middle" dy={12} fill="var(--color-text-secondary)" fontSize={12} fontWeight={700}>{payload?.value ?? ''}</text>
@@ -70,13 +68,9 @@ const ModuleTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { val
 interface ScoreBarsProps {
   scores: Scores | undefined;
   loading: boolean;
-  /** Which measure(s) to draw: Overview is completion beside compliance, the others one on their own. */
   metric?: ScoreMetric;
-  /** The window before this one. When given, the change since then is shown under the chart. */
   previous?: Scores | undefined;
-  /** Tapping a bar opens that module's late items. Left out where there is no list to open. */
   onOpenModule?: (module: ModuleKey) => void;
-  /** Phone only: when no module had anything due, this one line replaces three blank columns. */
   emptyText?: string;
 }
 
@@ -93,12 +87,6 @@ const Delta = ({ label, value }: { label: string; value: number | null }) =>
     </span>
   );
 
-/**
- * Completion, compliance and on-time rate for Checklist, Tickets and Delegations as bars on a fixed 0 to
- * 100 scale, so bars from different windows and people can be compared by eye.
- */
-// Chart margins and axis room, shared by the chart and its loading skeleton so the skeleton's bars
-// stand exactly where the real ones will.
 const CHART_TOP = 22;
 const X_AXIS_HEIGHT = 30;
 const Y_AXIS_WIDTH = 44;
@@ -109,16 +97,12 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
   const series = seriesFor(metric);
-  // One bar per module is allowed to be wider than a pair.
   const barSize = series.length === 1 ? (isMobile ? 64 : 96) : isMobile ? 44 : 64;
-  // A module with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.
   const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
-  // A phone with nothing due anywhere gets one plain line, not three pale columns.
   const allEmpty = isMobile && rows.length > 0 && rows.every((r) => !r.hasData);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
-    // On a phone the figure is the thing to read: bigger and bolder than the 12px module names.
     return (
       <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? 15 : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
         {formatPct(props.value)}
@@ -132,14 +116,10 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Phone: just the bars. The legend chips ("Done", "On time or right") are gone there; the card's ? says
-          what the bars mean, and each bar still carries its number. Wider screens keep the legend. */}
       {!isMobile && <SeriesLegend series={series} labels={SERIES_LABEL} />}
 
-      {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
       <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
         {loading && !scores ? (
-          // Same plot area, bar width and gap as the chart below, so the bars grow in place.
           <div
             className="absolute inset-0 flex"
             style={{ paddingTop: CHART_TOP, paddingBottom: X_AXIS_HEIGHT, paddingLeft: isMobile ? 0 : Y_AXIS_WIDTH + 4, paddingRight: 4 }}
@@ -168,12 +148,8 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   </linearGradient>
                 ))}
               </defs>
-              {/* Every module is always listed: interval 0 stops the axis from dropping labels on a narrow card. */}
               <XAxis dataKey="name" interval={0} height={X_AXIS_HEIGHT} tickLine={false} axisLine={false} tick={<ModuleTick />} />
-              {/* The scale lives in the lanes behind the bars and the numbers on top, so a phone gives the
-                  width to the bars instead of an axis. */}
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={Y_AXIS_WIDTH} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
-              {/* Hover only: on a touch screen a tap opens the module's popup, and a tooltip under it would just repeat it. */}
               {!isMobile && <Tooltip content={<BarTooltip series={series} />} cursor={false} isAnimationActive={false} />}
               {series.map((k, i) => (
                 <Bar
@@ -184,8 +160,6 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   maxBarSize={barSize}
                   background={{ fill: TRACK_FILL, radius: 8 }}
                   animationDuration={500}
-                  // A module with nothing due shows its empty "Nothing due" column; tapping it opened a popup of
-                  // zeros ("0 of 0 runs finished") with two buttons to empty lists, so it just does nothing.
                   onClick={(d: { payload?: Row }) => { if (d.payload?.hasData) onOpenModule?.(d.payload.key); }}
                 >
                   <LabelList dataKey={k} position="top" offset={6} content={renderLabel} />
@@ -201,7 +175,6 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           <li className="t-meta font-display font-bold text-text-secondary">Since last period</li>
           {rowsFor(scores).map((r, i) => {
             const before = rowsFor(previous)[i];
-            // A module with nothing due in either period has nothing to compare; leave it out.
             if (!r.hasData && !before.hasData) return null;
             return (
               <li key={r.key} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">

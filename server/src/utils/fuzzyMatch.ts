@@ -1,6 +1,3 @@
-// Shared by every "match free text from an uploaded file against real records" bulk-import
-// feature (checklist assignments, delegations) — pulled out of checklistBulkImport.service.ts,
-// the first place this logic was written, once a second module needed the identical behavior.
 
 export type MatchConfidence = "exact" | "fuzzy" | "none"
 

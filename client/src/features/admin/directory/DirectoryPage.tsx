@@ -9,7 +9,6 @@ import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 
-// The Org structure view loads on demand: it carries the drag-and-drop tree, which the three lists do not need.
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
 
 const TABS = [
@@ -21,22 +20,14 @@ const TABS = [
 
 type TabValue = (typeof TABS)[number]['value'];
 
-// One home for the three entities that make up the org ladder, plus a fourth view that shows how they
-// fit together as a tree (Org structure used to be its own sidebar page). Each list tab is the existing,
-// self-contained List component as-is.
 const isTabValue = (v: string | null): v is TabValue => TABS.some((t) => t.value === v);
 
-// "42 active, 6 deactivated", or "All active" when nobody is switched off.
 const summarize = (rows: { isActive: boolean }[] | undefined, offWord: string) => {
   if (!rows) return null;
   const off = rows.filter((r) => !r.isActive).length;
   return off > 0 ? `${rows.length - off} active, ${off} ${offWord}` : 'All active';
 };
 
-// Deep-linkable via ?tab= (e.g. the owner-facing dashboard's snapshot tiles jump straight to
-// the Departments/Stores tab instead of always landing on Users). Kept in the URL, not local
-// state, so the link is shareable and survives a refresh. The Users tab keeps its own search and
-// filters in the same query string, so changing tab leaves them untouched.
 export const DirectoryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -68,8 +59,6 @@ export const DirectoryPage = () => {
       <PageHeader icon={Contact} title="People & Teams" subtitle="Add people, place them in departments and stores, and choose what each person can see." />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
-        {/* On a phone the four views share one row as equal segments (icon over a short name), so
-            nothing wraps or gets cut; from sm they become a row of pills with their counts. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <TabsList className="grid w-full grid-cols-4 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
             {TABS.map(({ value, label, short, icon: Icon }) => (

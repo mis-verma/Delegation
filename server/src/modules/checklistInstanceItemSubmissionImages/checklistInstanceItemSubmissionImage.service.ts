@@ -80,7 +80,6 @@ export const checklistInstanceItemSubmissionImageService = {
             await assertSubmissionRunEditable(item.instanceId, user)
         }
 
-        // File stays on disk and the removal is logged — same reasoning as the item-image service.
         await db.delete(checklistInstanceItemSubmissionImages).where(eq(checklistInstanceItemSubmissionImages.id, imageId))
         await auditService.record({
             entityType: "ChecklistInstanceItemSubmissionImage",

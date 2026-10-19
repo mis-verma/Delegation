@@ -5,8 +5,6 @@ import { objectId } from "../../utils/index.js"
 export const createTaskSchema = z.object({
     title : z.string().min(1),
     description : z.string().optional(),
-    // A new delegation starts as a draft or as To do. Anything later (done, waiting for approval) has to be
-    // reached by working it and having it approved, so a create can't skip straight there.
     status : z.enum(["draft", "todo"]).optional(),
     priority : z.enum(TASK_PRIORITIES).optional(),
     startDate : z.string().datetime().optional(),
@@ -17,15 +15,9 @@ export const createTaskSchema = z.object({
     assigneeId : objectId.optional(),
     additionalAssigneeIds : z.array(objectId).optional(),
     departmentId : objectId.optional(),
-    // Labels. Capped so one request can't write an unbounded number of join rows; a delegation
-    // carrying more than a dozen labels isn't labelled, it's noise.
     tagIds : z.array(objectId).max(12).optional(),
-    // Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
-    // MANAGER/HOD within the task's own department). Capped same as tagIds: a hand-picked list,
-    // not the whole org roster.
     reviewerIds : z.array(objectId).max(20).optional()
 });
-
 
 export const confirmSmartTaskSchema = z.object({
     title : z.string().min(1),
@@ -47,50 +39,27 @@ export const confirmSmartTaskSchema = z.object({
 export const listTasksQuerySchema = z.object({
     userId : objectId.optional(),
     status : z.enum(TASK_STATUSES).optional(),
-    // Archived Delegations view — flips the usual "hide soft-deleted rows" filter to "show only
-    // soft-deleted rows" (see task.service.ts#list). Same visibility scope as the live list.
     archived : z.coerce.boolean().optional(),
-    // Verification Queue only — attaches a per-task { total, done, missingPhotos } checklist
-    // rollup to each row via one batched aggregate query, so the queue can show completion status
-    // on a collapsed row without opening it. Opt-in because every other caller of this list (Task
-    // List, Admin Task List, Dashboard) has no use for it and shouldn't pay the extra join.
     checklistSummary : z.coerce.boolean().optional(),
-    // Comma-separated tag ids, matched as OR (a delegation carrying ANY of them). Filtering
-    // server-side rather than in the client means the page's counts stay right — a client-side
-    // tag filter over a truncated page would report the page's tally as the org's.
     tagIds : z.string().optional().transform((v) =>
         v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
     ),
     page : z.coerce.number().int().min(1).optional().default(1),
-    // Capped at 200 (also the default) — high enough that today's usage never notices it, but
-    // still a real ceiling so GET /tasks can't be made to return an unbounded result set.
     limit : z.coerce.number().int().min(1).max(200).optional().default(200),
 })
 
-// GET /tasks/summary. No scope = the sidebar badge's own "mine" (creator, assignee or additional
-// assignee, every category). 'mine' / 'visible' are the dashboard's delegation-only numbers.
 export const taskSummaryQuerySchema = z.object({
     scope : z.enum(["mine", "visible"]).optional(),
 })
 
 export const parseTaskTextSchema = z.object({
-    // Smart Add's free-form input (typed or transcribed) — capped well above any real message so
-    // a malicious caller can't force extractTaskFromText to send a huge payload to the AI provider.
     text : z.string().min(1, "text is required").max(4000),
 })
 
 export const complianceReportQuerySchema = z.object({
-    // 'none' = one bucket named 'range' for the whole from/to window. 'hour' is gone: with no
-    // from/to the server defaults to the last 12 buckets (last 30 days for day), never unbounded.
     groupBy : z.enum(["day", "week", "month", "year", "none"]).default("day"),
     departmentId : objectId.optional(),
-    // Lets an ADMIN/PC drill into one specific person's checklist completion (e.g. the Team
-    // Overview page) — ignored for a non-privileged caller, who's always scoped to themselves
-    // regardless of what's passed here (see task.controller.ts).
     userId : objectId.optional(),
-    // Client sends computeRange()'s toISOString() output — matching createTaskSchema's
-    // startDate/dueDate convention here catches a malformed value as a clean 400 instead of
-    // an Invalid Date silently reaching the raw SQL template in complianceReport().
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional()
 })
@@ -103,21 +72,14 @@ export const taskOwnerStatsQuerySchema = z.object({
 })
 
 export const updateTaskSchema = createTaskSchema.partial().extend({
-    // Every status on update; the service decides which moves are allowed.
     status : z.enum(TASK_STATUSES).optional(),
     assigneeId : objectId.nullable().optional(),
     departmentId : objectId.nullable().optional(),
-    // null clears the date (the detail sheet's "clear" on the due picker); update() already
-    // writes null for a falsy value.
     startDate : z.string().datetime().nullable().optional(),
     dueDate : z.string().datetime().nullable().optional(),
     reminderMinutesBefore : z.number().int().positive().nullable().optional(),
-    // Why the status change is being made. Not a Task column — the service peels it off and writes
-    // it to TaskStatusUpdate. Required (enforced in the service, which is the only place that can
-    // see whether `status` actually differs from what's stored) whenever the status moves.
     statusRemark : z.string().trim().min(1, "A remark is required to change the status.").max(1000).optional(),
 });
-
 
 export const verifyTaskSchema = z.object({
     action : z.enum(["APPROVE", "REJECT"]),

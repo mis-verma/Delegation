@@ -6,9 +6,7 @@ import { cn } from '@/lib/utils';
 export interface ListOption {
   value: string;
   label: string;
-  /** A second, smaller line under the label (a person's department, a code). It is searched too. */
   hint?: string;
-  /** Leading visual: an avatar, a coloured icon tile. */
   lead?: ReactNode;
 }
 
@@ -17,7 +15,6 @@ export interface ListAction {
   label: string;
   icon?: LucideIcon;
   onSelect: () => void;
-  /** Quiet by default; `primary` is for the add/create row. */
   tone?: 'default' | 'primary';
 }
 
@@ -25,21 +22,15 @@ interface OptionListProps {
   options: ListOption[];
   selected: string[];
   onToggle: (value: string) => void;
-  /** Square tick boxes and the list stays open between picks; otherwise a single tick. */
   multiple?: boolean;
-  /** Show the search box. Defaults to on for long lists (more than 7 rows). */
   searchable?: boolean;
   searchPlaceholder?: string;
   emptyText?: string;
   isLoading?: boolean;
-  /** Rows that act instead of pick, after the list. Put a create row ("New label") in
-   *  `topActions` instead, so it is reachable without scrolling a long list. */
   actions?: ListAction[];
-  /** Rows that act instead of pick, above the list ("New category", "Unassigned"). */
   topActions?: ListAction[];
 }
 
-// Past this many rows only the first batch is drawn until the search narrows the list.
 const MAX_ROWS = 80;
 const SEARCH_THRESHOLD = 7;
 
@@ -75,11 +66,6 @@ const ActionRow = ({ action }: { action: ListAction }) => {
   );
 };
 
-/**
- * The list inside a selector's phone sheet: 48px rows a thumb can hit, a search box once the list is
- * long, a clear tick for what is chosen, and room for a lead (avatar or icon) and a hint per row.
- * One component for single and multiple choice so every selector in the app reads the same.
- */
 export const OptionList = ({
   options, selected, onToggle, multiple = false, searchable, searchPlaceholder = 'Search…', emptyText = 'No options', isLoading = false, actions, topActions,
 }: OptionListProps) => {
@@ -97,11 +83,9 @@ export const OptionList = ({
   return (
     <div className="flex flex-col gap-2 min-h-0">
       {showSearch && (
-        // Sticky inside the sheet's scroll area, so the search stays in reach at any scroll depth.
         <div className="sticky top-0 z-10 shrink-0 bg-surface pb-1">
           <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" aria-hidden />
-          {/* 16px on a phone: smaller makes iOS zoom the whole page when the field is focused. */}
           <input
             type="search"
             value={query}
@@ -136,7 +120,6 @@ export const OptionList = ({
                   onClick={() => onToggle(option.value)}
                   className={cn(
                     'flex items-center gap-3 w-full min-h-12 px-3 py-2 rounded-xl text-left text-sm font-display font-medium cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
-                    // Picked rows are neutral: a grey row, bold text and the tick. No blue wash.
                     isSelected
                       ? 'bg-surface-hover text-text font-semibold'
                       : 'text-text hover:bg-surface-hover active:bg-surface-hover',

@@ -21,9 +21,7 @@ const LEADERBOARD_SIZE = 5;
 interface LeaderRow {
   id: string;
   name: string;
-  /** What is under the name: how much was due, since the explorer does not carry the department. */
   subtitle: string;
-  /** The Overall score: the same rule and the same numbers as the Scores page. */
   score: number;
   due: number;
   checklist: number | null;
@@ -32,7 +30,6 @@ interface LeaderRow {
 }
 
 interface TeamLeaderboardRailProps {
-  /** Scopes the leaderboard to the same window the page's date-range control set. */
   from?: string;
   to?: string;
 }
@@ -49,10 +46,6 @@ const LeaderboardRow = memo(({ row, index, href }: { row: LeaderRow; index: numb
 ));
 LeaderboardRow.displayName = 'LeaderboardRow';
 
-// Top 5 people by the Overall score, read from the score explorer (person view, the same cache entry as the Scores
-// page): completion and compliance of every module with something due, counted equally. Needs at least
-// MIN_RANK_VOLUME items due in the window, so one lucky item cannot top the board. A row opens that person on the
-// Scorecard for the same window; See all opens the people on the Scores page.
 export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
   const headingId = useId();
   const navigate = useNavigate();
@@ -65,7 +58,6 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
     const rows: LeaderRow[] = [];
     for (const row of query.data?.rows ?? []) {
       const p = explorerRowToReportRow(row);
-      // Only current people are ranked: not someone who has left, and not the Unassigned row.
       if (p.left || p.id === UNASSIGNED_ROW_ID) continue;
       const due = totalDue(p);
       const score = overallOf(p);
@@ -90,8 +82,6 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
   ];
 
   return (
-    // flex-1, not a natural-height card: this sits in a right rail next to a taller column, and
-    // growing to fill that height keeps the content centred instead of leaving bare page below it.
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} flex flex-1 flex-col gap-4 ${CARD_PAD}`}>
       <SectionHeader
         id={headingId}
@@ -132,7 +122,6 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
           description={`People need at least ${MIN_RANK_VOLUME} checklists, tickets or delegations due in the period.`}
         />
       ) : (
-        // No dim while the next window loads: the old rows stay until the new ones land.
         <div className="flex flex-1 flex-col gap-1">
           {leaderboard.map((row, index) => (
             <LeaderboardRow key={row.id} row={row} index={index} href={scorecardRowHref('person', row.id, dayFrom ?? '', dayTo ?? '')} />

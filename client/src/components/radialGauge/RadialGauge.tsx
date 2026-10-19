@@ -8,38 +8,23 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface RadialGaugeProps {
-  /** 0-100. Values outside that range are clamped. */
   percent: number;
-  /** Pixel width/height of the gauge (it's square). */
   size?: number;
   trackClassName?: string;
   gradientFrom?: string;
   gradientTo?: string;
-  /** Rendered centered inside the arc — the percent label, a trend badge, whatever the caller needs. */
   children?: ReactNode;
   className?: string;
-  /** 'arc' (default) is the 240° speedometer-style gauge every existing caller expects. 'circle'
-   * is a full 360° donut that fills clockwise from the top — used where a complete circular chart
-   * reads better than a gauge with a gap at the bottom. */
   variant?: 'arc' | 'circle';
-  /** Arc only: stroke width in viewBox units (the box is 100 wide). Default 8. */
   thickness?: number;
-  /** Arc only: small tick marks just inside the track, speedometer style. 0 = none. */
   ticks?: number;
-  /** Arc only: a round knob at the end of the fill. */
   showKnob?: boolean;
-  /** Text alternative, e.g. "Done rate 82%, 41 of 50". When given the gauge is exposed as an
-   * image with this label and its children are hidden from assistive tech, so pass the full
-   * reading here. Leave unset when the children already carry readable text. */
   ariaLabel?: string;
 }
 
 export const RadialGauge = ({
   percent,
   size = 220,
-  // Theme token (not raw slate-100) — that hardcoded value never adapted to dark mode and, being
-  // near-white, was barely visible against a light-mode card too. text-border tracks the app's
-  // actual border color, which reads as a clear "background track" ring in both themes.
   trackClassName = 'text-border',
   gradientFrom = 'var(--color-primary-600, #4f46e5)',
   gradientTo = 'var(--color-primary-400, #818cf8)',
@@ -51,33 +36,17 @@ export const RadialGauge = ({
   showKnob = false,
   ariaLabel,
 }: RadialGaugeProps) => {
-  // useId() ids contain colons (":r4a:") — safe as an `id` attribute, but referencing them via
-  // url(#:r4a:-gradient) in `stroke`/`filter` fails to resolve in some browsers, which silently
-  // dropped the colored fill arc and left every gauge showing only its neutral track color.
   const baseId = useId().replace(/:/g, '');
   const gradientId = `${baseId}-gradient`;
-  // Most callers (both compliance gauges, the delegation-score card) pass the same value for
-  // both ends — a single flat tone, not an actual two-color gradient. Forcing those through a
-  // <linearGradient> + url(#id) reference added a second point of failure (id resolution) on top
-  // of the color itself for no visual benefit; a literal stroke color has no id to fail to
-  // resolve. The url()-based gradient is kept only for callers that pass genuinely different
-  // colors (a two-tone arc).
   const isSolidColor = gradientFrom === gradientTo;
 
   const isCircle = variant === 'circle';
   const clampedPercent = Math.min(Math.max(percent, 0), 100);
 
-  // conic-gradient stops can't be smoothly interpolated by a CSS transition — browsers either
-  // snap straight to the new value or repaint it in visibly discrete steps, which is what read as
-  // "laggy/zig-zag" rather than a soft fill. Driving the interpolation ourselves frame-by-frame
-  // (a plain rAF easing loop) is the only way to get a genuinely smooth animated fill here.
   const [animatedPercent, setAnimatedPercent] = useState(clampedPercent);
   const fromRef = useRef(clampedPercent);
   const frameRef = useRef<number | null>(null);
 
-  // This loop is JavaScript, so index.css's prefers-reduced-motion block can't reach it — the
-  // check has to happen here, or the one piece of motion on the page a motion-sensitive user would
-  // most notice (a sweeping 176px ring) is the one piece that ignores their setting.
   const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
@@ -86,9 +55,6 @@ export const RadialGauge = ({
     const to = clampedPercent;
     if (from === to) return;
 
-    // Nothing to animate — `displayPercent` below reads the real value directly under reduced
-    // motion, so the ring lands on it immediately rather than freezing mid-sweep. The ref is still
-    // kept in sync so a later switch back to full motion animates from the right starting point.
     if (prefersReducedMotion) {
       fromRef.current = to;
       return;
@@ -100,7 +66,7 @@ export const RadialGauge = ({
 
     const tick = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - (1 - t) ** 3; // ease-out cubic — quick start, soft landing
+      const eased = 1 - (1 - t) ** 3;
       setAnimatedPercent(from + (to - from) * eased);
       if (t < 1) {
         frameRef.current = requestAnimationFrame(tick);
@@ -127,25 +93,16 @@ export const RadialGauge = ({
     return { circumference: circ, trackLength: track, fillLength: fill };
   }, [displayPercent]);
 
-  // Thicker than the gauge's stroke — a full circle reads as a genuinely "filled" chart at this
-  // weight instead of a thin outline, without going so thick it swallows the centered label.
   const ringThickness = isCircle ? Math.round(size * 0.11) : thickness;
 
   return (
     <div
       role={ariaLabel ? 'img' : undefined}
       aria-label={ariaLabel}
-      // overflow-hidden keeps the arc self-contained: nothing can leak past this box regardless of
-      // what wraps the gauge.
       className={cn("relative shrink-0 flex items-center justify-center overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
       {isCircle ? (
-        // A full circular chart is drawn with a conic-gradient + mask instead of SVG dasharray —
-        // dasharray math for a *closed* loop (dash length equal to the full circumference at 0%
-        // or 100%) hits float-rounding edge cases in some renderers that silently drop the fill
-        // stroke entirely while leaving the track visible. conic-gradient has no such edge case:
-        // the color simply stops at `clampedPercent`, all the way from 0 to 100.
         <div
           className="absolute inset-0 rounded-full"
           style={{
@@ -153,10 +110,6 @@ export const RadialGauge = ({
               displayPercent <= 0
                 ? `var(--color-border)`
                 : `conic-gradient(from 0deg, ${gradientFrom} ${displayPercent}%, var(--color-border) ${displayPercent}% 100%)`,
-            // Both mask stops used to sit at the exact same offset — a zero-width transition, which
-            // some browsers rasterize as a visibly jagged/stepped inner edge (worse at the smaller
-            // 132px mobile size, where each pixel is a bigger share of the ring). A 1px-wide feather
-            // between the stops gives the mask something to actually antialias.
             WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px - 0.5px), #000 calc(100% - ${ringThickness}px + 0.5px))`,
             mask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px - 0.5px), #000 calc(100% - ${ringThickness}px + 0.5px))`,
           }}
@@ -165,10 +118,6 @@ export const RadialGauge = ({
         <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
           {!isSolidColor && (
             <defs>
-              {/* stopColor is a plain SVG presentation attribute, not a CSS property — some browsers
-                  don't resolve a var(...) passed through it the way they would in a style object,
-                  which silently dropped the whole colored arc. Routing it through `style` instead
-                  guarantees real CSS var resolution. */}
               <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" style={{ stopColor: gradientFrom }} />
                 <stop offset="100%" style={{ stopColor: gradientTo }} />
@@ -176,7 +125,6 @@ export const RadialGauge = ({
             </defs>
           )}
 
-          {/* Background Track */}
           <circle
             cx="50"
             cy="50"
@@ -187,18 +135,9 @@ export const RadialGauge = ({
             strokeWidth={ringThickness}
             strokeLinecap="round"
             strokeDasharray={`${trackLength} ${circumference}`}
-            // Rotation goes through the CSS `transform` style, not the SVG `transform` XML
-            // attribute — the attribute form left this circle (and the fill circle below) stuck
-            // permanently unpainted in Chromium once React had re-rendered it even once (e.g. the
-            // very first render with placeholder/loading data, then a second real-data render);
-            // every attribute and computed style still looked correct, only removing the
-            // *attribute*-based transform brought the paint back. `transform-origin` in raw user-
-            // space units (not %) matches what the attribute form's `rotate(150 50 50)` did.
             style={{ transform: 'rotate(150deg)', transformOrigin: '50px 50px' }}
           />
 
-          {/* Active Fill Track — flat colour, no glow. It used to carry a drop-shadow filter; the app
-              has no shadows, and a filter that failed to resolve dropped the whole arc. */}
           {percent > 0 && (
             <circle
               cx="50"
@@ -209,21 +148,14 @@ export const RadialGauge = ({
               strokeLinecap="round"
               strokeDasharray={`${fillLength} ${circumference}`}
               style={{
-                // See the track circle's own comment above — same attribute-vs-style transform
-                // fix, load-bearing here too.
                 transform: 'rotate(150deg)',
                 transformOrigin: '50px 50px',
-                // `stroke` (unlike the SVG-only `stop-color`) is a real, universally-supported CSS
-                // property, so setting it via style is the most reliable way to get a var()-backed
-                // color painted here — no id/url() resolution involved at all for the common
-                // solid-color case.
                 stroke: isSolidColor ? gradientFrom : `url(#${gradientId})`,
               }}
               className="transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] origin-center"
             />
           )}
 
-          {/* Tick marks inside the track: the arc starts at 150deg and sweeps 240deg clockwise. */}
           {ticks > 0 && Array.from({ length: ticks + 1 }).map((_, i) => {
             const angle = ((150 + (240 * i) / ticks) * Math.PI) / 180;
             const r1 = 40 - ringThickness / 2 - 2.5;
@@ -243,7 +175,6 @@ export const RadialGauge = ({
             );
           })}
 
-          {/* Knob riding the end of the fill, so the reading point is obvious at a glance. */}
           {showKnob && percent > 0 && (() => {
             const angle = ((150 + 240 * (displayPercent / 100)) * Math.PI) / 180;
             return (
@@ -260,10 +191,6 @@ export const RadialGauge = ({
         </svg>
       )}
 
-      {/* The 240° arc leaves its gap at the bottom, so centered content reads slightly high unless
-          nudged down — offset scales with size instead of a fixed px value so smaller gauges
-          (e.g. a compact compliance rail) don't get over-shifted relative to their own arc. A full
-          circle has no gap to compensate for, so it stays perfectly centered. */}
       <div
         className="absolute inset-0 flex flex-col items-center justify-center gap-2"
         style={{ paddingTop: isCircle ? 0 : size * (24 / 220) }}

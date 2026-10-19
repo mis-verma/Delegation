@@ -26,7 +26,6 @@ const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', depa
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 
-// Same strip and matrix shapes as the real thing, so the page does not jump when the report lands.
 const ReportSkeleton = () => (
   <>
     <div className={STRIP}>
@@ -58,10 +57,7 @@ const ReportSkeleton = () => (
 );
 
 export const ChecklistWeeklyReport = () => {
-  // Kept fresh: a tab left open past midnight rolls over instead of highlighting yesterday.
   const today = useOrgToday();
-  // A link from a score can open this on one department and period (?departmentId=&period=&offset=).
-  // Read once; after that the pickers on the page own the state.
   const [urlParams] = useSearchParams();
   const [period, setPeriod] = useState<ScorePeriod>(() => {
     const p = urlParams.get('period');
@@ -75,14 +71,10 @@ export const ChecklistWeeklyReport = () => {
   const [departmentId, setDepartmentId] = useState(() => urlParams.get('departmentId') ?? '');
   const [view, setView] = useState<ReportView>('checklists');
   const { user } = useAuth();
-  // Admin and PC pick any department; a department head is always held to their own on the server.
   const canPickDepartment = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery(canPickDepartment);
   const range = windowFor(period, offset, today);
-  // The Stores tab compares every store, and its Store control is hidden, so a store picked earlier must not
-  // narrow it. Every other filter that applies is shown on the page: the Checklists tab has both pickers, the
-  // Departments tab has Store (the department is the row), and a department head's own department is stated below.
   const appliedStoreId = view === 'stores' ? undefined : storeId || undefined;
   const appliedDepartmentId = canPickDepartment ? departmentId || undefined : undefined;
   const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(range.from, range.to, appliedStoreId, appliedDepartmentId);
@@ -96,7 +88,6 @@ export const ChecklistWeeklyReport = () => {
     () => data?.byStore.map(s => ({ id: s.storeId, name: s.storeName, due: s.due, completed: s.completed, missed: s.missed, open: s.open ?? 0, completion: s.completion, compliance: s.compliance, rankable: s.rankable })),
     [data],
   );
-  // A name or figure on a scoreboard opens that group's own checklists in the matrix.
   const openStore = (id: string) => { setStoreId(id); setView('checklists'); };
   const openDepartment = (id: string) => { if (canPickDepartment) setDepartmentId(id); setView('checklists'); };
 
@@ -117,14 +108,12 @@ export const ChecklistWeeklyReport = () => {
   ], [summary]);
 
   const periodWord = PERIOD_LABEL[period].toLowerCase();
-  // The empty window gets the one recovery that fits: drop the filters, else jump back to now.
   const emptyAction = storeId || departmentId
     ? { label: 'Clear filters', onClick: () => { setStoreId(''); setDepartmentId(''); } }
     : offset !== 0
       ? { label: `Go to this ${periodWord}`, onClick: () => setOffset(0) }
       : undefined;
 
-  // The Departments and Stores scoreboards as on screen: best first, level groups sharing a rank.
   const boardItems = view === 'departments' ? departmentItems : storeItems;
   const exportBoard = (): TableRows => {
     const { ranked, winner, rankOf } = rankScoreboard(boardItems);
@@ -134,7 +123,6 @@ export const ChecklistWeeklyReport = () => {
       ...ranked.map((i, idx) => [rankOf(i, idx), i.name, exportPct(i.score), exportPct(i.completion), exportPct(i.compliance), i.due, i.completed, i.missed, i.open, i.rankable ? '' : 'Yes', winners.has(i.id) ? 'Yes' : '']),
     ];
   };
-  // The same matrix in Scores, on the same period and filters (Scores reads the store and department only for Admin and PC).
   const scoresMatrixHref = `/admin/scores?${new URLSearchParams({ view: 'checklist', matrix: '1', from: range.from, to: range.to, ...(appliedStoreId ? { store: appliedStoreId } : {}), ...(appliedDepartmentId ? { dept: appliedDepartmentId } : {}) }).toString()}`;
   const storeName = stores.find((s) => s.id === storeId)?.name;
   const departmentName = canPickDepartment ? departments.find((d) => d.id === departmentId)?.name : undefined;
@@ -245,8 +233,6 @@ export const ChecklistWeeklyReport = () => {
         <EmptyState icon={SearchX} title={`No daily checklists in this ${periodWord}`} description="Try another period, store or department." action={emptyAction} />
       )}
 
-      {/* keepPreviousData holds the old window on screen while the next loads. The numbers are never dimmed: a plain
-          "Updating" line says they are still the previous window's, until the real ones land. */}
       {view === 'checklists' && data && !!rows?.length && (
         <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
           {summary && summary.due + (summary.open ?? 0) > 0 && (

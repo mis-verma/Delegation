@@ -11,8 +11,6 @@ const OPTIONS: { value: 'light' | 'dark' | 'system'; label: string; description:
   { value: 'system', label: 'System', description: 'Matches your device automatically', icon: Monitor },
 ];
 
-// Its own tab rather than folded into Account — a display preference, not part of who the user
-// is. Only choice here for now (no density/font-size controls) since nothing else was asked for.
 export const AppearanceSettings = () => {
   const { preference, setPreference } = useTheme();
   const [vibration, setVibration] = useHapticsEnabled();
@@ -39,7 +37,6 @@ export const AppearanceSettings = () => {
                   selected ? 'border-primary-500 bg-primary-500/5' : 'border-border hover:border-primary-300'
                 }`}
               >
-                {/* A small picture of each theme, in that theme's own colours. */}
                 <span aria-hidden="true" className="relative flex h-12 sm:h-16 overflow-hidden rounded-lg border border-border/60">
                   {value !== 'dark' && (
                     <span className="flex flex-1 flex-col gap-1.5 p-2" style={{ background: '#f5f7fb' }}>

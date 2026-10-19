@@ -8,9 +8,6 @@ import { dropUntouchedDailyRunsOn, previewDailyRunsOn } from "../../jobs/checkli
 import { orgLocalDate } from "../checklistInstances/checklistReportRange.js"
 import type { CreateHolidayInput } from "./holiday.validation.js"
 
-// Company-wide days off. The generator reads the table directly (checklistInstanceGenerator.job.ts's
-// isHoliday) so no run is created on these dates; adding one here also clears that day's runs that
-// nobody has started, so the day can't drag a score down.
 export const holidayService = {
     async list(year?: number) {
         const where = year ? like(holidays.date, `${year}-%`) : undefined
@@ -30,8 +27,6 @@ export const holidayService = {
         return { holiday, removedRuns }
     },
 
-    // Several at once; dates that are already holidays are skipped, not errors, so pressing "add the
-    // national holidays" twice is harmless.
     async createMany(entries: CreateHolidayInput[], actorId: string) {
         const unique = [...new Map(entries.map((e) => [e.date, e])).values()]
         const taken = new Set(
@@ -49,16 +44,10 @@ export const holidayService = {
         return { created: fresh.length, skipped: unique.length - fresh.length, removedRuns }
     },
 
-    // Dry run for the "add a holiday" confirmation: how many of that day's daily runs nobody has started
-    // (adding the holiday removes these, from history too when the date is in the past) and how many
-    // someone has started (these stay). Writes nothing.
     async preview(date: string) {
         return previewDailyRunsOn(date)
     },
 
-    // `backfilled` tells the client what to promise: the generator only creates runs for today, never
-    // for days gone by, so removing a past holiday does not bring its runs back (false); removing
-    // today's or a future one lets the next sweep generate the run again (true).
     async remove(id: string, actorId: string) {
         const [holiday] = await db.select().from(holidays).where(eq(holidays.id, id)).limit(1)
         if (!holiday) throw AppError.notFound("Holiday not found")

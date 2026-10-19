@@ -13,19 +13,11 @@ import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceRowProps {
   instance: ChecklistInstance;
-  /**
-   * Pass to render the History layout: the checklist title leads, with its store and day beneath
-   * and a progress bar below. Without it this is the per-definition row (period range first),
-   * used in ChecklistDefinitionDetail's To do / In progress / Completed groups. An empty string
-   * means the store is still loading: the History layout renders without a store label yet.
-   */
   storeName?: string;
 }
 
 const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40');
 
-// One row in ChecklistDefinitionDetail's grouped instance list and in the History checklists tab.
-// The row-view sibling of ChecklistInstanceCard (used by MyChecklists' grid instead).
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
   const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate } = getInstanceView(instance);
 
@@ -89,10 +81,6 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         </div>
       </div>
 
-      {/* This trailing slot never wraps away, unlike the chip cluster above: overdue is the one
-          status a scanning admin should never miss, so it gets first claim on it. generatedAt (a
-          real timestamp, rendered in the viewer's own local time zone per checklistDisplay.ts's
-          convention) is the fallback when there's nothing more urgent to show. */}
       {overdue ? (
         <span className="shrink-0"><StatusChip status="overdue" /></span>
       ) : (

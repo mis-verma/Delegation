@@ -2,29 +2,19 @@ import { useId, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface SemiGaugeProps {
-  /** 0-100. Values outside that range are clamped. */
   percent: number;
-  /** Draws the filled part. Off for "no data", so only the empty track shows. */
   showFill?: boolean;
   gradientFrom?: string;
   gradientTo?: string;
-  /** Sits inside the arc, bottom centre: the big number, a trend badge, whatever the caller needs. */
   children?: ReactNode;
   className?: string;
   ariaLabel?: string;
-  /** The small 0 and 100 under the arc ends. Off for a gauge too small to read them (they scale with it). */
   endLabels?: boolean;
 }
 
-// The arc runs from the left end over the top to the right end, radius 85 inside a 200 x 108 box.
 const ARC = 'M 15 100 A 85 85 0 0 1 185 100';
 const TICKS = 10;
 
-/**
- * A half-circle (180 degree) gauge that fills the width it is given. It is drawn in SVG with
- * pathLength=100, so the fill is a plain dash and the knob a rotation, both of which animate with
- * a CSS transition (no JS loop). The aspect ratio is fixed, so the height follows the width.
- */
 export const SemiGauge = ({
   percent,
   showFill = true,
@@ -49,7 +39,6 @@ export const SemiGauge = ({
           </linearGradient>
         </defs>
 
-        {/* Tick marks just inside the track, a longer one every 25%. */}
         {Array.from({ length: TICKS + 1 }).map((_, i) => {
           const angle = Math.PI - (Math.PI * i) / TICKS;
           const major = i % (TICKS / 2) === 0;
@@ -86,7 +75,6 @@ export const SemiGauge = ({
           />
         )}
 
-        {/* The knob starts at the left end and swings clockwise with the reading. */}
         {filled && (
           <g
             style={{ transform: `rotate(${1.8 * clamped}deg)`, transformOrigin: '100px 100px' }}
@@ -96,7 +84,6 @@ export const SemiGauge = ({
           </g>
         )}
 
-        {/* The end values sit inside the arc, just above the baseline, not under its tips. */}
         {endLabels && (
           <>
             <text x="44" y="97" textAnchor="middle" className="fill-text-light" fontSize="7" fontWeight="600">0</text>

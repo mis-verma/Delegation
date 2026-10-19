@@ -37,31 +37,17 @@ import { readQuickFilterParam } from "../../lib/readQuickFilterParam";
 
 const QUICK_FILTER_VALUES = ["pending", "completed", "due", "delayed"] as const;
 
-// Module scope so the array is referentially stable — ViewToggle is a plain component but the
-// controls band re-renders on every filter keystroke, and rebuilding this per render is the same
-// wasted work as TicketList's `new Map(departments)`.
 const VIEW_TABS: ViewTab<TaskViewKey>[] = TASK_VIEWS.map((key) => ({
   key,
   label: TASK_VIEW_LABEL[key],
   icon: TASK_VIEW_ICON[key],
-  // Table/Timeline are dense, many-column layouts that need real width — hidden below `sm`,
-  // same as Tickets' own view toggle. Board and List stay available at every size.
-  // Phones get the card list only — Board's columns run off the screen edge, and Table/Timeline
-  // need width a phone doesn't have. ViewToggle falls back to List if one of these is active.
   mobileHidden: key !== 'list',
 }));
 
 interface TaskListProps {
   userId?: string;
   hideHeader?: boolean;
-  /** Locks the page to exactly one category bucket (Smart Delegations' AI-only view uses
-   *  'delegation', which CATEGORY_PREDICATES already defines as "delegation category + aiMeta
-   *  present" — i.e. actually created through the AI, not just typed into the New Task form).
-   *  With this set: the Category row disappears from Options (nothing left to pick), the URL
-   *  never carries `category=`, "Clear all filters" can't wipe it back to All, and it isn't
-   *  listed as an active-filter chip since it was never a filter the viewer applied. */
   lockCategory?: CategoryFilterKey;
-  /** Overrides the sr-only page title and empty-state copy for a locked page. */
   title?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -99,11 +85,6 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
   return fromUrl;
 };
 
-// `lockCategory` scopes the key too — otherwise Smart Delegations (locked to `category:
-// 'delegation'`) and the main Delegation page would read and write the exact same
-// `task-filters:<userId>` entry. Category gets forced back regardless (see `withLock` below), but
-// "Save view" on the locked page would otherwise silently overwrite the main page's saved status/
-// priority/etc. the next time it loads there too.
 const filtersStorageKey = (userId?: string, lockCategory?: CategoryFilterKey) =>
   `task-filters:${userId ?? 'anon'}${lockCategory ? `:${lockCategory}` : ''}`;
 
@@ -121,15 +102,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const [showOptions, setShowOptions] = useState(false);
   const [selected, setSelected] = useState<{ task: Task; mode: 'view' | 'edit' } | null>(null);
 
-  // Pins `category` to `lockCategory` no matter what the URL, localStorage, or a stray
-  // `updateFilters` patch says — the one thing that makes a locked page locked.
   const withLock = useCallback(
     (f: TaskFilters): TaskFilters => (lockCategory ? { ...f, category: lockCategory } : f),
     [lockCategory],
   );
 
-  // Declared before the queries below because one of these filters — tagIds — is applied by the
-  // server, so it feeds the tasks request and its cache key rather than filtering the result.
   const [filters, setFilters] = useState<TaskFilters>(() => {
     const fromUrl = filtersFromUrl(searchParams);
     if (Object.keys(fromUrl).length) return withLock({ ...DEFAULT_FILTERS, ...fromUrl });
@@ -145,15 +122,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         return withLock({ ...DEFAULT_FILTERS, ...saved });
       }
     } catch {
-      // Corrupt/unavailable localStorage
     }
     return withLock(DEFAULT_FILTERS);
   });
 
   const { data: tasks, isPending, isError, refetch: refetchTasks } = useTasksQuery(userId, true, filters.tagIds);
-  // Shares useTasksQuery's cache entry — no extra request. The list now reads every page, so this
-  // only matters past the hook's safety stop (MAX_LIST_PAGES), where the counts would otherwise
-  // describe a cut-down list without saying so.
   const { data: listMeta } = useTasksMetaQuery(userId, true, filters.tagIds);
   const { data: tags } = useTagsQuery();
   const { data: assignableUsers } = useAssignableUsersQuery();
@@ -182,7 +155,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     setSelected({ task, mode });
     const notificationId = unreadAssignmentByTaskId.get(task.id);
     if (notificationId) markNotificationRead.mutate(notificationId);
-    // markNotificationRead is a stable mutation object from React Query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unreadAssignmentByTaskId]);
 
@@ -190,13 +162,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     const openId = searchParams.get('open');
     if (!openId || !tasks) return;
     const match = tasks.find(t => t.id === openId);
-    // Syncing from an external system (the URL, set by a notification click elsewhere) into local
-    // state, not reacting to React state — and the param is stripped right after, so this only
-    // ever fires once per navigation instead of looping.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) handleOpen(match);
-    // Not in the loaded list (just created and the refetch hasn't landed, or a draft, which the list
-    // never carries): fetch that one delegation instead of silently doing nothing.
     else {
       queryClient.fetchQuery(taskDetailQueryOptions(openId))
         .then((task) => handleOpen(task))
@@ -210,10 +177,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, tasks]);
 
-  // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
-  // route of its own to land on (the form opens from local state, not a route), so it deep-links
-  // here instead and this effect is what actually opens the form on arrival. Always the ordinary
-  // New delegation form, for every role; Smart Add is one tap away in the button's menu.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -239,8 +202,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const [sort, setSort] = useState<TaskSortKey>('dueDate');
   const [boardGroupBy, setBoardGroupBy] = useState<BoardGroupBy>('status');
 
-  // Which layout renders the list. Read from ?view= first so a shared or bookmarked link opens in
-  // the view it was sent in, exactly like the filters above; otherwise the per-viewport default.
   const [view, setView] = useState<TaskViewKey>(() => {
     const fromUrl = searchParams.get('view');
     return isTaskViewKey(fromUrl) ? fromUrl : defaultTaskView(isMobile);
@@ -250,8 +211,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     setView(next);
     setSearchParams(prev => {
       const params = new URLSearchParams(prev);
-      // The viewport default isn't worth a URL param — leaving it out keeps a plain /tasks link
-      // adapting to whatever device opens it.
       if (next === defaultTaskView(isMobile)) params.delete('view');
       else params.set('view', next);
       return params;
@@ -267,8 +226,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const syncFiltersToUrl = (next: TaskFilters) => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev);
-      // A locked page never carries `category=` in its URL at all — there's nothing to bookmark
-      // or share differently, since every visit to this route is already scoped to it.
       if (lockCategory) {
         params.delete('category');
       } else if (next.category !== 'all') params.set('category', next.category); else params.delete('category');
@@ -289,22 +246,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         localStorage.setItem(key, JSON.stringify(next));
       }
     } catch {
-      // Ignore
     }
   };
 
-  // A delegation carries a departmentId, never a storeId — the store is one hop further out, on
-  // the department. This is that hop, resolved once instead of per task per render.
   const departmentStoreId = useMemo(
     () => new Map((departments ?? []).map(d => [d.id, d.storeId])),
     [departments],
   );
   const updateFilters = (patch: Partial<TaskFilters>) => {
     const next = withLock({ ...filters, ...patch });
-    // Switching store while a department belonging to the OLD store is still selected leaves a
-    // filter pair that can never match anything. This lived in the store box's own onSelect while
-    // Store was a toolbar control; it belongs here now that the Store row inside Options sets the
-    // same field, so the rule holds no matter which control changed it.
     if (patch.storeId !== undefined && next.departmentId && next.storeId
       && departmentStoreId.get(next.departmentId) !== next.storeId) {
       next.departmentId = '';
@@ -326,15 +276,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     setQuickFilter((prev) => (prev === key ? null : key));
   };
 
-  // Quick ownership tabs — tapping the active one again clears back to "everyone", same
-  // toggle-off behavior as the quick-stat tiles above.
   const isAssignedToMe = !!user && filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id;
   const isAssignedByMe = !!user && filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id;
-  // Everyone / Assigned to me / Assigned by me: in the Options sheet on bigger screens, as two pills on a phone.
   const scope: { value: TaskScopeKey; onChange: (next: TaskScopeKey) => void } | undefined = !userId && user ? {
     value: isAssignedToMe ? 'mine' : isAssignedByMe ? 'byMe' : 'all',
-    // One patch for both fields — updateFilters reads `filters` from this render, so
-    // two back-to-back calls would have the second overwrite the first.
     onChange: (next) => updateFilters({
       assigneeIds: next === 'mine' ? [user.id] : isAssignedToMe ? [] : filters.assigneeIds,
       raisedByIds: next === 'byMe' ? [user.id] : isAssignedByMe ? [] : filters.raisedByIds,
@@ -350,8 +295,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     }
   };
 
-  // Both are passed straight to the board/list; rebuilding them each render gave those children a
-  // new prop identity every time and defeated any memoisation downstream.
   const assigneeNames = useMemo(
     () => new Map((assignableUsers ?? []).map(u => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])),
     [assignableUsers],
@@ -360,8 +303,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments],
   );
-  // Only for resolving the active-filter chip's label — the views read each delegation's own
-  // `tags` array, which the server already returns with names attached.
   const tagNames = useMemo(
     () => new Map((tags ?? []).map(t => [t.id, t.name])),
     [tags],
@@ -371,8 +312,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     [stores],
   );
 
-  // Narrowed by the store box beside it: with a store picked, the department list is that store's
-  // departments only — offering the rest would let you build a combination that can never match.
   const departmentOptions = useMemo(
     () => (departments ?? [])
       .filter(d => d.isActive && (!filters.storeId || d.storeId === filters.storeId))
@@ -381,9 +320,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   );
 
   const mineOnly = searchParams.get('mine') === '1';
-  // Opened from a chart bar: only delegations created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
-  // Opened from a score: only delegations due in that window, finished late or not done (department, store and people come from the filters).
   const scoreDrill = useScoreDrill(false);
   const mineFiltered = useMemo(() => {
     const everything = tasks ?? [];
@@ -394,10 +331,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return scoreDrill.active ? created.filter(t => taskMatchesDrill(scoreDrill, t)) : created;
   }, [tasks, mineOnly, user, createdRange, scoreDrill]);
 
-  // The store box sits above the stat tiles and scopes the page, so it's applied before the counts
-  // are taken — otherwise picking a store would narrow the board while the tiles above it kept
-  // reporting company-wide numbers. "Assigned to me" / "Created by me" scope the page the same way:
-  // the tiles count only that side, as on Tickets.
   const scopeFiltered = useMemo(() => {
     const inStore = !filters.storeId
       ? mineFiltered
@@ -408,9 +341,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return inStore;
   }, [mineFiltered, filters.storeId, departmentStoreId, user, isAssignedToMe, isAssignedByMe]);
 
-  // The whole narrowing chain in one memo. Previously these were eight separate array passes run on
-  // every render, and — more importantly — each produced a fresh array, so `sorted` below could
-  // never be stable and the board re-rendered its entire card grid on any state change at all.
   const filtered = useMemo(() => {
     const categoryFiltered = scopeFiltered.filter(CATEGORY_PREDICATES[filters.category]);
     const priorityFiltered = filters.priority.length === 0 ? categoryFiltered : categoryFiltered.filter(t => filters.priority.includes(t.priority));
@@ -425,9 +355,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return quickFilter ? statusFiltered.filter(QUICK_FILTER_PREDICATES[quickFilter]) : statusFiltered;
   }, [scopeFiltered, filters, quickFilter]);
 
-  // Left unmemoised on purpose: "due" vs "delayed" is decided against the clock, so freezing these
-  // behind a dependency array would let a tile keep saying "due" after the deadline had passed.
-  // Four passes over an already-narrowed array is not what was making this page slow.
   const quickCounts = {
     pending: scopeFiltered.filter(QUICK_FILTER_PREDICATES.pending).length,
     completed: scopeFiltered.filter(QUICK_FILTER_PREDICATES.completed).length,
@@ -435,25 +362,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     delayed: scopeFiltered.filter(QUICK_FILTER_PREDICATES.delayed).length,
   };
 
-  // Copy-and-sort on every render handed the board a new array each time. Memoised on the filtered
-  // result and the sort key, so it only changes when one of those actually does.
   const sorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
 
-  // `scope`: the chip only repeats the phone's Assigned to me / Created by me switch, so it is hidden there.
   const activeChips: { key: string; label: string; onClear: () => void; scope?: boolean }[] = [
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
-    // Never shown on a locked page — the category there isn't something the viewer chose and
-    // can clear, it's what the page is.
     ...(!lockCategory && filters.category !== 'all' ? [{ key: 'category', label: `Category: ${filters.category === 'task' ? 'Direct Task' : filters.category === 'issue' ? 'Issues' : 'Delegations'}`, onClear: () => updateFilters({ category: 'all' }) }] : []),
     ...(filters.priority.length > 0 ? [{
       key: 'priority',
       label: `Priority: ${filters.priority.map(p => PRIORITY_MAP[p].label).join(', ')}`,
       onClear: () => updateFilters({ priority: [] }),
     }] : []),
-    // Store and Department DO get chips now. They used to be permanent boxes in the toolbar that
-    // stated their own selection, which made a chip a duplicate; as rows inside Options their
-    // selection is invisible while the dialog is closed, so the chip is the only thing telling
-    // you the page is scoped.
     ...(filters.storeId ? [{
       key: 'storeId',
       label: `Store: ${storeOptions.find(s => s.id === filters.storeId)?.name ?? 'Unknown'}`,
@@ -482,8 +400,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     }] : []),
     ...(filters.tagIds.length > 0 ? [{
       key: 'tagIds',
-      // Names, not a count, while there's room — a label filter is only useful if you can see
-      // which labels are on.
       label: filters.tagIds.length <= 2
         ? `Labels: ${filters.tagIds.map(id => tagNames.get(id) ?? 'Unknown').join(', ')}`
         : `Labels: ${filters.tagIds.length}`,
@@ -491,22 +407,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     }] : []),
   ];
 
-  // Store and Department are chips now, so they're already counted — adding them again would
-  // double-count and show "2" on the Options badge for one selected store.
   const activeCount = activeChips.length;
 
   const isEmpty = sorted.length === 0;
   const isFiltered = activeCount > 0 || quickFilter !== null;
 
-  // Pulled out of the header markup so the `hideHeader` case (this list embedded in another page,
-  // which supplies its own title) can render the same controls without a second copy of them.
   const headerActions = (
     <>
           
             {!userId && (
               <>
-                {/* One plain primary button that opens the form straight away. Admin/PC get a small
-                    chevron beside it for the other two ways to create (Smart Add, Bulk import). */}
                 <div className="hidden md:flex items-center gap-1">
                   <Button variant="primary" size="sm" onClick={() => setShowForm(true)} className="font-display">
                     <Plus size={14} strokeWidth={2.5} />
@@ -541,8 +451,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                   sheetTitle="Create"
                   actions={[
                     { key: 'new', label: 'New delegation', description: 'Give someone a piece of work', icon: Plus, onClick: () => setShowForm(true) },
-                    // Verifier-only, like Bulk import: a disabled entry with a "Soon" badge was a
-                    // dead button in every regular user's menu.
                     ...(isVerifier ? [
                       { key: 'smart', label: 'Smart Add', description: 'Type or say it, the details fill in', icon: Wand2, onClick: () => setShowSmartModal(true) },
                       { key: 'bulk-import', label: 'Bulk import', description: 'Add many from an Excel sheet', icon: Upload, onClick: () => setShowBulkImport(true) },
@@ -553,8 +461,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             )}
 
       
-            {/* On a phone only managers and up get Options (filters, sort, export); front-line staff
-                see just their own work, which the scope pills already cover. */}
             <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TaskOptionsDialog
               isOpen={showOptions}
@@ -610,16 +516,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
       
         <div className="flex items-center gap-3 flex-wrap">
-          {/* View lives in the toolbar, not inside Options. It changes what the whole page looks
-              like, so it reads as a place you are rather than a setting you went and configured —
-              and unlike every other control here it isn't a way of narrowing the list. */}
-          {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
-              effect is what switches a Board/Table/Timeline view back to List on a narrow screen. */}
           <div className="hidden sm:block">
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} storageKey={`view:tasks:${user?.id ?? "anon"}`} />
           </div>
 
-          {/* On a phone the chips get their own row under the switch and filter button, instead of squeezing the switch. */}
           {activeChips.length > 0 && (
             <div className={`flex items-center gap-2 flex-wrap min-w-0 max-sm:order-last max-sm:basis-full ${activeChips.every(c => c.scope) ? 'max-sm:hidden' : ''}`}>
               {activeChips.map(chip => (
@@ -653,8 +553,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
        
 
-          {/* Only when the list stopped short of everything (the hook's page cap). Said in plain
-              visible words, not a tooltip, since the tiles above count only what loaded. */}
           {listMeta?.hasNext && (
             <span className="t-meta font-semibold tracking-tight text-warning tabular-nums">
               Showing the newest {listMeta.limit} of {listMeta.total}. Counts above cover these only.
@@ -662,11 +560,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           )}
 
         
-          {/* Sort, Store and Department all live inside Options now, so the toolbar's right side
-              is just the primary actions. `sm:ml-auto`, not a bare `ml-auto` — the Create button
-              inside `headerActions` is `hidden md:block`, so on mobile this only ever holds
-              Options, and an unconditional auto-margin pushed that one pill hard right, leaving a
-              dead gap in front of it. */}
           {scope && (
             <PhoneScopeSwitch
               options={[{ value: 'mine', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck }, { value: 'byMe', label: 'Created by me', shortLabel: 'By me', icon: PenLine }]}
@@ -682,7 +575,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         </div>
       </div>
 
-      {/* Phones only ever show the List view, so their skeleton is list rows, not board columns. */}
       {isPending && (
         <ul className="sm:hidden flex flex-col gap-3" aria-hidden>
           {Array.from({ length: 5 }).map((_, i) => (
@@ -727,13 +619,9 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       )}
 
       {!isPending && !isError && isEmpty && (
-        // Phones get the compact one-line version: the full icon + heading + paragraph block took
-        // most of the screen to say "nothing here".
-        // A picked quick-stat tile narrows the list just like a filter does, so it counts as one here.
         <EmptyState
           icon={Inbox}
           size={isMobile ? 'compact' : undefined}
-          // Only the scope switch on: say which side is empty rather than blaming "filters".
           title={isFiltered && activeChips.every(c => c.scope) && quickFilter === null
             ? (isAssignedToMe ? 'Nothing assigned to you' : 'You have not created any delegations')
             : isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}
@@ -747,9 +635,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     
       {!isPending && !isError && !isEmpty && (
         <div className="pb-12">
-          {/* All four views receive the same already-scoped, already-filtered, already-sorted
-              `sorted` array and the same field visibility — a view is a layout, never its own
-              query or its own filter logic. */}
           {view === 'list' && (
             <TaskListView
               tasks={sorted}

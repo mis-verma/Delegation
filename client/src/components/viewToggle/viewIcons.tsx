@@ -3,7 +3,6 @@ import type { ComponentType, SVGProps } from 'react';
 export interface ViewIconProps {
   size?: number;
   className?: string;
-  /** Accepted so a line icon and these are interchangeable; solid shapes have no stroke. */
   strokeWidth?: number;
 }
 
@@ -14,10 +13,6 @@ const Solid = ({ size = 16, className, children, ...rest }: ViewIconProps & { ch
     {children}
   </svg>
 );
-
-// One solid glyph per kind of view, drawn on the same 24px grid with the same corner radius, so a
-// row of them reads as a set. They are shapes that look like what they open: columns of cards,
-// rows of lines, a grid with a header, bars on a time axis.
 
 export const BoardViewIcon: ViewIcon = (p) => (
   <Solid {...p}>

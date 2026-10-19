@@ -14,8 +14,6 @@ const TARGET_LABEL: Record<ChecklistTemplate['appliesTo'], string> = {
   TICKET: 'Tickets',
 };
 
-// Optional shortcut, so one quiet row rather than a tinted card competing with the questions:
-// picking a template copies its steps in as questions (each still editable afterwards).
 export const ImportFromTemplateField = ({ templates, onImport, className = '' }: ImportFromTemplateFieldProps) => {
   const options = useMemo<ComboboxOption[]>(
     () =>
@@ -37,8 +35,6 @@ export const ImportFromTemplateField = ({ templates, onImport, className = '' }:
         </span>
         Start from a template
       </label>
-      {/* Always shows its placeholder (value stays empty): picking one is an action that copies the
-          steps in, not a setting that stays selected. */}
       <div className="w-full sm:max-w-sm">
         <Combobox
           id="import-from-template"

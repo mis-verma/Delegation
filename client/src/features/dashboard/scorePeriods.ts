@@ -1,15 +1,11 @@
 import { bucketKeyFor } from './dashboardDisplay';
 
-// The calendar windows the Scores card and the report exports both offer.
 export type ScorePeriod = 'day' | 'week' | 'month' | 'quarter' | 'year';
 export const PERIODS: readonly ScorePeriod[] = ['day', 'week', 'month', 'quarter', 'year'];
 export const PERIOD_LABEL: Record<ScorePeriod, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// The calendar window a period tab means, first day to last day (both included), `offset` periods back.
-// `todayKey` ('YYYY-MM-DD') is the org's calendar day. Without it the device's own clock decides, which near
-// midnight or in another time zone names a different week than the server's.
 export const windowFor = (period: ScorePeriod, offset: number, todayKey?: string) => {
   const parts = todayKey?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const now = parts ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])) : new Date();

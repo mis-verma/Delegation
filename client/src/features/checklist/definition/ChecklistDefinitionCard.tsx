@@ -16,13 +16,8 @@ import type { ChecklistDefinition, ChecklistItemType } from '../../../api/checkl
 
 interface ChecklistDefinitionCardProps {
   definition: ChecklistDefinition;
-  /** Bulk-select mode (ADMIN/PC only, toggled from the grid) — while on, the whole card selects
-   *  instead of opening, and the pause/edit/delete actions step aside for a checkbox so a click
-   *  in this mode can't accidentally trigger one of those instead. */
   selectionMode?: boolean;
   selected?: boolean;
-  /** Takes the definition id so the grid can pass one stable callback to every card (the card is
-   *  memoized; an inline arrow per card would defeat that). */
   onToggleSelected?: (id: string) => void;
 }
 
@@ -44,7 +39,6 @@ const TAG_ICON_BY_LABEL: Record<string, LucideIcon> = {
   'QR scan': ScanLine,
 };
 
-// Org-local (India) calendar days, same as the generator — true when the first run is still ahead.
 const startsAfterToday = (startDate: string) => orgDayKey(new Date(startDate).getTime()) > orgDayKey(Date.now());
 
 const cardTags = (definition: ChecklistDefinition) => {
@@ -58,17 +52,9 @@ const cardTags = (definition: ChecklistDefinition) => {
 
 const TITLE_CLASS = 'font-display text-base font-bold text-text leading-snug line-clamp-2';
 
-// Stretched-link pattern: the title is the card's one real link (or, in select mode, its one real
-// toggle button) and its ::after covers the whole card, so the card is clickable with the mouse and
-// reachable by keyboard without wrapping the Pause/Edit/Delete buttons in another interactive
-// element. The actions sit above it (relative z-10).
 const STRETCH_CLASS =
   'text-left outline-none cursor-pointer after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/40';
 
-// Card in the Templates grid — built from the same EntityIconTile/StatusPill/EntityCardActions kit
-// the Users/Departments/Stores cards use, so pause and delete work right from the grid without
-// opening the detail page, while keeping this card's own richer content (recurrence, tags,
-// completion bars) that a plain EntityCard has no slot for.
 export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
   definition,
   selectionMode = false,
@@ -77,7 +63,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 }: ChecklistDefinitionCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // ADMIN and PC manage checklists alike (the server allows both for every operation here).
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const confirm = useConfirm();
   const setActiveMutation = useSetChecklistDefinitionActiveMutation();
@@ -85,7 +70,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 
   const Icon = CHECKLIST_ICON_MAP[definition.icon];
   const tags = useMemo(() => cardTags(definition), [definition]);
-  // Working days, not the retired role label (a made-up role that assigned nobody).
   const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
   const { id, name, completionRate, qualityRate, issueRate } = definition;
   const state = definitionState(definition);
@@ -95,8 +79,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
   const handleToggleSelected = useCallback(() => onToggleSelected?.(id), [onToggleSelected, id]);
 
   const handleDelete = async () => {
-    // Soft delete (kept for audit history), but the checklist and its runs disappear from every
-    // view the moment this happens, which is what this copy promises.
     const ok = await confirm({
       title: `Delete "${name}"?`,
       description: 'This checklist and every run tied to it will disappear from the app: My Checklists, Compliance, the Dashboard, everywhere.',
@@ -139,12 +121,8 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           <ChecklistIconTile icon={Icon} name={name} />
         )}
 
-        {/* Sits above the stretched title link (z-10), so these stay individually clickable and
-            reachable by keyboard. Hidden entirely in selection mode so a stray tap cannot
-            pause/edit/delete instead of just selecting the card. */}
         {selectionMode ? null : canManage ? (
           <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
-            {/* A real switch instead of the old dot pill: on = running, off = paused. */}
             {state === 'draft' ? (
               <div className="flex items-center gap-2 min-h-11 sm:min-h-9">
                 <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" className="max-sm:hidden" />
@@ -212,8 +190,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         <p className="text-xs font-display text-text-muted leading-snug">{meta}</p>
       </div>
 
-      {/* Who it is for: the departments of the people assigned, then (only when it is not one shared
-          checklist) who answers. */}
       {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
         <div className="flex flex-wrap gap-1.5">
           {definition.assigneeIds.length === 0 && (
@@ -237,8 +213,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         </ul>
       )}
 
-      {/* mt-auto pins the metrics to the card bottom, so cards in one grid row line up whatever
-          their title or chip rows add above. */}
       {hasRuns ? (
         <div className="flex flex-col gap-3 pt-3.5 mt-auto border-t border-border/60">
           <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
@@ -258,8 +232,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
               {issueRate !== null && issueRate > 0 && <Stat label="Flagged" value={issueRate} tone={smallInverseRateToneClass(issueRate)} />}
             </div>
           </div>
-          {/* Today's fill is plain progress (green once done); the all-time bar is coloured by how
-              good the rate is, so it stays a hand-built track. */}
           {definition.currentRate !== null ? (
             <ChecklistProgressBar done={definition.currentRate} total={100} bare thin />
           ) : (
@@ -272,7 +244,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           )}
         </div>
       ) : (
-        // A future start date is the most common reason for "no runs": say so right here.
         <p className="mt-auto pt-3.5 border-t border-border/60 text-xs font-display text-text-muted">
           {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
         </p>

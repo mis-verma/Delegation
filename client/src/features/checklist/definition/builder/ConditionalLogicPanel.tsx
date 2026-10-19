@@ -24,8 +24,6 @@ interface ConditionalLogicPanelProps {
   className?: string;
 }
 
-// One sentence per answer: "If No → [Needs a photo] [Ask why] …". Both answers' action sets are
-// independent (ChecklistDefinitionItem.yesActions/noActions), so each row toggles its own chips.
 const RuleRow = ({
   answer,
   tone,
@@ -75,8 +73,6 @@ export const ConditionalLogicPanel = ({
 }: ConditionalLogicPanelProps) => {
   const labels = TRIGGER_LABELS[itemType];
   const activeCount = yesActions.length + noActions.length;
-  // Opens by itself when the question already has rules; otherwise one quiet button keeps the card
-  // short until an admin actually wants a rule.
   const [open, setOpen] = useState(activeCount > 0);
 
   if (!open) {

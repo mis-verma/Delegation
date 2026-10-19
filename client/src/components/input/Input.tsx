@@ -55,7 +55,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           </label>
         )}
 
-        {/* Input Container */}
         <div className="relative flex items-center group">
           <input
             id={id}
@@ -63,8 +62,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             aria-describedby={errorId}
             className={cn(
-              // 14px everywhere, the same as the rest of the form text. iPhone Safari would zoom into a field under 16px;
-              // index.html stops that (maximum-scale on iOS only), so the smaller size is safe there too.
               "w-full h-12 rounded-xl border px-4 text-sm font-medium transition-colors duration-150",
               "bg-surface text-text placeholder:text-text-light",
               "focus:outline-none",
@@ -78,7 +75,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
 
-          {/* Suffix / Action */}
           {suffix && (
             <div className={cn(
               "absolute right-3 flex items-center justify-center transition-colors duration-200",
@@ -90,7 +86,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
 
-        {/* Error Message */}
         {error && (
           <p
             id={errorId}

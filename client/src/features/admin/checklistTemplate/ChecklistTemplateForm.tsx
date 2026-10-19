@@ -1,4 +1,3 @@
-// features/checklist-templates/components/ChecklistTemplateForm.tsx
 import {useCreateChecklistTemplateMutation,  useDepartmentsQuery } from '../hook';
 import { ChecklistTemplateFormUI, type ChecklistTemplateFormPayload } from './ChecklistTemplateFormUi';
 

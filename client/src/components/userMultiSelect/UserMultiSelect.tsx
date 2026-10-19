@@ -8,31 +8,19 @@ import type { AssignableUser } from '../../api/users';
 interface UserMultiSelectProps {
   departmentId?: string;
   storeId?: string;
-  /** A checklist can target several stores at once — pass every targeted store here so the list
-   *  covers "assignable in any of them", not just whichever store happens to be first. Takes
-   *  priority over `storeId` when both are given. */
   storeIds?: string[];
   selected: string[];
   onChange: (ids: string[]) => void;
-  /** When given (alongside a list not already scoped to one department), users render grouped
-   *  under a header per department instead of one flat list — e.g. picking assignees across a
-   *  whole store, where Sales/Housekeeping/Security staff would otherwise all run together. */
   departments?: { id: string; name: string }[];
-  /** Lists everyone active, with no store or department scope. */
   all?: boolean;
-  /** Replaces the plain "no users" line — lets a caller explain how to fix an empty scope. */
   emptyHint?: ReactNode;
 }
 
 const userLabel = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
 
-// Picks specific users within a department and/or store — shadcn's Select is single-value only,
-// so this is a small bordered checkbox-list instead. Disabled until a scope is chosen since
-// assignable users are scoped server-side by departmentId/storeId(s).
 export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments, emptyHint, all = false }: UserMultiSelectProps) => {
   const { data: allUsers, isLoading } = useAssignableUsersQuery(departmentId, storeId, storeIds);
   const [query, setQuery] = useState('');
-  // A long team is searchable; a short one is just a list.
   const showSearch = (allUsers?.length ?? 0) > 8;
   const needle = query.trim().toLowerCase();
   const users = needle ? allUsers?.filter((u) => userLabel(u).toLowerCase().includes(needle)) : allUsers;
@@ -71,8 +59,6 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
             HOD
           </span>
         )}
-        {/* Square, not circular — a circle reads as a single-choice radio button, which is
-            exactly the opposite of what this list actually does (pick as many as you need). */}
         <span
           className={`flex items-center justify-center size-4 pointer-coarse:size-5 rounded-[4px] border shrink-0 transition-colors duration-150 ${
             checked ? 'bg-primary-600 border-primary-600 text-white' : 'border-border-hover text-transparent'
@@ -84,8 +70,6 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
     );
   };
 
-  // Grouping is opt-in (only when a department list is actually passed) — every other caller of
-  // this component keeps its existing flat list untouched.
   const groups = departments?.length
     ? (() => {
         const nameById = new Map(departments.map(d => [d.id, d.name]));
@@ -99,7 +83,6 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           byDept.set(deptName, list);
         }
         const sorted = [...byDept.entries()].sort(([a], [b]) => a.localeCompare(b));
-        // "No department", not "Unassigned" — on an Assign screen the latter reads as "not assigned".
         if (unassigned.length) sorted.push(['No department', unassigned]);
         return sorted;
       })()
@@ -116,7 +99,6 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         <div className="sticky top-0 z-10 -mt-1.5 -mx-1.5 px-1.5 pt-1.5 pb-1 bg-surface">
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" aria-hidden />
-            {/* 16px on a phone: smaller makes iOS zoom the page on focus. */}
             <input
               type="search"
               value={query}

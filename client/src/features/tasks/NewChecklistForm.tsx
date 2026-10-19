@@ -56,7 +56,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
   return (
     <div className="flex flex-col gap-6 p-5 sm:p-8 border border-border rounded-2xl bg-surface w-full max-w-4xl mx-auto">
 
-      {/* Header Section */}
       <div className="flex items-center gap-3 pb-4 border-b border-border/60">
         <div className="flex items-center justify-center w-10 h-10 bg-primary-50 text-primary-600 rounded-lg shrink-0">
           <CheckSquare size={20} />
@@ -67,7 +66,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
         </div>
       </div>
 
-      {/* Template Selection */}
       {!!templates?.length && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-surface-hover/40 rounded-xl border border-border/60">
           <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
@@ -101,7 +99,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
         </div>
       )}
 
-      {/* Error States */}
       {applyTemplate.isError && (
         <div className="flex items-start gap-3 p-4 bg-danger/10 text-danger rounded-xl border border-danger/20">
           <AlertCircle size={18} className="mt-0.5 shrink-0" />
@@ -120,7 +117,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
         </div>
       )}
 
-      {/* Main Form Area */}
       <div className="flex flex-col gap-6">
         <div className="w-full">
           <Input
@@ -134,7 +130,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
           />
         </div>
 
-        {/* Task List Section */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-text">
@@ -173,7 +168,6 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
         </div>
       </div>
 
-      {/* Footer Actions */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 mt-4 border-t border-border/60">
         <Button variant="outline" onClick={onDone}>
           Cancel

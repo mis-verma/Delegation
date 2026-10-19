@@ -19,12 +19,10 @@ const run = (id: string, o: Partial<RunOutcome> = {}): RunOutcome => ({ id, comp
 describe("tallyRuns", () => {
     it("counts a shared missed run once at org level and once per person", () => {
         const shared = run("r1", { missed: true })
-        // The org / department / store view hands the run over once per assignee (3 people): still one run.
         const org = tallyRuns([shared, shared, shared])
         expect(org.assigned).toBe(1)
         expect(org.missed).toBe(1)
         expect(org.due).toBe(1)
-        // Each person's own row is built from their own list, so each of the three has it once.
         for (const person of ["a", "b", "c"]) {
             const own = tallyRuns([shared])
             expect(own.missed, person).toBe(1)
@@ -49,7 +47,6 @@ describe("tallyRuns", () => {
     })
 
     it("separates on time of finished from met deadline", () => {
-        // 4 finished (3 on time, 1 late) and 2 missed: 6 due.
         const runs = [
             run("1", { complete: true, onTime: true }),
             run("2", { complete: true, onTime: true }),
@@ -78,7 +75,6 @@ describe("pooled compliance", () => {
         const a = { weightedGood: 2, weightedScored: 2 }
         const b = { weightedGood: 100, weightedScored: 200 }
         expect(pooledCompliancePct([a, b])).toBe(50.5)
-        // The average of the two percentages would have said 75.
         expect((100 + 50) / 2).toBe(75)
         expect(pooledComplianceRaw([a, b])).toBeCloseTo(102 / 202 * 100, 10)
     })
@@ -91,7 +87,6 @@ describe("pooled compliance", () => {
 
 describe("notDone", () => {
     it("is due minus done, so waiting for approval stays not done", () => {
-        // 10 due, 6 done (closed / approved); 2 more are handed in and waiting: still 4 not done.
         expect(notDone(10, 6)).toBe(4)
     })
 
@@ -102,9 +97,6 @@ describe("notDone", () => {
 
 describe("overallOf", () => {
     it("averages unrounded inputs and rounds once at the end", () => {
-        // 1/3 and 2/3 as raw percentages: 33.333... and 66.666... average to exactly 50.
-        // Rounded first (33.3 and 66.7) they would give 50.0 too, so use three values that expose it:
-        // 100/3 = 33.333..., 100/3 = 33.333..., 100: rounded inputs (33.3, 33.3, 100) average 55.5, raw average is 55.555... = 55.6.
         const third = (1 / 3) * 100
         const out = overallOf([{ due: 3, completion: third, compliance: third }, { due: 1, completion: 100, compliance: null }])
         expect(out).toBe(55.6)
@@ -120,7 +112,6 @@ describe("rankable", () => {
     it("needs at least MIN_RANK_VOLUME due items", () => {
         expect(isRankable(MIN_RANK_VOLUME - 1)).toBe(false)
         expect(isRankable(MIN_RANK_VOLUME)).toBe(true)
-        // A group with only open runs has nothing due.
         expect(isRankable(tallyRuns([run("a"), run("b")]).due)).toBe(false)
     })
 })

@@ -12,15 +12,8 @@ import type {
 } from "./checklistTemplate.validation.js"
 import { auditService } from "../audit/audit.service.js"
 
-// Soft-deleted rows must stay invisible everywhere a live template is looked up — same
-// convention as Task/Ticket/ChecklistDefinition (see task.service.ts's own NOT_DELETED).
 const NOT_DELETED = isNull(checklistTemplates.deletedAt)
 
-// Not using Drizzle's relational query API (`db.query...with:{...}`) here — that API compiles
-// every relation into a `LEFT JOIN LATERAL (...)` subquery, and the actual database this app
-// runs against (MariaDB 10.11) doesn't support LATERAL joins at all (confirmed against the real
-// local instance). Plain selects assembled by hand in JS instead — same pattern as
-// task.service.ts/ticket.service.ts.
 const getTemplateWithItems = async (id: string) => {
     const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, id), NOT_DELETED)).limit(1)
     if (!template) return undefined
@@ -98,9 +91,6 @@ export const checklistTemplateService = {
         return template
     },
 
-    // Soft delete: sets deletedAt instead of removing the row (and its ChecklistTemplateItem
-    // children) outright — same convention as Task/Ticket/ChecklistDefinition. Every read path
-    // above (list/getById/update/addItem) hides it from here on via NOT_DELETED.
     async remove(id: string, actorId: string) {
         const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, id), NOT_DELETED)).limit(1)
         if (!template) throw AppError.notFound("Checklist template not found")

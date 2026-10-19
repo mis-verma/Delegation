@@ -49,8 +49,6 @@ const dueText = (hours: string) => {
 interface CategoryFormProps {
   onClose: () => void;
   category?: Category;
-  /** Fired with the new category right after a successful create (not when editing), so a caller
-   *  opening this as a quick "create new" (the ticket form's category picker) can select it. */
   onCreated?: (category: Category) => void;
 }
 

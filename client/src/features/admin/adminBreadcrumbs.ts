@@ -3,17 +3,11 @@ import type { BreadcrumbTrailItem } from '../../components/breadcrumbs';
 const DASHBOARD: BreadcrumbTrailItem = { label: 'Dashboard', to: '/' };
 const ADMIN_ROOT: BreadcrumbTrailItem = { label: 'Admin', to: '/admin' };
 
-// Pages that build their own breadcrumb (they know a dynamic name the route alone doesn't carry
-// — a specific checklist's title, or the builder wizard's current step) opt out of this generic
-// section trail entirely, rather than stacking two breadcrumb bars on top of each other.
 const OWN_BREADCRUMB_PATTERNS = [
   /^\/admin\/scheduled-checklists\/builder(\/.+)?$/,
   /^\/admin\/scheduled-checklists\/[^/]+$/,
 ];
 
-/** Section-level breadcrumb trail for an admin route, always rooted at the user's own dashboard
- *  so every admin page carries a one-click way back to it. Returns null when the destination page
- *  renders a more specific breadcrumb of its own. */
 export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | null {
   if (OWN_BREADCRUMB_PATTERNS.some((pattern) => pattern.test(pathname))) {
     return null;
@@ -37,8 +31,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Rankings' }];
   }
   if (pathname.startsWith('/admin/scheduled-checklists')) {
-    // The sidebar group is "Checklists", but this page is the recurring-checklist list, and its
-    // crumb and h1 must read the same as the sidebar child.
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
   if (pathname.startsWith('/admin/checklist-compliance')) {
@@ -89,9 +81,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   return [DASHBOARD, ADMIN_ROOT];
 }
 
-/** Same trail, for the "Team Delegations" page — it lives at /tasks/team under the regular
- *  Dashboard shell (not AdminLayout) but is reached only from the admin nav, so it gets the same
- *  Dashboard -> Admin -> ... treatment for consistency. */
 export const TEAM_DELEGATIONS_BREADCRUMBS: BreadcrumbTrailItem[] = [
   DASHBOARD,
   ADMIN_ROOT,

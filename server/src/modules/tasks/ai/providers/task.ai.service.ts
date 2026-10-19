@@ -14,9 +14,6 @@ const PROVIDERS = [
     { name: "gemini", run: extractWithGemini }
 ] as const;
 
-// Derived from PROVIDERS' declared order (earlier = higher priority) instead of a separately
-// maintained table, so a provider added/removed/reordered in PROVIDERS can't silently desync
-// from its tiebreak rank — a provider missing from a hand-kept table would lose every tiebreak.
 const TIEBREAK_RANK: Record<string, number> = Object.fromEntries(
     PROVIDERS.map((p, i) => [p.name, PROVIDERS.length - i]),
 )
@@ -36,7 +33,6 @@ export async function extractTaskFromText(rawInput: string, referenceDate: Date)
     const succeeded = settled
         .map((s) => (s.status === "fulfilled" ? s.value : null))
         .filter((v): v is ProviderRun => v !== null);
-
 
     if (succeeded.length === 0) {
         settled.forEach((s, i) => {
@@ -106,8 +102,6 @@ function resolveInDays(rawInput: string, referenceDate: Date): Date | null {
     return days == null ? null : new Date(referenceDate.getTime() + days * 86_400_000);
 }
 
-
-
 export function resolveDueDate(dueDateISO: string, rawInput: string, referenceDate: Date): Date {
     const parsed = new Date(dueDateISO);
     if (!Number.isNaN(parsed.getTime())) {
@@ -126,14 +120,11 @@ export function resolveDueDate(dueDateISO: string, rawInput: string, referenceDa
     return resolved;
 }
 
-
 export async function resolveAssignee(name: string, departmentHint?: string) {
     if (!name) return null;
 
     let departmentId: string | undefined;
     if (departmentHint) {
-        // MySQL's default collation is case-insensitive, so a plain LIKE reproduces the old
-        // case-insensitive RegExp "contains" match.
         const [department] = await db.select({ id: departments.id }).from(departments)
             .where(like(departments.name, `%${departmentHint}%`))
             .limit(1);
@@ -147,8 +138,6 @@ export async function resolveAssignee(name: string, departmentHint?: string) {
     ];
     if (departmentId) conditions.push(eq(users.departmentId, departmentId));
 
-    // Explicit column list (never the passwordHash-bearing full row) — every caller only ever
-    // needs id/firstName/lastName to build a display name and store the assignee reference.
     const [match] = await db.select({
         id: users.id,
         firstName: users.firstName,

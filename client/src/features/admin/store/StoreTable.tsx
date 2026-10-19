@@ -7,11 +7,8 @@ import type { PeopleCount } from '../orgCounts';
 
 interface StoreTableProps {
   stores: Store[];
-  /** undefined while the people list is loading. */
   memberCounts: Map<string, PeopleCount> | undefined;
-  /** The people list failed to load, so counts can never arrive. */
   membersFailed: boolean;
-  /** undefined while departments are loading. */
   departmentCountByStore: Map<string, number> | undefined;
   updatingId: string | undefined;
   deletingId: string | undefined;
@@ -20,7 +17,6 @@ interface StoreTableProps {
   onDelete: (store: Store) => void;
 }
 
-// Same navy header and dense cells as the Tickets table.
 const HEAD_ROW_CLASS = 'bg-primary-800';
 const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
 const CELL_CLASS = 'px-3 py-2.5 align-middle text-xs text-text-secondary';
@@ -29,7 +25,6 @@ const StoreTableComponent = ({
   stores, memberCounts, membersFailed, departmentCountByStore, updatingId, deletingId, onToggleActive, onEdit, onDelete,
 }: StoreTableProps) => {
   const handleKeyDown = (e: KeyboardEvent<HTMLTableRowElement>, store: Store) => {
-    // Keys pressed on the status or action buttons inside the row are theirs, not the row's.
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

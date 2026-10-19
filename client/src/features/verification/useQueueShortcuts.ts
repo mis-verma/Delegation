@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 export interface QueueShortcutHandlers {
-  /** Off while the page is not showing the waiting list. */
   enabled: boolean;
-  /** The mobile review sheet is open: its own dialog must not block the keys. */
   sheetOpen: boolean;
   onNext: () => void;
   onPrevious: () => void;
@@ -14,7 +12,6 @@ export interface QueueShortcutHandlers {
   onHelp: () => void;
 }
 
-// Where a key press belongs to something else: typing, a dropdown being driven by arrow keys.
 const OWN_KEYS_SELECTOR = 'input, textarea, select, [contenteditable="true"], [role="listbox"], [role="menu"], [role="combobox"], [role="tab"]';
 
 export const useQueueShortcuts = (handlers: QueueShortcutHandlers) => {
@@ -27,7 +24,6 @@ export const useQueueShortcuts = (handlers: QueueShortcutHandlers) => {
       if (!h.enabled || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target instanceof HTMLElement ? e.target : null;
       if (target?.closest(OWN_KEYS_SELECTOR)) return;
-      // Another dialog (help, confirm, ticket detail) or the photo viewer owns the keyboard.
       if (document.querySelector('[aria-label="Image preview"]')) return;
       if (!h.sheetOpen && document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
 
@@ -50,7 +46,6 @@ export const useQueueShortcuts = (handlers: QueueShortcutHandlers) => {
           h.onSendBack();
           break;
         case 'Enter':
-          // On a focused button or link Enter already does its own thing (the row title opens it).
           if (target?.closest('button, a')) return;
           h.onOpen();
           break;

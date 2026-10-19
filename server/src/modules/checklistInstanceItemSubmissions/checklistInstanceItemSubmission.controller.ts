@@ -9,7 +9,6 @@ import {
 import { asyncHandler } from "../../utils/asyncHandler.js"
 
 export const checklistInstanceItemSubmissionController = {
-    // PATCH /checklist-instance-item-submissions/:id
     setDone: asyncHandler(async (req: Request, res: Response) => {
         const input = setChecklistInstanceItemSubmissionDoneSchema.parse(req.body)
         const submission = await checklistInstanceItemSubmissionService.setDone(req.params.id, input.isDone, req.user!, {
@@ -19,14 +18,12 @@ export const checklistInstanceItemSubmissionController = {
         res.json({ success: true, data: submission })
     }),
 
-    // PATCH /checklist-instance-item-submissions/:id/accessories
     updateAccessories: asyncHandler(async (req: Request, res: Response) => {
         const input = updateChecklistInstanceItemSubmissionAccessoriesSchema.parse(req.body)
         const submission = await checklistInstanceItemSubmissionService.updateAccessories(req.params.id, input.accessories, req.user!)
         res.json({ success: true, data: submission })
     }),
 
-    // PATCH /checklist-instance-item-submissions/:id/dress-type
     setDressType: asyncHandler(async (req: Request, res: Response) => {
         const input = setChecklistInstanceItemSubmissionDressTypeSchema.parse(req.body)
         const submission = await checklistInstanceItemSubmissionService.setDressType(req.params.id, input.dressTypeId, req.user!)

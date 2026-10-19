@@ -59,7 +59,6 @@ export const errorHandler = (
     return;
   }
 
-  // 1. Custom Operational Errors
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       success: false,
@@ -68,7 +67,6 @@ export const errorHandler = (
     return;
   }
 
-  // 2. Schema Validation Errors (Zod)
   if (err instanceof ZodError) {
     res.status(400).json({
       success: false,
@@ -78,9 +76,7 @@ export const errorHandler = (
     return;
   }
 
-  // Upload limits (multer): a plain message and the right status, not a 500 "File too large".
   if (err instanceof multer.MulterError) {
-    // Each upload route records its own limit (config/upload.ts); fall back to the general photo limit.
     const routeLimit = Number(res.locals.uploadLimitMb);
     const limitMb = Number.isFinite(routeLimit) && routeLimit > 0 ? routeLimit : settingsService.getCached().maxUploadSizeMb;
     const message =
@@ -91,7 +87,6 @@ export const errorHandler = (
     return;
   }
 
-  // 3. MySQL Database Foreign Key & Unique Constraint Errors
   const mysqlErr = asMySqlError(err);
 
   if (mysqlErr?.code === 'ER_DUP_ENTRY') {
@@ -119,7 +114,6 @@ export const errorHandler = (
     return;
   }
 
-  // 4. Unexpected / Server Errors
   console.error(err);
   const pathWithoutQuery = req.originalUrl ? req.originalUrl.split('?')[0] : req.url;
   recordServerError(req.method, pathWithoutQuery, err);

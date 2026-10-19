@@ -8,7 +8,6 @@ interface AssignmentModeToggleProps {
 
 const SEGMENT_BASE =
   'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-lg text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
-// Picked option is a raised surface on the grey track; idle is plain muted text.
 const SEGMENT_SELECTED = 'bg-surface text-text border border-border/60 dark:border-white/[0.08]';
 const SEGMENT_IDLE = 'text-text-muted border border-transparent hover:text-text';
 
@@ -22,7 +21,6 @@ const FRONT_LINE_OPTIONS = [
   { value: 'MANUAL', label: 'By department', icon: Building2, help: 'You pick the team and the due time. Their head picks who works on it.' },
 ] as const;
 
-/** Managers and up: let the category route the ticket, or choose where it goes by hand. */
 export const AssignmentModeToggle = ({ mode, onChange, frontLine = false }: AssignmentModeToggleProps) => {
   const options = frontLine ? FRONT_LINE_OPTIONS : OPTIONS;
   return (

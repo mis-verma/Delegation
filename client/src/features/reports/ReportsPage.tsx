@@ -42,7 +42,6 @@ export const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Module Tabs */}
       <div className="flex gap-1 p-1 bg-surface-hover rounded-lg w-fit">
         {MODULES.map(({ key, label, icon: Icon }) => (
           <button

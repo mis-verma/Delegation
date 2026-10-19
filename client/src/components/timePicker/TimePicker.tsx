@@ -8,17 +8,13 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface TimePickerProps {
-  /** 24-hour "HH:mm" string, or '' when unset. */
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
-  /** Floats the dial under the trigger instead of expanding inline — for chip rows, where an
-   *  inline panel would shove the neighbouring chips around. */
   popover?: boolean;
-  /** Text before the time on the trigger, e.g. `Opens` → "Opens 9:30 AM". */
   prefix?: string;
 }
 
@@ -49,10 +45,6 @@ const formatDisplay = (h: number, m: number) => {
   return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
 };
 
-// Time-only sibling of DatePicker — same clock-face dial and inline-expanding trigger, minus the
-// calendar grid, for fields that need a bare time-of-day with no date attached (e.g. a recurring
-// daily open/close window). Kept as its own component rather than a DatePicker mode because
-// "no date, just a time" has no month grid to anchor the dial to.
 export function TimePicker({
   value,
   onChange,
@@ -68,8 +60,6 @@ export function TimePicker({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const hasValue = !!value;
-  // The dial always shows a highlighted position, defaulting to 9:00 AM until the user actually
-  // picks something — same idea as DatePicker seeding its time dial from "now" on first pick.
   const draft = parseHHMM(value) ?? { h: 9, m: 0 };
 
   const selectHour = (hour12: number) => {
@@ -155,8 +145,6 @@ export function TimePicker({
         )}
       </button>
 
-      {/* Inline: same grid-rows "animate to auto height" trick as DatePicker, so it expands in place.
-          Popover: floats under the trigger (chip rows). One panel, two wrappers. */}
       <div className={popover
         ? cn('absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-3 shadow-lg shadow-black/10 origin-top transition-[opacity,transform] duration-150', open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95 invisible')
         : cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
@@ -213,8 +201,6 @@ export function TimePicker({
               </div>
             </div>
 
-            {/* Watch-face dial — every value is a tap target arranged around the circle, same
-                visual language as DatePicker's embedded time dial. */}
             <div className="relative mx-auto shrink-0" style={{ width: DIAL_SIZE, height: DIAL_SIZE }}>
               <div className="absolute inset-0 rounded-full bg-surface-hover/60 border border-border/60" />
 

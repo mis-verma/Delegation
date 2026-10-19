@@ -1,11 +1,3 @@
-// One-off command-line script (run like: `npm run seed:demo`) that fills the app with random
-// but realistic Delegations, Issues, Tickets, and Checklist runs against your EXISTING users,
-// departments, stores, and categories — so the dashboard, task lists, ticket lists, and the
-// Today's Runs checklist page all have something to show while testing.
-//
-// It never touches real accounts/org structure — it only reads them to attach realistic
-// relations, then creates new Task/Ticket/ChecklistDefinition/ChecklistInstance rows.
-// Safe to run more than once (each run just adds another batch).
 import 'dotenv/config'
 import { eq, and } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
@@ -55,9 +47,6 @@ const CHECKLIST_ITEM_LABELS = [
   'Check restroom cleanliness', 'Verify signage is up to date',
 ]
 
-// Item sets for department-flavored daily checklists — keyed by department name (uppercased) so
-// real departments like "IT"/"MDO" get on-topic items instead of generic store-ops language;
-// anything else falls back to GENERIC_DEPT_ITEMS below.
 const DEPARTMENT_CHECKLIST_ITEMS: Record<string, string[]> = {
   IT: [
     'Check server room temperature', 'Verify overnight backup completed', 'Test POS network connectivity',
@@ -78,9 +67,6 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const run = async () => {
   await connectDB()
 
-  // Not filtered by isActive — this dev database's real Department/Store/Category rows are
-  // sometimes toggled inactive while testing other features, but they're still perfectly fine to
-  // attach demo Tasks/Tickets/Checklists to for a manual smoke test.
   const [userRows, departmentRows, storeRows, categoryRows] = await Promise.all([
     db.select().from(users),
     db.select().from(departments),
@@ -96,7 +82,6 @@ const run = async () => {
 
   const admin = userRows.find((u) => u.role === 'ADMIN') ?? userRows[0]!
 
-  // ── Delegations + Issues (Task table — "issue"/"delegation" are its two categories) ─────────
   const taskCount = randomInt(10, 20)
   const createdTasks: string[] = []
 
@@ -106,8 +91,6 @@ const run = async () => {
     const raiser = pick(userRows)
     const assignee = pick(userRows)
     const department = pick(departmentRows)
-    // Spread due dates on both sides of "now" so overdue (past, not done) and upcoming tasks both
-    // exist — useful for eyeballing the Mark badge/Target gauge and the overdue counts.
     const dueDate = Math.random() < 0.4 ? daysFromNow(-randomInt(1, 10)) : daysFromNow(randomInt(1, 14))
 
     const taskId = createId()
@@ -126,12 +109,10 @@ const run = async () => {
     })
     createdTasks.push(taskId)
 
-    // Give ~60% of tasks a small checklist so completion/photo-compliance reporting has real data.
     if (Math.random() < 0.6) {
       const checklistId = createId()
       await db.insert(taskChecklists).values({ id: checklistId, title: 'Sub-tasks', taskId })
       const itemCount = randomInt(3, 5)
-      // Tasks further along their status get a higher chance of each sub-item being checked off.
       const doneChance = status === 'done' ? 1 : status === 'pending_approval' ? 0.9 : status === 'in_progress' ? 0.5 : 0.1
       for (let j = 0; j < itemCount; j++) {
         const isDone = Math.random() < doneChance
@@ -146,7 +127,6 @@ const run = async () => {
     }
   }
 
-  // ── Tickets ("Issue tickets") ─────────────────────────────────────────────────────────────
   const ticketCount = randomInt(10, 20)
   const createdTickets: string[] = []
 
@@ -160,9 +140,6 @@ const run = async () => {
     const tatHours = pick([12, 24, 48, 72])
     const overdue = status !== 'CLOSED' && Math.random() < 0.35
     const createdAt = new Date()
-    // Ticket's tatDueAt is normally recomputed by a service-layer helper on create (was a
-    // Mongoose pre('save') hook) — this raw seed script bypasses the service layer entirely, so
-    // it has to derive tatDueAt itself the same way (now + tatHours).
     const tatDueAt = new Date(createdAt.getTime() + tatHours * 60 * 60 * 1000)
 
     const ticketId = createId()
@@ -182,20 +159,12 @@ const run = async () => {
       ...(status === 'CLOSED' ? { closedAt: new Date(), verifiedBy: admin.id, verifiedAt: new Date() } : {}),
     })
 
-    // Backdate tatDueAt (and flag isOverdue) to simulate an overdue ticket, same as the original
-    // script's raw updateOne that bypassed the tatDueAt-recompute hook.
     if (overdue) {
       await db.update(tickets).set({ tatDueAt: daysFromNow(-randomInt(1, 5)), isOverdue: true, updatedAt: new Date() }).where(eq(tickets.id, ticketId))
     }
     createdTickets.push(ticketId)
   }
 
-  // ── Checklist templates + runs (ChecklistDefinition/ChecklistInstance — powers "Today's Runs",
-  // the Checklist Templates grid, and each template's completion/compliance rate) ──────────────
-  // One store-wide opening checklist, plus one department-flavored operations checklist per real
-  // department in the DB — so "store wise" and "department wise" checklists actually exist as
-  // distinct templates, each with their own item set and its own completion/compliance track
-  // record (doneBias varies per checklist so the rates on the grid actually differ from each other).
   const pad2 = (n: number) => String(n).padStart(2, '0')
 
   type ChecklistSpec = { name: string; description: string; assigneeRoles: string[]; items: string[]; doneBias: number; storeIds: string[] }
@@ -211,15 +180,15 @@ const run = async () => {
         'Inspect entrance for cleanliness', 'Confirm POS terminals are online',
       ],
       doneBias: 0.85,
-      storeIds: storeRows.map((s) => s.id), // genuinely store-wide — live in every store
+      storeIds: storeRows.map((s) => s.id),
     },
     ...departmentRows.slice(0, 4).map((dept, i): ChecklistSpec => ({
       name: `${dept.name} Daily Operations Check`,
       description: `Daily operational checklist for the ${dept.name} department.`,
       assigneeRoles: ['OPERATIONS'],
       items: DEPARTMENT_CHECKLIST_ITEMS[dept.name.toUpperCase()] ?? GENERIC_DEPT_ITEMS,
-      doneBias: randomInt(35, 90) / 100, // spread completion health across checklists on purpose
-      storeIds: [storeRows[i % storeRows.length]!.id], // store-wise: pinned to one store, rotated round-robin
+      doneBias: randomInt(35, 90) / 100,
+      storeIds: [storeRows[i % storeRows.length]!.id],
     })),
   ]
 
@@ -247,14 +216,12 @@ const run = async () => {
     const runCount = randomInt(10, 20)
     for (let i = 0; i < runCount; i++) {
       const store = pick(spec.storeIds)
-      const dayOffset = -i // one run per day going backward, so this reads as a real run history
+      const dayOffset = -i
       const periodStart = daysFromNow(dayOffset)
       periodStart.setHours(0, 0, 0, 0)
       const periodEnd = new Date(periodStart.getTime() + 86_400_000 - 1)
       const periodKey = `${periodStart.getFullYear()}-${pad2(periodStart.getMonth() + 1)}-${pad2(periodStart.getDate())}`
 
-      // Older runs lean further toward this checklist's baseline "health"; today's/yesterday's
-      // run is more likely still mid-flight, regardless of how healthy the checklist normally is.
       const doneChance = clamp01(dayOffset <= -3 ? spec.doneBias + 0.1 : dayOffset === 0 ? spec.doneBias - 0.3 : spec.doneBias)
 
       const instanceId = createId()
@@ -271,10 +238,6 @@ const run = async () => {
           generatedAt: periodStart,
         })
       } catch (err: any) {
-        // (definitionId, storeId, periodKey) already exists from a previous run of this script —
-        // skip rather than crash the whole batch. Drizzle wraps the real mysql2 driver error
-        // inside `err.cause` (a DrizzleQueryError), so `err.code` itself is always undefined here
-        // — this never actually caught anything until checking `err.cause?.code` too.
         if (err?.code === 'ER_DUP_ENTRY' || err?.cause?.code === 'ER_DUP_ENTRY') continue
         throw err
       }

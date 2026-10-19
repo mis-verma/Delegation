@@ -3,22 +3,14 @@ import type { ReactNode } from 'react';
 interface FormFieldProps {
   label: string;
   icon?: ReactNode;
-  /** Red star after the label. Leave off for optional fields and pass `optional` instead. */
   required?: boolean;
   optional?: boolean;
-  /** One plain sentence on what to put here. Hidden while an error is showing, and below `sm`
-   *  (a phone keeps the label and the control; errors always show). */
   hint?: ReactNode;
   error?: string;
   htmlFor?: string;
   children: ReactNode;
 }
 
-/**
- * One labelled field: label (with a required star or an "optional" tag), the control, then either
- * the error or a short how-to hint. A visible label and hint replace the old unlabelled chips,
- * whose only explanation was a hover tooltip that a phone never shows.
- */
 export const FormField = ({ label, icon, required, optional, hint, error, htmlFor, children }: FormFieldProps) => (
   <div className="flex flex-col gap-1.5">
     <label htmlFor={htmlFor} className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary [&_svg]:size-3.5">
@@ -36,7 +28,6 @@ export const FormField = ({ label, icon, required, optional, hint, error, htmlFo
   </div>
 );
 
-/** Numbered group heading ("1  What happened"), so the order to fill the form in reads at a glance. */
 export const StepHeading = ({ step, title, subtitle }: { step: number; title: string; subtitle?: string }) => (
   <div className="flex items-center gap-2.5">
     <span className="flex items-center justify-center size-6 shrink-0 rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold">

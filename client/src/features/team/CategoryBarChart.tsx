@@ -14,20 +14,13 @@ export interface CategoryBar {
 
 const rateOf = (done: number, total: number) => (total ? (done / total) * 100 : 0);
 
-// A plain CSS bar chart (no charting library) — same hand-rolled approach as MonthlyTargetCard's
-// SVG gauge elsewhere in this app. Each bar is independently clickable so a reviewer can jump
-// straight from "Delegation is at 40%" to the filtered list of exactly those items. Every bar is
-// coloured by its own rate (rateBarClass), so colour reads as "how well", never as category.
 export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
-  // Every category empty (a new hire, or simply a quiet period): one shared empty state instead of
-  // five flat tracks in a mostly blank box.
   if (bars.every(bar => bar.total === 0)) {
     return <EmptyState size="compact" icon={BarChart3} title="No delegations, issues or tickets in this period" />;
   }
 
   return (
     <>
-      {/* Phone: five columns don't fit, so one row per category with a full-width track. */}
       <div className="flex flex-col gap-1 sm:hidden">
         {bars.map(bar => {
           const rate = rateOf(bar.done, bar.total);
@@ -69,15 +62,10 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
               disabled={!hasData}
               className="group flex flex-1 flex-col items-center gap-2 rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-default"
             >
-              {/* An empty category gets no figure, but keeps the line so every bar starts level. */}
               <span className="t-meta font-display font-medium tabular-nums text-text">
                 {hasData ? formatPct(rate) : ' '}
               </span>
 
-              {/* A category with nothing recorded gets a short flat track, not a tall empty box that
-                  reads as a broken or never-loaded chart. The fill is absolutely positioned so its
-                  % height resolves against the track's laid-out height (the chart only has a
-                  min-height). */}
               <div className="flex flex-1 flex-col justify-end w-full max-w-14">
                 {hasData ? (
                   <div className="relative flex-1 w-full rounded-lg bg-surface-hover overflow-hidden">

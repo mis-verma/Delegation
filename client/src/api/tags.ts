@@ -3,7 +3,6 @@ import { apiFetch } from './http';
 export type Tag = {
   id: string;
   name: string;
-  /** A colour key from lib/labelColors ("indigo", "emerald", ...). Null means none was chosen, so the UI derives one from the name. */
   color: string | null;
 };
 
@@ -12,9 +11,6 @@ export type ApiResponse<T> = { success: boolean; data: T };
 export type CreateTagPayload = { name: string; color?: string | null };
 export type UpdateTagPayload = Partial<CreateTagPayload>;
 
-// Labels — shared by Delegation and Tickets, not owned by either. Backed by the shared lookup
-// router (see server/modules/tags/tag.routes.ts): reads are open to any signed-in user because
-// both modules' filter rows and forms need them, writes are ADMIN/PC only and will 403 otherwise.
 export const tagApi = {
   getAll: () => apiFetch<ApiResponse<Tag[]>>('/tags'),
 

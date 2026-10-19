@@ -42,11 +42,6 @@ interface BuilderItemsListProps {
   validPersonIds?: ReadonlySet<string> | null;
 }
 
-// One draggable row: a grip handle + the existing draft row + a delete button, wrapped for
-// @dnd-kit/sortable. Position comes from `transform`/`transition`, not layout, same rule as
-// every other drag surface in the app (TaskBoard, TicketBoard).
-// Memoised, with handlers that take the draft's key instead of a per-row closure: one keystroke in
-// a question re-renders only that question.
 const SortableItemRowImpl = ({
   draft,
   index,
@@ -65,7 +60,6 @@ const SortableItemRowImpl = ({
   validPersonIds?: ReadonlySet<string> | null;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
-  // A configured question (options, auditors, GPS target…) used to vanish on one mis-tap.
   const confirm = useConfirm();
   const handleRemove = async () => {
     if (draft.label.trim()) {
@@ -105,8 +99,6 @@ const SortableItemRowImpl = ({
           </button>
         }
         trailing={
-          // Side by side in the card's top strip on a phone, stacked beside the content from sm up
-          // so the content column keeps its width. Remove first, Duplicate after it.
           <div className="flex flex-row sm:flex-col gap-1 pointer-coarse:gap-2 shrink-0">
             <Button
               variant="ghost"
@@ -136,13 +128,8 @@ const SortableItemRowImpl = ({
 
 const SortableItemRow = memo(SortableItemRowImpl);
 
-// Icon-only section actions: 32px on desktop, 44px on touch (Button's own coarse-pointer rule only
-// raises the height, so the width is raised here).
 const SECTION_ACTION = 'size-8 px-0 pointer-coarse:size-11 text-text-light hover:text-text-secondary';
 
-// A section container is both a SortableContext (for the items already inside it) and its own
-// droppable region (via useDroppable) — the second is what lets a drag land on a section that
-// currently has zero items, which an empty SortableContext alone can't catch.
 const SectionContainer = ({
   id,
   title,
@@ -161,29 +148,21 @@ const SectionContainer = ({
   id: SectionId;
   title: string;
   items: ItemDraft[];
-  // Every other existing section name (excluding this one) — used to block renaming into a
-  // collision instead of silently dropping the rename.
   otherSectionNames: string[];
   isActive: boolean;
   onSelect: () => void;
   onRename?: (next: string) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
-  // Section *blocks* aren't drag-reorderable (only items are) — undefined at either boundary of
-  // the sections list, or entirely for the fixed Ungrouped bucket.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   renderRow: (draft: ItemDraft) => ReactNode;
-  /** No header at all — the lone Ungrouped bucket when no sections exist yet. */
   bare?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(title);
 
-  // A string signature of the section's question keys keeps SortableContext's `items` array the
-  // same object while only a question's text changes. A new array every keystroke would re-render
-  // every sortable row through its context.
   const keySig = items.map((d) => d.key).join('|');
   const itemKeys = useMemo(() => (keySig ? keySig.split('|') : []), [keySig]);
 
@@ -192,7 +171,7 @@ const SectionContainer = ({
   const canCommitRename = trimmedDraft.length > 0 && !isDuplicate;
 
   const commitRename = () => {
-    if (!canCommitRename) return; // Enter/checkmark no-op while invalid — inline hint explains why
+    if (!canCommitRename) return;
     setRenaming(false);
     if (trimmedDraft !== title) onRename?.(trimmedDraft);
   };
@@ -275,12 +254,6 @@ const SectionContainer = ({
         )}
       </div>}
 
-      {/* The container-level droppable ref lives ONLY on the empty-state placeholder or the
-          trailing strip below the last row — never on a div wrapping the whole list. Attaching it
-          to an always-present wrapper would give the container a hit-rect that fully contains
-          every row's own sortable hit-rect, so pointerWithin could resolve `over` to the section
-          itself (append-to-end) instead of the specific row the pointer is actually over — e.g.
-          dropping at the top of a populated section would silently land at the bottom instead. */}
       <div className="flex flex-col gap-2.5 min-h-[3.25rem]">
         <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
           {items.length === 0 ? (
@@ -312,13 +285,8 @@ const collisionDetection: CollisionDetection = (args) => {
   return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
 };
 
-// Hoisted so useSensor's memo holds between renders. A fresh options object each render would hand
-// DndContext new sensors (and so a new context value) on every keystroke.
 const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: DRAG_SLOP_PX } };
 const TOUCH_SENSOR_OPTIONS = { activationConstraint: { delay: 220, tolerance: 6 } };
-// Without the sortable-aware coordinate getter, arrow keys move a virtual pointer by a fixed
-// pixel step that may not land inside any row/container rect. This is what makes arrow keys
-// actually jump between sortable positions like mouse/touch drags do.
 const KEYBOARD_SENSOR_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
 
 export const BuilderItemsList = ({
@@ -345,12 +313,9 @@ export const BuilderItemsList = ({
 
   const containerOrder = useMemo<SectionId[]>(() => containerOrderFor(sections), [sections]);
   const groups = useMemo(() => groupBySection(itemDrafts, sections), [itemDrafts, sections]);
-  // Row numbers from one pass, instead of an itemDrafts.indexOf(draft) scan per row (O(n^2)).
   const indexByKey = useMemo(() => new Map(itemDrafts.map((d, i) => [d.key, i] as const)), [itemDrafts]);
   const activeDraft = activeKey ? itemDrafts.find((d) => d.key === activeKey) : undefined;
 
-  // The latest list for handlers that must stay referentially stable (memoised rows get them as
-  // props). Updated after commit, and only ever read from event handlers.
   const itemDraftsRef = useRef(itemDrafts);
   useEffect(() => { itemDraftsRef.current = itemDrafts; });
 
@@ -385,22 +350,16 @@ export const BuilderItemsList = ({
     }
     const nextSections = sections.filter((s) => s !== name);
     setSections(nextSections);
-    // Re-flattened too: the moved questions now belong to the No section block, and the saved order
-    // is the flat list, so leaving them where they sat would save a different order than shown.
     setItemDrafts((prev) => normalizeItemOrder(prev.map((d) => (d.section === name ? { ...d, section: null } : d)), nextSections));
     if (activeSection === name) setActiveSection(null);
   };
 
-  // True (after telling the person why) when adding `count` more questions would pass the server's
-  // per-checklist limit.
   const wouldExceedItemLimit = useCallback((count: number) => {
     if (itemDraftsRef.current.length + count <= MAX_CHECKLIST_ITEMS) return false;
     toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
     return true;
   }, []);
 
-  // The copy goes straight after the original, in the same section, which also keeps every
-  // section's questions contiguous, as the saved order needs.
   const handleDuplicateItem = useCallback((key: string) => {
     const original = itemDraftsRef.current.find((d) => d.key === key);
     if (!original || wouldExceedItemLimit(1)) return;
@@ -416,7 +375,6 @@ export const BuilderItemsList = ({
     revealAfterRender(() => questionFieldOf(copy.key), true);
   }, [setItemDrafts, wouldExceedItemLimit]);
 
-  // A new section right after the original, holding copies of all its questions.
   const handleDuplicateSection = (name: string) => {
     const questionCount = itemDrafts.filter((d) => d.section === name).length;
     if (wouldExceedItemLimit(questionCount)) return;
@@ -430,14 +388,9 @@ export const BuilderItemsList = ({
     ));
     setActiveSection(copyName);
     toast.success(`Duplicated "${name}" with ${questionCount} ${questionCount === 1 ? 'question' : 'questions'}`);
-    // `window.CSS`: the bare name is dnd-kit's CSS helper in this file.
     revealAfterRender(() => document.querySelector<HTMLElement>(`[data-section-name="${window.CSS.escape(copyName)}"]`), false);
   };
 
-  // Section blocks display in `sections` array order, so swapping two entries reorders them,
-  // but the saved item order comes from flattening `itemDrafts` in that same order (see
-  // itemSections.ts), so it must be re-flattened here too, or the visual reorder wouldn't be
-  // reflected in what actually gets saved until some unrelated item drag happened to touch it.
   const moveSection = (name: string, direction: -1 | 1) => {
     const index = sections.indexOf(name);
     const swapIndex = index + direction;
@@ -458,7 +411,6 @@ export const BuilderItemsList = ({
     const overId = over.id as string;
     if (activeItemKey === overId) return;
 
-    // Shallow copy of the memoised groups: the entries below are replaced, never mutated in place.
     const liveGroups: Record<SectionId, ItemDraft[]> = { ...groups };
     const sourceContainer = containerOrder.find((id) => liveGroups[id].some((d) => d.key === activeItemKey));
     if (!sourceContainer) return;
@@ -470,11 +422,6 @@ export const BuilderItemsList = ({
     if (!targetContainer) return;
 
     if (sourceContainer === targetContainer) {
-      // Same-container reorder: use dnd-kit's own arrayMove against the ORIGINAL (pre-removal)
-      // array, computed the same way SortableContext computes it for the live drag preview.
-      // Splicing the active item out first and THEN searching for the over-item's index (as the
-      // cross-container branch below does) searches a shortened array, landing one slot off from
-      // where the preview showed the item hovering.
       const original = liveGroups[sourceContainer];
       const oldIndex = original.findIndex((d) => d.key === activeItemKey);
       const newIndex = isOverAContainer ? original.length - 1 : original.findIndex((d) => d.key === overId);
@@ -561,8 +508,6 @@ export const BuilderItemsList = ({
         </DragOverlay>
       </DndContext>
 
-      {/* Sections are optional grouping ("Opening", "Closing"): a single quiet row under the
-          questions instead of a dashed toolbar above them. */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 min-h-11 sm:min-h-10 pl-3 pr-1 rounded-lg border border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
           <Layers size={14} className="text-text-light shrink-0" />
@@ -575,7 +520,6 @@ export const BuilderItemsList = ({
             maxLength={MAX_SECTION_NAME_LENGTH}
             onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
             placeholder="New section, e.g. Opening"
-            // Borderless: the dashed row around it is the field's frame.
             className="h-10 border-0 rounded-none bg-transparent px-0 text-sm font-display"
           />
           <Button

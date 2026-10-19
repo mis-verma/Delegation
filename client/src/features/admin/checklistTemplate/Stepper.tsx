@@ -3,14 +3,9 @@ import { Check } from 'lucide-react';
 interface StepperProps {
   steps: string[];
   current: number;
-  /** Lets a user jump back to any already-completed step by clicking its circle/label — jumping
-   *  forward isn't allowed since later steps may depend on data validated on this one. */
   onStepClick?: (index: number) => void;
 }
 
-// A first pass, deliberately plain — numbered circles, a connecting line, click-back to a
-// completed step. Scoped to this one form for now; promote to a shared component once there's a
-// second caller with its own opinion on how it should look/behave.
 export const Stepper = ({ steps, current, onStepClick }: StepperProps) => (
   <div className="flex items-center w-full px-1">
     {steps.map((label, i) => {

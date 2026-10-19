@@ -6,11 +6,6 @@ import { AppError } from "../../utils/AppError.js";
 import type { CreateEventInput, UpdateEventInput } from "./event.validation.js";
 import { auditService } from "../audit/audit.service.js";
 
-// Only pull the fields the UI actually shows for the creator (mirrors the old
-// `.populate("createdBy", "firstName lastName")`). Built as a plain LEFT JOIN rather than the
-// relational query API's `with` (which Drizzle implements via LATERAL joins on mysql2) — the
-// local dev database is MariaDB, which doesn't support LATERAL, so `db.query.events.findMany({
-// with: {...} })` fails with a syntax error there; a manual join works on both MySQL and MariaDB.
 const listWithCreator = () =>
     db
         .select({
@@ -43,8 +38,6 @@ export const eventService = {
     },
 
     async create(input: CreateEventInput, createdBy: string) {
-        // Event.id is a client-generated cuid (see src/db/schema/core.ts) — generate it up
-        // front so we already know it after the insert, no re-select needed.
         const id = createId();
         await db.insert(events).values({
             id,

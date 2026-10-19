@@ -10,11 +10,6 @@ const SECTIONS: { to: keyof NavBadgeMap; label: string; icon: LucideIcon }[] = [
   { to: '/todo', label: 'To-Do', icon: ListTodo },
 ];
 
-/**
- * "What needs you" at the top of the notification panel: one chip per section that has work, red when
- * something is overdue and blue when it is only waiting. A tap opens that section. Nothing renders when
- * there is nothing to do, so the panel stays plain on a quiet day.
- */
 export const AttentionStrip = ({ onNavigate }: { onNavigate: () => void }) => {
   const badges = useNavBadges();
   const active = SECTIONS.filter((s) => badges[s.to].due + badges[s.to].overdue > 0);

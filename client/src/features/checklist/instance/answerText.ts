@@ -1,8 +1,6 @@
 import { formatDateTime } from '../checklistDisplay';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
-// What the person answered, in words, so a reviewer can judge a question without opening the full
-// checklist. Types that carry no readable answer (a plain tick) return null.
 export const answerText = (item: ChecklistInstanceItem): string | null => {
   switch (item.itemType) {
     case 'YES_NO':

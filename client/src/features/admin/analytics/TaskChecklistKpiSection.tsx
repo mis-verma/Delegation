@@ -9,18 +9,14 @@ interface TaskChecklistKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** The window the delegation figures at the top cover: the picked range, or the page's default window. */
   windowFrom?: string;
   windowTo?: string;
-  /** /tasks/team (the org-wide destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
 }
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
 export const TaskChecklistKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
-  // A picked range is one whole-range figure (the same as the headline strip above), so the cards
-  // read a 'none' report; the chart still reads the grouped series so it has points to draw.
   const hasRange = Boolean(from && to);
   const chartQuery = useTaskComplianceReportQuery(groupBy, from, to);
   const cardQuery = useTaskComplianceReportQuery(hasRange ? 'none' : groupBy, from, to);
@@ -30,9 +26,6 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, windowFrom, windowT
   const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
-  // Both figures are rates over the checklist items inside delegations, so there is no single
-  // record list to open. The delegation list they come from is the honest destination: the team
-  // view for ADMIN/PC, the viewer's own reach for everyone else.
   const href = isOrgWideRole ? '/tasks/team' : '/tasks';
 
   return (

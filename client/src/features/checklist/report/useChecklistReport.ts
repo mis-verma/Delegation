@@ -4,8 +4,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { checklistReportApi, type ChecklistReportParams, type ChecklistReportFormat } from '../../../api/checklistReports';
 import { notifyError, handleQueryRetry } from '../../../lib/queryHelpers';
 
-// The live preview under the options. Kept on screen while a changed option reloads, so the table
-// does not flash back to skeletons on every chip tap.
 export const useChecklistReportPreview = (params: ChecklistReportParams, enabled: boolean) => {
   const { token } = useAuth();
   return useQuery({

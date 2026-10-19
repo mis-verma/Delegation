@@ -1,10 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { NavBadge } from './useNavBadges';
 
-/**
- * A count dot on a nav icon: red with the overdue number when anything is late, blue with the pending
- * number when work is only waiting, nothing at all when there is nothing to do. 99+ caps the width.
- */
 export const NavCountBadge = ({ badge, className }: { badge: NavBadge; className?: string }) => {
   const late = badge.overdue > 0;
   const count = late ? badge.overdue : badge.due;

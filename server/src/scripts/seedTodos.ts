@@ -1,9 +1,3 @@
-// One-off command-line script (run like: `npm run seed:todos`) that fills every existing user's
-// personal Todo list with a handful of random items. Todos are the one demo category
-// `seedDemoData.ts` doesn't cover — they're per-user personal records with no department/store
-// scoping to hang seeded data off, so they get their own small script instead.
-//
-// Safe to run more than once — each run adds another batch per user.
 import 'dotenv/config'
 import { createId } from '@paralleldrive/cuid2'
 import { connectDB, disconnectDB, db } from '../config/db.js'
@@ -44,8 +38,6 @@ const run = async () => {
         userId: user.id,
         text: pick(TODO_TEXTS),
         completed,
-        // Spread due dates on both sides of "now", same as the demo tasks/tickets script, so
-        // overdue and upcoming todos both exist to eyeball.
         dueDate: Math.random() < 0.7 ? (Math.random() < 0.35 ? daysFromNow(-randomInt(1, 7)) : daysFromNow(randomInt(1, 10))) : null,
         priority: pick([...TODO_PRIORITIES]),
       })

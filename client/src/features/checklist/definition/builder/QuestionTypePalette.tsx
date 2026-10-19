@@ -11,14 +11,10 @@ export interface PaletteEntry {
 }
 
 interface QuestionTypePaletteProps {
-  /** Returns false when the question could not be added; the pop-up then stays open. */
   onAdd: (patch: Partial<ItemDraft>) => boolean;
   storeIds?: string[];
 }
 
-// Every question type as a tappable tile, grouped (Answers / Proof & signatures / Verification).
-// Two columns everywhere: in the desktop sidebar it keeps all 17 types on one screen, and on a
-// phone it replaces what used to be a 17-row list pushing the questions off screen.
 export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, storeIds }: QuestionTypePaletteProps) {
   const [active, setActive] = useState<QuestionTypeEntry | null>(null);
 

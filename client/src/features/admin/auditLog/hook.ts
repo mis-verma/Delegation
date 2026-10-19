@@ -7,11 +7,6 @@ const KEYS = {
   list: (filter: AuditLogFilter) => ['audit-logs', filter] as const,
 };
 
-// `enabled` lets a caller that already knows the query shouldn't run yet (e.g. ActivityTimeline
-// gating on the viewer's role, which this hook has no way to know on its own) suppress it without
-// breaking the rules of hooks by conditionally calling this at all.
-// `keepPrevious` holds the last page on screen while a bigger `limit` loads ("Show older" in
-// ActivityTimeline), instead of flashing back to the skeleton.
 export const useAuditLogsQuery = (filter: AuditLogFilter = {}, options: { enabled?: boolean; keepPrevious?: boolean } = {}) => {
   const { token } = useAuth();
   return useQuery({

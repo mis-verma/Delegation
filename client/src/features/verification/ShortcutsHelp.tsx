@@ -11,7 +11,6 @@ const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: '?', does: 'Show this list' },
 ];
 
-/** Every shortcut also has a button on screen; this is only the quick way. */
 export const ShortcutsHelp = ({ open, onClose }: { open: boolean; onClose: () => void }) => (
   <Modal open={open} onClose={onClose} size="sm" title="Keyboard shortcuts" icon={<Keyboard size={18} aria-hidden />}>
     <dl className="flex flex-col divide-y divide-border/40">

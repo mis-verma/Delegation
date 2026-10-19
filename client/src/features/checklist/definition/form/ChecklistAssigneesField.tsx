@@ -5,8 +5,6 @@ import { UserBulkPicker } from '../../UserBulkPicker';
 import { LABEL_CLASS } from './formConstants';
 
 interface ChecklistAssigneesFieldProps {
-  /** Every store this checklist targets — assignees are scoped to "belongs to any of these", not
-   *  just the first store picked in the schedule step. */
   storeIds: string[];
   selected: string[];
   onChange: (ids: string[]) => void;
@@ -22,9 +20,7 @@ export const ChecklistAssigneesField = ({
   const labelId = useId();
   return (
     <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
-      {/* Field Header & Count Badge */}
       <div className="flex items-center justify-between gap-2">
-        {/* A caption for the checkbox list below, not a label for one control, so a span. */}
         <span id={labelId} className={LABEL_CLASS}>
           <Users size={14} className="text-text-muted shrink-0" />
           <span>Assigned Users</span>
@@ -43,8 +39,6 @@ export const ChecklistAssigneesField = ({
         selected={selected}
         onChange={onChange}
         emptyHint={
-          // Assignees must belong to one of the checklist's stores (enforced server-side too), so
-          // an empty list almost always means nobody has that store set on their profile yet.
           <div className="flex flex-col gap-1.5 px-2 py-2 text-xs font-display text-text-muted">
             <span className="font-semibold text-text">Nobody works at {storeIds.length === 1 ? 'this store' : 'these stores'} yet.</span>
             <span>
@@ -58,7 +52,6 @@ export const ChecklistAssigneesField = ({
         }
       />
 
-      {/* Helper Subtext */}
       <p className="hidden sm:block t-meta font-display text-text-muted">
         Tick the people who fill this in, or add a whole store or department at once.
       </p>

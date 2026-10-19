@@ -4,14 +4,10 @@ import { Button } from '../button';
 interface MaintenancePageProps {
   title?: string;
   message?: string;
-  /** Optional human-readable ETA, e.g. "Back by 3:00 PM IST" — shown as a small badge if given. */
   estimatedReturn?: string;
   onRetry?: () => void;
 }
 
-// Full-viewport takeover, same family as ErrorScreen/NotFoundPage (glass card over an ambient
-// background) — used in place of the whole app during planned downtime, so it has to stand alone
-// without any shell/nav around it, same as those.
 export const MaintenancePage = ({
   title = "We'll be right back",
   message = "We're rolling out some improvements right now. Thanks for your patience — try again in a few minutes.",
@@ -27,8 +23,6 @@ export const MaintenancePage = ({
     <span className="absolute top-1/3 right-16 size-40 rounded-full bg-primary-300/10 blur-2xl pointer-events-none" />
 
     <div
-      // border-border/60 (a real token) instead of ErrorScreen's --glass-border, which isn't
-      // actually defined anywhere in index.css and so renders with no visible border at all.
       className="relative z-10 w-full max-w-md text-center flex flex-col items-center gap-5 p-8 sm:p-10 rounded-2xl border border-border/60 shadow-xl animate-scale-in"
       style={{
         background: 'var(--glass-bg)',

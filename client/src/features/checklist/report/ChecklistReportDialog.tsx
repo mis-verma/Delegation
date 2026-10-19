@@ -38,9 +38,6 @@ const DAY_MS = 86_400_000;
 
 const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
 const CONTROL_H = 'h-11';
-// One column template for the header, the rows and the skeleton so they always line up.
-// Below sm only Name, Completion and Compliance show (Assigned and On time are in the download), so
-// the phone template has three columns and the wide one has five.
 const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5rem_6rem] items-center gap-2 px-3';
 const SM_ONLY = 'hidden sm:block';
 
@@ -185,13 +182,10 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
     groupBy,
   };
 
-  // The preview always asks for both tables and picks one on screen, so switching "Report by" never
-  // refetches (the choice only matters for the download).
   const preview = useChecklistReportPreview({ ...params, groupBy: 'both' }, rangeValid);
   const download = useChecklistReportDownload();
 
   const report = rangeValid ? preview.data : undefined;
-  // With "Both" the preview shows one table at a time; otherwise it follows the chosen grouping.
   const shownView: 'person' | 'department' = groupBy === 'both' ? previewView : groupBy;
   const noData = !!report && (shownView === 'person' ? report.people.length : report.departments.length) === 0;
 
@@ -264,7 +258,6 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
             Custom
           </ToggleChip>
         </div>
-        {/* Same-height slot for both states so picking Custom does not move anything below it. */}
         <div className={cn(CONTROL_H, 'flex items-center')}>
           {period === 'custom' ? (
             <DateRangePicker value={customRange} onChange={setCustomRange} placeholder="Pick a start and end date" className="w-full sm:w-72" />
@@ -335,7 +328,6 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
           )}
         </div>
 
-        {/* Same minimum height in every state (loading, error, empty, rows) so the dialog never resizes. */}
         <div className="min-h-96">
           {!rangeValid ? (
             <EmptyState icon={ClipboardList} title="Pick a period" description="Choose a start and end date to see a preview." className="py-10" />

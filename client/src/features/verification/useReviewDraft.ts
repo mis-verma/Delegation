@@ -1,12 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-// What the reviewer has typed or ticked on the run open in the review pane, before anything is
-// sent: the questions picked to send back, a note for each, the overall note, and whether the
-// send-back form is open. It resets whenever a different run is opened.
-
 interface DraftState {
   runId: string | null;
-  /** Picked question id -> that question's own note. */
   picked: Record<string, string>;
   note: string;
   sending: boolean;
@@ -17,7 +12,6 @@ const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, note: 
 export const useReviewDraft = (runId: string | null) => {
   const [state, setState] = useState<DraftState>(() => fresh(runId));
 
-  // Reset while rendering (React's way to reset state when an input changes) instead of in an effect.
   const draft = state.runId === runId ? state : fresh(runId);
   if (state.runId !== runId) setState(draft);
 
@@ -28,7 +22,6 @@ export const useReviewDraft = (runId: string | null) => {
   const togglePicked = useCallback((itemId: string) => update((prev) => {
     const picked = { ...prev.picked };
     if (itemId in picked) delete picked[itemId]; else picked[itemId] = '';
-    // Nothing left ticked means there is no per-question send-back, so the form stays as it is.
     return { ...prev, picked };
   }), [update]);
 
@@ -39,7 +32,6 @@ export const useReviewDraft = (runId: string | null) => {
   const setNote = useCallback((note: string) => update((prev) => ({ ...prev, note })), [update]);
   const setSending = useCallback((sending: boolean) => update((prev) => ({ ...prev, sending })), [update]);
   const reset = useCallback(() => setState(fresh(runId)), [runId]);
-  /** Starts a send-back on a run that is not open yet (swipe, S key): the form is already open when it shows. */
   const startSendBackFor = useCallback((id: string) => setState({ ...fresh(id), sending: true }), []);
 
   const pickedIds = useMemo(() => Object.keys(draft.picked), [draft.picked]);

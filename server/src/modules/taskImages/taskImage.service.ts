@@ -8,8 +8,6 @@ import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { assertCanWorkChecklistItem, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 
-// Same rule as ticking the item (see checklistItemWorkers): its assignee, the delegation's assignees
-// when the item has nobody on it, or an admin.
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; taskChecklistId: string | null }) =>
     assertCanWorkChecklistItem(
         user,

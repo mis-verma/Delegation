@@ -1,12 +1,3 @@
-// Load-test seed (run like: `npm run seed:loadtest -- --users=1000`).
-//
-// Creates N fake people in one fake store, each with their own run of today's checklist (8 plain
-// yes/done questions), so the k6 script in server/loadtest/ can sign in as any of them and fill it in.
-//
-// SAFETY: it refuses to run unless the database NAME contains "loadtest". Point the server and this
-// script at a throwaway database (e.g. taskmatrix_loadtest) with DB_NAME or DATABASE_URL; it will
-// never touch a normal database by accident. Safe to re-run: today's fake runs are deleted and
-// rebuilt each time, so every test starts with every question unanswered.
 import 'dotenv/config'
 import { and, eq, like } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
@@ -46,7 +37,6 @@ if (!Number.isInteger(userCount) || userCount < 1 || userCount > 5000) {
 const pad = (n: number) => String(n).padStart(4, '0')
 const emailFor = (n: number) => `lt-user-${pad(n)}@${EMAIL_DOMAIN}`
 
-// periodKey/periodStart are the org-local calendar day, with periodStart at UTC midnight of that day.
 const orgToday = (() => {
   const local = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
   const y = local.getUTCFullYear(), m = local.getUTCMonth(), d = local.getUTCDate()
@@ -68,7 +58,6 @@ const run = async () => {
   await connectDB()
   console.log(`Seeding load-test data into database "${databaseName}" (${userCount} users)...`)
 
-  // One shared password hash: bcrypt at cost 12 is deliberately slow, and every fake user can share it.
   const passwordHash = await hashPassword(PASSWORD)
 
   let [store] = await db.select().from(stores).where(eq(stores.name, 'LoadTest Store')).limit(1)
@@ -123,8 +112,6 @@ const run = async () => {
     ;[definition] = await db.select().from(checklistDefinitions).where(eq(checklistDefinitions.id, id)).limit(1)
   }
 
-  // Start every test from a clean slate: today's fake runs go (items and assignees follow through the
-  // foreign keys' cascade) and are rebuilt unanswered.
   await db.delete(checklistInstances).where(and(eq(checklistInstances.definitionId, definition!.id), eq(checklistInstances.periodKey, orgToday.periodKey)))
 
   const runs: (typeof checklistInstances.$inferInsert)[] = []

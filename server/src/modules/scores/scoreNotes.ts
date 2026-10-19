@@ -1,4 +1,3 @@
-// The notes every score endpoint carries, kept pure so the explorer can build on them without the database.
 export const SCORE_REPORT_NOTES = [
     "Window: every figure covers the days you picked, capped at today. A ticket or delegation counts only when its due date falls inside the window, so an item finished early whose due date is later is not in an earlier window. A ticket with no due time is never counted, even if closed.",
     "Checklist: runs are counted the same way on every page, every kind of checklist (daily, weekly, monthly, one-time). A run is due when its cutoff has passed or it is completed; a run still open before its cutoff is in neither side and never earns partial credit. Completion = completed / due. On time = completed before the cutoff / completed. Met deadline = completed before the cutoff / due.",

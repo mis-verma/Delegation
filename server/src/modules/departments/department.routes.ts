@@ -6,13 +6,9 @@ export const departmentRouter = Router()
 
 departmentRouter.use(authenticate)
 
-// any authenticated user (ADMIN , MANAGER , AGENT , USER)
-// e.g when you raising the ticket choosing which department it belong to.
-
 departmentRouter.get("/", departmentController.list)
 departmentRouter.get("/:id" , departmentController.getOne)
 
-// Only ADMIN can create, update, or delete departments.
 departmentRouter.post("/", requireRole("ADMIN", "PC"), departmentController.create)
 departmentRouter.patch("/:id", requireRole("ADMIN", "PC"), departmentController.update)
 departmentRouter.delete("/:id", requireRole("ADMIN", "PC"), departmentController.remove)

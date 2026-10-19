@@ -11,7 +11,6 @@ export const ChecklistBlock = ({
   taskId:         string;
   isAdmin:        boolean;
   currentUserId?: string;
-  /** The delegation's assignees: they work any item that has nobody on it (same rule as the server). */
   workerIds?: string[];
 }) => {
   const [open, setOpen] = useState(true);

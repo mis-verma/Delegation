@@ -3,12 +3,10 @@ import { AlertCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-/** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
  
-// --- Error Message Component ---
 
 interface ErrorMessageProps {
   message: string;
