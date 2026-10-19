@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Pencil, Plus, Shirt, Trash2 } from 'lucide-react';
+import { ClipboardCheck, Pencil, Plus, Shirt, Trash2, UserRound, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS, Skeleton, Switch, useConfirm } from '../../../components';
 import { useDeleteDressTypeMutation, useDressTypesQuery, useUpdateDressTypeMutation } from './hook';
@@ -27,18 +27,16 @@ const DressTypeRow = memo(({ type, busy, onToggleActive, onEdit, onDelete }: Row
     )}
   >
     <div className="flex items-center gap-3 min-w-0 flex-1">
-      <span aria-hidden className="flex items-center justify-center size-10 shrink-0 rounded-xl border border-primary-500/25 bg-primary-500/10 text-primary-700 dark:text-primary-300">
-        <Shirt size={18} />
+      <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white">
+        <Shirt size={18} strokeWidth={2.25} />
       </span>
       <div className="flex flex-col gap-1 min-w-0">
         <p className="text-sm font-display font-semibold text-text leading-snug line-clamp-2">{type.name}</p>
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <IconChip icon={false} label={type.gender ? GENDER_LABEL[type.gender] : 'Anyone'} />
-          <span className="text-xs font-display text-text-muted tabular-nums">{peopleText(type.peopleCount)}</span>
+          <IconChip icon={UserRound} tone={type.gender ? 'bg-coral-500' : 'bg-primary-600'} label={type.gender ? GENDER_LABEL[type.gender] : 'Anyone'} />
+          <IconChip icon={Users} tone="bg-primary-600" label={peopleText(type.peopleCount)} labelClassName="tabular-nums" />
           {type.auditQuestionCount > 0 && (
-            <span className="text-xs font-display text-text-muted tabular-nums">
-              {type.auditQuestionCount} audit {type.auditQuestionCount === 1 ? 'question' : 'questions'}
-            </span>
+            <IconChip icon={ClipboardCheck} tone="bg-success" label={`${type.auditQuestionCount} audit ${type.auditQuestionCount === 1 ? 'question' : 'questions'}`} labelClassName="tabular-nums" />
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { memo, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
 import { useSystemHealthQuery } from './hook';
@@ -39,14 +39,16 @@ const JOB_TONE: Record<HealthJobStatus, { level: HealthLevel | 'idle'; label: st
 
 const LevelChip = ({ level, label }: { level: HealthLevel | 'idle'; label?: string }) =>
   level === 'idle'
-    ? <IconChip icon={false} label={label ?? 'Waiting'} className="pl-2.5 shrink-0" />
+    ? <IconChip icon={CircleDashed} tone="bg-text-muted" label={label ?? 'Waiting'} className="shrink-0" />
     : <IconChip icon={LEVEL_TONE[level].icon} tone={LEVEL_TONE[level].tone} label={label ?? LEVEL_TONE[level].label} className="shrink-0" />;
+
+const LEVEL_TILE: Record<HealthLevel, string> = { ok: 'from-success to-success-strong', warn: 'from-warning to-warning/70', down: 'from-danger to-danger/70' };
 
 const Tile = ({ icon, title, level, children }: { icon: ReactNode; title: string; level: HealthLevel; children: ReactNode }) => (
   <section className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
     <div className="flex items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2 t-card font-display font-semibold text-text">
-        <span className="text-text-muted">{icon}</span>
+      <h2 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
+        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-white', LEVEL_TILE[level])} aria-hidden="true">{icon}</span>
         {title}
       </h2>
       <LevelChip level={level} />
@@ -57,7 +59,7 @@ const Tile = ({ icon, title, level, children }: { icon: ReactNode; title: string
 
 const Stat = ({ value, label }: { value: string; label: string }) => (
   <p className="flex items-baseline gap-1.5">
-    <span className="text-base font-display font-bold text-text tabular-nums">{value}</span>
+    <span className="t-section font-display font-extrabold text-text tabular-nums">{value}</span>
     <span>{label}</span>
   </p>
 );
@@ -169,7 +171,10 @@ export const SystemHealthPage = () => {
           </div>
 
           <section className="flex flex-col gap-2.5">
-            <h2 className="t-card font-display font-semibold text-text">Background jobs</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="t-section font-display font-bold text-text">Background jobs</h2>
+              <IconChip icon={CheckCircle2} tone={health.jobs.some((j) => j.status === 'failing') ? 'bg-danger' : health.jobs.some((j) => j.status === 'late') ? 'bg-warning' : 'bg-success'} label={`${health.jobs.length} ${health.jobs.length === 1 ? 'job' : 'jobs'}`} />
+            </div>
             {health.jobs.length === 0 ? (
               <p className="text-xs font-display text-text-muted">No background jobs are registered on this server.</p>
             ) : (
@@ -181,7 +186,7 @@ export const SystemHealthPage = () => {
 
           {health.database.biggestTables.length > 0 && (
             <section className="flex flex-col gap-2.5">
-              <h2 className="t-card font-display font-semibold text-text">Where the data lives</h2>
+              <h2 className="t-section font-display font-bold text-text">Where the data lives</h2>
               <ul className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-4')}>
                 {health.database.biggestTables.map(t => (
                   <li key={t.name} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs font-display">
@@ -197,14 +202,17 @@ export const SystemHealthPage = () => {
           )}
 
           <section className="flex flex-col gap-2.5">
-            <h2 className="t-card font-display font-semibold text-text">Recent server errors</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="t-section font-display font-bold text-text">Recent server errors</h2>
+              <IconChip icon={health.errors.length ? TriangleAlert : CheckCircle2} tone={health.errors.length ? 'bg-danger' : 'bg-success'} label={health.errors.length ? `${health.errors.length} since restart` : 'None'} />
+            </div>
             {health.errors.length === 0 ? (
               <p className="text-xs font-display text-text-muted">No unexpected errors since the server last restarted.</p>
             ) : (
               <ul className={cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 overflow-hidden')}>
                 {health.errors.map((e, i) => (
                   <li key={`${e.at}-${i}`} className="flex flex-col gap-0.5 p-3.5">
-                    <p className="text-xs font-display font-semibold text-text break-all">{e.method} {e.path}</p>
+                    <p className="flex items-center gap-2 text-xs font-display font-semibold text-text break-all"><IconChip icon={false} label={e.method} className="pl-2.5 shrink-0" />{e.path}</p>
                     <p className="text-xs font-display text-danger break-words">{e.message}</p>
                     <p className="text-xs font-display text-text-muted">{timeAgo(e.at)}</p>
                   </li>

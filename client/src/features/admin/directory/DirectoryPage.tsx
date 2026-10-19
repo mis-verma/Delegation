@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router';
-import { Contact, Users, Building2, Store, Network, Radio } from 'lucide-react';
+import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageHeader, Skeleton } from '../../../components';
+import { IconChip, PageHeader, Skeleton } from '../../../components';
 import { UserList } from '../users';
 import { DepartmentList } from '../department';
 import { StoreList } from '../store';
@@ -79,7 +79,7 @@ export const DirectoryPage = () => {
               </TabsTrigger>
             ))}
           </TabsList>
-          {summary && <p className="hidden sm:block t-meta font-display text-text-muted">{summary}</p>}
+          {summary && <IconChip className="hidden sm:inline-flex" icon={summary === 'All active' ? CircleCheck : CircleAlert} tone={summary === 'All active' ? 'bg-success' : 'bg-warning'} label={summary} />}
         </div>
 
         <TabsContent value="users">

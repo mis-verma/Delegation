@@ -1,11 +1,12 @@
 import { memo, useCallback, useMemo, useState, type FormEvent } from 'react';
-import { CalendarOff, CalendarPlus, ChevronDown, Info, Trash2, Wand2 } from 'lucide-react';
+import { CalendarClock, CalendarDays, CalendarOff, CalendarPlus, ChevronDown, Info, Timer, Trash2, Wand2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  Button, DatePicker, EmptyState, InlineError, Input, NoticeBanner, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton,
+  Button, DatePicker, EmptyState, IconChip, InlineError, Input, NoticeBanner, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton,
 } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
+import { StatCard } from '../../dashboard';
 import { useOrgToday } from '../../checklist/useOrgToday';
 import { useCreateHolidayMutation, useCreateHolidaysMutation, useDeleteHolidayMutation, useHolidaysQuery, previewHolidayClears } from './hook';
 import type { Holiday } from '../../../api/holidays';
@@ -97,11 +98,8 @@ const HolidayRowSkeleton = () => (
   </div>
 );
 
-const Stat = ({ value, label }: { value: string; label: string }) => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col gap-0.5 p-3 sm:p-3.5 min-w-0')}>
-    <span className="text-lg sm:text-xl font-display font-bold text-text tabular-nums leading-tight">{value}</span>
-    <span className="text-xs font-display text-text-muted leading-snug line-clamp-2">{label}</span>
-  </div>
+const Stat = ({ value, label, icon, tint }: { value: string; label: string; icon: LucideIcon; tint: string }) => (
+  <StatCard modern compact label={label} value={value} icon={icon} iconTint={tint} />
 );
 
 const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
@@ -222,11 +220,13 @@ export const HolidaysPage = () => {
       />
 
       <div className={cn('grid grid-cols-3 gap-2.5 sm:gap-3 transition-opacity duration-200', isPlaceholderData && 'opacity-50')} aria-busy={isPlaceholderData}>
-        <Stat value={String(total)} label={`Holidays in ${year}`} />
-        <Stat value={String(remaining)} label="Still to come" />
+        <Stat value={String(total)} label={`Holidays in ${year}`} icon={CalendarDays} tint="text-primary-600" />
+        <Stat value={String(remaining)} label="Still to come" icon={CalendarClock} tint="text-warning" />
         <Stat
           value={next ? (nextDiff === 0 ? 'Today' : nextDiff === 1 ? 'Tomorrow' : `${nextDiff} days`) : 'None'}
           label={next ? `Until ${next.name}` : 'Nothing coming up'}
+          icon={Timer}
+          tint="text-coral-600"
         />
       </div>
 
@@ -252,7 +252,7 @@ export const HolidaysPage = () => {
           <div className={cn('flex flex-col gap-6 transition-opacity duration-200', isFetching && !isPending && 'opacity-60')}>
             {months.map(group => (
               <section key={group.key} aria-label={group.label} className="flex flex-col gap-2.5">
-                <h2 className="text-sm font-display font-semibold text-text-secondary">{group.label}</h2>
+                <h2 className="flex items-center gap-2 t-card font-display font-bold text-text">{group.label}<IconChip icon={CalendarDays} tone="bg-primary-600" label={`${group.items.length} ${group.items.length === 1 ? 'day' : 'days'}`} /></h2>
                 <ul className="flex flex-col gap-2">
                   {group.items.map(h => <HolidayRow key={h.id} holiday={h} today={today} onDelete={handleDelete} busy={removing} />)}
                 </ul>
@@ -277,8 +277,8 @@ export const HolidaysPage = () => {
           </Button>
           <form id="holiday-form" onSubmit={submit} className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5', !formOpen && 'hidden lg:flex')}>
             <div className="flex items-center gap-2">
-              <CalendarPlus size={16} className="text-text-light" aria-hidden />
-              <h2 className="t-card font-display font-semibold text-text">Add a holiday</h2>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true"><CalendarPlus size={16} strokeWidth={2.25} /></span>
+              <h2 className="t-card font-display font-bold text-text">Add a holiday</h2>
             </div>
             <div role="group" aria-labelledby="holiday-date-label" className="flex flex-col gap-1.5">
               <span id="holiday-date-label" className={FIELD_LABEL}>Date</span>
