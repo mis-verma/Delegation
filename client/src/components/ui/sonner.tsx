@@ -34,7 +34,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme}
       className="toaster group"
-      closeButton
+      closeButton={!isMobile}
+      visibleToasts={isMobile ? 1 : 3}
+      duration={4000}
       toastOptions={{
         classNames: {
           // No shadow — border-only, same convention Modal/Popover/DropdownMenu/Select all use

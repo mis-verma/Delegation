@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCheck, BellRing, AlertCircle, ChevronRight, X } from 'lucide-react';
+import { Bell, Check, CheckCheck, BellRing, AlertCircle, ChevronRight, X } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router';
@@ -43,6 +44,7 @@ interface NotificationListProps {
   onOpen: (n: Notification) => void;
   /** Phone sheet: bigger rows and three message lines instead of two. */
   roomy?: boolean;
+  onSwipeRead: (n: Notification) => void;
 }
 
 const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon: typeof BellRing; title: string; hint: string; tone?: 'neutral' | 'danger' }) => (
@@ -57,7 +59,8 @@ const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon
 
 // The rows (or the error / empty state), shared by the desktop popover and the phone sheet. Grouped
 // under Today / Yesterday / Earlier, so the list reads like a timeline rather than one long run.
-const NotificationList = ({ notifications, isError, filter, onOpen, roomy = false }: NotificationListProps) => {
+const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead, roomy = false }: NotificationListProps) => {
+  const dragged = useRef(false);
   if (isError) {
     return <NotificationEmpty icon={AlertCircle} tone="danger" title="Couldn't load notifications" hint="We couldn't reach the server. Check your connection and refresh the page." />;
   }
@@ -81,9 +84,27 @@ const NotificationList = ({ notifications, isError, filter, onOpen, roomy = fals
               const Icon = look.icon;
               const canOpen = notificationPath(n) !== null;
               return (
-                <li key={n.id}>
+                <li key={n.id} className="relative overflow-hidden rounded-xl">
+                  {!n.isRead && (
+                    <span aria-hidden className="absolute inset-y-0 right-0 flex w-28 items-center justify-end gap-1.5 bg-primary-500/10 pr-4 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">
+                      <Check size={14} strokeWidth={2.5} />
+                      Mark read
+                    </span>
+                  )}
+                  <motion.div
+                    drag={n.isRead ? false : 'x'}
+                    dragDirectionLock
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={{ left: 0.5, right: 0 }}
+                    onDragStart={() => { dragged.current = true; }}
+                    onDragEnd={(_, info) => {
+                      window.setTimeout(() => { dragged.current = false; }, 80);
+                      if (info.offset.x < -72 || info.velocity.x < -600) onSwipeRead(n);
+                    }}
+                    className="relative bg-surface rounded-xl"
+                  >
                   <button
-                    onClick={() => onOpen(n)}
+                    onClick={() => { if (!dragged.current) onOpen(n); }}
                     className={cn(
                       'w-full flex items-start gap-2.5 px-2.5 py-2.5 rounded-xl text-left transition-colors duration-150 cursor-pointer touch-manipulation outline-none',
                       'focus-visible:ring-2 focus-visible:ring-primary-500/40',
@@ -105,7 +126,7 @@ const NotificationList = ({ notifications, isError, filter, onOpen, roomy = fals
                       <p className={cn('t-meta leading-snug break-words', roomy ? 'line-clamp-3' : 'line-clamp-2', n.isRead ? 'text-text-muted' : 'text-text-secondary')}>
                         {n.message}
                       </p>
-                      <div className="flex items-center gap-1.5 pt-0.5 text-[0.6875rem] font-display text-text-light">
+                      <div className="flex items-center gap-1.5 pt-0.5 t-meta font-display text-text-light">
                         <span className="font-semibold text-text-muted">{look.kindLabel}</span>
                         <span aria-hidden>·</span>
                         <time dateTime={n.createdAt} title={formatNotificationTime(n.createdAt)}>{formatRelativeShort(n.createdAt)}</time>
@@ -119,6 +140,7 @@ const NotificationList = ({ notifications, isError, filter, onOpen, roomy = fals
                       </div>
                     </div>
                   </button>
+                  </motion.div>
                 </li>
               );
             })}
@@ -215,7 +237,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       {unreadCount > 0 && (
         <span className={cn(
           "absolute -top-1 -right-1 flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1",
-          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white text-[0.625rem] font-display font-bold leading-none tabular-nums",
+          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white t-meta font-display font-bold leading-none tabular-nums",
           badgeRing ? "ring-2 ring-surface" : "ring-2 ring-surface/80",
           "animate-in zoom-in duration-300",
           justArrived && "animate-pulse"
@@ -277,7 +299,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         <AttentionStrip onNavigate={() => setOpen(false)} />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} roomy />
+          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} onSwipeRead={(n) => { haptic('tap'); markRead.mutate(n.id); }} roomy />
         </div>
       </SheetContent>
     </Sheet>

@@ -47,6 +47,7 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
                 id,
                 description: n.message,
                 duration: 8000,
+                dismissible: true,
                 action: path
                     ? {
                         label: "Open",

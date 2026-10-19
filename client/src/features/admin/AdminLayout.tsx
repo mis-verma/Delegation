@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNotice';
 import {
   LayoutDashboard,
   Contact,
@@ -661,6 +662,7 @@ export const AdminLayout = () => {
               key={location.pathname}
               className="w-full animate-in fade-in slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
+              <MaintenanceNotice settingsPath="/admin/settings" />
               <Suspense fallback={<RouteFallback />}>
                 <PageHeaderTitleContext.Provider value={false}>
                   <Outlet />

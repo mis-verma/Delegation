@@ -6,6 +6,7 @@ import { Construction } from 'lucide-react';
 import { Header, Footer, Sidebar, BottomNav } from '../../components/layout';
 import { RouteFallback } from '../../components/skeleton';
 import { PullToRefresh } from '../../components/pullToRefresh';
+import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNotice';
 import { PageMaintenance } from '../../components/error/PageMaintenance';
 import { isPathUnderMaintenance, maintenancePageLabel } from '../../lib/maintenance';
 import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
@@ -100,6 +101,7 @@ export const Dashboard = () => {
                 clear the add button above the bar (it sits at 6.25rem and is about 3.5rem tall), so the
                 last card and the page arrows can scroll fully into view. */}
             <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col`}>
+              <MaintenanceNotice settingsPath="/admin/settings" />
               {maintenanceMatch && isAdmin && (
                 <div
                   role="status"
