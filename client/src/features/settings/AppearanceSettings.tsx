@@ -17,7 +17,8 @@ export const AppearanceSettings = () => {
   const supported = hapticsSupported();
 
   return (
-    <div className="flex flex-col gap-5 w-full max-w-3xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
+      <div className="lg:col-span-2">
       <SettingsCard
         icon={Monitor}
         title="Theme"
@@ -70,6 +71,7 @@ export const AppearanceSettings = () => {
           })}
         </div>
       </SettingsCard>
+      </div>
 
       <SettingsCard
         icon={Vibrate}

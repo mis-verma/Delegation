@@ -123,9 +123,7 @@ export const AccountSettings = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
-      <form onSubmit={handleProfileSubmit(onProfileSubmit)} noValidate>
-       <SettingsCard icon={UserIcon} title="Profile" aside={<RoleChip role={profile.role} />}>
-
+      <section aria-label="Your profile" className="flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-border/60 bg-surface sm:flex-row sm:items-center sm:gap-6 lg:col-span-2">
         <AvatarUpload
           name={`${profile.firstName} ${profile.lastName ?? ''}`}
           src={resolveAvatarUrl(profile.avatarUrl)}
@@ -134,6 +132,19 @@ export const AccountSettings = () => {
           onUpload={(file) => uploadAvatarMut.mutate(file)}
           onRemove={() => removeAvatarMut.mutate()}
         />
+        <div className="flex min-w-0 flex-col items-start gap-1.5 sm:ml-auto sm:items-end sm:text-right">
+          <p className="t-title font-display font-bold text-text truncate">{profile.firstName} {profile.lastName ?? ''}</p>
+          <p className="flex items-center gap-1.5 t-meta font-display text-text-muted min-w-0">
+            <Mail size={13} aria-hidden className="shrink-0" />
+            <span className="truncate">{profile.email}</span>
+          </p>
+          <RoleChip role={profile.role} />
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-5">
+      <form onSubmit={handleProfileSubmit(onProfileSubmit)} noValidate>
+       <SettingsCard icon={UserIcon} title="Personal details" hint="Your name and phone show up next to your work across the app.">
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input id="firstName" label="First name" icon={UserIcon} error={profileErrors.firstName?.message} {...registerProfile('firstName')} />
@@ -155,11 +166,12 @@ export const AccountSettings = () => {
        </SettingsCard>
       </form>
 
-      <div className="flex flex-col gap-5">
       <SettingsCard icon={Smartphone} title="Get the app" hint="The app is the same KaryaOS, just faster to open and with alerts on your phone.">
         <GetAppOptions />
       </SettingsCard>
+      </div>
 
+      <div className="flex flex-col gap-5">
       <WeekOffCard
         key={(profile.weekOffDays ?? []).join(',')}
         initial={profile.weekOffDays ?? []}

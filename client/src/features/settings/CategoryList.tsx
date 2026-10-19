@@ -1,5 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { Plus, Tag, Building2, Users, Clock, Search, CircleOff, CirclePower } from "lucide-react";
+import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import {
   Button, Input, Skeleton, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
@@ -12,11 +13,15 @@ const CategoryForm = lazy(() =>
   import("./CategoryForm").then(module => ({ default: module.CategoryForm }))
 );
 
+type StatusFilter = "all" | "active" | "inactive";
+const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
+
 export const CategoryList = () => {
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
 
   const { data: categories = [], isPending, isError, refetch } = useCategoriesQuery();
   const updateMut = useUpdateCategoryMutation();
@@ -24,9 +29,14 @@ export const CategoryList = () => {
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return categories;
-    return categories.filter((c) => c.name.toLowerCase().includes(needle) || (c.departmentId?.name ?? "").toLowerCase().includes(needle));
-  }, [categories, query]);
+    return categories.filter((c) => {
+      if (status === "active" && !c.isActive) return false;
+      if (status === "inactive" && c.isActive) return false;
+      return !needle || c.name.toLowerCase().includes(needle) || (c.departmentId?.name ?? "").toLowerCase().includes(needle);
+    });
+  }, [categories, query, status]);
+
+  const activeCount = useMemo(() => categories.filter((c) => c.isActive).length, [categories]);
 
   const toggleActive = (c: Category) => updateMut.mutate({ id: c.id, payload: { isActive: !c.isActive } });
 
@@ -59,7 +69,7 @@ export const CategoryList = () => {
       );
     }
     if (shown.length === 0) {
-      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search", onClick: () => setQuery("") }} />;
+      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: () => { setQuery(""); setStatus("all"); } }} />;
     }
 
     return (
@@ -113,14 +123,16 @@ export const CategoryList = () => {
 
   return (
     <div className="flex flex-col gap-3 sm:gap-4 w-full">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="t-section font-display font-bold text-text">Ticket categories</h2>
         <p className="t-meta font-display text-text-muted">
-          {isPending ? "Loading" : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}. Picking one on a ticket fills in the team, the people and the due time.
+          Picking one on a ticket fills in the team, the people and the due time.
+          {!isPending && categories.length > 0 && ` ${activeCount} of ${categories.length} ${categories.length === 1 ? "is" : "are"} active.`}
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {categories.length > 0 && (
-          <div className="flex-1 min-w-0 sm:max-w-xs">
+          <div className="flex-1 min-w-48 sm:max-w-xs">
             <Input
               id="category-search"
               type="search"
@@ -131,6 +143,14 @@ export const CategoryList = () => {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+        )}
+        {categories.length > 0 && (
+          <PeriodTabControl
+            value={status}
+            options={STATUS_OPTIONS}
+            labels={{ all: `All ${categories.length}`, active: `Active ${activeCount}`, inactive: `Inactive ${categories.length - activeCount}` }}
+            onChange={setStatus}
+          />
         )}
         <Button size="sm" variant="primary" aria-label="New category" className="gap-1.5 shrink-0 max-sm:size-11 max-sm:px-0 sm:ml-auto" onClick={() => setShowForm(true)}>
           <Plus size={15} aria-hidden />
