@@ -358,7 +358,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
           </div>
 
           <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard
+            <StatCard modern
               icon={Users}
               label="People"
               value={users ? people.active : 'No data'}
@@ -368,7 +368,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               highlight
               decorative
             />
-            <StatCard
+            <StatCard modern
               icon={Store}
               iconTint="text-coral-600 dark:text-coral-400"
               label="Stores"
@@ -377,7 +377,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               isLoading={storesPending}
               compact
             />
-            <StatCard
+            <StatCard modern
               icon={Layers}
               iconTint="text-primary-600 dark:text-primary-400"
               label="Departments"
@@ -386,7 +386,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               isLoading={deptsPending}
               compact
             />
-            <StatCard
+            <StatCard modern
               icon={UserX}
               iconTint={people.unplaced > 0 ? 'text-warning' : 'text-success'}
               label="Unassigned"

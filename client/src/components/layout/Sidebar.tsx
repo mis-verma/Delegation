@@ -217,7 +217,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),
-    ...(isAdmin || isPC ? [{ to: '/admin/scorecard', icon: ShieldCheck, label: 'Admin' }] : []),
+    ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 
   const handleNavClick = () => {

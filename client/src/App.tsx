@@ -30,9 +30,8 @@ const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ defa
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
 const ScoresPage = lazy(() => import('./features/scores').then(m => ({ default: m.ScoresPage })));
-const FillHeatmapPage = lazy(() => import('./features/attention/FillHeatmapPage').then(m => ({ default: m.FillHeatmapPage })));
+const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ default: m.FillHub })));
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
-const ScorecardPage = lazy(() => import('./features/admin/analytics/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
@@ -47,7 +46,6 @@ const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => 
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
 const DressTypesPage = lazy(() => import('./features/admin/dressTypes').then(m => ({ default: m.DressTypesPage })));
 const HolidaysPage = lazy(() => import('./features/admin/holidays').then(m => ({ default: m.HolidaysPage })));
-const PresenceOverview = lazy(() => import('./features/admin/presence').then(m => ({ default: m.PresenceOverview })));
 const SettingsPage = lazy(() => import('./features/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ChecklistTemplateList = lazy(() => import('./features/admin/checklistTemplate').then(m => ({ default: m.ChecklistTemplateList })));
 const MyChecklists = lazy(() => import('./features/checklist').then(m => ({ default: m.MyChecklists })));
@@ -121,6 +119,30 @@ const RedirectToScores = ({ set }: { set: Record<string, string> }) => {
   const next = new URLSearchParams(search);
   next.delete('by');
   for (const [key, value] of Object.entries(set)) next.set(key, value);
+  return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
+};
+
+const WeeklyRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/team/fill/checklists${search}`} replace />;
+};
+
+const ScorecardRedirect = () => {
+  const { search } = useLocation();
+  const old = new URLSearchParams(search);
+  const next = new URLSearchParams();
+  const kind = old.get('view');
+  const open = old.get('open');
+  const from = old.get('from');
+  const to = old.get('to');
+  if (from) next.set('from', from);
+  if (to) next.set('to', to);
+  if (open && (kind === 'person' || kind === 'department' || kind === 'store')) {
+    next.set('trail', JSON.stringify([{ id: open, kind, name: '' }]));
+    next.set('view', kind === 'person' ? 'checklist' : kind === 'department' ? 'person' : 'department');
+  } else if (kind === 'person' || kind === 'department' || kind === 'store') {
+    next.set('view', kind);
+  }
   return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
 };
 
@@ -252,7 +274,10 @@ const router = createBrowserRouter([
       {
         path: '/team/fill',
         element: <ScoresLayout />,
-        children: [{ index: true, element: <FillHeatmapPage /> }],
+        children: [
+          { index: true, element: <FillHub tab="person" /> },
+          { path: 'checklists', element: <FillHub tab="checklist" /> },
+        ],
       },
       {
         element: <AdminRoute />,
@@ -266,7 +291,7 @@ const router = createBrowserRouter([
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
               { path: '/admin/rankings', element: <RedirectToScores set={{ view: 'department' }} /> },
-              { path: '/admin/scorecard', element: <ScorecardPage /> },
+              { path: '/admin/scorecard', element: <ScorecardRedirect /> },
               { path: '/admin/checklist-store-daily', element: <RedirectToScores set={{ view: 'store' }} /> },
               { path: '/admin/data-check', element: <DataCheckPage /> },
               { path: '/admin/analytics', element: <Navigate to="/admin" replace /> },    
@@ -289,8 +314,8 @@ const router = createBrowserRouter([
               { path: '/admin/holidays', element: <HolidaysPage /> },
               { path: '/admin/dress-types', element: <DressTypesPage /> },
               { path: '/admin/checklist-former', element: <FormerPeoplePage /> },
-              { path: '/admin/checklist-weekly', element: <ChecklistWeeklyReport /> },
-              { path: '/admin/presence', element: <PresenceOverview /> },
+              { path: '/admin/checklist-weekly', element: <WeeklyRedirect /> },
+              { path: '/admin/presence', element: <Navigate to="/admin/directory?tab=online" replace /> },
               { path: '/admin/settings', element: <SettingsPage /> },
             ],
           },

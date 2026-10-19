@@ -141,10 +141,11 @@ const PanelRow = ({ label, children }: { label: string; children: React.ReactNod
   </div>
 );
 
-export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref }: {
+export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref, hideRanking = false }: {
   initialScope?: ScoreScope;
   window?: { from: string; to: string; label: string };
   moreHref?: string;
+  hideRanking?: boolean;
 } = {}) => {
   const { user } = useAuth();
   const role = user?.role;
@@ -598,7 +599,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       )}
       </div>
 
-      {canExportReport && isWide && (
+      {canExportReport && isWide && !hideRanking && (
         <section aria-label="Ranking" className="flex flex-col gap-2 border-t border-border/60 pt-4 @4xl:col-span-2 @4xl:row-start-3">
           <h3 className="t-card font-display font-bold text-text">Ranking</h3>
           <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={openRanked} />

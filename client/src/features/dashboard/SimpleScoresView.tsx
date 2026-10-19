@@ -2,6 +2,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleArrowDown, 
 import { cn } from '@/lib/utils';
 import { RadialGauge } from '../../components/radialGauge/RadialGauge';
 import { InlineError } from '../../components/inlineError';
+import { IconChip } from '../../components/iconChip';
 import { Skeleton } from '../../components/skeleton';
 import { HowCalculated } from '../scores/HowCalculated';
 import type { Scores } from '../../api/scores';
@@ -23,7 +24,7 @@ const MODULES: readonly { key: ModuleKey; icon: LucideIcon; tile: string }[] = [
 const TONE_TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
 const TONE_BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-border-hover' };
 const TONE_WORD: Record<RateTone, string> = { success: 'Good', warning: 'Fair', danger: 'Low', neutral: '' };
-const TONE_CHIP: Record<RateTone, string> = { success: 'bg-success/10 text-success', warning: 'bg-warning/10 text-warning', danger: 'bg-danger/10 text-danger', neutral: '' };
+const TONE_BG: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-muted' };
 const TONE_ICON: Record<RateTone, LucideIcon | null> = { success: CircleCheck, warning: CircleAlert, danger: CircleArrowDown, neutral: null };
 const TONE_COLOR: Record<RateTone, string> = {
   success: 'var(--color-success)',
@@ -37,12 +38,7 @@ const toneOf = (v: number | null): RateTone => (v === null ? 'neutral' : rateTon
 const ToneChip = ({ tone, className }: { tone: RateTone; className?: string }) => {
   const Icon = TONE_ICON[tone];
   if (!Icon) return null;
-  return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 t-meta font-display font-bold', TONE_CHIP[tone], className)}>
-      <Icon className="size-3" strokeWidth={2.5} aria-hidden="true" />
-      {TONE_WORD[tone]}
-    </span>
-  );
+  return <IconChip className={className} icon={Icon} tone={TONE_BG[tone]} label={TONE_WORD[tone]} />;
 };
 
 const MeasureBar = ({ label, value }: { label: string; value: number | null }) => {

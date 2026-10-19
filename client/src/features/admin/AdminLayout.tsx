@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNotice';
 import {
@@ -11,8 +11,6 @@ import {
   ChevronDown,
   History,
   HeartPulse,
-  Radio,
-  Gauge,
   Grid3x3,
   Trophy,
 } from 'lucide-react';
@@ -40,7 +38,12 @@ interface AdminNavChild {
   label: string;
 }
 
+type AdminNavGroup = 'insights' | 'people' | 'checklists' | 'system';
+
+const GROUP_LABEL: Record<AdminNavGroup, string> = { insights: 'Insights', people: 'People', checklists: 'Checklists', system: 'System' };
+
 interface AdminNavItem {
+  group: AdminNavGroup;
   to: string;
   icon: typeof LayoutDashboard;
   label: string;
@@ -51,7 +54,6 @@ interface AdminNavItem {
 const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/scheduled-checklists', label: 'Recurring Checklists' },
   { to: '/admin/checklist-compliance', label: 'Checklist Compliance' },
-  { to: '/admin/checklist-weekly', label: 'Report' },
   { to: '/admin/holidays', label: 'Holidays' },
   { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },
@@ -59,17 +61,15 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 ];
 
 const NAV: AdminNavItem[] = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
-  { to: '/admin/scores', icon: Trophy, label: 'Scores', end: false },
-  { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
-  { to: '/team/fill', icon: Grid3x3, label: 'Fill Chart', end: false },
-  { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
-  { to: '/admin/presence', icon: Radio, label: "Who's Online", end: false },
-  { to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },
-  { to: '/admin/reports', icon: FileDown, label: 'Reports', end: false },
-  { to: '/admin/audit-log', icon: History, label: 'Audit Log', end: false },
-  { to: '/admin/system-health', icon: HeartPulse, label: 'System Health', end: false },
-  { to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
+  { group: 'insights', to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
+  { group: 'insights', to: '/admin/scores', icon: Trophy, label: 'Scores', end: false },
+  { group: 'insights', to: '/team/fill', icon: Grid3x3, label: 'Checklist Fill', end: false },
+  { group: 'people', to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
+  { group: 'checklists', to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },
+  { group: 'system', to: '/admin/reports', icon: FileDown, label: 'Reports', end: false },
+  { group: 'system', to: '/admin/audit-log', icon: History, label: 'Audit Log', end: false },
+  { group: 'system', to: '/admin/system-health', icon: HeartPulse, label: 'System Health', end: false },
+  { group: 'system', to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 
 const NAV_LINK_BASE =
@@ -385,6 +385,22 @@ export const AdminLayout = () => {
     );
   };
 
+
+  const renderNav = (isDrawer: boolean) =>
+    nav.map((item, i) => {
+      const starts = i === 0 || nav[i - 1].group !== item.group;
+      const expanded = isDrawer || sidebarOpen;
+      return (
+        <Fragment key={item.to}>
+          {starts && expanded && item.group !== 'checklists' && (
+            <p className={cn('px-3 pb-1 t-meta font-display font-semibold text-text-light', i > 0 && 'pt-3')}>{GROUP_LABEL[item.group]}</p>
+          )}
+          {starts && expanded && item.group === 'checklists' && <span className="my-2 h-px w-full shrink-0 bg-border" aria-hidden="true" />}
+          {starts && !expanded && i > 0 && <span className="my-1.5 h-px w-full shrink-0 bg-border" aria-hidden="true" />}
+          {renderNavItem(item, isDrawer, i)}
+        </Fragment>
+      );
+    });
   return (
     <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans">
       <div inert={mobileDrawerOpen}>
@@ -418,7 +434,7 @@ export const AdminLayout = () => {
           </p>
 
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {nav.map((item, i) => renderNavItem(item, true, i))}
+            {renderNav(true)}
           </nav>
 
           {user && (
@@ -459,7 +475,7 @@ export const AdminLayout = () => {
           </p>
 
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {nav.map((item, i) => renderNavItem(item, false, i))}
+            {renderNav(false)}
           </nav>
 
           {user && (

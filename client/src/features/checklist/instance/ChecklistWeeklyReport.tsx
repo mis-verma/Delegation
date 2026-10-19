@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { CalendarCheck2, ChevronRight, Info, SearchX } from 'lucide-react';
+import { CalendarCheck2, ChevronRight, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { formatPct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
@@ -129,14 +129,14 @@ export const ChecklistWeeklyReport = () => {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in the Scorecard." />
-
-      <NoticeBanner tone="info" icon={Info}>
-        This is the daily fill report. To compare every checklist, department, store and person on one set of numbers, open{' '}
-        <Link viewTransition to="/admin/scores?view=checklist" className="font-display font-semibold text-text underline-offset-2 hover:underline">Compare all checklists in Scores</Link>
-        . The same fill matrix is also in Scores, under Checklists:{' '}
-        <Link viewTransition to={scoresMatrixHref} className="font-display font-semibold text-text underline-offset-2 hover:underline">Open the matrix in Scores</Link>.
-      </NoticeBanner>
+      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in Scores."
+        actions={
+          <>
+            <Link viewTransition to="/admin/scores?view=checklist" className="inline-flex h-9 items-center rounded-lg border border-border px-3 t-meta font-display font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text">Compare in Scores</Link>
+            <Link viewTransition to={scoresMatrixHref} className="inline-flex h-9 items-center rounded-lg border border-border px-3 t-meta font-display font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text">Fill matrix in Scores</Link>
+          </>
+        }
+      />
 
       <div className="w-full sm:w-fit">
         <PeriodTabControl value={view} options={VIEW_KEYS} labels={VIEW_LABELS} onChange={setView} fill />

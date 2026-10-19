@@ -59,7 +59,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
     let done = 0;
     let flagged = 0;
     const byPerson = new Map<string, { completed: number; flagged: number }>();
-    for (const item of instance.items) {
+    for (const item of (instance.items ?? [])) {
       if (item.isNotApplicable) continue;
       total += 1;
       if (item.isDone) done += 1;
@@ -72,7 +72,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
         byPerson.set(item.completedBy, entry);
       }
     }
-    return { total, done, flagged, byPerson, progress: runScores(instance.items).completion };
+    return { total, done, flagged, byPerson, progress: runScores(instance.items ?? []).completion };
   }, [instance.items]);
 
   const { total, done, flagged, byPerson, progress } = stats;
@@ -115,9 +115,9 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
         </span>
       </div>
 
-      {instance.assigneeIds.length > 0 && (
+      {(instance.assigneeIds ?? []).length > 0 && (
         <div className="flex flex-wrap gap-2 pt-3 border-t border-border/60">
-          {instance.assigneeIds.map(id => {
+          {(instance.assigneeIds ?? []).map(id => {
             const theirs = byPerson.get(id);
             const completedByThem = theirs?.completed ?? 0;
             const flaggedByThem = theirs?.flagged ?? 0;

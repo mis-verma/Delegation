@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router';
-import { Contact, Users, Building2, Store, Network } from 'lucide-react';
+import { Contact, Users, Building2, Store, Network, Radio } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader, Skeleton } from '../../../components';
 import { UserList } from '../users';
@@ -9,6 +9,7 @@ import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 
+const PresenceOverview = lazy(() => import('../presence').then((m) => ({ default: m.PresenceOverview })));
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
 
 const TABS = [
@@ -16,6 +17,7 @@ const TABS = [
   { value: 'departments', label: 'Departments', short: 'Depts', icon: Building2 },
   { value: 'stores', label: 'Stores', short: 'Stores', icon: Store },
   { value: 'structure', label: 'Org structure', short: 'Structure', icon: Network },
+  { value: 'online', label: "Who's online", short: 'Online', icon: Radio },
 ] as const;
 
 type TabValue = (typeof TABS)[number]['value'];
@@ -47,6 +49,7 @@ export const DirectoryPage = () => {
     departments: departments?.length,
     stores: stores?.length,
     structure: undefined,
+    online: undefined,
   };
 
   const summary = tab === 'users' ? summarize(users, 'deactivated')
@@ -60,7 +63,7 @@ export const DirectoryPage = () => {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <TabsList className="grid w-full grid-cols-4 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
+          <TabsList className="grid w-full grid-cols-5 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
             {TABS.map(({ value, label, short, icon: Icon }) => (
               <TabsTrigger
                 key={value}
@@ -87,6 +90,11 @@ export const DirectoryPage = () => {
         </TabsContent>
         <TabsContent value="stores">
           <StoreList />
+        </TabsContent>
+        <TabsContent value="online">
+          <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+            <PresenceOverview />
+          </Suspense>
         </TabsContent>
         <TabsContent value="structure">
           <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>

@@ -7,6 +7,7 @@ import type { Scores } from '../../api/scores';
 import { formatPct } from '../../lib/percent';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { SeriesLegend } from './SeriesLegend';
+import { ScoreToneChip } from './ScoreToneChip';
 import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
@@ -87,6 +88,11 @@ const Delta = ({ label, value }: { label: string; value: number | null }) =>
     </span>
   );
 
+const moduleAverage = (row: Row, series: SeriesKey[]) => {
+  const values = series.map((k) => row[k]).filter((v): v is number => v !== null);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+};
+
 const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: SeriesKey[]; onOpenModule?: (module: ModuleKey) => void }) => (
   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Scores by module">
     {rows.map((r) => {
@@ -94,7 +100,10 @@ const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: Seri
       const body = (
         <>
           <span className="flex items-center justify-between gap-2">
-            <span className="t-card font-display font-bold text-text">{r.name}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="t-card font-display font-bold text-text">{r.name}</span>
+              {r.hasData && <ScoreToneChip value={moduleAverage(r, series)} />}
+            </span>
             {r.hasData ? (
               interactive && <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
             ) : (
@@ -133,7 +142,7 @@ const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: Seri
   </ul>
 );
 
-const CHART_TOP = 22;
+const CHART_TOP = 32;
 const X_AXIS_HEIGHT = 30;
 const Y_AXIS_WIDTH = 44;
 const BAR_GAP = 6;
@@ -149,10 +158,18 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
+    const text = formatPct(props.value);
+    const pillW = text.length * 7 + 16;
+    const pillH = 20;
+    const cx = Number(props.x) + Number(props.width) / 2;
+    const top = Number(props.y) - pillH - 5;
     return (
-      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? (series.length > 1 ? 12 : 15) : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
-        {formatPct(props.value)}
-      </text>
+      <g>
+        <rect x={cx - pillW / 2} y={top} width={pillW} height={pillH} rx={pillH / 2} fill="var(--color-surface)" stroke="var(--color-border)" strokeWidth={1} />
+        <text x={cx} y={top + pillH / 2 + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--color-text)">
+          {text}
+        </text>
+      </g>
     );
   };
 

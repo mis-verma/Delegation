@@ -251,15 +251,17 @@ type FlaggableItem = Pick<ChecklistInstanceItem, 'itemType' | 'booleanAnswer' | 
 
 const isGatedBooleanItem = (item: FlaggableItem) => {
   if (item.itemType !== 'YES_NO' && item.itemType !== 'PASS_FAIL') return false;
-  const noGated = item.noActions.length > 0 && item.yesActions.length === 0;
-  const yesGated = item.yesActions.length > 0 && item.noActions.length === 0;
+  const noCount = item.noActions?.length ?? 0;
+  const yesCount = item.yesActions?.length ?? 0;
+  const noGated = noCount > 0 && yesCount === 0;
+  const yesGated = yesCount > 0 && noCount === 0;
   return noGated || yesGated;
 };
 
 export const isFlaggedAnswer = (item: FlaggableItem) => {
   if (!isGatedBooleanItem(item)) return false;
-  if (item.booleanAnswer === 'NO') return item.noActions.length > 0;
-  if (item.booleanAnswer === 'YES') return item.yesActions.length > 0;
+  if (item.booleanAnswer === 'NO') return (item.noActions?.length ?? 0) > 0;
+  if (item.booleanAnswer === 'YES') return (item.yesActions?.length ?? 0) > 0;
   return false;
 };
 

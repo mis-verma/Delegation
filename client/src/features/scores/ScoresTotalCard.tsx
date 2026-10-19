@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils';
-import { PANEL_CLASS, Skeleton } from '../../components';
+import { CalendarClock } from 'lucide-react';
+import { IconChip, PANEL_CLASS, Skeleton } from '../../components';
+import { ScoreToneChip } from '../dashboard/ScoreToneChip';
 import { CARD_PAD } from './controlStyles';
 import type { ExplorerRow } from '../../api/scores';
 import { MODULE_LABEL, SCORE_LABEL, type ScoreModule } from '../../lib/scoreLabels';
@@ -21,7 +23,7 @@ const ModuleBlock = ({ module, row }: { module: ScoreModule; row: ExplorerRow })
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 p-3">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="t-card font-display font-bold text-text">{MODULE_LABEL[module]}</h3>
-        <span className="t-meta text-text-muted tabular-nums">{b.due} due</span>
+        <IconChip icon={CalendarClock} tone="bg-primary-600" label={`${b.due} due`} labelClassName="tabular-nums" />
       </div>
       {b.due === 0 ? (
         <p className="t-meta text-text-muted">Nothing due in this period</p>
@@ -47,6 +49,7 @@ export const ScoresTotalCard = ({ total, modules, title, windowLabel, capped }: 
       </div>
       <div className="flex shrink-0 flex-col items-end">
         <span className="t-stat font-display"><ScorePct value={total.overall} strong /></span>
+        <ScoreToneChip value={total.overall} className="my-1" />
         <span className="flex items-center gap-0.5 t-meta text-text-muted">
           {SCORE_LABEL.overall}
           <HowCalculated figure="overall" />

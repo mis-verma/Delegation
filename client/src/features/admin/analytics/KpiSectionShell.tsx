@@ -127,7 +127,7 @@ export const KpiSectionShell = ({ title, description, isPending, isError, errorM
             {cards.map(({ hasData, noDataText, caption, trend, how, ...card }) => {
               const needsStatus = isPending || !hasData;
               return (
-                <StatCard
+                <StatCard modern
                   key={card.label}
                   {...card}
                   labelAdornment={how ? <HowCalculated figure={how.figure} module={how.module} /> : undefined}

@@ -2,7 +2,7 @@ import { SectionExport } from './ExportRegistry';
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
-import { Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { Button, IconChip, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useOverviewScoreWindow } from './useOverviewScores';
 import { scorecardRowHref } from '../../dashboard/scoreDrill';
@@ -20,14 +20,11 @@ interface PerformanceLeadersCardProps {
   onViewFull: () => void;
 }
 
-const TONE_CLASS = {
-  success: 'text-success',
-  danger: 'text-danger',
-} as const;
+type LeaderTone = 'success' | 'danger';
 
 interface LeaderEntryProps {
   icon: typeof Trophy;
-  tone: keyof typeof TONE_CLASS;
+  tone: LeaderTone;
   label: string;
   row: RankedRow | null;
   emptyText: string;
@@ -42,10 +39,8 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: 
   const content = (
     <>
       <span className="flex items-center gap-2">
-        <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-hover ${TONE_CLASS[tone]}`}>
-          <Icon size={14} aria-hidden="true" />
-        </span>
-        <span className="flex-1 t-meta font-display font-semibold text-text-muted">{label}</span>
+        <IconChip icon={Icon} tone={tone === 'success' ? 'bg-success' : 'bg-danger'} label={label} />
+        <span className="flex-1" />
         {row && <span className={`t-card font-display font-bold tabular-nums ${FIGURE_TONE[tone]}`}>{formatPercent(value)}</span>}
       </span>
       {row ? (

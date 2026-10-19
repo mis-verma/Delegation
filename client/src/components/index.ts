@@ -2,6 +2,7 @@ export { Button }          from './button';
 export { EmptyState }      from './emptyState';
 export type { EmptyStateProps } from './emptyState';
 export { IconChip }        from './iconChip';
+export { LegendChip }      from './legendChip';
 export type { IconChipProps } from './iconChip';
 export { Loader }          from './loaders';
 export { Input }           from './input';

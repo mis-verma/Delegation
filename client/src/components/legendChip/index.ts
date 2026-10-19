@@ -1,0 +1,1 @@
+export { LegendChip } from './LegendChip';

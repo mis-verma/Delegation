@@ -195,7 +195,7 @@ export const PresenceOverview = () => {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <StatCard
+        <StatCard modern
           icon={Radio}
           label="Active now"
           value={presenceRows && users ? onlineCount : 'No data'}
@@ -205,7 +205,7 @@ export const PresenceOverview = () => {
           highlight
           decorative
         />
-        <StatCard
+        <StatCard modern
           icon={Users}
           label="Total people"
           value={users ? activeCount : 'No data'}

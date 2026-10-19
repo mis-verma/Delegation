@@ -210,7 +210,7 @@ export const OrgOverview = () => {
         </PhoneCollapse>
       )}
 
-      {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} />}
+      {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} hideRanking />}
 
       {orgWide && (
         <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">

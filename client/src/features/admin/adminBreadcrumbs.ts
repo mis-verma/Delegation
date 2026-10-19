@@ -22,10 +22,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores', to: '/admin/scores' }, { label: 'Data check' }];
   }
   if (pathname.startsWith('/team/fill')) {
-    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Fill Chart' }];
-  }
-  if (pathname === '/admin/scorecard') {
-    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scorecard' }];
+    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Checklist Fill' }];
   }
   if (pathname === '/admin/rankings') {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Rankings' }];
@@ -35,9 +32,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   }
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];
-  }
-  if (pathname.startsWith('/admin/checklist-weekly')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Report' }];
   }
   if (pathname.startsWith('/admin/checklist-former')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Former People' }];
@@ -59,9 +53,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   }
   if (pathname.startsWith('/admin/directory')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'People & Teams' }];
-  }
-  if (pathname.startsWith('/admin/presence')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: "Who's Online" }];
   }
   if (pathname.startsWith('/admin/org-structure')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Org Structure' }];

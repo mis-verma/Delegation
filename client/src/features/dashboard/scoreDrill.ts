@@ -57,5 +57,7 @@ export const checklistDrillHref = (orgWide: boolean, subject: DrillSubject, from
 
 export const overdueDelegationsHref = () => '/tasks?category=delegation&quickFilter=delayed';
 
+const DRILL_VIEW = { person: 'checklist', department: 'person', store: 'department' } as const;
+
 export const scorecardRowHref = (view: 'person' | 'department' | 'store', id: string, from: string, to: string) =>
-  `/admin/scorecard?${new URLSearchParams({ view, open: id, from, to }).toString()}`;
+  `/admin/scores?${new URLSearchParams({ view: DRILL_VIEW[view], trail: JSON.stringify([{ id, kind: view, name: '' }]), from, to }).toString()}`;

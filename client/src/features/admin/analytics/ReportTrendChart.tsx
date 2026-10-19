@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DotItemDotProps } from 'recharts';
-import { EmptyState } from '../../../components';
+import { EmptyState, LegendChip } from '../../../components';
 import { useIsMobile } from '../../../lib/useMediaQuery';
 import { formatPercent, trendBucketLabel, trendTrimNote, visibleTrendPoints } from './analyticsDisplay';
 
@@ -139,14 +139,9 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
   return (
     <div className="flex flex-col gap-3">
       {series.length > 1 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           {series.map((s, i) => (
-            <div key={s.key} className="flex items-center gap-1.5">
-              <svg width="22" height="8" className="shrink-0" aria-hidden="true">
-                <line x1="1" y1="4" x2="21" y2="4" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={dashFor(series.length, i)} />
-              </svg>
-              <span className="t-meta font-display font-medium text-text-secondary">{s.label}</span>
-            </div>
+            <LegendChip key={s.key} line color={s.color} dash={dashFor(series.length, i)} label={s.label} />
           ))}
         </div>
       )}
