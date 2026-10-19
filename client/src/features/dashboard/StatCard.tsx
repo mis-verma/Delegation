@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from 'lucide-react';
 import { Badge, type badgeVariants } from '../../components/ui/badge';
 import { Skeleton } from '../../components/skeleton';
+import { IconChip } from '../../components/iconChip';
+import { tintGradient } from './tintGradient';
 import { CountUp } from '../../components/countUp';
 import type { VariantProps } from 'class-variance-authority';
 
@@ -23,6 +25,7 @@ interface StatCardProps {
   decorative?: boolean;
   labelAdornment?: ReactNode;
   valueTone?: 'success' | 'warning' | 'danger';
+  modern?: boolean;
 }
 
 const VALUE_TONE = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const;
@@ -94,6 +97,7 @@ export const StatCard = ({
   lowerIsBetter = false,
   labelAdornment,
   valueTone,
+  modern = false,
 }: StatCardProps) => {
   const isLink = Boolean(href);
   const isNoData = value === 'No data';
@@ -160,7 +164,7 @@ export const StatCard = ({
         </div>
       )}
 
-      {!highlight && (
+      {!highlight && !modern && (
         <span
           aria-hidden="true"
           className={`absolute top-2 right-2 size-16 rounded-full border ${ringClass} pointer-events-none z-0 ${
@@ -213,7 +217,13 @@ export const StatCard = ({
           )}
         </div>
 
-        {Icon && (
+        {Icon && modern && !highlight && (
+          <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-white sm:size-10 ${tintGradient(iconTint)}`} aria-hidden="true">
+            <Icon className="size-4.5 sm:size-5" strokeWidth={2.25} />
+          </div>
+        )}
+
+        {Icon && !(modern && !highlight) && (
           <div
             className={`flex items-center justify-center shrink-0 ${
               compact ? 'size-8 sm:size-10' : 'size-9 sm:size-10'
@@ -236,7 +246,16 @@ export const StatCard = ({
 
       {(hasTrend || caption || isInteractive) && (
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 relative z-10 pointer-events-none">
-          {hasTrend && (
+          {hasTrend && modern && !highlight && (
+            <IconChip
+              icon={isFlat ? Minus : trend.direction === 'up' ? ArrowUpRight : ArrowDownRight}
+              tone={trendMood === 'good' ? 'bg-success' : trendMood === 'bad' ? 'bg-danger' : 'bg-text-muted'}
+              label={trend.label}
+              labelClassName="tabular-nums"
+            />
+          )}
+
+          {hasTrend && !(modern && !highlight) && (
             <Badge
               variant={highlight ? 'outline' : TREND_VARIANT[trendMood]}
               className={`t-meta tabular-nums shrink-0 ${

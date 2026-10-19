@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
+import { tintGradient } from '../../dashboard/tintGradient';
+import { IconChip } from '../../../components';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
 import { InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
@@ -59,14 +61,14 @@ const MOBILE_TILE_BASE = `${PANEL_CLASS} relative flex h-full flex-col gap-1 p-3
 const MOBILE_TILE_INTERACTIVE =
   'cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
-const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment, valueTone }: StatTileProps) => {
+const MobileStatTile = ({ icon: Icon, iconTint, label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment, valueTone }: StatTileProps) => {
   const hasTrend = trend != null && trend.label !== '—';
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const isGood = trend ? (trend.direction === 'up') !== lowerIsBetter : true;
-  const trendClass = isFlat ? 'text-text-muted' : isGood ? 'text-success' : 'text-danger';
   const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE || value === '—';
   const body = (
     <>
+      <span className="flex items-start justify-between gap-2">
       <span className="flex items-start gap-1.5">
         <span className="t-meta font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
         {labelAdornment && (
@@ -74,6 +76,12 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
             {labelAdornment}
           </span>
         )}
+      </span>
+      {Icon && (
+        <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-white ${tintGradient(iconTint)}`} aria-hidden="true">
+          <Icon className="size-4" strokeWidth={2.25} />
+        </span>
+      )}
       </span>
       {isLoading ? (
         <Skeleton className="h-7 w-14 rounded-md" />
@@ -85,13 +93,16 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         </span>
       )}
       {hasTrend && (
-        <span className={`inline-flex items-center gap-1 t-meta font-display font-semibold tabular-nums ${trendClass}`}>
-          {isFlat ? <Minus className="size-3" aria-hidden="true" /> : trend.direction === 'up' ? <ArrowUpRight className="size-3" aria-hidden="true" /> : <ArrowDownRight className="size-3" aria-hidden="true" />}
-          {trend.label}
-        </span>
+        <IconChip
+          className="w-fit"
+          icon={isFlat ? Minus : trend.direction === 'up' ? ArrowUpRight : ArrowDownRight}
+          tone={isFlat ? 'bg-text-muted' : isGood ? 'bg-success' : 'bg-danger'}
+          label={trend.label}
+          labelClassName="tabular-nums"
+        />
       )}
-      {caption && <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
-      {onClick && <ArrowUpRight className="absolute right-2.5 top-2.5 size-4 text-primary-600 opacity-70 dark:text-primary-400" aria-hidden="true" />}
+      {caption && <span className={`t-meta font-display text-text-muted leading-snug line-clamp-2 ${onClick ? "pr-5" : ""}`}>{caption}</span>}
+      {onClick && <ArrowUpRight className="absolute bottom-2.5 right-2.5 size-4 text-primary-600 opacity-70 dark:text-primary-400" aria-hidden="true" />}
     </>
   );
 
@@ -120,7 +131,7 @@ export const StatTile = memo((props: StatTileProps) => (
   <>
     <MobileStatTile {...props} />
     <div className="hidden sm:flex *:flex-1">
-      <StatCard {...props} />
+      <StatCard {...props} modern />
     </div>
   </>
 ));
