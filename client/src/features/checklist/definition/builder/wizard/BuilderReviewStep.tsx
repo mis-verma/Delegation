@@ -40,7 +40,7 @@ interface BuilderReviewStepProps {
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
   reviewerIds: string[];
-  sectionValidity: readonly [boolean, boolean, boolean, boolean];
+  sectionValidity: readonly [boolean, boolean, boolean, boolean, boolean];
   hasPeople: boolean;
   hideSubmit?: boolean;
   onEditSection: (stepIndex: number) => void;
@@ -59,6 +59,7 @@ const SECTION_CONFIG = [
   { label: 'Basics', icon: FileText },
   { label: 'Schedule', icon: Calendar },
   { label: 'Questions', icon: ListChecks },
+  { label: 'Reviewers', icon: ShieldCheck },
   { label: 'Assign', icon: Users },
 ] as const;
 
@@ -229,13 +230,21 @@ export const BuilderReviewStep = ({
     <div className="flex flex-col gap-4 sm:gap-6 w-full">
       {/* Saving an edit touches today's runs, so say how before the button, not after. */}
       {isEditing && isActive !== undefined && (
-        isActive ? (
+        isActive && !hasPeople ? (
+          <NoticeBanner tone="warning" icon={PauseCircle}>
+            Nobody is assigned, so saving turns this checklist into a draft. Today&rsquo;s runs nobody started are removed. Started runs stay.
+          </NoticeBanner>
+        ) : isActive ? (
           <NoticeBanner tone="info" icon={Info}>
             Saving updates today&rsquo;s runs. Runs nobody started are rebuilt. Started runs keep every answer and get your changes. Runs sent for review or approved stay as they are.
           </NoticeBanner>
+        ) : hasPeople ? (
+          <NoticeBanner tone="success" icon={Info}>
+            This checklist is off, and you picked people for it. Saving puts it live and creates today&rsquo;s run for them.
+          </NoticeBanner>
         ) : (
           <NoticeBanner tone="neutral" icon={PauseCircle}>
-            This checklist is paused, so today&rsquo;s runs are not changed.
+            This checklist is a draft. Nobody is assigned, so nothing runs yet.
           </NoticeBanner>
         )
       )}
@@ -427,7 +436,7 @@ export const BuilderReviewStep = ({
                     {assignees.names.length ? (
                       assignees.names.join(', ')
                     ) : (
-                      <span className="font-medium text-warning">Nobody yet. It is saved paused and switches on when you add people.</span>
+                      <span className="font-medium text-warning">Nobody yet. It is saved as a draft and goes live when you add people.</span>
                     )}
                   </p>
                   {assignees.leftOut > 0 && (
@@ -481,7 +490,7 @@ export const BuilderReviewStep = ({
             </p>
           ) : (
             <NoticeBanner tone="warning" icon={PauseCircle} className="sm:flex-1">
-              Nobody is assigned yet, so it is saved paused. Edit it later, add the people, and it switches on by itself.
+              Nobody is assigned yet, so it is saved as a draft. Come back, add the people, and it goes live by itself.
             </NoticeBanner>
           )
         )}
@@ -494,7 +503,7 @@ export const BuilderReviewStep = ({
             disabled={!canSubmit}
             className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
           >
-            {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : hasPeople ? 'Create Checklist' : 'Create paused'}
+            {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : hasPeople ? 'Create Checklist' : 'Save as draft'}
           </Button>
         )}
       </div>

@@ -25,9 +25,10 @@ interface ChecklistTemplatesGridProps {
 // this repeat" reads in the same order everywhere it shows up, not a re-shuffled one here.
 const RECURRENCE_TABS: Array<ChecklistRecurrence | 'all'> = ['all', 'DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'];
 
-type StatusFilter = 'all' | 'active' | 'paused';
+type StatusFilter = 'all' | 'active' | 'draft' | 'paused';
 const STATUS_CHIPS: Array<{ value: Exclude<StatusFilter, 'all'>; label: string }> = [
   { value: 'active', label: 'Active' },
+  { value: 'draft', label: 'Draft' },
   { value: 'paused', label: 'Paused' },
 ];
 
@@ -70,7 +71,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const recurrenceParam = searchParams.get('recurrence')?.toLowerCase();
   const recurrence = RECURRENCE_TABS.find((r) => r.toLowerCase() === recurrenceParam) ?? 'all';
   const statusParam = searchParams.get('status');
-  const status: StatusFilter = statusParam === 'active' || statusParam === 'paused' ? statusParam : 'all';
+  const status: StatusFilter = statusParam === 'active' || statusParam === 'draft' || statusParam === 'paused' ? statusParam : 'all';
   const isFiltered = recurrence !== 'all' || status !== 'all';
 
   const [selectMode, setSelectMode] = useState(false);
@@ -78,7 +79,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const { data, isPending, isError, isPlaceholderData, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery({
     ...(recurrence === 'all' ? {} : { recurrence }),
-    ...(status === 'all' ? {} : { isActive: status === 'active' }),
+    ...(status === 'all' ? {} : status === 'active' ? { isActive: true } : { isActive: false, draft: status === 'draft' }),
   });
   const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.meta?.total ?? definitions.length;

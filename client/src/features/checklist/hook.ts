@@ -65,6 +65,7 @@ export const useChecklistDefinitionQuery = (id: string) => {
     queryKey: KEYS.definitionDetail(id),
     queryFn: () => checklistDefinitionApi.getOne(id).then(r => r.data),
     enabled: !!token && !!id,
+    refetchOnMount: 'always',
     retry: handleQueryRetry,
   });
 };
@@ -74,9 +75,10 @@ export const useCreateChecklistDefinitionMutation = () => {
   return useMutation({
     mutationFn: (payload: CreateChecklistDefinitionPayload) =>
       checklistDefinitionApi.create(payload).then(r => r.data),
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      toast.success('Checklist created');
+      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      toast.success(created.isActive ? 'Checklist created' : 'Saved as a draft', created.isActive ? undefined : { description: 'Add people when their accounts are ready and it goes live.' });
     },
     onError: (err) => notifyError(err, "Couldn't create the checklist. Try again."),
   });
@@ -102,12 +104,20 @@ export const useUpdateChecklistDefinitionMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateChecklistDefinitionPayload }) =>
-      checklistDefinitionApi.update(id, payload).then(r => ({ definition: r.data, liveRuns: r.liveRuns })),
-    onSuccess: ({ definition, liveRuns }) => {
+      checklistDefinitionApi.update(id, payload).then(r => ({ definition: r.data, liveRuns: r.liveRuns, wentLive: r.wentLive, paused: r.paused, lateToday: r.lateToday })),
+    onSuccess: ({ definition, liveRuns, wentLive, paused, lateToday }) => {
       queryClient.setQueryData(KEYS.definitionDetail(definition.id), definition);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       // Runs changed too, so every list/board/detail/count built from them has to reload.
-      if (liveRuns?.refreshed || liveRuns?.updated) queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      if (liveRuns?.refreshed || liveRuns?.updated || wentLive || paused) {
+        queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+        queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
+      }
+      if (wentLive) {
+        toast.success('Checklist is live', { description: lateToday ? "Today's closing time has already passed, so today's run counts as missed. Tomorrow's run starts fresh." : "People are assigned, so today's run is on their list." });
+        return;
+      }
+      if (paused) { toast.success('Saved as a draft', { description: "Nobody is assigned, so it is off everyone's list. Add people to put it live." }); return; }
       const description = savedMessage(liveRuns);
       toast.success('Checklist updated', description ? { description, duration: liveRuns?.kept ? 8000 : undefined } : undefined);
     },
@@ -123,6 +133,7 @@ export const useSetChecklistDefinitionActiveMutation = () => {
     onSuccess: (updated) => {
       queryClient.setQueryData(KEYS.definitionDetail(updated.id), updated);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       toast.success(updated.isActive ? "Checklist resumed. Today's run is back on people's lists." : "Checklist paused. It is off everyone's list and won't count until you resume it.");
     },
     onError: (err) => notifyError(err, "Couldn't update the checklist. Try again."),

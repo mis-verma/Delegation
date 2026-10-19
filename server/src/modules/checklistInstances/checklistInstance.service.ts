@@ -741,6 +741,12 @@ const CAN_VERIFY_BY_ROLE: Partial<Record<Role, (assigneeDepartmentIds: Set<strin
 // someone else being named a reviewer. This is also why /verify's route no longer role-gates: a
 // reviewer can be any role at all, so the check has to happen here, against this specific
 // instance, not generically at the router.
+const assertNotOwnRun = (assigneeLinks: { userId: string }[], user: AccessTokenPayload) => {
+    if (user.role !== "ADMIN" && assigneeLinks.some((l) => l.userId === user.sub)) {
+        throw AppError.forbidden("You fill this checklist in yourself, so you can't review it. Ask another reviewer.")
+    }
+}
+
 const assertCanVerify = (assigneeDepartmentIds: Set<string>, reviewerIds: string[], user: AccessTokenPayload) => {
     if (reviewerIds.includes(user.sub)) return
     const canVerify = CAN_VERIFY_BY_ROLE[user.role]?.(assigneeDepartmentIds, user) ?? false
@@ -1998,6 +2004,7 @@ export const checklistInstanceService = {
         const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
         const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
         assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+        assertNotOwnRun(assigneeLinks, user)
 
         const wanted = [...new Set(input.itemIds)]
         const items = await db.select().from(checklistInstanceItems)
@@ -2062,6 +2069,7 @@ export const checklistInstanceService = {
         const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeIds)
         const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
         assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+        assertNotOwnRun(assigneeLinks, user)
 
         const [item] = await db.select().from(checklistInstanceItems)
             .where(and(eq(checklistInstanceItems.id, itemId), eq(checklistInstanceItems.instanceId, id))).limit(1)
@@ -2156,6 +2164,7 @@ export const checklistInstanceService = {
         const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
         const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
         assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+        assertNotOwnRun(assigneeLinks, user)
 
         const now = new Date()
         // Built up locally instead of re-selecting the row after the write — this is exactly what

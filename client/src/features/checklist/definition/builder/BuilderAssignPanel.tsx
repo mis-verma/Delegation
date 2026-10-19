@@ -47,6 +47,12 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
   // unticked is hidden there, and the server would reject them.
   const { shown, hidden } = splitByVisible(assigneeIds, people.storePersonIds);
   const storePersonIds = people.storePersonIds;
+  const { hidden: gone } = splitByVisible(hidden, people.activePersonIds);
+  const otherStore = hidden.length - gone.length;
+  const hiddenMessage = [
+    gone.length > 0 && `${peopleCount(gone.length)} left or ${gone.length === 1 ? 'was' : 'were'} deactivated`,
+    otherStore > 0 && `${peopleCount(otherStore)} ${otherStore === 1 ? 'is' : 'are'} not in the selected stores`,
+  ].filter(Boolean).join(', ') + '. Saving drops them.';
   const departmentCount = useMemo(() => {
     const picked = new Set(splitByVisible(assigneeIds, storePersonIds).shown);
     return new Set((users ?? []).filter(u => picked.has(u.id)).map(u => u.departmentId ?? 'none')).size;
@@ -55,12 +61,12 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
   <div className="flex flex-col gap-5 sm:gap-6">
     {shown.length === 0 && (
       <NoticeBanner tone="warning" icon={PauseCircle}>
-        Nobody picked yet. That is fine if the person is not set up: the checklist is saved paused and switches on when you add them.
+        Nobody picked yet. That is fine if their account is not ready: it is saved as a draft and goes live when you add them.
       </NoticeBanner>
     )}
     {hidden.length > 0 && (
       <HiddenPeopleNotice
-        message={`${peopleCount(hidden.length)} ${hidden.length === 1 ? 'is' : 'are'} not in the selected stores.`}
+        message={hiddenMessage}
         onRemove={() => onAssigneeIdsChange(shown)}
       />
     )}

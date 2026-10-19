@@ -129,7 +129,8 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
         .where(and(inArray(checklistDefinitionAssignees.definitionId, definitionIds), eq(users.isActive, true)))
     const reviewerLinks = await db.select({ definitionId: checklistDefinitionReviewers.definitionId, userId: checklistDefinitionReviewers.userId })
         .from(checklistDefinitionReviewers)
-        .where(inArray(checklistDefinitionReviewers.definitionId, definitionIds))
+        .innerJoin(users, eq(users.id, checklistDefinitionReviewers.userId))
+        .where(and(inArray(checklistDefinitionReviewers.definitionId, definitionIds), eq(users.isActive, true)))
 
     const itemRows = await db.select().from(checklistDefinitionItems)
         .where(inArray(checklistDefinitionItems.definitionId, definitionIds))
@@ -960,8 +961,9 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
 // counted as missed. A run someone already started, or one sent for review, is real work and stays. Past
 // periods are history and are never touched. Resuming lets the generator create the current run again.
 export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date()): Promise<number> => {
+    const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
-        .where(and(eq(checklistInstances.definitionId, definitionId), gt(checklistInstances.periodEnd, now)))
+        .where(and(eq(checklistInstances.definitionId, definitionId), gt(checklistInstances.periodEnd, localNow)))
 
     let removed = 0
     const affectedAssignees = new Set<string>()

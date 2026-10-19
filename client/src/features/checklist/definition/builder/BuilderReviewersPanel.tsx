@@ -41,6 +41,7 @@ export const BuilderReviewersPanel = ({ storeIds, reviewerIds, onReviewerIdsChan
       <ChecklistReviewersField
         storeIds={storeIds}
         selected={shown}
+        totalSelected={reviewerIds.length}
         onChange={(ids) => onReviewerIdsChange([...hidden, ...ids])}
         isNew={isNew}
       />

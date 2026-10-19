@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserX, type LucideIcon } from 'lucide-react';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserX, UserPlus, FileClock, type LucideIcon } from 'lucide-react';
+import { definitionState, STATE_LABEL, addPeoplePath } from './definitionState';
 import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, StateChip, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
 import { useConfirm } from '@/components/confirmDialog';
@@ -87,6 +88,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
   // Working days, not the retired role label (a made-up role that assigned nobody).
   const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
   const { id, name, completionRate, qualityRate, issueRate } = definition;
+  const state = definitionState(definition);
   const startsLater = startsAfterToday(definition.startDate);
   const ResponseIcon = RESPONSE_MODE_ICON[definition.responseMode];
 
@@ -143,18 +145,32 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         {selectionMode ? null : canManage ? (
           <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
             {/* A real switch instead of the old dot pill: on = running, off = paused. */}
-            <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pl-1 pr-1 cursor-pointer">
-              <StateChip active={definition.isActive} label={definition.isActive ? 'Active' : 'Paused'} className="max-sm:hidden" />
-              {setActiveMutation.isPending ? (
-                <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
-              ) : (
-                <Switch
-                  checked={definition.isActive}
-                  onChange={(next) => setActiveMutation.mutate({ id, isActive: next })}
-                />
-              )}
-              <span className="sr-only">{definition.isActive ? 'Pause' : 'Resume'} {name}</span>
-            </label>
+            {state === 'draft' ? (
+              <div className="flex items-center gap-2 min-h-11 sm:min-h-9">
+                <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" className="max-sm:hidden" />
+                <button
+                  type="button"
+                  onClick={() => navigate(addPeoplePath(id))}
+                  className="inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                >
+                  <UserPlus className="size-3.5" aria-hidden />
+                  Add people
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pl-1 pr-1 cursor-pointer">
+                <StateChip active={definition.isActive} label={STATE_LABEL[state]} className="max-sm:hidden" />
+                {setActiveMutation.isPending ? (
+                  <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
+                ) : (
+                  <Switch
+                    checked={definition.isActive}
+                    onChange={(next) => setActiveMutation.mutate({ id, isActive: next })}
+                  />
+                )}
+                <span className="sr-only">{definition.isActive ? 'Pause' : 'Resume'} {name}</span>
+              </label>
+            )}
             <Dropdown
               align="end"
               items={[
@@ -175,7 +191,9 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
             />
           </div>
         ) : (
-          <StateChip active={definition.isActive} label={definition.isActive ? 'Active' : 'Paused'} />
+          state === 'draft'
+            ? <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" />
+            : <StateChip active={definition.isActive} label={STATE_LABEL[state]} />
         )}
       </div>
 
@@ -199,7 +217,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
         <div className="flex flex-wrap gap-1.5">
           {definition.assigneeIds.length === 0 && (
-            <IconChip icon={UserX} tone="bg-warning" label="Nobody assigned" labelClassName="text-warning" title="Saved paused. Add the people and it switches on." />
+            <IconChip icon={UserX} tone="bg-warning" label="Nobody assigned" labelClassName="text-warning" title="Saved as a draft. Add the people and it goes live." />
           )}
           {shownDepartments.map((departmentName) => <DepartmentChip key={departmentName} name={departmentName} />)}
           {moreDepartments > 0 && <IconChip icon={false} label={`+${moreDepartments} more`} />}

@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
 import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
 import {
-  Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, InlineError, PageHeader, PANEL_CLASS,
+  Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ApiError } from '../../../../api/http';
@@ -22,6 +22,7 @@ import { QuestionTypePalette } from './QuestionTypePalette';
 import { itemDraftProblem } from './ItemTypeConfigFields';
 import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
+import { definitionState, STATE_LABEL } from '../definitionState';
 import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
@@ -268,7 +269,11 @@ export const ChecklistBuilder = () => {
   const [sections, setSections] = useState<string[]>([]);
   // Which section a newly-added item lands in, set by clicking a section pill in the items list.
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [step, setStep] = useState(() => (definitionId ? STEPS.length - 1 : 0));
+  const [step, setStep] = useState(() => {
+    if (!definitionId) return 0;
+    const wanted = STEPS.findIndex((st) => st.key === searchParams.get('step'));
+    return wanted >= 0 ? wanted : STEPS.length - 1;
+  });
   const [maxStepReached, setMaxStepReached] = useState(step);
   const [direction, setDirection] = useState<1 | -1>(1);
 
@@ -415,6 +420,13 @@ export const ChecklistBuilder = () => {
   // the form's state, so every count and the save itself compare against these lists.
   const people = useStorePeople(storeIds);
   const { storePersonIds, activePersonIds } = people;
+  const refetchPeople = people.refetch;
+  useEffect(() => {
+    if (step === 3 || step === 4) refetchPeople();
+  }, [step, refetchPeople]);
+  useEffect(() => {
+    justSavedRef.current = false;
+  }, [definitionId, copyFromId]);
 
   // Latest-wins counter for the clean-up below: toggling stores quickly must not let an older answer
   // prune people the newer selection still includes.
@@ -441,7 +453,8 @@ export const ChecklistBuilder = () => {
           ? { ...d, auditUserIds: d.auditUserIds.filter((id) => valid.has(id)) }
           : d
       )));
-      toast.info(`Removed ${peopleCount(dropped.size)} who ${dropped.size === 1 ? 'is' : 'are'} not in the selected stores`);
+      const left = live.assigneeIds.filter((id) => valid.has(id)).length;
+      toast.info(`Removed ${peopleCount(dropped.size)} who ${dropped.size === 1 ? 'is' : 'are'} not in the selected stores`, left === 0 && live.assigneeIds.length > 0 ? { description: 'Nobody is left to fill it in, so saving makes it a draft.' } : undefined);
     }).catch(() => { /* The notices on the Assign and Questions steps still flag anyone left over. */ });
   };
 
@@ -551,8 +564,8 @@ export const ChecklistBuilder = () => {
     // definition's assignee list instead, additive only (same convention as the department
     // bulk-select in ChecklistAssigneesField, never replaces an existing selection).
     const templateAssigneeIds = template.items.map(i => i.defaultAssigneeId).filter((id): id is string => !!id);
-    if (templateAssigneeIds.length) {
-      setAssigneeIds(prev => [...new Set([...prev, ...templateAssigneeIds])]);
+    if (templateAssigneeIds.length && storePersonIds) {
+      setAssigneeIds(prev => [...new Set([...prev, ...splitByVisible(templateAssigneeIds, storePersonIds).shown])]);
     }
   };
 
@@ -571,13 +584,12 @@ export const ChecklistBuilder = () => {
   const itemsValid = itemProblem === null;
   // Only people the pickers still show count: a hidden one is rejected by the server on save.
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
-  const assignValid = true;
   const hasPeople = visibleAssigneeCount > 0;
   const sectionValidity = useMemo(
-    () => [basicsValid, scheduleValid, itemsValid, assignValid] as const,
-    [basicsValid, scheduleValid, itemsValid, assignValid],
+    () => [basicsValid, scheduleValid, itemsValid, true, true] as const,
+    [basicsValid, scheduleValid, itemsValid],
   );
-  const canSubmit = sectionValidity.every(Boolean);
+  const canSubmit = sectionValidity.every(Boolean) && (people.isReady || !isEditing);
   const isStepValid = (index: number) => (index < sectionValidity.length ? sectionValidity[index] : true);
   const blockReasonFor = (index: number) => {
     if (index === 2) return itemProblem?.message ?? '';
@@ -594,8 +606,17 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
+    if (isEditing && existing?.isActive && !hasPeople) {
+      const ok = await confirm({
+        title: 'Save as a draft?',
+        description: "Nobody is assigned, so this checklist goes off everyone's list. Today's runs nobody started are removed. Runs already started stay.",
+        confirmLabel: 'Save as draft',
+        cancelLabel: 'Keep editing',
+      });
+      if (!ok) return;
+    }
     const reviewersToSave = splitByVisible(reviewerIds, activePersonIds).shown;
     const payload = {
       name: name.trim(),
@@ -759,7 +780,7 @@ export const ChecklistBuilder = () => {
         );
       case 4:
         return (
-          <BuilderStepFrame stepIndex={step} title="Assign" description="Pick who fills it in. Not set up yet? Leave it empty: the checklist is saved paused and switches on when you add them.">
+          <BuilderStepFrame stepIndex={step} title="Assign" description="Pick who fills it in. Their account not ready yet? Leave it empty and save as a draft. Add them later and it goes live.">
             <BuilderAssignPanel
               storeIds={storeIds}
               assigneeIds={assigneeIds}
@@ -795,7 +816,7 @@ export const ChecklistBuilder = () => {
               isSubmitting={mutation.isPending}
               isEditing={isEditing}
               isActive={isEditing ? existing?.isActive : undefined}
-              onSubmit={handleSubmit}
+              onSubmit={() => void handleSubmit()}
               onReloadLatest={mutation.error instanceof ApiError && mutation.error.status === 409 ? () => {
                 void confirm({
                   title: 'Load the latest version?',
@@ -803,7 +824,15 @@ export const ChecklistBuilder = () => {
                   confirmLabel: 'Load latest',
                   cancelLabel: 'Keep editing',
                   variant: 'danger',
-                }).then((ok) => { if (ok) window.location.reload(); });
+                }).then(async (ok) => {
+                  if (!ok) return;
+                  const fresh = await refetchExisting();
+                  if (!fresh.data) return;
+                  mutation.reset();
+                  setLoadedVersion(fresh.data.version);
+                  applyDefinition(fresh.data, false);
+                  toast.success('Loaded the latest version');
+                });
               } : undefined}
               submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again.") : undefined}
             />
@@ -832,7 +861,7 @@ export const ChecklistBuilder = () => {
         title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : 'New Checklist'}
         subtitle={
           isEditing && existing
-            ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : 'Paused'}`
+            ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : STATE_LABEL[definitionState(existing)]}`
             : isCopying && copySource
               ? `Copied from "${copySource.name}" with its stores, people, schedule and every question. Give it a new name, then save.`
               : 'Build a recurring checklist your team runs on a schedule.'
@@ -857,6 +886,12 @@ export const ChecklistBuilder = () => {
       <div className={PANEL_CLASS}>
         {/* Stepper Header with Progress Bar */}
         <div className="flex flex-col gap-3 px-4 sm:px-6 pt-2 sm:pt-5 pb-2 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
+          <div className="flex items-center gap-2 sm:hidden min-w-0">
+            <span className="line-clamp-1 t-card font-display font-bold text-text">{name.trim() || (isEditing ? existing?.name : 'New checklist')}</span>
+            {isEditing && existing && (
+              <IconChip icon={false} label={STATE_LABEL[definitionState(existing)]} labelClassName={existing.isActive ? 'text-success' : 'text-warning'} className="shrink-0" />
+            )}
+          </div>
           <BuilderStepper
             steps={STEPS}
             current={step}
@@ -883,7 +918,13 @@ export const ChecklistBuilder = () => {
           </motion.div>
 
           {/* Footer Navigation Bar */}
-          <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex items-center justify-between gap-3 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
+          <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
+            {step === STEPS.length - 1 && mutation.isError && (
+              <p role="alert" className="order-first flex w-full items-start gap-1.5 t-meta font-display font-medium text-danger">
+                <AlertCircle size={13} className="shrink-0 mt-0.5" aria-hidden />
+                <span className="min-w-0 break-words">{mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again."}</span>
+              </p>
+            )}
             {step > 0 ? (
               <Button
                 type="button"
@@ -926,12 +967,12 @@ export const ChecklistBuilder = () => {
                 type="button"
                 variant="primary"
                 size="md"
-                onClick={handleSubmit}
+                onClick={() => void handleSubmit()}
                 isLoading={mutation.isPending}
                 disabled={!canSubmit}
                 className="font-display pointer-coarse:h-11"
               >
-                {mutation.isPending ? 'Saving…' : isEditing ? 'Save changes' : hasPeople ? 'Create checklist' : 'Create paused'}
+                {mutation.isPending ? 'Saving…' : !hasPeople ? 'Save as draft' : isEditing ? 'Save changes' : 'Create checklist'}
               </Button>
             )}
           </div>

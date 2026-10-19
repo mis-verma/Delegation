@@ -12,11 +12,14 @@ import {
   ListTodo,
   AlertTriangle,
   ClipboardX,
+  UserPlus,
+  FileClock,
   type LucideIcon,
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router';
 import { Skeleton, Breadcrumbs, Button, EmptyState, InlineError, Loader, Switch, PANEL_CLASS, formatWeekdays } from '../../../components';
 import { ChecklistIconTile } from './ChecklistIconTile';
+import { definitionState, STATE_LABEL, addPeoplePath } from './definitionState';
 import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -58,6 +61,7 @@ const noRunReason = (definition: ChecklistDefinition): string => {
   const todayKey = orgDayKey(Date.now());
   const startKey = orgDayKey(new Date(definition.startDate).getTime());
   const weekday = orgWeekday();
+  if (!definition.isActive && !definition.assigneeIds.length) return 'This checklist is a draft. Nobody is assigned yet. Add people and it goes live.';
   if (!definition.isActive) return 'This checklist is paused. Resume it with the status button at the top of this page to start creating runs.';
   if (startKey > todayKey) return `It starts on ${formatDate(definition.startDate)}, and the first run is created that day.`;
   if (!definition.assigneeIds.length) return 'Nobody is assigned yet. Edit it and pick who fills it in.';
@@ -259,10 +263,18 @@ export const ChecklistDefinitionDetail = () => {
           </div>
 
           {/* Same pause/resume toggle as the card; read-only roles just see the state. */}
-          {canManage ? (
+          {canManage && definitionState(definition) === 'draft' ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" />
+              <Button variant="primary" size="sm" onClick={() => navigate(addPeoplePath(definition.id))}>
+                <UserPlus size={14} aria-hidden />
+                Add people
+              </Button>
+            </div>
+          ) : canManage ? (
             <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
               <span className={cn('text-xs font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
-                {definition.isActive ? 'Active' : 'Paused'}
+                {STATE_LABEL[definitionState(definition)]}
               </span>
               {setActiveMutation.isPending ? (
                 <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
@@ -273,7 +285,7 @@ export const ChecklistDefinitionDetail = () => {
             </label>
           ) : (
             <Badge variant={definition.isActive ? 'success' : 'neutral'} className="shrink-0">
-              {definition.isActive ? 'Active' : 'Paused'}
+              {STATE_LABEL[definitionState(definition)]}
             </Badge>
           )}
         </div>

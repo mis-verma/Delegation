@@ -1,5 +1,6 @@
 import { db } from "../../config/db.js"
 import { stores, users } from "../../db/schema/index.js"
+import { and, eq, inArray } from "drizzle-orm"
 import { parse as parseCsv } from "csv-parse/sync"
 import ExcelJS from "exceljs"
 import { PDFParse } from "pdf-parse"
@@ -221,7 +222,13 @@ export const checklistBulkImportService = {
             try {
                 const existing = await checklistDefinitionService.getById(definitionId)
                 const unionedStoreIds = Array.from(new Set([...existing.storeIds, ...group.storeIds]))
-                const unionedAssigneeIds = Array.from(new Set([...existing.assigneeIds, ...group.userIds]))
+                const candidateAssigneeIds = Array.from(new Set([...existing.assigneeIds, ...group.userIds]))
+                const stillValid = candidateAssigneeIds.length
+                    ? await db.select({ id: users.id, storeId: users.storeId }).from(users).where(and(inArray(users.id, candidateAssigneeIds), eq(users.isActive, true)))
+                    : []
+                const storeSet = new Set(unionedStoreIds)
+                const validIds = new Set(stillValid.filter((u) => u.storeId && storeSet.has(u.storeId)).map((u) => u.id))
+                const unionedAssigneeIds = candidateAssigneeIds.filter((id) => validIds.has(id))
 
              
                 const input: UpdateChecklistDefinitionInput = {

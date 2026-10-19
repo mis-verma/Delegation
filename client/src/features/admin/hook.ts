@@ -338,7 +338,7 @@ export const useUpdateDepartmentMutation = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: DEPARTMENT_KEY.all });
             // People carry a department id, so the roster is out of date too.
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             toast.success('Department updated');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to update department')),
@@ -351,7 +351,7 @@ export const useDeleteDepartmentMutation = () => {
         mutationFn: (id: string) => departmentApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: DEPARTMENT_KEY.all });
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             toast.success('Department deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete department')),
@@ -382,7 +382,7 @@ export const useUpdateStoreMutation = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STORE_KEY.all });
             // People carry a store id, so the roster is out of date too.
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             toast.success('Store updated');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to update store')),
@@ -395,7 +395,7 @@ export const useDeleteStoreMutation = () => {
         mutationFn: (id: string) => storeApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STORE_KEY.all });
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             toast.success('Store deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete store')),

@@ -18,6 +18,8 @@ interface UserMultiSelectProps {
    *  under a header per department instead of one flat list — e.g. picking assignees across a
    *  whole store, where Sales/Housekeeping/Security staff would otherwise all run together. */
   departments?: { id: string; name: string }[];
+  /** Lists everyone active, with no store or department scope. */
+  all?: boolean;
   /** Replaces the plain "no users" line — lets a caller explain how to fix an empty scope. */
   emptyHint?: ReactNode;
 }
@@ -27,7 +29,7 @@ const userLabel = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.tr
 // Picks specific users within a department and/or store — shadcn's Select is single-value only,
 // so this is a small bordered checkbox-list instead. Disabled until a scope is chosen since
 // assignable users are scoped server-side by departmentId/storeId(s).
-export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments, emptyHint }: UserMultiSelectProps) => {
+export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments, emptyHint, all = false }: UserMultiSelectProps) => {
   const { data: allUsers, isLoading } = useAssignableUsersQuery(departmentId, storeId, storeIds);
   const [query, setQuery] = useState('');
   // A long team is searchable; a short one is just a list.
@@ -39,7 +41,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
     onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id]);
   };
 
-  if (!departmentId && !storeId && !storeIds?.length) {
+  if (!all && !departmentId && !storeId && !storeIds?.length) {
     return (
       <div className="p-3 text-sm font-display text-text-muted bg-surface-hover/40 border border-border rounded-lg">
         Select a department or store first.
@@ -64,7 +66,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           {getInitials(name)}
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
-        {u.role === 'MANAGER' && (
+        {(u.role === 'MANAGER' || u.role === 'SENIOR') && (
           <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
             HOD
           </span>

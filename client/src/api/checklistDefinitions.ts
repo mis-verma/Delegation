@@ -172,6 +172,7 @@ export type ListChecklistDefinitionsParams = {
   storeId?: string;
   recurrence?: ChecklistRecurrence;
   isActive?: boolean;
+  draft?: boolean;
   page?: number;
   limit?: number;
 };
@@ -249,6 +250,7 @@ export const checklistDefinitionApi = {
       storeId: params.storeId,
       recurrence: params.recurrence,
       isActive: params.isActive === undefined ? undefined : String(params.isActive),
+      draft: params.draft === undefined ? undefined : String(params.draft),
       page: params.page === undefined ? undefined : String(params.page),
       limit: params.limit === undefined ? undefined : String(params.limit),
     })}`).then((r) => ({ ...r, data: normalizeDefinitions(r.data) })),
@@ -264,7 +266,7 @@ export const checklistDefinitionApi = {
       .then((r) => ({ ...r, data: normalizeDefinition(r.data) })),
 
   update: (id: string, payload: UpdateChecklistDefinitionPayload) =>
-    apiFetch<ApiResponse<ChecklistDefinition> & { liveRuns?: LiveRunsSummary }>(`/checklist-definitions/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+    apiFetch<ApiResponse<ChecklistDefinition> & { liveRuns?: LiveRunsSummary; wentLive?: boolean; paused?: boolean; lateToday?: boolean }>(`/checklist-definitions/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
       .then((r) => ({ ...r, data: normalizeDefinition(r.data) })),
 
   setActive: (id: string, isActive: boolean) =>

@@ -1,7 +1,7 @@
-import { useId } from 'react';
-import { ShieldCheck, UserCheck } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Globe2, ShieldCheck, UserCheck } from 'lucide-react';
 import { UserMultiSelect } from '../../../../components';
-import { useDepartmentsQuery } from '../../hook';
+import { useAssignableUsersQuery, useDepartmentsQuery } from '../../hook';
 import { LABEL_CLASS } from './formConstants';
 
 interface ChecklistReviewersFieldProps {
@@ -9,6 +9,7 @@ interface ChecklistReviewersFieldProps {
    *  same as assignees. */
   storeIds: string[];
   selected: string[];
+  totalSelected?: number;
   onChange: (ids: string[]) => void;
   /** A brand-new checklist (not an edit or a copy), which starts with PC pre-selected. */
   isNew?: boolean;
@@ -22,17 +23,21 @@ interface ChecklistReviewersFieldProps {
 // list is meant to stay small and hand-picked, not mirror the whole staff roster. Grouped by
 // department (via UserMultiSelect's `departments` prop) so a department's HOD — badged "HOD" —
 // is easy to spot and add without scanning the full org roster. A new checklist starts with every
-// PC user pre-picked (see ChecklistBuilder's reviewerDefaultAppliedRef) — still just a starting
-// point the maker can remove from or add to.
+// PC user pre-picked — still just a starting point the maker can remove from or add to.
 export const ChecklistReviewersField = ({
   storeIds,
   selected,
   onChange,
+  totalSelected,
   isNew = false,
   className = '',
 }: ChecklistReviewersFieldProps) => {
   const { data: allDepartments = [] } = useDepartmentsQuery();
   const labelId = useId();
+  const [anywhere, setAnywhere] = useState(false);
+  const everyone = useAssignableUsersQuery();
+  const pcIds = (everyone.data ?? []).filter((u) => u.role === 'PC').map((u) => u.id);
+  const hasAllPc = pcIds.length > 0 && pcIds.every((id) => selected.includes(id));
 
   return (
     <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
@@ -43,20 +48,43 @@ export const ChecklistReviewersField = ({
           <span>Reviewers <span className="text-text-muted/70 font-medium">(Optional)</span></span>
         </span>
 
-        {selected.length > 0 && (
+        {(totalSelected ?? selected.length) > 0 && (
           <span className="t-meta font-display font-medium text-text-muted flex items-center gap-1">
             <UserCheck size={12} className="text-primary-700 dark:text-primary-400" />
-            <span>{selected.length} reviewer{selected.length === 1 ? '' : 's'}</span>
+            <span>{totalSelected ?? selected.length} reviewer{(totalSelected ?? selected.length) === 1 ? '' : 's'}</span>
           </span>
         )}
       </div>
 
       <UserMultiSelect
-        storeIds={storeIds}
+        all={anywhere}
+        storeIds={anywhere ? undefined : storeIds}
         selected={selected}
         onChange={onChange}
         departments={allDepartments}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={anywhere}
+          onClick={() => setAnywhere((v) => !v)}
+          className={`inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer ${anywhere ? 'border-primary-500/60 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-primary-300'}`}
+        >
+          <Globe2 className="size-3.5" aria-hidden />
+          {anywhere ? 'Showing everyone' : 'Search everyone, any store'}
+        </button>
+        {pcIds.length > 0 && !hasAllPc && (
+          <button
+            type="button"
+            onClick={() => onChange([...new Set([...selected, ...pcIds])])}
+            className="inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+          >
+            <ShieldCheck className="size-3.5" aria-hidden />
+            Add all PC
+          </button>
+        )}
+      </div>
 
       <p className="t-meta font-display text-text-muted">
         {isNew && 'Starts with PC pre-selected. '}Anyone you add here can approve or reject this checklist's

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAssignableUsersQuery } from '../../hook';
 
 export interface StorePeople {
@@ -7,6 +7,8 @@ export interface StorePeople {
   storePersonIds: ReadonlySet<string> | null;
   /** Every active person in the organisation. null while loading. */
   activePersonIds: ReadonlySet<string> | null;
+  isReady: boolean;
+  refetch: () => void;
 }
 
 // The two lists the builder compares picked people against. A person picked for a store that was
@@ -22,7 +24,15 @@ export const useStorePeople = (storeIds: string[]): StorePeople => {
     [storeIds.length, storeData],
   );
   const activePersonIds = useMemo(() => (activeData ? new Set(activeData.map((u) => u.id)) : null), [activeData]);
-  return { storePersonIds, activePersonIds };
+  const isReady = (storeIds.length === 0 || storeQuery.isSuccess) && activeQuery.isSuccess;
+  const refetchStore = storeQuery.refetch;
+  const refetchActive = activeQuery.refetch;
+  const hasStores = storeIds.length > 0;
+  const refetch = useCallback(() => {
+    if (hasStores) void refetchStore();
+    void refetchActive();
+  }, [hasStores, refetchStore, refetchActive]);
+  return { storePersonIds, activePersonIds, isReady, refetch };
 };
 
 export const peopleCount = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;

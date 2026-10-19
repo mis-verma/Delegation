@@ -8,6 +8,7 @@ import {
     checklistDefinitionItemAuditUsers,
     users,
     departments,
+    checklistInstances,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
 import { eq, and, asc, count, inArray, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
@@ -45,6 +46,7 @@ export type ListChecklistDefinitionsFilter = {
     storeId?: string
     recurrence?: ChecklistRecurrence
     isActive?: boolean
+    draft?: boolean
     page?: number
     limit?: number
 }
@@ -238,6 +240,20 @@ const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], 
 // as the generic "Referenced record does not exist" FK message. Reviewers the checklist already has
 // are left alone (`alreadyLinked`), so a person who has left since being added never blocks an
 // unrelated edit or a bulk import.
+const closedForToday = (def: { recurrence: string; opensTime: string | null; cutoffTime: string | null }): boolean => {
+    if (def.recurrence !== "DAILY" || !def.cutoffTime) return false
+    if (def.opensTime && def.cutoffTime < def.opensTime) return false
+    const local = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16)
+    return local >= def.cutoffTime
+}
+
+const countActiveUsers = async (userIds: string[]): Promise<number> => {
+    const unique = [...new Set(userIds)]
+    if (!unique.length) return 0
+    const [row] = await db.select({ total: count() }).from(users).where(and(inArray(users.id, unique), eq(users.isActive, true)))
+    return Number(row?.total ?? 0)
+}
+
 const assertReviewersValid = async (reviewerIds: string[] | undefined, alreadyLinked: string[] = []) => {
     const fresh = [...new Set(reviewerIds ?? [])].filter((id) => !alreadyLinked.includes(id))
     if (!fresh.length) return
@@ -346,6 +362,10 @@ export const checklistDefinitionService = {
         const conditions = [NOT_DELETED]
         if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
         if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
+        if (filter.draft !== undefined) {
+            const noPeople = sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitionAssignees} a WHERE a.definitionId = ${checklistDefinitions.id})`
+            conditions.push(filter.draft ? and(eq(checklistDefinitions.isActive, false), noPeople)! : sql`NOT (${checklistDefinitions.isActive} = 0 AND ${noPeople})`)
+        }
         if (filter.storeId) {
             // Mongo/Mongoose matched an array field against a scalar as "array contains this
             // value" — the equivalent here is a lookup against the junction table first, then
@@ -383,6 +403,7 @@ export const checklistDefinitionService = {
         }
 
         await assertReviewersValid(input.reviewerIds)
+        const hasActivePeople = (await countActiveUsers(input.assigneeIds)) > 0
 
         const definitionId = createId()
 
@@ -403,7 +424,7 @@ export const checklistDefinitionService = {
                 responseMode: input.responseMode ?? "SHARED",
                 // Daily checklists skip Sunday unless the admin picks their own working days.
                 activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
-                isActive: input.assigneeIds.length > 0,
+                isActive: hasActivePeople,
                 createdBy: user.sub,
             })
 
@@ -467,7 +488,7 @@ export const checklistDefinitionService = {
         // The checklist is already saved at this point. If stamping out today's runs fails, report
         // success anyway: the admin retrying would create a duplicate checklist, and the scheduled
         // generator job picks the missing runs up on its next sweep.
-        if (input.assigneeIds.length) {
+        if (hasActivePeople) {
             try {
                 const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
                 if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
@@ -483,6 +504,11 @@ export const checklistDefinitionService = {
     },
 
     async update(id: string, input: UpdateChecklistDefinitionInput, actorId: string) {
+        const [current] = await db.select({ version: checklistDefinitions.version }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
+        if (!current) throw AppError.notFound("Checklist not found")
+        if (current.version !== input.version) {
+            throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
+        }
         await assertUsersBelongToStores(input.assigneeIds, input.storeIds, "assignees")
         for (const item of input.items) {
             if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
@@ -490,8 +516,11 @@ export const checklistDefinitionService = {
             }
         }
 
-        let wasActive = false
+        let isActiveAfter = false
         let pausedForNoPeople = false
+        let wentLive = false
+        let lateToday = false
+        const activePeopleCount = await countActiveUsers(input.assigneeIds)
 
         // Captured before the update so a store REMOVED from storeIds still hears that this
         // definition no longer applies to it, not just the (possibly different) stores it ends up
@@ -522,9 +551,10 @@ export const checklistDefinitionService = {
                 throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
             }
             const [{ total: oldAssigneeCount }] = await tx.select({ total: count() }).from(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
-            const nowHasPeople = input.assigneeIds.length > 0
+            const nowHasPeople = activePeopleCount > 0
             const nextActive = !nowHasPeople ? false : (!existing.isActive && Number(oldAssigneeCount) === 0) ? true : existing.isActive
-            wasActive = nextActive
+            isActiveAfter = nextActive
+            wentLive = nextActive && !existing.isActive
             pausedForNoPeople = existing.isActive && !nowHasPeople
 
             await tx.update(checklistDefinitions).set({
@@ -641,7 +671,7 @@ export const checklistDefinitionService = {
                 console.error(`[checklistDefinition.update] paused ${id} but could not clear today's runs`, err)
             }
         }
-        if (wasActive) {
+        if (isActiveAfter) {
             // The edit is already committed. A failure here must not read as a failed save (a retry
             // would hit the version check and 409), so log it and report zero runs touched; the
             // scheduled generator job catches today's runs up.
@@ -662,17 +692,22 @@ export const checklistDefinitionService = {
         }
 
         const updated = await this.getById(id)
+        lateToday = wentLive && closedForToday(updated)
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "UPDATE", actorId, after: updated })
         emitToStores("checklist-definition:updated", affectedStoreIds, { definitionId: id })
-        return { definition: updated, liveRuns }
+        return { definition: updated, liveRuns, wentLive, paused: pausedForNoPeople, lateToday }
     },
 
     async setActive(id: string, input: SetChecklistDefinitionActiveInput, actorId: string) {
-        const [existing] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
+        const [existing] = await db.select({ id: checklistDefinitions.id, recurrence: checklistDefinitions.recurrence }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!existing) throw AppError.notFound("Checklist not found")
+        if (input.isActive && existing.recurrence === "ONE_TIME") {
+            const [ran] = await db.select({ total: count() }).from(checklistInstances).where(eq(checklistInstances.definitionId, id))
+            if (Number(ran?.total ?? 0) > 0) throw AppError.badRequest("This one-time checklist has already run. Duplicate it to run it again.")
+        }
         if (input.isActive) {
-            const [{ total }] = await db.select({ total: count() }).from(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
-            if (Number(total) === 0) throw AppError.badRequest("Nobody is assigned to fill this checklist in yet. Edit it, add the people, and it switches on by itself.")
+            const assigned = await db.select({ userId: checklistDefinitionAssignees.userId }).from(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
+            if ((await countActiveUsers(assigned.map((a) => a.userId))) === 0) throw AppError.badRequest("Nobody active is assigned to fill this checklist in yet. Edit it, add the people, and it goes live by itself.")
         }
         await db.update(checklistDefinitions).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
         // Pause takes effect now, not at midnight: today's run nobody started leaves everyone's list and is
