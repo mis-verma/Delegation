@@ -1,7 +1,9 @@
-import { CheckCircle2, CheckCheck, Keyboard, SearchX, History } from 'lucide-react';
+import { Fragment } from 'react';
+import { CheckCircle2, CheckCheck, Flag, Keyboard, SearchX, History, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button, EmptyState, InlineError, Skeleton } from '../../components';
 import { ChecklistQueueRow } from './ChecklistQueueRow';
-import type { ChecklistRow } from './verificationModel';
+import { groupOf, type ChecklistRow, type QueueGroup } from './verificationModel';
 
 const SkeletonRow = () => (
   <li className="flex flex-col gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface" aria-hidden>
@@ -40,16 +42,26 @@ interface ChecklistListProps {
   showDepartment?: boolean;
   inlineActions?: 'below-lg' | 'always';
   heading?: string;
+  grouped?: boolean;
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
 }
 
+const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: string }> = {
+  critical: { label: 'Critical answers failed', icon: ShieldAlert, tone: 'text-danger' },
+  attention: { label: 'Needs a look', icon: Flag, tone: 'text-warning' },
+  ready: { label: 'Ready to approve', icon: CheckCheck, tone: 'text-success' },
+};
+
 export const ChecklistList = ({
   rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
-  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', onOpen, onApprove, onSendBack,
-}: ChecklistListProps) => (
+  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', grouped = false, onOpen, onApprove, onSendBack,
+}: ChecklistListProps) => {
+  const groupCounts = { critical: 0, attention: 0, ready: 0 };
+  for (const r of rows) groupCounts[groupOf(r)] += 1;
+  return (
   <section className="flex flex-col gap-3 min-w-0" aria-label={heading}>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2">
@@ -65,7 +77,7 @@ export const ChecklistList = ({
             Shortcuts
           </Button>
         )}
-        {onApproveAllClean && cleanCount > 0 && (
+        {!grouped && onApproveAllClean && cleanCount > 0 && (
           <Button
             size="sm"
             variant="outline"
@@ -106,19 +118,47 @@ export const ChecklistList = ({
 
     {rows.length > 0 && (
       <ul className="flex flex-col gap-3">
-        {rows.map((row) => (
-          <ChecklistQueueRow
-            key={row.id}
-            row={row}
-            now={now}
-            active={row.id === activeId}
-            showDepartment={showDepartment}
-            inlineActions={inlineActions}
-            onOpen={onOpen}
-            onApprove={onApprove}
-            onSendBack={onSendBack}
-          />
-        ))}
+        {rows.map((row, index) => {
+          const group = groupOf(row);
+          const starts = grouped && (index === 0 || groupOf(rows[index - 1]) !== group);
+          const meta = GROUP_META[group];
+          return (
+            <Fragment key={row.id}>
+              {starts && (
+                <li role="presentation" className={cn('flex items-center justify-between gap-2', index > 0 && 'pt-2')}>
+                  <h3 className={cn('inline-flex items-center gap-1.5 t-meta font-display font-bold', meta.tone)}>
+                    <meta.icon size={14} aria-hidden />
+                    {meta.label}
+                    <span className="tabular-nums font-semibold text-text-muted">{groupCounts[group]}</span>
+                  </h3>
+                  {group === 'ready' && onApproveAllClean && cleanCount > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success"
+                      disabled={!!bulk}
+                      isLoading={!!bulk}
+                      onClick={onApproveAllClean}
+                    >
+                      {!bulk && <CheckCheck size={14} aria-hidden />}
+                      {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve all ${cleanCount}`}
+                    </Button>
+                  )}
+                </li>
+              )}
+              <ChecklistQueueRow
+                row={row}
+                now={now}
+                active={row.id === activeId}
+                showDepartment={showDepartment}
+                inlineActions={inlineActions}
+                onOpen={onOpen}
+                onApprove={onApprove}
+                onSendBack={onSendBack}
+              />
+            </Fragment>
+          );
+        })}
       </ul>
     )}
 
@@ -131,4 +171,5 @@ export const ChecklistList = ({
       </div>
     )}
   </section>
-);
+  );
+};

@@ -128,10 +128,14 @@ const COMPARATORS: Record<SortKey, (a: ChecklistRow, b: ChecklistRow) => number>
   compliance: byCompliance,
 };
 
+export type QueueGroup = 'critical' | 'attention' | 'ready';
+
+const GROUP_RANK: Record<QueueGroup, number> = { critical: 0, attention: 1, ready: 2 };
+
+export const groupOf = (row: ChecklistRow): QueueGroup =>
+  row.risk.criticalFailed > 0 ? 'critical' : row.risk.needsAttention ? 'attention' : 'ready';
+
 export const sortChecklistRows = (rows: ChecklistRow[], sort: SortKey): ChecklistRow[] => {
   const compare = COMPARATORS[sort];
-  return [...rows].sort((a, b) => {
-    const critical = Number(b.risk.criticalFailed > 0) - Number(a.risk.criticalFailed > 0);
-    return critical || compare(a, b);
-  });
+  return [...rows].sort((a, b) => GROUP_RANK[groupOf(a)] - GROUP_RANK[groupOf(b)] || compare(a, b));
 };

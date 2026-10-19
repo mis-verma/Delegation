@@ -307,10 +307,8 @@ export const VerificationQueue = () => {
           partial={hasMore}
           attentionActive={params.attention}
           slowActive={params.age === '3'}
-          bulkBusy={!!bulk}
           onToggleAttention={() => patch({ attention: !params.attention })}
           onToggleSlow={() => patch({ age: params.age === '3' ? 'any' : '3' })}
-          onApproveClean={() => void approveAllClean()}
         />
       )}
 
@@ -355,6 +353,7 @@ export const VerificationQueue = () => {
                 isFetchingMore={checklistQuery.isFetchingNextPage}
                 onLoadMore={() => { void checklistQuery.fetchNextPage(); }}
                 onShowShortcuts={() => setHelpOpen(true)}
+                grouped
                 onOpen={openRun}
                 onApprove={approve}
                 onSendBack={startSendBack}

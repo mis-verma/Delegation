@@ -15,10 +15,8 @@ interface QueueOverviewProps {
   partial: boolean;
   attentionActive: boolean;
   slowActive: boolean;
-  bulkBusy: boolean;
   onToggleAttention: () => void;
   onToggleSlow: () => void;
-  onApproveClean: () => void;
 }
 
 interface TileProps {
@@ -69,7 +67,7 @@ const Tile = ({ icon: Icon, tile, label, value, caption, onClick, pressed, disab
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
 
 export const QueueOverview = memo(function QueueOverview({
-  loading, rows, waitingTotal, oldestWaiting, now, partial, attentionActive, slowActive, bulkBusy, onToggleAttention, onToggleSlow, onApproveClean,
+  loading, rows, waitingTotal, oldestWaiting, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow,
 }: QueueOverviewProps) {
   const stats = useMemo(() => {
     let needsLook = 0;
@@ -122,9 +120,7 @@ export const QueueOverview = memo(function QueueOverview({
           tile="from-success to-success-strong"
           label="Ready to approve"
           value={stats.clean}
-          caption={stats.clean ? 'Tap to approve all' : 'None are clean'}
-          onClick={onApproveClean}
-          disabled={stats.clean === 0 || bulkBusy}
+          caption={stats.clean ? 'Approve them in one go below' : 'None are clean'}
         />
         <Tile
           icon={Clock3}

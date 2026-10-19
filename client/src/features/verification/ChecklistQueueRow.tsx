@@ -1,5 +1,5 @@
-import { memo, useRef, type TouchEvent } from 'react';
-import { Check, Clock3, CornerUpLeft, Repeat, Send, Store } from 'lucide-react';
+import { memo, useRef, useState, type TouchEvent } from 'react';
+import { Check, ChevronDown, Clock3, CornerUpLeft, Repeat, Send, Store } from 'lucide-react';
 import { Button } from '../../components';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '../checklist/checklistDisplay';
@@ -30,6 +30,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   const approveHintRef = useRef<HTMLDivElement>(null);
   const sendBackHintRef = useRef<HTMLDivElement>(null);
   const gesture = useRef({ x: 0, y: 0, dx: 0, axis: null as 'x' | 'y' | null });
+  const [showQuestions, setShowQuestions] = useState(false);
 
   const paint = (dx: number) => {
     const surface = surfaceRef.current;
@@ -134,7 +135,19 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
 
         <RiskChips risk={risk} hideCompliance />
 
-        <QuestionPreview items={instance.items} onOpen={() => onOpen(id)} />
+        {instance.items.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={showQuestions}
+            onClick={() => setShowQuestions((v) => !v)}
+            className="inline-flex h-8 pointer-coarse:h-11 w-fit items-center gap-1 rounded-md t-meta font-display font-semibold text-primary-600 dark:text-primary-300 cursor-pointer outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            <ChevronDown size={14} aria-hidden className={cn('transition-transform duration-150', showQuestions && 'rotate-180')} />
+            {showQuestions ? 'Hide questions' : `Show ${instance.items.length} ${instance.items.length === 1 ? 'question' : 'questions'}`}
+          </button>
+        )}
+
+        {showQuestions && <QuestionPreview items={instance.items} onOpen={() => onOpen(id)} />}
 
         {inlineActions && (
           <div className={cn('flex items-center justify-end gap-2', lgHidden)}>
