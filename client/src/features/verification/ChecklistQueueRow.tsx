@@ -4,6 +4,7 @@ import { Button } from '../../components';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '../checklist/checklistDisplay';
 import { RiskChips } from './RiskChips';
+import { ComplianceMeter } from './ComplianceMeter';
 import { QuestionPreview } from './QuestionPreview';
 import { formatWaiting, type ChecklistRow } from './verificationModel';
 
@@ -129,7 +130,9 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           </span>
         </button>
 
-        <RiskChips risk={risk} />
+        <ComplianceMeter risk={risk} />
+
+        <RiskChips risk={risk} hideCompliance />
 
         <QuestionPreview items={instance.items} onOpen={() => onOpen(id)} />
 

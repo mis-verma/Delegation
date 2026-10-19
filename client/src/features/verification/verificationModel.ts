@@ -37,6 +37,10 @@ export interface ChecklistRisk {
   photosNeeded: number;
   photosHave: number;
   needsLookCount: number;
+  scored: number;
+  good: number;
+  answered: number;
+  totalQuestions: number;
   clean: boolean;
   needsAttention: boolean;
 }
@@ -77,6 +81,10 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     photosNeeded,
     photosHave,
     needsLookCount,
+    scored: scores.scored,
+    good: scores.good,
+    answered: scores.done,
+    totalQuestions: scores.total,
     clean: compliant && !needsAttention,
     needsAttention,
   };

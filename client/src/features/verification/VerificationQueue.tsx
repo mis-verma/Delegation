@@ -13,6 +13,7 @@ import type { ChecklistInstance } from '../../api/checklistInstances';
 import { ChecklistList } from './ChecklistList';
 import { DecidedToday } from './DecidedToday';
 import { QueueToolbar } from './QueueToolbar';
+import { QueueOverview } from './QueueOverview';
 import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
@@ -295,6 +296,23 @@ export const VerificationQueue = () => {
   return (
     <div className="flex flex-col gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
+
+      {params.view === 'waiting' && (
+        <QueueOverview
+          loading={loadingTotals}
+          rows={allRows.filter((r) => !heldIds.has(r.id))}
+          waitingTotal={waitingTotal}
+          oldestWaiting={oldestWaiting}
+          now={now}
+          partial={hasMore}
+          attentionActive={params.attention}
+          slowActive={params.age === '3'}
+          bulkBusy={!!bulk}
+          onToggleAttention={() => patch({ attention: !params.attention })}
+          onToggleSlow={() => patch({ age: params.age === '3' ? 'any' : '3' })}
+          onApproveClean={() => void approveAllClean()}
+        />
+      )}
 
       <QueueToolbar
         params={params}

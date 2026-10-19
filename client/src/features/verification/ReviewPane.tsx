@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { complianceToneClass, formatPeriodSpan, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
 import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
+import { ComplianceMeter } from './ComplianceMeter';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
 import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
 import type { ReviewDraft } from './useReviewDraft';
@@ -101,6 +102,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
           tone={risk.photosNeeded === 0 ? 'text-text-muted' : risk.photosHave < risk.photosNeeded ? 'text-danger' : 'text-success'}
         />
       </div>
+
+      <ComplianceMeter risk={risk} className="rounded-lg border border-border/60 bg-surface-hover/30 p-3" />
 
       <InstanceReviewPanel
         items={instance.items}

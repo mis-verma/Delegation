@@ -10,9 +10,10 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 interface RiskChipsProps {
   risk: ChecklistRisk;
   className?: string;
+  hideCompliance?: boolean;
 }
 
-export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsProps) {
+export const RiskChips = memo(function RiskChips({ risk, className, hideCompliance = false }: RiskChipsProps) {
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {risk.criticalFailed > 0 && (
@@ -24,7 +25,7 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
           title="A question marked critical was not answered acceptably"
         />
       )}
-      <IconChip icon={Gauge} tone={complianceTone(risk.compliance ?? 100)} label={`Compliance ${risk.compliance ?? 100}%`} />
+      {!hideCompliance && <IconChip icon={Gauge} tone={complianceTone(risk.compliance ?? 100)} label={`Compliance ${risk.compliance ?? 100}%`} />}
       {risk.badAnswers > 0 && (
         <IconChip icon={AlertTriangle} tone="bg-warning" label={plural(risk.badAnswers, 'bad answer', 'bad answers')} title="Answers outside the accepted rule" />
       )}
