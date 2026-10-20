@@ -1,4 +1,4 @@
-import { Clock } from 'lucide-react';
+import { AlarmClock, Clock } from 'lucide-react';
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ interface ChecklistInstanceCardProps {
 }
 
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate, inLateWindow, lateUntil } = getInstanceView(instance);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
   const doneByOthers = (() => {
@@ -49,7 +49,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
+      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]', inLateWindow && 'border-danger/50 bg-danger/5 hover:border-danger')}
     >
       <div className="flex flex-col gap-1 min-w-0">
         <p className="t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2">{instance.title}</p>
@@ -61,6 +61,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
 
       <div className="flex items-center gap-1.5 flex-wrap">
         <StatusChip status={chipStatus} />
+        {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
         {showVerification && (
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />

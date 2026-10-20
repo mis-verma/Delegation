@@ -78,6 +78,7 @@ export const checklistDefinitions = mysqlTable(
     startDate: datetime('startDate', { mode: 'date' }).notNull(),
     opensTime: varchar('opensTime', { length: 5 }),
     cutoffTime: varchar('cutoffTime', { length: 5 }),
+    lateUntilTime: varchar('lateUntilTime', { length: 5 }),
     isActive: boolean('isActive').notNull().default(true),
     assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
     icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),

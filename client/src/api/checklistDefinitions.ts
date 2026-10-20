@@ -62,6 +62,7 @@ export type ChecklistDefinition = {
   startDate: string;
   opensTime: string | null;
   cutoffTime: string | null;
+  lateUntilTime: string | null;
   isActive: boolean;
   assigneeIds: string[];
   reviewerIds: string[];
@@ -124,6 +125,7 @@ export type CreateChecklistDefinitionPayload = {
   startDate: string;
   opensTime?: string;
   cutoffTime?: string;
+  lateUntilTime?: string;
   assigneeIds: string[];
   reviewerIds?: string[];
   assigneeRoles?: ChecklistAssigneeRole[];

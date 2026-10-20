@@ -366,7 +366,7 @@ export const notificationService = {
     });
   },
 
-  async notifyChecklistOverdue(instance: VerifiableChecklistInstance & { closed?: boolean }) {
+  async notifyChecklistOverdue(instance: VerifiableChecklistInstance & { closed?: boolean; fillUntil?: string }) {
     const assigneeIds = instance.closed ? [] : (instance.assigneeIds ?? []).map((id) => id.toString());
     const pcs = instance.storeId
       ? await db
@@ -382,7 +382,9 @@ export const notificationService = {
         ...(await notificationService.notifyMany(assigneeIds, {
           type: 'CHECKLIST_OVERDUE',
           title: 'Checklist overdue',
-          message: `"${instance.title}" is overdue. Fill it in as soon as you can.`,
+          message: instance.fillUntil
+            ? `"${instance.title}" is overdue. You can still fill it in until ${instance.fillUntil}.`
+            : `"${instance.title}" is overdue. Fill it in as soon as you can.`,
           checklistInstanceId: instance._id.toString(),
         })),
       );

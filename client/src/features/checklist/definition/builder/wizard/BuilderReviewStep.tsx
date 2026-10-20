@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useStoresQuery, useAssignableUsersQuery } from '../../../hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
-import { isOvernightWindow } from '../BuilderSchedulePanel';
+import { isOvernightWindow } from '../scheduleWindow';
 import { RESPONSE_MODE_TITLE } from '../BuilderAssignPanel';
 import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import { questionTypeOf } from '../questionTypes';
@@ -35,6 +35,7 @@ interface BuilderReviewStepProps {
   startDate: string;
   opensTime: string;
   cutoffTime: string;
+  lateUntilTime: string;
   activeWeekdays: number[];
   responseMode: ChecklistResponseMode;
   itemDrafts: ItemDraft[];
@@ -170,6 +171,7 @@ export const BuilderReviewStep = ({
   startDate,
   opensTime,
   cutoffTime,
+  lateUntilTime,
   activeWeekdays,
   responseMode,
   itemDrafts,
@@ -306,6 +308,17 @@ export const BuilderReviewStep = ({
                   {isOvernightWindow(opensTime, cutoffTime) && (
                     <span className="text-text-muted"> (cuts off the next day)</span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {lateUntilTime && (
+              <div className="flex items-center gap-2">
+                <Clock size={13} className="text-danger shrink-0" />
+                <div>
+                  <span className="text-text-muted">Late fill until: </span>
+                  <span className="font-medium text-text">{lateUntilTime}</span>
+                  <span className="text-text-muted"> (counts as filled late)</span>
                 </div>
               </div>
             )}

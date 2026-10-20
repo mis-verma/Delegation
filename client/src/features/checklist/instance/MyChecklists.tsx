@@ -23,7 +23,7 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceEnded } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceEnded, isInstanceInLateWindow } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { windowLabel } from '../../scores/useScoreWindow';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
@@ -231,8 +231,15 @@ export const MyChecklists = () => {
       (i.recurrence === 'ONE_TIME' && !(i.items.length > 0 && i.items.every((it) => it.isDone)));
     return open.filter((i) =>
       instanceDeadline(i) > now ||
+      isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now) ||
       needsAction(i));
   }, [sortedInstances, now, quickFilter, canFillEnded]);
+
+  const lateNowCount = useMemo(
+    () => instances.filter((i) => isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now)).length,
+    [instances, now],
+  );
+  const missedCount = Math.max(0, counts.overdue - lateNowCount);
 
   const matchingTotal =
     quickFilter === 'pending' ? counts.pending
@@ -274,7 +281,18 @@ export const MyChecklists = () => {
           assigned to you today
         </div>
 
-        {!summaryPending && counts.overdue > 0 && quickFilter !== 'overdue' && (
+        {lateNowCount > 0 && (
+          <div role="alert" className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-danger/40 bg-danger/10 py-2 pl-2 pr-3">
+            <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
+              <AlarmClock size={16} strokeWidth={2.5} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 t-card font-display font-semibold text-danger">
+              {lateNowCount} {lateNowCount === 1 ? 'checklist is' : 'checklists are'} overdue. Please fill {lateNowCount === 1 ? 'it' : 'them'} in now.
+            </span>
+          </div>
+        )}
+
+        {!summaryPending && missedCount > 0 && quickFilter !== 'overdue' && (
           <button
             type="button"
             onClick={() => toggleQuickFilter('overdue')}
@@ -284,7 +302,7 @@ export const MyChecklists = () => {
               <AlertCircle size={16} strokeWidth={2.5} aria-hidden />
             </span>
             <span className="min-w-0 flex-1 t-card font-display font-semibold text-danger">
-              {counts.overdue} {counts.overdue === 1 ? 'checklist' : 'checklists'} missed this month
+              {missedCount} {missedCount === 1 ? 'checklist' : 'checklists'} missed this month
             </span>
             <span className="flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-danger">
               View

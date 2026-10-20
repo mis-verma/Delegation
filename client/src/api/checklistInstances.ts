@@ -126,6 +126,7 @@ export type ChecklistInstance = {
   storeId:          string;
   opensTime:        string | null;
   cutoffTime:       string | null;
+  lateUntilTime?:   string | null;
   assigneeIds:      string[];
   reviewerIds:      string[];
   periodKey:        string;
@@ -139,6 +140,7 @@ export type ChecklistInstance = {
   submittedByName:    string | null;
   isMissed?:          boolean;
   isEnded?:           boolean;
+  isLate?:            boolean;
   endedAt?:           string;
   verifiedBy:         string | null;
   verifiedAt:         string | null;

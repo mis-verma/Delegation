@@ -31,9 +31,10 @@ import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
 import { WaiveAction } from './WaiveAction';
 import {
-  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceDeadline, instanceProgressToneClass, isInstanceEnded, isInstanceNotYetOpen,
+  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, isInstanceInLateWindow, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
+import { LateWindowBanner } from './LateWindowBanner';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -264,9 +265,10 @@ export const ChecklistInstanceDetail = () => {
   }
 
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
+  const inLateWindow = isInstanceInLateWindow(instance, isComplete, now);
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const isMissed = instance.isMissed === true || isInstanceEnded(instance, now);
-  const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceDeadline(instance));
+  const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceClosing(instance));
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
   const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id);
@@ -298,6 +300,7 @@ export const ChecklistInstanceDetail = () => {
   };
   const verificationNote = instance.verificationNote;
   const showBanners =
+    inLateWindow ||
     isMissed ||
     notYetOpen ||
     (instance.verificationStatus === 'PENDING_APPROVAL' && !canReview) ||
@@ -377,6 +380,8 @@ export const ChecklistInstanceDetail = () => {
 
       {showBanners && (
         <div className="flex flex-col gap-3">
+          {inLateWindow && <LateWindowBanner instance={instance} now={now} onFill={goToNext} />}
+
           {isMissed && (
             <NoticeBanner tone="warning" icon={Clock}>
               {isAdminOrPC ? (

@@ -24,8 +24,8 @@ import { eq, and, inArray, desc, asc, sql, gte, lte, lt, type SQL } from "drizzl
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
-import { missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
-import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runDeadlineMs } from "./checklistRunEnd.js"
+import { closedFromPastDayExpr, missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
+import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runClosingMs, runDeadlineMs, runPhase } from "./checklistRunEnd.js"
 import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
@@ -182,7 +182,8 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
             ...instance,
             isMissed: isRunEnded(endInput, nowMs, offsetMinutes),
             isEnded: hasRunDeadlinePassed(instance, nowMs, offsetMinutes),
-            endedAt: new Date(runDeadlineMs(instance, offsetMinutes)).toISOString(),
+            isLate: runPhase(endInput, nowMs, offsetMinutes) === "late",
+            endedAt: new Date(runClosingMs(instance, offsetMinutes)).toISOString(),
             assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
             reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
             submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
@@ -696,7 +697,7 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
 
     if (filter.departmentId) conditions.push(instanceInDepartmentCondition(filter.departmentId))
 
-    if (filter.userId && filter.hideEnded !== false) conditions.push(sql`NOT ${missedFromPastDayExpr}`)
+    if (filter.userId && filter.hideEnded !== false) conditions.push(sql`NOT ${closedFromPastDayExpr}`)
 
     return conditions.length ? and(...conditions) : undefined
 }
@@ -1280,7 +1281,7 @@ export const checklistInstanceService = {
         await assertRunOpenForUser(instanceRow.id, user)
         if (!isDone && item.isDone && !canWorkEndedRun(user)
             && isRunEnded({ ...instanceRow, totalItems: 1, doneItems: 0 }, Date.now(), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)) {
-            throw AppError.badRequest(runClosedMessage(runDeadlineMs(instanceRow, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
+            throw AppError.badRequest(runClosedMessage(runClosingMs(instanceRow, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
         }
 
         const justAnsweredByThem = item.completedBy === user.sub && !!item.completedAt && Date.now() - item.completedAt.getTime() <= UNDO_WINDOW_MS

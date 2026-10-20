@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
+import { AlarmClock, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -19,11 +19,11 @@ interface ChecklistInstanceRowProps {
 const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40');
 
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate, inLateWindow, lateUntil } = getInstanceView(instance);
 
   if (storeName !== undefined) {
     return (
-      <Link to={`/checklists/${instance.id}`} className={cn(ROW_CLASS, 'gap-3 p-3.5 sm:p-4')}>
+      <Link to={`/checklists/${instance.id}`} className={cn(ROW_CLASS, 'gap-3 p-3.5 sm:p-4', inLateWindow && 'border-danger/50 bg-danger/5 hover:border-danger')}>
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
@@ -34,6 +34,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <StatusChip status={chipStatus} />
+            {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
             {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
             <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
           </div>
@@ -53,7 +54,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
   }
 
   return (
-    <Link to={`/checklists/${instance.id}`} className={cn(ROW_CLASS, 'flex-row items-center gap-3 px-4 py-3.5 sm:p-4')}>
+    <Link to={`/checklists/${instance.id}`} className={cn(ROW_CLASS, 'flex-row items-center gap-3 px-4 py-3.5 sm:p-4', inLateWindow && 'border-danger/50 bg-danger/5 hover:border-danger')}>
       {isComplete ? (
         <span className="flex items-center justify-center size-5 rounded-full bg-success text-white shrink-0">
           <Check size={12} strokeWidth={3} />
@@ -78,6 +79,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
             {isComplete ? 'Done' : `${progress}% done`}
           </Badge>
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
+          {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
         </div>
       </div>
 

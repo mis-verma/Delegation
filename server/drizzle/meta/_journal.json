@@ -428,6 +428,13 @@
       "when": 1792477086813,
       "tag": "0060_backfill_conditional_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "5",
+      "when": 1792478373459,
+      "tag": "0061_checklist_late_window",
+      "breakpoints": true
     }
   ]
 }

@@ -121,6 +121,7 @@ type InstanceWindow = {
   periodEnd: string;
   opensTime: string | null;
   cutoffTime: string | null;
+  lateUntilTime?: string | null;
 };
 
 export const ORG_TZ_OFFSET_MS = 330 * 60_000;
@@ -154,6 +155,34 @@ export const instanceDeadline = (instance: InstanceWindow): number => {
   return deadline.getTime() - ORG_TZ_OFFSET_MS;
 };
 
+const toMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+export const instanceClosing = (instance: InstanceWindow): number => {
+  const deadline = instanceDeadline(instance);
+  if (!instance.lateUntilTime || !instance.cutoffTime) return deadline;
+  const extra = toMinutes(instance.lateUntilTime) - toMinutes(instance.cutoffTime);
+  return extra > 0 ? deadline + extra * 60_000 : deadline;
+};
+
+export const isInstanceInLateWindow = (instance: InstanceWindow, isComplete: boolean, now: number = Date.now()): boolean =>
+  !!instance.lateUntilTime && !isComplete && instanceDeadline(instance) <= now && now < instanceClosing(instance);
+
+export const formatClockTime = (time: string): string => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return `${hours % 12 === 0 ? 12 : hours % 12}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+};
+
+export const formatCountdown = (ms: number): string => {
+  const totalMinutes = Math.max(0, Math.ceil(ms / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+};
+
 export const formatDeadlineTime = (instance: InstanceWindow): string | null => {
   if (!instance.cutoffTime) return null;
   return DEADLINE_FMT.format(new Date(instanceDeadline(instance) + ORG_TZ_OFFSET_MS));
@@ -177,7 +206,7 @@ export const isInstanceEnded = (instance: EndableInstance, now: number = Date.no
   if (instance.recurrence === 'ONE_TIME') return false;
   if (instance.verificationStatus === 'REJECTED') return false;
   if (instance.items.length > 0 && instance.items.every((i) => i.isDone)) return false;
-  return instanceDeadline(instance) <= now;
+  return instanceClosing(instance) <= now;
 };
 
 const END_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -222,6 +251,8 @@ export type InstanceView = {
   verification: { icon: LucideIcon; tone: string; label: string };
   deadlineTime: string | null;
   doneLate: boolean;
+  inLateWindow: boolean;
+  lateUntil: string | null;
 };
 
 type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus; completedFirstAt?: string | null };
@@ -244,6 +275,8 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
     verification: verificationChipFor(instance.verificationStatus, isComplete),
     deadlineTime: formatDeadlineTime(instance),
     doneLate: isComplete && !!instance.completedFirstAt && new Date(instance.completedFirstAt).getTime() > instanceDeadline(instance),
+    inLateWindow: isInstanceInLateWindow(instance, isComplete),
+    lateUntil: instance.lateUntilTime ? formatClockTime(instance.lateUntilTime) : null,
   };
 };
 

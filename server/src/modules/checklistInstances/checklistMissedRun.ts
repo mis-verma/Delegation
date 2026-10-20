@@ -13,6 +13,12 @@ export const runDeadlineSql = sql`CASE
     ELSE TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.cutoffTime}, ':00'))
 END`
 
+export const runClosingSql = sql`CASE
+    WHEN ${checklistInstances.cutoffTime} IS NOT NULL AND ${checklistInstances.lateUntilTime} IS NOT NULL
+        THEN DATE_ADD(${runDeadlineSql}, INTERVAL GREATEST(0, TIME_TO_SEC(TIMEDIFF(CONCAT(${checklistInstances.lateUntilTime}, ':00'), CONCAT(${checklistInstances.cutoffTime}, ':00')))) SECOND)
+    ELSE ${runDeadlineSql}
+END`
+
 const unfinished = sql`(
     NOT EXISTS (SELECT 1 FROM ${checklistInstanceItems} mi WHERE mi.instanceId = ${checklistInstances.id})
     OR EXISTS (SELECT 1 FROM ${checklistInstanceItems} mi WHERE mi.instanceId = ${checklistInstances.id} AND mi.isDone = 0)
@@ -23,6 +29,13 @@ export const missedFromPastDayExpr = sql`(
     AND ${checklistInstances.verificationStatus} <> 'REJECTED'
     AND ${unfinished}
     AND ${runDeadlineSql} <= ${localNowSql}
+)`
+
+export const closedFromPastDayExpr = sql`(
+    ${checklistInstances.recurrence} <> 'ONE_TIME'
+    AND ${checklistInstances.verificationStatus} <> 'REJECTED'
+    AND ${unfinished}
+    AND ${runClosingSql} <= ${localNowSql}
 )`
 
 export const missedInstanceIds = async (ids: string[]): Promise<Set<string>> => {
@@ -42,6 +55,7 @@ export const assertRunOpenForUser = async (instanceId: string, user: { role: str
         periodEnd: checklistInstances.periodEnd,
         cutoffTime: checklistInstances.cutoffTime,
         opensTime: checklistInstances.opensTime,
+        lateUntilTime: checklistInstances.lateUntilTime,
         totalItems: sql<number>`COUNT(${checklistInstanceItems.id})`,
         doneItems: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
     })
@@ -50,7 +64,7 @@ export const assertRunOpenForUser = async (instanceId: string, user: { role: str
         .where(eq(checklistInstances.id, instanceId))
         .groupBy(
             checklistInstances.id, checklistInstances.recurrence, checklistInstances.verificationStatus,
-            checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime,
+            checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime, checklistInstances.lateUntilTime,
         )
     if (!run) return
     assertRunOpen({ ...run, totalItems: Number(run.totalItems), doneItems: Number(run.doneItems) }, user, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)

@@ -29,8 +29,8 @@ import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 
-const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null) =>
-    recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime } : { opensTime: null, cutoffTime: null }
+const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null, lateUntilTime: string | null) =>
+    recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime, lateUntilTime } : { opensTime: null, cutoffTime: null, lateUntilTime: null }
 
 const GENERATOR_BATCH_SIZE = 500;
 
@@ -74,6 +74,7 @@ export type GenerationDefinition = {
     startDate: Date
     opensTime: string | null
     cutoffTime: string | null
+    lateUntilTime: string | null
     activeWeekdays: number[] | null
     responseMode: ChecklistResponseMode
     storeIds: string[]
@@ -138,6 +139,7 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
             startDate: row.startDate,
             opensTime: row.opensTime,
             cutoffTime: row.cutoffTime,
+            lateUntilTime: row.lateUntilTime,
             activeWeekdays: row.activeWeekdays ?? null,
             responseMode: row.responseMode,
             storeIds: (storesByDef.get(row.id) ?? []).map((l) => l.storeId),
@@ -328,7 +330,7 @@ const generateInstanceForStore = async (
                 recurrence: definition.recurrence,
                 storeId,
                 scopeKey: scope.key,
-                ...timeWindowFor(definition.recurrence, definition.opensTime, definition.cutoffTime),
+                ...timeWindowFor(definition.recurrence, definition.opensTime, definition.cutoffTime, definition.lateUntilTime),
                 periodKey: period.periodKey,
                 periodStart: period.periodStart,
                 periodEnd: period.periodEnd,
@@ -658,7 +660,7 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
 
     await tx.update(checklistInstances).set({
         title: working.name,
-        ...timeWindowFor(working.recurrence, working.opensTime, working.cutoffTime),
+        ...timeWindowFor(working.recurrence, working.opensTime, working.cutoffTime, working.lateUntilTime),
         updatedAt: now,
     }).where(eq(checklistInstances.id, run.id))
     await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, run.id))
@@ -715,7 +717,7 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
                 await tx.update(checklistInstances).set({
                     title: scoped.name,
                     recurrence: scoped.recurrence,
-                    ...timeWindowFor(scoped.recurrence, scoped.opensTime, scoped.cutoffTime),
+                    ...timeWindowFor(scoped.recurrence, scoped.opensTime, scoped.cutoffTime, scoped.lateUntilTime),
                     updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
                 await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))

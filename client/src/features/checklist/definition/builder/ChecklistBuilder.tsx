@@ -23,7 +23,8 @@ import { draftPayload, draftProblem } from '../../questionTypes/model';
 import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
-import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
+import { BuilderSchedulePanel } from './BuilderSchedulePanel';
+import { canOfferLateWindow, hasScheduleTimeMismatch, lateWindowProblem } from './scheduleWindow';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
@@ -116,19 +117,19 @@ const STEPS = [
 
 const STEP_BLOCK_REASON: Record<number, string> = {
   0: 'Give this checklist a name to continue.',
-  1: "Pick a store and a start date. Opening and closing can't be the same time.",
+  1: "Pick a store and a start date. Opening and closing can't be the same time, and a late window must end after closing.",
 };
 
 type BuilderSnapshot = {
   name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-  startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode;
+  startDate: string; opensTime: string; cutoffTime: string; lateUntilTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode;
   assigneeIds: string[]; reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
 };
 const snapshotKey = (f: BuilderSnapshot) => JSON.stringify(f);
 
 const BLANK_SNAPSHOT: BuilderSnapshot = {
   name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-  opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, responseMode: 'SHARED',
+  opensTime: '', cutoffTime: '', lateUntilTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, responseMode: 'SHARED',
   assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
 };
 
@@ -183,6 +184,7 @@ export const ChecklistBuilder = () => {
   const [startDate, setStartDate] = useState('');
   const [opensTime, setOpensTime] = useState('');
   const [cutoffTime, setCutoffTime] = useState('');
+  const [lateUntilTime, setLateUntilTime] = useState('');
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [responseMode, setResponseMode] = useState<ChecklistResponseMode>('SHARED');
@@ -231,6 +233,7 @@ export const ChecklistBuilder = () => {
     setStartDate(nextStartDate);
     setOpensTime(def.opensTime ?? '');
     setCutoffTime(def.cutoffTime ?? '');
+    setLateUntilTime(def.lateUntilTime ?? '');
     setActiveWeekdays(weekdays);
     setAssigneeIds(def.assigneeIds);
     setResponseMode(def.responseMode ?? 'SHARED');
@@ -246,6 +249,7 @@ export const ChecklistBuilder = () => {
       startDate: nextStartDate,
       opensTime: def.opensTime ?? '',
       cutoffTime: def.cutoffTime ?? '',
+      lateUntilTime: def.lateUntilTime ?? '',
       activeWeekdays: weekdays,
       responseMode: def.responseMode ?? 'SHARED',
       assigneeIds: def.assigneeIds,
@@ -280,7 +284,7 @@ export const ChecklistBuilder = () => {
   useEffect(() => {
     liveRef.current = {
       snapshot: {
-        name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
+        name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
         responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
       },
       baseline,
@@ -295,7 +299,7 @@ export const ChecklistBuilder = () => {
   const markClean = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
       responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
     }));
   };
@@ -444,7 +448,9 @@ export const ChecklistBuilder = () => {
   };
 
   const basicsValid = !!name.trim();
-  const scheduleValid = storeIds.length > 0 && !!startDate && !hasScheduleTimeMismatch(opensTime, cutoffTime);
+  const lateWindowOn = canOfferLateWindow(recurrence, opensTime, cutoffTime) && !!lateUntilTime;
+  const scheduleValid = storeIds.length > 0 && !!startDate && !hasScheduleTimeMismatch(opensTime, cutoffTime)
+    && lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) === null;
   const itemProblem = firstItemProblem(itemDrafts, storePersonIds);
   const itemsValid = itemProblem === null;
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
@@ -490,6 +496,7 @@ export const ChecklistBuilder = () => {
       startDate: new Date(startDate).toISOString(),
       opensTime: opensTime || undefined,
       cutoffTime: cutoffTime || undefined,
+      lateUntilTime: lateWindowOn ? lateUntilTime : undefined,
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       responseMode,
       assigneeIds: splitByVisible(assigneeIds, storePersonIds).shown,
@@ -570,6 +577,8 @@ export const ChecklistBuilder = () => {
               onOpensTimeChange={setOpensTime}
               cutoffTime={cutoffTime}
               onCutoffTimeChange={setCutoffTime}
+              lateUntilTime={lateUntilTime}
+              onLateUntilTimeChange={setLateUntilTime}
               activeWeekdays={activeWeekdays}
               onActiveWeekdaysChange={setActiveWeekdays}
             />
@@ -649,6 +658,7 @@ export const ChecklistBuilder = () => {
               startDate={startDate}
               opensTime={opensTime}
               cutoffTime={cutoffTime}
+              lateUntilTime={lateWindowOn ? lateUntilTime : ''}
               activeWeekdays={activeWeekdays}
               responseMode={responseMode}
               itemDrafts={itemDrafts}

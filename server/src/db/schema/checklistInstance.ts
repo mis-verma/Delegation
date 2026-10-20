@@ -38,6 +38,8 @@ export const checklistInstances = mysqlTable(
     storeId: varchar('storeId', { length: 191 }).notNull().references(() => stores.id),
     opensTime: varchar('opensTime', { length: 5 }), 
     cutoffTime: varchar('cutoffTime', { length: 5 }), 
+    lateUntilTime: varchar('lateUntilTime', { length: 5 }),
+    lateEndNotifiedAt: datetime('lateEndNotifiedAt', { mode: 'date' }),
     periodKey: varchar('periodKey', { length: 191 }).notNull(),
     scopeKey: varchar('scopeKey', { length: 191 }).notNull().default(''),
     periodStart: datetime('periodStart', { mode: 'date' }).notNull(),

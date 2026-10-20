@@ -1,3 +1,4 @@
+import { lateWindowProblem } from "./lateWindow.js"
 import { db } from "../../config/db.js"
 import { stores, users } from "../../db/schema/index.js"
 import { and, eq, inArray } from "drizzle-orm"
@@ -230,6 +231,12 @@ export const checklistBulkImportService = {
                 const unionedAssigneeIds = candidateAssigneeIds.filter((id) => validIds.has(id))
 
              
+                const nextOpens = schedule.opensTime ?? existing.opensTime ?? undefined
+                const nextCutoff = schedule.cutoffTime ?? existing.cutoffTime ?? undefined
+                const keptLateUntil = existing.lateUntilTime
+                    && !lateWindowProblem({ recurrence: existing.recurrence, opensTime: nextOpens, cutoffTime: nextCutoff, lateUntilTime: existing.lateUntilTime })
+                    ? existing.lateUntilTime
+                    : undefined
                 const input: UpdateChecklistDefinitionInput = {
                    
                     version: existing.version,
@@ -240,6 +247,7 @@ export const checklistBulkImportService = {
                     startDate: schedule.startDate ?? new Date(existing.startDate).toISOString(),
                     opensTime: schedule.opensTime ?? existing.opensTime ?? undefined,
                     cutoffTime: schedule.cutoffTime ?? existing.cutoffTime ?? undefined,
+                    lateUntilTime: keptLateUntil,
                     assigneeIds: unionedAssigneeIds,
                     reviewerIds: existing.reviewerIds.length ? existing.reviewerIds : undefined,
                     assigneeRoles: existing.assigneeRoles ?? undefined,

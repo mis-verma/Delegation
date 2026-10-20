@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { lateWindowProblem, type LateWindowInput } from "./lateWindow.js"
 import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_ASSIGNEE_ROLES,
@@ -136,6 +137,7 @@ const checklistDefinitionFields = {
     startDate: z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), "Start date isn't a valid date"),
     opensTime: timeOfDay.optional(),
     cutoffTime: timeOfDay.optional(),
+    lateUntilTime: timeOfDay.optional(),
     assigneeIds: dedupedIdArray,
     reviewerIds: dedupedIdArray.optional(),
     assigneeRoles: z.array(z.enum(CHECKLIST_ASSIGNEE_ROLES)).optional(),
@@ -146,12 +148,17 @@ const checklistDefinitionFields = {
     items: z.array(definitionItemShape).min(1, "At least one checklist item is required").max(200, "A checklist can have at most 200 items"),
 }
 
-export const createChecklistDefinitionSchema = z.object(checklistDefinitionFields)
+const refineLateWindow = (value: LateWindowInput, ctx: z.RefinementCtx) => {
+    const problem = lateWindowProblem(value)
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lateUntilTime"], message: problem })
+}
+
+export const createChecklistDefinitionSchema = z.object(checklistDefinitionFields).superRefine(refineLateWindow)
 
 export const updateChecklistDefinitionSchema = z.object({
     ...checklistDefinitionFields,
     version: z.number().int().min(1),
-})
+}).superRefine(refineLateWindow)
 
 export const setChecklistDefinitionActiveSchema = z.object({
     isActive: z.boolean(),

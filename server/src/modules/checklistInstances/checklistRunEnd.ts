@@ -9,6 +9,7 @@ export type RunEndInput = {
     periodEnd: Date
     cutoffTime: string | null
     opensTime: string | null
+    lateUntilTime?: string | null
 }
 
 const MINUTE_MS = 60_000
@@ -23,6 +24,33 @@ export const runDeadlineMs = (run: Pick<RunEndInput, "periodStart" | "periodEnd"
 
 const toMs = (now: Date | number) => (typeof now === "number" ? now : now.getTime())
 
+export const runClosingMs = (run: Pick<RunEndInput, "periodStart" | "periodEnd" | "cutoffTime" | "opensTime" | "lateUntilTime">, offsetMinutes: number): number => {
+    const deadline = runDeadlineMs(run, offsetMinutes)
+    if (!run.lateUntilTime || !run.cutoffTime) return deadline
+    const [cutoffHours, cutoffMinutes] = run.cutoffTime.split(":").map(Number)
+    const [lateHours, lateMinutes] = run.lateUntilTime.split(":").map(Number)
+    const extraMinutes = lateHours * 60 + lateMinutes - (cutoffHours * 60 + cutoffMinutes)
+    return extraMinutes > 0 ? deadline + extraMinutes * MINUTE_MS : deadline
+}
+
+export const hasRunClosingPassed = (run: Parameters<typeof runClosingMs>[0], now: Date | number, offsetMinutes: number): boolean =>
+    runClosingMs(run, offsetMinutes) <= toMs(now)
+
+export type RunPhase = "open" | "late" | "closed"
+
+export const runPhase = (
+    run: RunEndInput & { totalItems: number; doneItems: number },
+    now: Date | number,
+    offsetMinutes: number,
+): RunPhase => {
+    if (!isRunEnded(run, now, offsetMinutes)) {
+        const complete = run.totalItems > 0 && run.doneItems === run.totalItems
+        const pastDeadline = hasRunDeadlinePassed(run, now, offsetMinutes)
+        return pastDeadline && !complete && run.recurrence !== "ONE_TIME" && !!run.lateUntilTime ? "late" : "open"
+    }
+    return "closed"
+}
+
 
 export const hasRunDeadlinePassed = (run: Parameters<typeof runDeadlineMs>[0], now: Date | number, offsetMinutes: number): boolean =>
     runDeadlineMs(run, offsetMinutes) <= toMs(now)
@@ -36,7 +64,7 @@ export const isRunEnded = (
     if (run.recurrence === "ONE_TIME") return false
     if (run.verificationStatus === "REJECTED") return false
     if (run.totalItems > 0 && run.doneItems === run.totalItems) return false
-    return hasRunDeadlinePassed(run, now, offsetMinutes)
+    return hasRunClosingPassed(run, now, offsetMinutes)
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -66,5 +94,5 @@ export const assertRunOpen = (
 ): void => {
     if (canWorkEndedRun(user)) return
     if (!isRunEnded(run, now, offsetMinutes)) return
-    throw AppError.badRequest(runClosedMessage(runDeadlineMs(run, offsetMinutes), offsetMinutes))
+    throw AppError.badRequest(runClosedMessage(runClosingMs(run, offsetMinutes), offsetMinutes))
 }

@@ -7,7 +7,9 @@ import {
     hasRunDeadlinePassed,
     isRunEnded,
     runClosedMessage,
+    runClosingMs,
     runDeadlineMs,
+    runPhase,
     type RunEndInput,
 } from "./checklistRunEnd.js"
 
@@ -166,5 +168,48 @@ describe("assertRunOpen", () => {
         expect(() => assertRunOpen(daily({ verificationStatus: "REJECTED" }), { role: "USER" }, after, IST)).not.toThrow()
         expect(() => assertRunOpen(daily({ doneItems: 4 }), { role: "USER" }, after, IST)).not.toThrow()
         expect(() => assertRunOpen(daily({ recurrence: "ONE_TIME" }), { role: "USER" }, after, IST)).not.toThrow()
+    })
+})
+
+describe("late window", () => {
+    const late = (o: Partial<RunEndInput & { totalItems: number; doneItems: number }> = {}) =>
+        daily({ opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: "21:00", ...o })
+
+    it("closes at the late time, not the cutoff", () => {
+        expect(runClosingMs(late(), IST)).toBe(utc("2026-10-12T15:30:00").getTime())
+        expect(runDeadlineMs(late(), IST)).toBe(utc("2026-10-12T13:00:00").getTime())
+    })
+
+    it("closes at the cutoff when there is no late window", () => {
+        expect(runClosingMs(daily(), IST)).toBe(runDeadlineMs(daily(), IST))
+    })
+
+    it("is open before the cutoff, late between cutoff and late time, closed after", () => {
+        expect(runPhase(late(), utc("2026-10-12T12:00:00"), IST)).toBe("open")
+        expect(runPhase(late(), utc("2026-10-12T14:00:00"), IST)).toBe("late")
+        expect(runPhase(late(), utc("2026-10-12T15:30:00"), IST)).toBe("closed")
+    })
+
+    it("is never late once every item is done", () => {
+        expect(runPhase(late({ doneItems: 4 }), utc("2026-10-12T14:00:00"), IST)).toBe("open")
+    })
+
+    it("lets staff fill during the late window but not after", () => {
+        const user = { role: "USER" }
+        expect(() => assertRunOpen(late(), user, utc("2026-10-12T14:00:00"), IST)).not.toThrow()
+        expect(() => assertRunOpen(late(), user, utc("2026-10-12T15:30:00"), IST)).toThrow(AppError)
+    })
+
+    it("names the late time in the closed message", () => {
+        try {
+            assertRunOpen(late(), { role: "USER" }, utc("2026-10-12T16:00:00"), IST)
+            throw new Error("should have thrown")
+        } catch (error) {
+            expect((error as AppError).message).toContain("9:00 PM on 12 Oct")
+        }
+    })
+
+    it("is not late without a late window", () => {
+        expect(runPhase(daily(), utc("2026-10-12T14:00:00"), IST)).toBe("closed")
     })
 })

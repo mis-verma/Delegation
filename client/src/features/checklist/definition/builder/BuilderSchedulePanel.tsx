@@ -1,3 +1,4 @@
+import { canOfferLateWindow, hasScheduleTimeMismatch, isOvernightWindow, lateWindowProblem } from './scheduleWindow';
 import { useMemo, type ReactNode } from 'react';
 import { Store, Repeat, CalendarDays, Clock, AlertCircle, Moon, Check } from 'lucide-react';
 import { Button, DatePicker, InlineError, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays } from '../../../../components';
@@ -8,14 +9,6 @@ import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): boolean =>
-  Boolean(opensTime && cutoffTime) && opensTime === cutoffTime;
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
-  Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
 
 const RECURRENCE_OPTIONS: {
   value: ChecklistRecurrence;
@@ -41,6 +34,8 @@ interface BuilderSchedulePanelProps {
   onOpensTimeChange: (value: string) => void;
   cutoffTime: string;
   onCutoffTimeChange: (value: string) => void;
+  lateUntilTime: string;
+  onLateUntilTimeChange: (value: string) => void;
   activeWeekdays: number[];
   onActiveWeekdaysChange: (days: number[]) => void;
   className?: string;
@@ -75,6 +70,8 @@ export const BuilderSchedulePanel = ({
   onOpensTimeChange,
   cutoffTime,
   onCutoffTimeChange,
+  lateUntilTime,
+  onLateUntilTimeChange,
   activeWeekdays,
   onActiveWeekdaysChange,
   className = '',
@@ -93,6 +90,8 @@ export const BuilderSchedulePanel = ({
   }, [stores, activeStores, storeIds]);
   const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
   const isOvernight = isOvernightWindow(opensTime, cutoffTime);
+  const offerLate = canOfferLateWindow(recurrence, opensTime, cutoffTime);
+  const lateProblem = lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime);
 
   const toggleStore = (id: string) =>
     onStoreIdsChange(storeIds.includes(id) ? storeIds.filter((s) => s !== id) : [...storeIds, id]);
@@ -188,7 +187,34 @@ export const BuilderSchedulePanel = ({
             placeholder="any time"
             triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
           />
+          {offerLate && (
+            <TimePicker
+              popover
+              prefix="Late until"
+              value={lateUntilTime}
+              onChange={onLateUntilTimeChange}
+              placeholder="none"
+              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
+            />
+          )}
         </div>
+        {offerLate && !lateUntilTime && (
+          <p className="t-meta font-display text-text-muted">
+            Optional: staff who miss the closing time can still fill it in until the late time. It counts as filled late.
+          </p>
+        )}
+        {offerLate && lateUntilTime && !lateProblem && (
+          <p className="flex items-center gap-1.5 t-meta font-display text-text-secondary">
+            <Clock size={13} className="shrink-0 text-danger" />
+            After {cutoffTime} staff see a red reminder and can fill it in until {lateUntilTime}. It counts as filled late.
+          </p>
+        )}
+        {lateProblem && (
+          <p className="flex items-center gap-1.5 t-meta font-display font-medium text-danger">
+            <AlertCircle size={13} className="shrink-0" />
+            {lateProblem}
+          </p>
+        )}
         {!startDate && <p className="t-meta font-display text-text-muted">Pick a start date to continue.</p>}
         {hasTimeMismatch ? (
           <p className="flex items-center gap-1.5 t-meta font-display font-medium text-danger">
