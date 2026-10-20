@@ -4,7 +4,7 @@ import { useAssignableUsersQuery, useDepartmentsQuery } from '../../hook';
 
 interface SelectedPeopleChipsProps {
   ids: string[];
-  onRemove: (id: string) => void;
+  onRemove?: (id: string) => void;
   label: string;
   groupByDepartment?: boolean;
 }
@@ -49,14 +49,14 @@ export const SelectedPeopleChips = ({ ids, onRemove, label, groupByDepartment = 
               >
                 {p.name}
                 {p.role === 'PC' && <span className="rounded-full bg-primary-600 px-1.5 py-px text-[10px] font-bold leading-4 text-white">PC</span>}
-                <button
+                {onRemove && <button
                   type="button"
                   onClick={() => onRemove(p.id)}
                   aria-label={`Remove ${p.name}`}
                   className="relative flex size-6 cursor-pointer items-center justify-center rounded-full text-primary-700/70 outline-none transition-colors duration-150 hover:bg-primary-500/20 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 dark:text-primary-300"
                 >
                   <X size={13} aria-hidden />
-                </button>
+                </button>}
               </li>
             ))}
           </ul>

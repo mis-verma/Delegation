@@ -1,30 +1,18 @@
 import { useMemo, type ReactNode } from 'react';
 import {
-  Pencil,
-  AlertTriangle,
-  CheckCircle2,
-  Store,
-  Repeat,
-  Calendar,
-  Clock,
-  Users,
-  FileText,
-  ListChecks,
-  UserCheck,
-  ShieldCheck,
-  Layers,
-  Info,
-  PauseCircle,
+  AlertTriangle, Camera, Check, CalendarDays, CheckCircle2, Copy, Flag, Info, Layers, ListChecks, type LucideIcon,
+  Pencil, PauseCircle, Repeat, ShieldCheck, Store, Type, Users, Zap, CalendarClock,
 } from 'lucide-react';
-import { Button, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, formatWeekdays } from '../../../../../components';
-import { Badge } from '@/components/ui/badge';
+import { Button, IconChip, InlineError, NoticeBanner, Skeleton, formatWeekdays } from '../../../../../components';
 import { cn } from '@/lib/utils';
 import { useStoresQuery, useAssignableUsersQuery } from '../../../hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
-import { isOvernightWindow } from '../scheduleWindow';
-import { RESPONSE_MODE_TITLE } from '../BuilderAssignPanel';
-import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
+import { SelectedPeopleChips } from '../../form/SelectedPeopleChips';
+import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from '../../form/formConstants';
 import { questionTypeOf } from '../questionTypes';
+import { WindowTimeline } from '../WindowTimeline';
+import { isOvernightWindow } from '../scheduleWindow';
+import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import type { ChecklistRecurrence, ChecklistResponseMode } from '../../../../../api/checklistDefinitions';
 
 interface BuilderReviewStepProps {
@@ -54,387 +42,308 @@ interface BuilderReviewStepProps {
   onReloadLatest?: () => void;
 }
 
-const SECTION_CONFIG = [
-  { label: 'Basics', icon: FileText },
-  { label: 'Schedule', icon: Calendar },
+const SECTIONS: { label: string; icon: LucideIcon }[] = [
+  { label: 'Basics', icon: Type },
+  { label: 'Schedule', icon: CalendarClock },
   { label: 'Questions', icon: ListChecks },
   { label: 'Reviewers', icon: ShieldCheck },
   { label: 'Assign', icon: Users },
-] as const;
+];
 
-const safeFormatDate = (dateStr: string): string => {
-  if (!dateStr) return 'No date set';
-  try {
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return 'Invalid date';
-    return formatDate(d.toISOString());
-  } catch {
-    return dateStr;
-  }
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const formatStart = (value: string) => {
+  if (!value) return 'No date set';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : formatDate(d.toISOString());
 };
 
-const EditButton = ({
-  onClick,
-  sectionName,
-}: {
-  onClick: () => void;
-  sectionName: string;
-}) => (
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={onClick}
-    aria-label={`Edit ${sectionName} section`}
-    className="gap-1.5 text-primary-700 dark:text-primary-300 border-primary-500/30 hover:border-primary-500/50 hover:bg-primary-500/10"
-  >
-    <Pencil size={11} className="shrink-0" />
-    <span>Edit</span>
-  </Button>
-);
+const clock = (value: string) => {
+  const [h, m] = value.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}` : value;
+};
 
-const SectionCard = ({
-  title,
-  icon,
-  valid,
-  onEdit,
-  badgeText,
-  children,
-}: {
-  title: string;
-  icon: ReactNode;
+const ReviewCard = ({ label, icon: Icon, valid, onEdit, aside, children }: {
+  label: string;
+  icon: LucideIcon;
   valid: boolean;
   onEdit: () => void;
-  badgeText?: string;
+  aside?: ReactNode;
   children: ReactNode;
 }) => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 min-w-0', !valid && 'border-warning/40 bg-warning/5')}>
-    <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 pb-3 border-b border-border/50">
-      <div className="flex flex-wrap items-center gap-2 min-w-0">
+  <section aria-label={label} className={cn('flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-3.5 sm:p-4', valid ? 'border-border/60' : 'border-warning/50 bg-warning/5')}>
+    <header className="flex flex-wrap items-center justify-between gap-2">
+      <span className="flex min-w-0 items-center gap-2.5">
         <span
-          className={`p-1.5 rounded-lg t-meta ${
-            valid
-              ? 'bg-muted/60 text-text-secondary'
-              : 'bg-warning/15 text-warning'
-          }`}
+          className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', valid ? 'bg-linear-to-br from-primary-500 to-primary-700' : 'bg-warning')}
+          aria-hidden="true"
         >
-          {icon}
+          <Icon size={15} strokeWidth={2.25} />
         </span>
-        <h3 className="t-meta font-display font-bold text-text-secondary">
-          {title}
-        </h3>
-        {badgeText && (
-          <IconChip icon={false} label={badgeText} className="pl-2.5" labelClassName="tabular-nums" />
-        )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {!valid && (
-          <Badge variant="warning" className="gap-1 t-meta py-0.5 px-2">
-            <AlertTriangle size={11} /> Needs attention
-          </Badge>
-        )}
-        <EditButton onClick={onEdit} sectionName={title} />
-      </div>
-    </div>
-    <div className="flex flex-col flex-1 gap-2.5">{children}</div>
-  </div>
+        <h3 className="t-card font-display font-bold text-text">{label}</h3>
+        {aside}
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        {!valid && <IconChip icon={AlertTriangle} tone="bg-warning" label="Needs attention" labelClassName="text-warning" />}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onEdit}
+          aria-label={`Edit ${label}`}
+          className="gap-1.5 border-primary-500/30 text-primary-700 hover:border-primary-500/50 hover:bg-primary-500/10 dark:text-primary-300 pointer-coarse:h-11"
+        >
+          <Pencil size={12} aria-hidden />
+          Edit
+        </Button>
+      </span>
+    </header>
+    <div className="flex flex-col gap-3">{children}</div>
+  </section>
 );
 
-type UserPool = ReturnType<typeof useAssignableUsersQuery>['data'];
-
-const resolveNames = (ids: string[], pool: UserPool) => {
-  const names: string[] = [];
-  for (const id of ids) {
-    const u = pool?.find((a) => a.id === id);
-    if (!u) continue;
-    const full = `${u.firstName} ${u.lastName ?? ''}`.trim();
-    names.push(full || u.email);
-  }
-  return { names, leftOut: pool ? ids.length - names.length : 0 };
-};
-
-const Caption =({ children }: { children: ReactNode }) => (
-  <span className="flex items-center gap-1 t-meta font-medium text-text-muted">{children}</span>
-);
-
-const NamesSkeleton = () => (
-  <div className="flex flex-col gap-1.5" aria-busy="true">
-    <Skeleton className="h-3.5 w-3/4 rounded" />
-    <Skeleton className="h-3.5 w-1/2 rounded" />
+const Field = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="flex flex-col gap-1">
+    <span className="t-meta font-display font-semibold text-text-muted">{label}</span>
+    {children}
   </div>
 );
 
 export const BuilderReviewStep = ({
-  name,
-  description,
-  storeIds,
-  recurrence,
-  startDate,
-  opensTime,
-  cutoffTime,
-  lateUntilTime,
-  activeWeekdays,
-  responseMode,
-  itemDrafts,
-  assigneeIds,
-  reviewerIds,
-  sectionValidity,
-  hasPeople,
-  hideSubmit = false,
-  onEditSection,
-  canSubmit,
-  isSubmitting,
-  isEditing,
-  isActive,
-  onSubmit,
-  submitError,
-  onReloadLatest,
+  name, description, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, responseMode,
+  itemDrafts, assigneeIds, reviewerIds, sectionValidity, hasPeople, hideSubmit = false, onEditSection, canSubmit, isSubmitting,
+  isEditing, isActive, onSubmit, submitError, onReloadLatest,
 }: BuilderReviewStepProps) => {
   const storesQuery = useStoresQuery();
-  const assignableQuery = useAssignableUsersQuery(undefined, undefined, storeIds);
-  const allActiveQuery = useAssignableUsersQuery();
+  const storeUsers = useAssignableUsersQuery(undefined, undefined, storeIds);
+  const everyone = useAssignableUsersQuery();
 
-  const stores = storesQuery.data;
-  const assignableUsers = assignableQuery.data;
-  const allActiveUsers = allActiveQuery.data;
-
-  const selectedStores = useMemo(
-    () => (stores ? storeIds.map((id) => stores.find((s) => s.id === id)?.name ?? 'Unknown store') : []),
-    [stores, storeIds],
+  const storeNames = useMemo(
+    () => storeIds.map((id) => storesQuery.data?.find((s) => s.id === id)?.name ?? 'Store'),
+    [storesQuery.data, storeIds],
   );
-  const namedItems = useMemo(() => itemDrafts.filter((d) => d.label.trim()), [itemDrafts]);
+  const named = useMemo(() => itemDrafts.filter((d) => d.label.trim()), [itemDrafts]);
+  const stats = useMemo(() => ({
+    proof: named.filter((d) => Number(d.requiredImageCount) > 0).length,
+    live: named.filter((d) => Number(d.requiredImageCount) > 0 && d.requiresLivePhoto).length,
+    rules: named.reduce((n, d) => n + d.yesActions.length + d.noActions.length, 0),
+    critical: named.filter((d) => d.isCritical).length,
+    sections: new Set(named.map((d) => d.section).filter(Boolean)).size,
+  }), [named]);
 
-  const assignees = useMemo(() => resolveNames(assigneeIds, assignableUsers), [assigneeIds, assignableUsers]);
-  const reviewers = useMemo(() => resolveNames(reviewerIds, allActiveUsers), [reviewerIds, allActiveUsers]);
+  const activeIds = useMemo(() => new Set((everyone.data ?? []).map((u) => u.id)), [everyone.data]);
+  const storeIdsSet = useMemo(() => new Set((storeUsers.data ?? []).map((u) => u.id)), [storeUsers.data]);
+  const activeReviewers = everyone.data ? reviewerIds.filter((id) => activeIds.has(id)) : reviewerIds;
+  const droppedReviewers = everyone.data ? reviewerIds.length - activeReviewers.length : 0;
+  const keptAssignees = storeUsers.data ? assigneeIds.filter((id) => storeIdsSet.has(id)) : assigneeIds;
+  const droppedAssignees = storeUsers.data ? assigneeIds.length - keptAssignees.length : 0;
 
-  const incompleteSections = sectionValidity
-    .map((valid, i) => (valid ? null : { index: i, label: SECTION_CONFIG[i].label }))
-    .filter((s): s is { index: number; label: (typeof SECTION_CONFIG)[number]['label'] } => s !== null);
+  const problems = sectionValidity.map((valid, index) => (valid ? null : index)).filter((i): i is number => i !== null);
+  const ready = problems.length === 0;
+  const outcome = !ready
+    ? { tone: 'warning' as const, icon: AlertTriangle, title: `${plural(problems.length, 'step needs', 'steps need')} attention`, text: 'Fix the highlighted steps, then save.' }
+    : hasPeople
+      ? { tone: 'success' as const, icon: CheckCircle2, title: isEditing ? 'Ready to save' : 'Ready to go live', text: isEditing ? 'Your changes are checked and ready.' : 'Everything is filled in. Creating it starts today’s runs for the people you picked.' }
+      : { tone: 'neutral' as const, icon: PauseCircle, title: 'Ready to save as a draft', text: 'Nobody is assigned, so nothing runs yet. Add people later and it goes live by itself.' };
+
+  const copies = keptAssignees.length === 0 ? 0 : responseMode === 'PER_USER' ? keptAssignees.length : responseMode === 'SHARED' ? Math.max(1, storeIds.length) : null;
+  const overnight = isOvernightWindow(opensTime, cutoffTime);
+
+  const effects: { icon: LucideIcon; text: string }[] = [];
+  if (isEditing && isActive !== undefined) {
+    if (isActive && !hasPeople) effects.push({ icon: PauseCircle, text: 'Nobody is assigned, so saving turns this into a draft. Today’s runs nobody started are removed. Started runs stay.' });
+    else if (isActive) effects.push({ icon: Info, text: 'Today’s runs nobody started are rebuilt. Started runs keep every answer and get your changes. Runs sent for review or approved stay as they are.' });
+    else if (hasPeople) effects.push({ icon: Check, text: 'This checklist is off and you picked people. Saving puts it live and creates today’s run for them.' });
+    else effects.push({ icon: PauseCircle, text: 'This checklist stays a draft until you assign people.' });
+  }
+  if (hasPeople && copies !== null) effects.push({ icon: Copy, text: `${plural(copies, 'copy', 'copies')} each time it comes round (${RESPONSE_MODE_LABEL[responseMode].toLowerCase()}).` });
+  if (hasPeople && copies === null) effects.push({ icon: Copy, text: `One copy per department among the ${plural(keptAssignees.length, 'person', 'people')} picked.` });
+  if (lateUntilTime) effects.push({ icon: CalendarClock, text: `Staff who miss the closing time can still fill it until ${clock(lateUntilTime)}. It counts as filled late.` });
+
+  const Outcome = outcome.icon;
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 w-full">
-      {isEditing && isActive !== undefined && (
-        isActive && !hasPeople ? (
-          <NoticeBanner tone="warning" icon={PauseCircle}>
-            Nobody is assigned, so saving turns this checklist into a draft. Today&rsquo;s runs nobody started are removed. Started runs stay.
-          </NoticeBanner>
-        ) : isActive ? (
-          <NoticeBanner tone="info" icon={Info}>
-            Saving updates today&rsquo;s runs. Runs nobody started are rebuilt. Started runs keep every answer and get your changes. Runs sent for review or approved stay as they are.
-          </NoticeBanner>
-        ) : hasPeople ? (
-          <NoticeBanner tone="success" icon={Info}>
-            This checklist is off, and you picked people for it. Saving puts it live and creates today&rsquo;s run for them.
-          </NoticeBanner>
-        ) : (
-          <NoticeBanner tone="neutral" icon={PauseCircle}>
-            This checklist is a draft. Nobody is assigned, so nothing runs yet.
-          </NoticeBanner>
-        )
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <SectionCard
-          title="Basics"
-          icon={<FileText size={14} />}
-          valid={sectionValidity[0]}
-          onEdit={() => onEditSection(0)}
-        >
-          <div className="flex flex-col gap-1">
-            <Caption>Checklist Title</Caption>
-            <p className="text-sm font-display font-semibold text-text">
-              {name.trim() || <span className="italic text-text-muted">Untitled checklist</span>}
-            </p>
+    <div className="flex w-full flex-col gap-5">
+      <section
+        aria-label="Readiness"
+        className={cn(
+          'flex flex-col gap-4 rounded-2xl border p-4 sm:p-5',
+          outcome.tone === 'warning' && 'border-warning/50 bg-warning/5',
+          outcome.tone === 'success' && 'border-success/40 bg-success/5',
+          outcome.tone === 'neutral' && 'border-border/60 bg-surface',
+        )}
+      >
+        <div className="flex items-start gap-3.5">
+          <span
+            className={cn(
+              'flex size-11 shrink-0 items-center justify-center rounded-xl text-white',
+              outcome.tone === 'warning' ? 'bg-warning' : outcome.tone === 'success' ? 'bg-success' : 'bg-linear-to-br from-primary-500 to-primary-700',
+            )}
+            aria-hidden="true"
+          >
+            <Outcome size={20} strokeWidth={2.25} />
+          </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <h3 className="t-section font-display font-bold text-text">{outcome.title}</h3>
+            <p className="t-meta font-display text-text-secondary">{outcome.text}</p>
           </div>
-          <div className="flex flex-col gap-1">
-            <Caption>Description</Caption>
-            <p className="t-meta font-display text-text-secondary leading-relaxed line-clamp-3">
-              {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
-            </p>
-          </div>
-        </SectionCard>
+        </div>
 
-        <SectionCard
-          title="Schedule"
-          icon={<Calendar size={14} />}
-          valid={sectionValidity[1]}
-          onEdit={() => onEditSection(1)}
-        >
-          <div className="grid grid-cols-1 gap-2 t-meta font-display text-text-secondary">
-            <div className="flex items-start gap-2">
-              <Store size={13} className="text-text-muted shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <span className="text-text-muted">Stores: </span>
-                {storeIds.length === 0 ? (
-                  <span className="italic text-warning font-normal">No stores selected</span>
-                ) : storesQuery.isPending ? (
-                  <Skeleton className="inline-block h-3.5 w-32 align-middle rounded" />
-                ) : storesQuery.isError ? (
-                  <span className="text-danger">Couldn’t load store names</span>
-                ) : (
-                  <span className="font-medium text-text">
-                    {selectedStores.join(', ')}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Repeat size={13} className="text-text-muted shrink-0" />
-              <div>
-                <span className="text-text-muted">Frequency: </span>
-                <span className="font-medium text-text">
-                  {RECURRENCE_LABEL[recurrence] ?? recurrence}
-                  {recurrence === 'DAILY' && ` · ${formatWeekdays(activeWeekdays)}`}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar size={13} className="text-text-muted shrink-0" />
-              <div>
-                <span className="text-text-muted">Starts: </span>
-                <span className="font-medium text-text">{safeFormatDate(startDate)}</span>
-              </div>
-            </div>
-
-            {(opensTime || cutoffTime) && (
-              <div className="flex items-center gap-2">
-                <Clock size={13} className="text-text-muted shrink-0" />
-                <div>
-                  <span className="text-text-muted">Window: </span>
-                  <span className="font-medium text-text">
-                    {opensTime || 'Anytime'} &rarr; {cutoffTime || 'End of day'}
-                  </span>
-                  {isOvernightWindow(opensTime, cutoffTime) && (
-                    <span className="text-text-muted"> (cuts off the next day)</span>
+        <ol aria-label="Steps" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {SECTIONS.map((section, index) => {
+            const valid = sectionValidity[index];
+            const Icon = section.icon;
+            return (
+              <li key={section.label}>
+                <button
+                  type="button"
+                  onClick={() => onEditSection(index)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left min-h-11 cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                    valid ? 'border-border/60 bg-surface hover:border-border-hover' : 'border-warning/50 bg-warning/10 hover:border-warning',
                   )}
-                </div>
-              </div>
-            )}
-
-            {lateUntilTime && (
-              <div className="flex items-center gap-2">
-                <Clock size={13} className="text-danger shrink-0" />
-                <div>
-                  <span className="text-text-muted">Late fill until: </span>
-                  <span className="font-medium text-text">{lateUntilTime}</span>
-                  <span className="text-text-muted"> (counts as filled late)</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Questions"
-          icon={<ListChecks size={14} />}
-          valid={sectionValidity[2]}
-          badgeText={`${namedItems.length} question${namedItems.length === 1 ? '' : 's'}`}
-          onEdit={() => onEditSection(2)}
-        >
-          {namedItems.length === 0 ? (
-            <div className="py-4 text-center">
-              <p className="t-meta font-display text-text-muted italic">
-                You haven’t added any questions yet.
-              </p>
-            </div>
-          ) : (
-            <ul
-              role="list"
-              className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1 divide-y divide-border/30"
-            >
-              {namedItems.map((item, index) => (
-                <li
-                  key={item.key}
-                  className="flex items-center justify-between gap-2 pt-1.5 first:pt-0 t-meta font-display"
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="t-meta font-mono font-medium text-text-muted shrink-0 w-5">
-                      {String(index + 1).padStart(2, '0')}.
+                  <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-white', valid ? 'bg-success' : 'bg-warning')} aria-hidden="true">
+                    {valid ? <Check size={13} strokeWidth={3.5} /> : <AlertTriangle size={12} strokeWidth={3} />}
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="t-meta font-display font-bold text-text">{section.label}</span>
+                    <span className={cn('flex items-center gap-1 text-[11px] font-display font-medium leading-4', valid ? 'text-text-muted' : 'text-warning')}>
+                      <Icon size={10} aria-hidden="true" />
+                      {valid ? 'Done' : 'Fix this'}
                     </span>
-                    <span className="truncate text-text font-medium" title={item.label}>
-                      {item.label}
-                    </span>
-                    {item.section && (
-                      <IconChip icon={false} label={item.section} className="shrink-0 pl-2.5" />
-                    )}
-                  </div>
-                  <Badge variant="outline" className="shrink-0 t-meta py-0 px-1.5">
-                    {questionTypeOf(item).label}
-                  </Badge>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        {effects.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+            <span className="t-meta font-display font-semibold text-text-secondary">What happens when you save</span>
+            <ul className="flex flex-col gap-1.5">
+              {effects.map((effect) => (
+                <li key={effect.text} className="flex items-start gap-2 t-meta font-display leading-relaxed text-text-secondary">
+                  <effect.icon size={14} className="mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+                  <span>{effect.text}</span>
                 </li>
               ))}
             </ul>
-          )}
-        </SectionCard>
+          </div>
+        )}
+      </section>
 
-        <SectionCard
-          title="Reviewers"
-          icon={<ShieldCheck size={14} />}
-          valid
-          onEdit={() => onEditSection(3)}
-        >
-          <div className="flex flex-col gap-1">
-            <Caption><ShieldCheck size={11} /> Approves or sends back a filled-in run</Caption>
-            {reviewerIds.length === 0 ? (
-              <p className="t-meta font-display text-text-secondary">
-                <span className="italic text-text-muted">
-                  No one extra picked. PC/Admin and each assignee's department head can still review.
-                </span>
-              </p>
-            ) : allActiveQuery.isPending ? (
-              <NamesSkeleton />
-            ) : allActiveQuery.isError ? (
-              <InlineError message="We couldn't load the people." onRetry={() => allActiveQuery.refetch()} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ReviewCard label="Basics" icon={Type} valid={sectionValidity[0]} onEdit={() => onEditSection(0)}>
+          <Field label="Name">
+            <p className="text-sm font-display font-bold text-text break-words">{name.trim() || <span className="font-medium italic text-text-muted">Untitled checklist</span>}</p>
+          </Field>
+          <Field label="Description">
+            <p className="t-meta font-display leading-relaxed text-text-secondary line-clamp-4">
+              {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
+            </p>
+          </Field>
+        </ReviewCard>
+
+        <ReviewCard label="Schedule" icon={CalendarClock} valid={sectionValidity[1]} onEdit={() => onEditSection(1)}>
+          <Field label="Stores">
+            {storeIds.length === 0 ? (
+              <span className="t-meta font-display font-medium text-warning">No stores selected</span>
+            ) : storesQuery.isPending ? (
+              <Skeleton className="h-7 w-40 rounded-full" />
             ) : (
-              <>
-                <p className="t-meta font-display text-text-secondary">{reviewers.names.join(', ') || <span className="italic text-text-muted">No active reviewers picked</span>}</p>
-                {reviewers.leftOut > 0 && (
-                  <p className="t-meta font-display text-warning">
-                    {reviewers.leftOut} {reviewers.leftOut === 1 ? 'person is' : 'people are'} no longer active and will be left out.
-                  </p>
-                )}
-              </>
+              <ul className="flex flex-wrap gap-1.5">
+                {storeNames.map((storeName, i) => <li key={`${storeName}-${i}`}><IconChip icon={Store} tone="bg-primary-600" label={storeName} /></li>)}
+              </ul>
             )}
-          </div>
-        </SectionCard>
-        <SectionCard
-          title="Assign"
-          icon={<Users size={14} />}
-          valid
-          onEdit={() => onEditSection(4)}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Caption><UserCheck size={11} /> Assigned to</Caption>
-              {assignableQuery.isPending ? (
-                <NamesSkeleton />
-              ) : assignableQuery.isError ? (
-                <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
-              ) : (
-                <>
-                  <p className="t-meta font-display text-text-secondary">
-                    {assignees.names.length ? (
-                      assignees.names.join(', ')
-                    ) : (
-                      <span className="font-medium text-warning">Nobody yet. It is saved as a draft and goes live when you add people.</span>
-                    )}
-                  </p>
-                  {assignees.leftOut > 0 && (
-                    <p className="t-meta font-display text-warning">
-                      {assignees.leftOut} {assignees.leftOut === 1 ? 'person is' : 'people are'} not in the selected stores and will be left out.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <Caption><Layers size={11} /> Who fills it</Caption>
-              <p className="t-meta font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
-            </div>
-          </div>
-        </SectionCard>
+          </Field>
+          <ul className="flex flex-wrap gap-1.5" aria-label="When it runs">
+            <li><IconChip icon={Repeat} tone="bg-primary-600" label={`${RECURRENCE_LABEL[recurrence] ?? recurrence}${recurrence === 'DAILY' ? ` · ${formatWeekdays(activeWeekdays)}` : ''}`} /></li>
+            <li><IconChip icon={CalendarDays} tone="bg-primary-600" label={`${recurrence === 'ONE_TIME' ? 'Due' : 'Starts'} ${formatStart(startDate)}`} /></li>
+            {overnight && <li><IconChip icon={Info} tone="bg-text-muted" label="Closes next morning" /></li>}
+          </ul>
+          <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={lateUntilTime} />
+        </ReviewCard>
 
+        <ReviewCard
+          label="Questions"
+          icon={ListChecks}
+          valid={sectionValidity[2]}
+          onEdit={() => onEditSection(2)}
+          aside={<IconChip icon={false} label={plural(named.length, 'question', 'questions')} labelClassName="tabular-nums" />}
+        >
+          {named.length === 0 ? (
+            <p className="py-3 text-center t-meta font-display italic text-text-muted">You haven’t added any questions yet.</p>
+          ) : (
+            <>
+              <ul className="flex flex-wrap gap-1.5" aria-label="Question summary">
+                {stats.proof > 0 && <li><IconChip icon={Camera} tone={stats.live > 0 ? 'bg-success' : 'bg-primary-600'} label={`${plural(stats.proof, 'photo question', 'photo questions')}${stats.live > 0 ? `, ${stats.live} live` : ''}`} /></li>}
+                {stats.rules > 0 && <li><IconChip icon={Zap} tone="bg-warning" label={plural(stats.rules, 'rule', 'rules')} /></li>}
+                {stats.critical > 0 && <li><IconChip icon={Flag} tone="bg-danger" label={`${stats.critical} critical`} /></li>}
+                {stats.sections > 0 && <li><IconChip icon={Layers} tone="bg-text-muted" label={plural(stats.sections, 'section', 'sections')} /></li>}
+              </ul>
+              <ol className="flex max-h-64 flex-col divide-y divide-border/40 overflow-y-auto pr-1">
+                {named.map((item, index) => {
+                  const type = questionTypeOf(item);
+                  const TypeIcon = type.icon;
+                  return (
+                    <li key={item.key} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
+                      <span className="w-6 shrink-0 t-meta font-display font-semibold tabular-nums text-text-light">{index + 1}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-display font-medium text-text" title={item.label}>{item.label}</span>
+                      {item.section && <IconChip icon={Layers} tone="bg-text-muted" label={item.section} className="hidden max-w-32 sm:inline-flex" />}
+                      {item.isCritical && <Flag size={13} className="shrink-0 text-danger" aria-label="Critical" />}
+                      <IconChip icon={TypeIcon} tone="bg-primary-600" label={type.label} className="shrink-0" />
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
+        </ReviewCard>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <ReviewCard label="Reviewers" icon={ShieldCheck} valid={sectionValidity[3] ?? true} onEdit={() => onEditSection(3)}>
+            {reviewerIds.length === 0 ? (
+              <p className="t-meta font-display leading-relaxed text-text-muted">No one extra picked. PC and Admin, and each assignee’s department head, can still review.</p>
+            ) : everyone.isPending ? (
+              <Skeleton className="h-8 w-48 rounded-full" />
+            ) : everyone.isError ? (
+              <InlineError message="We couldn't load the people." onRetry={() => everyone.refetch()} />
+            ) : (
+              <SelectedPeopleChips ids={activeReviewers} label="Reviewers" />
+            )}
+            {droppedReviewers > 0 && (
+              <p className="flex items-center gap-1.5 t-meta font-display font-medium text-warning">
+                <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+                {plural(droppedReviewers, 'person is', 'people are')} no longer active and will be left out.
+              </p>
+            )}
+          </ReviewCard>
+
+          <ReviewCard
+            label="Assign"
+            icon={Users}
+            valid={sectionValidity[4] ?? true}
+            onEdit={() => onEditSection(4)}
+            aside={<IconChip icon={RESPONSE_MODE_ICON[responseMode]} tone="bg-primary-600" label={RESPONSE_MODE_LABEL[responseMode]} />}
+          >
+            {storeUsers.isPending && assigneeIds.length > 0 ? (
+              <Skeleton className="h-8 w-48 rounded-full" />
+            ) : storeUsers.isError ? (
+              <InlineError message="We couldn't load the people." onRetry={() => storeUsers.refetch()} />
+            ) : keptAssignees.length === 0 ? (
+              <p className="t-meta font-display font-medium leading-relaxed text-warning">Nobody yet. It is saved as a draft and goes live when you add people.</p>
+            ) : (
+              <SelectedPeopleChips ids={keptAssignees} label="Assigned people" groupByDepartment />
+            )}
+            {droppedAssignees > 0 && (
+              <p className="flex items-center gap-1.5 t-meta font-display font-medium text-warning">
+                <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+                {plural(droppedAssignees, 'person is', 'people are')} not in the selected stores and will be left out.
+              </p>
+            )}
+          </ReviewCard>
+        </div>
       </div>
 
       {submitError && <InlineError message={submitError} />}
@@ -444,48 +353,16 @@ export const BuilderReviewStep = ({
         </Button>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/60">
-        {!canSubmit && incompleteSections.length > 0 ? (
-          <NoticeBanner tone="warning" icon={AlertTriangle} className="sm:flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span>Complete the missing fields in:</span>
-              {incompleteSections.map((s) => (
-                <Button
-                  key={s.index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEditSection(s.index)}
-                  className="text-warning border-warning/30 hover:border-warning/50 hover:bg-warning/10"
-                >
-                  {s.label}
-                </Button>
-              ))}
-            </div>
-          </NoticeBanner>
-        ) : (
-          hasPeople ? (
-            <p className="flex items-center gap-1.5 t-meta font-display text-success">
-              <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
-            </p>
-          ) : (
-            <NoticeBanner tone="warning" icon={PauseCircle} className="sm:flex-1">
-              Nobody is assigned yet, so it is saved as a draft. Come back, add the people, and it goes live by itself.
-            </NoticeBanner>
-          )
-        )}
-
-        {!hideSubmit && (
-          <Button
-            variant="primary"
-            onClick={onSubmit}
-            isLoading={isSubmitting}
-            disabled={!canSubmit}
-            className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
-          >
-            {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : hasPeople ? 'Create Checklist' : 'Save as draft'}
+      {!hideSubmit && (
+        <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-end">
+          {!canSubmit && (
+            <NoticeBanner tone="warning" icon={AlertTriangle} className="sm:flex-1">Fix the steps marked above, then save.</NoticeBanner>
+          )}
+          <Button variant="primary" onClick={onSubmit} isLoading={isSubmitting} disabled={!canSubmit} className="w-full sm:w-auto pointer-coarse:h-11">
+            {isSubmitting ? 'Saving…' : isEditing ? 'Save changes' : hasPeople ? 'Create checklist' : 'Save as draft'}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
