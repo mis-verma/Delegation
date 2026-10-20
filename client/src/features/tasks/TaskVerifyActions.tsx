@@ -11,6 +11,7 @@ interface TaskVerifyActionsProps {
   compact?: boolean;
   onDecided?: () => void;
   nested?: boolean;
+  finalApproval?: boolean;
 }
 
 const SEND_BACK_SUGGESTIONS = ['Photos are missing', 'Not finished yet', 'Please redo this part'];
@@ -22,7 +23,7 @@ const iconButtonClass = (tone: 'success' | 'danger') =>
       : 'bg-danger/10 text-danger hover:bg-danger hover:text-white focus-visible:ring-danger/40'
   }`;
 
-export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = false }: TaskVerifyActionsProps) => {
+export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = false, finalApproval = true }: TaskVerifyActionsProps) => {
   const verifyMut = useVerifyTaskMutation();
   const [sendingBack, setSendingBack] = useState(false);
 
@@ -53,8 +54,8 @@ export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = f
       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
         <button
           type="button"
-          aria-label="Approve"
-          title="Approve"
+          aria-label={finalApproval ? 'Approve' : 'Approve, send to PC'}
+          title={finalApproval ? 'Approve' : 'Approve, send to PC'}
           disabled={verifyMut.isPending}
           onClick={approve}
           className={iconButtonClass('success')}
@@ -85,7 +86,7 @@ export const TaskVerifyActions = ({ task, compact = false, onDecided, nested = f
         onClick={approve}
       >
         {!(verifyMut.isPending && !sendingBack) && <ShieldCheck size={16} strokeWidth={2.5} />}
-        Approve
+        {finalApproval ? 'Approve' : 'Approve, send to PC'}
       </Button>
       <Button
         variant="outline"

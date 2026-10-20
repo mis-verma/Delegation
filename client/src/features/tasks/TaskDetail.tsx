@@ -25,7 +25,8 @@ import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
-import { canApproveWork } from '../../lib/canApproveWork';
+import { canApproveTicket, isFinalApproval, taskApprovalSubject } from '../../lib/ticketApproval';
+import { TaskApprovalTrail } from './TaskApprovalTrail';
 import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
 import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
 import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from '../tickets/detail/propertyStyles';
@@ -167,6 +168,7 @@ interface TaskFooterProps {
   task: Task;
   canMove: boolean;
   canApprove: boolean;
+  finalApproval: boolean;
   nextStatus: Task['status'] | null;
   onAdvance: () => void;
   onBack: (() => void) | null;
@@ -176,15 +178,16 @@ interface TaskFooterProps {
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, canMove, canApprove, nextStatus, onAdvance, onBack, onHold, onReopen, isAdvancing, onClose }: TaskFooterProps) => {
+const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAdvance, onBack, onHold, onReopen, isAdvancing, onClose }: TaskFooterProps) => {
   const needsDecision = canApprove && task.status === 'pending_approval';
   const showAdvance = !!nextStatus && canMove;
   const hasMenu = canMove && (onBack || onHold || onReopen);
   return (
     <div className="flex flex-col gap-4 w-full">
+      {(task.status === 'pending_approval' || (task.status === 'done' && !!task.verifiedAt)) && <TaskApprovalTrail task={task} />}
       {needsDecision && (
         <div className="pb-4 border-b border-border/60">
-          <TaskVerifyActions task={task} onDecided={onClose} nested />
+          <TaskVerifyActions task={task} onDecided={onClose} nested finalApproval={finalApproval} />
         </div>
       )}
       <div className="flex items-center justify-between w-full gap-3">
@@ -777,7 +780,8 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
         <TaskFooter
           task={task}
           canMove={canMove}
-          canApprove={canApproveWork(user, { departmentId: task.departmentId ?? null, assigneeIds: taskAssigneeIds(task), reviewers: task.reviewers })}
+          canApprove={canApproveTicket(user, taskApprovalSubject(task))}
+          finalApproval={isFinalApproval(user, task)}
           nextStatus={nextStatus}
           onAdvance={() => {
             if (task.status === 'draft') publish();

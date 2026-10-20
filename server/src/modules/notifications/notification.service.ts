@@ -185,7 +185,27 @@ export const notificationService = {
     });
   },
 
-  async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET') {
+  async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET', stage: 'HOD' | 'PC' = 'PC') {
+    const idFieldOf = () => (kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() });
+    if (stage === 'HOD') {
+      const heads = entity.departmentId
+        ? await db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, entity.departmentId.toString()), eq(users.isActive, true)))
+        : [];
+      const people = new Set([entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()));
+      const headIds = heads.map((h) => h.id).filter((id) => !people.has(id));
+      if (headIds.length) {
+        return notificationService.notifyMany(headIds, {
+          type: `${kind}_PENDING_VERIFICATION`,
+          title: kind === 'TICKET' ? 'Ticket waiting for your approval' : 'Delegation waiting for your approval',
+          message: `"${entity.title}" is done. As department head you approve it first, then it goes to PC.`,
+          ...idFieldOf(),
+        });
+      }
+    }
+
     const scopeConditions = [];
     if (entity.departmentId) scopeConditions.push(eq(users.departmentId, entity.departmentId.toString()));
     if (entity.storeId) scopeConditions.push(eq(users.storeId, entity.storeId.toString()));
@@ -198,13 +218,6 @@ export const notificationService = {
         .where(and(eq(users.role, 'PC'), eq(users.isActive, true), or(...scopeConditions)));
       recipientIds.push(...pcs.map((p) => p.id));
     }
-    if (entity.departmentId) {
-      const heads = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, entity.departmentId.toString()), eq(users.isActive, true)));
-      recipientIds.push(...heads.map((h) => h.id));
-    }
     if (!recipientIds.length) recipientIds = await activeVerifierIds();
 
     const workers = new Set([entity.assigneeId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()));
@@ -215,13 +228,13 @@ export const notificationService = {
     return notificationService.notifyMany(recipientIds, {
       type: `${kind}_PENDING_VERIFICATION`,
       title: kind === 'TICKET' ? 'Ticket awaiting verification' : 'Delegation awaiting verification',
-      message: `"${entity.title}" is ready for your review.`,
+      message: entity.departmentId ? `"${entity.title}" is ready for your final approval.` : `"${entity.title}" is ready for your review.`,
       ...idField,
     });
   },
 
-  async notifyVerificationResult(entity: VerifiableEntity, action: 'APPROVE' | 'REJECT', note: string | undefined, kind: 'TICKET' | 'TASK' = 'TICKET') {
-    const recipientIds: string[] = [];
+  async notifyVerificationResult(entity: VerifiableEntity, action: 'APPROVE' | 'REJECT', note: string | undefined, kind: 'TICKET' | 'TASK' = 'TICKET', extraRecipientIds: string[] = []) {
+    const recipientIds: string[] = [...extraRecipientIds];
     if (entity.assigneeId) recipientIds.push(entity.assigneeId.toString());
     recipientIds.push(...(entity.additionalAssigneeIds ?? []).map((a) => a.toString()));
     if (entity.userId && entity.userId.toString() !== entity.assigneeId?.toString()) recipientIds.push(entity.userId.toString());

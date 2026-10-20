@@ -17,6 +17,7 @@ import { CAPTURE_METHODS, tags } from './task.js';
 export const TICKET_STATUSES = ['OPEN', 'IN_PROGRESS', 'PENDING_APPROVAL', 'CLOSED', 'ON_HOLD'] as const;
 export const TICKET_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export const ASSIGNMENT_MODES = ['AUTO', 'MANUAL'] as const;
+export const TICKET_APPROVAL_STAGES = ['HOD', 'PC'] as const;
 export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL'] as const;
 export const CHECKLIST_TEMPLATE_TARGETS = ['TASK', 'TICKET'] as const;
 
@@ -44,6 +45,9 @@ export const tickets = mysqlTable(
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
+    approvalStage: mysqlEnum('approvalStage', TICKET_APPROVAL_STAGES),
+    hodApprovedBy: varchar('hodApprovedBy', { length: 191 }).references(() => users.id),
+    hodApprovedAt: datetime('hodApprovedAt', { mode: 'date' }),
     deletedAt: datetime('deletedAt', { mode: 'date' }),
     declinedAt: datetime('declinedAt', { mode: 'date' }),
     declinedBy: varchar('declinedBy', { length: 191 }).references(() => users.id),

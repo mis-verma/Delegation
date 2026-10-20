@@ -1,5 +1,5 @@
 import { memo, useState, type ReactNode } from 'react';
-import { Check, X, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, Film, UserRound } from 'lucide-react';
+import { Check, X, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, Film, UserRound } from 'lucide-react';
 import { Button, IconChip, PriorityChip, DepartmentChip } from '../../components';
 import { SendBackForm } from '../checklist/instance/ReviewActions';
 import { cn } from '@/lib/utils';
@@ -83,6 +83,7 @@ interface QueueRowProps {
   evidence: EvidenceFile[];
   onOpen: () => void;
   onApprove: () => void;
+  approveLabel?: string;
   onSendBack: (note: string) => void;
   selection?: { checked: boolean; onToggle: () => void };
   expanded: boolean;
@@ -92,7 +93,7 @@ interface QueueRowProps {
   onWarm?: () => void;
 }
 
-const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove, onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
+const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
   const [rejecting, setRejecting] = useState(false);
   const [text, setText] = useState('');
 
@@ -172,7 +173,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
               onClick={onApprove}
             >
               <Check size={14} aria-hidden />
-              Approve
+              {approveLabel}
             </Button>
           </div>
         )}
@@ -250,6 +251,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
           <>
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
+            {ticket.departmentId && <IconChip icon={ShieldCheck} tone={ticket.approvalStage === 'HOD' ? 'bg-warning' : 'bg-primary-600'} label={ticket.approvalStage === 'HOD' ? 'Head approves first' : ticket.hodApprovedAt ? 'Head approved, final check' : 'Final approval'} />}
             <IconChip icon={Clock} tone={look.tone} label={`Waiting ${formatWaiting(since, now)}${look.suffix}`} labelClassName={look.text} />
           </>
         }
@@ -262,6 +264,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         preview={(flag) => <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(ticket.id, ticket.title)}
+        approveLabel={ticket.approvalStage === 'HOD' && ticket.departmentId ? 'Approve, send to PC' : 'Approve'}
         onSendBack={(note) => onSendBack(ticket.id, ticket.title, note)}
       />
       {showDetail && <TicketDetail ticket={ticket} onClose={() => setShowDetail(false)} />}
@@ -291,6 +294,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
           <>
             <PriorityChip meta={PRIORITY_MAP[task.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
+            {task.departmentId && <IconChip icon={ShieldCheck} tone={task.approvalStage === 'HOD' ? 'bg-warning' : 'bg-primary-600'} label={task.approvalStage === 'HOD' ? 'Head approves first' : task.hodApprovedAt ? 'Head approved, final check' : 'Final approval'} />}
             <IconChip icon={Clock} tone={look.tone} label={`Waiting ${formatWaiting(since, now)}${look.suffix}`} labelClassName={look.text} />
           </>
         }
@@ -304,6 +308,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(task.id, task.title)}
+        approveLabel={task.approvalStage === 'HOD' && task.departmentId ? 'Approve, send to PC' : 'Approve'}
         onSendBack={(note) => onSendBack(task.id, task.title, note)}
       />
       {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}

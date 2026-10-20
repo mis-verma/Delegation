@@ -103,14 +103,14 @@ export const NeedsApprovalCard = () => {
   const remaining = total - visible.length;
 
   const categoryTotals: Record<ApprovalCategory, number> = {
-    ticket: reviewsAllWork ? (tickets.data?.total ?? 0) : 0,
-    delegation: reviewsAllWork ? (tasks.data?.total ?? 0) : 0,
+    ticket: reviewsAllWork || isHod ? (tickets.data?.total ?? 0) : 0,
+    delegation: reviewsAllWork || isHod ? (tasks.data?.total ?? 0) : 0,
     checklist: checklists.data?.total ?? 0,
   };
 
   const failedSources = [
-    reviewsAllWork && tickets.isError && { label: 'tickets', retry: () => void tickets.refetch() },
-    reviewsAllWork && tasks.isError && { label: 'delegations', retry: () => void tasks.refetch() },
+    (reviewsAllWork || isHod) && tickets.isError && { label: 'tickets', retry: () => void tickets.refetch() },
+    (reviewsAllWork || isHod) && tasks.isError && { label: 'delegations', retry: () => void tasks.refetch() },
     (reviewsAllWork || isHod) && checklists.isError && { label: 'checklists', retry: () => void checklists.refetch() },
   ].filter(Boolean) as { label: string; retry: () => void }[];
 

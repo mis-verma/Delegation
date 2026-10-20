@@ -9,6 +9,7 @@ import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
+import { activeDepartmentHeadIds, canApproveAtStage, type ApprovalStage } from "../tickets/ticketApproval.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
@@ -126,16 +127,17 @@ const buildVisibilityCondition = async (user: AccessTokenPayload) => {
         return or(eq(tasks.departmentId, user.departmentId), withReviewer);
     }
 
+    if (user.role === "SENIOR" && user.departmentId) {
+        return or(and(eq(tasks.departmentId, user.departmentId), eq(tasks.status, "pending_approval")), withReviewer);
+    }
+
     return withReviewer;
 };
 
-const CAN_VERIFY_BY_ROLE: Partial<Record<AccessTokenPayload["role"], (task: { departmentId: string | null }, user: AccessTokenPayload) => boolean>> = {
-    ADMIN: () => true,
-    PC: () => true,
-    MANAGER: (task, user) => !!user.departmentId && task.departmentId === user.departmentId,
-};
-
-const assertCanVerify = async (task: { id: string; departmentId: string | null; assigneeId: string | null }, user: AccessTokenPayload) => {
+const assertCanVerify = async (
+    task: { id: string; departmentId: string | null; assigneeId: string | null; userId: string; approvalStage: ApprovalStage | null },
+    user: AccessTokenPayload,
+) => {
     if (user.role !== "ADMIN") {
         const additional = (await db.select({ userId: taskAdditionalAssignees.userId })
             .from(taskAdditionalAssignees)
@@ -144,12 +146,15 @@ const assertCanVerify = async (task: { id: string; departmentId: string | null; 
             throw AppError.forbidden("You can't approve a delegation assigned to you. Someone else has to review it.");
         }
     }
-    if (CAN_VERIFY_BY_ROLE[user.role]?.(task, user)) return;
-    const [reviewer] = await db.select({ id: taskReviewers.id })
-        .from(taskReviewers)
-        .where(and(eq(taskReviewers.taskId, task.id), eq(taskReviewers.userId, user.sub)))
-        .limit(1);
-    if (!reviewer) throw AppError.forbidden();
+    const stage: ApprovalStage = task.approvalStage ?? "PC";
+    const [reviewer] = stage === "PC"
+        ? await db.select({ id: taskReviewers.id })
+            .from(taskReviewers)
+            .where(and(eq(taskReviewers.taskId, task.id), eq(taskReviewers.userId, user.sub)))
+            .limit(1)
+        : [];
+    if (canApproveAtStage(stage, task, user, !!reviewer)) return;
+    throw AppError.forbidden(stage === "HOD" ? "This delegation is waiting for the department head to approve first." : "This delegation is waiting for the PC to give the final approval.");
 };
 
 const buildMutationCondition = async (user: AccessTokenPayload) => {
@@ -614,6 +619,20 @@ export const taskService = {
         }
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             update.submittedAt = new Date();
+            const workers = additionalAssigneeIds !== undefined
+                ? additionalAssigneeIds
+                : (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
+            const headIds = await activeDepartmentHeadIds(
+                (rest.departmentId !== undefined ? rest.departmentId : existing.departmentId) ?? null,
+                [rest.assigneeId !== undefined ? rest.assigneeId : existing.assigneeId, existing.userId, ...workers],
+            );
+            update.approvalStage = headIds.length > 0 ? "HOD" : "PC";
+            update.hodApprovedBy = null;
+            update.hodApprovedAt = null;
+        } else if (input.status !== undefined && input.status !== "pending_approval" && beforeStatus === "pending_approval") {
+            update.approvalStage = null;
+            update.hodApprovedBy = null;
+            update.hodApprovedAt = null;
         }
         if (beforeStatus === "done" && input.status !== undefined && input.status !== "done") {
             update.verifiedBy = null;
@@ -667,7 +686,7 @@ export const taskService = {
                 assigneeId: task.assigneeId ?? undefined,
                 additionalAssigneeIds: currentAdditionalIds,
                 reviewerIds,
-            }, 'TASK'));
+            }, 'TASK', task.approvalStage ?? 'PC'));
         }
 
         if (input.status === "on_hold" && beforeStatus !== "on_hold" && remark) {
@@ -742,13 +761,23 @@ export const taskService = {
         await assertCanVerify(task, user);
 
         const fromStatus = task.status;
+        const stage: ApprovalStage = task.approvalStage ?? "PC";
+        const stageHandOff = input.action === "APPROVE" && stage === "HOD" && user.role !== "ADMIN";
         const update: Record<string, unknown> = { updatedAt: new Date(), verificationNote: input.note ?? null };
-        if (input.action === "APPROVE") {
+        if (stageHandOff) {
+            update.approvalStage = "PC";
+            update.hodApprovedBy = user.sub;
+            update.hodApprovedAt = new Date();
+        } else if (input.action === "APPROVE") {
             update.status = "done";
             update.verifiedBy = user.sub;
             update.verifiedAt = new Date();
+            update.approvalStage = null;
         } else {
             update.status = "in_progress";
+            update.approvalStage = null;
+            update.hodApprovedBy = null;
+            update.hodApprovedAt = null;
         }
         const [result] = await db.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
         if (result.affectedRows === 0) {
@@ -759,8 +788,8 @@ export const taskService = {
             taskId: id,
             changedBy: user.sub,
             fromStatus,
-            toStatus: update.status as typeof TASK_STATUSES[number],
-            remark: input.note?.trim() || (input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
+            toStatus: (update.status ?? fromStatus) as typeof TASK_STATUSES[number],
+            remark: input.note?.trim() || (stageHandOff ? "Approved by the department head, sent to PC." : input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
         });
 
         const [updated] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
@@ -768,13 +797,28 @@ export const taskService = {
             .from(taskAdditionalAssignees)
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
 
-        await notifySafely(() => notificationService.notifyVerificationResult({
-            _id: updated!.id,
-            title: updated!.title,
-            userId: updated!.userId,
-            assigneeId: updated!.assigneeId ?? undefined,
-            additionalAssigneeIds,
-        }, input.action, input.note, 'TASK'))
+        if (stageHandOff) {
+            const reviewerIds = ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id);
+            await notifySafely(() => notificationService.notifyPendingVerification({
+                _id: updated!.id,
+                title: updated!.title,
+                departmentId: updated!.departmentId ?? undefined,
+                storeId: undefined,
+                userId: updated!.userId,
+                assigneeId: updated!.assigneeId ?? undefined,
+                additionalAssigneeIds,
+                reviewerIds,
+            }, 'TASK', 'PC'));
+        } else {
+            const informHod = input.action === "REJECT" && stage === "PC" && task.hodApprovedBy && task.hodApprovedBy !== user.sub ? [task.hodApprovedBy] : [];
+            await notifySafely(() => notificationService.notifyVerificationResult({
+                _id: updated!.id,
+                title: updated!.title,
+                userId: updated!.userId,
+                assigneeId: updated!.assigneeId ?? undefined,
+                additionalAssigneeIds,
+            }, input.action, input.note, 'TASK', informHod));
+        }
 
         emitTaskEvent('task:updated', {
             userId: updated!.userId,
@@ -975,9 +1019,19 @@ export const taskService = {
         });
     },
 
-    async pendingApproval(limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number } }> {
+    async pendingApproval(user: AccessTokenPayload, limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number } }> {
         const POOL = 40;
-        const pendingWhere = and(eq(tasks.status, "pending_approval"), NOT_DELETED);
+        const stageScope = user.role === "ADMIN"
+            ? undefined
+            : user.role === "PC"
+                ? or(isNull(tasks.approvalStage), eq(tasks.approvalStage, "PC"))
+                : and(
+                    eq(tasks.approvalStage, "HOD"),
+                    user.departmentId ? eq(tasks.departmentId, user.departmentId) : sql`1 = 0`,
+                    or(isNull(tasks.assigneeId), ne(tasks.assigneeId, user.sub)),
+                    ne(tasks.userId, user.sub),
+                );
+        const pendingWhere = and(eq(tasks.status, "pending_approval"), NOT_DELETED, stageScope);
         const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tasks).where(pendingWhere);
         const total = Number(countRow?.total ?? 0);
         const rows = await db.select({

@@ -14,7 +14,7 @@ taskRouter.use(authenticate)
 
 taskRouter.get("/", taskController.list)
 taskRouter.get("/summary", taskController.summary)
-taskRouter.get("/pending-approval", requireRole("ADMIN", "PC"), taskController.pendingApproval)
+taskRouter.get("/pending-approval", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), taskController.pendingApproval)
 taskRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), taskController.complianceReport)
 taskRouter.get("/reports/by-owner", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), taskController.ownerStats)
 taskRouter.get("/:id" , taskController.getOne)

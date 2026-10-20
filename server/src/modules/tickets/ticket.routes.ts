@@ -12,7 +12,7 @@ export const ticketRouter = Router();
 ticketRouter.use(authenticate);
 ticketRouter.get('/', ticketController.list);
 ticketRouter.get('/summary', ticketController.summary);
-ticketRouter.get('/pending-approval', requireRole('ADMIN', 'PC'), ticketController.pendingApproval);
+ticketRouter.get('/pending-approval', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.pendingApproval);
 ticketRouter.get('/reports/tat', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.tatReport);
 ticketRouter.get('/reports/by-owner', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.ownerStats);
 ticketRouter.get('/:id', ticketController.getOne);

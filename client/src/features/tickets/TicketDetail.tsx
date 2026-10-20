@@ -45,7 +45,8 @@ import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
 import { RESTRICTED_STATUSES, type Ticket, type TicketAttachment, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
-import { canApproveWork } from '../../lib/canApproveWork';
+import { canApproveTicket, isFinalApproval } from '../../lib/ticketApproval';
+import { TicketApprovalTrail } from './detail/TicketApprovalTrail';
 import { ticketScore } from '../../lib/itemScore';
 import { ItemScoreCard } from '../../components/itemScoreCard/ItemScoreCard';
 
@@ -179,11 +180,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setQuickStatusCaptureMethod(method);
   };
 
-  const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveWork(currentUser, {
-    departmentId: ticket.departmentId,
-    assigneeIds: ticket.assignee ? [ticket.assignee.id] : [],
-    reviewers: ticket.reviewers,
-  });
+  const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveTicket(currentUser, ticket);
   const workerCanMove = canChangeStatus
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
@@ -356,6 +353,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   <span className="font-semibold">Declined by the department.</span> {ticket.declineReason}
                 </NoticeBanner>
               )}
+              {!ticket.declinedAt && <TicketApprovalTrail ticket={ticket} />}
               {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />}
 
               {editing && canEdit ? (
@@ -428,6 +426,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   <TicketVerificationActions
                     ticketTitle={ticket.title}
                     isPending={verifyMut.isPending}
+                    finalApproval={isFinalApproval(currentUser, ticket)}
                     onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } }, { onSuccess: onClose })}
                     onSendBack={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
                   />

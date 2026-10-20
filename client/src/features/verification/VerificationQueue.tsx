@@ -6,6 +6,8 @@ import { EmptyState, InlineError, PageHeader, PANEL_CLASS, useConfirm } from '..
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useTicketsByStatusQuery } from '../tickets/hook';
+import { useAuth } from '../../context/AuthContext';
+import { canApproveTicket, taskApprovalSubject } from '../../lib/ticketApproval';
 import { usePendingTasksQuery } from './usePendingTasksQuery';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
@@ -58,10 +60,13 @@ export const VerificationQueue = () => {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const confirm = useConfirm();
 
+  const { user: viewer } = useAuth();
   const ticketsQuery = useTicketsByStatusQuery('PENDING_APPROVAL');
   const tasksQuery = usePendingTasksQuery('pending_approval');
-  const tickets = ticketsQuery.data?.data ?? NO_TICKETS;
-  const tasks = tasksQuery.data?.data ?? NO_TASKS;
+  const allTickets = ticketsQuery.data?.data ?? NO_TICKETS;
+  const tickets = useMemo(() => allTickets.filter((t) => canApproveTicket(viewer, t)), [allTickets, viewer]);
+  const allTasks = tasksQuery.data?.data ?? NO_TASKS;
+  const tasks = useMemo(() => allTasks.filter((t) => canApproveTicket(viewer, taskApprovalSubject(t))), [allTasks, viewer]);
 
   const checklistQuery = useChecklistQueueQuery();
   const instances = useMemo(() => checklistQuery.data?.pages.flatMap((p) => p.data) ?? NO_INSTANCES, [checklistQuery.data]);
@@ -109,8 +114,8 @@ export const VerificationQueue = () => {
   const notHeld = <T extends { id: string }>(list: T[]) => list.filter((i) => !heldIds.has(i.id));
   const heldTickets = tickets.length - notHeld(tickets).length;
   const heldTasks = tasks.length - notHeld(tasks).length;
-  const ticketTotal = Math.max(0, (ticketsQuery.data?.total ?? tickets.length) - heldTickets);
-  const taskTotal = Math.max(0, (tasksQuery.data?.total ?? tasks.length) - heldTasks);
+  const ticketTotal = Math.max(0, tickets.length - heldTickets);
+  const taskTotal = Math.max(0, tasks.length - heldTasks);
   const ticketCount = filtersActive ? inDept(notHeld(filteredTickets)) : ticketTotal;
   const taskCount = filtersActive ? inDept(notHeld(filteredTasks)) : taskTotal;
   const counts = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending

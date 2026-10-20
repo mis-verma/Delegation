@@ -33,6 +33,7 @@ const ScoresPage = lazy(() => import('./features/scores').then(m => ({ default: 
 const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ default: m.FillHub })));
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
+const TicketApprovals = lazy(() => import('./features/tickets/TicketApprovals').then(m => ({ default: m.TicketApprovals })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
@@ -90,6 +91,7 @@ const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 const AdminOnlyRoute = createRoleGuard('ADMIN');
 
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
+const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
 
 const AdminOverviewRoute = () => {
   const { user } = useAuth();
@@ -261,6 +263,12 @@ const router = createBrowserRouter([
             element: <VerifyQueueRoute />,
             children: [
               { path: '/verify', element: <VerificationQueue /> },
+            ],
+          },
+          {
+            element: <TicketApprovalsRoute />,
+            children: [
+              { path: '/tickets/approvals', element: <TicketApprovals /> },
             ],
           },
         ],

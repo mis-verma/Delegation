@@ -11,24 +11,25 @@ export const useApprovalSources = () => {
   const isHod = role === 'MANAGER' || role === 'SENIOR';
   const asksChecklists = !!role;
 
-  const tasks = useTaskPendingApprovalQuery(reviewsAllWork, DASHBOARD_QUERY_OPTIONS);
-  const tickets = useTicketPendingApprovalQuery(reviewsAllWork, DASHBOARD_QUERY_OPTIONS);
+  const reviewsWork = reviewsAllWork || isHod;
+  const tasks = useTaskPendingApprovalQuery(reviewsWork, DASHBOARD_QUERY_OPTIONS);
+  const tickets = useTicketPendingApprovalQuery(reviewsWork, DASHBOARD_QUERY_OPTIONS);
   const checklists = useChecklistPendingApprovalQuery(asksChecklists, DASHBOARD_QUERY_OPTIONS);
 
   const reportsErrors = reviewsAllWork || isHod;
 
-  const isPending = (reviewsAllWork && (tasks.isPending || tickets.isPending)) || (asksChecklists && checklists.isPending);
-  const hasError = reportsErrors && ((reviewsAllWork && (tasks.isError || tickets.isError)) || checklists.isError);
+  const isPending = (reviewsWork && (tasks.isPending || tickets.isPending)) || (asksChecklists && checklists.isPending);
+  const hasError = reportsErrors && ((reviewsWork && (tasks.isError || tickets.isError)) || checklists.isError);
 
   const total =
-    (reviewsAllWork ? (tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) : 0) +
+    (reviewsWork ? (tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) : 0) +
     (checklists.data?.total ?? 0);
 
   return {
     reviewsAllWork,
     isHod,
     reportsErrors,
-    queueHref: reviewsAllWork ? '/verify' : isHod ? '/checklists/approvals' : null,
+    queueHref: reviewsAllWork ? '/verify' : isHod ? ((tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) > 0 ? '/tickets/approvals' : '/checklists/approvals') : null,
     tasks,
     tickets,
     checklists,

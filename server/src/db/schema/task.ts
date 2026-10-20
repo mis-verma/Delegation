@@ -41,6 +41,8 @@ export type TaskAiMeta = {
   model: string | null;
 };
 
+export const TASK_APPROVAL_STAGES = ['HOD', 'PC'] as const;
+
 export const tasks = mysqlTable(
   'Task',
   {
@@ -60,6 +62,9 @@ export const tasks = mysqlTable(
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
+    approvalStage: mysqlEnum('approvalStage', TASK_APPROVAL_STAGES),
+    hodApprovedBy: varchar('hodApprovedBy', { length: 191 }).references(() => users.id),
+    hodApprovedAt: datetime('hodApprovedAt', { mode: 'date' }),
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),

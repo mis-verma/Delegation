@@ -214,6 +214,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
     ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart' }] : []),
+    ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),

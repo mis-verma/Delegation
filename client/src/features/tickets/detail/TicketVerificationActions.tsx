@@ -7,13 +7,14 @@ import { TICKET_STATUS_LABEL } from '../../../lib/ticketStatusLabel';
 interface TicketVerificationActionsProps {
   ticketTitle: string;
   isPending: boolean;
+  finalApproval?: boolean;
   onApprove: () => void;
   onSendBack: (note: string) => void;
 }
 
 const SEND_BACK_SUGGESTIONS = ['Photo missing', 'Not fixed yet', 'Wrong item'];
 
-export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, onSendBack }: TicketVerificationActionsProps) => {
+export const TicketVerificationActions = ({ ticketTitle, isPending, finalApproval = true, onApprove, onSendBack }: TicketVerificationActionsProps) => {
   const [sendingBack, setSendingBack] = useState(false);
 
   return (
@@ -24,8 +25,8 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, o
             <ShieldCheck size={16} strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-col">
-            <p className="t-meta font-display font-semibold text-text">Waiting for your approval</p>
-            <p className="t-meta text-text-muted">Check the work and photos, then decide.</p>
+            <p className="t-meta font-display font-semibold text-text">{finalApproval ? 'Waiting for your final approval' : 'Waiting for your approval as department head'}</p>
+            <p className="t-meta text-text-muted">{finalApproval ? 'Check the work and photos, then decide.' : 'Check the work. After you approve it goes to PC for the final check.'}</p>
           </div>
         </div>
 
@@ -38,7 +39,7 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, o
             onClick={onApprove}
           >
             <CheckCircle2 size={16} strokeWidth={2.5} aria-hidden />
-            Approve
+            {finalApproval ? 'Approve' : 'Approve, send to PC'}
           </Button>
 
           <Button

@@ -49,6 +49,9 @@ export type Task = {
     verifiedBy:       string | null;
     verifiedAt:       string | null;
     submittedAt?:     string | null;
+    approvalStage?:   'HOD' | 'PC' | null;
+    hodApprovedBy?:   string | null;
+    hodApprovedAt?:   string | null;
     verificationNote: string | null;
     aiMeta?: {
         rawInput : string;

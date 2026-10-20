@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
 import { TaskVerifyActions } from "./TaskVerifyActions";
+import { useAuth } from "../../context/AuthContext";
+import { canApproveTicket, isFinalApproval, taskApprovalSubject } from "../../lib/ticketApproval";
 import { PRIORITY_MAP } from "./taskDisplay";
 import { isOverdueTask, OVERDUE_EXEMPT_STATUSES } from "./taskFilters";
 import { isMoveBlocked } from "./taskStatusModel";
@@ -67,8 +69,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const { doneItems, totalItems, progress } = getChecklistProgress(task.checklists ?? []);
 
   const showDoneBadge = fields.status && task.status === 'done';
-  const showReviewBadge = fields.status && task.status === 'pending_approval' && !isVerifier;
-  const showVerifyActions = task.status === 'pending_approval' && isVerifier;
+  const { user } = useAuth();
+  const canApprove = canApproveTicket(user, taskApprovalSubject(task));
+  const showReviewBadge = fields.status && task.status === 'pending_approval' && !canApprove;
+  const showVerifyActions = task.status === 'pending_approval' && canApprove;
 
   const showChecklistBar = fields.subtasks && progress !== null;
   const showDueCell = fields.dueDate && !!task.dueDate;
@@ -312,7 +316,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           onClick={(e) => { if (showVerifyActions) e.stopPropagation(); }}
         >
           {showVerifyActions ? (
-            <TaskVerifyActions task={task} compact />
+            <TaskVerifyActions task={task} compact finalApproval={isFinalApproval(user, task)} />
           ) : showDoneBadge ? (
             <StatusChip status="completed" label="Done" />
           ) : showReviewBadge ? (

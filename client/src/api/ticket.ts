@@ -143,6 +143,10 @@ export type Ticket = {
   verifiedAt:       string | null;
   verificationNote: string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
+  approvalStage?:   'HOD' | 'PC' | null;
+  hodApprovedBy?:   string | null;
+  hodApprovedAt?:   string | null;
+  hodApprover?:     { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
   reviewers:        { id: string; firstName: string; lastName: string | null; email: string }[];
 };
 

@@ -69,7 +69,7 @@ export const taskController = {
     }),
 
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
-        const { data, meta } = await taskService.pendingApproval();
+        const { data, meta } = await taskService.pendingApproval(req.user!);
         res.json({ success : true, data, meta })
     }),
 

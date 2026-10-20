@@ -23,7 +23,7 @@ export const ticketController = {
     }),
 
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
-        const { data, meta } = await ticketService.pendingApproval();
+        const { data, meta } = await ticketService.pendingApproval(req.user!);
         res.json({ success : true , data, meta })
     }),
 
