@@ -13,7 +13,8 @@ export type ChecklistAssigneeRole =
   | 'STORE_MANAGER' | 'FLOOR_MANAGER' | 'CASHIER' | 'SECURITY' | 'HOUSEKEEPING' | 'OPERATIONS';
 
 export type ChecklistIcon =
-  | 'store' | 'clock' | 'star' | 'check' | 'shield' | 'alert-triangle' | 'hash' | 'shield-check' | 'calendar';
+  | 'store' | 'clock' | 'star' | 'check' | 'shield' | 'alert-triangle' | 'hash' | 'shield-check' | 'calendar'
+  | 'gem' | 'sparkles' | 'key' | 'lock' | 'sun' | 'moon' | 'brush' | 'package' | 'truck' | 'wrench' | 'camera' | 'banknote';
 
 export type ChecklistConditionalAction = 'REQUIRE_PHOTO' | 'ASK_REASON' | 'CREATE_ISSUE' | 'NOTIFY_AREA_MANAGER';
 

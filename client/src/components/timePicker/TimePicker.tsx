@@ -18,6 +18,33 @@ interface TimePickerProps {
   prefix?: string;
 }
 
+const TIME_PRESETS = [
+  { value: '09:00', label: '9:00 AM' },
+  { value: '12:00', label: '12:00 PM' },
+  { value: '18:00', label: '6:00 PM' },
+  { value: '21:00', label: '9:00 PM' },
+  { value: '23:59', label: '11:59 PM' },
+  { value: '00:00', label: 'Midnight' },
+] as const;
+
+const TIME_INPUT = /^(\d{1,2})(?::?(\d{2}))?\s*(am|pm)?$/i;
+
+const parseTyped = (raw: string): string | null => {
+  const match = TIME_INPUT.exec(raw.trim());
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = match[2] === undefined ? 0 : Number(match[2]);
+  const period = match[3]?.toLowerCase();
+  if (minute > 59) return null;
+  if (period) {
+    if (hour < 1 || hour > 12) return null;
+    hour = (hour % 12) + (period === 'pm' ? 12 : 0);
+  } else if (hour > 23) {
+    return null;
+  }
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
 const HOUR_MARKS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const MINUTE_MARKS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 const DIAL_SIZE = 176;
@@ -43,6 +70,50 @@ const formatDisplay = (h: number, m: number) => {
   const period = h >= 12 ? 'PM' : 'AM';
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
+const ExactTimeField = ({ value, onCommit }: { value: string; onCommit: (next: string) => void }) => {
+  const [text, setText] = useState('');
+  const [invalid, setInvalid] = useState(false);
+
+  const commit = () => {
+    if (!text.trim()) {
+      setInvalid(false);
+      return;
+    }
+    const parsed = parseTyped(text);
+    if (!parsed) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    setText('');
+    onCommit(parsed);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-center gap-2">
+        <span className="t-meta font-display font-semibold text-text-secondary shrink-0">Exact time</span>
+        <input
+          key={value}
+          type="text"
+          inputMode="text"
+          value={text}
+          onChange={(e) => { setText(e.target.value); setInvalid(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }}
+          onBlur={commit}
+          placeholder="11:59 PM"
+          aria-invalid={invalid}
+          className={cn(
+            'h-9 min-w-0 flex-1 rounded-lg border bg-surface px-2.5 t-meta font-display font-semibold tabular-nums text-text outline-none placeholder:font-medium placeholder:text-text-light',
+            invalid ? 'border-danger focus-visible:ring-2 focus-visible:ring-danger/30' : 'border-border hover:border-border-hover focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30',
+          )}
+        />
+      </label>
+      {invalid && <span role="alert" className="t-meta font-display font-medium text-danger">Try 11:59 PM or 23:59.</span>}
+    </div>
+  );
 };
 
 export function TimePicker({
@@ -238,6 +309,28 @@ export function TimePicker({
                 );
               })}
             </div>
+
+            <div role="group" aria-label="Common times" className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2.5">
+              {TIME_PRESETS.map((preset) => {
+                const active = value === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => onChange(preset.value)}
+                    className={cn(
+                      'inline-flex h-7 items-center rounded-full border px-2.5 t-meta font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:h-9',
+                      active ? 'border-primary-500/60 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <ExactTimeField value={value} onCommit={onChange} />
           </div>
         </div>
       </div>

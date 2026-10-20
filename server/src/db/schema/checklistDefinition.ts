@@ -38,6 +38,18 @@ export const CHECKLIST_ICONS = [
   'hash',
   'shield-check',
   'calendar',
+  'gem',
+  'sparkles',
+  'key',
+  'lock',
+  'sun',
+  'moon',
+  'brush',
+  'package',
+  'truck',
+  'wrench',
+  'camera',
+  'banknote',
 ] as const;
 
 export const CHECKLIST_ITEM_TYPES = [

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, Save } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, Save, Type, CalendarClock, ShieldCheck, Users, ClipboardCheck } from 'lucide-react';
 import {
   Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
@@ -107,12 +107,12 @@ const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
 
 const STEPS = [
-  { key: 'basics', label: 'Basics' },
-  { key: 'schedule', label: 'Schedule' },
-  { key: 'items', label: 'Questions' },
-  { key: 'reviewers', label: 'Reviewers' },
-  { key: 'assign', label: 'Assign' },
-  { key: 'review', label: 'Review' },
+  { key: 'basics', label: 'Basics', icon: Type },
+  { key: 'schedule', label: 'Schedule', icon: CalendarClock },
+  { key: 'items', label: 'Questions', icon: ListChecks },
+  { key: 'reviewers', label: 'Reviewers', icon: ShieldCheck },
+  { key: 'assign', label: 'Assign', icon: Users },
+  { key: 'review', label: 'Review', icon: ClipboardCheck },
 ] as const;
 
 const STEP_BLOCK_REASON: Record<number, string> = {
@@ -584,7 +584,7 @@ export const ChecklistBuilder = () => {
       case 0:
         return (
           <BuilderStepFrame stepIndex={step} title="Basics" description="Give this checklist a name your team will recognize.">
-            <div className="flex flex-col gap-5 max-w-2xl">
+            <div className="flex flex-col gap-5">
               <ChecklistDetailsFields
                 name={name}
                 onNameChange={setName}

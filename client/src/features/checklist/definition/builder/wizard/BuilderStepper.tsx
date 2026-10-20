@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
-import { ArrowLeft, Check, AlertTriangle, Lock } from 'lucide-react';
+import { ArrowLeft, Check, AlertTriangle, Lock, type LucideIcon } from 'lucide-react';
 
 export interface StepItem {
   label: string;
   description?: string;
-  icon?: ReactNode;
+  icon?: LucideIcon;
 }
 
 interface BuilderStepperProps {
@@ -129,6 +128,8 @@ export const BuilderStepper = ({
                     <Check size={14} strokeWidth={3} />
                   ) : !isCurrent && !isValid ? (
                     <AlertTriangle size={13} strokeWidth={2.5} />
+                  ) : step.icon ? (
+                    <step.icon size={14} strokeWidth={2.5} />
                   ) : (
                     index + 1
                   )}

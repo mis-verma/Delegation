@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistDefinition` MODIFY COLUMN `icon` enum('store','clock','star','check','shield','alert-triangle','hash','shield-check','calendar','gem','sparkles','key','lock','sun','moon','brush','package','truck','wrench','camera','banknote') NOT NULL DEFAULT 'store';

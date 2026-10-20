@@ -1,8 +1,9 @@
 import { canOfferLateWindow, hasScheduleTimeMismatch, isOvernightWindow, lateWindowProblem } from './scheduleWindow';
 import { useMemo, type ReactNode } from 'react';
-import { Store, Repeat, CalendarDays, Clock, AlertCircle, Moon, Check } from 'lucide-react';
+import { Store, Repeat, CalendarDays, CalendarRange, CalendarClock, Target, Sun, Clock, AlertCircle, Moon, Check, Sunrise, Sunset, Hourglass, type LucideIcon } from 'lucide-react';
 import { Button, DatePicker, InlineError, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays } from '../../../../components';
 import { useStoresQuery } from '../../hook';
+import { WindowTimeline } from './WindowTimeline';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../../../tasks/taskFormFieldStyles';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
@@ -14,13 +15,22 @@ const RECURRENCE_OPTIONS: {
   value: ChecklistRecurrence;
   label: string;
   description: string;
+  icon: LucideIcon;
 }[] = [
-  { value: 'DAILY', label: 'Daily', description: 'Repeats every day' },
-  { value: 'WEEKLY', label: 'Weekly', description: 'Repeats once a week' },
-  { value: 'MONTHLY', label: 'Monthly', description: 'Repeats monthly' },
-  { value: 'QUARTERLY', label: 'Quarterly', description: 'Repeats every 3 months' },
-  { value: 'YEARLY', label: 'Yearly', description: 'Repeats once a year' },
-  { value: 'ONE_TIME', label: 'One-time', description: 'Single occurrence' },
+  { value: 'DAILY', label: 'Daily', description: 'Repeats every day', icon: Sun },
+  { value: 'WEEKLY', label: 'Weekly', description: 'Repeats once a week', icon: CalendarRange },
+  { value: 'MONTHLY', label: 'Monthly', description: 'Repeats monthly', icon: CalendarDays },
+  { value: 'QUARTERLY', label: 'Quarterly', description: 'Repeats every 3 months', icon: CalendarClock },
+  { value: 'YEARLY', label: 'Yearly', description: 'Repeats once a year', icon: Repeat },
+  { value: 'ONE_TIME', label: 'One-time', description: 'Single occurrence', icon: Target },
+];
+
+const QUICK_WINDOWS: { label: string; opens: string; closes: string; late: string; icon: LucideIcon }[] = [
+  { label: 'All day', opens: '', closes: '', late: '', icon: Sun },
+  { label: 'Morning 9 AM to 1 PM', opens: '09:00', closes: '13:00', late: '', icon: Sunrise },
+  { label: 'Store hours 9:30 AM to 6:30 PM', opens: '09:30', closes: '18:30', late: '21:00', icon: Clock },
+  { label: 'Evening 6 PM to 11:59 PM', opens: '18:00', closes: '23:59', late: '', icon: Sunset },
+  { label: 'Overnight 10 PM to 6 AM', opens: '22:00', closes: '06:00', late: '', icon: Moon },
 ];
 
 interface BuilderSchedulePanelProps {
@@ -42,11 +52,13 @@ interface BuilderSchedulePanelProps {
 }
 
 const Section = ({ icon: Icon, title, aside, children }: { icon: typeof Store; title: string; aside?: ReactNode; children: ReactNode }) => (
-  <section className="flex flex-col gap-2.5">
+  <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3.5 sm:p-4">
     <div className="flex items-center justify-between gap-2">
-      <span className={DETAIL_HEADING_CLASS}>
-        <Icon size={14} className="text-text-light" />
-        {title}
+      <span className="flex items-center gap-2.5">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+          <Icon size={15} strokeWidth={2.25} />
+        </span>
+        <span className={DETAIL_HEADING_CLASS}>{title}</span>
       </span>
       {aside}
     </div>
@@ -144,6 +156,7 @@ export const BuilderSchedulePanel = ({
         <div role="group" aria-label="How often it repeats" className="flex flex-wrap gap-2">
           {RECURRENCE_OPTIONS.map((opt) => (
             <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)}>
+              {recurrence === opt.value ? <Check size={14} strokeWidth={2.75} /> : <opt.icon size={14} className="text-text-light" />}
               {opt.label}
               <span className="sr-only">: {opt.description}</span>
             </ToggleChip>
@@ -161,6 +174,21 @@ export const BuilderSchedulePanel = ({
       )}
 
       <Section icon={Clock} title={recurrence === 'ONE_TIME' ? 'When' : 'Starts & open hours'}>
+        <div role="group" aria-label="Quick time windows" className="flex flex-wrap gap-1.5">
+          {QUICK_WINDOWS.map((w) => {
+            const on = opensTime === w.opens && cutoffTime === w.closes && (w.late === '' ? lateUntilTime === '' || !offerLate : lateUntilTime === w.late);
+            return (
+              <ToggleChip
+                key={w.label}
+                on={on}
+                onClick={() => { onOpensTimeChange(w.opens); onCutoffTimeChange(w.closes); onLateUntilTimeChange(recurrence === 'ONE_TIME' ? '' : w.late); }}
+              >
+                {on ? <Check size={14} strokeWidth={2.75} /> : <w.icon size={14} className="text-text-light" />}
+                {w.label}
+              </ToggleChip>
+            );
+          })}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div title={recurrence === 'ONE_TIME' ? 'Due date' : 'Starts on'}>
             <DatePicker
@@ -198,6 +226,7 @@ export const BuilderSchedulePanel = ({
             />
           )}
         </div>
+        {!hasTimeMismatch && <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={offerLate ? lateUntilTime : ''} />}
         {offerLate && !lateUntilTime && (
           <p className="t-meta font-display text-text-muted">
             Optional: staff who miss the closing time can still fill it in until the late time. It counts as filled late.
@@ -205,7 +234,7 @@ export const BuilderSchedulePanel = ({
         )}
         {offerLate && lateUntilTime && !lateProblem && (
           <p className="flex items-center gap-1.5 t-meta font-display text-text-secondary">
-            <Clock size={13} className="shrink-0 text-danger" />
+            <Hourglass size={13} className="shrink-0 text-danger" />
             After {cutoffTime} staff see a red reminder and can fill it in until {lateUntilTime}. It counts as filled late.
           </p>
         )}
