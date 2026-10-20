@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { CalendarCheck2, ChevronRight, SearchX } from 'lucide-react';
+import { CalendarCheck2, Check, ChevronRight, ClipboardCheck, ClipboardX, Clock, Hourglass, ListChecks, SearchX, ShieldCheck, Timer, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
@@ -14,6 +14,7 @@ import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
 import { rankScoreboard } from './reportScoreboardRank';
 import { rateToneClass } from '../checklistDisplay';
 import { useOrgToday } from '../useOrgToday';
+import { StatCard } from '../../dashboard';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { SCORE_LABEL, complianceLabel } from '../../../lib/scoreLabels';
@@ -25,6 +26,19 @@ const VIEW_KEYS: readonly ReportView[] = ['checklists', 'departments', 'stores']
 const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores' };
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
+
+type Tone = 'success' | 'warning' | 'danger' | undefined;
+
+const toneOf = (cls: string): Tone => (cls.includes('success') ? 'success' : cls.includes('warning') ? 'warning' : cls.includes('danger') ? 'danger' : undefined);
+
+interface SummaryTile {
+  label: string;
+  how?: 'completion' | 'metDeadline' | 'onTime' | 'compliance';
+  value: string | number;
+  tone: string;
+  icon: LucideIcon;
+  tint: string;
+}
 
 const ReportSkeleton = () => (
   <>
@@ -97,15 +111,15 @@ export const ChecklistWeeklyReport = () => {
   const rows = data?.rows;
   const summary = data?.summary;
   const summaryTiles = useMemo(() => summary && [
-    { label: SCORE_LABEL.completion, how: 'completion' as const, value: formatPct(summary.completion), tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
-    { label: SCORE_LABEL.metDeadline, how: 'metDeadline' as const, value: formatPct(summary.metDeadlinePct), tone: summary.metDeadlinePct === null ? '' : rateToneClass(summary.metDeadlinePct) },
-    { label: SCORE_LABEL.onTime, how: 'onTime' as const, value: formatPct(summary.onTimeOfFinishedPct), tone: summary.onTimeOfFinishedPct === null ? '' : rateToneClass(summary.onTimeOfFinishedPct) },
-    { label: complianceLabel('checklist'), how: 'compliance' as const, value: formatPct(summary.compliance), tone: summary.compliance === null ? '' : rateToneClass(summary.compliance) },
-    { label: 'Filled on time', value: summary.onTime, tone: 'text-success' },
-    { label: 'Filled late', value: summary.late, tone: summary.late ? 'text-warning' : '' },
-    { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '' },
-    ...(summary.open ? [{ label: 'Still open', value: summary.open, tone: 'text-text-secondary' }] : []),
-  ], [summary]);
+    { label: SCORE_LABEL.completion, how: 'completion', value: formatPct(summary.completion), tone: summary.completion === null ? '' : rateToneClass(summary.completion), icon: ClipboardCheck, tint: 'text-primary-600' },
+    { label: SCORE_LABEL.metDeadline, how: 'metDeadline', value: formatPct(summary.metDeadlinePct), tone: summary.metDeadlinePct === null ? '' : rateToneClass(summary.metDeadlinePct), icon: Timer, tint: 'text-primary-600' },
+    { label: SCORE_LABEL.onTime, how: 'onTime', value: formatPct(summary.onTimeOfFinishedPct), tone: summary.onTimeOfFinishedPct === null ? '' : rateToneClass(summary.onTimeOfFinishedPct), icon: Clock, tint: 'text-primary-600' },
+    { label: complianceLabel('checklist'), how: 'compliance', value: formatPct(summary.compliance), tone: summary.compliance === null ? '' : rateToneClass(summary.compliance), icon: ShieldCheck, tint: 'text-primary-600' },
+    { label: 'Filled on time', value: summary.onTime, tone: 'text-success', icon: Check, tint: 'text-success' },
+    { label: 'Filled late', value: summary.late, tone: summary.late ? 'text-warning' : '', icon: Hourglass, tint: 'text-warning' },
+    { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '', icon: ClipboardX, tint: 'text-danger' },
+    ...(summary.open ? [{ label: 'Still open', value: summary.open, tone: 'text-text-secondary', icon: ListChecks, tint: 'text-text-muted' }] : []),
+  ] satisfies SummaryTile[], [summary]);
 
   const periodWord = PERIOD_LABEL[period].toLowerCase();
   const emptyAction = storeId || departmentId
@@ -236,14 +250,20 @@ export const ChecklistWeeklyReport = () => {
       {view === 'checklists' && data && !!rows?.length && (
         <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
           {summary && summary.due + (summary.open ?? 0) > 0 && (
-            <dl className={STRIP}>
-              {summaryTiles?.map(t => (
-                <div key={t.label} className="flex flex-col gap-0.5 bg-surface p-3">
-                  <dt className="flex items-center gap-0.5 t-meta font-display text-text-muted">{t.label}{t.how && <HowCalculated figure={t.how} module="checklist" />}</dt>
-                  <dd className={cn('t-stat font-display tabular-nums text-text', t.tone)}>{t.value}</dd>
-                </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {summaryTiles?.map((t) => (
+                <StatCard
+                  key={t.label}
+                  modern
+                  label={t.label}
+                  value={t.value}
+                  icon={t.icon}
+                  iconTint={t.tint}
+                  valueTone={toneOf(t.tone)}
+                  labelAdornment={'how' in t && t.how ? <HowCalculated figure={t.how} module="checklist" /> : undefined}
+                />
               ))}
-            </dl>
+            </div>
           )}
           {summary && summary.due + (summary.open ?? 0) === 0 && (
             <p className="t-meta font-display text-text-muted">

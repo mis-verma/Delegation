@@ -334,7 +334,7 @@ export const ChecklistDefinitionDetail = () => {
           </h2>
           {instances && instances.length >= INSTANCE_LIMIT && (
             <Link
-              to="/admin/checklist-compliance"
+              to="/team/fill/compliance"
               className="inline-flex items-center min-h-11 sm:min-h-0 t-meta font-display font-medium text-primary-600 dark:text-primary-400 hover:underline underline-offset-2"
             >
               Showing the latest {INSTANCE_LIMIT}. See every run on the Compliance board

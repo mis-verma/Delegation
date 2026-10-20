@@ -30,9 +30,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/scheduled-checklists')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
-  if (pathname.startsWith('/admin/checklist-compliance')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];
-  }
   if (pathname.startsWith('/admin/checklist-former')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Former People' }];
   }

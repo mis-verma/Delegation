@@ -42,7 +42,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const issues = latestWithTrend(rows, 'issueRate', 'rate');
   const dueRuns = latestWithTrend(rows, 'dueRuns', 'count');
 
-  const href = !linkCards ? undefined : isOrgWideRole ? '/admin/checklist-compliance' : '/checklists/history';
+  const href = !linkCards ? undefined : isOrgWideRole ? '/team/fill/compliance' : '/checklists/history';
 
   const itemsDoneCard = {
     icon: Repeat,

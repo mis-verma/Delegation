@@ -53,7 +53,6 @@ const ChecklistInstanceDetail = lazy(() => import('./features/checklist').then(m
 const ChecklistTemplatesGrid = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistTemplatesGrid })));
 const ChecklistDefinitionDetail = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistDefinitionDetail })));
 const ChecklistBuilder = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistBuilder })));
-const ChecklistComplianceBoard = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistComplianceBoard })));
 const ChecklistApprovals = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistApprovals })));
 const ChecklistHistory = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistHistory })));
 const ChecklistWeeklyReport = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistWeeklyReport })));
@@ -277,6 +276,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <FillHub tab="person" /> },
           { path: 'checklists', element: <FillHub tab="checklist" /> },
+          { path: 'compliance', element: <FillHub tab="compliance" /> },
         ],
       },
       {
@@ -303,7 +303,7 @@ const router = createBrowserRouter([
               { path: '/admin/org-structure', element: <Navigate to="/admin/directory?tab=structure" replace /> },
               { path: '/admin/checklist-templates', element: <ChecklistTemplateList /> },
               { path: '/admin/scheduled-checklists', element: <ChecklistTemplatesGrid /> },
-              { path: '/admin/checklist-compliance', element: <ChecklistComplianceBoard /> },
+              { path: '/admin/checklist-compliance', element: <Navigate to="/team/fill/compliance" replace /> },
               { path: '/admin/scheduled-checklists/builder', element: <ChecklistBuilder /> },
               { path: '/admin/scheduled-checklists/builder/:definitionId', element: <ChecklistBuilder /> },
               { path: '/admin/scheduled-checklists/:definitionId', element: <ChecklistDefinitionDetail /> },

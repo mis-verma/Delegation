@@ -53,7 +53,6 @@ interface AdminNavItem {
 
 const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/scheduled-checklists', label: 'Recurring Checklists' },
-  { to: '/admin/checklist-compliance', label: 'Checklist Compliance' },
   { to: '/admin/holidays', label: 'Holidays' },
   { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },

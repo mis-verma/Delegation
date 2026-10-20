@@ -251,7 +251,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     const due = orgDayWindow(range.from, range.to);
     const win = `&dueFrom=${encodeURIComponent(due.start)}&dueTo=${encodeURIComponent(due.end)}`;
     if (scope === 'org') {
-      if (module === 'checklist') return late ? '/admin/checklist-compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
+      if (module === 'checklist') return late ? '/team/fill/compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
       return module === 'ticket' ? `/tickets?quickFilter=${quick}${win}` : `/tasks?quickFilter=${quick}&category=delegation${win}`;
     }
     if (module === 'delegation') {
