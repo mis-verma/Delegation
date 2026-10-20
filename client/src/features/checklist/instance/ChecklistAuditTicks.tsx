@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { Check, Loader2, Shirt, X, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
+import { LivePhotoTrigger } from './LivePhotoTrigger';
 
 export const AuditUniformChip = ({ label }: { label: string }) => (
   <IconChip icon={Shirt} label={label} title="Uniform that applies" />
@@ -133,26 +134,34 @@ interface AuditCaptureButtonProps {
   onFiles: (files: FileList | null) => void;
 }
 
-export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }: AuditCaptureButtonProps) => (
-  <label
-    className={cn(
-      'flex flex-1 sm:flex-none sm:min-w-32 items-center justify-center gap-2 h-12 sm:h-10 px-4 rounded-lg border t-card sm:text-xs font-medium whitespace-nowrap',
-      'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
-      'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
-      live
-        ? 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10'
-        : 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover',
-    )}
-  >
-    <Icon className="size-[18px] sm:size-3.5" aria-hidden />
-    {label}
-    <input
-      type="file"
-      accept={accept}
-      capture={live ? 'environment' : undefined}
-      multiple
-      className="sr-only"
-      onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
-    />
-  </label>
-);
+export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }: AuditCaptureButtonProps) => {
+  const className = cn(
+    'flex flex-1 sm:flex-none sm:min-w-32 items-center justify-center gap-2 h-12 sm:h-10 px-4 rounded-lg border t-card sm:text-xs font-medium whitespace-nowrap',
+    'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
+    'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
+    live
+      ? 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10'
+      : 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover',
+  );
+  const content = (
+    <>
+      <Icon className="size-[18px] sm:size-3.5" aria-hidden />
+      {label}
+    </>
+  );
+  if (live) {
+    return <LivePhotoTrigger className={className} accept={accept} onFiles={onFiles}>{content}</LivePhotoTrigger>;
+  }
+  return (
+    <label className={className}>
+      {content}
+      <input
+        type="file"
+        accept={accept}
+        multiple
+        className="sr-only"
+        onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
+      />
+    </label>
+  );
+};

@@ -1,3 +1,4 @@
+import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { History, ArrowRight, Camera, ImageUp, ImagePlus } from 'lucide-react';
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
 import { StatusChip, type StatusChipStatus } from '../../components/statusChip';
@@ -82,18 +83,10 @@ const PhotoAttachments = ({
       <ImagePlus size={14} className="text-text-light" aria-hidden /> Photo (optional)
     </span>
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-      <label className={PHOTO_BUTTON_CLASS}>
+      <LivePhotoTrigger className={PHOTO_BUTTON_CLASS} onFiles={(files) => onAddPhotos(files, 'LIVE')}>
         <Camera size={14} strokeWidth={2.5} />
         <span>Camera</span>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          className="sr-only"
-          onChange={(e) => { onAddPhotos(e.target.files, 'LIVE'); e.target.value = ''; }}
-        />
-      </label>
+      </LivePhotoTrigger>
       <label className={PHOTO_BUTTON_CLASS}>
         <ImageUp size={14} strokeWidth={2.5} />
         <span>Gallery</span>

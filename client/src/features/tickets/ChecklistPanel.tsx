@@ -1,3 +1,4 @@
+import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useState } from 'react';
 import {
   Plus, Trash2, Loader2, CheckSquare, ChevronDown, ChevronRight,
@@ -198,14 +199,10 @@ const ItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-                <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
+                <LivePhotoTrigger className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover" onFiles={files => handleFiles(files, 'LIVE')}>
                   <Camera size={16} />
                   Camera
-                  <input
-                    type="file" accept="image/*" capture="environment" multiple
-                    className="sr-only" onChange={e => { handleFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
-                  />
-                </label>
+                </LivePhotoTrigger>
 
                 {!item.requiresLivePhoto && (
                   <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">

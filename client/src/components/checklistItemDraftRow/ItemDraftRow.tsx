@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { ToggleChip } from '../toggleChip';
+import { CountStepper } from '../../features/checklist/definition/builder/CountStepper';
+import { PhotoSourceChips } from '../../features/checklist/definition/builder/PhotoRulesPanel';
 import {
-  Check,
   Calendar,
   User,
   Image as ImageIcon,
@@ -202,48 +204,35 @@ export const ChecklistItemDraftRow = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 @sm:grid-cols-3 gap-3 items-end">
-              <div className="flex flex-col gap-1.5">
-                <label className="t-meta font-medium text-text-muted">Minimum</label>
-                <input
-                  type="number" min={0}
-                  value={draft.requiredImageCount}
-                  onChange={e => onChange({ requiredImageCount: e.target.value })}
-                  className={FIELD_INPUT_CLASS}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <span className="t-meta font-display font-semibold text-text-secondary sm:w-24 sm:shrink-0">At least</span>
+                <CountStepper
+                  value={minPhotos}
+                  min={0}
+                  max={20}
+                  label="Minimum photos"
+                  onChange={(next) => onChange({
+                    requiredImageCount: String(next),
+                    ...(maxPhotos !== undefined && maxPhotos < next ? { maxImageCount: String(next) } : {}),
+                  })}
                 />
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="t-meta font-medium text-text-muted">Maximum</label>
-                <input
-                  type="number" min={0}
-                  value={draft.maxImageCount}
-                  onChange={e => onChange({ maxImageCount: e.target.value })}
-                  placeholder="No limit"
-                  className={`${FIELD_INPUT_CLASS} placeholder:text-text-light`}
-                />
-              </div>
-
-              <label className="group/toggle col-span-2 @sm:col-span-1 flex items-center gap-2.5 cursor-pointer pb-2">
-                <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={draft.requiresLivePhoto}
-                    onChange={e => onChange({ requiresLivePhoto: e.target.checked })}
-                  />
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-2 ${
-                    draft.requiresLivePhoto
-                      ? 'bg-primary-600 border-primary-600'
-                      : 'bg-surface border-border-hover group-hover/toggle:border-text-light'
-                  }`}>
-                    {draft.requiresLivePhoto && <Check size={14} strokeWidth={3} className="text-white" />}
-                  </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <span className="t-meta font-display font-semibold text-text-secondary sm:w-24 sm:shrink-0">At most</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ToggleChip on={maxPhotos === undefined} onClick={() => onChange({ maxImageCount: '' })}>No limit</ToggleChip>
+                  {maxPhotos === undefined ? (
+                    <ToggleChip on={false} onClick={() => onChange({ maxImageCount: String(Math.max(minPhotos, 1)) })}>Set a limit</ToggleChip>
+                  ) : (
+                    <CountStepper value={maxPhotos} min={Math.max(1, minPhotos)} max={30} label="Maximum photos" onChange={(next) => onChange({ maxImageCount: String(next) })} />
+                  )}
                 </div>
-                <span className="t-meta font-medium text-text-secondary group-hover/toggle:text-text transition-colors leading-tight">
-                  Require live camera capture
-                </span>
-              </label>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <span className="t-meta font-display font-semibold text-text-secondary sm:w-24 sm:shrink-0">Source</span>
+                <PhotoSourceChips live={draft.requiresLivePhoto} onChange={(live) => onChange({ requiresLivePhoto: live })} />
+              </div>
             </div>
           </div>
         </div>

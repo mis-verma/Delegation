@@ -460,6 +460,18 @@ export const ChecklistBuilder = () => {
   const itemsValid = itemProblem === null;
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
   const hasPeople = visibleAssigneeCount > 0;
+  const countOf = (n: number, one: string, many: string) => (n === 0 ? '' : `${n} ${n === 1 ? one : many}`);
+  const stepItems = STEPS.map((st) => ({
+    ...st,
+    summary: {
+      basics: name.trim(),
+      schedule: [countOf(storeIds.length, 'store', 'stores'), recurrence === 'ONE_TIME' ? 'One-time' : recurrence.charAt(0) + recurrence.slice(1).toLowerCase()].filter(Boolean).join(' · '),
+      items: countOf(itemDrafts.length, 'question', 'questions'),
+      reviewers: countOf(reviewerIds.length, 'reviewer', 'reviewers'),
+      assign: countOf(visibleAssigneeCount, 'person', 'people'),
+      review: '',
+    }[st.key],
+  }));
   const sectionValidity = useMemo(
     () => [basicsValid, scheduleValid, itemsValid, true, true] as const,
     [basicsValid, scheduleValid, itemsValid],
@@ -764,7 +776,7 @@ export const ChecklistBuilder = () => {
             )}
           </div>
           <BuilderStepper
-            steps={STEPS}
+            steps={stepItems}
             current={step}
             maxReached={maxStepReached}
             allUnlocked={isEditing || isCopying}

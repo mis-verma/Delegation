@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Paperclip, Camera } from 'lucide-react';
+import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { ACCEPTED_ATTACHMENT_TYPES } from './taskAttachmentDisplay';
 
 const BTN_CLASS =
@@ -13,7 +14,6 @@ interface AttachFilesToolbarProps {
 
 export const AttachFilesToolbar = ({ onFiles, disabled, bordered = false }: AttachFilesToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const btnClass = `${BTN_CLASS} border ${bordered ? 'border-border hover:border-border-hover' : 'border-transparent'}`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,16 +24,22 @@ export const AttachFilesToolbar = ({ onFiles, disabled, bordered = false }: Atta
   return (
     <div className="flex items-center gap-2">
       <input ref={fileInputRef} type="file" accept={ACCEPTED_ATTACHMENT_TYPES} multiple className="hidden" onChange={handleChange} />
-      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleChange} />
 
       <button type="button" disabled={disabled} className={btnClass} onClick={() => fileInputRef.current?.click()}>
         <Paperclip size={15} aria-hidden />
         File
       </button>
-      <button type="button" disabled={disabled} className={btnClass} onClick={() => photoInputRef.current?.click()}>
-        <Camera size={15} aria-hidden />
-        Photo
-      </button>
+      {disabled ? (
+        <button type="button" disabled className={btnClass}>
+          <Camera size={15} aria-hidden />
+          Photo
+        </button>
+      ) : (
+        <LivePhotoTrigger className={btnClass} multiple={false} onFiles={(files) => { if (files?.length) onFiles(files); }}>
+          <Camera size={15} aria-hidden />
+          Photo
+        </LivePhotoTrigger>
+      )}
     </div>
   );
 };

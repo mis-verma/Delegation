@@ -1,7 +1,5 @@
-import { useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { useState } from 'react';
 import {
-  Check,
   UserCheck,
   Trash2,
   Image as ImageIcon,
@@ -10,15 +8,14 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useUpdateChecklistTemplateItemMutation, useDeleteChecklistTemplateItemMutation } from '../hook';
-import { useConfirm } from '../../../components';
+import { ToggleChip, useConfirm } from '../../../components';
+import { CountStepper } from '../../checklist/definition/builder/CountStepper';
+import { PhotoSourceChips } from '../../checklist/definition/builder/PhotoRulesPanel';
 import { InlineRenameInput } from './InlineRenameInput';
 import type { ChecklistTemplateItem } from '../../../api/checklistTemplates';
 import type { AssignableUser } from '../../../api/users';
 
 const UNASSIGNED = '__unassigned__';
-
-const PHOTO_INPUT_CLASS =
-  'w-12 sm:w-10 h-11 sm:h-7 px-1 text-base sm:text-xs font-display font-medium text-center transition-all bg-surface border border-border rounded-lg text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500';
 
 interface ItemRowProps {
   item: ChecklistTemplateItem;
@@ -33,39 +30,16 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   const confirm = useConfirm();
   const [renaming, setRenaming] = useState(false);
 
-  const minRef = useRef<HTMLInputElement>(null);
-  const maxRef = useRef<HTMLInputElement>(null);
+  const minPhotos = item.requiredImageCount;
+  const maxPhotos = item.maxImageCount;
 
-  const handleMinBlur = () => {
-    if (!minRef.current) return;
-    const value = Math.max(0, Math.floor(Number(minRef.current.value) || 0));
-    const max = maxRef.current?.value ? Number(maxRef.current.value) : item.maxImageCount;
-    if (max != null && value > max) {
-      toast.error('Minimum photos cannot be more than the maximum.');
-      minRef.current.value = String(item.requiredImageCount);
-      return;
-    }
-    minRef.current.value = String(value);
-    if (value !== item.requiredImageCount) {
-      updateItem.mutate({ id: item.id, payload: { requiredImageCount: value } });
-    }
+  const setMin = (value: number) => {
+    const payload: { requiredImageCount: number; maxImageCount?: number } = { requiredImageCount: value };
+    if (maxPhotos != null && maxPhotos < value) payload.maxImageCount = value;
+    updateItem.mutate({ id: item.id, payload });
   };
 
-  const handleMaxBlur = () => {
-    if (!maxRef.current) return;
-    const raw = maxRef.current.value;
-    const value = raw ? Math.max(0, Math.floor(Number(raw))) : null;
-    const min = minRef.current ? Math.floor(Number(minRef.current.value) || 0) : item.requiredImageCount;
-    if (value != null && value < min) {
-      toast.error('Maximum photos cannot be less than the minimum.');
-      maxRef.current.value = item.maxImageCount == null ? '' : String(item.maxImageCount);
-      return;
-    }
-    maxRef.current.value = value == null ? '' : String(value);
-    if (value !== item.maxImageCount) {
-      updateItem.mutate({ id: item.id, payload: { maxImageCount: value } });
-    }
-  };
+  const setMax = (value: number | null) => updateItem.mutate({ id: item.id, payload: { maxImageCount: value } });
 
   const handleDelete = async () => {
     const ok = await confirm({
@@ -112,59 +86,19 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
 
       <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto shrink-0">
 
-        <div className="flex items-center gap-2 p-1.5 bg-surface-hover border border-border rounded-xl transition-colors focus-within:border-primary-300 dark:focus-within:border-primary-500/50">
-          <div className="px-1.5 text-text-muted border-r border-border">
-            <ImageIcon className="w-4 h-4" />
-          </div>
-
-          <label className="flex items-center gap-1.5 px-1" title="Minimum photos required">
-            <span className="t-meta font-display font-bold text-text-muted">Min</span>
-            <input
-              ref={minRef}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              defaultValue={item.requiredImageCount}
-              onBlur={handleMinBlur}
-              className={PHOTO_INPUT_CLASS}
-            />
-          </label>
-
-          <span className="text-border select-none">•</span>
-
-          <label className="flex items-center gap-1.5 pr-1.5" title="Maximum photos allowed">
-            <span className="t-meta font-display font-bold text-text-muted">Max</span>
-            <input
-              ref={maxRef}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              defaultValue={item.maxImageCount ?? ''}
-              placeholder="∞"
-              onBlur={handleMaxBlur}
-              className={PHOTO_INPUT_CLASS}
-            />
-          </label>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface-hover p-1.5">
+          <span className="flex items-center gap-1.5 px-1.5 t-meta font-display font-bold text-text-muted">
+            <ImageIcon className="size-4" aria-hidden /> Photos
+          </span>
+          <CountStepper value={minPhotos} min={0} max={20} label="Minimum photos" onChange={setMin} />
+          <ToggleChip on={maxPhotos == null} onClick={() => setMax(null)} disabled={updateItem.isPending}>No limit</ToggleChip>
+          {maxPhotos == null ? (
+            <ToggleChip on={false} onClick={() => setMax(Math.max(minPhotos, 1))} disabled={updateItem.isPending}>Set a limit</ToggleChip>
+          ) : (
+            <CountStepper value={maxPhotos} min={Math.max(1, minPhotos)} max={30} label="Maximum photos" onChange={setMax} />
+          )}
+          <PhotoSourceChips live={item.requiresLivePhoto} onChange={(live) => updateItem.mutate({ id: item.id, payload: { requiresLivePhoto: live } })} />
         </div>
-
-        <button
-          type="button"
-          aria-pressed={item.requiresLivePhoto}
-          onClick={() => updateItem.mutate({ id: item.id, payload: { requiresLivePhoto: !item.requiresLivePhoto } })}
-          disabled={updateItem.isPending}
-          className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-9 rounded-xl border t-meta font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
-            item.requiresLivePhoto
-              ? 'bg-primary-500/10 border-primary-500/30 text-primary-700 dark:text-primary-400'
-              : 'bg-surface border-border text-text-secondary hover:text-text hover:bg-surface-hover'
-          }`}
-        >
-          <div className={`flex items-center justify-center w-3.5 h-3.5 rounded-[4px] transition-colors ${
-            item.requiresLivePhoto ? 'bg-primary-600 text-white' : 'border border-border'
-          }`}>
-            {item.requiresLivePhoto && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
-          </div>
-          Live only
-        </button>
 
         <div className="relative group/select">
           <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-text-muted group-hover/select:text-primary-500 transition-colors">

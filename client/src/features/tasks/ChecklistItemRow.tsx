@@ -1,3 +1,4 @@
+import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useState } from 'react';
 import {
   Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle, MessageSquarePlus
@@ -185,14 +186,10 @@ export const ChecklistItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">
+                <LivePhotoTrigger className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40" onFiles={files => handleFiles(files, 'LIVE')}>
                   <Camera size={14} />
                   Take photo
-                  <input
-                    type="file" accept="image/*" capture="environment" multiple
-                    className="sr-only" onChange={e => { handleFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
-                  />
-                </label>
+                </LivePhotoTrigger>
 
                 {!item.requiresLivePhoto && (
                   <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">

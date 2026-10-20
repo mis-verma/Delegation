@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Loader } from '../../../components';
 import { cn } from '@/lib/utils';
-import { LiveCameraDialog } from './LiveCameraDialog';
+import { LivePhotoTrigger } from './LivePhotoTrigger';
 
 interface CaptureButtonProps {
   icon: LucideIcon;
@@ -21,42 +20,28 @@ const BUTTON_BASE = cn(
 const LIVE_LOOK = 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10';
 const PLAIN_LOOK = 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover';
 
-const needsDesktopCamera = (live: boolean, accept: string) =>
-  live
-  && accept.startsWith('image')
-  && typeof navigator !== 'undefined'
-  && !!navigator.mediaDevices?.getUserMedia
-  && !window.matchMedia('(pointer: coarse)').matches;
-
-const toFileList = (file: File): FileList => {
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  return transfer.files;
-};
-
 export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: CaptureButtonProps) => {
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const content = (
+    <>
+      <Icon size={14} aria-hidden />
+      {label}
+    </>
+  );
 
-  if (needsDesktopCamera(live, accept)) {
+  if (live) {
     return (
-      <>
-        <button type="button" onClick={() => setCameraOpen(true)} className={cn(BUTTON_BASE, LIVE_LOOK, 'outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}>
-          <Icon size={14} aria-hidden />
-          {label}
-        </button>
-        {cameraOpen && <LiveCameraDialog open onClose={() => setCameraOpen(false)} onCapture={(file) => onFiles(toFileList(file))} />}
-      </>
+      <LivePhotoTrigger className={cn(BUTTON_BASE, LIVE_LOOK)} accept={accept} onFiles={onFiles}>
+        {content}
+      </LivePhotoTrigger>
     );
   }
 
   return (
-    <label className={cn(BUTTON_BASE, live ? LIVE_LOOK : PLAIN_LOOK)}>
-      <Icon size={14} aria-hidden />
-      {label}
+    <label className={cn(BUTTON_BASE, PLAIN_LOOK)}>
+      {content}
       <input
         type="file"
         accept={accept}
-        capture={live ? 'environment' : undefined}
         multiple
         className="sr-only"
         onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}

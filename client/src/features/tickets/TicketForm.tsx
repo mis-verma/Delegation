@@ -1,3 +1,4 @@
+import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useForm, useWatch, Controller, type FieldErrors } from 'react-hook-form';
 import { haptic } from '../../lib/haptics';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -577,7 +578,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
 };
 
 const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) => {
-  const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
     onAdd(e.target.files);
@@ -586,11 +586,10 @@ const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) =>
   const btn = 'flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-light hover:text-text hover:bg-surface-hover transition-colors cursor-pointer shrink-0';
   return (
     <div className="flex items-center gap-0.5">
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handle} />
       <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handle} />
-      <button type="button" title="Take photo" aria-label="Take photo" className={btn} onClick={() => cameraRef.current?.click()}>
-        <Camera size={15} />
-      </button>
+      <LivePhotoTrigger className={btn} onFiles={onAdd}>
+        <Camera size={15} aria-label="Take photo" />
+      </LivePhotoTrigger>
       <button type="button" title="Add photo from gallery" aria-label="Add photo from gallery" className={btn} onClick={() => galleryRef.current?.click()}>
         <ImageIcon size={15} />
       </button>
