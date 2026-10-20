@@ -264,7 +264,9 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               {pendingAnswer && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
-                  <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
+                  {!item.requiresLivePhoto && (
+                    <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
+                  )}
                   {uploadImages.isPending && <UploadingHint />}
                 </div>
               )}

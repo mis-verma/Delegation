@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react';
-import { AlertTriangle, Camera, Check, CornerUpLeft, Flag, Minus, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Camera, Check, CornerUpLeft, Flag, Minus, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { itemFlags, needsLookRank } from '../checklist/instance/reviewFlags';
 import { answerText } from '../checklist/instance/answerText';
@@ -14,6 +14,29 @@ const shortAnswer = (item: ChecklistInstanceItem): string => {
   const text = answerText(item);
   if (!text) return 'Done';
   return text.replace(/^(Answered:?|Entered|Picked|Rated)\s+/, '');
+};
+
+const BOOLEAN_LABELS: Partial<Record<ChecklistInstanceItem['itemType'], { yes: string; no: string }>> = {
+  YES_NO: { yes: 'Yes', no: 'No' },
+  PASS_FAIL: { yes: 'Pass', no: 'Fail' },
+};
+
+const PILL_BASE = 'inline-flex h-8 min-w-14 items-center justify-center gap-1 rounded-lg border px-3 t-meta font-display font-bold';
+
+const AnswerPills = ({ item, labels }: { item: ChecklistInstanceItem; labels: { yes: string; no: string } }) => {
+  const answer = item.isDone && !item.isNotApplicable ? item.booleanAnswer : null;
+  return (
+    <span role="img" aria-label={answer ? `Answered ${answer === 'YES' ? labels.yes : labels.no}` : 'Not answered'} className="inline-flex items-center gap-1.5">
+      <span className={cn(PILL_BASE, answer === 'YES' ? 'border-success-strong bg-success-strong text-white' : 'border-border text-text-light')}>
+        {answer === 'YES' && <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />}
+        {labels.yes}
+      </span>
+      <span className={cn(PILL_BASE, answer === 'NO' ? 'border-danger bg-danger text-white' : 'border-border text-text-light')}>
+        {answer === 'NO' && <X className="size-3.5" strokeWidth={3} aria-hidden="true" />}
+        {labels.no}
+      </span>
+    </span>
+  );
 };
 
 interface Look { icon: LucideIcon; chip: string; text: string; row: string; title: string }
@@ -85,7 +108,9 @@ export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTi
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="t-meta font-display font-semibold text-text leading-snug line-clamp-2">{item.label}</span>
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display">
-                  <span className={cn('font-semibold', look.text)}>{shortAnswer(item)}</span>
+                  {BOOLEAN_LABELS[item.itemType]
+                    ? <AnswerPills item={item} labels={BOOLEAN_LABELS[item.itemType]!} />
+                    : <span className={cn('font-semibold', look.text)}>{shortAnswer(item)}</span>}
                   {flagged && <span className={cn('font-medium', look.text)}>· {look.title}</span>}
                   {item.images.length > 0 && (
                     <span className="inline-flex items-center gap-0.5 text-text-muted tabular-nums" aria-label={`${item.images.length} photos`}>

@@ -207,14 +207,16 @@ const ItemRow = ({
                   />
                 </label>
 
-                <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
-                  <ImageIcon size={16} />
-                  Gallery
-                  <input
-                    type="file" accept="image/*" multiple
-                    className="sr-only" onChange={e => { handleFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
-                  />
-                </label>
+                {!item.requiresLivePhoto && (
+                  <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
+                    <ImageIcon size={16} />
+                    Gallery
+                    <input
+                      type="file" accept="image/*" multiple
+                      className="sr-only" onChange={e => { handleFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
+                    />
+                  </label>
+                )}
 
                 {uploadImages.isPending && <Loader2 size={18} className="animate-spin text-text-muted" aria-label="Uploading" />}
               </div>

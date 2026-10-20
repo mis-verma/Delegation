@@ -1,8 +1,9 @@
 import { useId, useState } from 'react';
-import { Globe2, ShieldCheck, UserCheck, X } from 'lucide-react';
+import { Globe2, ShieldCheck, UserCheck } from 'lucide-react';
 import { UserMultiSelect } from '../../../../components';
 import { useAssignableUsersQuery, useDepartmentsQuery } from '../../hook';
 import { LABEL_CLASS } from './formConstants';
+import { SelectedPeopleChips } from './SelectedPeopleChips';
 
 interface ChecklistReviewersFieldProps {
   storeIds: string[];
@@ -27,10 +28,6 @@ export const ChecklistReviewersField = ({
   const everyone = useAssignableUsersQuery();
   const pcIds = (everyone.data ?? []).filter((u) => u.role === 'PC').map((u) => u.id);
   const hasAllPc = pcIds.length > 0 && pcIds.every((id) => selected.includes(id));
-  const chosen = selected.map((id) => {
-    const person = (everyone.data ?? []).find((u) => u.id === id);
-    return { id, name: person ? `${person.firstName} ${person.lastName ?? ''}`.trim() : 'Reviewer', role: person?.role };
-  });
 
   return (
     <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
@@ -48,27 +45,7 @@ export const ChecklistReviewersField = ({
         )}
       </div>
 
-      {chosen.length > 0 && (
-        <ul aria-label="Selected reviewers" className="flex flex-wrap gap-1.5">
-          {chosen.map((c) => (
-            <li
-              key={c.id}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 pl-3 pr-1 t-meta font-display font-semibold text-primary-700 dark:text-primary-300"
-            >
-              {c.name}
-              {c.role === 'PC' && <span className="rounded-full bg-primary-600 px-1.5 py-px text-[10px] font-bold leading-4 text-white">PC</span>}
-              <button
-                type="button"
-                onClick={() => onChange(selected.filter((id) => id !== c.id))}
-                aria-label={`Remove reviewer ${c.name}`}
-                className="relative flex size-6 cursor-pointer items-center justify-center rounded-full text-primary-700/70 outline-none transition-colors duration-150 hover:bg-primary-500/20 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 dark:text-primary-300"
-              >
-                <X size={13} aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <SelectedPeopleChips ids={selected} label="Selected reviewers" onRemove={(id) => onChange(selected.filter((x) => x !== id))} />
 
       <UserMultiSelect
         all={anywhere}

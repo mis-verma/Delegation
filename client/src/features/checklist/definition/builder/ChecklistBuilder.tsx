@@ -814,6 +814,21 @@ export const ChecklistBuilder = () => {
 
             {step < STEPS.length - 1 && (
               <div className="flex flex-wrap items-end justify-end gap-2">
+                {!isEditing && !hasPeople && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={() => void handleSubmit()}
+                    isLoading={mutation.isPending}
+                    disabled={!canSubmit}
+                    title={!canSubmit ? 'Finish the steps that need attention first' : 'Save it now and keep it as a draft'}
+                    className="font-display pointer-coarse:h-11"
+                  >
+                    <Save size={15} aria-hidden />
+                    <span>Save draft</span>
+                  </Button>
+                )}
                 {isEditing && (
                   <Button
                     type="button"

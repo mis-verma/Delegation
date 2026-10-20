@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Video, MapPin, Info, Star, X, AlertTriangle } from 'lucide-react';
-import { AccessoriesListEditor, AddChip, Button, Input, Switch, ToggleChip } from '../../../../components';
+import { Video, MapPin, Info, Star, X, AlertTriangle, Check, Flag } from 'lucide-react';
+import { AccessoriesListEditor, AddChip, Button, Input, ToggleChip } from '../../../../components';
 import { AuditUniformLists } from './AuditUniformLists';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
+import { PhotoRulesPanel } from './PhotoRulesPanel';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { peopleCount, splitByVisible } from './useStorePeople';
 import { isScorableType } from '../../questionTypes/model';
@@ -24,16 +25,6 @@ const INPUT_LABEL = 'font-display font-medium tracking-normal px-0';
 
 const fid = (draft: ItemDraft, name: string) => `${name}-${draft.key}`;
 
-const SwitchField = ({ id, checked, onChange, label, hint }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) => (
-  <div className="flex items-center gap-2.5 w-fit">
-    <Switch id={id} checked={checked} onChange={onChange} />
-    <label htmlFor={id} className="flex flex-col justify-center min-h-11 sm:min-h-0 cursor-pointer">
-      <span className="text-sm font-display font-medium text-text">{label}</span>
-      {hint && <span className="t-meta font-display text-text-muted">{hint}</span>}
-    </label>
-  </div>
-);
-
 const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: ReactNode }) => (
   <p className="flex items-start gap-1.5 t-meta font-display text-text-muted leading-relaxed">
     <Icon size={13} className="shrink-0 mt-0.5 text-text-light" />
@@ -41,50 +32,9 @@ const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: R
   </p>
 );
 
-const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { noun: 'photos' | 'videos' }) => (
-  <div className="flex flex-col gap-3">
-    <div className="flex flex-wrap items-end gap-3">
-      <Input
-        id={fid(draft, 'min')}
-        label={`Minimum ${noun}`}
-        labelClassName={INPUT_LABEL}
-        containerClassName="w-24"
-        className={INPUT}
-        type="number"
-        inputMode="numeric"
-        step={1}
-        min={noun === 'videos' ? 1 : 0}
-        value={draft.requiredImageCount}
-        onChange={(e) => onChange({ requiredImageCount: e.target.value })}
-      />
-      <Input
-        id={fid(draft, 'max')}
-        label="Maximum"
-        labelClassName={INPUT_LABEL}
-        containerClassName="w-24"
-        className={INPUT}
-        type="number"
-        inputMode="numeric"
-        step={1}
-        min={0}
-        value={draft.maxImageCount}
-        onChange={(e) => onChange({ maxImageCount: e.target.value })}
-        placeholder="No limit"
-      />
-    </div>
-    <SwitchField
-      id={fid(draft, 'live')}
-      checked={draft.requiresLivePhoto}
-      onChange={(v) => onChange({ requiresLivePhoto: v })}
-      label={noun === 'videos' ? 'Record live only' : 'Live camera only'}
-      hint="No picking from the gallery"
-    />
-  </div>
-);
-
 const StandardFields = (props: ItemTypeFieldsProps) => {
   const { draft, onChange } = props;
-  if (Number(draft.requiredImageCount) > 0) return <PhotoCountFields {...props} noun="photos" />;
+  if (Number(draft.requiredImageCount) > 0) return <PhotoRulesPanel draft={draft} onChange={onChange} noun="photos" removable />;
   return (
     <div className="w-fit">
       <AddChip onClick={() => onChange({ requiredImageCount: '1' })}>Also ask for a photo</AddChip>
@@ -94,7 +44,7 @@ const StandardFields = (props: ItemTypeFieldsProps) => {
 
 const VideoFields = (props: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-2.5">
-    <PhotoCountFields {...props} noun="videos" />
+    <PhotoRulesPanel draft={props.draft} onChange={props.onChange} noun="videos" />
     <Note icon={Video}>Staff record or upload short clips. Photos aren’t accepted here.</Note>
   </div>
 );
@@ -325,6 +275,8 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
       noActions={draft.noActions}
       onYesActionsChange={(actions) => onChange({ yesActions: actions })}
       onNoActionsChange={(actions) => onChange({ noActions: actions })}
+      liveOnly={draft.requiresLivePhoto}
+      onLiveOnlyChange={(live) => onChange({ requiresLivePhoto: live })}
     />
   );
 };
@@ -418,15 +370,19 @@ const FIELDS_BY_TYPE: Record<ChecklistItemType, FieldRenderer> = {
 };
 
 const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <SwitchField
-    id={fid(draft, 'critical')}
-    checked={draft.isCritical}
-    onChange={(v) => onChange({ isCritical: v })}
-    label="Critical question"
-    hint={isScorableType(draft.itemType)
-      ? 'A bad answer counts double against compliance and is flagged to the reviewer'
-      : 'Counts double if a reviewer sends it back'}
-  />
+  <div className="flex flex-col gap-1.5">
+    <div className="w-fit">
+      <ToggleChip on={draft.isCritical} onClick={() => onChange({ isCritical: !draft.isCritical })}>
+        {draft.isCritical ? <Check size={13} strokeWidth={2.75} /> : <Flag size={13} />}
+        Critical question
+      </ToggleChip>
+    </div>
+    <span className="t-meta font-display text-text-muted">
+      {isScorableType(draft.itemType)
+        ? 'A bad answer counts double against compliance and is flagged to the reviewer'
+        : 'Counts double if a reviewer sends it back'}
+    </span>
+  </div>
 );
 
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {

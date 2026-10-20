@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notifyError } from '../../lib/queryHelpers';
 
-const UNDO_WINDOW_MS = 10_000;
+const UNDO_WINDOW_MS = 5_000;
 
 export interface DecisionRequest {
   id: string;

@@ -51,7 +51,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       closeButton={!isMobile}
       visibleToasts={isMobile ? 1 : 3}
-      duration={4000}
+      duration={2800}
       icons={ICONS}
       toastOptions={{
         classNames: {

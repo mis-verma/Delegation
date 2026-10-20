@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Zap, Camera, MessageSquareText, TicketPlus, BellRing, Check, ArrowRight, X, Info, TriangleAlert, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { AddChip, Button, IconChip, ToggleChip } from '../../../../components';
+import { PhotoSourceChips } from './PhotoRulesPanel';
 import type { ChecklistConditionalAction } from '../../../../api/checklistDefinitions';
 
 const TRIGGER_LABELS: Record<'YES_NO' | 'PASS_FAIL', { yes: string; no: string }> = {
@@ -21,6 +22,8 @@ interface ConditionalLogicPanelProps {
   noActions: ChecklistConditionalAction[];
   onYesActionsChange: (actions: ChecklistConditionalAction[]) => void;
   onNoActionsChange: (actions: ChecklistConditionalAction[]) => void;
+  liveOnly?: boolean;
+  onLiveOnlyChange?: (live: boolean) => void;
   className?: string;
 }
 
@@ -59,7 +62,7 @@ const RuleRow = ({
   </div>
 );
 
-const Outcome = ({ answer, tone, actions }: { answer: string; tone: 'good' | 'bad'; actions: ChecklistConditionalAction[] }) => (
+const Outcome = ({ answer, tone, actions, liveOnly }: { answer: string; tone: 'good' | 'bad'; actions: ChecklistConditionalAction[]; liveOnly: boolean }) => (
   <li className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2.5">
     <span className={`flex h-9 items-center justify-center rounded-lg border t-card font-display font-semibold ${tone === 'good' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>
       {answer}
@@ -69,7 +72,7 @@ const Outcome = ({ answer, tone, actions }: { answer: string; tone: 'good' | 'ba
     ) : (
       <span className="flex flex-wrap gap-1">
         {ACTIONS.filter((a) => actions.includes(a.value)).map((a) => (
-          <IconChip key={a.value} icon={a.icon} tone={a.tone} label={a.staff} />
+          <IconChip key={a.value} icon={a.icon} tone={a.tone} label={a.value === 'REQUIRE_PHOTO' && liveOnly ? 'Live photo' : a.staff} />
         ))}
       </span>
     )}
@@ -82,6 +85,8 @@ export const ConditionalLogicPanel = ({
   noActions,
   onYesActionsChange,
   onNoActionsChange,
+  liveOnly = false,
+  onLiveOnlyChange,
   className = '',
 }: ConditionalLogicPanelProps) => {
   const labels = TRIGGER_LABELS[itemType];
@@ -122,11 +127,18 @@ export const ConditionalLogicPanel = ({
       <RuleRow answer={labels.yes} tone="good" actions={yesActions} onChange={onYesActionsChange} />
       <RuleRow answer={labels.no} tone="bad" actions={noActions} onChange={onNoActionsChange} />
 
+      {onLiveOnlyChange && (yesActions.includes('REQUIRE_PHOTO') || noActions.includes('REQUIRE_PHOTO')) && (
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:gap-3">
+          <span className="t-meta font-display font-semibold text-text-secondary sm:w-28 sm:shrink-0">Photo source</span>
+          <PhotoSourceChips live={liveOnly} onChange={onLiveOnlyChange} />
+        </div>
+      )}
+
       <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
         <span className="t-meta font-display font-semibold text-text-secondary">What staff will see</span>
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Outcome for each answer">
-          <Outcome answer={labels.yes} tone="good" actions={yesActions} />
-          <Outcome answer={labels.no} tone="bad" actions={noActions} />
+          <Outcome answer={labels.yes} tone="good" actions={yesActions} liveOnly={liveOnly} />
+          <Outcome answer={labels.no} tone="bad" actions={noActions} liveOnly={liveOnly} />
         </ul>
       </div>
 

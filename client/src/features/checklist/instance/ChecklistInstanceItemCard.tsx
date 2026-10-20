@@ -131,13 +131,15 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
                 accept={isVideoItem ? 'video/*' : 'image/*'}
                 onFiles={files => handleFiles(files, 'LIVE')}
               />
-              <CaptureButton
-                icon={ImageUp}
-                label={isVideoItem ? 'Choose video' : 'Gallery'}
-                live={false}
-                accept={isVideoItem ? 'video/*' : 'image/*'}
-                onFiles={files => handleFiles(files, 'GALLERY')}
-              />
+              {!item.requiresLivePhoto && (
+                <CaptureButton
+                  icon={ImageUp}
+                  label={isVideoItem ? 'Choose video' : 'Gallery'}
+                  live={false}
+                  accept={isVideoItem ? 'video/*' : 'image/*'}
+                  onFiles={files => handleFiles(files, 'GALLERY')}
+                />
+              )}
               {uploadImages.isPending && <UploadingHint />}
             </div>
 

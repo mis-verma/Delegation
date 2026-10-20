@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { NoticeBanner } from '../../../../components';
 import { useAssignableUsersQuery } from '../../hook';
 import { ChecklistAssigneesField } from '../form/ChecklistAssigneesField';
+import { SelectedPeopleChips } from '../form/SelectedPeopleChips';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { onRadioKeyDown } from './radioGroupKeys';
 import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
@@ -62,6 +63,7 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
         onRemove={() => onAssigneeIdsChange(shown)}
       />
     )}
+    <SelectedPeopleChips ids={shown} label="Assigned people" groupByDepartment onRemove={(id) => onAssigneeIdsChange(assigneeIds.filter((a) => a !== id))} />
     <ChecklistAssigneesField
       storeIds={storeIds}
       selected={shown}

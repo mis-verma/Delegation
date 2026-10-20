@@ -2,6 +2,7 @@ import { memo, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
+import { QuestionSummaryChips } from './builder/QuestionSummaryChips';
 import { ItemTypeConfigFields } from './builder/ItemTypeConfigFields';
 import { draftProblem, patchForTypeSwitch } from '../questionTypes/model';
 import { QuestionTypeMenu } from './builder/QuestionTypeMenu';
@@ -152,6 +153,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           <div className="sm:hidden">
             <QuestionTypeMenu draft={draft} onPick={pickType} />
           </div>
+          <QuestionSummaryChips draft={draft} />
           <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} validPersonIds={validPersonIds} />
           {problem && (
             <p id={problemId} role="alert" className="flex items-start gap-1.5 t-meta font-display font-medium text-danger">

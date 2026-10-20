@@ -194,14 +194,16 @@ export const ChecklistItemRow = ({
                   />
                 </label>
 
-                <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">
-                  <ImageIcon size={14} />
-                  Gallery
-                  <input
-                    type="file" accept="image/*" multiple
-                    className="sr-only" onChange={e => { handleFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
-                  />
-                </label>
+                {!item.requiresLivePhoto && (
+                  <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">
+                    <ImageIcon size={14} />
+                    Gallery
+                    <input
+                      type="file" accept="image/*" multiple
+                      className="sr-only" onChange={e => { handleFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
+                    />
+                  </label>
+                )}
 
                 {uploadImages.isPending && <Loader2 size={18} className="animate-spin text-info ml-2" />}
               </div>
