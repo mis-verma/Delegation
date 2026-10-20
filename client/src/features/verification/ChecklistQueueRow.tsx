@@ -2,6 +2,7 @@ import { memo, useRef, useState, type TouchEvent } from 'react';
 import { Check, ChevronDown, Clock3, CornerUpLeft, Repeat, Send, Store } from 'lucide-react';
 import { Button } from '../../components';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../checklist/checklistDisplay';
 import { RiskChips } from './RiskChips';
 import { ComplianceMeter } from './ComplianceMeter';
@@ -20,10 +21,11 @@ interface ChecklistQueueRowProps {
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
+  onSendBackItem?: (id: string, itemId: string) => void;
 }
 
 export const ChecklistQueueRow = memo(function ChecklistQueueRow({
-  row, now, active, showDepartment = true, inlineActions = 'below-lg', onOpen, onApprove, onSendBack,
+  row, now, active, showDepartment = true, inlineActions = 'below-lg', onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistQueueRowProps) {
   const { id, instance, risk } = row;
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -31,6 +33,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   const sendBackHintRef = useRef<HTMLDivElement>(null);
   const gesture = useRef({ x: 0, y: 0, dx: 0, axis: null as 'x' | 'y' | null });
   const [showQuestions, setShowQuestions] = useState(false);
+  const { user } = useAuth();
 
   const paint = (dx: number) => {
     const surface = surfaceRef.current;
@@ -147,7 +150,14 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           </button>
         )}
 
-        {showQuestions && <QuestionPreview items={instance.items} onOpen={() => onOpen(id)} />}
+        {showQuestions && (
+          <QuestionPreview
+            items={instance.items}
+            canRaiseTicket={!!user && !instance.assigneeIds.includes(user.id)}
+            onOpen={() => onOpen(id)}
+            onSendBackItem={onSendBackItem ? (itemId) => onSendBackItem(id, itemId) : undefined}
+          />
+        )}
 
         {inlineActions && (
           <div className={cn('flex items-center justify-end gap-2', lgHidden)}>

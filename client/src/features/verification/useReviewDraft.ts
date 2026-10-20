@@ -33,14 +33,15 @@ export const useReviewDraft = (runId: string | null) => {
   const setSending = useCallback((sending: boolean) => update((prev) => ({ ...prev, sending })), [update]);
   const reset = useCallback(() => setState(fresh(runId)), [runId]);
   const startSendBackFor = useCallback((id: string) => setState({ ...fresh(id), sending: true }), []);
+  const startPickFor = useCallback((id: string, itemId: string) => setState({ ...fresh(id), picked: { [itemId]: '' }, sending: true }), []);
 
   const pickedIds = useMemo(() => Object.keys(draft.picked), [draft.picked]);
   const pickedSet = useMemo<ReadonlySet<string>>(() => new Set(pickedIds), [pickedIds]);
 
   const { picked, note, sending } = draft;
   return useMemo(
-    () => ({ picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor }),
-    [picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor],
+    () => ({ picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor, startPickFor }),
+    [picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor, startPickFor],
   );
 };
 

@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, Check, CornerUpLeft, Flag, Minus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { itemFlags, needsLookRank } from '../checklist/instance/reviewFlags';
 import { answerText } from '../checklist/instance/answerText';
+import { RaiseTicketAction } from '../checklist/instance/RaiseTicketAction';
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 
 const SHOWN = 4;
@@ -30,11 +31,14 @@ const dotFor = (item: ChecklistInstanceItem): Look => {
 
 interface QuestionPreviewProps {
   items: ChecklistInstanceItem[];
+  canRaiseTicket?: boolean;
   onOpen: () => void;
+  onSendBackItem?: (itemId: string) => void;
 }
 
-export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: QuestionPreviewProps) {
-  const { shown, rest, answered, total, photosHave, photosNeeded } = useMemo(() => {
+export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTicket = false, onOpen, onSendBackItem }: QuestionPreviewProps) {
+  const [showAll, setShowAll] = useState(false);
+  const { sorted, answered, total, photosHave, photosNeeded } = useMemo(() => {
     const sorted = [...items].sort((a, b) => {
       const fa = itemFlags(a);
       const fb = itemFlags(b);
@@ -44,8 +48,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
     });
     const needPhotos = items.filter((i) => !i.isNotApplicable && i.requiredImageCount > 0);
     return {
-      shown: sorted.slice(0, SHOWN),
-      rest: Math.max(0, sorted.length - SHOWN),
+      sorted,
       answered: items.filter((i) => i.isDone || i.isNotApplicable).length,
       total: items.length,
       photosHave: needPhotos.filter((i) => i.images.length >= i.requiredImageCount).length,
@@ -54,6 +57,9 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
   }, [items]);
 
   if (total === 0) return null;
+
+  const shown = showAll ? sorted : sorted.slice(0, SHOWN);
+  const rest = Math.max(0, sorted.length - SHOWN);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-surface-hover/30 p-2.5">
@@ -88,16 +94,36 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
                     </span>
                   )}
                 </span>
+                {(onSendBackItem || canRaiseTicket || item.reviewTicketId) && (
+                  <span className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                    {onSendBackItem && !item.isNotApplicable && (
+                      <button
+                        type="button"
+                        onClick={() => onSendBackItem(item.id)}
+                        className="inline-flex h-9 pointer-coarse:h-11 items-center gap-1.5 rounded-lg border border-danger/30 px-2.5 t-meta font-display font-semibold text-danger transition-colors duration-150 hover:border-danger/50 hover:bg-danger/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                      >
+                        <CornerUpLeft className="size-3.5" aria-hidden="true" />
+                        Send back
+                      </button>
+                    )}
+                    <RaiseTicketAction item={item} canRaise={canRaiseTicket} />
+                  </span>
+                )}
               </span>
             </li>
           );
         })}
       </ul>
-      {rest > 0 && (
-        <button type="button" onClick={onOpen} className="self-start t-meta font-display font-semibold text-primary-600 hover:underline dark:text-primary-300 cursor-pointer">
-          +{rest} more {rest === 1 ? 'question' : 'questions'}, open to review
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {rest > 0 && (
+          <button type="button" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} className="inline-flex h-8 pointer-coarse:h-11 items-center t-meta font-display font-semibold text-primary-600 hover:underline dark:text-primary-300 cursor-pointer">
+            {showAll ? 'Show fewer' : `Show ${rest} more ${rest === 1 ? 'question' : 'questions'}`}
+          </button>
+        )}
+        <button type="button" onClick={onOpen} className="inline-flex h-8 pointer-coarse:h-11 items-center t-meta font-display font-semibold text-text-muted hover:text-text hover:underline cursor-pointer">
+          Open full review
         </button>
-      )}
+      </div>
     </div>
   );
 });

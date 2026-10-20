@@ -201,6 +201,13 @@ export const VerificationQueue = () => {
     }
   }, []);
 
+  const sendBackItem = useCallback((id: string, itemId: string) => {
+    const { draft: current, patch: update } = latest.current;
+    setCursor(id);
+    current?.startPickFor(id, itemId);
+    update({ open: id });
+  }, []);
+
   const move = useCallback((delta: number) => {
     const { rows, activeId: current, isDesktop: desktop, patch: update } = latest.current;
     if (rows.length === 0) return;
@@ -357,6 +364,7 @@ export const VerificationQueue = () => {
                 onOpen={openRun}
                 onApprove={approve}
                 onSendBack={startSendBack}
+                onSendBackItem={sendBackItem}
               />
 
               {isDesktop && visibleRows.length > 0 && (

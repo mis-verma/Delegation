@@ -46,6 +46,7 @@ interface ChecklistListProps {
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
+  onSendBackItem?: (id: string, itemId: string) => void;
 }
 
 const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: string }> = {
@@ -57,7 +58,7 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 export const ChecklistList = ({
   rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
-  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', grouped = false, onOpen, onApprove, onSendBack,
+  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
   const groupCounts = { critical: 0, attention: 0, ready: 0 };
   for (const r of rows) groupCounts[groupOf(r)] += 1;
@@ -155,6 +156,7 @@ export const ChecklistList = ({
                 onOpen={onOpen}
                 onApprove={onApprove}
                 onSendBack={onSendBack}
+                onSendBackItem={onSendBackItem}
               />
             </Fragment>
           );
