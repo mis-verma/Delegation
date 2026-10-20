@@ -20,7 +20,7 @@ import { GripVertical, Trash2, Copy, Plus, X, Pencil, Check, Layers, ChevronUp, 
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
-import { Button, Input } from '../../../../components';
+import { Button, IconChip, Input } from '../../../../components';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import {
   UNGROUPED, MAX_CHECKLIST_ITEMS, MAX_SECTION_NAME_LENGTH, type SectionId,
@@ -229,7 +229,7 @@ const SectionContainer = ({
           )}
           <span className="text-xs font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
           {isActive && !renaming && (
-            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
+            <IconChip icon={Plus} tone="bg-primary-600" label="New questions go here" className="shrink-0" />
           )}
         </div>
 

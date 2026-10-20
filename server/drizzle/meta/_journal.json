@@ -400,6 +400,20 @@
       "when": 1792394251933,
       "tag": "0056_push_and_notification_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "5",
+      "when": 1792472977510,
+      "tag": "0057_instance_image_purpose",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "5",
+      "when": 1792473071885,
+      "tag": "0058_instance_image_purpose_by_answer",
+      "breakpoints": true
     }
   ]
 }

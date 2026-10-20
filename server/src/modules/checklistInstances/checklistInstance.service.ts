@@ -1,3 +1,4 @@
+import { conditionalPhotoPurposeFor, conditionalReasonPatch, stalePhotoPurposes } from "./booleanAnswerRules.js"
 import { db } from "../../config/db.js"
 import {
     checklistInstances,
@@ -31,6 +32,7 @@ import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { VerifyChecklistInstanceInput, RaiseChecklistTicketInput } from "./checklistInstance.validation.js"
 import type { Role } from "../../db/schema/core.js"
+import type { CHECKLIST_ITEM_TYPES } from "../../db/schema/checklistDefinition.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
@@ -316,7 +318,7 @@ const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: str
 
 const assertPhotosSatisfied = async (item: any) => {
     if (item.requiredImageCount <= 0) return
-    const images = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.checklistInstanceItemId, item.id))
+    const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")))
     const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE") : images
     if (qualifying.length < item.requiredImageCount) {
         const missing = item.requiredImageCount - qualifying.length
@@ -430,7 +432,12 @@ export type ItemValueInput = {
     notApplicable?: boolean
 }
 
-const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<string, (item: any, values: ItemValueInput) => void> = {
+type ItemValueValidator = (item: any, values: ItemValueInput) => void
+
+const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<(typeof CHECKLIST_ITEM_TYPES)[number], ItemValueValidator | null> = {
+    STANDARD: null,
+    AUDIT: null,
+    VIDEO_UPLOAD: null,
     NUMBER_ENTRY: (item, v) => assertNumberEntrySatisfied(item, v.numericValue),
     RATING: (item, v) => assertRatingSatisfied(item, v.numericValue),
     YES_NO: (_item, v) => assertBooleanAnswerSatisfied(v.booleanAnswer),
@@ -466,7 +473,7 @@ const assertConditionalActionsSatisfied = async (item: any, values: ItemValueInp
     const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
 
     if (actions.includes("REQUIRE_PHOTO")) {
-        const images = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.checklistInstanceItemId, item.id))
+        const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, conditionalPhotoPurposeFor(values.booleanAnswer as "YES" | "NO"))))
         const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE").length : images.length
         if (qualifying < 1) {
             throw AppError.badRequest("Upload a photo before completing this item. Your answer requires one")
@@ -486,6 +493,7 @@ const applyConditionalSideEffects = async (
     instance: { id: string; title: string; storeId: string },
     user: AccessTokenPayload,
     values: ItemValueInput,
+    previousAnswer?: "YES" | "NO" | null,
 ) => {
     if (!isConditionTriggered(item, values)) return item
     const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
@@ -507,7 +515,8 @@ const applyConditionalSideEffects = async (
         }
     }
 
-    if (actions.includes("NOTIFY_AREA_MANAGER")) {
+    const sameAnswerAgain = previousAnswer != null && previousAnswer === values.booleanAnswer
+    if (actions.includes("NOTIFY_AREA_MANAGER") && !sameAnswerAgain) {
         await notificationService
             .notifyAreaManagersOfChecklistFlag({ _id: instance.id, title: instance.title }, updatedItem)
             .catch((err: unknown) => console.error("Failed to notify area manager of checklist flage:", err))
@@ -1344,11 +1353,18 @@ export const checklistInstanceService = {
         if (values.signatureValue !== undefined) patch.signatureValue = values.signatureValue
         if (values.secondSignatureValue !== undefined) patch.secondSignatureValue = values.secondSignatureValue
         if (values.conditionalReasonValue !== undefined) patch.conditionalReasonValue = values.conditionalReasonValue
+        const reasonReset = conditionalReasonPatch(item, values)
+        if (reasonReset !== undefined) patch.conditionalReasonValue = reasonReset
+        const stalePhotos = isDone ? stalePhotoPurposes(item, values) : []
         if (remarkInput !== undefined) patch.remarks = remarkInput?.trim() ? remarkInput.trim() : null
         patch.isNotApplicable = markingNotApplicable
         if (isDone) patch.sendBackNote = null
 
         const mergedItem = { ...item, ...patch }
+
+        if (stalePhotos.length) {
+            await db.delete(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, itemId), inArray(checklistInstanceImages.purpose, stalePhotos)))
+        }
 
         if (isDone && !markingNotApplicable) {
             await assertPhotosSatisfied(mergedItem)
@@ -1385,7 +1401,7 @@ export const checklistInstanceService = {
         let updatedItem = { ...mergedItem, isDone, completedAt: completion.completedAt, completedBy: completion.completedBy }
 
         if (isDone && !markingNotApplicable) {
-            updatedItem = await applyConditionalSideEffects(updatedItem, instanceRow, user, values)
+            updatedItem = await applyConditionalSideEffects(updatedItem, instanceRow, user, values, item.booleanAnswer)
         }
 
         await syncVerificationStatus(instanceRow.id)

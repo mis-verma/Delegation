@@ -8,7 +8,7 @@ import { EvidenceThumb } from './EvidenceThumb';
 import { WaiveAction } from './WaiveAction';
 import { RaiseTicketAction } from './RaiseTicketAction';
 import { useChecklistItemHistoryQuery } from '../hook';
-import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
+import { generalPhotoCount, itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
 import { answerText } from './answerText';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
 
@@ -153,7 +153,7 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
               )}
               {flags.fixed && <IconChip icon={CheckCheck} tone="bg-success" label="Fixed after send-back" />}
               {flags.waived && <IconChip icon={ShieldCheck} tone="bg-primary-600" label="Waived" title={item.waiveReason ?? 'Excused by a reviewer'} />}
-              {flags.missingPhotos && <IconChip icon={AlertTriangle} tone="bg-danger" label={`Photos ${item.images.length}/${item.requiredImageCount}`} />}
+              {flags.missingPhotos && <IconChip icon={AlertTriangle} tone="bg-danger" label={`Photos ${generalPhotoCount(item)}/${item.requiredImageCount}`} />}
             </div>
           </div>
 

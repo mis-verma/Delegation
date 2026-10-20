@@ -16,7 +16,7 @@ import {
   Info,
   PauseCircle,
 } from 'lucide-react';
-import { Button, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, formatWeekdays } from '../../../../../components';
+import { Button, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, formatWeekdays } from '../../../../../components';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useStoresQuery, useAssignableUsersQuery } from '../../../hook';
@@ -122,9 +122,7 @@ const SectionCard = ({
           {title}
         </h3>
         {badgeText && (
-          <span className="t-meta font-medium text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
-            {badgeText}
-          </span>
+          <IconChip icon={false} label={badgeText} className="pl-2.5" labelClassName="tabular-nums" />
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -345,9 +343,7 @@ export const BuilderReviewStep = ({
                       {item.label}
                     </span>
                     {item.section && (
-                      <span className="shrink-0 t-meta font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
-                        {item.section}
-                      </span>
+                      <IconChip icon={false} label={item.section} className="shrink-0 pl-2.5" />
                     )}
                   </div>
                   <Badge variant="outline" className="shrink-0 t-meta py-0 px-1.5">

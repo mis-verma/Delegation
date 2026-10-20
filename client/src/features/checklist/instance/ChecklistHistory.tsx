@@ -1,12 +1,12 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router';
-import { Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
+import { Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, TriangleAlert, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseDateParam, toDateParam } from '../../admin/analytics/analyticsDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  DateRangePicker, EmptyState, ImageLightbox, InlineError, PageHeader, PageNav, PANEL_CLASS, SelectDropdown, Skeleton,
+  DateRangePicker, EmptyState, IconChip, ImageLightbox, InlineError, PageHeader, PageNav, PANEL_CLASS, SelectDropdown, Skeleton,
   type DateRangeValue,
 } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
@@ -66,26 +66,15 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
           </p>
         </div>
         {row.isNotApplicable ? (
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-secondary shrink-0">
-            <Ban size={12} strokeWidth={2.5} aria-hidden />
-            Not applicable
-          </span>
+          <IconChip icon={Ban} tone="bg-text-muted" label="Not applicable" className="shrink-0" />
         ) : row.accessories.length > 0 && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium shrink-0 tabular-nums',
-              missing === 0 ? 'bg-success/10 dark:bg-success/15 text-text-secondary' : 'bg-danger/10 dark:bg-danger/15 text-text-secondary',
-            )}
-          >
-            {missing === 0 ? (
-              <>
-                <Check size={12} strokeWidth={3} className="text-success" aria-hidden />
-                All in order
-              </>
-            ) : (
-              `${missing} missing`
-            )}
-          </span>
+          <IconChip
+            icon={missing === 0 ? Check : TriangleAlert}
+            tone={missing === 0 ? 'bg-success' : 'bg-danger'}
+            label={missing === 0 ? 'All in order' : `${missing} missing`}
+            labelClassName="tabular-nums"
+            className="shrink-0"
+          />
         )}
       </div>
 

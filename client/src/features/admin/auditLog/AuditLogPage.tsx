@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { History } from 'lucide-react';
+import { History, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageNav, EmptyState, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
+import { PageNav, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
 import { useAuditLogsQuery } from './hook';
 import { useUsersQuery } from '../hook';
 import { AuditLogFilters } from './AuditLogFilters';
@@ -97,9 +97,9 @@ export const AuditLogPage = () => {
         </div>
 
         {data && (
-          <p className="text-xs font-display font-medium text-text-muted tabular-nums" aria-live="polite">
-            {shown} of {data.meta.total} {data.meta.total === 1 ? 'change' : 'changes'}
-          </p>
+          <span aria-live="polite" className="w-fit">
+            <IconChip icon={ListTree} tone="bg-primary-600" label={`${shown} of ${data.meta.total.toLocaleString('en-IN')} ${data.meta.total === 1 ? 'change' : 'changes'}`} labelClassName="tabular-nums" />
+          </span>
         )}
       </div>
 

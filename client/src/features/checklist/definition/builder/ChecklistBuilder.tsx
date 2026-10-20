@@ -19,7 +19,7 @@ import {
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
 import { QuestionTypePalette } from './QuestionTypePalette';
-import { itemDraftProblem } from './ItemTypeConfigFields';
+import { draftPayload, draftProblem } from '../../questionTypes/model';
 import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
@@ -70,31 +70,6 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
 
 const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.length).trimEnd()} (copy)`;
 
-const SIGNATURE_LABELS: Record<string, string[]> = {
-  SIGNATURE: ['Signature'],
-  DUAL_SIGNATURE: ['Employee', 'Supervisor'],
-};
-
-const acceptablePayload = (d: ItemDraft) => {
-  if (d.itemType === 'YES_NO' || d.itemType === 'PASS_FAIL') {
-    return d.acceptableAnswers.length ? { acceptableAnswers: d.acceptableAnswers } : {};
-  }
-  if (d.itemType === 'MULTIPLE_CHOICE' || d.itemType === 'DROPDOWN') {
-    const kept = d.acceptableAnswers.filter(a => d.options.includes(a));
-    return kept.length ? { acceptableAnswers: kept } : {};
-  }
-  if (d.itemType === 'NUMBER_ENTRY' || d.itemType === 'RATING') {
-    return {
-      ...(d.acceptableMin.trim() ? { acceptableMin: Number(d.acceptableMin) } : {}),
-      ...(d.acceptableMax.trim() ? { acceptableMax: Number(d.acceptableMax) } : {}),
-    };
-  }
-  return {};
-};
-
-const storedTypeLists = (byType: Record<string, string[]>): Record<string, string[]> =>
-  Object.fromEntries(Object.entries(byType).filter(([, list]) => list.length > 0));
-
 const buildItemPayloads = (
   itemDrafts: ItemDraft[],
   sections: string[],
@@ -111,33 +86,7 @@ const buildItemPayloads = (
       requiresLivePhoto: d.requiresLivePhoto,
       isCritical: d.isCritical,
       itemType: d.itemType,
-      ...(d.itemType === 'AUDIT' ? {
-        auditUserIds: splitByVisible(d.auditUserIds, storePersonIds).shown,
-        accessories: d.accessories,
-        accessoriesFemale: d.accessoriesFemale,
-        accessoriesMale: d.accessoriesMale,
-        accessoriesByType: storedTypeLists(d.accessoriesByType),
-      } : {}),
-      ...(d.itemType === 'NUMBER_ENTRY' || d.itemType === 'CASH_TALLY' ? {
-        numberEntryUnit: d.numberEntryUnit.trim() || undefined,
-        numberEntryMin: d.numberEntryMin.trim() ? Number(d.numberEntryMin) : undefined,
-        numberEntryMax: d.numberEntryMax.trim() ? Number(d.numberEntryMax) : undefined,
-      } : {}),
-      ...(d.itemType === 'RATING' ? { ratingScale: d.ratingScale.trim() ? Number(d.ratingScale) : undefined } : {}),
-      ...(d.itemType === 'MULTIPLE_CHOICE' || d.itemType === 'DROPDOWN' ? { options: d.options } : {}),
-      ...(d.itemType === 'GPS' ? {
-        gpsTargetLat: d.gpsTargetLat.trim() ? Number(d.gpsTargetLat) : undefined,
-        gpsTargetLng: d.gpsTargetLng.trim() ? Number(d.gpsTargetLng) : undefined,
-        gpsRadiusMeters: d.gpsRadiusMeters.trim() ? Number(d.gpsRadiusMeters) : undefined,
-      } : {}),
-      ...(d.itemType === 'QR_SCAN' ? { qrExpectedValue: d.qrExpectedValue.trim() || undefined } : {}),
-      ...(d.itemType === 'CASH_TALLY' ? { cashExpectedAmount: d.cashExpectedAmount.trim() ? Number(d.cashExpectedAmount) : undefined } : {}),
-      ...acceptablePayload(d),
-      ...(d.itemType === 'SIGNATURE' || d.itemType === 'DUAL_SIGNATURE' ? { signatureLabels: SIGNATURE_LABELS[d.itemType] } : {}),
-      ...((d.yesActions.length || d.noActions.length) && (d.itemType === 'YES_NO' || d.itemType === 'PASS_FAIL') ? {
-        yesActions: d.yesActions,
-        noActions: d.noActions,
-      } : {}),
+      ...draftPayload(d, { storePersonIds }),
     }));
 
 const firstItemProblem = (
@@ -147,7 +96,7 @@ const firstItemProblem = (
   if (itemDrafts.length === 0) return { key: null, message: 'Add at least one question to continue.' };
   for (let i = 0; i < itemDrafts.length; i++) {
     const d = itemDrafts[i];
-    const problem = d.label.trim() ? itemDraftProblem(d, storePersonIds) : 'Type the question staff will see.';
+    const problem = d.label.trim() ? draftProblem(d, { storePersonIds }) : 'Type the question staff will see.';
     if (problem) return { key: d.key, message: `Question ${i + 1}: ${problem}` };
   }
   return null;

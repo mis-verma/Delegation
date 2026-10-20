@@ -8,6 +8,8 @@ import type { CaptureMethod } from './ticket';
 export type ChecklistInstanceStatus = 'OPEN' | 'DUE' | 'COMPLETED' | 'OVERDUE';
 export type ChecklistVerificationStatus = 'NOT_SUBMITTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
+export type ChecklistImagePurpose = 'GENERAL' | 'CONDITIONAL_YES' | 'CONDITIONAL_NO';
+
 export type ChecklistInstanceImage = {
   id:                      string;
   url:                     string;
@@ -15,6 +17,7 @@ export type ChecklistInstanceImage = {
   mimeType:                string;
   sizeBytes:               number;
   captureMethod:           CaptureMethod;
+  purpose:                 ChecklistImagePurpose;
   checklistInstanceItemId: string;
   uploadedBy:              string;
   createdAt:               string;
@@ -535,10 +538,11 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/reopen-approval`, { method: 'PATCH' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
-  uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod) => {
+  uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod, purpose: ChecklistImagePurpose = 'GENERAL') => {
     const formData = new FormData();
     (await shrinkImages(files)).forEach(f => formData.append('images', f));
     formData.append('captureMethod', captureMethod);
+    formData.append('purpose', purpose);
     return apiFetch<ApiResponse<ChecklistInstanceImage[]>>(`/checklist-instance-items/${itemId}/images`, {
       method: 'POST',
       body: formData,

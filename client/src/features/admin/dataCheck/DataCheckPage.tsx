@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { AlertCircle, ArrowLeft, Check, ChevronDown, Flag, ListChecks, Play, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { Button, EmptyState, IconChip, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { AnalyticsControlBar } from '../analytics/GroupByControl';
 import { CARD_PAD } from '../../scores/controlStyles';
 import { SectionHeader } from '../../scores/SectionHeader';
@@ -13,10 +13,10 @@ import type { ConsistencyCheck, ConsistencyStatus } from '../../../api/scores';
 const NUMBER = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
 const signed = (n: number) => (n > 0 ? `+${NUMBER.format(n)}` : NUMBER.format(n));
 
-const STATUS: Record<ConsistencyStatus, { icon: LucideIcon; tone: string; label: string }> = {
-  pass: { icon: Check, tone: 'text-success', label: 'passed' },
-  fail: { icon: AlertCircle, tone: 'text-danger', label: 'failed' },
-  flag: { icon: Flag, tone: 'text-warning', label: 'explained' },
+const STATUS: Record<ConsistencyStatus, { icon: LucideIcon; tone: string; bg: string; label: string }> = {
+  pass: { icon: Check, tone: 'text-success', bg: 'bg-success', label: 'passed' },
+  fail: { icon: AlertCircle, tone: 'text-danger', bg: 'bg-danger', label: 'failed' },
+  flag: { icon: Flag, tone: 'text-warning', bg: 'bg-warning', label: 'explained' },
 };
 
 const FLAG_NOTE = 'A flag is not an error: a checklist run shared by several people or departments is counted in each of them, so the cuts can add up to more than the total.';
@@ -24,14 +24,8 @@ const FLAG_NOTE = 'A flag is not an error: a checklist run shared by several peo
 const GRID = 'md:grid md:grid-cols-[minmax(0,1.3fr)_6rem_6rem_6rem_minmax(0,2fr)] md:items-start md:gap-4';
 
 const StatusChip = ({ status, count }: { status: ConsistencyStatus; count: number }) => {
-  const { icon: Icon, tone, label } = STATUS[status];
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 t-card font-display font-semibold', count > 0 ? tone : 'text-text-muted')}>
-      <Icon size={15} aria-hidden />
-      <span className="tabular-nums">{count}</span>
-      <span className="font-medium">{label}</span>
-    </span>
-  );
+  const { icon, bg, label } = STATUS[status];
+  return <IconChip icon={icon} tone={count > 0 ? bg : 'bg-text-muted'} label={`${count} ${label}`} labelClassName="tabular-nums" />;
 };
 
 const Figure = ({ caption, value, tone }: { caption: string; value: string; tone?: string }) => (
@@ -42,11 +36,13 @@ const Figure = ({ caption, value, tone }: { caption: string; value: string; tone
 );
 
 const CheckRow = ({ check }: { check: ConsistencyCheck }) => {
-  const { icon: Icon, tone } = STATUS[check.status];
+  const { icon: Icon, tone, bg } = STATUS[check.status];
   return (
     <li className={cn('flex flex-col gap-3', CARD_PAD, GRID)}>
-      <p className="flex items-start gap-2 t-card font-display font-semibold text-text leading-snug">
-        <Icon size={16} className={cn('shrink-0', tone)} aria-hidden />
+      <p className="flex items-start gap-2.5 t-card font-display font-semibold text-text leading-snug">
+        <span className={cn('mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-white', bg)} aria-hidden="true">
+          <Icon size={13} strokeWidth={2.75} />
+        </span>
         <span>{check.label}</span>
       </p>
       <div className="grid grid-cols-3 gap-3 md:contents">

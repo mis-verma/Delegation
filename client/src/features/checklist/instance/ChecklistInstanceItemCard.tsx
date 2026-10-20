@@ -33,7 +33,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
   const isVideoItem = item.itemType === 'VIDEO_UPLOAD';
   const mediaWord = isVideoItem ? 'video' : 'photo';
 
-  const images = item.images ?? [];
+  const images = (item.images ?? []).filter(i => i.purpose === 'GENERAL');
   const qualifying = item.requiresLivePhoto
     ? images.filter(i => i.captureMethod === 'LIVE').length
     : images.length;

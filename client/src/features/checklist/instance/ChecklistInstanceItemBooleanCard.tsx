@@ -1,4 +1,4 @@
-import { memo, useId, useState } from 'react';
+import { memo, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
 import { Camera, ImageUp, Zap, AlertTriangle } from 'lucide-react';
 import {
@@ -55,6 +55,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const isTriggering = (value: 'YES' | 'NO') => actionsFor(value).length > 0;
 
   const [pendingAnswer, setPendingAnswer] = useState<'YES' | 'NO' | null>(null);
+  const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const activeActions = pendingAnswer
     ? actionsFor(pendingAnswer)
     : item.isDone && item.booleanAnswer
@@ -63,16 +64,41 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const requiresPhoto = activeActions.includes('REQUIRE_PHOTO');
   const requiresReason = activeActions.includes('ASK_REASON');
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
-  const images = item.images ?? [];
+  const activeAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const conditionalPurpose = activeAnswer ? (`CONDITIONAL_${activeAnswer}` as const) : null;
+  const images = (item.images ?? []).filter(img => img.purpose === conditionalPurpose);
+
+  const draftFor = (value: 'YES' | 'NO') => (item.booleanAnswer === value ? item.conditionalReasonValue ?? '' : '');
+  const sessionPhotos = images.filter(img => !baselinePhotos.current.has(img.id));
+  const hasDiscardable = pendingAnswer != null && (reasonDraft.trim().length > 0 || sessionPhotos.length > 0);
+
+  const discardSession = () => {
+    for (const img of sessionPhotos) deleteImage.mutate(img.id);
+    baselinePhotos.current = new Set(images.filter(img => !sessionPhotos.includes(img)).map(img => img.id));
+  };
 
   const pickAnswer = (value: 'YES' | 'NO') => {
-    if (!interactive || setItemDone.isPending) return;
+    if (!interactive || setItemDone.isPending || value === pendingAnswer) return;
     haptic('tap');
     if (isTriggering(value)) {
+      if (pendingAnswer === null) baselinePhotos.current = new Set(images.map(img => img.id));
+      else discardSession();
+      setReasonDraft(draftFor(value));
       setPendingAnswer(value);
       return;
     }
+    if (pendingAnswer !== null) {
+      discardSession();
+      setPendingAnswer(null);
+    }
+    setReasonDraft('');
     setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value });
+  };
+
+  const cancelPending = () => {
+    discardSession();
+    setPendingAnswer(null);
+    setReasonDraft('');
   };
 
   const canConfirm =
@@ -95,7 +121,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
     if (!files || !files.length) return;
-    uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod });
+    if (!conditionalPurpose) return;
+    uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod, purpose: conditionalPurpose });
   };
 
   const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
@@ -109,7 +136,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         item={item}
         interactive={interactive}
         reopenPending={setItemDone.isPending}
-        onReopen={() => { setPendingAnswer(null); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
+        onReopen={() => { setPendingAnswer(null); setReasonDraft(''); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
       />
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
@@ -167,6 +194,17 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           {labels.no}
         </button>
       </div>
+
+      {hasDiscardable && (
+        <p className="t-meta font-display text-text-muted">Picking a different answer discards the reason and photos you added for this one.</p>
+      )}
+
+      {item.issueId && activeAnswer && !activeActions.includes('CREATE_ISSUE') && (
+        <p className="flex items-start gap-1.5 t-meta font-display text-text-muted">
+          <Zap className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+          A ticket was raised for an earlier answer. It stays open until someone closes it.
+        </p>
+      )}
 
       {item.isDone && isFlaggedAnswer(item) && (
         <p className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
@@ -229,7 +267,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setPendingAnswer(null); setReasonDraft(item.conditionalReasonValue ?? ''); }}
+                onClick={cancelPending}
               >
                 Cancel
               </Button>

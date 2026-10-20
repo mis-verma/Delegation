@@ -1,6 +1,7 @@
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
+import { modelOf, type AnswerVerdict } from './questionTypes/model';
 
-export type AnswerVerdict = 'good' | 'bad';
+export type { AnswerVerdict };
 
 type Scorable = Pick<
   ChecklistInstanceItem,
@@ -13,24 +14,21 @@ export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
   if (item.sendBackCount > 0) return 'bad';
   if (!item.isDone) return null;
   const accepted = item.acceptableAnswers ?? [];
-  switch (item.itemType) {
-    case 'YES_NO':
-    case 'PASS_FAIL':
-      if (!accepted.length || !item.booleanAnswer) return null;
-      return accepted.includes(item.booleanAnswer) ? 'good' : 'bad';
-    case 'MULTIPLE_CHOICE':
-    case 'DROPDOWN':
-      if (!accepted.length || !item.textValue) return null;
-      return accepted.includes(item.textValue) ? 'good' : 'bad';
-    case 'NUMBER_ENTRY':
-    case 'RATING': {
-      const { acceptableMin: min, acceptableMax: max, numericValue: value } = item;
-      if ((min == null && max == null) || value == null) return null;
-      return (min == null || value >= min) && (max == null || value <= max) ? 'good' : 'bad';
-    }
-    default:
-      return null;
+  const kind = modelOf(item.itemType).scoring;
+  if (kind === 'boolean') {
+    if (!accepted.length || !item.booleanAnswer) return null;
+    return accepted.includes(item.booleanAnswer) ? 'good' : 'bad';
   }
+  if (kind === 'choice') {
+    if (!accepted.length || !item.textValue) return null;
+    return accepted.includes(item.textValue) ? 'good' : 'bad';
+  }
+  if (kind === 'range') {
+    const { acceptableMin: min, acceptableMax: max, numericValue: value } = item;
+    if ((min == null && max == null) || value == null) return null;
+    return (min == null || value >= min) && (max == null || value <= max) ? 'good' : 'bad';
+  }
+  return null;
 };
 
 const BOOLEAN_LABEL: Record<string, Record<string, string>> = {
@@ -43,7 +41,7 @@ export const complianceReason = (item: Scorable): string | null => {
   if (item.sendBackCount > 0) return item.isDone ? 'Sent back by the reviewer earlier, so it still counts against compliance.' : null;
   if (answerVerdict(item) !== 'bad') return null;
   const accepted = item.acceptableAnswers ?? [];
-  if (item.itemType === 'NUMBER_ENTRY' || item.itemType === 'RATING') {
+  if (modelOf(item.itemType).scoring === 'range') {
     const { acceptableMin: min, acceptableMax: max } = item;
     const range = min != null && max != null ? `between ${min} and ${max}` : min != null ? `${min} or more` : `${max} or less`;
     return `Counts against compliance. The accepted answer is ${range}.`;

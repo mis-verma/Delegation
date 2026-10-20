@@ -2,16 +2,16 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, CheckCheck, ChevronRight, ClipboardList, ScanSearch, Search, Store, UserMinus, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StatCard } from '../../dashboard';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Avatar, Button, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, Input, PageHeader, PageNav,
-  PANEL_CLASS, Skeleton,
+  PANEL_CLASS, RoleChip, Skeleton,
 } from '../../../components';
 import { useAuditHistoryQuery, useFormerPeopleQuery, usePersonRunsQuery } from '../hook';
 import { AuditRowCard } from '../instance/ChecklistHistory';
 import { formatDate, VERIFICATION_CHIP, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
-import { ROLE_LABEL } from '../../admin/roleBadge';
 import type { Role } from '../../../api/admin';
 import type { FormerPerson, PersonRun } from '../../../api/checklistInstances';
 
@@ -44,7 +44,7 @@ const PersonButton = memo(({ person, selected, onSelect }: { person: FormerPerso
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
         <span className="flex items-center gap-1.5 text-sm font-display font-semibold text-text">
           <span className="truncate">{fullName(person)}</span>
-          <span className="shrink-0 text-xs font-medium text-text-muted">(left)</span>
+          <IconChip icon={UserMinus} tone="bg-text-muted" label="Left" className="shrink-0" />
         </span>
         <span className="text-xs font-display text-text-muted truncate">
           {[person.departmentName, `Left ${ago(person.leftAt)}`].filter(Boolean).join(' · ')}
@@ -56,16 +56,8 @@ const PersonButton = memo(({ person, selected, onSelect }: { person: FormerPerso
 ));
 PersonButton.displayName = 'PersonButton';
 
-const StatTile = ({ icon: Icon, value, label, tone }: { icon: LucideIcon; value: number; label: string; tone: string }) => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2.5 sm:p-3.5 min-w-0')}>
-    <span className={cn('hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0', tone)} aria-hidden>
-      <Icon size={18} />
-    </span>
-    <div className="flex flex-col gap-0.5 min-w-0">
-      <span className="t-stat font-display font-bold text-text tabular-nums leading-none">{value}</span>
-      <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{label}</span>
-    </div>
-  </div>
+const StatTile = ({ icon, value, label, tone }: { icon: LucideIcon; value: number; label: string; tone: string }) => (
+  <StatCard modern compact icon={icon} value={value} label={label} iconTint={tone} />
 );
 
 const RunRow = memo(({ run }: { run: PersonRun }) => {
@@ -200,7 +192,7 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <IconChip icon={false} label={ROLE_LABEL[person.role as Role] ?? person.role} />
+            <RoleChip role={person.role as Role} />
             {person.departmentName && <DepartmentChip name={person.departmentName} />}
             {person.storeName && <IconChip icon={Store} tone="bg-success" label={person.storeName} />}
           </div>
@@ -208,9 +200,9 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
       </section>
 
       <div className="grid grid-cols-3 gap-2">
-        <StatTile icon={ClipboardList} value={person.runsAssigned} label="Checklists given" tone="bg-primary-500/10 text-primary-700 dark:text-primary-300" />
-        <StatTile icon={CheckCheck} value={person.runsWorked} label="Filled in by them" tone="bg-success/10 text-success" />
-        <StatTile icon={ScanSearch} value={person.auditsOnThem} label="Audits on them" tone="bg-warning/10 text-warning" />
+        <StatTile icon={ClipboardList} value={person.runsAssigned} label="Checklists given" tone="text-primary-600" />
+        <StatTile icon={CheckCheck} value={person.runsWorked} label="Filled in by them" tone="text-success" />
+        <StatTile icon={ScanSearch} value={person.auditsOnThem} label="Audits on them" tone="text-warning" />
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'runs' | 'audits')} className="gap-4">
@@ -265,9 +257,10 @@ export const FormerPeoplePage = () => {
       {people && people.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
           <div className={cn('flex flex-col gap-3', selected && !isDesktop && 'hidden')}>
-            <p className="sm:hidden text-xs font-display text-text-muted px-1">
-              {people.length} {people.length === 1 ? 'person has' : 'people have'} left. Tap a name to see their checklist history.
-            </p>
+            <div className="flex flex-wrap items-center gap-2 px-1">
+              <IconChip icon={UserMinus} tone="bg-text-muted" label={`${people.length} ${people.length === 1 ? 'person' : 'people'} left`} />
+              <span className="sm:hidden text-xs font-display text-text-muted">Tap a name to see their history.</span>
+            </div>
             {people.length > 5 && (
               <Input
                 label="Find a person"

@@ -11,7 +11,7 @@ import {
 } from '../../api/checklistDefinitions';
 import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
-import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
+import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
@@ -410,8 +410,8 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
 
 export const useUploadChecklistInstanceImagesMutation = (instanceId: string) =>
   useEntityMutation({
-    mutationFn: ({ itemId, files, captureMethod }: { itemId: string; files: File[]; captureMethod: CaptureMethod }) =>
-      checklistInstanceApi.uploadImages(itemId, files, captureMethod).then(r => r.data),
+    mutationFn: ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) =>
+      checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
     errorFallback: "Couldn't upload the photos. Try again.",

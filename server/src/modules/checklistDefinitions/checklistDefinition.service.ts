@@ -88,7 +88,7 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, D
                 JOIN ChecklistInstance ci ON ci.id = cii.instanceId
                 LEFT JOIN (
                     SELECT checklistInstanceItemId, COUNT(*) AS totalCount, SUM(captureMethod = 'LIVE') AS liveCount
-                    FROM ChecklistInstanceImage GROUP BY checklistInstanceItemId
+                    FROM ChecklistInstanceImage WHERE purpose = 'GENERAL' GROUP BY checklistInstanceItemId
                 ) img ON img.checklistInstanceItemId = cii.id
                 WHERE ci.definitionId IN (${sql.join(definitionIds.map((id) => sql`${id}`), sql`, `)})
                 GROUP BY ci.definitionId

@@ -45,6 +45,7 @@ export const checklistInstanceByStoreReportQuerySchema = z.object({
 
 export const uploadChecklistInstanceImageSchema = z.object({
     captureMethod: z.enum(CAPTURE_METHODS),
+    purpose: z.enum(["GENERAL", "CONDITIONAL_YES", "CONDITIONAL_NO"]).default("GENERAL"),
 })
 
 export const verifyChecklistInstanceSchema = z.object({

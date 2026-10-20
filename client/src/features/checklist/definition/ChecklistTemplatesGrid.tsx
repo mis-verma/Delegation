@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateScoreCaches } from '../../../lib/queryHelpers';
 import { toast } from 'sonner';
 import { Plus, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
-import { Button, Skeleton, EmptyState, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
+import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
@@ -224,8 +224,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             </Button>
           )}
           {!isPending && !isError && (
-            <span className="ml-auto text-xs font-display font-medium text-text-muted tabular-nums" aria-live="polite">
-              {plural(total, 'checklist')}
+            <span className="ml-auto" aria-live="polite">
+              <IconChip icon={Repeat} tone="bg-primary-600" label={plural(total, 'checklist')} labelClassName="tabular-nums" />
             </span>
           )}
         </div>

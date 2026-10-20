@@ -6,9 +6,9 @@ import { asyncHandler } from "../../utils/asyncHandler.js"
 export const checklistInstanceImageController = {
 
     upload: asyncHandler(async (req: Request, res: Response) => {
-        const { captureMethod } = uploadChecklistInstanceImageSchema.parse(req.body);
+        const { captureMethod, purpose } = uploadChecklistInstanceImageSchema.parse(req.body);
         const files = (req.files as Express.Multer.File[]) ?? [];
-        const images = await checklistInstanceImageService.upload(req.params.id, files, captureMethod, req.user!);
+        const images = await checklistInstanceImageService.upload(req.params.id, files, captureMethod, purpose, req.user!);
         res.status(201).json({ success: true, data: images });
     }),
 

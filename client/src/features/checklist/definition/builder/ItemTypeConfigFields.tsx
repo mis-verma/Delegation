@@ -7,6 +7,7 @@ import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { peopleCount, splitByVisible } from './useStorePeople';
+import { isScorableType } from '../../questionTypes/model';
 import type { ChecklistItemType } from '../../../../api/checklistDefinitions';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 
@@ -397,7 +398,7 @@ const note = (text: string) => () => <Note>{text}</Note>;
 
 type FieldRenderer = (props: ItemTypeFieldsProps) => ReactNode;
 
-const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
+const FIELDS_BY_TYPE: Record<ChecklistItemType, FieldRenderer> = {
   STANDARD: StandardFields,
   VIDEO_UPLOAD: VideoFields,
   AUDIT: AuditFields,
@@ -416,15 +417,13 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   DATE_TIME: note('Staff pick a date and time.'),
 };
 
-const SCORABLE_TYPES: ChecklistItemType[] = ['YES_NO', 'PASS_FAIL', 'MULTIPLE_CHOICE', 'DROPDOWN', 'NUMBER_ENTRY', 'RATING'];
-
 const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
   <SwitchField
     id={fid(draft, 'critical')}
     checked={draft.isCritical}
     onChange={(v) => onChange({ isCritical: v })}
     label="Critical question"
-    hint={SCORABLE_TYPES.includes(draft.itemType)
+    hint={isScorableType(draft.itemType)
       ? 'A bad answer counts double against compliance and is flagged to the reviewer'
       : 'Counts double if a reviewer sends it back'}
   />
@@ -432,84 +431,5 @@ const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
 
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   const Renderer = FIELDS_BY_TYPE[props.draft.itemType];
-  return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /></> : null;
-};
-
-const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD'];
-const num = (v: string) => (v.trim() === '' ? null : Number(v));
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const itemDraftProblem = (draft: ItemDraft, validPersonIds?: ReadonlySet<string> | null): string | null => {
-  if (draft.label.trim().length > 191) return 'Keep the question under 191 characters.';
-  if (draft.itemType === 'AUDIT' && splitByVisible(draft.auditUserIds, validPersonIds ?? null).shown.length === 0) {
-    return draft.auditUserIds.length > 0 ? 'Pick at least one person from the selected stores to audit.' : 'Pick at least one person to audit.';
-  }
-  if ((draft.itemType === 'MULTIPLE_CHOICE' || draft.itemType === 'DROPDOWN') && draft.options.length < 2) return 'Add at least two options.';
-  if (PHOTO_TYPES.includes(draft.itemType)) {
-    const min = num(draft.requiredImageCount) ?? 0;
-    const max = num(draft.maxImageCount);
-    const noun = draft.itemType === 'VIDEO_UPLOAD' ? 'video' : 'photo';
-    if (!Number.isInteger(min) || min < 0) return `The minimum ${noun} count must be a whole number, 0 or more.`;
-    if (max != null && (!Number.isInteger(max) || max < 0)) return `The maximum ${noun} count must be a whole number, 0 or more.`;
-    if (draft.itemType === 'VIDEO_UPLOAD' && min < 1) return 'A video question needs at least 1 video.';
-    if (max != null && min > max) return "Minimum can't be more than the maximum, or staff could never finish it.";
-  }
-  if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'CASH_TALLY') {
-    const min = num(draft.numberEntryMin);
-    const max = num(draft.numberEntryMax);
-    if (min != null && max != null && min > max) return "The lowest allowed can't be more than the highest.";
-  }
-  if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'RATING') {
-    const min = num(draft.acceptableMin);
-    const max = num(draft.acceptableMax);
-    if (min != null && max != null && min > max) return "The lowest good answer can't be more than the highest.";
-    if (draft.itemType === 'RATING') {
-      const scale = num(draft.ratingScale);
-      if (scale != null && (!Number.isInteger(scale) || scale < 2 || scale > 10)) return 'The rating scale must be a whole number from 2 to 10.';
-      if (scale != null && ((min != null && (min < 1 || min > scale)) || (max != null && (max < 1 || max > scale)))) {
-        return `Good answers must be between 1 and ${scale} stars.`;
-      }
-    } else {
-      const lo = num(draft.numberEntryMin);
-      const hi = num(draft.numberEntryMax);
-      if (lo != null && hi != null && ((min != null && (min < lo || min > hi)) || (max != null && (max < lo || max > hi)))) {
-        return `Good answers must be between ${lo} and ${hi}, the range staff can enter.`;
-      }
-    }
-  }
-  if (draft.itemType === 'CASH_TALLY' && (num(draft.cashExpectedAmount) ?? 0) < 0) return "Expected amount can't be negative.";
-  if (draft.itemType === 'GPS') {
-    const lat = num(draft.gpsTargetLat);
-    const lng = num(draft.gpsTargetLng);
-    const radius = num(draft.gpsRadiusMeters);
-    if ((lat == null) !== (lng == null)) return 'Enter both latitude and longitude, or remove the spot.';
-    if (lat != null && (lat < -90 || lat > 90)) return 'Latitude must be between -90 and 90.';
-    if (lng != null && (lng < -180 || lng > 180)) return 'Longitude must be between -180 and 180.';
-    if (radius != null && radius < 1) return 'The distance must be at least 1 metre.';
-    if (radius != null && lat == null) return 'Enter the spot’s latitude and longitude, or remove the spot.';
-    if (lat != null && radius == null) return 'Set how close they must be, or the location is never checked.';
-  }
-  return null;
-};
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const patchForTypeSwitch = (draft: ItemDraft, itemType: ItemDraft['itemType']): Partial<ItemDraft> => {
-  const patch: Partial<ItemDraft> = { itemType };
-  if (!PHOTO_TYPES.includes(itemType)) {
-    patch.requiredImageCount = '0';
-    patch.maxImageCount = '';
-    patch.requiresLivePhoto = false;
-  } else if (itemType === 'VIDEO_UPLOAD' && (num(draft.requiredImageCount) ?? 0) < 1) {
-    patch.requiredImageCount = '1';
-  }
-  if (itemType !== draft.itemType) {
-    patch.acceptableAnswers = [];
-    patch.acceptableMin = '';
-    patch.acceptableMax = '';
-  }
-  if (itemType !== 'YES_NO' && itemType !== 'PASS_FAIL') {
-    patch.yesActions = [];
-    patch.noActions = [];
-  }
-  return patch;
+  return <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /></>;
 };

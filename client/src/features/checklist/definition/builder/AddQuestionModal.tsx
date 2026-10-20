@@ -3,7 +3,8 @@ import { Plus, Type, SlidersHorizontal } from 'lucide-react';
 import { Modal, Button, Input } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
-import { ItemTypeConfigFields, itemDraftProblem } from './ItemTypeConfigFields';
+import { ItemTypeConfigFields } from './ItemTypeConfigFields';
+import { draftProblem } from '../../questionTypes/model';
 import { QuestionTypeMenu } from './QuestionTypeMenu';
 import { questionTypeOf } from './questionTypes';
 import { emptyItemDraft, patchForEntry, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
@@ -34,7 +35,7 @@ export const AddQuestionModal = ({
     setDraft((prev) => ({ ...prev, ...patch }));
 
   const hasLabel = Boolean(draft.label.trim());
-  const problem = itemDraftProblem(draft);
+  const problem = draftProblem(draft, { storePersonIds: null });
   const canConfirm = hasLabel && problem === null;
 
   const handleSubmit = (e?: FormEvent) => {

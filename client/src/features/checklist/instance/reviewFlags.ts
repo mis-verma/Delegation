@@ -12,12 +12,15 @@ export interface ItemFlags {
   needsLook: boolean;
 }
 
+export const generalPhotoCount = (item: Pick<ChecklistInstanceItem, 'images'>): number =>
+  (item.images ?? []).filter((img) => (img.purpose ?? 'GENERAL') === 'GENERAL').length;
+
 export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
   const verdict = answerVerdict(item);
   const waived = !!item.waivedAt;
   const sentBack = item.sendBackCount > 0 && !waived;
   const bad = verdict === 'bad' && !sentBack;
-  const missingPhotos = !item.isNotApplicable && item.requiredImageCount > 0 && item.images.length < item.requiredImageCount;
+  const missingPhotos = !item.isNotApplicable && item.requiredImageCount > 0 && generalPhotoCount(item) < item.requiredImageCount;
   const critical = item.isCritical === true;
   return {
     bad,

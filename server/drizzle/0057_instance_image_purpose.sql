@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistInstanceImage` ADD `purpose` enum('GENERAL','CONDITIONAL') DEFAULT 'GENERAL' NOT NULL;

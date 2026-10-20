@@ -215,6 +215,8 @@ export const checklistInstanceItemSubmissionAccessories = mysqlTable(
   ],
 );
 
+export const INSTANCE_IMAGE_PURPOSES = ['GENERAL', 'CONDITIONAL_YES', 'CONDITIONAL_NO'] as const;
+
 export const checklistInstanceImages = mysqlTable(
   'ChecklistInstanceImage',
   {
@@ -224,6 +226,7 @@ export const checklistInstanceImages = mysqlTable(
     sizeBytes: int('sizeBytes').notNull(),
     mimeType: varchar('mimeType', { length: 191 }).notNull(),
     captureMethod: mysqlEnum('captureMethod', CAPTURE_METHODS).notNull(),
+    purpose: mysqlEnum('purpose', INSTANCE_IMAGE_PURPOSES).notNull().default('GENERAL'),
     checklistInstanceItemId: varchar('checklistInstanceItemId', { length: 191 }).notNull(),
     uploadedBy: varchar('uploadedBy', { length: 191 }).notNull().references(() => users.id),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),

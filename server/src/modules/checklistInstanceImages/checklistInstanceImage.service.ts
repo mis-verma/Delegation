@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { checklistInstanceItems, checklistInstances, checklistInstanceImages, checklistInstanceAssignees } from "../../db/schema/index.js";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
@@ -24,7 +24,7 @@ const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: str
 };
 
 export const checklistInstanceImageService = {
-    async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
+    async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", purpose: "GENERAL" | "CONDITIONAL_YES" | "CONDITIONAL_NO", user: AccessTokenPayload) {
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         await assertCanUpload(user, item);
@@ -50,10 +50,18 @@ export const checklistInstanceImageService = {
             throw AppError.badRequest("This item requires a live camera photo, not a gallery upload");
         }
 
-        if (item.maxImageCount != null) {
+        if (purpose !== "GENERAL") {
+            const forAnswer = purpose === "CONDITIONAL_YES" ? item.yesActions : item.noActions;
+            if (!(forAnswer ?? []).includes("REQUIRE_PHOTO")) {
+                files.forEach((f) => fs.unlink(f.path, () => {}));
+                throw AppError.badRequest("This answer does not ask for a photo");
+            }
+        }
+
+        if (item.maxImageCount != null && purpose === "GENERAL") {
             const existing = await db.select({ id: checklistInstanceImages.id })
                 .from(checklistInstanceImages)
-                .where(eq(checklistInstanceImages.checklistInstanceItemId, item.id));
+                .where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")));
             const existingCount = existing.length;
             if (existingCount + files.length > item.maxImageCount) {
                 files.forEach((f) => fs.unlink(f.path, () => {}));
@@ -73,6 +81,7 @@ export const checklistInstanceImageService = {
             mimeType: file.mimetype,
             sizeBytes: file.size,
             captureMethod,
+            purpose,
             checklistInstanceItemId: item.id,
             uploadedBy: user.sub,
         }));

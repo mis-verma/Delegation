@@ -4,7 +4,7 @@ import { Plus, ListChecks, Inbox } from 'lucide-react';
 import { useChecklistTemplatesQuery, useDepartmentsQuery } from '../hook';
 import { ChecklistTemplateForm } from './ChecklistTemplateForm';
 import { TemplateBlock } from './TemplateBlock';
-import { Button, EmptyState, InlineError, PageHeader, Skeleton } from '../../../components';
+import { Button, EmptyState, IconChip, InlineError, PageHeader, Skeleton } from '../../../components';
 import { plural } from '../../checklist/checklistDisplay';
 
 const TemplateRowSkeleton = () => (
@@ -45,7 +45,7 @@ export const ChecklistTemplateList = () => {
 
     return (
       <section aria-label="Template list" className="flex flex-col gap-3">
-        <p className="text-xs font-display font-medium text-text-muted tabular-nums">{plural(templates.length, 'template')}</p>
+        <IconChip className="w-fit" icon={ListChecks} tone="bg-primary-600" label={plural(templates.length, 'template')} labelClassName="tabular-nums" />
         {templates.map(t => (
           <TemplateBlock
             key={t.id}

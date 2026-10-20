@@ -2,7 +2,8 @@ import { memo, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
-import { ItemTypeConfigFields, itemDraftProblem, patchForTypeSwitch } from './builder/ItemTypeConfigFields';
+import { ItemTypeConfigFields } from './builder/ItemTypeConfigFields';
+import { draftProblem, patchForTypeSwitch } from '../questionTypes/model';
 import { QuestionTypeMenu } from './builder/QuestionTypeMenu';
 import { GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/questionTypes';
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
@@ -103,7 +104,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   const type = questionTypeOf(draft);
   const TypeIcon = type.icon;
   const isLabelBlank = !draft.label.trim();
-  const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : itemDraftProblem(draft, validPersonIds);
+  const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : draftProblem(draft, { storePersonIds: validPersonIds ?? null });
   const problemId = `item-problem-${draft.key}`;
   const pickType = (entry: QuestionTypeEntry) => patch(patchForEntry(draft, entry));
 
