@@ -92,12 +92,12 @@ const TaskTimelineComponent = ({
             {(['high', 'medium', 'low'] as Task['priority'][]).map((key) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span aria-hidden className={`w-4 h-2.5 rounded-sm ${PRIORITY_MAP[key].bar}`} />
-                <span className="text-xs font-semibold text-text-muted tracking-tight">
+                <span className="t-meta font-semibold text-text-muted tracking-tight">
                   {PRIORITY_MAP[key].label}
                 </span>
               </span>
             ))}
-            <span className="text-xs font-semibold text-danger tracking-tight">
+            <span className="t-meta font-semibold text-danger tracking-tight">
               Overdue is labelled on the row
             </span>
           </div>
@@ -109,13 +109,13 @@ const TaskTimelineComponent = ({
               <div className="min-w-fit">
                 <div className="flex sticky top-0 z-20 bg-primary-800">
                   <div className="sticky left-0 z-30 w-52 md:w-64 shrink-0 px-3 py-2.5 bg-primary-800">
-                    <span className="text-xs font-semibold text-white tracking-tight">Delegation</span>
+                    <span className="t-meta font-semibold text-white tracking-tight">Delegation</span>
                   </div>
                   <div className="flex" style={{ width: chartWidth }}>
                     {days.map((day, index) => (
                       <div
                         key={day.toISOString()}
-                        className={`shrink-0 px-1 py-2.5 text-center text-xs font-semibold tabular-nums ${
+                        className={`shrink-0 px-1 py-2.5 text-center t-meta font-semibold tabular-nums ${
                           index === todayIndex ? 'text-white' : 'text-white/60'
                         }`}
                         style={{ width: `${DAY_WIDTH_REM}rem` }}
@@ -153,11 +153,11 @@ const TaskTimelineComponent = ({
                                   title="Newly assigned to you"
                                 />
                               )}
-                              <span className="text-xs font-semibold text-text-secondary tracking-tight truncate">
+                              <span className="t-meta font-semibold text-text-secondary tracking-tight truncate">
                                 {task.title}
                               </span>
                             </span>
-                            <span className="text-xs font-medium truncate">
+                            <span className="t-meta font-medium truncate">
                               {overdue ? (
                                 <span className="text-danger font-semibold">Overdue</span>
                               ) : (
@@ -216,7 +216,7 @@ const TaskTimelineComponent = ({
           <section className="flex flex-col gap-2">
             <header className="flex items-center gap-2.5">
               <h3 className="text-sm font-bold text-text-secondary tracking-tight">No due date</h3>
-              <span className="text-xs font-semibold text-text-muted tabular-nums">{undated.length}</span>
+              <span className="t-meta font-semibold text-text-muted tabular-nums">{undated.length}</span>
               <span className="flex-1 h-px bg-border/50" />
             </header>
 
@@ -240,10 +240,10 @@ const TaskTimelineComponent = ({
                       className={`absolute left-0 top-0 bottom-0 w-1 ${PRIORITY_MAP[task.priority].bar}`}
                     />
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-semibold text-text-secondary tracking-tight truncate">
+                      <span className="t-meta font-semibold text-text-secondary tracking-tight truncate">
                         {task.title}
                       </span>
-                      <span className="text-xs font-medium text-text-muted truncate">
+                      <span className="t-meta font-medium text-text-muted truncate">
                         {ownerName(task)}
                       </span>
                     </div>

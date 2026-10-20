@@ -22,7 +22,7 @@ const ValuePill = ({ value, variant }: { value: string; variant: PillVariant }) 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-1 rounded-md border text-xs max-w-full sm:max-w-[16rem] truncate',
+        'inline-flex items-center px-2 py-1 rounded-md border t-meta max-w-full sm:max-w-[16rem] truncate',
         valuePillClass(variant),
         value === EMPTY_MARK && 'italic font-medium text-text-muted',
       )}
@@ -50,21 +50,21 @@ const ChangePills = ({ row }: { row: DiffRow }) => {
 
 export const DiffChange = ({ row }: { row: DiffRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
-    <span className="text-xs font-display font-semibold text-text-secondary">{row.label}</span>
+    <span className="t-meta font-display font-semibold text-text-secondary">{row.label}</span>
     <ChangePills row={row} />
   </div>
 );
 
 export const FactPill = ({ fact }: { fact: FactRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
-    <span className="text-xs font-display font-semibold text-text-secondary">{fact.label}</span>
+    <span className="t-meta font-display font-semibold text-text-secondary">{fact.label}</span>
     <ValuePill value={fact.value} variant="plain" />
   </div>
 );
 
 const DiffRowView = ({ row }: { row: DiffRow }) => (
   <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover/50 transition-colors">
-    <span className="text-xs font-bold text-text-secondary sm:w-40 shrink-0 truncate" title={row.label}>
+    <span className="t-meta font-bold text-text-secondary sm:w-40 shrink-0 truncate" title={row.label}>
       {row.label}
     </span>
     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
@@ -75,7 +75,7 @@ const DiffRowView = ({ row }: { row: DiffRow }) => (
 
 export const AuditLogDiff = ({ rows }: { rows: DiffRow[] }) => {
   if (rows.length === 0) {
-    return <p className="text-xs font-medium text-text-muted px-1">No field changes were recorded for this entry.</p>;
+    return <p className="t-meta font-medium text-text-muted px-1">No field changes were recorded for this entry.</p>;
   }
 
   return (

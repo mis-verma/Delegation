@@ -21,7 +21,7 @@ interface UserRowProps extends UserActionHandlers {
   onToggleSelect: (id: string) => void;
 }
 
-const CELL_CLASS = 'px-3 py-3 align-middle text-xs text-text-secondary';
+const CELL_CLASS = 'px-3 py-3 align-middle t-meta text-text-secondary';
 const NOT_SET = <span className="text-text-light">Not set</span>;
 
 const REACH_EDGE = { all: 'border-l-primary-500', department: 'border-l-coral-500', own: 'border-l-transparent' } as const;
@@ -87,7 +87,7 @@ const UserRowComponent = ({
             <span className={cn('text-sm font-display font-bold truncate', user.isActive ? 'text-text' : 'text-text-muted')}>
               {name}
             </span>
-            <span className="text-xs text-text-muted truncate" title={user.email}>{user.email}</span>
+            <span className="t-meta text-text-muted truncate" title={user.email}>{user.email}</span>
           </div>
         </div>
       </td>

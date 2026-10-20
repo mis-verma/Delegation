@@ -8,6 +8,7 @@ reportRouter.use(authenticate);
 reportRouter.use(requireRole("ADMIN", "PC"));
 
 reportRouter.get("/approval-tat", reportController.approvalTat);
+reportRouter.get("/overdue-snapshot", reportController.overdueSnapshot);
 reportRouter.get("/tickets/export", reportController.exportTickets);
 reportRouter.get("/tasks/export", reportController.exportTasks);
 reportRouter.get("/checklists/export", reportController.exportChecklists);

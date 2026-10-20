@@ -19,7 +19,7 @@ export const ScoreDrillBanner = ({ drill, noun, scopeLabel }: ScoreDrillBannerPr
       <button
         type="button"
         onClick={drill.clear}
-        className="inline-flex items-center gap-1 h-9 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="inline-flex items-center gap-1 h-9 pointer-coarse:h-11 px-2.5 rounded-lg t-meta font-display font-semibold text-text-secondary hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
         <X size={13} aria-hidden />
         Show all

@@ -45,7 +45,7 @@ const DressTypeRow = memo(({ type, busy, onToggleActive, onEdit, onDelete }: Row
     <div className="flex items-center justify-between sm:justify-end gap-3">
       <label htmlFor={`active-${type.id}`} className="flex items-center gap-2.5 min-h-11 sm:min-h-0 cursor-pointer">
         <Switch id={`active-${type.id}`} checked={type.isActive} onChange={() => onToggleActive(type)} disabled={busy} />
-        <span className="text-xs font-display font-medium text-text-secondary">{type.isActive ? 'Active' : 'Off'}</span>
+        <span className="t-meta font-display font-medium text-text-secondary">{type.isActive ? 'Active' : 'Off'}</span>
       </label>
       <div className="flex items-center gap-2">
         <Button

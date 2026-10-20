@@ -212,7 +212,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-display font-medium text-text-muted pr-1">Status</span>
+          <span className="t-meta font-display font-medium text-text-muted pr-1">Status</span>
           {STATUS_CHIPS.map((chip) => (
             <ToggleChip key={chip.value} on={status === chip.value} onClick={() => setFilter('status', status === chip.value ? 'all' : chip.value)}>
               {chip.label}

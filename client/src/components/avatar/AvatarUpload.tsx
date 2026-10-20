@@ -45,13 +45,13 @@ export const AvatarUpload = ({ name, src, onUpload, onRemove, isUploading, isRem
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-medium text-text-secondary">Profile picture</p>
+        <p className="t-meta font-medium text-text-secondary">Profile picture</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={pickFile}
             disabled={busy}
-            className="text-xs font-display font-medium text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
+            className="t-meta font-display font-medium text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
           >
             {src ? 'Change photo' : 'Upload photo'}
           </button>
@@ -62,7 +62,7 @@ export const AvatarUpload = ({ name, src, onUpload, onRemove, isUploading, isRem
                 type="button"
                 onClick={onRemove}
                 disabled={busy}
-                className="text-xs font-display font-medium text-danger hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
+                className="t-meta font-display font-medium text-danger hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
               >
                 {isRemoving ? 'Removing…' : 'Remove'}
               </button>

@@ -32,7 +32,7 @@ export const PageMaintenance = ({
       </div>
 
       {estimatedReturn && (
-        <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-surface-hover px-3 py-1 text-xs font-medium text-text-secondary">
+        <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-surface-hover px-3 py-1 t-meta font-medium text-text-secondary">
           {estimatedReturn}
         </span>
       )}

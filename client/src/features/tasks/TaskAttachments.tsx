@@ -89,7 +89,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
                   <p className="text-sm font-display font-semibold text-text truncate" title={a.originalFilename ?? undefined}>
                     {a.originalFilename ?? 'Untitled file'}
                   </p>
-                  <p className="text-xs text-text-muted tabular-nums">{attachmentTypeLabel(a.mimeType)}, {formatFileSize(a.sizeBytes)}</p>
+                  <p className="t-meta text-text-muted tabular-nums">{attachmentTypeLabel(a.mimeType)}, {formatFileSize(a.sizeBytes)}</p>
                 </div>
                 <a
                   href={`${UPLOADS_BASE}${a.url}`}

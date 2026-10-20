@@ -59,7 +59,7 @@ export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInsta
             onChange={(e) => setDraftValue(e.target.value)}
             disabled={!interactive || item.isDone}
             placeholder="Enter value"
-            suffix={item.numberEntryUnit ? <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span> : undefined}
+            suffix={item.numberEntryUnit ? <span className="t-meta font-display text-text-muted">{item.numberEntryUnit}</span> : undefined}
             containerClassName="w-44"
             className={item.numberEntryUnit ? 'h-11 sm:h-9 rounded-lg pr-14' : 'h-11 sm:h-9 rounded-lg'}
           />
@@ -76,7 +76,7 @@ export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInsta
         </div>
 
         {interactive && outOfRange && (
-          <p className="text-xs text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
+          <p className="t-meta text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
         )}
       </div>
     </ItemCardShell>

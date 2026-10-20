@@ -196,13 +196,13 @@ const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVi
       <header className="flex items-center gap-2 px-0.5">
         <span className={`size-2 rounded-full shrink-0 ${dotClassName}`} aria-hidden="true" />
         <h3 className="t-card font-display font-semibold text-text tracking-tight">{label}</h3>
-        <span className="text-xs font-semibold text-text-muted tabular-nums">{todos.length}</span>
+        <span className="t-meta font-semibold text-text-muted tabular-nums">{todos.length}</span>
       </header>
 
       <div className="flex flex-col gap-2">
         {todos.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-center border border-border/70 rounded-2xl">
-            <span className="text-xs font-display font-medium text-text-muted">{emptyMessage}</span>
+            <span className="t-meta font-display font-medium text-text-muted">{emptyMessage}</span>
           </div>
         ) : (
           visible.map((todo, i) => renderRow(todo, i))
@@ -214,7 +214,7 @@ const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVi
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="flex items-center justify-center gap-1.5 w-full h-10 rounded-xl text-xs font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="flex items-center justify-center gap-1.5 w-full h-10 rounded-xl t-meta font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           {expanded ? 'Show fewer' : `Show ${hiddenCount} more`}
           <ChevronDown size={14} className={`transition-transform duration-200 ease-in-out ${expanded ? 'rotate-180' : ''}`} />

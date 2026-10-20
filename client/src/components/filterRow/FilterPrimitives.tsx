@@ -5,7 +5,7 @@ import { getInitials } from '../../lib/getInitials';
 
 export const OptionRow = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex flex-col gap-2 min-w-0">
-    <span className="text-xs font-display font-semibold text-text-secondary sm:t-meta sm:font-bold sm:text-text-light sm:tracking-widest">{label}</span>
+    <span className="t-meta font-display font-semibold text-text-secondary sm:t-meta sm:font-bold sm:text-text-light sm:tracking-widest">{label}</span>
     {children}
   </div>
 );
@@ -33,7 +33,7 @@ export const FilterPill = ({
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`flex items-center gap-1.5 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg sm:rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 [-webkit-tap-highlight-color:transparent] ${
+    className={`flex items-center gap-1.5 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg sm:rounded-md t-meta font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 [-webkit-tap-highlight-color:transparent] ${
       active
         ? 'bg-surface-active text-text border border-border'
         : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50 border border-transparent'

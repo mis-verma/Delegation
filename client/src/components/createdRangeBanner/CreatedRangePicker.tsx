@@ -116,7 +116,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
               key={preset.label}
               type="button"
               onClick={() => commit(preset.from, preset.to)}
-              className="h-8 pointer-coarse:h-11 px-2.5 rounded-full border border-border/70 bg-surface-hover/50 text-xs font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="h-8 pointer-coarse:h-11 px-2.5 rounded-full border border-border/70 bg-surface-hover/50 t-meta font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               {preset.label}
             </button>
@@ -146,7 +146,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
         <div role="grid" aria-label={MONTH_TITLE.format(viewMonth)} className="flex flex-col gap-1" onMouseLeave={() => setHover(null)}>
           <div className="grid grid-cols-7 text-center">
             {WEEKDAYS.map((d) => (
-              <span key={d} className="py-1 text-xs font-display font-semibold text-text-muted">{d}</span>
+              <span key={d} className="py-1 t-meta font-display font-semibold text-text-muted">{d}</span>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-y-0.5">
@@ -180,7 +180,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2.5">
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             {end ? 'Applied' : start ? 'Now pick the last day' : 'Pick the first day'}
           </p>
           {(range || start) && (
@@ -191,7 +191,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
                 clear();
                 setOpen(false);
               }}
-              className="h-8 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-display font-semibold text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="h-8 pointer-coarse:h-11 px-2.5 rounded-lg t-meta font-display font-semibold text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               Clear
             </button>

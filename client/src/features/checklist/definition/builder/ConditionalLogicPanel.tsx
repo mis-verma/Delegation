@@ -37,7 +37,7 @@ const RuleRow = ({
 }) => (
   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
     <span className="flex shrink-0 items-center gap-1.5 sm:w-28">
-      <span className="text-xs font-display text-text-muted">If</span>
+      <span className="t-meta font-display text-text-muted">If</span>
       <IconChip icon={tone === 'good' ? Check : X} tone={tone === 'good' ? 'bg-success' : 'bg-danger'} label={answer} />
       <ArrowRight size={13} className="text-text-light" aria-hidden="true" />
     </span>

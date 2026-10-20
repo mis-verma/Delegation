@@ -16,7 +16,7 @@ interface ChecklistInstanceItemQrScanCardProps {
   isLocked:   boolean;
 }
 
-const READOUT_CLASS = 'text-xs font-display px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-text-secondary w-fit max-w-full break-all';
+const READOUT_CLASS = 't-meta font-display px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-text-secondary w-fit max-w-full break-all';
 
 export const ChecklistInstanceItemQrScanCard = memo(function ChecklistInstanceItemQrScanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemQrScanCardProps) {
   const codeInputId = useId();

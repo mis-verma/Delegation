@@ -82,7 +82,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   return (
     <article className="group flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 sm:p-5 bg-surface border-b border-border/60 last:border-b-0 transition-colors duration-300 ease-in-out hover:bg-surface-hover/40">
       <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
-        <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-surface-hover text-text-muted text-xs font-display font-bold shrink-0 mt-0.5 sm:mt-0 select-none">
+        <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-surface-hover text-text-muted t-meta font-display font-bold shrink-0 mt-0.5 sm:mt-0 select-none">
           {index + 1}
         </span>
         {renaming ? (
@@ -118,7 +118,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
 
           <label className="flex items-center gap-1.5 px-1" title="Minimum photos required">
-            <span className="text-xs font-display font-bold text-text-muted">Min</span>
+            <span className="t-meta font-display font-bold text-text-muted">Min</span>
             <input
               ref={minRef}
               type="number"
@@ -133,7 +133,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           <span className="text-border select-none">•</span>
 
           <label className="flex items-center gap-1.5 pr-1.5" title="Maximum photos allowed">
-            <span className="text-xs font-display font-bold text-text-muted">Max</span>
+            <span className="t-meta font-display font-bold text-text-muted">Max</span>
             <input
               ref={maxRef}
               type="number"
@@ -152,7 +152,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           aria-pressed={item.requiresLivePhoto}
           onClick={() => updateItem.mutate({ id: item.id, payload: { requiresLivePhoto: !item.requiresLivePhoto } })}
           disabled={updateItem.isPending}
-          className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-9 rounded-xl border text-xs font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
+          className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-9 rounded-xl border t-meta font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
             item.requiresLivePhoto
               ? 'bg-primary-500/10 border-primary-500/30 text-primary-700 dark:text-primary-400'
               : 'bg-surface border-border text-text-secondary hover:text-text hover:bg-surface-hover'

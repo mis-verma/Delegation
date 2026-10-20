@@ -53,7 +53,7 @@ const SwitchRow = ({ icon: Icon, iconClassName = 'text-primary-500', label, desc
       <Icon size={16} className={`${iconClassName} shrink-0`} />
       <div className="flex flex-col">
         <span className="text-sm font-display font-semibold text-text">{label}</span>
-        <span className="text-xs text-text-muted">{description}</span>
+        <span className="t-meta text-text-muted">{description}</span>
       </div>
     </div>
     <Switch checked={checked} onChange={onChange} id={id} />
@@ -104,13 +104,13 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-medium text-text-secondary">Logo</p>
+        <p className="t-meta font-medium text-text-secondary">Logo</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={pickFile}
             disabled={busy}
-            className="text-xs font-display font-medium text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
+            className="t-meta font-display font-medium text-primary-600 dark:text-primary-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
           >
             {src ? 'Change logo' : 'Upload logo'}
           </button>
@@ -121,7 +121,7 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
                 type="button"
                 onClick={onRemove}
                 disabled={busy}
-                className="text-xs font-display font-medium text-danger hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
+                className="t-meta font-display font-medium text-danger hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
               >
                 {isRemoving ? 'Removing…' : 'Remove'}
               </button>
@@ -251,7 +251,7 @@ export const SettingsPage = () => {
                 label="Default ticket TAT (hours)"
                 type="number"
                 step="1"
-                suffix={<span className="text-xs text-text-light">hours</span>}
+                suffix={<span className="t-meta text-text-light">hours</span>}
                 error={errors.defaultTatHours?.message}
                 {...register('defaultTatHours', { valueAsNumber: true })}
               />
@@ -262,7 +262,7 @@ export const SettingsPage = () => {
                   label="Max upload size per file"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">MB</span>}
+                  suffix={<span className="t-meta text-text-light">MB</span>}
                   error={errors.maxUploadSizeMb?.message}
                   {...register('maxUploadSizeMb', { valueAsNumber: true })}
                 />
@@ -312,7 +312,7 @@ export const SettingsPage = () => {
                       })}
                     </div>
                     {errors.allowedImageTypes && (
-                      <span className="text-xs font-medium text-danger">{errors.allowedImageTypes.message}</span>
+                      <span className="t-meta font-medium text-danger">{errors.allowedImageTypes.message}</span>
                     )}
                   </div>
                 )}
@@ -326,7 +326,7 @@ export const SettingsPage = () => {
                   label="Audit log"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">days</span>}
+                  suffix={<span className="t-meta text-text-light">days</span>}
                   error={errors.auditRetentionDays?.message}
                   {...register('auditRetentionDays', { valueAsNumber: true })}
                 />
@@ -335,7 +335,7 @@ export const SettingsPage = () => {
                   label="Notifications"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">days</span>}
+                  suffix={<span className="t-meta text-text-light">days</span>}
                   error={errors.notificationRetentionDays?.message}
                   {...register('notificationRetentionDays', { valueAsNumber: true })}
                 />
@@ -344,7 +344,7 @@ export const SettingsPage = () => {
                   label="Inbound messages"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">days</span>}
+                  suffix={<span className="t-meta text-text-light">days</span>}
                   error={errors.inboundMessageRetentionDays?.message}
                   {...register('inboundMessageRetentionDays', { valueAsNumber: true })}
                 />
@@ -392,7 +392,7 @@ export const SettingsPage = () => {
                   label="Access token lifetime"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">min</span>}
+                  suffix={<span className="t-meta text-text-light">min</span>}
                   error={errors.accessTokenExpiresMinutes?.message}
                   {...register('accessTokenExpiresMinutes', { valueAsNumber: true })}
                 />
@@ -401,7 +401,7 @@ export const SettingsPage = () => {
                   label="Stay signed in for"
                   type="number"
                   step="1"
-                  suffix={<span className="text-xs text-text-light">days</span>}
+                  suffix={<span className="t-meta text-text-light">days</span>}
                   error={errors.refreshTokenExpiresDays?.message}
                   {...register('refreshTokenExpiresDays', { valueAsNumber: true })}
                 />

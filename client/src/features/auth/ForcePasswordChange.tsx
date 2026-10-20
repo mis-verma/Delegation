@@ -85,7 +85,7 @@ export const ForcePasswordChange = () => {
             {RULES.map((r) => {
               const ok = r.test(next);
               return (
-                <li key={r.key} className={cn('flex items-center gap-2 text-xs font-display', ok ? 'text-success' : 'text-text-muted')}>
+                <li key={r.key} className={cn('flex items-center gap-2 t-meta font-display', ok ? 'text-success' : 'text-text-muted')}>
                   {ok ? <Check size={13} strokeWidth={3} aria-hidden /> : <Circle size={13} aria-hidden />}
                   {r.label}
                 </li>

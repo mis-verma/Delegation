@@ -32,13 +32,13 @@ export const ChangeCompare = ({ from, to, icon: Icon, tone = 'primary', note, no
     )}
     {from != null && (
       <>
-        <span className="min-w-0 truncate text-xs font-display font-medium text-text-muted line-through decoration-text-light/70">{from}</span>
+        <span className="min-w-0 truncate t-meta font-display font-medium text-text-muted line-through decoration-text-light/70">{from}</span>
         <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-hover text-text-muted" aria-label="changed to">
           <ArrowRight size={11} strokeWidth={2.75} />
         </span>
       </>
     )}
-    <span className={cn('min-w-0 truncate rounded-lg px-2 py-1 text-xs font-display font-bold', NEW_VALUE[tone])}>{to}</span>
-    {note && <span className={cn('pr-1 text-xs font-display font-semibold', noteTone ? NEW_VALUE[noteTone].split(' ').filter((c) => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ') : 'text-text-muted')}>{note}</span>}
+    <span className={cn('min-w-0 truncate rounded-lg px-2 py-1 t-meta font-display font-bold', NEW_VALUE[tone])}>{to}</span>
+    {note && <span className={cn('pr-1 t-meta font-display font-semibold', noteTone ? NEW_VALUE[noteTone].split(' ').filter((c) => c.startsWith('text-') || c.startsWith('dark:text-')).join(' ') : 'text-text-muted')}>{note}</span>}
   </div>
 );

@@ -137,7 +137,7 @@ export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHo
         <div className="flex flex-col gap-1">
           <div className="grid grid-cols-7 text-center" aria-hidden="true">
             {WEEKDAY_LABELS.map((w) => (
-              <span key={w} className="py-1 text-xs font-display font-semibold text-text-muted">{w}</span>
+              <span key={w} className="py-1 t-meta font-display font-semibold text-text-muted">{w}</span>
             ))}
           </div>
 

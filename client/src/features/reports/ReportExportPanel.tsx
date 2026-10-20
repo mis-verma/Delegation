@@ -56,10 +56,10 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
 
   return (
     <div className="flex flex-col gap-5 p-5 rounded-xl border border-border/60 bg-surface">
-      <p className="text-xs text-text-muted font-display">{description}</p>
+      <p className="t-meta text-text-muted font-display">{description}</p>
 
       <div className="flex flex-col gap-2">
-        <span className="t-meta font-display font-medium text-text-secondary tracking-wide">
+        <span className="t-meta font-display font-medium text-text-secondary">
           Period
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -68,7 +68,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
               key={p}
               type="button"
               onClick={() => setMode(p)}
-              className={`px-3 py-1.5 text-xs font-display font-medium rounded-md border transition-all cursor-pointer ${
+              className={`px-3 py-1.5 t-meta font-display font-medium rounded-md border transition-all cursor-pointer ${
                 mode === p
                   ? 'border-primary-500/60 bg-primary-500/10 text-primary-500 font-medium'
                   : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'
@@ -80,7 +80,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
           <button
             type="button"
             onClick={() => setMode('custom')}
-            className={`px-3 py-1.5 text-xs font-display font-medium rounded-md border transition-all cursor-pointer ${
+            className={`px-3 py-1.5 t-meta font-display font-medium rounded-md border transition-all cursor-pointer ${
               isCustom
                 ? 'border-primary-500/60 bg-primary-500/10 text-primary-500 font-medium'
                 : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'
@@ -99,12 +99,12 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
 
       {isChecklists && (
         <div className="flex flex-col gap-2">
-          <span className="t-meta font-display font-medium text-text-secondary tracking-wide">
+          <span className="t-meta font-display font-medium text-text-secondary">
             Scope
           </span>
           <div className="flex flex-wrap gap-3">
             <div className="flex flex-col gap-1.5 w-full sm:w-48">
-              <label className="text-xs font-display font-medium text-text-secondary">Store</label>
+              <label className="t-meta font-display font-medium text-text-secondary">Store</label>
               <SelectDropdown
                 value={storeId}
                 onChange={setStoreId}
@@ -113,7 +113,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
               />
             </div>
             <div className="flex flex-col gap-1.5 w-full sm:w-48">
-              <label className="text-xs font-display font-medium text-text-secondary">Person</label>
+              <label className="t-meta font-display font-medium text-text-secondary">Person</label>
               <SelectDropdown
                 value={assigneeId}
                 onChange={setAssigneeId}
@@ -129,7 +129,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
       )}
 
       <div className="flex flex-col gap-2">
-        <span className="t-meta font-display font-medium text-text-secondary tracking-wide">
+        <span className="t-meta font-display font-medium text-text-secondary">
           Format
         </span>
         <div className="flex gap-1 p-1 bg-surface-hover rounded-lg w-fit">
@@ -138,8 +138,8 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
               key={f}
               type="button"
               onClick={() => setFormat(f)}
-              className={`px-3 py-1.5 text-xs font-display font-medium rounded-md transition-colors cursor-pointer uppercase ${
-                format === f ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text-secondary'
+              className={`px-3 py-1.5 t-meta font-display font-medium rounded-md transition-colors cursor-pointer  ${
+                format === f ? 'bg-surface text-text' : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               {f}
@@ -151,7 +151,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
       <Button
         size="sm"
         variant="primary"
-        className="self-start gap-1.5 font-display text-xs"
+        className="self-start gap-1.5 font-display t-meta"
         onClick={handleDownload}
         isLoading={exportMutation.isPending}
         disabled={!canDownload || exportMutation.isPending}

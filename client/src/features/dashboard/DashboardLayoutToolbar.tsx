@@ -25,7 +25,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
           <LayoutGrid size={14} strokeWidth={2.25} aria-hidden="true" />
           <span className="sm:hidden">Customize</span>
           {hiddenCards.length > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-display font-bold leading-none text-white" aria-hidden="true">
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 t-meta font-display font-bold leading-none text-white" aria-hidden="true">
               {hiddenCards.length}
             </span>
           )}
@@ -79,7 +79,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
             type="button"
             onClick={() => onShow(card.id)}
             title={`Show ${card.label}`}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border bg-surface t-meta font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             <Eye size={13} strokeWidth={2.25} />
             {card.label}

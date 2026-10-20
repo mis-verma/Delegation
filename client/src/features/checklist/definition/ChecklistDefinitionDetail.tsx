@@ -84,7 +84,7 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
   return (
     <div className={cn(PANEL_CLASS, 'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2.5 sm:p-4')}>
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
+        <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-muted">
           <Icon size={14} className="text-text-muted shrink-0" />
           {label}
         </span>
@@ -104,7 +104,7 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           </div>
         </>
       ) : (
-        <p className="col-span-2 text-xs font-display text-text-muted sm:py-2 italic">{emptyLabel}</p>
+        <p className="col-span-2 t-meta font-display text-text-muted sm:py-2 italic">{emptyLabel}</p>
       )}
     </div>
   );
@@ -224,11 +224,11 @@ export const ChecklistDefinitionDetail = () => {
                 {definition.name}
               </h1>
               {definition.description ? (
-                <p className="text-xs sm:text-sm font-display text-text-muted leading-relaxed">
+                <p className="t-meta sm:text-sm font-display text-text-muted leading-relaxed">
                   {definition.description}
                 </p>
               ) : (
-                <p className="text-xs font-display text-text-muted italic">
+                <p className="t-meta font-display text-text-muted italic">
                   No description yet.
                 </p>
               )}
@@ -245,7 +245,7 @@ export const ChecklistDefinitionDetail = () => {
             </div>
           ) : canManage ? (
             <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
-              <span className={cn('text-xs font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
+              <span className={cn('t-meta font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
                 {STATE_LABEL[definitionState(definition)]}
               </span>
               {setActiveMutation.isPending ? (
@@ -262,7 +262,7 @@ export const ChecklistDefinitionDetail = () => {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-display text-text-secondary pt-4 border-t border-border/60">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 t-meta font-display text-text-secondary pt-4 border-t border-border/60">
           <div className="flex items-center gap-1.5">
             <Store size={14} className="text-text-muted shrink-0" />
             {definition.storeIds.length === 0 ? (
@@ -335,7 +335,7 @@ export const ChecklistDefinitionDetail = () => {
           {instances && instances.length >= INSTANCE_LIMIT && (
             <Link
               to="/admin/checklist-compliance"
-              className="inline-flex items-center min-h-11 sm:min-h-0 text-xs font-display font-medium text-primary-600 dark:text-primary-400 hover:underline underline-offset-2"
+              className="inline-flex items-center min-h-11 sm:min-h-0 t-meta font-display font-medium text-primary-600 dark:text-primary-400 hover:underline underline-offset-2"
             >
               Showing the latest {INSTANCE_LIMIT}. See every run on the Compliance board
             </Link>

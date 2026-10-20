@@ -20,7 +20,7 @@ interface NoticeBannerProps {
 }
 
 export const NoticeBanner = ({ tone = 'info', icon: Icon, children, className }: NoticeBannerProps) => (
-  <div role="status" className={cn('flex items-start gap-2.5 p-3.5 rounded-lg border text-xs font-display leading-relaxed', TONE[tone], className)}>
+  <div role="status" className={cn('flex items-start gap-2.5 p-3.5 rounded-lg border t-meta font-display leading-relaxed', TONE[tone], className)}>
     <Icon size={16} className="shrink-0 mt-px" aria-hidden />
     <div className="flex-1 min-w-0">{children}</div>
   </div>

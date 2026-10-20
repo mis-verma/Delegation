@@ -25,7 +25,7 @@ interface DressTypeFormDialogProps {
 const NAME_MAX = 80;
 
 const CHIP_BASE =
-  'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer ' +
+  'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border t-meta font-display font-medium cursor-pointer ' +
   'transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 const GENDER_NOUN = { FEMALE: 'women', MALE: 'men' } as const;

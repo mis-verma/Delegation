@@ -65,7 +65,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
           })}
         </div>
         {item.numericValue != null && (
-          <span className="text-xs font-display text-text-muted">{item.numericValue}/{scale}</span>
+          <span className="t-meta font-display text-text-muted">{item.numericValue}/{scale}</span>
         )}
       </div>
     </ItemCardShell>

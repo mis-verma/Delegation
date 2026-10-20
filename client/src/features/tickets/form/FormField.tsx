@@ -30,12 +30,12 @@ export const FormField = ({ label, icon, required, optional, hint, error, htmlFo
 
 export const StepHeading = ({ step, title, subtitle }: { step: number; title: string; subtitle?: string }) => (
   <div className="flex items-center gap-2.5">
-    <span className="flex items-center justify-center size-6 shrink-0 rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold">
+    <span className="flex items-center justify-center size-6 shrink-0 rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 t-meta font-display font-bold">
       {step}
     </span>
     <div className="flex flex-col min-w-0">
       <h3 className="t-card font-display font-semibold text-text leading-tight">{title}</h3>
-      {subtitle && <p className="text-xs font-display text-text-muted leading-snug">{subtitle}</p>}
+      {subtitle && <p className="t-meta font-display text-text-muted leading-snug">{subtitle}</p>}
     </div>
   </div>
 );

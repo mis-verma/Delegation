@@ -53,7 +53,7 @@ const Tile = ({ icon, title, level, children }: { icon: ReactNode; title: string
       </h2>
       <LevelChip level={level} />
     </div>
-    <div className="flex flex-col gap-1 text-xs font-display text-text-muted">{children}</div>
+    <div className="flex flex-col gap-1 t-meta font-display text-text-muted">{children}</div>
   </section>
 );
 
@@ -70,11 +70,11 @@ const JobRow = memo(({ job }: { job: HealthJob }) => {
     <li className="flex flex-col gap-1.5 p-3.5 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         <p className="text-sm font-display font-semibold text-text leading-snug">{job.name.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())}</p>
-        <p className="text-xs font-display text-text-muted">
+        <p className="t-meta font-display text-text-muted">
           {job.status === 'waiting' ? 'Has not run since the server started' : `Last run ${timeAgo(job.lastRunAt)}${job.lastDurationMs != null ? `, took ${duration(job.lastDurationMs)}` : ''}`}
           {job.failures > 0 && ` · ${job.failures} failed of ${job.runs}`}
         </p>
-        {job.lastError && <p className="text-xs font-display text-danger break-words">{job.lastError}</p>}
+        {job.lastError && <p className="t-meta font-display text-danger break-words">{job.lastError}</p>}
       </div>
       <LevelChip level={tone.level} label={tone.label} />
     </li>
@@ -92,7 +92,7 @@ const OverallBanner = ({ health }: { health: SystemHealth }) => {
           {ok ? 'Everything is running fine' : down ? 'The system is down' : `${health.attention.length} ${health.attention.length === 1 ? 'thing needs' : 'things need'} a look`}
         </p>
         {health.attention.map(item => (
-          <p key={item} className="text-xs font-display leading-relaxed">{item}</p>
+          <p key={item} className="t-meta font-display leading-relaxed">{item}</p>
         ))}
       </div>
     </NoticeBanner>
@@ -176,7 +176,7 @@ export const SystemHealthPage = () => {
               <IconChip icon={CheckCircle2} tone={health.jobs.some((j) => j.status === 'failing') ? 'bg-danger' : health.jobs.some((j) => j.status === 'late') ? 'bg-warning' : 'bg-success'} label={`${health.jobs.length} ${health.jobs.length === 1 ? 'job' : 'jobs'}`} />
             </div>
             {health.jobs.length === 0 ? (
-              <p className="text-xs font-display text-text-muted">No background jobs are registered on this server.</p>
+              <p className="t-meta font-display text-text-muted">No background jobs are registered on this server.</p>
             ) : (
               <ul className={cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 overflow-hidden')}>
                 {health.jobs.map(job => <JobRow key={job.name} job={job} />)}
@@ -189,7 +189,7 @@ export const SystemHealthPage = () => {
               <h2 className="t-section font-display font-bold text-text">Where the data lives</h2>
               <ul className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-4')}>
                 {health.database.biggestTables.map(t => (
-                  <li key={t.name} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs font-display">
+                  <li key={t.name} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 t-meta font-display">
                     <span className="truncate text-text-secondary" title={t.name}>{t.name}</span>
                     <span className="h-2 rounded-full bg-surface-hover overflow-hidden">
                       <span className="block h-full rounded-full bg-primary-500" style={{ width: `${Math.max(3, (t.sizeMb / biggestTableMb) * 100)}%` }} />
@@ -207,14 +207,14 @@ export const SystemHealthPage = () => {
               <IconChip icon={health.errors.length ? TriangleAlert : CheckCircle2} tone={health.errors.length ? 'bg-danger' : 'bg-success'} label={health.errors.length ? `${health.errors.length} since restart` : 'None'} />
             </div>
             {health.errors.length === 0 ? (
-              <p className="text-xs font-display text-text-muted">No unexpected errors since the server last restarted.</p>
+              <p className="t-meta font-display text-text-muted">No unexpected errors since the server last restarted.</p>
             ) : (
               <ul className={cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 overflow-hidden')}>
                 {health.errors.map((e, i) => (
                   <li key={`${e.at}-${i}`} className="flex flex-col gap-0.5 p-3.5">
-                    <p className="flex items-center gap-2 text-xs font-display font-semibold text-text break-all"><IconChip icon={false} label={e.method} className="pl-2.5 shrink-0" />{e.path}</p>
-                    <p className="text-xs font-display text-danger break-words">{e.message}</p>
-                    <p className="text-xs font-display text-text-muted">{timeAgo(e.at)}</p>
+                    <p className="flex items-center gap-2 t-meta font-display font-semibold text-text break-all"><IconChip icon={false} label={e.method} className="pl-2.5 shrink-0" />{e.path}</p>
+                    <p className="t-meta font-display text-danger break-words">{e.message}</p>
+                    <p className="t-meta font-display text-text-muted">{timeAgo(e.at)}</p>
                   </li>
                 ))}
               </ul>

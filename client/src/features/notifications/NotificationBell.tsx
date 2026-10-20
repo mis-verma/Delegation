@@ -145,7 +145,7 @@ const NotificationTabs = ({ value, onChange, unread }: { value: NotificationFilt
         aria-pressed={value === key}
         onClick={() => onChange(key)}
         className={cn(
-          'h-7 pointer-coarse:h-9 px-3 rounded-full text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+          'h-7 pointer-coarse:h-9 px-3 rounded-full t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
           value === key ? 'bg-surface text-text border border-border/70' : 'text-text-muted hover:text-text border border-transparent',
         )}
       >
@@ -230,7 +230,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       onClick={() => markAllRead.mutate()}
       disabled={markAllRead.isPending}
       className={cn(
-        "flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:text-primary-600",
+        "flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:text-primary-600",
         "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-md px-1.5 -mx-1.5 cursor-pointer touch-manipulation disabled:opacity-50"
       )}
     >

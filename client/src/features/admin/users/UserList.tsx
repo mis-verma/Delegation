@@ -22,9 +22,11 @@ import { useFilteredUsers } from './useFilteredUsers';
 import { fullName, peopleCount } from './userDisplay';
 import { presenceLabel } from '../presenceDisplay';
 import { useMonthScores } from '../directory/orgScoreData';
-import { ROLE_META, isDepartmentHead } from '../roleBadge';
+import { ROLE_LABEL, ROLE_META, isDepartmentHead } from '../roleBadge';
+import { exportTitle, type TableRows } from '../../../lib/exportTable';
 import {
   EmptyState,
+  ExportMenu,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -120,6 +122,20 @@ export const UserList = () => {
     : deleteMut.isPending
       ? (deleteMut.variables ?? null)
       : null;
+
+  const exportRows = (): TableRows => [
+    ['Name', 'Email', 'Phone', 'Role', 'Department', 'Store', 'Status', 'Joined'],
+    ...filtered.map((u) => [
+      fullName(u),
+      u.email,
+      u.phone ?? '',
+      ROLE_LABEL[u.role],
+      u.departmentId ? departmentNames.get(u.departmentId) ?? '' : '',
+      u.storeId ? storeNames.get(u.storeId) ?? '' : '',
+      u.isActive ? 'Active' : 'Deactivated',
+      u.createdAt.slice(0, 10),
+    ]),
+  ];
 
   const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && u.id !== me?.id), [filtered, selectedIds, me?.id]);
 
@@ -306,6 +322,17 @@ export const UserList = () => {
         resultText={resultText}
         onNew={() => setShowForm(true)}
         onPreloadForm={preloadForm}
+        exportMenu={
+          <ExportMenu
+            iconOnly
+            disabled={filtered.length === 0}
+            aria-label="Export the people in this list"
+            filename="people"
+            sheetName="People"
+            title={exportTitle({ what: 'People', filters: { Search: list.searchText.trim() || null } })}
+            getRows={exportRows}
+          />
+        }
       />
 
       {renderContent()}

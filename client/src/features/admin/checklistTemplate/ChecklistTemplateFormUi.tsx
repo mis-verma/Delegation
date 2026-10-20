@@ -148,7 +148,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label htmlFor="template-applies-to" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+              <label htmlFor="template-applies-to" className="flex items-center gap-1.5 t-meta font-medium text-text-secondary">
                 <Layers className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
                 Applies To
               </label>
@@ -164,7 +164,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="template-department" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+              <label htmlFor="template-department" className="flex items-center gap-1.5 t-meta font-medium text-text-secondary">
                 <Building2 className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
                 Owning Department
               </label>
@@ -189,9 +189,9 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
           <div className="flex items-end justify-between">
             <div>
               <h3 className="t-card font-display font-bold text-text">Procedure Steps</h3>
-              <p className="text-xs font-display text-text-muted mt-1">Define the individual steps required to complete this procedure.</p>
+              <p className="t-meta font-display text-text-muted mt-1">Define the individual steps required to complete this procedure.</p>
             </div>
-            <span className="text-xs font-display font-medium text-text-secondary bg-surface-hover px-2.5 py-1 rounded-md border border-border">
+            <span className="t-meta font-display font-medium text-text-secondary bg-surface-hover px-2.5 py-1 rounded-md border border-border">
               {itemDrafts.length} {itemDrafts.length === 1 ? 'Step' : 'Steps'}
             </span>
           </div>
@@ -227,7 +227,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
             Add another step
           </button>
 
-          <div className="flex items-center gap-2 text-xs text-text-muted font-display">
+          <div className="flex items-center gap-2 t-meta text-text-muted font-display">
             <Info className="w-4 h-4 text-primary-500/70" />
             <span>Empty steps are automatically skipped.</span>
           </div>
@@ -238,15 +238,15 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-surface-hover/40 divide-y divide-border/60">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Name</span>
+              <span className="t-meta font-display font-medium text-text-muted tracking-wider">Name</span>
               <span className="text-sm font-display font-bold text-text truncate max-w-[60%]">{name || 'Not set'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Applies To</span>
+              <span className="t-meta font-display font-medium text-text-muted tracking-wider">Applies To</span>
               <span className="text-sm font-display font-medium text-text">{appliesTo === 'TASK' ? 'Tasks' : 'Tickets'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Department</span>
+              <span className="t-meta font-display font-medium text-text-muted tracking-wider">Department</span>
               <span className="text-sm font-display font-medium text-text truncate max-w-[60%]">{departmentName}</span>
             </div>
           </div>
@@ -262,20 +262,20 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
               <ul className="space-y-2">
                 {definedSteps.map((d, i) => (
                   <li key={d.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface">
-                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-300 text-xs font-bold">
+                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-300 t-meta font-bold">
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-text truncate">{d.label}</p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary t-meta font-medium">
                           <User size={11} /> {assignableUsers?.find(u => u.id === d.assigneeId)?.firstName ?? 'Unassigned'}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary t-meta font-medium">
                           <ImageIcon size={11} /> {Number(d.requiredImageCount) || 0}{d.maxImageCount ? `–${d.maxImageCount}` : '+'} photos
                         </span>
                         {d.requiresLivePhoto && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 t-meta font-medium">
                             <Camera size={11} /> Live capture
                           </span>
                         )}

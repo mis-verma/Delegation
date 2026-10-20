@@ -30,7 +30,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
         )}
         {subtitle}
         {item.isDone && item.completedAt && (
-          <p className="text-xs text-text-muted font-display">Completed {formatDateTime(item.completedAt)}{by}</p>
+          <p className="t-meta text-text-muted font-display">Completed {formatDateTime(item.completedAt)}{by}</p>
         )}
       </div>
       {interactive && item.isDone && onReopen && canReopen && (

@@ -53,7 +53,7 @@ export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, d
           );
         })}
       </div>
-      {warn && <p className="text-xs text-text-muted">Changing the type clears this person's ticks.</p>}
+      {warn && <p className="t-meta text-text-muted">Changing the type clears this person's ticks.</p>}
     </div>
   );
 };

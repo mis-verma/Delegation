@@ -296,7 +296,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
               <p className="text-sm font-display font-semibold text-text">
                 {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
               </p>
-              <p className="text-xs font-display text-text-muted">
+              <p className="t-meta font-display text-text-muted">
                 CSV or Excel works best · PDFs are okay too, but less reliable
               </p>
               <p className="t-meta font-display text-text-light">
@@ -317,7 +317,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             </NoticeBanner>
           )}
 
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             {includedRows.length} of {rows.length} row{rows.length === 1 ? '' : 's'} included · rows outlined in amber need review.
           </p>
 
@@ -356,12 +356,12 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             />
           )}
 
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             Optional. Leave these blank to keep each checklist's own schedule. Set them to apply one shared start date and time window to every checklist in this batch.
           </p>
 
           <div role="group" aria-labelledby="bulk-start-date-label" className="flex flex-col gap-1.5">
-            <span id="bulk-start-date-label" className="text-xs font-display font-semibold text-text px-1">Effective Start Date</span>
+            <span id="bulk-start-date-label" className="t-meta font-display font-semibold text-text px-1">Effective Start Date</span>
             <DatePicker value={parseDateStr(startDate)} onChange={(d) => setStartDate(d ? toDateStr(d) : '')} placeholder="Keep existing" triggerClassName="h-11 rounded-xl px-4" />
           </div>
 
@@ -386,7 +386,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
           <p className="text-sm font-display font-semibold text-text">
             {summary.updatedDefinitions === 0 && summary.failed.length > 0 ? 'Nothing was updated' : summary.failed.length > 0 ? 'Done, with some failures' : 'All set!'}
           </p>
-          <p className="text-xs font-display text-text-muted max-w-sm">
+          <p className="t-meta font-display text-text-muted max-w-sm">
             Updated {summary.updatedDefinitions} checklist{summary.updatedDefinitions === 1 ? '' : 's'}, added{' '}
             {summary.storesAdded} store{summary.storesAdded === 1 ? '' : 's'} and{' '}
             {summary.assigneesAdded} people.
@@ -394,7 +394,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
 
           {summary.failed.length > 0 && (
             <div className="flex flex-col gap-1.5 w-full max-w-sm text-left">
-              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5">
+              <p className="t-meta font-display font-semibold text-danger flex items-center gap-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} checklist{summary.failed.length === 1 ? '' : 's'} failed
               </p>
               <ul className="flex flex-col gap-1 t-meta font-display text-text-muted max-h-32 overflow-y-auto">

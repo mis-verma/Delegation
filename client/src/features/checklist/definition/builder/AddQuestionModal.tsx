@@ -87,7 +87,7 @@ export const AddQuestionModal = ({
           type="text"
           icon={Type}
           label={<>Question <span className="text-danger">*</span></>}
-          labelClassName={`${DETAIL_HEADING_CLASS} tracking-normal font-medium px-0 text-xs sm:text-sm`}
+          labelClassName={`${DETAIL_HEADING_CLASS} tracking-normal font-medium px-0 t-meta sm:text-sm`}
           value={draft.label}
           onChange={(e) => patchDraft({ label: e.target.value })}
           placeholder="e.g. Is the cash drawer counted and locked?"
@@ -106,7 +106,7 @@ export const AddQuestionModal = ({
         </div>
 
         {hasLabel && problem && (
-          <p role="alert" className="text-xs font-display font-medium text-danger">{problem}</p>
+          <p role="alert" className="t-meta font-display font-medium text-danger">{problem}</p>
         )}
       </form>
     </Modal>

@@ -250,6 +250,20 @@ export const auditLogs = mysqlTable(
   ],
 );
 
+export const OVERDUE_SNAPSHOT_KINDS = ['TICKETS', 'DELEGATIONS'] as const;
+
+export const overdueSnapshots = mysqlTable(
+  'OverdueSnapshot',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    day: varchar('day', { length: 10 }).notNull(),
+    kind: mysqlEnum('kind', OVERDUE_SNAPSHOT_KINDS).notNull(),
+    count: int('count').notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('OverdueSnapshot_day_kind_key').on(table.day, table.kind)],
+);
+
 export const jobRuns = mysqlTable('JobRun', {
   name: varchar('name', { length: 100 }).primaryKey(),
   schedule: varchar('schedule', { length: 64 }).notNull(),

@@ -10,17 +10,17 @@ const SIZE_CONFIG = {
   sm: { 
     tile: 'size-10 rounded-xl', 
     icon: 20, 
-    shadow: 'shadow-md shadow-primary-600/20 ring-1 ring-inset ring-white/20' 
+    shadow: ' ring-1 ring-inset ring-white/20' 
   },
   md: { 
     tile: 'size-12 rounded-2xl', 
     icon: 24, 
-    shadow: 'shadow-lg shadow-primary-600/25 ring-1 ring-inset ring-white/20' 
+    shadow: ' ring-1 ring-inset ring-white/20' 
   },
   lg: { 
     tile: 'size-14 rounded-2xl', 
     icon: 28, 
-    shadow: 'shadow-xl shadow-primary-600/30 ring-1 ring-inset ring-white/25' 
+    shadow: ' ring-1 ring-inset ring-white/25' 
   },
 } as const;
 

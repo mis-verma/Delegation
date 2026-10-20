@@ -116,7 +116,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
           </span>
           <span>Change log</span>
           {ready && total > 0 && (
-            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-hover text-xs font-display font-bold text-text-secondary tabular-nums">
+            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-hover t-meta font-display font-bold text-text-secondary tabular-nums">
               {total}
             </span>
           )}
@@ -133,7 +133,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
                   role="tab"
                   aria-selected={active}
                   onClick={() => setFilter(key)}
-                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-display font-semibold transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full t-meta font-display font-semibold transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     active ? 'bg-surface text-text ring-1 ring-border' : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -161,7 +161,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
         </div>
       )}
 
-      {isError && <p className="text-xs font-medium text-danger">Couldn't load activity. Refresh to try again.</p>}
+      {isError && <p className="t-meta font-medium text-danger">Couldn't load activity. Refresh to try again.</p>}
 
       {ready && rows.length === 0 && (
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-border">
@@ -170,13 +170,13 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
           </span>
           <div className="flex flex-col gap-0.5">
             <p className="text-sm font-display font-semibold text-text">Nothing changed yet</p>
-            <p className="text-xs text-text-muted">Status moves and edits will show up here, with who did it and when.</p>
+            <p className="t-meta text-text-muted">Status moves and edits will show up here, with who did it and when.</p>
           </div>
         </div>
       )}
 
       {ready && rows.length > 0 && visible.length === 0 && (
-        <p className="text-xs text-text-muted">No {filter === 'status' ? 'status moves' : 'edits'} in the loaded history.</p>
+        <p className="t-meta text-text-muted">No {filter === 'status' ? 'status moves' : 'edits'} in the loaded history.</p>
       )}
 
       {ready && groups.map((group) => {
@@ -184,7 +184,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
         return (
           <div key={group.key} className="flex flex-col gap-3" role="group" aria-label={label.full}>
             <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-surface px-1 py-1">
-              <span className="inline-flex items-center gap-1.5 text-xs font-display font-semibold text-text-secondary">
+              <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
                 {label.lead && <span className="text-text font-bold">{label.lead}</span>}
                 {label.lead && <span className="text-text-light" aria-hidden>·</span>}
                 <span>{label.full}</span>
@@ -206,7 +206,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
           type="button"
           onClick={() => setLimit((l) => l + PAGE_STEP)}
           disabled={isFetching}
-          className="inline-flex items-center justify-center gap-1.5 self-start min-h-9 px-3 rounded-full border border-border text-xs font-display font-semibold text-text-secondary hover:border-border-hover hover:text-text disabled:opacity-60 disabled:cursor-wait transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="inline-flex items-center justify-center gap-1.5 self-start min-h-9 px-3 rounded-full border border-border t-meta font-display font-semibold text-text-secondary hover:border-border-hover hover:text-text disabled:opacity-60 disabled:cursor-wait transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           {isFetching ? <Loader2 size={13} className="animate-spin" /> : <ChevronDown size={13} strokeWidth={2.5} />}
           Show older ({total - rows.length})
@@ -232,17 +232,17 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       if (row.before.length > LONG_TEXT || row.after.length > LONG_TEXT) {
         return (
           <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:gap-3">
-            <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
+            <span className="t-meta font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
               {row.label}
             </span>
             <div className="flex flex-col gap-1 min-w-0 flex-1">
               {!wasEmpty && (
-                <p className="text-xs text-text-muted line-clamp-2 break-words" title={row.before}>
+                <p className="t-meta text-text-muted line-clamp-2 break-words" title={row.before}>
                   <span className="font-display font-semibold text-text-light">Was: </span>
                   {row.before}
                 </p>
               )}
-              <p className="px-2.5 py-1.5 rounded-lg border border-primary-500/20 bg-primary-500/[0.06] dark:bg-primary-500/10 text-xs text-text line-clamp-3 break-words" title={row.after}>
+              <p className="px-2.5 py-1.5 rounded-lg border border-primary-500/20 bg-primary-500/[0.06] dark:bg-primary-500/10 t-meta text-text line-clamp-3 break-words" title={row.after}>
                 {row.after === '—' ? <span className="italic text-text-light">Cleared</span> : row.after}
               </p>
             </div>
@@ -253,7 +253,7 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
         const when = dateLook(row.key);
         return (
           <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-            <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
+            <span className="t-meta font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
               {row.label}
             </span>
             <ChangeCompare plain icon={when.icon} tone={when.tone} from={wasEmpty ? undefined : row.before} to={row.after === '—' ? 'Cleared' : row.after} />
@@ -262,7 +262,7 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       }
       return (
         <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-          <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
+          <span className="t-meta font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
             {row.label}
           </span>
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -312,7 +312,7 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
           <time
             dateTime={log.createdAt}
             title={date.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })}
-            className="shrink-0 pt-0.5 text-xs font-display font-medium tabular-nums text-text-muted"
+            className="shrink-0 pt-0.5 t-meta font-display font-medium tabular-nums text-text-muted"
           >
             {timeLabel(date)}
           </time>
@@ -338,7 +338,7 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg px-2.5 text-xs font-display font-bold text-primary-700 transition-colors duration-200 bg-primary-500/10 hover:bg-primary-500/15 dark:text-primary-300 pointer-coarse:min-h-11"
+            className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg px-2.5 t-meta font-display font-bold text-primary-700 transition-colors duration-200 bg-primary-500/10 hover:bg-primary-500/15 dark:text-primary-300 pointer-coarse:min-h-11"
             aria-expanded={expanded}
           >
             {expanded

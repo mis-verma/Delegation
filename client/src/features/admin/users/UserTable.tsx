@@ -23,7 +23,7 @@ interface UserTableProps extends UserActionHandlers {
 }
 
 const HEAD_ROW_CLASS = 'bg-surface-hover';
-const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-display font-semibold text-text-muted tracking-tight whitespace-nowrap';
+const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-display font-semibold text-text-muted tracking-tight whitespace-nowrap';
 
 const COLUMNS: { key: UserSortKey; label: string }[] = [
   { key: 'role', label: 'Role' },

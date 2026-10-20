@@ -135,9 +135,7 @@ export const NeedsApprovalCard = () => {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!hasError && total > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 rounded-full bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold tabular-nums">
-              {total}
-            </span>
+            <IconChip icon={ShieldAlert} tone="bg-primary-600" label={total} labelClassName="tabular-nums" />
           )}
           {queueHref && !nothingToShow && (
             <Link

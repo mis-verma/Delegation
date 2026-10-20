@@ -78,7 +78,7 @@ export const ChecklistInstanceItemGpsCard = memo(function ChecklistInstanceItemG
       />
 
       {captured && (
-        <div className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-xs font-display text-text-secondary">
+        <div className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-surface-hover border border-border/60 t-meta font-display text-text-secondary">
           <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary-500" /> {captured.lat.toFixed(6)}, {captured.lng.toFixed(6)} (±{Math.round(captured.accuracy)}m)</span>
           {hasTarget && distance != null && (
             <span className={withinRadius === false ? 'text-danger' : 'text-success'}>

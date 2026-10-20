@@ -109,7 +109,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
             aria-labelledby={peopleLabelId}
             className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]"
           >
-            <p id={peopleLabelId} className="text-xs font-semibold text-text-secondary">People</p>
+            <p id={peopleLabelId} className="t-meta font-semibold text-text-secondary">People</p>
             <AuditPeopleList people={people} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
           </div>
 
@@ -137,7 +137,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
 const AuditProgress = ({ done, total }: { done: number; total: number }) => (
   <div className="flex items-center gap-2.5">
     <ChecklistProgressBar done={done} total={total} bare thin className="w-full max-w-48" />
-    <span className="text-xs text-text-muted tabular-nums whitespace-nowrap">{done} of {total} checked</span>
+    <span className="t-meta text-text-muted tabular-nums whitespace-nowrap">{done} of {total} checked</span>
   </div>
 );
 
@@ -320,7 +320,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {uniform && !typeShownInPicker && <AuditUniformChip label={uniform} />}
-            {storeName && <span className="text-xs text-text-muted truncate">{storeName}</span>}
+            {storeName && <span className="t-meta text-text-muted truncate">{storeName}</span>}
             {submission.isDone && isNa ? (
               <Badge variant="neutral">
                 <Ban strokeWidth={2.5} aria-hidden />
@@ -447,7 +447,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         </div>
       ) : submission.remarks ? (
         <div className="flex flex-col gap-1 max-w-2xl">
-          <p className="text-xs font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
+          <p className="t-meta font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
           <p className="t-card sm:text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
         </div>
       ) : null}
@@ -470,7 +470,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       {editable && (
         <div className={actionBar}>
           <ItemError error={errorText} fallback="Couldn't save that. Try again." />
-          <p className="min-h-4 text-xs text-text-muted text-center sm:text-right" aria-live="polite">{helper}</p>
+          <p className="min-h-4 t-meta text-text-muted text-center sm:text-right" aria-live="polite">{helper}</p>
           <div className="flex sm:justify-end">
             <Button
               variant="primary"
@@ -512,7 +512,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Mark as not applicable</DialogTitle>
-            <DialogDescription className="text-xs">{name}</DialogDescription>
+            <DialogDescription className="t-meta">{name}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
             <Textarea

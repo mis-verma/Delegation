@@ -29,7 +29,7 @@ export const ChecklistScoringGaps = () => {
           <span className="text-sm font-display font-bold text-text">
             {questionCount} {questionCount === 1 ? 'question has' : 'questions have'} no good answer set
           </span>
-          <span className="text-xs font-display text-text-muted leading-relaxed">
+          <span className="t-meta font-display text-text-muted leading-relaxed">
             Across {gaps.length} {gaps.length === 1 ? 'checklist' : 'checklists'}. Answer compliance cannot count them until you set the right answer.
           </span>
         </span>
@@ -46,12 +46,12 @@ export const ChecklistScoringGaps = () => {
               >
                 <span className="flex flex-col gap-1 min-w-0 flex-1">
                   <span className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{g.name}</span>
-                  <span className="text-xs font-display text-text-muted line-clamp-2 leading-relaxed">
+                  <span className="t-meta font-display text-text-muted line-clamp-2 leading-relaxed">
                     {g.labels.join(', ')}{g.unscored > g.labels.length ? ` and ${g.unscored - g.labels.length} more` : ''}
                   </span>
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-display text-text-muted">{RECURRENCE_LABEL[g.recurrence]}</span>
+                  <span className="t-meta font-display text-text-muted">{RECURRENCE_LABEL[g.recurrence]}</span>
                   <IconChip icon={CircleHelp} tone="bg-warning" label={`${g.unscored} of ${g.scorable} unset`} />
                 </span>
               </Link>

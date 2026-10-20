@@ -389,8 +389,26 @@ export const ChecklistBuilder = () => {
     return true;
   }, [activeSection, sections, setItemDrafts]);
 
-  const removeItem = useCallback((key: string) =>
-    setItemDrafts(drafts => drafts.filter(d => d.key !== key)), [setItemDrafts]);
+  const draftsRef = useRef(itemDrafts);
+  useEffect(() => {
+    draftsRef.current = itemDrafts;
+  });
+
+  const removeItem = useCallback((key: string) => {
+    const index = draftsRef.current.findIndex(d => d.key === key);
+    if (index < 0) return;
+    const removed = draftsRef.current[index];
+    setItemDrafts(drafts => drafts.filter(d => d.key !== key));
+    toast(removed.label.trim() ? `Removed "${removed.label.trim().slice(0, 40)}"` : 'Question removed', {
+      duration: 6000,
+      action: {
+        label: 'Undo',
+        onClick: () => setItemDrafts(drafts => (
+          drafts.some(d => d.key === key) ? drafts : normalizeItemOrder([...drafts.slice(0, index), removed, ...drafts.slice(index)], sections)
+        )),
+      },
+    });
+  }, [sections, setItemDrafts]);
 
   const handleImportTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);

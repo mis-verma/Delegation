@@ -26,7 +26,7 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex items-center gap-1.5 self-start min-h-11 sm:min-h-8 -mx-1.5 px-1.5 rounded-lg text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="flex items-center gap-1.5 self-start min-h-11 sm:min-h-8 -mx-1.5 px-1.5 rounded-lg t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
         <ChevronDown size={14} aria-hidden className={cn('transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
         {open ? 'Hide people' : `Show each person (${item.submissions.length})`}
@@ -39,16 +39,16 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
               <li key={sub.id} className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 p-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm font-display font-medium text-text">{personName(sub)}</span>
-                  <span className={cn('text-xs font-display font-semibold', sub.isNotApplicable ? 'text-text-muted' : sub.isDone ? 'text-success' : 'text-warning')}>
+                  <span className={cn('t-meta font-display font-semibold', sub.isNotApplicable ? 'text-text-muted' : sub.isDone ? 'text-success' : 'text-warning')}>
                     {state}
                   </span>
                 </div>
-                <p className="text-xs font-display text-text-muted">
+                <p className="t-meta font-display text-text-muted">
                   {sub.completedAt ? formatDateTime(sub.completedAt) : 'No time recorded'}
                   {sub.dressType ? ` \u00b7 Wearing: ${sub.dressType.name}` : ''}
                 </p>
                 {sub.remarks && (
-                  <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words">
+                  <p className="t-meta font-display text-text-muted whitespace-pre-wrap break-words">
                     {sub.isNotApplicable ? 'Reason' : 'Remark'}: {sub.remarks}
                   </p>
                 )}
@@ -69,15 +69,15 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
 const ItemHistoryList = ({ item }: { item: ChecklistInstanceItem }) => {
   const { data, isPending, isError } = useChecklistItemHistoryQuery(item.instanceId, true);
   const events = (data ?? []).filter((e) => e.itemId === item.id);
-  if (isPending) return <p className="text-xs font-display text-text-muted">Loading history...</p>;
-  if (isError) return <p className="text-xs font-display text-danger">Could not load the history. Try again in a moment.</p>;
-  if (events.length === 0) return <p className="text-xs font-display text-text-muted">No changes recorded for this question.</p>;
+  if (isPending) return <p className="t-meta font-display text-text-muted">Loading history...</p>;
+  if (isError) return <p className="t-meta font-display text-danger">Could not load the history. Try again in a moment.</p>;
+  if (events.length === 0) return <p className="t-meta font-display text-text-muted">No changes recorded for this question.</p>;
   return (
     <ol className="flex flex-col gap-1.5 border-l-2 border-border pl-3">
       {events.map((e) => (
         <li key={e.id} className="flex flex-col">
-          <span className="text-xs font-display font-medium text-text-secondary">{e.summary}</span>
-          <span className="text-xs font-display text-text-muted">{e.actorName} &middot; {formatDateTime(e.at)}</span>
+          <span className="t-meta font-display font-medium text-text-secondary">{e.summary}</span>
+          <span className="t-meta font-display text-text-muted">{e.actorName} &middot; {formatDateTime(e.at)}</span>
         </li>
       ))}
     </ol>
@@ -163,20 +163,20 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
               <span className={cn('font-bold', wrong ? 'text-warning' : 'text-text')}>{answerValue}</span>
             </p>
           )}
-          <p className="text-xs font-display text-text-muted">{meta}</p>
+          <p className="t-meta font-display text-text-muted">{meta}</p>
 
           {item.remarks && (
-            <p className="text-xs font-display text-text-secondary whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
+            <p className="t-meta font-display text-text-secondary whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
               {item.isNotApplicable ? 'Reason' : 'Remark'}: {item.remarks}
             </p>
           )}
           {flags.waived && item.waiveReason && (
-            <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-primary-500/40 pl-2.5">
+            <p className="t-meta font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-primary-500/40 pl-2.5">
               Waived: {item.waiveReason}
             </p>
           )}
           {flags.fixed && previousNote && (
-            <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
+            <p className="t-meta font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
               You sent it back with: {previousNote}
             </p>
           )}
@@ -300,7 +300,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
   return (
     <div className="flex flex-col gap-4">
       {scores && (
-        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs font-display">
+        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap t-meta font-display">
           <span className="font-semibold text-text-secondary tabular-nums">{scores.completion}% complete</span>
           <span className="text-text-muted tabular-nums">{scores.done} of {scores.total} questions done</span>
           {scores.compliance !== null && (
@@ -310,7 +310,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
           )}
         </div>
       )}
-      <p className="text-xs font-display text-text-muted leading-relaxed">
+      <p className="t-meta font-display text-text-muted leading-relaxed">
         Tick a question that was not done properly to send only that one back. It also counts against compliance.
       </p>
 
@@ -319,7 +319,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
         {look.length > 0 ? (
           <ul className="flex flex-col gap-2">{look.map(renderRow)}</ul>
         ) : (
-          <p className="text-xs font-display text-text-muted">Nothing stands out. Every answer was within its rule and photos are in.</p>
+          <p className="t-meta font-display text-text-muted">Nothing stands out. Every answer was within its rule and photos are in.</p>
         )}
       </section>
 

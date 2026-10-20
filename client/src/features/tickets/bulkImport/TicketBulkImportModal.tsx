@@ -207,7 +207,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
             <p className="text-sm font-display font-semibold text-text">
               {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
             </p>
-            <p className="text-xs font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
+            <p className="t-meta font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
             <p className="t-meta font-display text-text-light mt-2">
               Columns: Title, Description, Assignee (email or name), Priority, Department, Store, Category, TAT Hours, Labels. Title and Description are required.
             </p>
@@ -217,12 +217,12 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
 
       {step === 'review' && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             {includedRows.length} of {rows.length} row{rows.length === 1 ? '' : 's'} included. Rows outlined in amber need a second look, red ones need fixing.
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-xs">
+            <table className="w-full t-meta">
               <thead>
                 <tr className="border-b border-border bg-surface-hover/30">
                   <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Title</th>
@@ -246,7 +246,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { title: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Title"
-                        className={`w-36 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
+                        className={`w-36 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -255,7 +255,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { description: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Description"
-                        className={`w-40 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
+                        className={`w-40 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -266,7 +266,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="Unassigned"
                         placeholder={row.raw.assigneeName || 'Unassigned'}
                         disabled={row.excluded}
-                        className={`text-xs ${optionalFieldRing(row.assigneeId, row.raw.assigneeName, row.assigneeConfidence)}`}
+                        className={`t-meta ${optionalFieldRing(row.assigneeId, row.raw.assigneeName, row.assigneeConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -277,7 +277,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No department"
                         placeholder={row.raw.departmentName || 'No department'}
                         disabled={row.excluded}
-                        className={`text-xs ${optionalFieldRing(row.departmentId, row.raw.departmentName, row.departmentConfidence)}`}
+                        className={`t-meta ${optionalFieldRing(row.departmentId, row.raw.departmentName, row.departmentConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -288,7 +288,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No store"
                         placeholder={row.raw.storeName || 'No store'}
                         disabled={row.excluded}
-                        className={`text-xs ${optionalFieldRing(row.storeId, row.raw.storeName, row.storeConfidence)}`}
+                        className={`t-meta ${optionalFieldRing(row.storeId, row.raw.storeName, row.storeConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -299,7 +299,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No category"
                         placeholder={row.raw.categoryName || 'No category'}
                         disabled={row.excluded}
-                        className={`text-xs ${optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}`}
+                        className={`t-meta ${optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -307,7 +307,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         value={row.priority}
                         onChange={(v) => updateRow(row.rowIndex, { priority: v as Priority })}
                         options={PRIORITY_OPTIONS}
-                        className="text-xs"
+                        className="t-meta"
                         disabled={row.excluded}
                       />
                     </td>
@@ -317,10 +317,10 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { tatHours: e.target.value, tatHoursInvalid: false })}
                         disabled={row.excluded}
                         placeholder="Default"
-                        className={`w-20 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
+                        className={`w-20 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
                       />
                     </td>
-                    <td className="px-3 py-2 text-xs max-w-40">
+                    <td className="px-3 py-2 t-meta max-w-40">
                       {row.tagIds.length > 0 && (
                         <span className="text-text-secondary">{row.tagIds.map((id) => tagNameById.get(id)).filter(Boolean).join(', ')}</span>
                       )}
@@ -361,7 +361,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
 
           {summary.failed.length > 0 && (
             <div className="w-full max-w-sm text-left mt-2">
-              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
+              <p className="t-meta font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} row{summary.failed.length === 1 ? '' : 's'} failed
               </p>
               <ul className="flex flex-col gap-1 t-meta font-display text-text-muted max-h-32 overflow-y-auto">

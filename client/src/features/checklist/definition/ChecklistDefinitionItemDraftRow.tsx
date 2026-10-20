@@ -154,7 +154,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           </div>
           <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} validPersonIds={validPersonIds} />
           {problem && (
-            <p id={problemId} role="alert" className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
+            <p id={problemId} role="alert" className="flex items-start gap-1.5 t-meta font-display font-medium text-danger">
               <AlertCircle size={13} className="shrink-0 mt-px" />
               {problem}
             </p>

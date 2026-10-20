@@ -110,7 +110,7 @@ const SectionCard = ({
     <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 pb-3 border-b border-border/50">
       <div className="flex flex-wrap items-center gap-2 min-w-0">
         <span
-          className={`p-1.5 rounded-lg text-xs ${
+          className={`p-1.5 rounded-lg t-meta ${
             valid
               ? 'bg-muted/60 text-text-secondary'
               : 'bg-warning/15 text-warning'
@@ -118,7 +118,7 @@ const SectionCard = ({
         >
           {icon}
         </span>
-        <h3 className="text-xs font-display font-bold text-text-secondary">
+        <h3 className="t-meta font-display font-bold text-text-secondary">
           {title}
         </h3>
         {badgeText && (
@@ -245,7 +245,7 @@ export const BuilderReviewStep = ({
           </div>
           <div className="flex flex-col gap-1">
             <Caption>Description</Caption>
-            <p className="text-xs font-display text-text-secondary leading-relaxed line-clamp-3">
+            <p className="t-meta font-display text-text-secondary leading-relaxed line-clamp-3">
               {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
             </p>
           </div>
@@ -257,7 +257,7 @@ export const BuilderReviewStep = ({
           valid={sectionValidity[1]}
           onEdit={() => onEditSection(1)}
         >
-          <div className="grid grid-cols-1 gap-2 text-xs font-display text-text-secondary">
+          <div className="grid grid-cols-1 gap-2 t-meta font-display text-text-secondary">
             <div className="flex items-start gap-2">
               <Store size={13} className="text-text-muted shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -321,7 +321,7 @@ export const BuilderReviewStep = ({
         >
           {namedItems.length === 0 ? (
             <div className="py-4 text-center">
-              <p className="text-xs font-display text-text-muted italic">
+              <p className="t-meta font-display text-text-muted italic">
                 You haven’t added any questions yet.
               </p>
             </div>
@@ -333,7 +333,7 @@ export const BuilderReviewStep = ({
               {namedItems.map((item, index) => (
                 <li
                   key={item.key}
-                  className="flex items-center justify-between gap-2 pt-1.5 first:pt-0 text-xs font-display"
+                  className="flex items-center justify-between gap-2 pt-1.5 first:pt-0 t-meta font-display"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="t-meta font-mono font-medium text-text-muted shrink-0 w-5">
@@ -364,7 +364,7 @@ export const BuilderReviewStep = ({
           <div className="flex flex-col gap-1">
             <Caption><ShieldCheck size={11} /> Approves or sends back a filled-in run</Caption>
             {reviewerIds.length === 0 ? (
-              <p className="text-xs font-display text-text-secondary">
+              <p className="t-meta font-display text-text-secondary">
                 <span className="italic text-text-muted">
                   No one extra picked. PC/Admin and each assignee's department head can still review.
                 </span>
@@ -375,7 +375,7 @@ export const BuilderReviewStep = ({
               <InlineError message="We couldn't load the people." onRetry={() => allActiveQuery.refetch()} />
             ) : (
               <>
-                <p className="text-xs font-display text-text-secondary">{reviewers.names.join(', ') || <span className="italic text-text-muted">No active reviewers picked</span>}</p>
+                <p className="t-meta font-display text-text-secondary">{reviewers.names.join(', ') || <span className="italic text-text-muted">No active reviewers picked</span>}</p>
                 {reviewers.leftOut > 0 && (
                   <p className="t-meta font-display text-warning">
                     {reviewers.leftOut} {reviewers.leftOut === 1 ? 'person is' : 'people are'} no longer active and will be left out.
@@ -400,7 +400,7 @@ export const BuilderReviewStep = ({
                 <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
               ) : (
                 <>
-                  <p className="text-xs font-display text-text-secondary">
+                  <p className="t-meta font-display text-text-secondary">
                     {assignees.names.length ? (
                       assignees.names.join(', ')
                     ) : (
@@ -417,7 +417,7 @@ export const BuilderReviewStep = ({
             </div>
             <div className="flex flex-col gap-1">
               <Caption><Layers size={11} /> Who fills it</Caption>
-              <p className="text-xs font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
+              <p className="t-meta font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
             </div>
           </div>
         </SectionCard>
@@ -451,7 +451,7 @@ export const BuilderReviewStep = ({
           </NoticeBanner>
         ) : (
           hasPeople ? (
-            <p className="flex items-center gap-1.5 text-xs font-display text-success">
+            <p className="flex items-center gap-1.5 t-meta font-display text-success">
               <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
             </p>
           ) : (

@@ -95,9 +95,7 @@ export const ExceptionsCard = () => {
           </div>
         </div>
         {items.length + peopleRows.length > 0 && (
-          <span className="inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 rounded-full bg-danger/10 text-danger text-xs font-display font-bold tabular-nums">
-            {items.length + peopleRows.length}
-          </span>
+          <IconChip icon={AlertTriangle} tone="bg-danger" label={items.length + peopleRows.length} labelClassName="tabular-nums" />
         )}
       </div>
 

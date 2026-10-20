@@ -263,7 +263,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             </span>
           </span>
           {showLabel && (
-            <span className="shrink-0 ml-2 text-xs font-bold capitalize tracking-wide px-2 py-0.5 rounded-full bg-surface-hover/80 border border-border text-text-muted">
+            <span className="shrink-0 ml-2 t-meta font-bold capitalize tracking-wide px-2 py-0.5 rounded-full bg-surface-hover/80 border border-border text-text-muted">
               Soon
             </span>
           )}
@@ -377,10 +377,10 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                     return (
                       <span
                         key={child.to}
-                        className={`flex items-center justify-between gap-2 rounded-lg px-3 text-xs font-medium text-text-muted/70 cursor-not-allowed select-none ${isDrawer ? 'py-2.5' : 'py-1.5'}`}
+                        className={`flex items-center justify-between gap-2 rounded-lg px-3 t-meta font-medium text-text-muted/70 cursor-not-allowed select-none ${isDrawer ? 'py-2.5' : 'py-1.5'}`}
                       >
                         {child.label}
-                        <span className="text-xs font-bold capitalize tracking-wide px-2 py-0.5 rounded-full bg-surface-hover/80 border border-border text-text-muted">
+                        <span className="t-meta font-bold capitalize tracking-wide px-2 py-0.5 rounded-full bg-surface-hover/80 border border-border text-text-muted">
                           Soon
                         </span>
                       </span>
@@ -396,7 +396,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                       to={child.to}
                       onClick={handleNavClick}
                       className={[
-                        'relative rounded-lg px-3 text-xs transition-all duration-200',
+                        'relative rounded-lg px-3 t-meta transition-all duration-200',
                         isDrawer ? 'py-2.5' : 'py-1.5',
                         isActiveChild
                           ? 'bg-primary-50/50 text-primary-700 font-bold dark:bg-primary-500/10 dark:text-primary-300'
@@ -424,7 +424,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         <div className="flex items-center justify-between px-3 mb-4 shrink-0">
           <p
             className={[
-              'text-xs font-bold text-text-light tracking-wider',
+              't-meta font-bold text-text-light tracking-wider',
               'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
               (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
             ].join(' ')}
@@ -461,7 +461,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               />
               <p
                 className={[
-                  'flex items-center gap-1.5 text-xs font-bold text-text-light tracking-wider px-3',
+                  'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
                   'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
                   (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-3' : 'max-h-0 opacity-0 mb-0',
                 ].join(' ')}
@@ -485,7 +485,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       <div className="shrink-0 pt-3 border-t border-border">
         <p
           className={[
-            'text-xs font-bold text-text-light tracking-wider px-3 mb-1',
+            't-meta font-bold text-text-light tracking-wider px-3 mb-1',
             'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
             (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
           ].join(' ')}
@@ -503,7 +503,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           ].join(' ')}
         >
           <div
-            className="relative size-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-inset ring-white/15 flex items-center justify-center text-white text-xs font-bold shrink-0"
+            className="relative size-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-inset ring-white/15 flex items-center justify-center text-white t-meta font-bold shrink-0"
             title={user?.name}
           >
             {initials}
@@ -520,7 +520,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               <p className="text-sm font-bold text-text truncate leading-tight">
                 {user?.name}
               </p>
-              <p className="text-xs font-medium text-text-muted truncate leading-tight mt-0.5">
+              <p className="t-meta font-medium text-text-muted truncate leading-tight mt-0.5">
                 {user?.email}
               </p>
             </div>

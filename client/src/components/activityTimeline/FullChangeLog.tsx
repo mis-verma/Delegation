@@ -16,7 +16,7 @@ export const FullChangeLog = ({ entityType, entityId }: { entityType: AuditEntit
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex min-h-10 w-fit items-center gap-2 rounded-xl border border-border bg-surface px-2.5 text-xs font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+        className="inline-flex min-h-10 w-fit items-center gap-2 rounded-xl border border-border bg-surface px-2.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
       >
         <span className={'flex size-6 items-center justify-center rounded-md text-white ' + TONE.coral} aria-hidden="true">
           <ShieldCheck size={13} strokeWidth={2.5} />

@@ -9,7 +9,7 @@ interface InlineErrorProps {
 }
 
 export const InlineError = ({ message, onRetry, className }: InlineErrorProps) => (
-  <div role="alert" className={cn('flex items-center gap-2.5 p-3 rounded-lg border border-danger/20 bg-danger/10 text-danger text-xs font-display', className)}>
+  <div role="alert" className={cn('flex items-center gap-2.5 p-3 rounded-lg border border-danger/20 bg-danger/10 text-danger t-meta font-display', className)}>
     <AlertCircle size={15} className="shrink-0" aria-hidden />
     <span className="flex-1 min-w-0">{message}</span>
     {onRetry && (

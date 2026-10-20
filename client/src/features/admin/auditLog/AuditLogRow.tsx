@@ -63,13 +63,13 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
                 {name.isId ? name.text : `'${name.text}'`}
               </Link>
             ) : (
-              <span className={cn('font-semibold text-text', name.isId && 'font-mono text-xs text-text-muted')} title={log.entityId}>
+              <span className={cn('font-semibold text-text', name.isId && 'font-mono t-meta text-text-muted')} title={log.entityId}>
                 {name.isId ? name.text : `'${name.text}'`}
               </span>
             )}
           </p>
 
-          <span className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-text-muted tabular-nums" title={formatFullDateTime(log.createdAt)}>
+          <span className="flex items-center gap-1.5 shrink-0 t-meta font-medium text-text-muted tabular-nums" title={formatFullDateTime(log.createdAt)}>
             <time dateTime={log.createdAt} className="font-semibold text-text-secondary">{formatClock(log.createdAt)}</time>
             {relative && (
               <>
@@ -91,7 +91,7 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
 
         {isDelete && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger/10 px-2 py-1.5 text-xs font-display font-semibold text-danger">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger/10 px-2 py-1.5 t-meta font-display font-semibold text-danger">
               <Trash2 size={12} aria-hidden />
               Removed
             </span>
@@ -111,7 +111,7 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
         )}
 
         {isChangeKind && rows.length === 0 && log.action === 'UPDATE' && (
-          <p className="text-xs font-medium text-text-muted">No field changes were recorded for this entry.</p>
+          <p className="t-meta font-medium text-text-muted">No field changes were recorded for this entry.</p>
         )}
 
         {expanded && <AuditLogDiff rows={rows} />}

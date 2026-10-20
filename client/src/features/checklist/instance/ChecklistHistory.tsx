@@ -57,10 +57,10 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
             <User size={13} className="text-text-muted shrink-0" aria-hidden />
             <span className="truncate">{personName(row) || 'Unknown person'}</span>
           </h3>
-          <p className="text-xs text-text-muted">
+          <p className="t-meta text-text-muted">
             {row.itemLabel} · {row.checklistTitle}
           </p>
-          <p className="flex items-center gap-1.5 text-xs text-text-muted flex-wrap">
+          <p className="flex items-center gap-1.5 t-meta text-text-muted flex-wrap">
             {row.storeName && <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{row.storeName}</span>}
             <span>{formatDate(row.periodStart)}{row.completedAt ? ` · checked ${formatTimeOnly(row.completedAt)}` : ''}</span>
           </p>
@@ -112,7 +112,7 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
 
       {row.remarks && (
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold text-text-secondary">{row.isNotApplicable ? 'Reason' : 'Remarks'}</p>
+          <p className="t-meta font-semibold text-text-secondary">{row.isNotApplicable ? 'Reason' : 'Remarks'}</p>
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{row.remarks}</p>
         </div>
       )}
@@ -141,7 +141,7 @@ const ListSkeleton = () => (
 );
 
 const TAB_TRIGGER_CLASS =
-  'min-h-11 sm:min-h-8 px-3.5 text-xs border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none';
+  'min-h-11 sm:min-h-8 px-3.5 t-meta border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none';
 
 export const ChecklistHistory = () => {
   const { user } = useAuth();
@@ -265,11 +265,11 @@ export const ChecklistHistory = () => {
 
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5 w-full sm:w-64">
-              <span className="text-xs font-display font-medium text-text-secondary">Dates</span>
+              <span className="t-meta font-display font-medium text-text-secondary">Dates</span>
               <DateRangePicker value={range} onChange={setRange} placeholder="All time" placeholderIsValue />
             </div>
             <div className="flex flex-col gap-1.5 w-full sm:w-48">
-              <span className="text-xs font-display font-medium text-text-secondary">Store</span>
+              <span className="t-meta font-display font-medium text-text-secondary">Store</span>
               <SelectDropdown
                 value={storeId}
                 onChange={setStoreId}
@@ -278,7 +278,7 @@ export const ChecklistHistory = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5 w-full sm:w-56">
-              <span className="text-xs font-display font-medium text-text-secondary">Person</span>
+              <span className="t-meta font-display font-medium text-text-secondary">Person</span>
               <SelectDropdown
                 value={personId}
                 onChange={setPersonId}
@@ -288,7 +288,7 @@ export const ChecklistHistory = () => {
             </div>
             {tab === 'checklists' && (
               <div className="flex flex-col gap-1.5 w-full sm:w-44">
-                <span className="text-xs font-display font-medium text-text-secondary">Status</span>
+                <span className="t-meta font-display font-medium text-text-secondary">Status</span>
                 <SelectDropdown
                   value={status}
                   onChange={setStatus}

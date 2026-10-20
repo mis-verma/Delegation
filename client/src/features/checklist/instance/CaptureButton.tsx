@@ -13,7 +13,7 @@ interface CaptureButtonProps {
 export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: CaptureButtonProps) => (
   <label
     className={cn(
-      'inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-md border text-xs font-medium whitespace-nowrap',
+      'inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-md border t-meta font-medium whitespace-nowrap',
       'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
       'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
       live
@@ -35,7 +35,7 @@ export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: Capt
 );
 
 export const UploadingHint = () => (
-  <span role="status" className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+  <span role="status" className="inline-flex items-center gap-1.5 t-meta text-text-muted">
     <Loader size="sm" variant="slate" />
     Uploading…
   </span>

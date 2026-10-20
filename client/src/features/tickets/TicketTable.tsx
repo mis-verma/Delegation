@@ -15,8 +15,8 @@ interface TicketTableProps {
 }
 
 const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 pointer-coarse:py-3 align-middle text-xs text-text-secondary';
+const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
+const CELL_CLASS = 'px-3 py-2.5 pointer-coarse:py-3 align-middle t-meta text-text-secondary';
 
 const FROM_LG = 'hidden lg:table-cell';
 const FROM_XL = 'hidden xl:table-cell';

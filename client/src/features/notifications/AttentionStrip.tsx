@@ -17,7 +17,7 @@ export const AttentionStrip = ({ onNavigate }: { onNavigate: () => void }) => {
 
   return (
     <div className="flex flex-col gap-2 px-4 sm:px-5 py-3 border-b border-border/60 shrink-0 bg-surface-hover/40">
-      <p className="text-xs font-display font-bold text-text-secondary">Needs your attention</p>
+      <p className="t-meta font-display font-bold text-text-secondary">Needs your attention</p>
       <ul className="flex flex-wrap gap-1.5">
         {active.map(({ to, label, icon: Icon }) => {
           const badge = badges[to];
@@ -30,7 +30,7 @@ export const AttentionStrip = ({ onNavigate }: { onNavigate: () => void }) => {
                 onClick={onNavigate}
                 aria-label={`${label}, ${badgeSummary(badge)}`}
                 className={cn(
-                  'inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border pl-2.5 pr-1.5 text-xs font-display font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                  'inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border pl-2.5 pr-1.5 t-meta font-display font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                   late ? 'border-danger/30 bg-danger/10 text-danger hover:bg-danger/15' : 'border-primary-500/25 bg-primary-500/10 text-primary-700 hover:bg-primary-500/15 dark:text-primary-300',
                 )}
               >

@@ -1,5 +1,5 @@
-import { Building2, User } from 'lucide-react';
-import { EntityIconTile } from '../../../components';
+import { Building2, ListChecks, User } from 'lucide-react';
+import { EntityIconTile, IconChip } from '../../../components';
 
 interface TicketGroupHeaderProps {
   label: string;
@@ -18,14 +18,11 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
         <h3 className="min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug break-words">
           {label}
         </h3>
-        <span className="text-xs font-semibold text-text-muted tabular-nums shrink-0">{ticketCount}</span>
+        <span className="t-meta font-semibold text-text-muted tabular-nums shrink-0">{ticketCount}</span>
       </div>
 
       {stats.total > 0 && (
-        <span className="hidden sm:inline-flex items-center gap-1 t-meta font-display font-semibold px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 shrink-0">
-          <span className="tabular-nums">{stats.done}/{stats.total}</span>
-          <span className="opacity-80">checklist items</span>
-        </span>
+        <IconChip className="hidden sm:inline-flex shrink-0" icon={ListChecks} tone="bg-primary-600" label={`${stats.done}/${stats.total} checklist items`} labelClassName="tabular-nums" />
       )}
     </div>
   );

@@ -52,21 +52,21 @@ const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday;
           soon ? 'border-primary-500/40 bg-primary-500/10' : 'border-border/60 bg-surface-hover',
         )}
       >
-        <span className={cn('text-xs font-display font-semibold', soon ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted')}>
+        <span className={cn('t-meta font-display font-semibold', soon ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted')}>
           {MONTH_SHORT.format(day)}
         </span>
         <span className={cn('text-xl font-display font-bold tabular-nums pt-0.5', past ? 'text-text-muted' : 'text-text')}>{day.getUTCDate()}</span>
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn('text-sm font-display font-semibold leading-snug', past ? 'text-text-muted' : 'text-text')}>{holiday.name}</p>
-        <p className="text-xs font-display text-text-muted">
+        <p className="t-meta font-display text-text-muted">
           {WEEKDAY.format(day)}
           {when && <span className="sm:hidden"> · {when}</span>}
         </p>
       </div>
       {when && (
         <span className={cn(
-          'hidden sm:inline-flex items-center h-6 px-2.5 rounded-full text-xs font-display font-semibold shrink-0',
+          'hidden sm:inline-flex items-center h-6 px-2.5 rounded-full t-meta font-display font-semibold shrink-0',
           soon ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'bg-surface-hover text-text-secondary',
         )}>
           {when}
@@ -102,7 +102,7 @@ const Stat = ({ value, label, icon, tint }: { value: string; label: string; icon
   <StatCard modern compact label={label} value={value} icon={icon} iconTint={tint} />
 );
 
-const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
+const FIELD_LABEL = 't-meta font-display font-medium text-text-secondary';
 
 export const HolidaysPage = () => {
   const confirm = useConfirm();
@@ -287,7 +287,7 @@ export const HolidaysPage = () => {
             <Input
               id="holiday-name"
               label="Name"
-              labelClassName="text-xs font-display font-medium tracking-normal text-text-secondary px-0"
+              labelClassName="t-meta font-display font-medium tracking-normal text-text-secondary px-0"
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={100}
@@ -302,7 +302,7 @@ export const HolidaysPage = () => {
                 <Wand2 size={14} aria-hidden />
                 Add national holidays for {year}
               </Button>
-              <p className="text-xs font-display text-text-muted leading-relaxed">
+              <p className="t-meta font-display text-text-muted leading-relaxed">
                 Republic Day (26 Jan), Independence Day (15 Aug), Gandhi Jayanti (2 Oct). Festival dates change every year, so add those yourself.
               </p>
             </div>

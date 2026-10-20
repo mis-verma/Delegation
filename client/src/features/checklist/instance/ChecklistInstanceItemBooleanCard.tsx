@@ -144,13 +144,13 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       {!item.isDone && !pendingAnswer && (yesActions.length > 0 || noActions.length > 0) && (
         <div className="flex flex-col gap-1">
           {yesActions.length > 0 && (
-            <p className="flex items-start gap-1.5 text-xs font-display text-warning">
+            <p className="flex items-start gap-1.5 t-meta font-display text-warning">
               <Zap className="size-3 shrink-0 mt-0.5" />
               If you answer {labels.yes}, you'll need to provide {yesActions.map(a => ACTION_HINT[a]).join(', ')}.
             </p>
           )}
           {noActions.length > 0 && (
-            <p className="flex items-start gap-1.5 text-xs font-display text-warning">
+            <p className="flex items-start gap-1.5 t-meta font-display text-warning">
               <Zap className="size-3 shrink-0 mt-0.5" />
               If you answer {labels.no}, you'll need to provide {noActions.map(a => ACTION_HINT[a]).join(', ')}.
             </p>
@@ -207,7 +207,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       )}
 
       {item.isDone && isFlaggedAnswer(item) && (
-        <p className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
+        <p className="flex items-start gap-1.5 t-meta font-display font-medium text-danger">
           <AlertTriangle className="size-3.5 shrink-0 mt-px" />
           Flagged. This answer counts against compliance, even with a reason or photo on file.
         </p>
@@ -229,15 +229,15 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               />
             ) : (
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-display text-text-muted">Reason</span>
-                <p className="text-xs font-display text-text italic">"{item.conditionalReasonValue}"</p>
+                <span className="t-meta font-display text-text-muted">Reason</span>
+                <p className="t-meta font-display text-text italic">"{item.conditionalReasonValue}"</p>
               </div>
             )
           )}
 
           {requiresPhoto && (
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-display text-text-muted">
+              <span className="t-meta font-display text-text-muted">
                 Photo {images.length > 0 ? `(${images.length})` : '(required)'}
               </span>
               {images.length > 0 && (

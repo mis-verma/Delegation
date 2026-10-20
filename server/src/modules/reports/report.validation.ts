@@ -17,4 +17,8 @@ export const approvalTatQuerySchema = z.object({
     to: z.string().datetime({ offset: true }),
 });
 
+export const overdueSnapshotQuerySchema = z.object({
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 export type ReportExportQuery = z.infer<typeof reportExportQuerySchema>;

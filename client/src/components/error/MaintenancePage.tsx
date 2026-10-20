@@ -23,7 +23,7 @@ export const MaintenancePage = ({
     <span className="absolute top-1/3 right-16 size-40 rounded-full bg-primary-300/10 blur-2xl pointer-events-none" />
 
     <div
-      className="relative z-10 w-full max-w-md text-center flex flex-col items-center gap-5 p-8 sm:p-10 rounded-2xl border border-border/60 shadow-xl animate-scale-in"
+      className="relative z-10 w-full max-w-md text-center flex flex-col items-center gap-5 p-8 sm:p-10 rounded-2xl border border-border/60 animate-scale-in"
       style={{
         background: 'var(--glass-bg)',
         backdropFilter: 'var(--glass-blur)',
@@ -40,7 +40,7 @@ export const MaintenancePage = ({
       </div>
 
       {estimatedReturn && (
-        <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-surface-hover px-3 py-1 text-xs font-medium text-text-secondary">
+        <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-surface-hover px-3 py-1 t-meta font-medium text-text-secondary">
           {estimatedReturn}
         </span>
       )}

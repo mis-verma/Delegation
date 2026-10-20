@@ -142,7 +142,7 @@ export const TodoPage = () => {
             <button
               type="button"
               onClick={dueRange.clear}
-              className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 text-xs font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+              className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 t-meta font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
               aria-label={`Clear the due date filter: ${dueRange.range.label}`}
             >
               Due {dueRange.range.label}

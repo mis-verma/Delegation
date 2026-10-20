@@ -48,7 +48,7 @@ export const TaskScoreBadge = ({ status }: TaskScoreBadgeProps) => {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 h-7 pl-1.5 pr-2.5 rounded-full border border-border/70 bg-surface text-xs font-display font-semibold text-text-secondary"
+      className="inline-flex items-center gap-1.5 h-7 pl-1.5 pr-2.5 rounded-full border border-border/70 bg-surface t-meta font-display font-semibold text-text-secondary"
       title={`Delegation score ${percent}%`}
     >
       <span className={cn('relative flex items-center justify-center size-[18px]', color)}>

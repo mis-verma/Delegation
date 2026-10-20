@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { reportExportQuerySchema, approvalTatQuerySchema } from "./report.validation.js";
+import { reportExportQuerySchema, approvalTatQuerySchema, overdueSnapshotQuerySchema } from "./report.validation.js";
+import { overdueSnapshotService } from "./overdueSnapshot.service.js";
 import { approvalTatService } from "./approvalTat.service.js";
 import { REPORT_ROW_STREAMS, REPORT_COLUMNS, type ReportModule } from "./report.service.js";
 import { CsvColumn, streamCsv } from "../../utils/csv.js";
@@ -49,6 +50,11 @@ export const reportController = {
     approvalTat: asyncHandler(async (req: Request, res: Response) => {
         const { from, to } = approvalTatQuerySchema.parse(req.query);
         const data = await approvalTatService.summary(new Date(from), new Date(to));
+        res.json({ success: true, data });
+    }),
+    overdueSnapshot: asyncHandler(async (req: Request, res: Response) => {
+        const { day } = overdueSnapshotQuerySchema.parse(req.query);
+        const data = await overdueSnapshotService.before(day);
         res.json({ success: true, data });
     }),
     exportTickets: exportHandler("tickets"),

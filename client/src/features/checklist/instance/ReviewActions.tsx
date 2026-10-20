@@ -96,7 +96,7 @@ export const SendBackForm = ({
         maxLength={maxLength}
         className="min-h-0 py-2.5 resize-none"
       />
-      {helper && <p className="text-xs font-display text-text-muted">{helper}</p>}
+      {helper && <p className="t-meta font-display text-text-muted">{helper}</p>}
       <div className="flex items-center justify-end gap-2">
         <Button size="sm" variant="outline" disabled={busy} onClick={onCancel}>Cancel</Button>
         <Button size="sm" variant="danger" disabled={!canSubmit || busy} isLoading={isSending} onClick={onSubmit}>

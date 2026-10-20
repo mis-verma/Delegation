@@ -7,7 +7,7 @@ interface TicketActiveTagsProps {
   allTickets: Ticket[];
 }
 
-const CHIP_CLASS = 'flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 text-xs font-display font-medium rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20';
+const CHIP_CLASS = 'flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 t-meta font-display font-medium rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20';
 const REMOVE_CLASS = 'relative flex items-center justify-center size-6 shrink-0 rounded-full after:absolute after:-inset-2.5 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-primary-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 export const TicketActiveTags = ({ organizer, allTickets }: TicketActiveTagsProps) => {

@@ -85,18 +85,18 @@ const TaskListViewComponent = ({
                     {owners.length ? (
                       <>
                         {owners.slice(0, 3).map((name, i) => (
-                          <span key={name + i} className={`flex items-center justify-center size-7 rounded-full ring-2 ring-surface text-white text-xs font-bold ${avatarColorClass(name)}`}>
+                          <span key={name + i} className={`flex items-center justify-center size-7 rounded-full ring-2 ring-surface text-white t-meta font-bold ${avatarColorClass(name)}`}>
                             {getInitials(name)}
                           </span>
                         ))}
                         {owners.length > 3 && (
-                          <span className="flex items-center justify-center size-7 rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary text-xs font-bold">
+                          <span className="flex items-center justify-center size-7 rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary t-meta font-bold">
                             +{owners.length - 3}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="flex items-center justify-center size-7 rounded-full border border-border-hover text-text-light text-xs font-bold">?</span>
+                      <span className="flex items-center justify-center size-7 rounded-full border border-border-hover text-text-light t-meta font-bold">?</span>
                     )}
                   </span>
                 )}

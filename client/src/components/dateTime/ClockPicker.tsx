@@ -106,7 +106,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
     <div className="flex flex-col items-center gap-3 min-w-0">
       {label && (
         <div className="flex w-full items-baseline justify-between gap-2">
-          <span className="text-xs font-display font-semibold text-text-muted">{label}</span>
+          <span className="t-meta font-display font-semibold text-text-muted">{label}</span>
           <span className="text-sm font-display font-bold text-text tabular-nums">{value ? formatClock(value) : 'Pick a day first'}</span>
         </div>
       )}
@@ -124,7 +124,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
               aria-pressed={selected}
               onClick={() => { onTouch?.(); if (candidate) apply(candidate); }}
               className={cn(
-                'h-9 pointer-coarse:h-11 rounded-lg border text-xs font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
+                'h-9 pointer-coarse:h-11 rounded-lg border t-meta font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
                 selected
                   ? 'bg-gradient-to-br from-primary-500/15 to-primary-500/5 border-primary-500/40 text-primary-700 dark:text-primary-300'
                   : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400 hover:bg-primary-500/5',
@@ -154,7 +154,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
               disabled={!value}
               onClick={() => setPeriod(p)}
               aria-pressed={(p === 'PM') === isPM}
-              className={cn(segment((p === 'PM') === isPM), 'text-xs')}
+              className={cn(segment((p === 'PM') === isPM), 't-meta')}
             >
               {p}
             </button>
@@ -162,7 +162,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
         </div>
       </div>
 
-      <span className="text-xs font-medium text-text-light">
+      <span className="t-meta font-medium text-text-light">
         {!value ? 'Pick a day first' : mode === 'hour' ? 'Tap or drag to set the hour' : 'Tap or drag to set the minutes'}
       </span>
 
@@ -202,7 +202,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
               aria-label={mode === 'hour' ? `${mark} o'clock` : `${mark} minutes`}
               aria-pressed={active}
               className={cn(
-                'absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-full text-xs font-semibold transition-colors duration-150 flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
+                'absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-full t-meta font-semibold transition-colors duration-150 flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
                 dial.mark,
                 active ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-secondary',
               )}
@@ -214,7 +214,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
         })}
       </div>
 
-      {error && <p className="text-xs text-danger font-display" role="alert">{error}</p>}
+      {error && <p className="t-meta text-danger font-display" role="alert">{error}</p>}
     </div>
   );
 };

@@ -39,7 +39,7 @@ export const ChecklistAssigneesField = ({
         selected={selected}
         onChange={onChange}
         emptyHint={
-          <div className="flex flex-col gap-1.5 px-2 py-2 text-xs font-display text-text-muted">
+          <div className="flex flex-col gap-1.5 px-2 py-2 t-meta font-display text-text-muted">
             <span className="font-semibold text-text">Nobody works at {storeIds.length === 1 ? 'this store' : 'these stores'} yet.</span>
             <span>
               Set each person's store in{' '}

@@ -34,7 +34,7 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
     >
       <GripVertical size={15} />
     </button>
-    <span className="text-xs font-display font-semibold text-text-secondary truncate flex-1 min-w-0">{label}</span>
+    <span className="t-meta font-display font-semibold text-text-secondary truncate flex-1 min-w-0">{label}</span>
     <div className="shrink-0 flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-surface" role="group" aria-label={`${label} size`}>
       <button
         type="button"

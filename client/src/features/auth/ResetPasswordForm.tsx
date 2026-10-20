@@ -8,7 +8,7 @@ import { resetPasswordCodeSchema, resetPasswordSchema, type ResetPasswordCodeFie
 import { useForgotPasswordMutation, useResetPasswordMutation, useResetPasswordWithCodeMutation } from "./hooks";
 import { AuthBackground } from "./AuthBackground";
 
-const SUBMIT_CLASS = "mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white shadow-md transition-all duration-300 py-2 text-sm";
+const SUBMIT_CLASS = "mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white transition-all duration-300 py-2 text-sm";
 const RESEND_SECONDS = 30;
 
 const EyeToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () => void }) => (
@@ -120,7 +120,7 @@ const CodeForm = ({ initialEmail }: { initialEmail: string }) => {
         Set password
       </Button>
 
-      <Link to="/login" className="font-display text-xs text-text-muted hover:text-text transition-colors text-center">
+      <Link to="/login" className="font-display t-meta text-text-muted hover:text-text transition-colors text-center">
         Back to sign in
       </Link>
     </form>
@@ -185,7 +185,7 @@ export const ResetPasswordForm = () => {
 
       <div className="w-full lg:w-1/2 max-w-sm sm:max-w-md flex justify-center">
         <div
-          className="relative z-10 w-full border rounded-2xl shadow-xl flex flex-col gap-4 p-5 sm:p-6"
+          className="relative z-10 w-full border rounded-2xl flex flex-col gap-4 p-5 sm:p-6"
           style={{
             background:           "var(--glass-bg)",
             borderColor:          "var(--glass-border)",
@@ -197,7 +197,7 @@ export const ResetPasswordForm = () => {
             <h2 className="t-section font-display font-bold text-text">
               {token ? "Choose a new password" : "Set your password"}
             </h2>
-            <p className="text-xs text-text-secondary font-display">
+            <p className="t-meta text-text-secondary font-display">
               {token
                 ? "Enter a new password for your account."
                 : email

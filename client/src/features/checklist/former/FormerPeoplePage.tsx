@@ -46,7 +46,7 @@ const PersonButton = memo(({ person, selected, onSelect }: { person: FormerPerso
           <span className="truncate">{fullName(person)}</span>
           <IconChip icon={UserMinus} tone="bg-text-muted" label="Left" className="shrink-0" />
         </span>
-        <span className="text-xs font-display text-text-muted truncate">
+        <span className="t-meta font-display text-text-muted truncate">
           {[person.departmentName, `Left ${ago(person.leftAt)}`].filter(Boolean).join(' · ')}
         </span>
       </span>
@@ -71,7 +71,7 @@ const RunRow = memo(({ run }: { run: PersonRun }) => {
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-0.5 min-w-0">
             <p className="text-sm font-display font-semibold text-text leading-snug line-clamp-2">{run.title}</p>
-            <p className="flex items-center gap-2 text-xs font-display text-text-muted flex-wrap">
+            <p className="flex items-center gap-2 t-meta font-display text-text-muted flex-wrap">
               {run.storeName && <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{run.storeName}</span>}
               <span>{formatDate(run.periodStart)}</span>
             </p>
@@ -80,7 +80,7 @@ const RunRow = memo(({ run }: { run: PersonRun }) => {
         </div>
         <div className="flex items-center gap-2.5">
           <ChecklistProgressBar done={run.done} total={run.total} bare thin className="flex-1" />
-          <span className="text-xs font-display text-text-muted tabular-nums shrink-0">
+          <span className="t-meta font-display text-text-muted tabular-nums shrink-0">
             {run.done}/{run.total} done · {run.theirs} by them
           </span>
         </div>
@@ -187,7 +187,7 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
             <h2 className="t-section font-display font-bold text-text leading-snug">
               {fullName(person)} <span className="text-sm font-medium text-text-muted">(left)</span>
             </h2>
-            <p className="text-xs font-display text-text-muted">
+            <p className="t-meta font-display text-text-muted">
               Left {formatDate(person.leftAt)} · {ago(person.leftAt)}
             </p>
           </div>
@@ -259,7 +259,7 @@ export const FormerPeoplePage = () => {
           <div className={cn('flex flex-col gap-3', selected && !isDesktop && 'hidden')}>
             <div className="flex flex-wrap items-center gap-2 px-1">
               <IconChip icon={UserMinus} tone="bg-text-muted" label={`${people.length} ${people.length === 1 ? 'person' : 'people'} left`} />
-              <span className="sm:hidden text-xs font-display text-text-muted">Tap a name to see their history.</span>
+              <span className="sm:hidden t-meta font-display text-text-muted">Tap a name to see their history.</span>
             </div>
             {people.length > 5 && (
               <Input
@@ -273,7 +273,7 @@ export const FormerPeoplePage = () => {
               />
             )}
             {visible.length === 0 ? (
-              <p className="text-xs font-display text-text-muted px-1">Nobody matches "{query}".</p>
+              <p className="t-meta font-display text-text-muted px-1">Nobody matches "{query}".</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {visible.map(p => (

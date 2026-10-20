@@ -90,7 +90,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <p
             id={errorId}
             role="alert"
-            className="flex items-center gap-1.5 text-xs font-semibold text-danger animate-in slide-in-from-top-1 fade-in duration-200 px-1"
+            className="flex items-center gap-1.5 t-meta font-semibold text-danger animate-in slide-in-from-top-1 fade-in duration-200 px-1"
           >
             <AlertCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
             {error}

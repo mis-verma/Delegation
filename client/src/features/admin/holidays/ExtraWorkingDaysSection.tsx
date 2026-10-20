@@ -22,7 +22,7 @@ const fromDateKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 
-const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
+const FIELD_LABEL = 't-meta font-display font-medium text-text-secondary';
 
 const ExtraDayRow = memo(({ day, who, today, onDelete, busy }: { day: ExtraWorkingDay; who: string; today: string; onDelete: (d: ExtraWorkingDay) => void; busy: boolean }) => {
   const date = asUtc(day.date);
@@ -30,7 +30,7 @@ const ExtraDayRow = memo(({ day, who, today, onDelete, busy }: { day: ExtraWorki
   return (
     <li className={cn(PANEL_CLASS, 'flex items-center gap-3.5 p-3 sm:p-3.5 transition-colors duration-150 hover:border-border-hover')}>
       <div aria-hidden className={cn('flex flex-col items-center justify-center size-14 rounded-xl border shrink-0 leading-none', past ? 'border-border/60 bg-surface-hover' : 'border-success/40 bg-success/10')}>
-        <span className={cn('text-xs font-display font-semibold', past ? 'text-text-muted' : 'text-success')}>{MONTH_SHORT.format(date)}</span>
+        <span className={cn('t-meta font-display font-semibold', past ? 'text-text-muted' : 'text-success')}>{MONTH_SHORT.format(date)}</span>
         <span className={cn('text-xl font-display font-bold tabular-nums pt-0.5', past ? 'text-text-muted' : 'text-text')}>{date.getUTCDate()}</span>
       </div>
       <div className="flex-1 min-w-0">
@@ -128,7 +128,7 @@ export const ExtraWorkingDaysSection = ({ year, today }: { year: number; today: 
             <Input
               id="extra-day-reason"
               label="Reason"
-              labelClassName="text-xs font-display font-medium tracking-normal text-text-secondary px-0"
+              labelClassName="t-meta font-display font-medium tracking-normal text-text-secondary px-0"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={100}

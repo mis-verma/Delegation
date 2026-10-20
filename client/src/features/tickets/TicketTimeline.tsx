@@ -92,7 +92,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
             <div className="min-w-fit">
               <div className="flex sticky top-0 z-20 bg-primary-800">
                 <div className={`sticky left-0 z-30 ${LABEL_WIDTH} shrink-0 px-3 py-2.5 bg-primary-800`}>
-                  <span className="text-xs font-semibold text-white tracking-tight">Ticket</span>
+                  <span className="t-meta font-semibold text-white tracking-tight">Ticket</span>
                 </div>
                 <div className="flex flex-1" style={{ minWidth: chartMinWidth }}>
                   {days.map((day, index) => (
@@ -125,7 +125,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                           onClick={() => onOpen(ticket)}
                           className="flex flex-col min-w-0 text-left cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 ease-in-out"
                         >
-                          <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
+                          <span className="t-meta font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                             {ticket.title}
                           </span>
                           <span className="t-meta leading-4 font-medium break-words">
@@ -182,7 +182,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
         <section className="flex flex-col gap-2">
           <header className="flex items-center gap-2.5">
             <h3 className="text-sm font-bold text-text-secondary tracking-tight">No due date</h3>
-            <span className="text-xs font-semibold text-text-muted tabular-nums">{undated.length}</span>
+            <span className="t-meta font-semibold text-text-muted tabular-nums">{undated.length}</span>
             <span className="flex-1 h-px bg-border/50" />
           </header>
 
@@ -203,7 +203,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                 >
                   <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-1 ${PRIORITY_CONFIG[ticket.priority].bar}`} />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
+                    <span className="t-meta font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                       {ticket.title}
                     </span>
                     <span className="t-meta leading-4 font-medium text-text-muted break-words">

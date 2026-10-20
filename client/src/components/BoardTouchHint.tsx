@@ -19,7 +19,7 @@ export const BoardTouchHint = () => {
   };
 
   return (
-    <div role="note" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/60 bg-surface-hover/60 text-xs font-display text-text-secondary">
+    <div role="note" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/60 bg-surface-hover/60 t-meta font-display text-text-secondary">
       <Hand size={14} className="shrink-0 text-text-light" aria-hidden />
       <span className="flex-1 min-w-0">Press and hold a card, then drag it to another column to change its status.</span>
       <button

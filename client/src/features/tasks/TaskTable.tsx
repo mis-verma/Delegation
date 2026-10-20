@@ -39,8 +39,8 @@ const MAX_TABLE_LABELS = 2;
 
 const HEAD_ROW_CLASS = 'bg-primary-800';
 const HEAD_CLASS =
-  'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 align-middle text-xs text-text-secondary';
+  'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
+const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary';
 
 const namesFor = (task: Task, assigneeNames: Map<string, string>) =>
   taskAssigneeIds(task)
@@ -138,12 +138,12 @@ const TaskTableComponent = ({
                     <td className={`${CELL_CLASS} whitespace-nowrap`}>
                       {assignees.length ? (
                         <span className="inline-flex items-center gap-2" title={assignees.join(', ')}>
-                          <span className={`flex items-center justify-center size-7 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assignees[0])}`}>
+                          <span className={`flex items-center justify-center size-7 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(assignees[0])}`}>
                             {getInitials(assignees[0])}
                           </span>
                           <span className="font-medium text-text">{assignees[0]}</span>
                           {assignees.length > 1 && (
-                            <span className="text-xs font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary">+{assignees.length - 1}</span>
+                            <span className="t-meta font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary">+{assignees.length - 1}</span>
                           )}
                         </span>
                       ) : (
@@ -181,7 +181,7 @@ const TaskTableComponent = ({
                       <div className="flex items-center gap-1 flex-nowrap" title={task.tags.map((t) => t.name).join(', ')}>
                         {task.tags.slice(0, MAX_TABLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
                         {task.tags.length > MAX_TABLE_LABELS && (
-                          <span className="text-xs font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary tabular-nums">+{task.tags.length - MAX_TABLE_LABELS}</span>
+                          <span className="t-meta font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary tabular-nums">+{task.tags.length - MAX_TABLE_LABELS}</span>
                         )}
                       </div>
                     ) : (

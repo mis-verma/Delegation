@@ -156,7 +156,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
       label: name,
       hint: hintOf(u),
       lead: (
-        <span className={`flex items-center justify-center size-8 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+        <span className={`flex items-center justify-center size-8 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
           {getInitials(name)}
         </span>
       ),
@@ -238,9 +238,9 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               )}
 
               {isLoading ? (
-                <div className="px-2 py-1.5 text-xs text-text-light">Loading team…</div>
+                <div className="px-2 py-1.5 t-meta text-text-light">Loading team…</div>
               ) : (users ?? []).length === 0 ? (
-                <div className="px-2 py-1.5 text-xs text-text-light">No assignable users</div>
+                <div className="px-2 py-1.5 t-meta text-text-light">No assignable users</div>
               ) : (
                 orderedUsers.map((u) => {
                   const name = nameOf(u);
@@ -254,7 +254,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                       onSelect={(e) => { if (!single) e.preventDefault(); }}
                       className="gap-2"
                     >
-                      <span className={`flex items-center justify-center size-6 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+                      <span className={`flex items-center justify-center size-6 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
                         {getInitials(name)}
                       </span>
                       <span className="flex min-w-0 flex-col">

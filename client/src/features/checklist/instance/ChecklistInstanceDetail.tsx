@@ -130,7 +130,7 @@ const DetailItemRow = memo(({
       )}
       <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
         {selecting && (
-          <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 ${picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
+          <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border t-meta font-display font-semibold cursor-pointer transition-colors duration-150 ${picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
             <input
               type="checkbox"
               checked={picked}
@@ -328,7 +328,7 @@ export const ChecklistInstanceDetail = () => {
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
           <h1 className="t-title font-display font-semibold text-text tracking-tight leading-snug">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="text-xs font-medium text-text-muted">
+          <p className="t-meta font-medium text-text-muted">
             {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
         </div>
@@ -345,30 +345,30 @@ export const ChecklistInstanceDetail = () => {
             />
           )}
           {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && (
-            <span className="text-xs font-medium text-text-muted">
+            <span className="t-meta font-medium text-text-muted">
               Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
             </span>
           )}
           {isLocked && instance.verifiedAt && (
-            <span className="text-xs font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>
+            <span className="t-meta font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>
           )}
         </div>
 
         <div className="flex flex-col gap-1.5 pt-1">
           {compliance !== null && (
             <div className="flex items-baseline justify-between gap-2 pb-1">
-              <span className="text-xs font-medium text-text-muted">Compliance</span>
+              <span className="t-meta font-medium text-text-muted">Compliance</span>
               <span className="flex items-baseline gap-2 tabular-nums">
                 <span className={`text-lg font-display font-bold leading-none ${complianceToneClass(compliance)}`}>{compliance}%</span>
-                <span className="text-xs font-semibold text-text">{good} of {scored} answered well</span>
+                <span className="t-meta font-semibold text-text">{good} of {scored} answered well</span>
               </span>
             </div>
           )}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-medium text-text-muted">Completion</span>
+            <span className="t-meta font-medium text-text-muted">Completion</span>
             <span className="flex items-baseline gap-2 tabular-nums">
               <span className={`text-lg font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
-              <span className="text-xs font-semibold text-text">{done} of {total} done</span>
+              <span className="t-meta font-semibold text-text">{done} of {total} done</span>
             </span>
           </div>
           <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />

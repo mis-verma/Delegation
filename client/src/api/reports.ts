@@ -37,7 +37,12 @@ const parseFilename = (contentDisposition: string | null, fallback: string) => {
   return match?.[1] ?? fallback;
 };
 
+export type OverdueSnapshot = { day: string; tickets: number | null; delegations: number | null };
+
 export const reportApi = {
+  overdueSnapshot: (day: string) =>
+    apiFetch<{ success: boolean; data: OverdueSnapshot }>(`/reports/overdue-snapshot?${new URLSearchParams({ day }).toString()}`).then((r) => r.data),
+
   approvalTat: (from: string, to: string) =>
     apiFetch<{ success: boolean; data: ApprovalTat }>(`/reports/approval-tat?${new URLSearchParams({ from, to }).toString()}`).then((r) => r.data),
 

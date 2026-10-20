@@ -101,7 +101,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {isNewlyAssigned && raisedByName && (
-        <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 text-xs font-semibold text-info">
+        <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 t-meta font-semibold text-info">
           <UserCog size={12} strokeWidth={2.5} className="shrink-0" />
           <span className="truncate">New from {raisedByName}. Please take a look.</span>
         </div>
@@ -239,7 +239,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             <div className="min-w-0 flex flex-col gap-1">
               <span className="t-meta font-display font-medium text-text-muted">Raised by</span>
               <span className="flex items-center gap-1.5 min-w-0">
-                <span className={`flex items-center justify-center size-5 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(raisedByName)}`} aria-hidden="true">
+                <span className={`flex items-center justify-center size-5 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(raisedByName)}`} aria-hidden="true">
                   {getInitials(raisedByName).slice(0, 1)}
                 </span>
                 <span className="text-sm font-display font-semibold text-text truncate" title={raisedByName}>{raisedByName}</span>
@@ -271,7 +271,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 {assigneeNames.slice(0, MAX_VISIBLE_AVATARS).map((name, i) => (
                   <div
                     key={name + i}
-                    className={`flex items-center justify-center size-7 rounded-full text-white text-xs font-bold ring-2 ring-surface shrink-0 ${avatarColorClass(name)}`}
+                    className={`flex items-center justify-center size-7 rounded-full text-white t-meta font-bold ring-2 ring-surface shrink-0 ${avatarColorClass(name)}`}
                     title={`Assigned to ${name}`}
                   >
                     {getInitials(name)}
@@ -279,7 +279,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 ))}
                 {assigneeNames.length > MAX_VISIBLE_AVATARS && (
                   <div
-                    className="flex items-center justify-center size-7 rounded-full bg-surface-hover text-text-secondary text-xs font-bold ring-2 ring-surface shrink-0"
+                    className="flex items-center justify-center size-7 rounded-full bg-surface-hover text-text-secondary t-meta font-bold ring-2 ring-surface shrink-0"
                     title={assigneeNames.slice(MAX_VISIBLE_AVATARS).join(', ')}
                   >
                     +{assigneeNames.length - MAX_VISIBLE_AVATARS}

@@ -40,7 +40,7 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
         <button
           type="button"
           aria-label={`Move ${userName} to another department`}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent text-xs font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent t-meta font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <ArrowRightLeft className="size-3.5" aria-hidden />
           <span className="hidden @md:inline">Move to...</span>
@@ -72,7 +72,7 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
             </li>
           )}
           {options.length === 0 ? (
-            <li className="px-2.5 py-3 text-xs font-display text-text-muted">No department matches that search.</li>
+            <li className="px-2.5 py-3 t-meta font-display text-text-muted">No department matches that search.</li>
           ) : (
             options.map((t) => {
               const isCurrent = t.id === currentDepartmentId;
@@ -91,7 +91,7 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{t.name}</span>
-                      {t.storeName && <span className="block truncate text-xs text-text-muted">{t.storeName}</span>}
+                      {t.storeName && <span className="block truncate t-meta text-text-muted">{t.storeName}</span>}
                     </span>
                     {isCurrent && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" aria-label="Current department" />}
                   </button>

@@ -24,7 +24,7 @@ export const ChecklistSubmitBar = memo(function ChecklistSubmitBar({ instanceId,
           <p className="text-sm font-display font-semibold text-text">
             {resubmit ? 'Everything flagged is fixed' : `All ${total} ${total === 1 ? 'question is' : 'questions are'} done`}
           </p>
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             {resubmit ? 'Send it back for another look.' : 'Submit it so your reviewer can check it.'}
           </p>
         </div>

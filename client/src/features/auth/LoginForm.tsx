@@ -31,7 +31,7 @@ export const LoginForm = () => {
 
       <div className="w-full lg:w-1/2 max-w-sm sm:max-w-md flex justify-center">
         <div
-          className="relative z-10 w-full border rounded-2xl shadow-xl flex flex-col gap-4 p-5 sm:p-6"
+          className="relative z-10 w-full border rounded-2xl flex flex-col gap-4 p-5 sm:p-6"
           style={{
             background:           "var(--glass-bg)",
             borderColor:          "var(--glass-border)",
@@ -43,7 +43,7 @@ export const LoginForm = () => {
             <h2 className="t-section font-display font-bold text-text">
               Welcome back
             </h2>
-            <p className="text-xs text-text-secondary font-display">
+            <p className="t-meta text-text-secondary font-display">
               Sign in to your account to continue.
             </p>
           </div>
@@ -100,7 +100,7 @@ export const LoginForm = () => {
             </div>
 
             {mutation.isError && (
-              <p className="text-xs text-danger text-center">
+              <p className="t-meta text-danger text-center">
                 {mutation.error instanceof Error
                   ? mutation.error.message
                   : "Login failed. Please try again."}
@@ -112,7 +112,7 @@ export const LoginForm = () => {
               variant="primary"
               size="md"
               isLoading={mutation.isPending}
-              className="mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white shadow-md transition-all duration-300 py-2 text-sm"
+              className="mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white transition-all duration-300 py-2 text-sm"
             >
               Sign in
             </Button>

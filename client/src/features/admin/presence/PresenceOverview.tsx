@@ -20,7 +20,7 @@ const LIST_CLASS = cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 over
 const ROW_CLASS = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_10rem_10rem_9rem_9.5rem] md:gap-x-4';
 const CHIPS_CLASS = 'col-span-2 flex flex-wrap items-center gap-1.5 md:contents';
 const CHIP_CLASS = 'min-w-0 max-w-full justify-self-start';
-const MISSING_CLASS = 'hidden md:block text-xs font-display font-medium text-text-light';
+const MISSING_CLASS = 'hidden md:block t-meta font-display font-medium text-text-light';
 
 const PresenceRowSkeleton = () => (
   <div className={ROW_CLASS}>
@@ -58,7 +58,7 @@ const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeN
       <Avatar name={name} src={avatarSrc} size="sm" online={isActive ? online : undefined} />
       <div className="min-w-0 flex-1">
         <p className={cn('text-sm font-display font-semibold truncate', isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
-        <p className="text-xs font-display text-text-muted truncate">{email}</p>
+        <p className="t-meta font-display text-text-muted truncate">{email}</p>
       </div>
     </div>
 

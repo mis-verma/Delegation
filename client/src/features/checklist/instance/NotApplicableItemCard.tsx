@@ -39,7 +39,7 @@ export const NotApplicableItemCard = memo(function NotApplicableItemCard({ item,
             </div>
           </div>
           {reason && (
-            <p className="px-3 py-2 rounded-lg bg-surface border border-border/60 text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
+            <p className="px-3 py-2 rounded-lg bg-surface border border-border/60 t-meta text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
               <span className="font-display font-semibold text-text-muted">Reason: </span>
               {reason}
             </p>

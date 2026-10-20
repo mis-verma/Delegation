@@ -101,7 +101,7 @@ export const OrgToolbar = ({
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>
       {resultText && (
         <div className="flex items-center gap-2">
-          <span aria-hidden className="text-xs font-display text-text-muted">{resultText}</span>
+          <span aria-hidden className="t-meta font-display text-text-muted">{resultText}</span>
           <Button variant="ghost" size="sm" onClick={onClearFilters}>
             <X className="size-3.5" aria-hidden />
             Clear filters

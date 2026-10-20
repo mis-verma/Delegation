@@ -20,6 +20,7 @@ import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
 import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
+import { startOverdueSnapshot } from "./src/jobs/overdueSnapshot.job.js";
 import { startNotificationDigest } from "./src/jobs/notificationDigest.job.js";
 import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
 import { startPendingConversationRetention } from "./src/jobs/pendingConversationRetention.job.js";
@@ -56,6 +57,7 @@ class ServerBootstrap {
       startScoreDataCheck();
       void presenceService.clearStale();
       startNotificationRetention();
+      startOverdueSnapshot();
       startNotificationDigest();
       startInboundMessageRetention();
       startPendingConversationRetention();

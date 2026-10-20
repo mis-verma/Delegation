@@ -36,7 +36,7 @@ const PREVIEW_ROWS = 8;
 const MAX_RANGE_DAYS = 366;
 const DAY_MS = 86_400_000;
 
-const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
+const FIELD_LABEL = 't-meta font-display font-medium text-text-secondary';
 const CONTROL_H = 'h-11';
 const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5rem_6rem] items-center gap-2 px-3';
 const SM_ONLY = 'hidden sm:block';
@@ -75,12 +75,12 @@ const presetRange = (key: Exclude<PeriodKey, 'custom'>, now = new Date()): { fro
 
 const PercentCell = ({ value, className }: { value: number | null; className?: string }) =>
   value === null ? (
-    <span className={cn('text-right text-xs font-display text-text-light', className)}>
+    <span className={cn('text-right t-meta font-display text-text-light', className)}>
       <span aria-hidden>-</span>
       <span className="sr-only">No data</span>
     </span>
   ) : (
-    <span className={cn('text-right text-xs font-display font-semibold tabular-nums', rateToneClass(value), className)}>{formatPct(value)}</span>
+    <span className={cn('text-right t-meta font-display font-semibold tabular-nums', rateToneClass(value), className)}>{formatPct(value)}</span>
   );
 
 interface PreviewRow {
@@ -107,10 +107,10 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
         {rows.map((r) => (
           <li key={r.key} className={cn(PREVIEW_GRID, 'h-11 hover:bg-surface-hover/40 transition-colors duration-150')}>
             <span className="flex flex-col min-w-0">
-              <span className="text-xs font-display font-medium text-text line-clamp-1">{r.name}</span>
+              <span className="t-meta font-display font-medium text-text line-clamp-1">{r.name}</span>
               <span className="t-meta font-display text-text-muted line-clamp-1">{r.sub}</span>
             </span>
-            <span className={cn('text-right text-xs font-display text-text-secondary tabular-nums', SM_ONLY)}>{r.assigned}</span>
+            <span className={cn('text-right t-meta font-display text-text-secondary tabular-nums', SM_ONLY)}>{r.assigned}</span>
             <PercentCell value={r.completionPct} />
             <PercentCell value={r.onTimePct} className={SM_ONLY} />
             <PercentCell value={r.compliancePct} />
@@ -237,7 +237,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
         <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as ChecklistReportGrouping)}>
           <TabsList aria-labelledby="report-by-label" className={cn(CONTROL_H, 'w-full')}>
             {GROUPINGS.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value} className="h-full text-xs">
+              <TabsTrigger key={value} value={value} className="h-full t-meta">
                 <Icon size={14} aria-hidden />
                 {label}
               </TabsTrigger>
@@ -262,7 +262,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
           {period === 'custom' ? (
             <DateRangePicker value={customRange} onChange={setCustomRange} placeholder="Pick a start and end date" className="w-full sm:w-72" />
           ) : (
-            range && <p className="text-xs font-display text-text-muted">{formatDay(range.from)} to {formatDay(range.to)}</p>
+            range && <p className="t-meta font-display text-text-muted">{formatDay(range.from)} to {formatDay(range.to)}</p>
           )}
         </div>
         {rangeError && <InlineError message={rangeError} />}
@@ -294,7 +294,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
               className={cn(CONTROL_H, 'rounded-xl')}
             />
           ) : (
-            <p id="report-department" className={cn(CONTROL_H, 'flex items-center px-3 rounded-xl border border-border bg-surface-hover/40 text-xs font-display text-text-muted')}>
+            <p id="report-department" className={cn(CONTROL_H, 'flex items-center px-3 rounded-xl border border-border bg-surface-hover/40 t-meta font-display text-text-muted')}>
               Your department only
             </p>
           )}
@@ -306,7 +306,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
         <Tabs value={format} onValueChange={(v) => setFormat(v as ChecklistReportFormat)}>
           <TabsList aria-labelledby="report-format-label" className={cn(CONTROL_H, 'w-full sm:w-fit')}>
             {FORMATS.map((f) => (
-              <TabsTrigger key={f.value} value={f.value} className="h-full text-xs sm:px-5">
+              <TabsTrigger key={f.value} value={f.value} className="h-full t-meta sm:px-5">
                 {f.label}
               </TabsTrigger>
             ))}

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ExportMenu, type ExportMenuProps, type ExportSource } from '../../../components';
+import type { TableRows } from '../../../lib/exportTable';
 
 interface Entry {
   id: string;
@@ -69,14 +70,37 @@ export const OverviewExportMenu = () => {
   const entries = registry?.entries ?? [];
   const ready = entries.filter((e) => !e.disabled);
   const toSource = (e: Entry): ExportSource => ({ filename: e.filename, sheetName: e.sheetName, title: e.title, getRows: e.getRows, label: e.label ?? e.sheetName });
-  const [first, ...rest] = ready;
+  const combined: ExportSource | null = ready.length > 1
+    ? {
+        filename: 'overview-everything',
+        sheetName: 'Overview',
+        label: 'Everything in one file',
+        title: ready[0].title,
+        getRows: async () => {
+          const rows: (string | number | null | undefined)[][] = [];
+          let count = 0;
+          for (const entry of ready) {
+            const table = await entry.getRows();
+            const counted = 'rows' in table ? table : null;
+            const body: TableRows = 'rows' in table ? table.rows : table;
+            count += counted ? counted.count : Math.max(0, body.length - 1);
+            if (rows.length) rows.push([]);
+            rows.push([entry.label ?? entry.sheetName ?? entry.filename]);
+            for (const row of body) rows.push([...row]);
+          }
+          return { rows, count };
+        },
+      }
+    : null;
+  const sources = combined ? [combined, ...ready.map(toSource)] : ready.map(toSource);
+  const [first, ...rest] = sources;
 
   return (
     <ExportMenu
       aria-label="Export the figures on this page"
       disabled={!first}
-      {...(first ? toSource(first) : { filename: 'overview', getRows: () => [] })}
-      more={rest.map(toSource)}
+      {...(first ?? { filename: 'overview', getRows: () => [] })}
+      more={rest}
     />
   );
 };

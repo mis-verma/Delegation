@@ -34,7 +34,7 @@ export const AuditAvatar = ({ name, size, status }: { name: string; size: 'row' 
         className={cn(
           'flex items-center justify-center rounded-full font-bold text-white',
           avatarColorClass(name),
-          size === 'row' ? 'size-9 text-xs' : 'size-11 sm:size-10 text-sm sm:text-xs',
+          size === 'row' ? 'size-9 t-meta' : 'size-11 sm:size-10 text-sm sm:text-xs',
         )}
       >
         {getInitials(name)}
@@ -74,7 +74,7 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
         {person.name}{person.isMe && <span className="font-medium text-text-muted"> (You)</span>}
       </span>
       {(person.store || person.dressType) && (
-        <span className="text-xs text-text-muted truncate">{[person.store, person.dressType].filter(Boolean).join(' · ')}</span>
+        <span className="t-meta text-text-muted truncate">{[person.store, person.dressType].filter(Boolean).join(' · ')}</span>
       )}
     </span>
     <AuditStatusChip status={person.status} />
@@ -154,7 +154,7 @@ export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: A
           <span className="t-card font-semibold leading-snug text-text truncate">
             {current.name}{current.isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </span>
-          <span className="text-xs text-text-muted tabular-nums">Person {index + 1} of {people.length}. Tap to switch.</span>
+          <span className="t-meta text-text-muted tabular-nums">Person {index + 1} of {people.length}. Tap to switch.</span>
         </span>
         <ChevronsUpDown size={18} className="shrink-0 text-text-muted" aria-hidden />
       </button>

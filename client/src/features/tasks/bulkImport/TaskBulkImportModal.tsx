@@ -191,7 +191,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
             <p className="text-sm font-display font-semibold text-text">
               {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
             </p>
-            <p className="text-xs font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
+            <p className="t-meta font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
             <p className="t-meta font-display text-text-light mt-2">
               Columns: Title, Description, Assignee (email or name), Priority, Start Date, Due Date, Department, Labels. Only Title is required.
             </p>
@@ -201,7 +201,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
 
       {step === 'review' && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             {includedRows.length} of {rows.length} row{rows.length === 1 ? '' : 's'} included · rows outlined in amber need a second look, red need fixing.
           </p>
 
@@ -261,7 +261,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                         disabled={row.excluded}
                       />
                     </td>
-                    <td className="px-3 py-2 text-xs">
+                    <td className="px-3 py-2 t-meta">
                       {row.startDate.iso ? (
                         <span className="text-text-secondary">{formatDate(row.startDate.iso)}</span>
                       ) : row.startDate.raw ? (
@@ -270,7 +270,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                         <span className="text-text-light">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs">
+                    <td className="px-3 py-2 t-meta">
                       {row.dueDate.iso ? (
                         <span className="text-text-secondary">{formatDate(row.dueDate.iso)}</span>
                       ) : row.dueDate.raw ? (
@@ -279,7 +279,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                         <span className="text-text-light">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs max-w-40">
+                    <td className="px-3 py-2 t-meta max-w-40">
                       {row.tagIds.length > 0 && (
                         <span className="text-text-secondary">{row.tagIds.map((id) => tagNameById.get(id)).filter(Boolean).join(', ')}</span>
                       )}
@@ -320,7 +320,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
 
           {summary.failed.length > 0 && (
             <div className="w-full max-w-sm text-left mt-2">
-              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
+              <p className="t-meta font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} row{summary.failed.length === 1 ? '' : 's'} failed
               </p>
               <ul className="flex flex-col gap-1 t-meta font-display text-text-muted max-h-32 overflow-y-auto">

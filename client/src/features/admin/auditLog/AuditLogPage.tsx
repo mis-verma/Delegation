@@ -130,7 +130,7 @@ export const AuditLogPage = () => {
             {groups.map((group) => (
               <section key={group.key} aria-label={group.heading} className="flex flex-col gap-3">
                 <h2 className="sticky top-0 z-10 -mx-1 px-1 py-1 w-fit">
-                  <span className="inline-flex items-center gap-2 h-7 px-3 rounded-full border border-border bg-surface text-xs font-display font-bold text-text-secondary">
+                  <span className="inline-flex items-center gap-2 h-7 px-3 rounded-full border border-border bg-surface t-meta font-display font-bold text-text-secondary">
                     <span aria-hidden className="size-1.5 rounded-full bg-primary-500" />
                     {group.heading}
                     <span className="tabular-nums font-semibold text-text-muted">{group.logs.length}</span>

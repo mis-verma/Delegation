@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BASE =
-  'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer ' +
+  'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border t-meta font-display font-medium cursor-pointer ' +
   'transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed';
 
 interface ToggleChipProps {

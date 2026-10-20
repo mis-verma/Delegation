@@ -18,7 +18,7 @@ export const CreatedRangeBanner = ({ range, onClear, noun }: CreatedRangeBannerP
       <button
         type="button"
         onClick={onClear}
-        className="inline-flex items-center gap-1 h-9 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/15 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="inline-flex items-center gap-1 h-9 pointer-coarse:h-11 px-2.5 rounded-lg t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/15 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
         <X size={13} aria-hidden />
         Show all

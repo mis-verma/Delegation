@@ -5,7 +5,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, D
 import { Button } from '../button';
 import { useDraggableDialog } from '../modal/useDraggableDialog';
 
-const HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
+const HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 t-meta sm:text-sm font-medium text-text-muted sm:text-text-secondary';
 
 export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: LucideIcon; label: string; children: ReactNode; aside?: ReactNode }) => (
   <section className="flex flex-col gap-2 min-w-0">
@@ -97,7 +97,7 @@ export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolea
     type="button"
     aria-pressed={active}
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border text-xs font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] ${
+    className={`inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border t-meta font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] ${
       active
         ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
         : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60'
@@ -186,7 +186,7 @@ export const OptionsSheet = ({
           </span>
           <div className="flex-1 min-w-0">
             <DialogTitle className="text-base sm:text-lg font-display font-semibold text-text tracking-tight">Filter and sort</DialogTitle>
-            <DialogDescription className="text-xs font-medium text-text-muted tabular-nums">{subtitle}</DialogDescription>
+            <DialogDescription className="t-meta font-medium text-text-muted tabular-nums">{subtitle}</DialogDescription>
           </div>
           <DialogClose asChild>
             <button
@@ -208,7 +208,7 @@ export const OptionsSheet = ({
             type="button"
             onClick={onReset}
             disabled={!canReset}
-            className="inline-flex items-center gap-1.5 h-11 sm:h-10 px-2.5 rounded-lg text-xs font-display font-semibold text-text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-text-muted disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors"
+            className="inline-flex items-center gap-1.5 h-11 sm:h-10 px-2.5 rounded-lg t-meta font-display font-semibold text-text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-text-muted disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors"
           >
             <RotateCcw size={14} strokeWidth={2.5} />
             Reset

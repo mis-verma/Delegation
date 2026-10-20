@@ -79,7 +79,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
               <span className="text-sm font-display font-medium text-text break-words">{template.name}</span>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-xs font-display font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                <span className={`t-meta font-display font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
                   template.appliesTo === 'TASK'
                     ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 ring-1 ring-primary-500/20'
                     : 'bg-warning/10 text-text-secondary ring-1 ring-warning/30'
@@ -89,7 +89,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
                 </span>
 
                 {departmentName && (
-                  <span className="text-xs font-display font-medium px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary border border-border/60 flex items-center gap-1">
+                  <span className="t-meta font-display font-medium px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary border border-border/60 flex items-center gap-1">
                     <Building2 size={11} />
                     {departmentName}
                   </span>
@@ -97,7 +97,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
               </div>
             </div>
 
-            <span className="text-xs text-text-muted font-mono tabular-nums shrink-0 ml-auto">
+            <span className="t-meta text-text-muted font-mono tabular-nums shrink-0 ml-auto">
               {plural(template.items.length, 'step')}
             </span>
           </button>
@@ -137,7 +137,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
             className="border-t border-border bg-surface-hover/20"
           >
             {template.items.length === 0 && (
-              <div className="px-6 py-6 text-center text-xs text-text-muted font-display flex flex-col items-center gap-1">
+              <div className="px-6 py-6 text-center t-meta text-text-muted font-display flex flex-col items-center gap-1">
                 <Sparkles size={16} className="text-text-muted/60" />
                 <span>No steps yet. Add the first one below.</span>
               </div>
@@ -169,7 +169,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
                 variant="outline"
                 onClick={handleAddItem}
                 isLoading={addItem.isPending}
-                className="font-display text-xs gap-1.5"
+                className="font-display t-meta gap-1.5"
               >
                 <Plus size={13} />
                 Add Step

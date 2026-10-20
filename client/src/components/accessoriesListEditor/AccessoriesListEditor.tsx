@@ -50,7 +50,7 @@ export const AccessoriesListEditor = ({
         {accessories.map((name) => (
           <span
             key={name}
-            className="inline-flex items-center gap-1 h-7 pointer-coarse:h-11 pl-2.5 pr-1 rounded-full bg-surface-hover text-xs font-display font-medium text-text"
+            className="inline-flex items-center gap-1 h-7 pointer-coarse:h-11 pl-2.5 pr-1 rounded-full bg-surface-hover t-meta font-display font-medium text-text"
           >
             {name}
             <button

@@ -50,7 +50,7 @@ export const WaiveAction = ({ instanceId, item }: { instanceId: string; item: Pi
       >
         <div className="flex flex-col gap-3">
           <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2 text-sm font-display font-semibold text-text">{item.label}</p>
-          <label htmlFor="waive-reason" className="text-xs font-display font-semibold text-text-secondary">Why is it being waived?</label>
+          <label htmlFor="waive-reason" className="t-meta font-display font-semibold text-text-secondary">Why is it being waived?</label>
           <textarea
             id="waive-reason"
             value={reason}
@@ -60,7 +60,7 @@ export const WaiveAction = ({ instanceId, item }: { instanceId: string; item: Pi
             placeholder="For example: store was closed for stock-taking"
             className="w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-base text-text outline-none focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:text-sm"
           />
-          <p className="text-xs font-medium text-text-muted">{trimmed.length < MIN_REASON ? `At least ${MIN_REASON} characters.` : `${trimmed.length} of 500`}</p>
+          <p className="t-meta font-medium text-text-muted">{trimmed.length < MIN_REASON ? `At least ${MIN_REASON} characters.` : `${trimmed.length} of 500`}</p>
         </div>
       </Modal>
     </>

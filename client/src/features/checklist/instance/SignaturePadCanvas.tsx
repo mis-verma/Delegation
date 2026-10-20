@@ -75,7 +75,7 @@ export const SignaturePadCanvas = memo(function SignaturePadCanvas({ label, disa
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2 min-h-8">
-        <span className="text-xs font-display font-medium text-text-secondary">{label}</span>
+        <span className="t-meta font-display font-medium text-text-secondary">{label}</span>
         {hasDrawn && !disabled && (
           <Button variant="ghost" size="sm" onClick={clear}>
             <RotateCcw size={12} aria-hidden /> Clear

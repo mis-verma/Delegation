@@ -103,7 +103,7 @@ export const OffboardDialog = ({ user, people, departmentName, onClose }: Offboa
         {summary && summary.hasOpenWork && (
           <>
             <div className="flex flex-col gap-2">
-              <p className="text-xs font-display font-semibold text-text-secondary">Still open with them</p>
+              <p className="t-meta font-display font-semibold text-text-secondary">Still open with them</p>
               <ul className="flex flex-col gap-2">
                 {summary.openTickets > 0 && <Line icon={Ticket}>{summary.openTickets} open ticket{summary.openTickets === 1 ? '' : 's'}</Line>}
                 {summary.openTasks > 0 && <Line icon={ClipboardList}>{summary.openTasks} open task{summary.openTasks === 1 ? '' : 's'}</Line>}
@@ -131,13 +131,13 @@ export const OffboardDialog = ({ user, people, departmentName, onClose }: Offboa
               />
             </FormField>
             {options.length === 0 && (
-              <p className="text-xs text-text-muted">There is nobody else active to take over. Add or reactivate someone first.</p>
+              <p className="t-meta text-text-muted">There is nobody else active to take over. Add or reactivate someone first.</p>
             )}
           </>
         )}
 
         {summary && summary.auditQuestions > 0 && (
-          <p className="text-xs text-text-muted">
+          <p className="t-meta text-text-muted">
             They are also on {summary.auditQuestions} audit list{summary.auditQuestions === 1 ? '' : 's'} and will be taken off, since nobody is checked once they have left.
           </p>
         )}

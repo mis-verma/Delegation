@@ -146,7 +146,7 @@ export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: Voi
   if (status === 'recording') {
     return (
       <div className="flex items-center gap-1.5 shrink-0">
-        <span className="flex items-center gap-1.5 px-2.5 h-10 rounded-lg bg-danger/10 text-danger text-xs font-display font-medium tabular-nums">
+        <span className="flex items-center gap-1.5 px-2.5 h-10 rounded-lg bg-danger/10 text-danger t-meta font-display font-medium tabular-nums">
           <span className="size-2 rounded-full bg-danger animate-pulse" />
           {formatDuration(elapsedMs)}
         </span>
@@ -162,7 +162,7 @@ export const VoiceNoteRecorder = ({ disabled, onTranscribed, onBusyChange }: Voi
           type="button"
           onClick={() => finishRecording(false)}
           aria-label="Stop and send recording"
-          className="flex items-center justify-center size-10 rounded-lg bg-danger text-white shadow-sm hover:bg-danger/90 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          className="flex items-center justify-center size-10 rounded-lg bg-danger text-white hover:bg-danger/90 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
         >
           <Square size={14} fill="currentColor" />
         </button>

@@ -26,7 +26,7 @@ export const Stepper = ({ steps, current, onStepClick }: StepperProps) => (
             }`}
           >
             <span
-              className={`flex items-center justify-center size-7 rounded-full text-xs font-bold shrink-0 transition-colors duration-200 ${
+              className={`flex items-center justify-center size-7 rounded-full t-meta font-bold shrink-0 transition-colors duration-200 ${
                 isDone
                   ? 'bg-primary-600 text-white'
                   : isActive
@@ -37,7 +37,7 @@ export const Stepper = ({ steps, current, onStepClick }: StepperProps) => (
               {isDone ? <Check size={14} strokeWidth={3} /> : i + 1}
             </span>
             <span
-              className={`hidden sm:inline text-xs font-display font-medium whitespace-nowrap ${
+              className={`hidden sm:inline t-meta font-display font-medium whitespace-nowrap ${
                 isActive || isDone ? 'text-text' : 'text-text-muted'
               }`}
             >

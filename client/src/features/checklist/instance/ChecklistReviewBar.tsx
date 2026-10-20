@@ -64,7 +64,7 @@ export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onSta
         </>
       ) : (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <p className="text-xs font-display text-text-secondary">
+          <p className="t-meta font-display text-text-secondary">
             Everything's ticked off. Approve it, or send back only the questions that need redoing.
           </p>
           <ReviewActions

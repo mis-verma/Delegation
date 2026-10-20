@@ -23,7 +23,7 @@ export function PeriodTabControl<T extends string>({ value, options, labels, onC
           <TabsTrigger
             key={option}
             value={option}
-            className={columns ? 'min-h-11 sm:min-h-8 min-w-0 px-1 text-xs' : 'min-h-11 sm:min-h-9 basis-auto px-3 text-xs sm:text-sm'}
+            className={columns ? 'min-h-11 sm:min-h-8 min-w-0 px-1 t-meta' : 'min-h-11 sm:min-h-9 basis-auto px-3 t-meta sm:text-sm'}
           >
             {labels[option]}
           </TabsTrigger>

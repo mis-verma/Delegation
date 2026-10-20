@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ArrowDownAZ, ArrowUpDown, Building2, Clock, Crown, LayoutGrid, MapPinOff, Plus, Search, ShieldCheck, Store, Table2,
   UserCheck, UserX, Users, X, Activity, Layers, type LucideIcon,
@@ -36,6 +36,7 @@ interface UserToolbarProps {
   totalPeople: number;
   resultText: string | null;
   onNew: () => void;
+  exportMenu?: ReactNode;
   onPreloadForm: () => void;
 }
 
@@ -66,7 +67,7 @@ const SORT_ICON: Record<UserSortKey, LucideIcon> = {
 
 export const UserToolbar = ({
   searchText, onSearchText, filters, onFilters, counts, sort, onSort, view, onView, hasFilters, onClear,
-  departmentOptions, storeOptions, shownCount, totalPeople, resultText, onNew, onPreloadForm,
+  departmentOptions, storeOptions, shownCount, totalPeople, resultText, onNew, onPreloadForm, exportMenu,
 }: UserToolbarProps) => {
   const [showOptions, setShowOptions] = useState(false);
 
@@ -217,6 +218,8 @@ export const UserToolbar = ({
           </OptionSection>
         </OptionsSheet>
 
+        {exportMenu}
+
         <Button
           variant="primary"
           size="sm"
@@ -234,7 +237,7 @@ export const UserToolbar = ({
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>
       {hasFilters && (
         <div className="flex items-center gap-2 min-h-8">
-          {resultText && <span aria-hidden className="text-xs font-display text-text-muted">{resultText}</span>}
+          {resultText && <span aria-hidden className="t-meta font-display text-text-muted">{resultText}</span>}
           <Button variant="ghost" size="sm" onClick={onClear} className="min-h-11 sm:min-h-8">
             <X className="size-3.5" aria-hidden />
             Clear filters

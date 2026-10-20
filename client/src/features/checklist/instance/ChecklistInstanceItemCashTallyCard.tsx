@@ -64,7 +64,7 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
             onChange={(e) => setDraftValue(e.target.value)}
             disabled={!interactive || item.isDone}
             placeholder="Counted amount"
-            suffix={item.numberEntryUnit ? <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span> : undefined}
+            suffix={item.numberEntryUnit ? <span className="t-meta font-display text-text-muted">{item.numberEntryUnit}</span> : undefined}
             containerClassName="w-44"
             className={item.numberEntryUnit ? 'h-11 sm:h-9 rounded-lg pr-14' : 'h-11 sm:h-9 rounded-lg'}
           />
@@ -86,7 +86,7 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
         </div>
 
         {needsReason && (
-          <p className={`text-xs font-display font-medium ${(variance ?? 0) > 0 ? 'text-warning' : 'text-danger'}`}>
+          <p className={`t-meta font-display font-medium ${(variance ?? 0) > 0 ? 'text-warning' : 'text-danger'}`}>
             {(variance ?? 0) > 0 ? 'Over' : 'Short'} by {unit}{Math.abs(variance ?? 0).toLocaleString()}
           </p>
         )}
@@ -103,12 +103,12 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
           />
         )}
         {item.isDone && item.conditionalReasonValue && (
-          <p className="text-xs font-display text-text-secondary px-3 py-2 rounded-lg bg-surface-hover/60 border border-border/60">
+          <p className="t-meta font-display text-text-secondary px-3 py-2 rounded-lg bg-surface-hover/60 border border-border/60">
             <span className="font-semibold text-text">Reason: </span>{item.conditionalReasonValue}
           </p>
         )}
         {interactive && outOfRange && (
-          <p className="text-xs text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
+          <p className="t-meta text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
         )}
       </div>
     </ItemCardShell>

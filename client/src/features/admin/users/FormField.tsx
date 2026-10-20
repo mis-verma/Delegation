@@ -18,25 +18,25 @@ export const FormField = ({ htmlFor, label, icon: Icon, hint, warning, error, ch
   <div className={cn('group/field flex flex-col gap-1.5 w-full', className)}>
     <label
       htmlFor={htmlFor}
-      className="flex items-center gap-1.5 px-1 text-xs font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600"
+      className="flex items-center gap-1.5 px-1 t-meta font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600"
     >
       {Icon && <Icon className="size-3.5 text-text-light group-focus-within/field:text-primary-500 transition-colors" strokeWidth={2.5} aria-hidden />}
       {label}
     </label>
     {children}
     {error && (
-      <p role="alert" className="flex items-center gap-1.5 px-1 text-xs font-semibold text-danger">
+      <p role="alert" className="flex items-center gap-1.5 px-1 t-meta font-semibold text-danger">
         <AlertCircle className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
         {error}
       </p>
     )}
     {warning && (
-      <p className="flex items-start gap-1.5 px-1 text-xs font-display text-warning">
+      <p className="flex items-start gap-1.5 px-1 t-meta font-display text-warning">
         <AlertCircle className="size-3.5 shrink-0 mt-px" aria-hidden />
         <span>{warning}</span>
       </p>
     )}
-    {hint && <p className="px-1 text-xs font-display text-text-muted">{hint}</p>}
+    {hint && <p className="px-1 t-meta font-display text-text-muted">{hint}</p>}
   </div>
 );
 

@@ -62,7 +62,7 @@ export const ModernHeroTitle = () => {
         />
       </h1>
 
-      <p className="max-w-md mt-3 sm:mt-4 text-xs sm:text-sm font-medium text-text-muted animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150 fill-mode-both leading-relaxed">
+      <p className="max-w-md mt-3 sm:mt-4 t-meta sm:text-sm font-medium text-text-muted animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150 fill-mode-both leading-relaxed">
         Unify your team's workflow in a single, powerful command center. 
         Track every moving piece without the administrative friction.
       </p>

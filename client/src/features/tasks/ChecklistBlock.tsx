@@ -58,7 +58,7 @@ export const ChecklistBlock = ({
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className={`text-xs font-bold min-w-8 shrink-0 ${
+              <span className={`t-meta font-bold min-w-8 shrink-0 ${
                 isComplete ? 'text-primary-600' : 'text-text-muted'
               }`}>
                 {doneCount}/{checklist.items.length}

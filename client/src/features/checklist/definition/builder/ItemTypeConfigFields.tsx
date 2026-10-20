@@ -35,7 +35,7 @@ const SwitchField = ({ id, checked, onChange, label, hint }: { id: string; check
 );
 
 const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: ReactNode }) => (
-  <p className="flex items-start gap-1.5 text-xs font-display text-text-muted leading-relaxed">
+  <p className="flex items-start gap-1.5 t-meta font-display text-text-muted leading-relaxed">
     <Icon size={13} className="shrink-0 mt-0.5 text-text-light" />
     <span>{children}</span>
   </p>
@@ -131,7 +131,7 @@ const AuditFields = ({ draft, onChange, storeIds, validPersonIds }: ItemTypeFiel
     </div>
     <AuditUniformLists draft={draft} onChange={onChange} />
     {hasNoAuditList(draft) && (
-      <p className="flex items-center gap-1.5 text-xs font-display font-medium text-warning">
+      <p className="flex items-center gap-1.5 t-meta font-display font-medium text-warning">
         <AlertTriangle size={13} className="shrink-0" aria-hidden />
         Nobody has anything to tick yet.
       </p>
@@ -214,7 +214,7 @@ const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
           <TabsTrigger
             key={scale}
             value={scale}
-            className="min-h-11 sm:min-h-8 py-0 px-3.5 rounded-full text-xs font-semibold border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none"
+            className="min-h-11 sm:min-h-8 py-0 px-3.5 rounded-full t-meta font-semibold border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none"
           >
             <Star size={12} className={selected ? 'fill-warning text-warning' : ''} />
             {scale}

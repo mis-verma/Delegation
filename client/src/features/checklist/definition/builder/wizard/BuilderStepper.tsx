@@ -114,7 +114,7 @@ export const BuilderStepper = ({
               >
                 <span
                   className={[
-                    'flex size-8 pointer-coarse:size-9 shrink-0 items-center justify-center rounded-full text-xs font-display font-bold transition-all duration-200',
+                    'flex size-8 pointer-coarse:size-9 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold transition-all duration-200',
                     isLocked && 'bg-surface-hover text-text-light border border-border',
                     !isLocked && isCurrent && 'bg-primary-700 text-white ring-4 ring-primary-500/20 scale-105',
                     !isLocked && !isCurrent && isValid && 'bg-primary-700 text-white group-hover:scale-105',
@@ -137,7 +137,7 @@ export const BuilderStepper = ({
                 <div className="flex flex-col text-left">
                   <span
                     className={[
-                      'text-xs font-display font-medium whitespace-nowrap transition-colors duration-150',
+                      't-meta font-display font-medium whitespace-nowrap transition-colors duration-150',
                       isLocked && 'text-text-muted',
                       !isLocked && isCurrent && 'text-primary-700 dark:text-primary-400 font-bold',
                       !isLocked && !isCurrent && isValid && 'text-text-secondary group-hover:text-text',

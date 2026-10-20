@@ -68,7 +68,7 @@ export const WeekdayPicker = ({
             disabled={disabled}
             onClick={() => toggle(d.value)}
             className={cn(
-              'flex flex-col items-center justify-center h-11 rounded-xl border text-xs font-display font-semibold transition-all duration-150 cursor-pointer select-none',
+              'flex flex-col items-center justify-center h-11 rounded-xl border t-meta font-display font-semibold transition-all duration-150 cursor-pointer select-none',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed',
               selected
                 ? tone === 'on'

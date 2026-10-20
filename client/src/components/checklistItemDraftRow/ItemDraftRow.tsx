@@ -79,7 +79,7 @@ export const ChecklistItemDraftRow = ({
     <div className="@container group relative flex flex-col bg-surface rounded-xl border border-border shadow-xs transition-colors duration-200 hover:border-border-hover overflow-hidden">
 
       <div className="flex items-start gap-3 p-4 sm:p-5">
-        <div className="flex shrink-0 items-center justify-center w-7 h-7 mt-0.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-bold select-none">
+        <div className="flex shrink-0 items-center justify-center w-7 h-7 mt-0.5 rounded-lg bg-primary-50 text-primary-700 t-meta font-bold select-none">
           {index + 1}
         </div>
 
@@ -161,7 +161,7 @@ export const ChecklistItemDraftRow = ({
 
           <div className={`grid grid-cols-1 ${showDueDate ? '@sm:grid-cols-2' : ''} gap-4`}>
             <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
+              <label className="flex items-center gap-1.5 t-meta font-medium text-text-muted tracking-wide">
                 <User size={14} /> Assignee
               </label>
               <select
@@ -179,7 +179,7 @@ export const ChecklistItemDraftRow = ({
 
             {showDueDate && (
               <div className="flex flex-col gap-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
+                <label className="flex items-center gap-1.5 t-meta font-medium text-text-muted tracking-wide">
                   <Calendar size={14} /> Due Date
                 </label>
                 <input
@@ -194,7 +194,7 @@ export const ChecklistItemDraftRow = ({
 
           <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-surface-hover/50 border border-border/60">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary tracking-wide">
+              <span className="flex items-center gap-1.5 t-meta font-medium text-text-secondary tracking-wide">
                 <Camera size={14} className="text-text-light" /> Photo proof
               </span>
               <span className="t-meta font-medium text-text-muted">
@@ -240,7 +240,7 @@ export const ChecklistItemDraftRow = ({
                     {draft.requiresLivePhoto && <Check size={14} strokeWidth={3} className="text-white" />}
                   </div>
                 </div>
-                <span className="text-xs font-medium text-text-secondary group-hover/toggle:text-text transition-colors leading-tight">
+                <span className="t-meta font-medium text-text-secondary group-hover/toggle:text-text transition-colors leading-tight">
                   Require live camera capture
                 </span>
               </label>

@@ -55,7 +55,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
         {(u.role === 'MANAGER' || u.role === 'SENIOR') && (
-          <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
+          <span className="shrink-0 t-meta font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
             HOD
           </span>
         )}
@@ -91,7 +91,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
   return (
     <div className="flex flex-col gap-1 max-h-64 overflow-y-auto custom-scrollbar p-1.5 bg-surface border border-border rounded-lg">
       {isLoading && (
-        <p className="flex items-center gap-2 text-xs font-display text-text-muted px-2 py-2">
+        <p className="flex items-center gap-2 t-meta font-display text-text-muted px-2 py-2">
           <Loader2 size={13} className="animate-spin" /> Loading users…
         </p>
       )}
@@ -111,10 +111,10 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         </div>
       )}
       {!isLoading && !allUsers?.length && (
-        emptyHint ?? <p className="text-xs font-display text-text-muted px-2 py-2">No assignable users in this scope.</p>
+        emptyHint ?? <p className="t-meta font-display text-text-muted px-2 py-2">No assignable users in this scope.</p>
       )}
       {!isLoading && !!allUsers?.length && !users?.length && (
-        <p className="text-xs font-display text-text-muted px-2 py-2">No one matches "{query.trim()}".</p>
+        <p className="t-meta font-display text-text-muted px-2 py-2">No one matches "{query.trim()}".</p>
       )}
       {!isLoading && groups
         ? groups.map(([deptName, deptUsers]) => (

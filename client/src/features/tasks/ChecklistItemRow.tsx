@@ -74,7 +74,7 @@ export const ChecklistItemRow = ({
           {((item.isDone && item.completedAt) || item.dueAt || item.requiredImageCount > 0) && (
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {((item.isDone && item.completedAt) || item.dueAt) && (
-              <Badge variant="neutral" className="text-xs bg-surface-hover">
+              <Badge variant="neutral" className="t-meta bg-surface-hover">
                 {item.isDone && item.completedAt
                   ? `Done ${new Date(item.completedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
                   : `Due ${new Date(item.dueAt!).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
@@ -84,7 +84,7 @@ export const ChecklistItemRow = ({
             {item.requiredImageCount > 0 && (
               <Badge
                 variant={photosSatisfied ? 'default' : 'warning'}
-                className={`text-xs ${photosSatisfied ? 'bg-success/10 text-success' : 'bg-warning/10'}`}
+                className={`t-meta ${photosSatisfied ? 'bg-success/10 text-success' : 'bg-warning/10'}`}
               >
                 <Camera size={12} strokeWidth={2.5} />
                 {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'Live' : 'Photos'}
@@ -132,7 +132,7 @@ export const ChecklistItemRow = ({
                 className="size-16 object-cover"
               />
 
-              <span className={`absolute top-1 left-1 text-xs font-bold px-1.5 py-0.5 rounded text-white ${
+              <span className={`absolute top-1 left-1 t-meta font-bold px-1.5 py-0.5 rounded text-white ${
                 img.captureMethod === 'LIVE' ? 'bg-primary-600' : 'bg-black/85'
               }`}>
                 {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
@@ -175,7 +175,7 @@ export const ChecklistItemRow = ({
             {(uploadImages.isError || completeItem.isError) && (
               <div className="flex items-start gap-2 px-3 py-2 bg-danger/10 rounded-lg border border-danger/20">
                  <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
-                 <p className="text-xs text-danger font-medium">
+                 <p className="t-meta text-danger font-medium">
                   {uploadImages.isError
                     ? errorMessage(uploadImages.error, "Couldn't save that. Try again.")
                     : errorMessage(completeItem.error, "Couldn't save that. Try again.")}

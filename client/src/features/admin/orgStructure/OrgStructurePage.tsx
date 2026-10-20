@@ -4,7 +4,7 @@ import { MotionConfig } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, UserX, TriangleAlert, CircleCheck } from 'lucide-react';
-import { Button, EmptyState, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, useConfirm } from '../../../components';
+import { Button, EmptyState, IconChip, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, useConfirm } from '../../../components';
 import { StatCard } from '../../dashboard';
 import { adminApi, type AdminUser } from '../../../api/admin';
 import type { Department } from '../../../api/departments';
@@ -416,9 +416,8 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               ) : (
                 <ul className="flex flex-wrap items-center gap-2">
                   {attention.map((item) => (
-                    <li key={item.key} className="inline-flex items-center gap-2 rounded-full border border-warning/25 bg-warning/10 pl-3 pr-1.5 py-1">
-                      <span className="t-meta font-display font-semibold text-text">{item.label}</span>
-                      <span className="min-w-6 text-center rounded-full bg-warning/20 px-1.5 t-meta font-display font-bold tabular-nums text-warning">{item.count}</span>
+                    <li key={item.key}>
+                      <IconChip icon={TriangleAlert} tone="bg-warning" label={`${item.label} ${item.count}`} labelClassName="tabular-nums" />
                     </li>
                   ))}
                 </ul>

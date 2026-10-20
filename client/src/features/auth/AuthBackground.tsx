@@ -40,10 +40,10 @@ export const AuthBackground = ({
             </ul>
 
             <div className="pt-3 border-t border-border/60 flex flex-col gap-1 relative z-10">
-                <p className="text-text-muted text-xs font-display">
+                <p className="text-text-muted t-meta font-display">
                     {tagline}
                 </p>
-                <p className="text-text-light t-meta font-mono tracking-widest uppercase">
+                <p className="text-text-light t-meta font-mono ">
                     &copy; {new Date().getFullYear()} {orgName}
                 </p>
             </div>

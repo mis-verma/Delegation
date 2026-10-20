@@ -60,20 +60,7 @@ const SortableItemRowImpl = ({
   validPersonIds?: ReadonlySet<string> | null;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
-  const confirm = useConfirm();
-  const handleRemove = async () => {
-    if (draft.label.trim()) {
-      const ok = await confirm({
-        title: 'Remove this question?',
-        description: `"${draft.label.trim()}" and its settings will be taken off this checklist.`,
-        confirmLabel: 'Remove',
-        cancelLabel: 'Keep it',
-        variant: 'danger',
-      });
-      if (!ok) return;
-    }
-    onRemove(draft.key);
-  };
+  const handleRemove = () => onRemove(draft.key);
 
   return (
     <div
@@ -227,7 +214,7 @@ const SectionContainer = ({
               <span className="truncate">{title}</span>
             </button>
           )}
-          <span className="text-xs font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
+          <span className="t-meta font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
           {isActive && !renaming && (
             <IconChip icon={Plus} tone="bg-primary-600" label="New questions go here" className="shrink-0" />
           )}
@@ -259,7 +246,7 @@ const SectionContainer = ({
           {items.length === 0 ? (
             <div
               ref={setNodeRef}
-              className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border text-xs font-display transition-colors ${
+              className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border t-meta font-display transition-colors ${
                 isOver ? 'border-primary-400 bg-primary-500/5 text-primary-700 dark:text-primary-300' : 'border-border/70 text-text-muted'
               }`}
             >

@@ -105,7 +105,7 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
             <TabsTrigger
               key={value}
               value={value}
-              className="min-h-11 sm:min-h-9 px-1.5 sm:px-3 text-xs sm:text-sm text-center leading-tight whitespace-normal sm:whitespace-nowrap"
+              className="min-h-11 sm:min-h-9 px-1.5 sm:px-3 t-meta sm:text-sm text-center leading-tight whitespace-normal sm:whitespace-nowrap"
             >
               <Icon size={16} aria-hidden="true" className="hidden sm:block" />
               {label}

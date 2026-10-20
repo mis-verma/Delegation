@@ -11,6 +11,7 @@ import { InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { ticketApi } from '../../../api/ticket';
+import { reportApi } from '../../../api/reports';
 import { checklistDrillHref, overdueDelegationsHref } from '../../dashboard/scoreDrill';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { SectionHeader } from '../../scores/SectionHeader';
@@ -195,6 +196,18 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
 
   const overdueCount = overdue.data?.[0]?.overdueCount;
 
+  const snapshotDay = scores.win ? shiftDay(scores.win.from, -1) : null;
+  const snapshot = useQuery({
+    queryKey: ['analytics', 'overdue-snapshot', snapshotDay],
+    queryFn: () => reportApi.overdueSnapshot(snapshotDay as string),
+    enabled: !!token && isOrgWideRole && !!snapshotDay,
+    retry: handleQueryRetry,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const overdueTicketsTrend = overdueCount != null && snapshot.data?.tickets != null ? countTrend(overdueCount, snapshot.data.tickets) : NO_TREND;
+  const overdueDelegationsTrend = overdueDelegationCount != null && snapshot.data?.delegations != null ? countTrend(overdueDelegationCount, snapshot.data.delegations) : NO_TREND;
+
   const percentValue = (value: number | null | undefined, count: number | undefined) =>
     scoresFailed ? UNAVAILABLE_VALUE : scoresLoading || !scores.total ? LOADING_VALUE : !count || value == null ? NO_DATA_VALUE : formatPercent(value);
   const percentCaption = (value: number | null | undefined, count: number | undefined, noDataText: string, okText: string) =>
@@ -265,7 +278,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             value={overdue.isError ? UNAVAILABLE_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
             isLoading={overdue.isPending}
             caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
-            trend={NO_TREND}
+            trend={overdueTicketsTrend}
             lowerIsBetter
             valueTone={overdue.isPending || overdue.isError ? undefined : countTone(overdueCount ?? 0)}
             onClick={() => setDrilldownKind('overdue')}
@@ -277,7 +290,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             value={overdueDelegations.isError ? UNAVAILABLE_VALUE : overdueDelegations.isPending ? LOADING_VALUE : (overdueDelegationCount ?? 0)}
             isLoading={overdueDelegations.isPending}
             caption={overdueDelegations.isPending || overdueDelegations.isError ? statCaption({ isPending: overdueDelegations.isPending, isError: overdueDelegations.isError, hasData: false, noDataText: '' }) : 'Past their due date, not done'}
-            trend={NO_TREND}
+            trend={overdueDelegationsTrend}
             lowerIsBetter
             valueTone={overdueDelegations.isPending || overdueDelegations.isError ? undefined : countTone(overdueDelegationCount ?? 0)}
             onClick={() => navigate(overdueDelegationsHref())}

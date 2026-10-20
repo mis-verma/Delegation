@@ -151,7 +151,7 @@ export const OptionList = ({
             );
           })
         )}
-        {hidden > 0 && <li aria-hidden className="px-3 py-2 text-xs font-display text-text-muted text-center">{hidden} more. Type to narrow the list.</li>}
+        {hidden > 0 && <li aria-hidden className="px-3 py-2 t-meta font-display text-text-muted text-center">{hidden} more. Type to narrow the list.</li>}
       </ul>
 
       {actions?.map((a) => <ActionRow key={a.key} action={a} />)}

@@ -121,7 +121,7 @@ export const BuilderSchedulePanel = ({
         ) : storesError ? (
           <InlineError message="We couldn't load the stores." onRetry={() => refetchStores()} />
         ) : chipStores.length === 0 ? (
-          <span className="text-xs font-display text-text-muted">No stores yet. Add one in People &amp; Teams.</span>
+          <span className="t-meta font-display text-text-muted">No stores yet. Add one in People &amp; Teams.</span>
         ) : (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Stores that run this checklist">
             {chipStores.map((s) => {
@@ -137,7 +137,7 @@ export const BuilderSchedulePanel = ({
           </div>
         )}
         {storeIds.length === 0 && !storesPending && !storesError && activeStores.length > 0 && (
-          <p className="text-xs font-display text-text-muted">Pick at least one store.</p>
+          <p className="t-meta font-display text-text-muted">Pick at least one store.</p>
         )}
       </Section>
 
@@ -153,9 +153,9 @@ export const BuilderSchedulePanel = ({
       </Section>
 
       {recurrence === 'DAILY' && (
-        <Section icon={CalendarDays} title="Runs on" aside={<span className="text-xs font-display text-text-muted">{formatWeekdays(activeWeekdays)}</span>}>
+        <Section icon={CalendarDays} title="Runs on" aside={<span className="t-meta font-display text-text-muted">{formatWeekdays(activeWeekdays)}</span>}>
           <WeekdayPicker value={activeWeekdays} onChange={onActiveWeekdaysChange} minSelected={1} aria-label="Days this checklist runs" />
-          <p className="hidden sm:block text-xs font-display text-text-muted">
+          <p className="hidden sm:block t-meta font-display text-text-muted">
             No checklist on the days left off. People’s own week-off days are skipped too.
           </p>
         </Section>
@@ -189,14 +189,14 @@ export const BuilderSchedulePanel = ({
             triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
           />
         </div>
-        {!startDate && <p className="text-xs font-display text-text-muted">Pick a start date to continue.</p>}
+        {!startDate && <p className="t-meta font-display text-text-muted">Pick a start date to continue.</p>}
         {hasTimeMismatch ? (
-          <p className="flex items-center gap-1.5 text-xs font-display font-medium text-danger">
+          <p className="flex items-center gap-1.5 t-meta font-display font-medium text-danger">
             <AlertCircle size={13} className="shrink-0" />
             Opening and closing can’t be the same time.
           </p>
         ) : isOvernight ? (
-          <p className="flex items-center gap-1.5 text-xs font-display text-text-secondary">
+          <p className="flex items-center gap-1.5 t-meta font-display text-text-secondary">
             <Moon size={13} className="shrink-0 text-text-light" />
             Overnight: closes at {cutoffTime} the next morning.
           </p>

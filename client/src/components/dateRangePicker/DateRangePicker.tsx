@@ -265,7 +265,7 @@ export function DateRangePicker({
             key={preset.label}
             type="button"
             onClick={() => applyPreset(preset)}
-            className="h-8 pointer-coarse:h-11 px-3 rounded-full border border-border/70 bg-surface-hover/60 text-xs font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+            className="h-8 pointer-coarse:h-11 px-3 rounded-full border border-border/70 bg-surface-hover/60 t-meta font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
           >
             {preset.label}
           </button>
@@ -282,7 +282,7 @@ export function DateRangePicker({
                 slot.active ? 'border-primary-500/60 bg-gradient-to-br from-primary-500/12 to-transparent' : 'border-border/60 bg-surface-hover/40',
               )}
             >
-              <span className="text-xs font-display font-semibold text-text-muted leading-none">{slot.label}</span>
+              <span className="t-meta font-display font-semibold text-text-muted leading-none">{slot.label}</span>
               <span className={cn('text-sm font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
                 {slot.date ? formatDay(slot.date) : slot.active ? 'Pick a day' : 'None'}
               </span>
@@ -303,7 +303,7 @@ export function DateRangePicker({
         today={today}
       />
 
-      <p className="text-xs font-display text-text-muted" role="status">{hint}</p>
+      <p className="t-meta font-display text-text-muted" role="status">{hint}</p>
     </div>
   );
 
@@ -327,7 +327,7 @@ export function DateRangePicker({
                 clockFor === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
               )}
             >
-              <span className="text-xs font-display font-semibold text-text-muted leading-none">{t.label} time</span>
+              <span className="t-meta font-display font-semibold text-text-muted leading-none">{t.label} time</span>
               <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', clockFor === t.key ? 'text-text' : 'text-text-secondary')}>
                 {t.date ? formatClock(t.date) : 'Pick a day'}
               </span>
@@ -368,7 +368,7 @@ export function DateRangePicker({
             tab === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
           )}
         >
-          <span className="text-xs font-display font-semibold text-text-muted leading-none">{t.label}</span>
+          <span className="t-meta font-display font-semibold text-text-muted leading-none">{t.label}</span>
           <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', tab === t.key ? 'text-text' : 'text-text-secondary')}>{t.text}</span>
         </button>
       ))}

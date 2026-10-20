@@ -82,7 +82,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             id={messageId}
             role="alert"
             className={cn(
-              "flex items-center gap-1.5 text-xs font-semibold animate-in slide-in-from-top-1 fade-in duration-200 px-1",
+              "flex items-center gap-1.5 t-meta font-semibold animate-in slide-in-from-top-1 fade-in duration-200 px-1",
               isError ? "text-danger" : "text-success"
             )}
           >

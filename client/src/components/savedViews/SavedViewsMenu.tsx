@@ -38,11 +38,11 @@ export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, 
       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-1.5rem)] p-3 flex flex-col gap-3">
         <div>
           <p className="text-sm font-display font-bold text-text">Saved views</p>
-          <p className="text-xs font-display text-text-muted">Keep a layout with its filters, sort and grouping. Saved on this device.</p>
+          <p className="t-meta font-display text-text-muted">Keep a layout with its filters, sort and grouping. Saved on this device.</p>
         </div>
 
         {views.length === 0 ? (
-          <p className="rounded-lg border border-border px-3 py-4 text-center text-xs font-display text-text-muted">
+          <p className="rounded-lg border border-border px-3 py-4 text-center t-meta font-display text-text-muted">
             Nothing saved yet. Set the page up the way you like it, then save it below.
           </p>
         ) : (

@@ -543,7 +543,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 type="button"
                 onClick={saveFilters}
                 title="Save this filter combination as your default"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="flex items-center gap-1.5 px-3 py-1.5 t-meta font-semibold rounded-lg text-text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Save size={13} />
                 Save view

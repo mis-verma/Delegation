@@ -386,7 +386,7 @@ export const ChecklistComplianceBoard = () => {
                 <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
                   <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit max-sm:grid max-sm:grid-cols-4 max-sm:h-auto')}>
                     {STATUS_OPTIONS.map(opt => (
-                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full min-h-11 px-1.5 text-xs leading-tight whitespace-normal sm:min-h-0">
+                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full min-h-11 px-1.5 t-meta leading-tight whitespace-normal sm:min-h-0">
                         {opt.label}
                       </TabsTrigger>
                     ))}

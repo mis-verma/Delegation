@@ -150,7 +150,7 @@ export const EventForm = ({ onClose, event }: EventFormProps) => {
             )}
           />
           {errors.eventDate?.message && (
-            <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-danger px-1">
+            <p role="alert" className="flex items-center gap-1.5 t-meta font-semibold text-danger px-1">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
               {errors.eventDate.message}
             </p>
@@ -167,7 +167,7 @@ export const EventForm = ({ onClose, event }: EventFormProps) => {
         />
 
         {mutation.isError && (
-          <div className="p-3 rounded-md bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5">
+          <div className="p-3 rounded-md bg-danger/10 border border-danger/20 t-meta text-danger font-display flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {mutation.error instanceof Error ? mutation.error.message : `Failed to ${isEditing ? 'update' : 'create'} event.`}
           </div>

@@ -215,7 +215,7 @@ export const AccountSettings = () => {
         </div>
 
         {changePasswordMut.isError && (
-          <p className="text-xs text-danger text-center">
+          <p className="t-meta text-danger text-center">
             {changePasswordMut.error instanceof Error ? changePasswordMut.error.message : 'Failed to change password.'}
           </p>
         )}

@@ -79,7 +79,7 @@ const NAV_LINK_INACTIVE = "text-text-secondary hover:bg-surface-hover hover:text
 const NAV_ICON_ACTIVE = "text-text";
 const NAV_ICON_INACTIVE = "text-text-light group-hover:text-text-muted";
 const CHILD_LINK_BASE =
-  "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 t-meta font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
 const CHILD_LINK_ACTIVE = "bg-surface-hover text-text font-bold";
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
@@ -290,7 +290,7 @@ export const AdminLayout = () => {
                 onMouseLeave={() => setFlyoutKey(null)}
                 data-nav-flyout-content={to}
               >
-                <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-muted">{label}</p>
+                <p className="px-2.5 py-1.5 t-meta font-display font-bold text-text-muted">{label}</p>
                 {children!.map((child, childIndex) => {
                   const isChildActive = child.to === activeChild;
                   return (
@@ -429,7 +429,7 @@ export const AdminLayout = () => {
             sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
-          <p className="text-xs font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
+          <p className="t-meta font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
             Navigation
           </p>
 
@@ -439,13 +439,13 @@ export const AdminLayout = () => {
 
           {user && (
             <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-surface-hover border border-border shrink-0">
-              <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
+              <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold t-meta shrink-0">
                 {initials}
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
+                {user.role && <p className="t-meta font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
               </div>
               <button
                 type="button"
@@ -468,7 +468,7 @@ export const AdminLayout = () => {
           )}
         >
           <p className={cn(
-            "text-xs font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
+            "t-meta font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
             !sidebarOpen && "opacity-0 h-0 !p-0 !m-0 !border-0 overflow-hidden"
           )}>
             Navigation
@@ -483,18 +483,18 @@ export const AdminLayout = () => {
               "flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-surface-hover border border-border shrink-0",
               !sidebarOpen && "flex-col gap-2 px-2"
             )}>
-              {!sidebarOpen ? <RailTip label={user.name}><span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
+              {!sidebarOpen ? <RailTip label={user.name}><span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold t-meta shrink-0">
                 {initials}
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span></RailTip> : (
-                <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
+                <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold t-meta shrink-0">
                 {initials}
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               )}
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
+                {user.role && <p className="t-meta font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
               </div>
               {!sidebarOpen ? <RailTip label="Log out"><button
                 type="button"

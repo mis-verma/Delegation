@@ -383,12 +383,12 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                     key={i}
                     className={`flex items-end gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200 ${isBot ? "" : "flex-row-reverse"}`}
                 >
-                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 shadow-sm ${isBot ? "bg-gradient-to-br from-primary-500 to-primary-700 text-white" : "bg-surface border border-border text-text-secondary"}`}>
+                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 ${isBot ? "bg-gradient-to-br from-primary-500 to-primary-700 text-white" : "bg-surface border border-border text-text-secondary"}`}>
                         {isBot ? <Bot size={16} /> : <UserIcon size={14} />}
                     </div>
                     <div className={`flex flex-col gap-1 max-w-[75%] ${isBot ? "items-start" : "items-end"}`}>
                         <div
-                            className={`text-sm leading-relaxed px-3.5 py-2.5 shadow-sm ${
+                            className={`text-sm leading-relaxed px-3.5 py-2.5 ${
                                 isBot
                                     ? "bg-primary-500/10 dark:bg-primary-500/15 text-primary-900 dark:text-primary-200 rounded-2xl rounded-bl-sm"
                                     : "bg-gradient-to-br from-primary-600 to-primary-800 text-white rounded-2xl rounded-br-sm"
@@ -396,7 +396,7 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                         >
                             {m.text}
                         </div>
-                        <span className="text-xs text-text-light px-1">
+                        <span className="t-meta text-text-light px-1">
                             {formatMessageTime(m.timestamp)}
                         </span>
                     </div>
@@ -703,7 +703,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             <button
                                 type="button"
                                 onClick={() => setView(view === "transcript" ? "history" : "chat")}
-                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface text-xs font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface t-meta font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                             >
                                 <ArrowLeft size={13} />
                                 {view === "transcript" ? "Back to history" : "Back to chat"}
@@ -713,7 +713,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             <button
                                 type="button"
                                 onClick={() => setView("history")}
-                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface text-xs font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface t-meta font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                             >
                                 <HistoryIcon size={13} />
                                 History
@@ -724,7 +724,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                                 type="button"
                                 onClick={handleClearHistory}
                                 disabled={deleteAllConversationsMutation.isPending}
-                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-danger/25 bg-danger/5 text-xs font-medium text-danger hover:bg-danger/10 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-danger/25 bg-danger/5 t-meta font-medium text-danger hover:bg-danger/10 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                             >
                                 <Trash2 size={13} />
                                 Clear all
@@ -741,7 +741,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
 
                                 {(parseMutation.isPending || isBotThinking) && (
                                     <div className="flex items-end gap-2 animate-in fade-in duration-200">
-                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-sm">
+                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 text-white">
                                             <Bot size={16} />
                                         </div>
                                         <div className="flex items-center gap-1 bg-primary-500/10 dark:bg-primary-500/15 rounded-2xl rounded-bl-sm px-4 py-3.5">
@@ -756,7 +756,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
 
                         {unmatchedAssigneeName && isAdmin && (
                             <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
-                                <span className="text-xs text-primary-800 dark:text-primary-200">
+                                <span className="t-meta text-primary-800 dark:text-primary-200">
                                     No user found for &quot;{unmatchedAssigneeName}&quot;.
                                 </span>
                                 <Button
@@ -825,11 +825,11 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                     <div className="rounded-xl border border-border/50 bg-surface-hover/30 p-3">
                         <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
                             {isLoadingHistory ? (
-                                <p className="text-xs text-text-muted text-center py-6">Loading…</p>
+                                <p className="t-meta text-text-muted text-center py-6">Loading…</p>
                             ) : !conversations?.length ? (
                                 <div className="flex flex-col items-center gap-2 py-8 text-center">
                                     <Inbox size={22} className="text-text-light" />
-                                    <p className="text-xs text-text-muted">No previous conversations yet.</p>
+                                    <p className="t-meta text-text-muted">No previous conversations yet.</p>
                                 </div>
                             ) : (
                                 conversations.map((c) => (
@@ -845,14 +845,14 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                                         <div className="flex items-center justify-between gap-2 w-full">
                                             <Badge
                                                 variant={CONVERSATION_STATUS_VARIANT[c.status]}
-                                                className={`text-xs ${CONVERSATION_STATUS_TINT[c.status]}`}
+                                                className={`t-meta ${CONVERSATION_STATUS_TINT[c.status]}`}
                                             >
                                                 {CONVERSATION_STATUS_LABEL[c.status]}
                                             </Badge>
-                                            <span className="text-xs text-text-light shrink-0">{formatShortDateTime(c.createdAt)}</span>
+                                            <span className="t-meta text-text-light shrink-0">{formatShortDateTime(c.createdAt)}</span>
                                         </div>
                                         <p className="text-sm font-medium text-text truncate w-full">{c.title || "New conversation"}</p>
-                                        <span className="text-xs text-text-light">{c.messageCount} message{c.messageCount === 1 ? "" : "s"}</span>
+                                        <span className="t-meta text-text-light">{c.messageCount} message{c.messageCount === 1 ? "" : "s"}</span>
                                     </button>
                                 ))
                             )}
@@ -864,7 +864,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                     <div className="rounded-xl border border-border/50 bg-surface-hover/30 p-3">
                         <div className="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1">
                             {isLoadingTranscript || !viewingConversation ? (
-                                <p className="text-xs text-text-muted text-center py-6">Loading…</p>
+                                <p className="t-meta text-text-muted text-center py-6">Loading…</p>
                             ) : (
                                 <MessageBubbles messages={viewingConversation.messages} />
                             )}
@@ -919,7 +919,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             isLoading={isLoadingUsers}
                         />
                         {parsed && parsed.confidence < 0.6 && (
-                            <p className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded px-3 py-2">
+                            <p className="t-meta font-medium text-warning bg-warning/10 border border-warning/20 rounded px-3 py-2">
                                 I'm not sure I got all of this right. Check each field before you create it.
                             </p>
                         )}

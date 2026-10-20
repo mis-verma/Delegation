@@ -35,7 +35,7 @@ export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 rounded-xl" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuLabel className="text-xs text-text-muted font-medium">Move to</DropdownMenuLabel>
+        <DropdownMenuLabel className="t-meta text-text-muted font-medium">Move to</DropdownMenuLabel>
         {MOVABLE_STATUSES.map((status) => (
           <DropdownMenuItem
             key={status}

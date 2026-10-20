@@ -103,7 +103,7 @@ export function DatePicker({
               aria-pressed={isActive}
               onClick={() => { selectDay(target); setViewMonth(target); }}
               className={cn(
-                'h-9 pointer-coarse:h-11 px-1 rounded-lg text-xs font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
+                'h-9 pointer-coarse:h-11 px-1 rounded-lg t-meta font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
                 isActive ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'bg-surface-hover/80 text-text-secondary hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300',
               )}
             >
@@ -153,7 +153,7 @@ export function DatePicker({
             panel === tab.key ? 'bg-surface border border-border' : 'border border-transparent',
           )}
         >
-          <span className="text-xs font-display font-semibold text-text-muted leading-none">{tab.label}</span>
+          <span className="t-meta font-display font-semibold text-text-muted leading-none">{tab.label}</span>
           <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', panel === tab.key ? 'text-text' : 'text-text-secondary')}>{tab.text}</span>
         </button>
       ))}

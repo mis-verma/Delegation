@@ -146,7 +146,7 @@ export function TimePicker({
       </button>
 
       <div className={popover
-        ? cn('absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-3 shadow-lg shadow-black/10 origin-top transition-[opacity,transform] duration-150', open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95 invisible')
+        ? cn('absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-3 origin-top transition-[opacity,transform] duration-150', open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95 invisible')
         : cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
         <div className={popover ? '' : 'overflow-hidden'}>
           <div className={cn('flex flex-col gap-2.5', !popover && 'mt-3 pt-3 border-t border-border/60')}>
@@ -229,7 +229,7 @@ export function TimePicker({
                     aria-pressed={isActive}
                     className={cn(
                       'absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full t-meta font-display font-bold transition-colors cursor-pointer flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
-                      isActive ? 'bg-primary-600 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-active',
+                      isActive ? 'bg-primary-600 text-white' : 'text-text-secondary hover:bg-surface-active',
                     )}
                     style={{ left: pos.left, top: pos.top }}
                   >

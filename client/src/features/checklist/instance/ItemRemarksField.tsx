@@ -90,7 +90,7 @@ const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: Remar
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">{copy.title}</DialogTitle>
-          <DialogDescription className="text-xs">{item.label}</DialogDescription>
+          <DialogDescription className="t-meta">{item.label}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
@@ -140,7 +140,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
         {saved && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface-hover/60 border border-border/50">
             <MessageSquare size={13} className="text-text-light shrink-0 mt-0.5" />
-            <p className="flex-1 min-w-0 text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{saved}</p>
+            <p className="flex-1 min-w-0 t-meta text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{saved}</p>
             {canEdit && (
               <button
                 type="button"
@@ -161,7 +161,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
               <button
                 type="button"
                 onClick={() => setMode('remark')}
-                className={`inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
+                className={`inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
                   missing
                     ? 'bg-danger/10 text-danger hover:bg-danger/15 border border-danger/25'
                     : 'bg-surface-hover/70 text-text-muted hover:text-text hover:bg-surface-hover border border-transparent'
@@ -175,7 +175,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
               <button
                 type="button"
                 onClick={() => setMode('na')}
-                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border border-border-hover text-xs font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border border-border-hover t-meta font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
               >
                 <Ban size={13} />
                 Not applicable

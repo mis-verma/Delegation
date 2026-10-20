@@ -412,7 +412,7 @@ export const MyChecklists = () => {
                       active={assigneeIds.includes(p.id)}
                       onClick={() => { setAssigneeIds(toggleValue(assigneeIds, p.id)); setPage(1); }}
                       lead={
-                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+                        <span className={`flex items-center justify-center size-6 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(p.name)}`}>
                           {getInitials(p.name)}
                         </span>
                       }
@@ -452,7 +452,7 @@ export const MyChecklists = () => {
             {grouped.map(([groupLabel, group]) => (
               <section key={groupLabel} aria-label={groupLabel} className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-display font-bold text-text">
+                  <h2 className="t-meta font-display font-bold text-text">
                     {groupLabel}
                   </h2>
                   <Badge variant="neutral">{group.length}</Badge>

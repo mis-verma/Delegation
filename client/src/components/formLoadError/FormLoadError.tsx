@@ -20,7 +20,7 @@ export const FormLoadError = ({ onClose }: FormLoadErrorProps) => (
           variant="primary" 
           size="sm" 
           onClick={onClose}
-          className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-text/10 active:scale-95 transition-all duration-200"
+          className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-all duration-200"
         >
           Close
         </Button>

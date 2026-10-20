@@ -51,26 +51,26 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
       <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] flex flex-col gap-4 p-4">
         <div>
           <h3 className="t-card font-display font-bold text-text">Export report</h3>
-          <p className="text-xs font-medium text-text-muted mt-0.5">
+          <p className="t-meta font-medium text-text-muted mt-0.5">
             {storeName ?? 'All stores'}, {departmentName ?? 'all departments'}
           </p>
         </div>
 
         {followsPage ? (
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-display font-semibold text-text-secondary">Period</span>
+            <span className="t-meta font-display font-semibold text-text-secondary">Period</span>
             <p className="rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 text-sm font-display font-bold text-text">{range.label}</p>
-            <p className="text-xs font-medium text-text-muted">The same period as the page. Change it on the page to export a different one.</p>
+            <p className="t-meta font-medium text-text-muted">The same period as the page. Change it on the page to export a different one.</p>
           </div>
         ) : (
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-display font-semibold text-text-secondary">Period</span>
+          <span className="t-meta font-display font-semibold text-text-secondary">Period</span>
           <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
           <div className="flex items-center justify-between gap-1">
             <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
               <ChevronLeft className="size-4" aria-hidden="true" />
             </button>
-            <span className="text-xs font-display font-bold text-text text-center">{range.label}</span>
+            <span className="t-meta font-display font-bold text-text text-center">{range.label}</span>
             <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
               <ChevronRight className="size-4" aria-hidden="true" />
             </button>
@@ -79,7 +79,7 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
         )}
 
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-display font-semibold text-text-secondary">Group by</span>
+          <span className="t-meta font-display font-semibold text-text-secondary">Group by</span>
           <div role="radiogroup" aria-label="Group by" className="grid grid-cols-3 gap-1.5">
             {GROUPINGS.map((g) => (
               <button
@@ -89,7 +89,7 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
                 aria-checked={groupBy === g.value}
                 onClick={() => setGroupBy(g.value)}
                 className={cn(
-                  'min-h-10 pointer-coarse:min-h-11 rounded-lg border px-2 text-xs font-display font-bold transition-colors',
+                  'min-h-10 pointer-coarse:min-h-11 rounded-lg border px-2 t-meta font-display font-bold transition-colors',
                   groupBy === g.value ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text',
                 )}
               >
@@ -97,7 +97,7 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
               </button>
             ))}
           </div>
-          <p className="text-xs font-medium text-text-muted">{GROUPINGS.find((g) => g.value === groupBy)?.hint}</p>
+          <p className="t-meta font-medium text-text-muted">{GROUPINGS.find((g) => g.value === groupBy)?.hint}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2">

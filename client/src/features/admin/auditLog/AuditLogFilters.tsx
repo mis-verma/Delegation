@@ -22,7 +22,7 @@ const SOURCE_OPTIONS: ComboboxOption[] = AUDIT_SOURCES.map((value) => ({
   label: value === 'APP' ? 'App' : SOURCE_CONFIG[value].label,
 }));
 
-const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
+const FIELD_LABEL = 't-meta font-display font-medium text-text-secondary';
 const CONTROL = 'h-11 rounded-xl';
 
 const shortDay = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -31,7 +31,7 @@ const personName = (u: { firstName: string; lastName: string | null }) =>
   u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName;
 
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 h-8 pointer-coarse:h-11 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+  <span className="flex items-center gap-1 h-8 pointer-coarse:h-11 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 t-meta font-display font-medium text-primary-700 dark:text-primary-300">
     {label}
     <button
       type="button"
@@ -123,7 +123,7 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
           <button
             type="button"
             onClick={onClearAll}
-            className="h-8 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="h-8 pointer-coarse:h-11 px-2.5 rounded-lg t-meta font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Clear all
           </button>

@@ -56,7 +56,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </h3>
           {!hideAssignee && (assigneeName ? (
             <span
-              className={`flex items-center justify-center size-6 sm:size-7 rounded-full text-white text-xs font-bold shrink-0 ring-1 ring-black/5 dark:ring-white/10 ${avatarColorClass(assigneeName)}`}
+              className={`flex items-center justify-center size-6 sm:size-7 rounded-full text-white t-meta font-bold shrink-0 ring-1 ring-black/5 dark:ring-white/10 ${avatarColorClass(assigneeName)}`}
               title={`Assigned to ${assigneeName}`}
             >
               {getInitials(assigneeName)}

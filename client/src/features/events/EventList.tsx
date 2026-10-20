@@ -52,7 +52,7 @@ export const EventList = () => {
 
     if (isError) {
       return (
-        <div className="flex items-center gap-2.5 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-display">
+        <div className="flex items-center gap-2.5 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger t-meta font-display">
           <AlertCircle size={16} className="shrink-0" />
           <span>Failed to load events. Please check your network connection and try again.</span>
         </div>
@@ -127,7 +127,7 @@ export const EventList = () => {
               <div className="flex flex-col gap-1">
                 <h3 className="t-card font-display font-semibold text-text leading-tight">{e.title}</h3>
                 {e.description && (
-                  <p className="text-xs text-text-muted font-display leading-relaxed line-clamp-2">{e.description}</p>
+                  <p className="t-meta text-text-muted font-display leading-relaxed line-clamp-2">{e.description}</p>
                 )}
               </div>
 

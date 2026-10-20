@@ -159,7 +159,7 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
           <FormSection title="Basics" icon={StoreIcon} tone="coral" description="The name and code used across checklists.">
             <Input id="name" label="Store name" icon={StoreIcon} placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...nameField} />
             <div className="flex flex-col gap-1">
-              <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" className="uppercase" error={errors.code?.message} {...register('code')} />
+              <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" className="" error={errors.code?.message} {...register('code')} />
               {codeIsSuggested && <p className="px-1 t-meta font-display text-text-muted">Filled in from the name. Type over it to use your own.</p>}
             </div>
           </FormSection>

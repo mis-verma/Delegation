@@ -83,7 +83,7 @@ const Detail = ({ e }: { e: ActivityEvent }) => {
   if (e.kind === 'priority_changed' && e.to) return <ChangeCompare icon={Flag} tone="coral" from={e.from ?? undefined} to={e.to} />;
   if (e.kind === 'reassigned' && e.to) return <ChangeCompare icon={UserRound} tone="primary" from={e.from ?? undefined} to={e.to} />;
   if (e.remark && (e.kind === 'status' || e.kind === 'sent_back')) {
-    return <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 text-xs font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>;
+    return <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>;
   }
   return null;
 };
@@ -103,7 +103,7 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
             <span className="font-bold text-text">{e.actor?.name ?? 'System'}</span>
             {e.actor?.role && <span className="sr-only"> ({e.actor.role})</span>} {sentence(e, thing)}
           </p>
-          <time dateTime={e.at} title={date.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })} className="shrink-0 pt-0.5 text-xs font-display font-medium tabular-nums text-text-muted">
+          <time dateTime={e.at} title={date.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })} className="shrink-0 pt-0.5 t-meta font-display font-medium tabular-nums text-text-muted">
             {timeLabel(date)}
           </time>
         </header>
@@ -132,7 +132,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
           <History size={16} strokeWidth={2.5} />
         </span>
         Activity
-        {data && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 text-xs font-display font-bold tabular-nums text-text-secondary">{data.events.length}</span>}
+        {data && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 t-meta font-display font-bold tabular-nums text-text-secondary">{data.events.length}</span>}
       </h3>
 
       {isPending && (
@@ -147,7 +147,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
         </div>
       )}
 
-      {isError && !isPending && <p className="text-xs font-medium text-danger">Could not load the activity. Refresh to try again.</p>}
+      {isError && !isPending && <p className="t-meta font-medium text-danger">Could not load the activity. Refresh to try again.</p>}
 
       {data && (
         <>
@@ -156,7 +156,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
             return (
               <div key={group.key} className="flex flex-col gap-2" role="group" aria-label={label.full}>
                 <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-surface px-1 py-1">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-display font-semibold text-text-secondary">
+                  <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
                     {label.lead && <span className="font-bold text-text">{label.lead}</span>}
                     {label.lead && <span className="text-text-light" aria-hidden>·</span>}
                     <span>{label.full}</span>
@@ -174,13 +174,13 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
             <button
               type="button"
               onClick={() => setShown((n) => n + PAGE)}
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 self-start rounded-full border border-border px-3 text-xs font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 self-start rounded-full border border-border px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
             >
               <ChevronDown size={13} strokeWidth={2.5} />
               Show earlier ({data.events.length - shown})
             </button>
           )}
-          {data.truncated && <p className="text-xs font-medium text-text-muted">Older history is not shown.</p>}
+          {data.truncated && <p className="t-meta font-medium text-text-muted">Older history is not shown.</p>}
         </>
       )}
     </section>

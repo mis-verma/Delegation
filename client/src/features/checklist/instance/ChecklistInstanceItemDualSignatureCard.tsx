@@ -38,7 +38,7 @@ export const ChecklistInstanceItemDualSignatureCard = memo(function ChecklistIns
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[[firstLabel, item.signatureValue], [secondLabel, item.secondSignatureValue]].map(([lbl, src]) => (
             <div key={lbl} className="flex flex-col gap-1">
-              <span className="text-xs font-display font-medium text-text-secondary">{lbl}</span>
+              <span className="t-meta font-display font-medium text-text-secondary">{lbl}</span>
               <div className="rounded-lg border border-border bg-surface p-1.5">
                 <img src={src} alt={lbl} loading="lazy" className="w-full h-[110px] object-contain rounded-sm bg-white" />
               </div>

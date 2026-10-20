@@ -49,7 +49,7 @@ export const Footer = () => {
               to={to}
               className={({ isActive }) =>
                 [
-                  'px-2.5 py-1 rounded-lg text-xs font-display font-medium transition-colors',
+                  'px-2.5 py-1 rounded-lg t-meta font-display font-medium transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                   isActive
                     ? 'text-primary-600 dark:text-primary-300 font-semibold bg-primary-500/10'
@@ -61,7 +61,7 @@ export const Footer = () => {
             </NavLink>
           ))}
         </nav>
-        <p className="text-xs font-display font-medium text-text-muted shrink-0 text-center">
+        <p className="t-meta font-display font-medium text-text-muted shrink-0 text-center">
           &copy; {currentYear} {COPYRIGHT_HOLDER}. All rights reserved.
         </p>
       </div>

@@ -187,7 +187,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
             </Link>
           )}
         </h3>
-        <p className="text-xs font-display text-text-muted leading-snug">{meta}</p>
+        <p className="t-meta font-display text-text-muted leading-snug">{meta}</p>
       </div>
 
       {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
@@ -244,7 +244,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           )}
         </div>
       ) : (
-        <p className="mt-auto pt-3.5 border-t border-border/60 text-xs font-display text-text-muted">
+        <p className="mt-auto pt-3.5 border-t border-border/60 t-meta font-display text-text-muted">
           {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
         </p>
       )}

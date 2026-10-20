@@ -6,7 +6,7 @@ import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { Skeleton } from '../../components/skeleton';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
-import { RadialGauge } from '../../components';
+import { IconChip, RadialGauge } from '../../components';
 import { useQuery } from '@tanstack/react-query';
 import type { Scores } from '../../api/scores';
 import { windowFor } from './scorePeriods';
@@ -205,9 +205,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               </span>
               <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
               {view.overdue > 0 && (
-                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 t-meta font-display font-bold tabular-nums text-danger">
-                  <AlertTriangle className="size-3" aria-hidden="true" />{view.overdue} overdue
-                </span>
+                <IconChip className="mt-1.5" icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
               )}
             </button>
             <div className="flex flex-col items-center justify-center border-l border-border/60">
@@ -240,10 +238,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               <button
                 type="button"
                 onClick={() => onOpen('overdue')}
-                className="inline-flex shrink-0 items-center justify-center gap-1 self-center rounded-full bg-danger/10 px-2 py-1 t-meta font-display font-bold tabular-nums text-danger outline-none hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
+                className="shrink-0 self-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
-                <AlertTriangle className="size-3" aria-hidden="true" />
-                {view.overdue} overdue
+                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
               </button>
             )}
           </div>

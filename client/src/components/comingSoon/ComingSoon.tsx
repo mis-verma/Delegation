@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
+import { IconChip } from '../iconChip';
 import { OrbitDecoration } from '../orbitDecoration';
 
 interface ComingSoonProps {
@@ -20,10 +21,7 @@ export const ComingSoon = ({ icon: Icon, title, description, features }: ComingS
     </div>
 
     <div className="flex flex-col gap-2">
-      <span className="inline-flex items-center justify-center gap-1.5 self-center rounded-full border border-primary-200 bg-primary-50 px-3 py-1 t-meta font-bold uppercase tracking-wider text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-400">
-        <Sparkles size={12} strokeWidth={2.5} />
-        Coming soon
-      </span>
+      <IconChip className="self-center" icon={Sparkles} tone="bg-primary-600" label="Coming soon" />
       <h1 className="text-xl font-bold tracking-tight text-text sm:text-2xl">{title}</h1>
       <p className="max-w-md self-center text-sm text-text-muted sm:text-base">{description}</p>
     </div>

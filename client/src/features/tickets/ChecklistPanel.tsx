@@ -86,7 +86,7 @@ const ItemRow = ({
           </p>
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <Badge variant="neutral" className="text-xs bg-surface-hover">
+            <Badge variant="neutral" className="t-meta bg-surface-hover">
               {item.isDone && item.completedAt
                 ? `Completed ${new Date(item.completedAt).toLocaleDateString()}`
                 : item.dueAt
@@ -97,7 +97,7 @@ const ItemRow = ({
             {item.requiredImageCount > 0 && (
               <Badge
                 variant={photosSatisfied ? 'default' : 'warning'}
-                className={`text-xs ${photosSatisfied ? 'bg-primary-50 dark:bg-primary-500/10' : 'bg-warning/10'}`}
+                className={`t-meta ${photosSatisfied ? 'bg-primary-50 dark:bg-primary-500/10' : 'bg-warning/10'}`}
               >
                 <Camera size={12} strokeWidth={2.5} />
                 {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'camera photos' : 'photos'}
@@ -188,7 +188,7 @@ const ItemRow = ({
             {(uploadImages.isError || completeItem.isError) && (
               <div className="flex items-start gap-2 px-3 py-2 bg-danger/10 rounded-lg border border-danger/20">
                 <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
-                <p className="text-xs text-danger font-medium break-words min-w-0">
+                <p className="t-meta text-danger font-medium break-words min-w-0">
                   {uploadImages.isError
                     ? errorMessage(uploadImages.error, "Couldn't save that. Try again.")
                     : errorMessage(completeItem.error, "Couldn't save that. Try again.")}
@@ -400,7 +400,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 min-h-11 sm:min-h-8 text-xs font-display font-bold text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors cursor-pointer px-3 rounded-lg hover:bg-primary-500/10 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="flex items-center gap-1.5 min-h-11 sm:min-h-8 t-meta font-display font-bold text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors cursor-pointer px-3 rounded-lg hover:bg-primary-500/10 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Add checklist
           </button>
@@ -415,7 +415,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
             </div>
             <div className="min-w-0">
               <h4 className="text-base font-display font-bold text-text tracking-tight">New checklist</h4>
-              <p className="text-xs text-text-secondary mt-0.5">Define steps, assignees, and photo proof requirements.</p>
+              <p className="t-meta text-text-secondary mt-0.5">Define steps, assignees, and photo proof requirements.</p>
             </div>
           </div>
 
@@ -461,7 +461,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="ticket-checklist-title" className="text-xs font-display font-bold text-text-secondary">
+            <label htmlFor="ticket-checklist-title" className="t-meta font-display font-bold text-text-secondary">
               Checklist title
             </label>
             <input
@@ -475,7 +475,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           </div>
 
           <div className="flex flex-col gap-3">
-            <h5 className="text-xs font-display font-bold text-text-secondary">
+            <h5 className="t-meta font-display font-bold text-text-secondary">
               Steps <span className="text-text-muted font-medium">({itemDrafts.length})</span>
             </h5>
 
