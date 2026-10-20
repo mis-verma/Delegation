@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserX, UserPlus, FileClock, type LucideIcon } from 'lucide-react';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserPlus, FileClock, type LucideIcon } from 'lucide-react';
 import { definitionState, STATE_LABEL, addPeoplePath } from './definitionState';
 import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, StateChip, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
@@ -125,11 +125,10 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
             {state === 'draft' ? (
               <div className="flex items-center gap-2 min-h-11 sm:min-h-9">
-                <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" className="max-sm:hidden" />
                 <button
                   type="button"
                   onClick={() => navigate(addPeoplePath(id))}
-                  className="inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
                 >
                   <UserPlus className="size-3.5" aria-hidden />
                   Add people
@@ -193,7 +192,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
         <div className="flex flex-wrap gap-1.5">
           {definition.assigneeIds.length === 0 && (
-            <IconChip icon={UserX} tone="bg-warning" label="Nobody assigned" labelClassName="text-warning" title="Saved as a draft. Add the people and it goes live." />
+            <IconChip icon={FileClock} tone="bg-warning" label={state === 'draft' ? 'Draft, nobody assigned' : 'Nobody assigned'} labelClassName="text-warning" title="Saved as a draft. Add the people and it goes live." />
           )}
           {shownDepartments.map((departmentName) => <DepartmentChip key={departmentName} name={departmentName} />)}
           {moreDepartments > 0 && <IconChip icon={false} label={`+${moreDepartments} more`} />}

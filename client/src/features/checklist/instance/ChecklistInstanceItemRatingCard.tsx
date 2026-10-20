@@ -1,4 +1,6 @@
 import { memo, useState } from 'react';
+import { UndoStrip } from './UndoStrip';
+import { useUndoableAnswer } from './useUndoableAnswer';
 import { haptic } from '../../../lib/haptics';
 import { Star } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
@@ -17,13 +19,14 @@ interface ChecklistInstanceItemRatingCardProps {
 export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceItemRatingCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemRatingCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [hovered, setHovered] = useState<number | null>(null);
+  const undoable = useUndoableAnswer<number>((value) => setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: value }), item.isDone);
   const scale = item.ratingScale ?? 5;
   const interactive = canWork && !isLocked && !item.isDone;
 
   const submit = (value: number) => {
-    if (!interactive || setItemDone.isPending) return;
+    if (!interactive || setItemDone.isPending || value === undoable.queued) return;
     haptic('tap');
-    setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: value });
+    undoable.queue(value);
   };
 
   return (
@@ -32,7 +35,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
         item={item}
         interactive={canWork && !isLocked}
         reopenPending={setItemDone.isPending}
-        onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: item.numericValue ?? undefined })}
+        onReopen={() => { undoable.clear(); setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: item.numericValue ?? undefined }); }}
       />
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that rating." />
@@ -44,7 +47,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
       <div className="flex items-center gap-2">
         <div className="flex items-center" aria-busy={setItemDone.isPending} onMouseLeave={() => setHovered(null)}>
           {Array.from({ length: scale }, (_, i) => i + 1).map((value) => {
-            const filled = value <= (hovered ?? (item.isDone ? item.numericValue ?? 0 : 0));
+            const filled = value <= (hovered ?? undoable.queued ?? (item.isDone ? item.numericValue ?? 0 : 0));
             return (
               <button
                 key={value}
@@ -68,6 +71,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
           <span className="t-meta font-display text-text-muted">{item.numericValue}/{scale}</span>
         )}
       </div>
+      <UndoStrip queued={undoable.queued !== null && !item.isDone} saved={undoable.saved} label={`Rated ${undoable.queued} out of ${scale}`} onUndo={undoable.undo} />
     </ItemCardShell>
   );
 });

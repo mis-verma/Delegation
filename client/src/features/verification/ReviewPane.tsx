@@ -4,8 +4,8 @@ import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-r
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
-import { complianceToneClass, formatPeriodSpan, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
-import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
+import { complianceToneClass, formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
+import { DetailItemRow } from '../checklist/instance/ChecklistDetailItemRow';
 import { ComplianceMeter } from './ComplianceMeter';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
 import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
@@ -37,6 +37,9 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
   const { instance, risk } = row;
   const { user } = useAuth();
   const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
+  const canRaiseTicket = !instance.assigneeIds.includes(user?.id ?? '');
+  const items = useMemo(() => [...instance.items].sort((x, y) => x.order - y.order), [instance.items]);
+  const hasSections = items.some((i) => i.section);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
   const fullPageLink = (
@@ -105,18 +108,31 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
 
       <ComplianceMeter risk={risk} className="rounded-lg border border-border/60 bg-surface-hover/30 p-3" />
 
-      <InstanceReviewPanel
-        items={instance.items}
-        canWaive={canWaive}
-        canRaiseTicket={!instance.assigneeIds.includes(user?.id ?? '')}
-        selected={pickedSet}
-        onToggle={onTogglePicked}
-        notes={picked}
-        onNoteChange={onItemNote}
-        lastSendBackNote={instance.verificationNote}
-        showScores={false}
-        deadlineMs={instanceDeadline(instance)}
-      />
+      <p className="t-meta font-display text-text-muted leading-relaxed">
+        Same view as the filled checklist. Tick a question to send only that one back, or raise a ticket on it.
+      </p>
+      <div className="flex flex-col gap-3">
+        {items.map((item, idx) => (
+          <DetailItemRow
+            key={item.id}
+            item={item}
+            instanceId={instance.id}
+            canWork={false}
+            isLocked
+            currentUserId={user?.id}
+            overdue={false}
+            showHeader={hasSections && (idx === 0 || items[idx - 1].section !== item.section)}
+            isFirst={idx === 0}
+            selecting
+            picked={pickedSet.has(item.id)}
+            onTogglePicked={onTogglePicked}
+            canWaive={canWaive}
+            canRaiseTicket={canRaiseTicket}
+            note={picked[item.id] ?? ''}
+            onNoteChange={onItemNote}
+          />
+        ))}
+      </div>
     </div>
   );
 });

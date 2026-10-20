@@ -14,6 +14,8 @@ import { ItemError } from './ItemError';
 import { ItemActionButton } from './ItemActionButton';
 import { EvidenceThumb } from './EvidenceThumb';
 import { CaptureButton, UploadingHint } from './CaptureButton';
+import { UndoStrip } from './UndoStrip';
+import { useUndoableAnswer } from './useUndoableAnswer';
 import { isFlaggedAnswer } from '../checklistDisplay';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
@@ -55,6 +57,11 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const isTriggering = (value: 'YES' | 'NO') => actionsFor(value).length > 0;
 
   const [pendingAnswer, setPendingAnswer] = useState<'YES' | 'NO' | null>(null);
+  const undoable = useUndoableAnswer<'YES' | 'NO'>(
+    (value) => setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value }),
+    item.isDone,
+  );
+  const queued = undoable.queued;
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const activeActions = pendingAnswer
     ? actionsFor(pendingAnswer)
@@ -78,7 +85,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   };
 
   const pickAnswer = (value: 'YES' | 'NO') => {
-    if (!interactive || setItemDone.isPending || value === pendingAnswer) return;
+    if (!interactive || setItemDone.isPending || value === pendingAnswer || value === queued) return;
     haptic('tap');
     if (isTriggering(value)) {
       if (pendingAnswer === null) baselinePhotos.current = new Set(images.map(img => img.id));
@@ -92,7 +99,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       setPendingAnswer(null);
     }
     setReasonDraft('');
-    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value });
+    undoable.queue(value);
   };
 
   const cancelPending = () => {
@@ -127,7 +134,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
   const answerLocked = !interactive || item.isDone;
-  const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const shownAnswer = pendingAnswer ?? queued ?? (item.isDone ? item.booleanAnswer : null);
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
 
   return (
@@ -136,7 +143,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         item={item}
         interactive={interactive}
         reopenPending={setItemDone.isPending}
-        onReopen={() => { setPendingAnswer(null); setReasonDraft(''); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
+        onReopen={() => { undoable.clear(); setPendingAnswer(null); setReasonDraft(''); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
       />
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
@@ -194,6 +201,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           {labels.no}
         </button>
       </div>
+
+      <UndoStrip queued={!!queued && !item.isDone} saved={undoable.saved} label={`Answered ${queued === 'YES' ? labels.yes : labels.no}`} onUndo={undoable.undo} />
 
       {hasDiscardable && (
         <p className="t-meta font-display text-text-muted">Picking a different answer discards the reason and photos you added for this one.</p>
