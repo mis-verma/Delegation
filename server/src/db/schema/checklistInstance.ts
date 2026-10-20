@@ -40,6 +40,7 @@ export const checklistInstances = mysqlTable(
     cutoffTime: varchar('cutoffTime', { length: 5 }), 
     lateUntilTime: varchar('lateUntilTime', { length: 5 }),
     lateEndNotifiedAt: datetime('lateEndNotifiedAt', { mode: 'date' }),
+    lateReminderNotifiedAt: datetime('lateReminderNotifiedAt', { mode: 'date' }),
     periodKey: varchar('periodKey', { length: 191 }).notNull(),
     scopeKey: varchar('scopeKey', { length: 191 }).notNull().default(''),
     periodStart: datetime('periodStart', { mode: 'date' }).notNull(),

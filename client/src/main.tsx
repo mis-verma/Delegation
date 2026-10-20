@@ -41,7 +41,7 @@ createRoot(document.getElementById('root')!).render(
             </ConfirmDialogProvider>
 
             <OfflineBanner />
-            <Toaster position="top-right" richColors />
+            <Toaster />
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>

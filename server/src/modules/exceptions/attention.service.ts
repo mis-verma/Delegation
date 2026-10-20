@@ -13,7 +13,7 @@ import {
     tickets,
     users,
 } from "../../db/schema/index.js"
-import { localNowSql, missedFromPastDayExpr, runDeadlineSql } from "../checklistInstances/checklistMissedRun.js"
+import { closedFromPastDayExpr, localNowSql, missedFromPastDayExpr, runClosingSql, runDeadlineSql } from "../checklistInstances/checklistMissedRun.js"
 import { isHod, parentNotDeletedExpr } from "../checklistInstances/checklistInstance.service.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { scoreService } from "../scores/score.service.js"
@@ -121,8 +121,8 @@ const loadTodayRuns = async (where: SQL | undefined, now: number): Promise<Today
             verificationStatus: checklistInstances.verificationStatus,
             opensTime: checklistInstances.opensTime,
             cutoffTime: checklistInstances.cutoffTime,
-            deadline: sql<string>`DATE_FORMAT(${runDeadlineSql}, '%Y-%m-%dT%H:%i:%s')`,
-            missed: sql<number>`CASE WHEN ${missedFromPastDayExpr} THEN 1 ELSE 0 END`,
+            deadline: sql<string>`DATE_FORMAT(${runClosingSql}, '%Y-%m-%dT%H:%i:%s')`,
+            missed: sql<number>`CASE WHEN ${closedFromPastDayExpr} THEN 1 ELSE 0 END`,
             opened: sql<number>`CASE WHEN ${openedSql} THEN 1 ELSE 0 END`,
             totalItems: totalItemsSql,
             doneItems: doneItemsSql,

@@ -404,6 +404,16 @@ export const notificationService = {
     return results;
   },
 
+  async notifyChecklistLateWindowClosing(instance: { _id: string; title: string; assigneeIds: string[]; minutesLeft: number; closesAt: string }) {
+    if (!instance.assigneeIds.length) return [];
+    return notificationService.notifyMany(instance.assigneeIds, {
+      type: 'CHECKLIST_OVERDUE',
+      title: 'Checklist closing soon',
+      message: `"${instance.title}" closes at ${instance.closesAt}, about ${instance.minutesLeft} min from now. Fill it in before then.`,
+      checklistInstanceId: instance._id,
+    });
+  },
+
   async notifyChecklistDraftReminder(instance: VerifiableChecklistInstance & { remaining: number }) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (!assigneeIds.length) return [];

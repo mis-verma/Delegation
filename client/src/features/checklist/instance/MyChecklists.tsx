@@ -240,6 +240,7 @@ export const MyChecklists = () => {
     [instances, now],
   );
   const missedCount = Math.max(0, counts.overdue - lateNowCount);
+  const shownCounts = useMemo(() => ({ ...counts, overdue: missedCount }), [counts, missedCount]);
 
   const matchingTotal =
     quickFilter === 'pending' ? counts.pending
@@ -312,7 +313,7 @@ export const MyChecklists = () => {
         )}
 
         <MyChecklistsQuickStats
-          counts={counts}
+          counts={shownCounts}
           active={quickFilter}
           onToggle={toggleQuickFilter}
           onClear={clearQuickFilter}

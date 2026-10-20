@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, Save } from 'lucide-react';
 import {
   Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
@@ -304,6 +304,11 @@ export const ChecklistBuilder = () => {
     }));
   };
 
+  const isDirty = snapshotKey({
+    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+    responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
+  }) !== baseline;
+
   const people = useStorePeople(storeIds);
   const { storePersonIds, activePersonIds } = people;
   const refetchPeople = people.refetch;
@@ -475,7 +480,27 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  const reloadLatest = () => {
+    void confirm({
+      title: 'Load the latest version?',
+      description: 'Another admin saved this checklist first. Loading it replaces what you have here. Note down any changes you still need to make.',
+      confirmLabel: 'Load latest',
+      cancelLabel: 'Keep editing',
+      variant: 'danger',
+    }).then(async (ok) => {
+      if (!ok) return;
+      const fresh = await refetchExisting();
+      if (!fresh.data) return;
+      mutation.reset();
+      setLoadedVersion(fresh.data.version);
+      applyDefinition(fresh.data, false);
+      toast.success('Loaded the latest version');
+    });
+  };
+
+  const isConflict = mutation.error instanceof ApiError && mutation.error.status === 409;
+
+  const handleSubmit = async (options: { stay?: boolean } = {}) => {
     if (!canSubmit) return;
     if (isEditing && existing?.isActive && !hasPeople) {
       const ok = await confirm({
@@ -508,7 +533,15 @@ export const ChecklistBuilder = () => {
     if (isEditing) {
       if (loadedVersion == null) return;
       updateDefinition.mutate({ id: definitionId!, payload: { ...payload, version: loadedVersion } }, {
-        onSuccess: ({ definition }) => { markClean(); navigate(`/admin/scheduled-checklists/${definition.id}`); },
+        onSuccess: ({ definition }) => {
+          setLoadedVersion(definition.version);
+          markClean();
+          if (options.stay) {
+            justSavedRef.current = false;
+            return;
+          }
+          navigate(`/admin/scheduled-checklists/${definition.id}`);
+        },
       });
     } else {
       createDefinition.mutate(payload, {
@@ -673,23 +706,7 @@ export const ChecklistBuilder = () => {
               isEditing={isEditing}
               isActive={isEditing ? existing?.isActive : undefined}
               onSubmit={() => void handleSubmit()}
-              onReloadLatest={mutation.error instanceof ApiError && mutation.error.status === 409 ? () => {
-                void confirm({
-                  title: 'Load the latest version?',
-                  description: 'Another admin saved this checklist first. Loading it replaces what you have here. Note down any changes you still need to make.',
-                  confirmLabel: 'Load latest',
-                  cancelLabel: 'Keep editing',
-                  variant: 'danger',
-                }).then(async (ok) => {
-                  if (!ok) return;
-                  const fresh = await refetchExisting();
-                  if (!fresh.data) return;
-                  mutation.reset();
-                  setLoadedVersion(fresh.data.version);
-                  applyDefinition(fresh.data, false);
-                  toast.success('Loaded the latest version');
-                });
-              } : undefined}
+              onReloadLatest={isConflict ? reloadLatest : undefined}
               submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again.") : undefined}
             />
           </BuilderStepFrame>
@@ -769,11 +786,18 @@ export const ChecklistBuilder = () => {
           </motion.div>
 
           <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
-            {step === STEPS.length - 1 && mutation.isError && (
-              <p role="alert" className="order-first flex w-full items-start gap-1.5 t-meta font-display font-medium text-danger">
-                <AlertCircle size={13} className="shrink-0 mt-0.5" aria-hidden />
-                <span className="min-w-0 break-words">{mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again."}</span>
-              </p>
+            {mutation.isError && (
+              <div role="alert" className="order-first flex w-full flex-wrap items-start gap-x-3 gap-y-1.5 t-meta font-display font-medium text-danger">
+                <p className="flex min-w-0 flex-1 items-start gap-1.5">
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" aria-hidden />
+                  <span className="min-w-0 break-words">{mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again."}</span>
+                </p>
+                {isEditing && isConflict && (
+                  <Button type="button" variant="outline" size="sm" onClick={reloadLatest} className="font-display pointer-coarse:h-11">
+                    Load latest version
+                  </Button>
+                )}
+              </div>
             )}
             {step > 0 ? (
               <Button
@@ -789,6 +813,22 @@ export const ChecklistBuilder = () => {
             ) : <span />}
 
             {step < STEPS.length - 1 && (
+              <div className="flex flex-wrap items-end justify-end gap-2">
+                {isEditing && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={() => void handleSubmit({ stay: true })}
+                    isLoading={mutation.isPending}
+                    disabled={!canSubmit || !isDirty}
+                    title={!canSubmit ? 'Fix the step that needs attention first' : !isDirty ? 'Nothing to save yet' : 'Save now and keep editing'}
+                    className="font-display pointer-coarse:h-11"
+                  >
+                    <Save size={15} aria-hidden />
+                    <span>{isDirty ? 'Save' : 'Saved'}</span>
+                  </Button>
+                )}
               <div className="flex flex-col items-end gap-1.5">
                 {!isStepValid(step) && (
                   <p className="t-meta font-display text-warning flex items-start gap-1 text-right">
@@ -807,6 +847,7 @@ export const ChecklistBuilder = () => {
                   <span>Next</span>
                   <ChevronRight size={15} />
                 </Button>
+              </div>
               </div>
             )}
             {step === STEPS.length - 1 && (

@@ -6,7 +6,7 @@ import { notificationService } from "../modules/notifications/notification.servi
 import { settingsService } from "../modules/settings/settings.service.js"
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 import { missedInstanceIds } from "../modules/checklistInstances/checklistMissedRun.js"
-import { hasRunClosingPassed } from "../modules/checklistInstances/checklistRunEnd.js"
+import { hasRunClosingPassed, runClosingMs } from "../modules/checklistInstances/checklistRunEnd.js"
 import { formatClock } from "../modules/checklistDefinitions/lateWindow.js"
 import { env } from "../config/env.js"
 
@@ -114,14 +114,67 @@ const notifyLateWindowEnded = async () => {
     }
 }
 
+const LATE_REMINDER_LEAD_MINUTES = 30
+
+const remindLateWindowClosing = async () => {
+    if (!settingsService.getCached().notifyChecklistOverdueReminders) return
+
+    const candidates = await db.select({
+        id: checklistInstances.id,
+        title: checklistInstances.title,
+        periodStart: checklistInstances.periodStart,
+        periodEnd: checklistInstances.periodEnd,
+        cutoffTime: checklistInstances.cutoffTime,
+        opensTime: checklistInstances.opensTime,
+        lateUntilTime: checklistInstances.lateUntilTime,
+    })
+        .from(checklistInstances)
+        .where(and(isOverdueAndIncomplete, isNotNull(checklistInstances.lateUntilTime), isNull(checklistInstances.lateReminderNotifiedAt)))
+        .limit(NOTIFIER_BATCH_SIZE)
+
+    const now = Date.now()
+    const closing = candidates.filter((r) => {
+        const left = runClosingMs(r, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES) - now
+        return left > 0 && left <= LATE_REMINDER_LEAD_MINUTES * 60_000
+    })
+    if (!closing.length) return
+
+    const links = await db.select().from(checklistInstanceAssignees).where(inArray(checklistInstanceAssignees.instanceId, closing.map((r) => r.id)))
+    const assigneesByInstance = new Map<string, string[]>()
+    for (const link of links) assigneesByInstance.set(link.instanceId, [...(assigneesByInstance.get(link.instanceId) ?? []), link.userId])
+
+    const notifiedIds: string[] = []
+    for (const row of closing) {
+        try {
+            await notificationService.notifyChecklistLateWindowClosing({
+                _id: row.id,
+                title: row.title,
+                assigneeIds: assigneesByInstance.get(row.id) ?? [],
+                minutesLeft: Math.max(1, Math.round((runClosingMs(row, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES) - now) / 60_000)),
+                closesAt: formatClock(row.lateUntilTime as string),
+            })
+            notifiedIds.push(row.id)
+        } catch (err) {
+            console.error(`Checklist late-window reminder failed for instance ${row.id}:`, err)
+        }
+    }
+
+    if (notifiedIds.length) {
+        await db.update(checklistInstances)
+            .set({ lateReminderNotifiedAt: new Date(), updatedAt: new Date() })
+            .where(inArray(checklistInstances.id, notifiedIds))
+    }
+}
+
 const sweep = async () => {
     await notifyOverdueInstances()
+    await remindLateWindowClosing()
     await notifyLateWindowEnded()
 }
 
 export const startChecklistOverdueNotifier = () => {
     sweep().catch((err) => console.error("Initial checklist overdue notification sweep failed:", err))
-    scheduleJob("checklist-overdue-notifier", "15 * * * *", 60, () => {
+    scheduleJob("checklist-overdue-notifier", "*/10 * * * *", 10, () => {
         sweep().catch((err) => console.error("Checklist overdue notification sweep failed:", err))
     })
 }
