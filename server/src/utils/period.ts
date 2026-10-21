@@ -73,3 +73,21 @@ export const getCurrentPeriod = (recurrence: ChecklistRecurrence, startDate: Dat
             return { periodKey: ONE_TIME_KEY, periodStart: anchor, periodEnd: addDaysUTC(anchor, 1) }
     }
 }
+
+export const UPCOMING_LEAD_DAYS = 3
+
+export const getUpcomingPeriod = (
+    recurrence: ChecklistRecurrence,
+    startDate: Date,
+    now: Date,
+    offsetMinutes: number,
+    leadDays: number = UPCOMING_LEAD_DAYS,
+): Period | null => {
+    if (recurrence === "DAILY" || recurrence === "ONE_TIME") return null
+    const today = toDateOnlyUTC(now, offsetMinutes)
+    const current = getCurrentPeriod(recurrence, startDate, now, offsetMinutes)
+    const nextStart = current ? current.periodEnd : toDateOnlyUTC(startDate, offsetMinutes)
+    if (daysBetweenUTC(today, nextStart) > leadDays) return null
+    const next = getCurrentPeriod(recurrence, startDate, nextStart, offsetMinutes)
+    return next && next.periodKey !== current?.periodKey ? next : null
+}

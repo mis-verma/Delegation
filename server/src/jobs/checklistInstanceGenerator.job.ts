@@ -24,7 +24,7 @@ import {
 } from "../db/schema/index.js"
 import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
-import { getCurrentPeriod, type Period } from "../utils/period.js"
+import { getCurrentPeriod, getUpcomingPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
@@ -424,8 +424,17 @@ export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number
 }
 
 export const generateInstanceForDefinition = async (definition: GenerationDefinition, now: Date): Promise<{ id: string }[]> => {
-    const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
-    if (!period) return []
+    const offset = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
+    const periods = [
+        getCurrentPeriod(definition.recurrence, definition.startDate, now, offset),
+        getUpcomingPeriod(definition.recurrence, definition.startDate, now, offset),
+    ].filter((p): p is Period => p !== null)
+    const created: { id: string }[] = []
+    for (const period of periods) created.push(...await generateForPeriod(definition, period, now))
+    return created
+}
+
+const generateForPeriod = async (definition: GenerationDefinition, period: Period, now: Date): Promise<{ id: string }[]> => {
     if (!definition.storeIds.length) return []
 
     const working = await applyWorkingDayRules(definition, period)
@@ -671,11 +680,12 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
 export const syncLiveInstances = async (definition: GenerationDefinition, now: Date): Promise<LiveRunsSummary> => {
     const summary: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
-    if (!period) return summary
+    const upcoming = getUpcomingPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
+    if (!period && !upcoming) return summary
 
-    const periods = [period]
-    const overnight = definition.recurrence === "DAILY" && !!definition.opensTime && !!definition.cutoffTime && definition.cutoffTime < definition.opensTime
-    if (overnight) {
+    const periods = [period, upcoming].filter((p): p is Period => p !== null)
+    const overnight = !!period && definition.recurrence === "DAILY" && !!definition.opensTime && !!definition.cutoffTime && definition.cutoffTime < definition.opensTime
+    if (overnight && period) {
         const previous = getCurrentPeriod(definition.recurrence, definition.startDate, new Date(now.getTime() - 24 * 60 * 60 * 1000), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
         if (previous && previous.periodKey !== period.periodKey) periods.push(previous)
     }

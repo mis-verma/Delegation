@@ -24,7 +24,7 @@ import { eq, and, inArray, desc, asc, sql, gte, lte, lt, type SQL } from "drizzl
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
-import { closedFromPastDayExpr, missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
+import { closedBeforeTodayExpr, closedFromPastDayExpr, missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
 import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runClosingMs, runDeadlineMs, runPhase } from "./checklistRunEnd.js"
 import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
@@ -207,14 +207,18 @@ const getPopulatedInstanceById = async (id: string) => {
 }
 
 export const assertInstanceOpen = (instance: { opensTime: string | null; periodStart: Date }) => {
-    if (!instance.opensTime) return
-    const [hours, minutes] = instance.opensTime.split(":").map(Number)
+    const [hours, minutes] = instance.opensTime ? instance.opensTime.split(":").map(Number) : [0, 0]
     const opensAt = new Date(instance.periodStart)
     opensAt.setUTCHours(hours, minutes, 0, 0)
     opensAt.setTime(opensAt.getTime() - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
-    if (Date.now() < opensAt.getTime()) {
-        throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime}. Come back then.`)
+    if (Date.now() >= opensAt.getTime()) return
+    const localNow = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
+    const opensOnLaterDay = instance.periodStart.getTime() > Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate())
+    if (opensOnLaterDay) {
+        const day = new Date(instance.periodStart).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+        throw AppError.badRequest(`This checklist opens on ${day}. You can see it early, but it can only be filled from then.`)
     }
+    throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime}. Come back then.`)
 }
 
 export const assertInstanceEditable = (instance: { verificationStatus: string }, user: AccessTokenPayload) => {
@@ -697,7 +701,7 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
 
     if (filter.departmentId) conditions.push(instanceInDepartmentCondition(filter.departmentId))
 
-    if (filter.userId && filter.hideEnded !== false) conditions.push(sql`NOT ${closedFromPastDayExpr}`)
+    if (filter.userId && filter.hideEnded !== false) conditions.push(sql`NOT ${closedBeforeTodayExpr}`)
 
     return conditions.length ? and(...conditions) : undefined
 }

@@ -23,7 +23,7 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceEnded, isInstanceInLateWindow } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceDoneRecently, isInstanceEnded, isInstanceEndedToday, isInstanceInLateWindow } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { windowLabel } from '../../scores/useScoreWindow';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
@@ -223,7 +223,7 @@ export const MyChecklists = () => {
   const now = useNow();
   useRefreshOnNewDay();
   const instances = useMemo(() => {
-    const open = canFillEnded ? sortedInstances : sortedInstances.filter((i) => !isInstanceEnded(i, now));
+    const open = canFillEnded ? sortedInstances : sortedInstances.filter((i) => !isInstanceEnded(i, now) || isInstanceEndedToday(i, now));
     if (quickFilter) return open;
     const needsAction = (i: ChecklistInstance) =>
       i.verificationStatus === 'REJECTED' ||
@@ -231,6 +231,8 @@ export const MyChecklists = () => {
       (i.recurrence === 'ONE_TIME' && !(i.items.length > 0 && i.items.every((it) => it.isDone)));
     return open.filter((i) =>
       instanceDeadline(i) > now ||
+      isInstanceDoneRecently(i, now) ||
+      isInstanceEndedToday(i, now) ||
       isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now) ||
       needsAction(i));
   }, [sortedInstances, now, quickFilter, canFillEnded]);

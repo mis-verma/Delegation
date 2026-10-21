@@ -17,7 +17,7 @@ import { HowCalculated } from '../scores/HowCalculated';
 import type { ScoreModule } from '../../lib/scoreLabels';
 import { useNow } from '../../lib/useNow';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { describeDueBy, instanceDeadline, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
+import { describeDueBy, instanceDeadline, instanceOpensOnLaterDay, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
 import { doneLabel, dueLabel, isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
@@ -98,7 +98,7 @@ const todoRow = (t: Todo, now: number): DrilldownRow => {
 
 const isChecklistDone = (c: ChecklistInstance) => c.items.length > 0 && c.items.every((i) => i.isDone);
 
-const isChecklistLive = (c: ChecklistInstance, now: number) => c.isMissed !== true && !isInstanceEnded(c, now);
+const isChecklistLive = (c: ChecklistInstance, now: number) => c.isMissed !== true && !isInstanceEnded(c, now) && !instanceOpensOnLaterDay(c, now);
 
 const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
   const completed = isChecklistDone(c);

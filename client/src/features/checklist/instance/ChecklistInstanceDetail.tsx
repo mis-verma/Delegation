@@ -15,7 +15,7 @@ import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { DetailItemRow } from './ChecklistDetailItemRow';
 import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import {
-  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, isInstanceInLateWindow, isInstanceNotYetOpen,
+  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { LateWindowBanner } from './LateWindowBanner';
@@ -246,7 +246,7 @@ export const ChecklistInstanceDetail = () => {
 
           {notYetOpen && (
             <NoticeBanner tone="neutral" icon={Clock}>
-              This checklist opens at {instance.opensTime}. Items can't be ticked off before then.
+              {instanceOpensOnLaterDay(instance, now) ? `This checklist opens on ${instanceOpensOnLaterDay(instance, now)}. You can see it early, but it can only be filled from then.` : `This checklist opens at ${instance.opensTime}. Items can't be ticked off before then.`}
             </NoticeBanner>
           )}
 

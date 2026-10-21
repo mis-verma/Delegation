@@ -38,6 +38,8 @@ export const closedFromPastDayExpr = sql`(
     AND ${runClosingSql} <= ${localNowSql}
 )`
 
+export const closedBeforeTodayExpr = sql`(${closedFromPastDayExpr} AND ${runClosingSql} < DATE(${localNowSql}))`
+
 export const missedInstanceIds = async (ids: string[]): Promise<Set<string>> => {
     const unique = [...new Set(ids)]
     if (!unique.length) return new Set()

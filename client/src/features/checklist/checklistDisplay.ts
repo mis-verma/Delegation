@@ -138,8 +138,7 @@ export const todayPeriodBoundIso = (): string => {
 };
 
 const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
-  if (!instance.opensTime) return null;
-  const [hours, minutes] = instance.opensTime.split(':').map(Number);
+  const [hours, minutes] = instance.opensTime ? instance.opensTime.split(':').map(Number) : [0, 0];
   const start = new Date(instance.periodStart);
   return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS;
 };
@@ -202,12 +201,38 @@ type EndableInstance = InstanceWindow & {
   items: Pick<ChecklistInstanceItem, 'isDone'>[];
 };
 
+export const instanceStartOfOrgDay = (now: number = Date.now()): number => {
+  const local = new Date(now + ORG_TZ_OFFSET_MS);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ORG_TZ_OFFSET_MS;
+};
+
+export const instanceOpensOnLaterDay = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>, now: number = Date.now()): string | null => {
+  const opensAt = instanceOpensAt(instance);
+  if (opensAt == null || opensAt <= now) return null;
+  if (orgDayKey(opensAt) === orgDayKey(now)) return null;
+  return new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(opensAt + ORG_TZ_OFFSET_MS));
+};
+
+const DONE_VISIBLE_DAYS = 3;
+
+export const isInstanceDoneRecently = (
+  instance: { recurrence: ChecklistRecurrence; items: Pick<ChecklistInstanceItem, 'isDone'>[]; completedFirstAt?: string | null },
+  now: number = Date.now(),
+): boolean => {
+  if (instance.recurrence === 'DAILY' || instance.recurrence === 'ONE_TIME') return false;
+  if (!instance.completedFirstAt || instance.items.length === 0 || !instance.items.every((i) => i.isDone)) return false;
+  return now - new Date(instance.completedFirstAt).getTime() <= DONE_VISIBLE_DAYS * 24 * 60 * 60_000;
+};
+
 export const isInstanceEnded = (instance: EndableInstance, now: number = Date.now()): boolean => {
   if (instance.recurrence === 'ONE_TIME') return false;
   if (instance.verificationStatus === 'REJECTED') return false;
   if (instance.items.length > 0 && instance.items.every((i) => i.isDone)) return false;
   return instanceClosing(instance) <= now;
 };
+
+export const isInstanceEndedToday = (instance: EndableInstance, now: number = Date.now()): boolean =>
+  isInstanceEnded(instance, now) && instanceClosing(instance) >= instanceStartOfOrgDay(now);
 
 const END_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -253,6 +278,9 @@ export type InstanceView = {
   doneLate: boolean;
   inLateWindow: boolean;
   lateUntil: string | null;
+  closed: boolean;
+  closedAt: string | null;
+  opensOn: string | null;
 };
 
 type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus; completedFirstAt?: string | null };
@@ -261,6 +289,10 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
   const scores = runScores(instance.items);
   const isComplete = instance.items.length > 0 && instance.items.every(i => i.isDone || i.isNotApplicable);
   const overdue = isInstanceOverdue(instance, isComplete);
+  const closed = !isComplete
+    && instance.verificationStatus !== 'REJECTED'
+    && (instance as { recurrence?: string }).recurrence !== 'ONE_TIME'
+    && instanceClosing(instance) <= Date.now();
   return {
     done: scores.done,
     total: scores.total,
@@ -277,6 +309,9 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
     doneLate: isComplete && !!instance.completedFirstAt && new Date(instance.completedFirstAt).getTime() > instanceDeadline(instance),
     inLateWindow: isInstanceInLateWindow(instance, isComplete),
     lateUntil: instance.lateUntilTime ? formatClockTime(instance.lateUntilTime) : null,
+    closed,
+    closedAt: closed ? DEADLINE_FMT.format(new Date(instanceClosing(instance) + ORG_TZ_OFFSET_MS)) : null,
+    opensOn: instanceOpensOnLaterDay(instance),
   };
 };
 
