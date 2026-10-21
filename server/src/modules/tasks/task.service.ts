@@ -616,6 +616,7 @@ export const taskService = {
         if (dueDate !== undefined) update.dueDate = dueDate ? new Date(dueDate) : null;
         if ("dueDate" in input || "reminderMinutesBefore" in input) {
             update.reminderSentAt = null;
+            update.overdueNotifiedAt = null;
         }
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             update.submittedAt = new Date();

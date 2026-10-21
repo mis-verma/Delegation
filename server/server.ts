@@ -14,6 +14,7 @@ import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGen
 import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
 import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
+import { startDueReminders } from "./src/jobs/dueReminders.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startDataBackup } from "./src/jobs/dataBackup.job.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
@@ -51,6 +52,7 @@ class ServerBootstrap {
       startChecklistDraftReminder();
       startChecklistApprovalReminder();
       startTaskDeadlineReminder();
+      startDueReminders();
       startAuditRetention();
       startDataBackup();
       startAuthTokenPurge();

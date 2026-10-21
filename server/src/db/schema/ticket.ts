@@ -45,6 +45,8 @@ export const tickets = mysqlTable(
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
+    dueSoonNotifiedAt: datetime('dueSoonNotifiedAt', { mode: 'date' }),
+    overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
     approvalStage: mysqlEnum('approvalStage', TICKET_APPROVAL_STAGES),
     hodApprovedBy: varchar('hodApprovedBy', { length: 191 }).references(() => users.id),
     hodApprovedAt: datetime('hodApprovedAt', { mode: 'date' }),

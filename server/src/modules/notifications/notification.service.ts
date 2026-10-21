@@ -427,6 +427,76 @@ export const notificationService = {
     });
   },
 
+  async notifyTicketDueSoon(ticket: { _id: string; title: string; assigneeId?: string | null; departmentId?: string | null; minutesLeft: number; dueAt: string }) {
+    let recipientIds: string[] = ticket.assigneeId ? [ticket.assigneeId] : [];
+    if (!recipientIds.length && ticket.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId), eq(users.isActive, true)));
+      recipientIds = heads.map((h) => h.id);
+    }
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TICKET_DUE_SOON',
+      title: 'Ticket due soon',
+      message: `"${ticket.title}" is due at ${ticket.dueAt}, in about ${ticket.minutesLeft} min.`,
+      ticketId: ticket._id,
+    });
+  },
+
+  async notifyTicketOverdue(ticket: { _id: string; title: string; assigneeId?: string | null; departmentId?: string | null }) {
+    const recipientIds: string[] = ticket.assigneeId ? [ticket.assigneeId] : [];
+    if (ticket.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId), eq(users.isActive, true)));
+      recipientIds.push(...heads.map((h) => h.id));
+    }
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TICKET_OVERDUE',
+      title: 'Ticket overdue',
+      message: `"${ticket.title}" has passed its due time. Finish it or tell the reviewer why it is late.`,
+      ticketId: ticket._id,
+    });
+  },
+
+  async notifyTaskOverdue(task: { _id: string; title: string; assigneeIds: string[]; creatorId?: string | null }) {
+    return notificationService.notifyMany([...task.assigneeIds, ...(task.creatorId ? [task.creatorId] : [])], {
+      type: 'TASK_OVERDUE',
+      title: 'Delegation overdue',
+      message: `"${task.title}" has passed its due time and is not handed in yet.`,
+      taskId: task._id,
+    });
+  },
+
+  async notifyTaskDueSoon(task: { _id: string; title: string; assigneeIds: string[]; minutesLeft: number; dueAt: string }) {
+    return notificationService.notifyMany(task.assigneeIds, {
+      type: 'TASK_DUE_SOON',
+      title: 'Delegation due soon',
+      message: `"${task.title}" is due at ${task.dueAt}, in about ${task.minutesLeft} min.`,
+      taskId: task._id,
+    });
+  },
+
+  async notifyChecklistDueSoon(instance: { _id: string; title: string; assigneeIds: string[]; minutesLeft: number; closesAt: string }) {
+    return notificationService.notifyMany(instance.assigneeIds, {
+      type: 'CHECKLIST_DUE_SOON',
+      title: 'Checklist closing soon',
+      message: `"${instance.title}" closes at ${instance.closesAt}, in about ${instance.minutesLeft} min. Fill it in before then.`,
+      checklistInstanceId: instance._id,
+    });
+  },
+
+  async notifyChecklistUpcoming(instance: { _id: string; title: string; assigneeIds: string[]; opensOn: string }) {
+    return notificationService.notifyMany(instance.assigneeIds, {
+      type: 'CHECKLIST_UPCOMING',
+      title: 'Checklist coming up',
+      message: `"${instance.title}" opens on ${instance.opensOn}. You can see it now and fill it from that day.`,
+      checklistInstanceId: instance._id,
+    });
+  },
+
   async notifyChecklistDraftReminder(instance: VerifiableChecklistInstance & { remaining: number }) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (!assigneeIds.length) return [];

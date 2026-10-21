@@ -41,6 +41,8 @@ export const checklistInstances = mysqlTable(
     lateUntilTime: varchar('lateUntilTime', { length: 5 }),
     lateEndNotifiedAt: datetime('lateEndNotifiedAt', { mode: 'date' }),
     lateReminderNotifiedAt: datetime('lateReminderNotifiedAt', { mode: 'date' }),
+    dueSoonNotifiedAt: datetime('dueSoonNotifiedAt', { mode: 'date' }),
+    upcomingNotifiedAt: datetime('upcomingNotifiedAt', { mode: 'date' }),
     periodKey: varchar('periodKey', { length: 191 }).notNull(),
     scopeKey: varchar('scopeKey', { length: 191 }).notNull().default(''),
     periodStart: datetime('periodStart', { mode: 'date' }).notNull(),

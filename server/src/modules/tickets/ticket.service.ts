@@ -584,6 +584,8 @@ export const ticketService = {
       patch.tatHours = input.tatHours ?? null
       patch.tatDueAt = deriveTatDueAt(input.tatHours ?? null, new Date())
       patch.isOverdue = false
+      patch.dueSoonNotifiedAt = null
+      patch.overdueNotifiedAt = null
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {

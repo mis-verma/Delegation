@@ -62,6 +62,7 @@ export const tasks = mysqlTable(
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
+    overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
     approvalStage: mysqlEnum('approvalStage', TASK_APPROVAL_STAGES),
     hodApprovedBy: varchar('hodApprovedBy', { length: 191 }).references(() => users.id),
     hodApprovedAt: datetime('hodApprovedAt', { mode: 'date' }),
