@@ -7,7 +7,7 @@ import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQuer
 import { useTicketsQuery } from '../tickets/hook';
 import { useTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
-import { useMyChecklistInstancesQuery } from '../checklist/hook';
+import { useMyFocusChecklistsQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { ExceptionsCard } from './ExceptionsCard';
@@ -34,6 +34,7 @@ const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['todayStrip']
 
 const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];
+const NO_RUNS: ChecklistInstance[] = [];
 
 export const HomePage = () => {
   const { user } = useAuth();
@@ -61,29 +62,14 @@ export const HomePage = () => {
   const ticketsQuery = useTicketsQuery(1, 100, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
-  const recentRunsQuery = useMyChecklistInstancesQuery({}, { limit: 25 }, DASHBOARD_QUERY_OPTIONS);
-  const sentBackQuery = useMyChecklistInstancesQuery({ verificationStatus: 'REJECTED' }, { limit: 50 }, DASHBOARD_QUERY_OPTIONS);
-  const overdueQuery = useMyChecklistInstancesQuery({ status: 'OVERDUE' }, { limit: 50 }, DASHBOARD_QUERY_OPTIONS);
-  const unsentQuery = useMyChecklistInstancesQuery({ status: 'COMPLETED', verificationStatus: 'NOT_SUBMITTED' }, { limit: 50 }, DASHBOARD_QUERY_OPTIONS);
-  const dueQuery = useMyChecklistInstancesQuery({ status: 'DUE' }, { limit: 50 }, DASHBOARD_QUERY_OPTIONS);
+  const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
 
   const ticketPage = ticketsQuery.data;
   const allTasks = tasksQuery.data;
   const todosData = todosQuery.data;
-  const checklistData = recentRunsQuery.data;
-  const sentBackRuns = sentBackQuery.data;
-  const overdueRuns = overdueQuery.data;
-  const unsentRuns = unsentQuery.data;
-  const dueRuns = dueQuery.data;
-
+  const focusChecklists = focusRunsQuery.data ?? NO_RUNS;
   const todos = useMemo(() => todosData ?? [], [todosData]);
-  const focusChecklists = useMemo(() => {
-    const byId = new Map<string, ChecklistInstance>();
-    for (const list of [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]) for (const c of list ?? []) byId.set(c.id, c);
-    return [...byId.values()];
-  }, [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]);
-
-  const focusQueries = [ticketsQuery, tasksQuery, todosQuery, recentRunsQuery, sentBackQuery, overdueQuery, unsentQuery, dueQuery];
+  const focusQueries = [ticketsQuery, tasksQuery, todosQuery, focusRunsQuery];
   const focusPending = focusQueries.some((q) => q.isPending);
   const focusFailed = focusQueries.some((q) => q.isError);
   const retryFocus = () => {

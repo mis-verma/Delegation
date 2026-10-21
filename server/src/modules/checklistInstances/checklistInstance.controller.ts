@@ -32,6 +32,11 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
+    getMyFocus: asyncHandler(async (req: Request, res: Response) => {
+        const data = await checklistInstanceService.getMyFocus(req.user!.sub, { hideEnded: !(req.user!.role === "ADMIN" || req.user!.role === "PC") })
+        res.json({ success: true, data })
+    }),
+
     list: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit, from, to, status, definitionId, storeId, assigneeId } = listChecklistInstancesQuerySchema.parse(req.query)
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"

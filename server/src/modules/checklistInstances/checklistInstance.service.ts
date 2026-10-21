@@ -760,6 +760,20 @@ export const checklistInstanceService = {
         return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
     },
 
+    async getMyFocus(userId: string, options: { hideEnded: boolean }) {
+        const base = { includeDeleted: false, hideEnded: options.hideEnded }
+        const [sentBack, overdue, unsent, due, recent] = await Promise.all([
+            this.getMine(userId, { ...base, verificationStatus: "REJECTED", limit: 50 }),
+            this.getMine(userId, { ...base, status: "OVERDUE", limit: 50 }),
+            this.getMine(userId, { ...base, status: "COMPLETED", verificationStatus: "NOT_SUBMITTED", limit: 50 }),
+            this.getMine(userId, { ...base, status: "DUE", limit: 50 }),
+            this.getMine(userId, { ...base, limit: 25 }),
+        ])
+        const byId = new Map<string, (typeof recent.data)[number]>()
+        for (const list of [sentBack, overdue, unsent, due, recent]) for (const row of list.data) byId.set(row.id, row)
+        return [...byId.values()]
+    },
+
     async listAll(filter: InstanceListFilter & { page?: number; limit?: number }) {
         const p = paginate(filter.page, filter.limit)
         const where = instanceConditions(filter)

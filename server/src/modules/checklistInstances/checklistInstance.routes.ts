@@ -7,6 +7,7 @@ import { checklistInstanceImageUpload } from "../../config/upload.js"
 export const checklistInstanceRouter = Router()
 checklistInstanceRouter.use(authenticate)
 checklistInstanceRouter.get("/mine", checklistInstanceController.getMine)
+checklistInstanceRouter.get("/mine/focus", checklistInstanceController.getMyFocus)
 checklistInstanceRouter.get("/audit-history", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.auditHistory)
 checklistInstanceRouter.get("/pending-verification", checklistInstanceController.listPendingVerification)
 checklistInstanceRouter.get("/pending-approval-preview", checklistInstanceController.pendingApprovalPreview)

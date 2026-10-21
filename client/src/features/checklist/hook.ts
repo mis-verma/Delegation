@@ -243,6 +243,17 @@ export const useMyChecklistInstancesQuery = (
   });
 };
 
+export const useMyFocusChecklistsQuery = (options: DashboardQueryOptions = {}) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: [...KEYS.myInstances(), 'focus'],
+    queryFn: () => checklistInstanceApi.getMyFocus(),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    ...options,
+  });
+};
+
 export const useAuditHistoryQuery = (
   filter: { storeId?: string; personId?: string; from?: string; to?: string } = {},
   paging: { page?: number; limit?: number } = {},

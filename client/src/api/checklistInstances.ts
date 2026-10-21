@@ -407,6 +407,9 @@ export const checklistInstanceApi = {
       })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
+  getMyFocus: () =>
+    apiFetch<ApiResponse<ChecklistInstance[]>>('/checklist-instances/mine/focus').then(r => normalizeInstances(r.data)),
+
   getFormerPeople: () =>
     apiFetch<ApiResponse<FormerPerson[]>>('/checklist-instances/former-people').then(r => r.data),
 
