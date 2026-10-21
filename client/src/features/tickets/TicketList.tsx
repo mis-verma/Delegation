@@ -79,7 +79,8 @@ export const TicketList = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
-  const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, assigneeIdFilter);
+  const selfLink = !!assigneeIdFilter && assigneeIdFilter === user?.id;
+  const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, selfLink ? undefined : assigneeIdFilter);
   const createdRange = useCreatedRange();
   const scoreDrill = useScoreDrill(true);
   const ticketsInRange = useMemo(() => {
@@ -88,6 +89,16 @@ export const TicketList = () => {
     return scoreDrill.active ? created.filter((t) => ticketMatchesDrill(scoreDrill, t)) : created;
   }, [allTicketsData, createdRange, scoreDrill]);
   const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
+  const { setScopeFilter } = organizer;
+  useEffect(() => {
+    if (!selfLink) return;
+    setScopeFilter('ASSIGNED_TO_ME');
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.delete('assigneeIds');
+      return params;
+    }, { replace: true });
+  }, [selfLink, setScopeFilter, setSearchParams]);
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const changePage = (page: number) => {
     organizer.setPage(page);

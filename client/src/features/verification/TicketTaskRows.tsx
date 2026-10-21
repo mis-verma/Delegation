@@ -77,6 +77,7 @@ const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
 
 interface QueueRowProps {
   raiseTicketFrom?: string;
+  raiseTicketPath?: string;
   icon: ReactNode;
   title: string;
   facts: string;
@@ -95,7 +96,7 @@ interface QueueRowProps {
   onWarm?: () => void;
 }
 
-const QueueRow = ({ raiseTicketFrom, icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
+const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
   const [rejecting, setRejecting] = useState(false);
   const [raising, setRaising] = useState(false);
   const [text, setText] = useState('');
@@ -211,7 +212,7 @@ const QueueRow = ({ raiseTicketFrom, icon, title, facts, chips, note, evidence, 
       {raising && raiseTicketFrom && (
         <TicketForm
           onClose={() => setRaising(false)}
-          prefill={{ title: `Follow up: ${raiseTicketFrom}`.slice(0, 190), description: `Raised from the Verification Queue about "${raiseTicketFrom}".` }}
+          prefill={{ title: `Follow up: ${raiseTicketFrom}`.slice(0, 190), description: `Raised from the Verification Queue about "${raiseTicketFrom}".${raiseTicketPath ? ` Original: ${window.location.origin}${raiseTicketPath}` : ''}` }}
         />
       )}
 
@@ -267,6 +268,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
       <QueueRow
         icon={<TicketIcon size={18} aria-hidden />}
         raiseTicketFrom={ticket.title}
+        raiseTicketPath={`/tickets?open=${ticket.id}`}
         title={ticket.title}
         facts={[raisedByName ? `Raised by ${raisedByName}` : null, ticket.assignee ? `handled by ${ticket.assignee.firstName}` : 'nobody working on it yet'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
@@ -311,6 +313,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
       <QueueRow
         icon={<CheckSquare size={18} aria-hidden />}
         raiseTicketFrom={task.title}
+        raiseTicketPath={`/tasks?open=${task.id}`}
         title={task.title}
         facts={[raisedByName ? `Raised by ${raisedByName}` : null, task.dueDate ? `due ${new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'no due date'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={

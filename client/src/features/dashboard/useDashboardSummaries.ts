@@ -48,7 +48,7 @@ export const useDashboardSummaries = () => {
     enabled: !!token,
     retry: handleQueryRetry,
     ...DASHBOARD_QUERY_OPTIONS,
-    refetchOnMount: 'always',
+    staleTime: 15_000,
   });
   const d = query.data;
   const updatedAt = query.dataUpdatedAt;

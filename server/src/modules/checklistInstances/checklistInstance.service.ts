@@ -254,7 +254,6 @@ const auditItemSnapshot = (item: Record<string, unknown>) => ({
     qrExpectedValue: undefined,
 })
 
-const UNDO_WINDOW_MS = 12_000
 
 export const parentNotDeletedExpr = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
@@ -1305,8 +1304,7 @@ export const checklistInstanceService = {
             throw AppError.badRequest(runClosedMessage(runClosingMs(instanceRow, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
         }
 
-        const justAnsweredByThem = item.completedBy === user.sub && !!item.completedAt && Date.now() - item.completedAt.getTime() <= UNDO_WINDOW_MS
-        if (!isDone && item.isDone && user.role !== "ADMIN" && !justAnsweredByThem) {
+        if (!isDone && item.isDone && user.role !== "ADMIN") {
             throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
         }
 
@@ -1404,8 +1402,7 @@ export const checklistInstanceService = {
                 && Object.entries(patch).every(([key, value]) => key === "sendBackNote" || sameStoredValue((fresh as Record<string, unknown>)[key], value))
             if (alreadyThere) return { fresh, changed: false }
 
-            const freshJustAnswered = fresh.completedBy === user.sub && !!fresh.completedAt && Date.now() - fresh.completedAt.getTime() <= UNDO_WINDOW_MS
-            if (!isDone && fresh.isDone && user.role !== "ADMIN" && !freshJustAnswered) {
+            if (!isDone && fresh.isDone && user.role !== "ADMIN") {
                 throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
             }
 
