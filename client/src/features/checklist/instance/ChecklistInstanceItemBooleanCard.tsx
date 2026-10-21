@@ -1,17 +1,16 @@
-import { memo, useId, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
-import { Camera, ImageUp, Zap, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
-import { Button, Textarea } from '../../../components';
+import { IconChip, Textarea } from '../../../components';
 import { cn } from '@/lib/utils';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
-import { ItemActionButton } from './ItemActionButton';
 import { EvidenceThumb } from './EvidenceThumb';
 import { CaptureButton, UploadingHint } from './CaptureButton';
 import { isFlaggedAnswer } from '../checklistDisplay';
@@ -26,20 +25,25 @@ interface ChecklistInstanceItemBooleanCardProps {
   isLocked:   boolean;
 }
 
+type Answer = 'YES' | 'NO';
+
 const LABELS_BY_ITEM_TYPE: Partial<Record<ChecklistInstanceItem['itemType'], { yes: string; no: string }>> = {
   YES_NO: { yes: 'Yes', no: 'No' },
   PASS_FAIL: { yes: 'Pass', no: 'Fail' },
 };
 
-const ACTION_HINT: Record<ChecklistConditionalAction, string> = {
-  REQUIRE_PHOTO: 'a photo',
-  ASK_REASON: 'a reason',
-  CREATE_ISSUE: 'an issue will be raised',
-  NOTIFY_AREA_MANAGER: 'the area manager will be notified',
+const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: LucideIcon }> = {
+  REQUIRE_PHOTO: { label: 'Add a photo', icon: Camera },
+  ASK_REASON: { label: 'Say why', icon: MessageSquareText },
+  CREATE_ISSUE: { label: 'A ticket is raised', icon: TicketPlus },
+  NOTIFY_AREA_MANAGER: { label: 'Area manager is told', icon: BellRing },
 };
 
 const ANSWER_BASE =
-  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-10 px-4 rounded-xl border t-card sm:text-sm font-display font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
+  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-11 px-4 rounded-xl border-2 t-card sm:text-sm font-display font-bold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
+
+const AUTO_SAVE_REASON_MS = 800;
+const AUTO_SAVE_PHOTO_MS = 150;
 
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();
@@ -51,39 +55,59 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const yesActions = item.yesActions ?? [];
   const noActions = item.noActions ?? [];
-  const actionsFor = (value: 'YES' | 'NO') => (value === 'YES' ? yesActions : noActions);
-  const isTriggering = (value: 'YES' | 'NO') => actionsFor(value).length > 0;
+  const actionsFor = (value: Answer) => (value === 'YES' ? yesActions : noActions);
+  const isTriggering = (value: Answer) => actionsFor(value).length > 0;
 
-  const [pendingAnswer, setPendingAnswer] = useState<'YES' | 'NO' | null>(null);
+  const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
-  const activeActions = pendingAnswer
-    ? actionsFor(pendingAnswer)
-    : item.isDone && item.booleanAnswer
-      ? actionsFor(item.booleanAnswer)
-      : [];
-  const requiresPhoto = activeActions.includes('REQUIRE_PHOTO');
-  const requiresReason = activeActions.includes('ASK_REASON');
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
-  const activeAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
-  const conditionalPurpose = activeAnswer ? (`CONDITIONAL_${activeAnswer}` as const) : null;
-  const images = (item.images ?? []).filter(img => img.purpose === conditionalPurpose);
 
-  const draftFor = (value: 'YES' | 'NO') => (item.booleanAnswer === value ? item.conditionalReasonValue ?? '' : '');
-  const sessionPhotos = images.filter(img => !baselinePhotos.current.has(img.id));
-  const hasDiscardable = pendingAnswer != null && (reasonDraft.trim().length > 0 || sessionPhotos.length > 0);
+  const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const activeActions = shownAnswer ? actionsFor(shownAnswer) : [];
+  const needsPhoto = activeActions.includes('REQUIRE_PHOTO');
+  const needsReason = activeActions.includes('ASK_REASON');
+  const conditionalPurpose = shownAnswer ? (`CONDITIONAL_${shownAnswer}` as const) : null;
+  const images = (item.images ?? []).filter((img) => img.purpose === conditionalPurpose);
+  const sessionPhotos = images.filter((img) => !baselinePhotos.current.has(img.id));
+  const reasonReady = !needsReason || reasonDraft.trim().length > 0;
+  const photoReady = !needsPhoto || images.length > 0;
+  const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
 
   const discardSession = () => {
     for (const img of sessionPhotos) deleteImage.mutate(img.id);
-    baselinePhotos.current = new Set(images.filter(img => !sessionPhotos.includes(img)).map(img => img.id));
+    baselinePhotos.current = new Set(images.filter((img) => !sessionPhotos.includes(img)).map((img) => img.id));
   };
 
-  const pickAnswer = (value: 'YES' | 'NO') => {
-    if (!interactive || setItemDone.isPending || value === pendingAnswer || (item.isDone && item.booleanAnswer === value)) return;
+  const { mutate: mutateDone, isPending: saving } = setItemDone;
+  const itemId = item.id;
+  const save = useCallback((answer: Answer, reason: string | undefined) => {
+    mutateDone(
+      { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
+      { onSuccess: () => setPendingAnswer(null) },
+    );
+  }, [mutateDone, itemId]);
+
+  useEffect(() => {
+    if (!readyToSave || !pendingAnswer || saving) return undefined;
+    const wait = needsReason ? AUTO_SAVE_REASON_MS : AUTO_SAVE_PHOTO_MS;
+    const timer = setTimeout(() => save(pendingAnswer, needsReason ? reasonDraft.trim() : undefined), wait);
+    return () => clearTimeout(timer);
+  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, save]);
+
+  const pickAnswer = (value: Answer) => {
+    if (!interactive || setItemDone.isPending) return;
     haptic('tap');
+    if (pendingAnswer === value) {
+      discardSession();
+      setPendingAnswer(null);
+      setReasonDraft(item.conditionalReasonValue ?? '');
+      return;
+    }
+    if (!pendingAnswer && item.isDone && item.booleanAnswer === value) return;
     if (isTriggering(value)) {
-      if (pendingAnswer === null) baselinePhotos.current = new Set(images.map(img => img.id));
+      if (pendingAnswer === null) baselinePhotos.current = new Set(images.map((img) => img.id));
       else discardSession();
-      setReasonDraft(draftFor(value));
+      setReasonDraft(item.booleanAnswer === value ? item.conditionalReasonValue ?? '' : '');
       setPendingAnswer(value);
       return;
     }
@@ -92,43 +116,46 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       setPendingAnswer(null);
     }
     setReasonDraft('');
-    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value });
-  };
-
-  const cancelPending = () => {
-    discardSession();
-    setPendingAnswer(null);
-    setReasonDraft('');
-  };
-
-  const canConfirm =
-    (!requiresReason || reasonDraft.trim().length > 0) &&
-    (!requiresPhoto || images.length > 0);
-
-  const confirmPendingAnswer = () => {
-    if (!pendingAnswer || !canConfirm) return;
-    haptic('tap');
-    setItemDone.mutate(
-      {
-        itemId: item.id,
-        isDone: true,
-        booleanAnswer: pendingAnswer,
-        conditionalReasonValue: requiresReason ? reasonDraft.trim() : undefined,
-      },
-      { onSuccess: () => setPendingAnswer(null) },
-    );
+    save(value, undefined);
   };
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
-    if (!files || !files.length) return;
-    if (!conditionalPurpose) return;
+    if (!files || !files.length || !conditionalPurpose) return;
     uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod, purpose: conditionalPurpose });
   };
 
-  const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
-  const answerLocked = !interactive;
-  const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const waitingOnFollowUp = pendingAnswer !== null && !readyToSave;
+  const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto));
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
+  const flagged = item.isDone && isFlaggedAnswer(item);
+
+  const answerButton = (value: Answer) => {
+    const label = value === 'YES' ? labels.yes : labels.no;
+    const on = shownAnswer === value;
+    const good = value === 'YES';
+    const Icon = good ? Check : X;
+    return (
+      <button
+        key={value}
+        type="button"
+        disabled={!interactive}
+        onClick={() => pickAnswer(value)}
+        aria-pressed={on}
+        className={cn(
+          ANSWER_BASE,
+          on && item.isDone && !pendingAnswer
+            ? good ? 'border-success-strong bg-success-strong text-white' : 'border-danger bg-danger text-white'
+            : on
+              ? good ? 'border-success bg-success/10 text-success' : 'border-danger bg-danger/10 text-danger'
+              : good ? 'border-border text-text hover:border-success/60 hover:bg-success/5' : 'border-border text-text hover:border-danger/60 hover:bg-danger/5',
+          interactive ? 'cursor-pointer' : cn('cursor-not-allowed', !on && 'opacity-50'),
+        )}
+      >
+        <Icon size={17} strokeWidth={3} aria-hidden="true" />
+        {label}
+      </button>
+    );
+  };
 
   return (
     <ItemCardShell isLocked={isLocked}>
@@ -141,122 +168,71 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
 
-      {!item.isDone && !pendingAnswer && (yesActions.length > 0 || noActions.length > 0) && (
-        <div className="flex flex-col gap-1">
-          {yesActions.length > 0 && (
-            <p className="flex items-start gap-1.5 t-meta font-display text-warning">
-              <Zap className="size-3 shrink-0 mt-0.5" />
-              If you answer {labels.yes}, you'll need to provide {yesActions.map(a => ACTION_HINT[a]).join(', ')}.
-            </p>
-          )}
-          {noActions.length > 0 && (
-            <p className="flex items-start gap-1.5 t-meta font-display text-warning">
-              <Zap className="size-3 shrink-0 mt-0.5" />
-              If you answer {labels.no}, you'll need to provide {noActions.map(a => ACTION_HINT[a]).join(', ')}.
-            </p>
-          )}
-        </div>
-      )}
-
       {previousAnswer && interactive && (
         <p className="t-meta text-text-muted">Reopened. It was answered {previousAnswer} before. Answer it again.</p>
       )}
 
       <div className="flex items-center gap-2 sm:max-w-md">
-        <button
-          type="button"
-          disabled={answerLocked}
-          onClick={() => pickAnswer('YES')}
-          aria-pressed={shownAnswer === 'YES'}
-          className={cn(
-            ANSWER_BASE,
-            shownAnswer === 'YES'
-              ? item.isDone ? 'border-success-strong bg-success-strong text-white' : 'border-success bg-success/10 text-success'
-              : 'border-border text-text hover:border-success/60 hover:bg-success/5',
-            answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'YES' && 'opacity-50') : 'cursor-pointer',
-          )}
-        >
-          {labels.yes}
-        </button>
-        <button
-          type="button"
-          disabled={answerLocked}
-          onClick={() => pickAnswer('NO')}
-          aria-pressed={shownAnswer === 'NO'}
-          className={cn(
-            ANSWER_BASE,
-            shownAnswer === 'NO'
-              ? item.isDone ? 'border-danger bg-danger text-white' : 'border-danger bg-danger/10 text-danger'
-              : 'border-border text-text hover:border-danger/60 hover:bg-danger/5',
-            answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'NO' && 'opacity-50') : 'cursor-pointer',
-          )}
-        >
-          {labels.no}
-        </button>
+        {answerButton('YES')}
+        {answerButton('NO')}
       </div>
 
-      {hasDiscardable && (
-        <p className="t-meta font-display text-text-muted">Picking a different answer discards the reason and photos you added for this one.</p>
-      )}
-
-      {item.issueId && activeAnswer && !activeActions.includes('CREATE_ISSUE') && (
-        <p className="flex items-start gap-1.5 t-meta font-display text-text-muted">
-          <Zap className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-          A ticket was raised for an earlier answer. It stays open until someone closes it.
-        </p>
-      )}
-
-      {item.isDone && isFlaggedAnswer(item) && (
-        <p className="flex items-start gap-1.5 t-meta font-display font-medium text-danger">
-          <AlertTriangle className="size-3.5 shrink-0 mt-px" />
-          Flagged. This answer counts against compliance, even with a reason or photo on file.
-        </p>
+      {!shownAnswer && interactive && (yesActions.length > 0 || noActions.length > 0) && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="What each answer asks for">
+          {([['YES', labels.yes, yesActions], ['NO', labels.no, noActions]] as const).filter(([, , a]) => a.length > 0).map(([key, label, actions]) => (
+            <li key={key}>
+              <IconChip icon={Check} tone={key === 'YES' ? 'bg-success' : 'bg-danger'} label={`${label}: ${actions.map((a) => FOLLOW_UP[a].label.toLowerCase()).join(', ')}`} />
+            </li>
+          ))}
+        </ul>
       )}
 
       {showFollowUp && (
-        <div className="flex flex-col gap-3 pt-3 border-t border-border/60">
-          {requiresReason && (
+        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3">
+          <ul className="flex flex-wrap gap-1.5" aria-label="Needed for this answer">
+            {activeActions.map((action) => {
+              const { label, icon } = FOLLOW_UP[action];
+              const done = action === 'ASK_REASON' ? reasonReady : action === 'REQUIRE_PHOTO' ? photoReady : true;
+              return (
+                <li key={action}>
+                  <IconChip icon={done ? Check : icon} tone={done ? 'bg-success' : 'bg-warning'} label={label} labelClassName={done ? 'text-success' : 'text-warning'} />
+                </li>
+              );
+            })}
+            {saving && <li><IconChip icon={false} label="Saving" /></li>}
+          </ul>
+
+          {needsReason && (
             pendingAnswer ? (
               <Textarea
                 id={reasonId}
                 label="Reason"
                 labelClassName="font-display font-medium"
                 value={reasonDraft}
-                onChange={e => setReasonDraft(e.target.value)}
+                onChange={(e) => setReasonDraft(e.target.value)}
                 rows={2}
-                placeholder="Why? (required)"
+                placeholder="Why? It saves by itself when you stop typing."
                 className="min-h-0 px-3 py-2 rounded-lg"
               />
             ) : (
-              <div className="flex flex-col gap-1">
-                <span className="t-meta font-display text-text-muted">Reason</span>
-                <p className="t-meta font-display text-text italic">"{item.conditionalReasonValue}"</p>
-              </div>
+              <p className="t-meta font-display italic text-text">"{item.conditionalReasonValue}"</p>
             )
           )}
 
-          {requiresPhoto && (
+          {needsPhoto && (
             <div className="flex flex-col gap-2">
-              <span className="t-meta font-display text-text-muted">
-                Photo {images.length > 0 ? `(${images.length})` : '(required)'}
-              </span>
               {images.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {images.map(img => (
-                    <EvidenceThumb
-                      key={img.id}
-                      image={img}
-                      onDelete={pendingAnswer ? deleteImage.mutate : undefined}
-                      deleting={deleteImage.isPending}
-                    />
+                  {images.map((img) => (
+                    <EvidenceThumb key={img.id} image={img} onDelete={pendingAnswer ? deleteImage.mutate : undefined} deleting={deleteImage.isPending} />
                   ))}
                 </div>
               )}
               {pendingAnswer && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={(files) => handleFiles(files, 'LIVE')} />
                   {!item.requiresLivePhoto && (
-                    <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
+                    <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={(files) => handleFiles(files, 'GALLERY')} />
                   )}
                   {uploadImages.isPending && <UploadingHint />}
                 </div>
@@ -264,25 +240,19 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             </div>
           )}
 
-          {pendingAnswer && (
-            <div className="flex items-center gap-2 justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={cancelPending}
-              >
-                Cancel
-              </Button>
-              <ItemActionButton
-                onClick={confirmPendingAnswer}
-                disabled={!canConfirm}
-                isLoading={setItemDone.isPending}
-              >
-                Confirm answer
-              </ItemActionButton>
-            </div>
-          )}
+          {waitingOnFollowUp && <p className="t-meta font-display text-text-muted">Tap the {shownAnswer === 'YES' ? labels.yes : labels.no} button again to go back.</p>}
         </div>
+      )}
+
+      {item.issueId && shownAnswer && !activeActions.includes('CREATE_ISSUE') && (
+        <p className="flex items-start gap-1.5 t-meta font-display text-text-muted">
+          <TicketPlus className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+          A ticket was raised for an earlier answer. It stays open until someone closes it.
+        </p>
+      )}
+
+      {flagged && (
+        <IconChip icon={AlertTriangle} tone="bg-danger" label="Flagged: counts against compliance, even with a reason or photo" className="h-auto min-h-7 w-fit max-w-full py-1" labelClassName="whitespace-normal text-danger" />
       )}
     </ItemCardShell>
   );

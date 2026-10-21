@@ -311,7 +311,7 @@ export const ChecklistInstanceDetail = () => {
                     <ArrowDown size={14} aria-hidden />
                   </Button>
                 )}
-                <PeriodTabControl value={show} options={['all', 'left', 'one'] as const} labels={{ all: 'All', left: `Left ${left}`, one: 'One by one' }} onChange={(next) => { if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i)))); setShow(next); }} />
+                <PeriodTabControl value={show} options={['all', 'left', 'one'] as const} labels={{ all: 'All', left: `Left ${left}`, one: 'Single' }} onChange={(next) => { if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i)))); setShow(next); }} />
               </div>
             </div>
             <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
