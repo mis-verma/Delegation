@@ -16,6 +16,7 @@ import {
 import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
+import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -362,6 +363,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </div>
               )}
 
+              {!awaitingHead && !ticket.declinedAt && !!ticket.assignmentApprovedAt && (
+                <HeadApprovedBanner approver={ticket.assignmentApprover} approvedAt={ticket.assignmentApprovedAt} departmentName={departmentName} />
+              )}
               {awaitingHead && (
                 <HeadDecisionPanel
                   ticketTitle={ticket.title}

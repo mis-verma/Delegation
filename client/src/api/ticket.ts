@@ -147,6 +147,8 @@ export type Ticket = {
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
   awaitingHeadApproval?: boolean;
   assignmentApprovedAt?: string | null;
+  assignmentApprovedBy?: string | null;
+  assignmentApprover?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
   approvalStage?:   'HOD' | 'PC' | null;
   hodApprovedBy?:   string | null;
   hodApprovedAt?:   string | null;

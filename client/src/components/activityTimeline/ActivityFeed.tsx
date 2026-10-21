@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, type LucideIcon } from 'lucide-react';
+import { ArrowRightLeft, Ban, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, RotateCcw, ShieldCheck, Undo2, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
 import { type ActivityEntity, type ActivityEvent, type ActivityKind } from '../../api/activity';
@@ -20,6 +20,9 @@ const KIND: Record<ActivityKind, { icon: LucideIcon; tone: ActivityTone }> = {
   priority_changed: { icon: Flag, tone: 'coral' },
   reassigned: { icon: UserRound, tone: 'primary' },
   edited: { icon: Pencil, tone: 'muted' },
+  head_approved: { icon: ShieldCheck, tone: 'success' },
+  declined: { icon: Ban, tone: 'danger' },
+  reopened: { icon: RotateCcw, tone: 'info' },
 };
 
 const DAY = 86_400_000;
@@ -50,6 +53,9 @@ const sentence = (e: ActivityEvent, thing: string) => {
     case 'priority_changed': return `changed the priority to ${e.to}`;
     case 'reassigned': return e.to ? `assigned it to ${e.to}` : 'removed the assignee';
     case 'edited': return `edited the ${(e.fields ?? []).join(' and ')}`;
+    case 'head_approved': return `approved this ${thing} as department head. The team can start`;
+    case 'declined': return `declined this ${thing}`;
+    case 'reopened': return `reopened this ${thing}`;
   }
 };
 
@@ -82,7 +88,7 @@ const Detail = ({ e }: { e: ActivityEvent }) => {
   }
   if (e.kind === 'priority_changed' && e.to) return <ChangeCompare icon={Flag} tone="coral" from={e.from ?? undefined} to={e.to} />;
   if (e.kind === 'reassigned' && e.to) return <ChangeCompare icon={UserRound} tone="primary" from={e.from ?? undefined} to={e.to} />;
-  if (e.remark && (e.kind === 'status' || e.kind === 'sent_back')) {
+  if (e.remark && (e.kind === 'status' || e.kind === 'sent_back' || e.kind === 'declined')) {
     return <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>;
   }
   return null;

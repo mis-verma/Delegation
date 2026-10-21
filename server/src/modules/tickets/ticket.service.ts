@@ -136,7 +136,7 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
   if (!ticketRows.length) return []
   const ticketIds = ticketRows.map((t) => t.id)
 
-  const userIds = [...new Set(ticketRows.flatMap((t) => [t.assigneeId, t.userId, t.verifiedBy, t.hodApprovedBy, t.declinedBy]).filter((v): v is string => Boolean(v)))]
+  const userIds = [...new Set(ticketRows.flatMap((t) => [t.assigneeId, t.userId, t.verifiedBy, t.hodApprovedBy, t.declinedBy, t.assignmentApprovedBy]).filter((v): v is string => Boolean(v)))]
   const userRows = userIds.length ? await db.select(userCols).from(users).where(inArray(users.id, userIds)) : []
   const userById = new Map(userRows.map((u) => [u.id, u]))
 
@@ -198,6 +198,7 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
     verifier: t.verifiedBy ? userById.get(t.verifiedBy) ?? null : null,
     hodApprover: t.hodApprovedBy ? userById.get(t.hodApprovedBy) ?? null : null,
     decliner: t.declinedBy ? userById.get(t.declinedBy) ?? null : null,
+    assignmentApprover: t.assignmentApprovedBy ? userById.get(t.assignmentApprovedBy) ?? null : null,
     checklists: checklistsByTicket.get(t.id) ?? [],
     attachments: attachmentsByTicket.get(t.id) ?? [],
     comments: commentsByTicket.get(t.id) ?? [],

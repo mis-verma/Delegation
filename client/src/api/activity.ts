@@ -2,7 +2,7 @@ import { apiFetch } from './http';
 
 export type ActivityEntity = 'Task' | 'Ticket';
 
-export type ActivityKind = 'created' | 'status' | 'approved' | 'sent_back' | 'due_changed' | 'priority_changed' | 'reassigned' | 'edited';
+export type ActivityKind = 'created' | 'status' | 'approved' | 'sent_back' | 'due_changed' | 'priority_changed' | 'reassigned' | 'edited' | 'head_approved' | 'declined' | 'reopened';
 
 export interface ActivityEvent {
   id: string;

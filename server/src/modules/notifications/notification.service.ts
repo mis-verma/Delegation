@@ -128,10 +128,12 @@ export const notificationService = {
 
   async notifyTicketHeadApproved(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, actorId: string) {
     const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
+    const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
+    const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
     return notificationService.notifyMany(ids, {
       type: 'TICKET_ASSIGNMENT_APPROVED',
       title: 'Ticket approved, you can start',
-      message: `The department head approved "${ticket.title}". The team can work on it now.`,
+      message: `${approverName ? `${approverName}, the department head, approved` : 'The department head approved'} "${ticket.title}". The team can work on it now.`,
       ticketId: ticket._id.toString(),
     });
   },

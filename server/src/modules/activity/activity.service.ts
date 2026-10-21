@@ -16,6 +16,9 @@ export type ActivityKind =
     | "due_changed"
     | "priority_changed"
     | "reassigned"
+    | "head_approved"
+    | "declined"
+    | "reopened"
     | "edited"
 
 export type ActivityEvent = {
@@ -191,7 +194,11 @@ export const activityService = {
             if (r.action === "CREATE") { sawCreate = true; push({ kind: "created" }, "c"); continue }
             if (r.action === "VERIFY" || r.action === "APPROVE") { push({ kind: "approved" }, "v"); continue }
             if (r.action === "REJECT") { push({ kind: "sent_back" }, "r"); continue }
+            if (r.action === "DECLINE") { push({ kind: "declined", remark: typeof a.declineReason === "string" ? a.declineReason : null }, "x"); continue }
+            if (r.action === "REOPEN") { push({ kind: "reopened" }, "o"); continue }
             if (r.action !== "UPDATE") continue
+
+            if (b.awaitingHeadApproval && !a.awaitingHeadApproval && !a.declinedAt) push({ kind: "head_approved" }, "h")
 
             if (!same(b.status, a.status) && a.status != null) {
                 const from = b.status, to = a.status

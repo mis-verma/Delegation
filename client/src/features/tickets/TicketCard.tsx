@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlarmClock, BellRing, CalendarDays, Clock3, ShieldQuestion, User } from 'lucide-react';
+import { AlarmClock, BellRing, CalendarDays, Clock3, ShieldCheck, ShieldQuestion, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { useAuth } from '../../context/AuthContext';
 import { isDepartmentHead } from '../../lib/ticketApproval';
@@ -42,6 +42,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
 
   const prefetchHandlers = usePrefetchTicket(ticket.id);
   const { user } = useAuth();
+  const headApproved = !ticket.awaitingHeadApproval && !ticket.declinedAt && !!ticket.assignmentApprovedAt && ticket.status !== 'CLOSED';
   const needsMyDecision = !!ticket.awaitingHeadApproval && !ticket.declinedAt && !!user
     && (user.role === 'ADMIN' || isDepartmentHead(user, ticket));
 
@@ -116,6 +117,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           ) : (
             <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
           )
+        )}
+
+        {headApproved && (
+          <IconChip icon={ShieldCheck} tone="bg-success" label="Head approved" title={`Approved by ${ticket.assignmentApprover?.firstName ?? 'the department head'}`} className="border-success/30 bg-success/10" labelClassName="text-success" />
         )}
 
         <PriorityChip meta={priorityInfo} />
