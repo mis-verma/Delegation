@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
+import { SwipeRow } from '../../components/swipeRow/SwipeRow';
 import { Check, Pencil, Trash2, MoreVertical, CalendarDays, ListTodo, FilterX, ChevronDown } from 'lucide-react';
 import { Skeleton, EmptyState, IconChip, PriorityChip } from '../../components';
 import { ErrorMessage } from '../admin/adminDisplay';
@@ -32,6 +34,8 @@ const dueText = (iso: string) => {
   return `${relativeDayLabel(d)}, ${time}`;
 };
 
+const UNDO_MS = 6000;
+
 export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFilters, rangeFilter }: TodoListProps) => {
   const { data: allTodos = [], isPending, isError } = useTodosQuery();
   const updateMut = useUpdateTodoMutation();
@@ -45,12 +49,25 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
 
   const toggleComplete = (todo: Todo) => updateMut.mutate({ id: todo.id, payload: { completed: !todo.completed } });
 
+  const completeWithUndo = (todo: Todo) => {
+    const next = !todo.completed;
+    updateMut.mutate({ id: todo.id, payload: { completed: next } });
+    toast(next ? `Done: "${todo.text}"` : `Back on your list: "${todo.text}"`, {
+      duration: UNDO_MS,
+      action: { label: 'Undo', onClick: () => updateMut.mutate({ id: todo.id, payload: { completed: todo.completed } }) },
+    });
+  };
+
   const renderRow = (todo: Todo, index: number) => {
     const overdue = isOverdueTodo(todo);
 
     return (
-      <div
+      <SwipeRow
         key={todo.id}
+        right={{ label: todo.completed ? 'Not done' : 'Done', icon: <Check size={16} aria-hidden />, tone: 'success', onTrigger: () => completeWithUndo(todo) }}
+        left={{ label: 'Delete', icon: <Trash2 size={16} aria-hidden />, tone: 'danger', onTrigger: () => deleteMut.mutate(todo.id) }}
+      >
+      <div
         role="button"
         tabIndex={0}
         onClick={() => setEditing(todo)}
@@ -136,6 +153,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      </SwipeRow>
     );
   };
 

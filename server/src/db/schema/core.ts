@@ -214,6 +214,7 @@ export const settings = mysqlTable('Settings', {
   maintenanceMessage: varchar('maintenanceMessage', { length: 500 }),
   notifyTaskDeadlineReminders: boolean('notifyTaskDeadlineReminders').notNull().default(true),
   notifyChecklistOverdueReminders: boolean('notifyChecklistOverdueReminders').notNull().default(true),
+  liveOnlyAttachments: boolean('liveOnlyAttachments').notNull().default(false),
   accessTokenExpiresMinutes: int('accessTokenExpiresMinutes').notNull().default(15),
   refreshTokenExpiresDays: int('refreshTokenExpiresDays').notNull().default(30),
   orgName: varchar('orgName', { length: 191 }).notNull().default('Karya'),

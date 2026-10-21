@@ -26,6 +26,7 @@ const settingsSchema = z.object({
   maintenanceMessage: z.string().max(500, 'Keep it under 500 characters'),
   notifyTaskDeadlineReminders: z.boolean(),
   notifyChecklistOverdueReminders: z.boolean(),
+  liveOnlyAttachments: z.boolean(),
   accessTokenExpiresMinutes: z.number().int().min(1, 'Must be at least 1 minute').max(1440, 'Must be 1440 minutes (1 day) or less'),
   refreshTokenExpiresDays: z.number().int().min(1, 'Must be at least 1 day').max(365, 'Must be 365 days or less'),
   auditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
@@ -363,6 +364,21 @@ export const SettingsPage = () => {
                     icon={Clock}
                     label="Delegation deadline reminders"
                     description="Notify assignees as a delegation's due date approaches."
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              <div className="h-px w-full bg-border" />
+              <Controller
+                control={control}
+                name="liveOnlyAttachments"
+                render={({ field }) => (
+                  <SwitchRow
+                    id="liveOnlyAttachments"
+                    icon={Camera}
+                    label="Live camera only for ticket photos"
+                    description="Ticket and delegation photos must be taken with the camera. The Gallery button is hidden."
                     checked={field.value}
                     onChange={field.onChange}
                   />

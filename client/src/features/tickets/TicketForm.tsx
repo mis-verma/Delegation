@@ -1,3 +1,4 @@
+import { useLiveOnlyAttachments } from '../../lib/useLiveOnlyAttachments';
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useForm, useWatch, Controller, type FieldErrors } from 'react-hook-form';
 import { haptic } from '../../lib/haptics';
@@ -578,6 +579,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
 };
 
 const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) => {
+  const liveOnly = useLiveOnlyAttachments();
   const galleryRef = useRef<HTMLInputElement>(null);
   const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
     onAdd(e.target.files);
@@ -590,9 +592,9 @@ const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) =>
       <LivePhotoTrigger className={btn} onFiles={onAdd}>
         <Camera size={15} aria-label="Take photo" />
       </LivePhotoTrigger>
-      <button type="button" title="Add photo from gallery" aria-label="Add photo from gallery" className={btn} onClick={() => galleryRef.current?.click()}>
+      {!liveOnly && <button type="button" title="Add photo from gallery" aria-label="Add photo from gallery" className={btn} onClick={() => galleryRef.current?.click()}>
         <ImageIcon size={15} />
-      </button>
+      </button>}
     </div>
   );
 };

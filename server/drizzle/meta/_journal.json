@@ -477,6 +477,20 @@
       "when": 1792562752342,
       "tag": "0067_alert_followup_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "5",
+      "when": 1792563936320,
+      "tag": "0068_checklist_opened_mark",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "5",
+      "when": 1792564231442,
+      "tag": "0069_live_only_attachments",
+      "breakpoints": true
     }
   ]
 }

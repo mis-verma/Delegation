@@ -23,6 +23,7 @@ export const settingsController = {
                 logoUrl: settings!.logoUrl,
                 androidAppUrl: settings!.androidAppUrl,
                 iosAppUrl: settings!.iosAppUrl,
+                liveOnlyAttachments: settings!.liveOnlyAttachments,
             },
         })
     }),

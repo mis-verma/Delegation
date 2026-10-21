@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateScoreCaches } from '../../../lib/queryHelpers';
 import { toast } from 'sonner';
-import { Plus, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
+import { DraftsDialog } from '../../drafts/DraftsDialog';
+import { useDraftsQuery } from '../../drafts/hook';
+import { Plus, ClipboardList, FileClock, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
 import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirmDialog';
@@ -59,6 +61,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const { data: checklistDrafts } = useDraftsQuery('CHECKLIST', canManage);
   const recurrenceParam = searchParams.get('recurrence')?.toLowerCase();
   const recurrence = RECURRENCE_TABS.find((r) => r.toLowerCase() === recurrenceParam) ?? 'all';
   const statusParam = searchParams.get('status');
@@ -180,6 +184,10 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             <span className="hidden sm:inline">Select</span>
           </Button>
         )}
+        <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setShowDrafts(true)} aria-label="Drafts">
+          <FileClock size={14} className="text-text-muted" />
+          <span className="hidden sm:inline">Drafts{checklistDrafts?.length ? ` (${checklistDrafts.length})` : ''}</span>
+        </Button>
         <Button size="sm" variant="primary" onClick={() => navigate(BUILDER_PATH)}>
           <Plus size={14} />
           <span className="sm:hidden">New</span>
@@ -295,6 +303,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       )}
 
       <ChecklistBulkImportModal open={showBulkImport} onClose={() => setShowBulkImport(false)} />
+      <DraftsDialog kind="CHECKLIST" open={showDrafts} onClose={() => setShowDrafts(false)} onOpenDraft={(d) => { setShowDrafts(false); navigate(`${BUILDER_PATH}?draft=${d.id}`); }} />
     </div>
   );
 };

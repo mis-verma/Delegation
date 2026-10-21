@@ -9,6 +9,7 @@ export type Settings = {
     maintenanceMessage : string | null;
     notifyTaskDeadlineReminders : boolean;
     notifyChecklistOverdueReminders : boolean;
+    liveOnlyAttachments : boolean;
     accessTokenExpiresMinutes : number;
     refreshTokenExpiresDays : number;
     orgName : string;
@@ -20,7 +21,7 @@ export type Settings = {
     inboundMessageRetentionDays : number;
 }
 
-export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl'>;
+export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl' | 'liveOnlyAttachments'>;
 
 export type ApiResponse<T> = { success : boolean; data : T};
 export type UpdateSettingsPayload = Partial<Settings>;

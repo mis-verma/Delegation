@@ -9,6 +9,7 @@ export const updateSettingsSchema = z.object({
     maintenanceMessage : z.string().max(500).nullable().optional(),
     notifyTaskDeadlineReminders : z.boolean().optional(),
     notifyChecklistOverdueReminders : z.boolean().optional(),
+    liveOnlyAttachments : z.boolean().optional(),
     accessTokenExpiresMinutes : z.number().int().min(1).max(1440).optional(),
     refreshTokenExpiresDays : z.number().int().min(1).max(365).optional(),
     orgName : z.string().trim().min(1, "Organization name can't be empty").max(191).optional(),

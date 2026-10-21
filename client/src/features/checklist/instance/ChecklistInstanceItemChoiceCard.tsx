@@ -2,8 +2,6 @@ import { memo, useMemo } from 'react';
 import { haptic } from '../../../lib/haptics';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { SelectDropdown, ToggleChip, type SelectDropdownOption } from '../../../components';
-import { UndoStrip } from './UndoStrip';
-import { useUndoableAnswer } from './useUndoableAnswer';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
@@ -18,11 +16,10 @@ interface ChecklistInstanceItemChoiceCardProps {
 
 export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceItemChoiceCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemChoiceCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  const undoable = useUndoableAnswer<string>((value) => setItemDone.mutate({ itemId: item.id, isDone: true, textValue: value }), item.isDone);
   const interactive = canWork && !isLocked;
-  const editable = interactive && !item.isDone;
+  const editable = interactive;
   const options = useMemo(() => item.options ?? [], [item.options]);
-  const textValue = item.isDone ? item.textValue ?? '' : undoable.queued ?? '';
+  const textValue = item.isDone ? item.textValue ?? '' : '';
   const previousAnswer = !item.isDone && item.textValue ? item.textValue : null;
 
   const dropdownOptions = useMemo<SelectDropdownOption<string>[]>(() => {
@@ -34,7 +31,8 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
   const choose = (value: string) => {
     if (!editable || setItemDone.isPending || !value) return;
     haptic('tap');
-    undoable.queue(value);
+    if (item.isDone && item.textValue === value) return;
+    setItemDone.mutate({ itemId: item.id, isDone: true, textValue: value });
   };
 
   return (
@@ -43,7 +41,7 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
         item={item}
         interactive={interactive}
         reopenPending={setItemDone.isPending}
-        onReopen={() => { undoable.clear(); setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined }); }}
+        onReopen={() => { setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined }); }}
       />
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
@@ -65,7 +63,7 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
           {options.map((opt) => (
             <ToggleChip
               key={opt}
-              on={item.isDone ? item.textValue === opt : undoable.queued === opt}
+              on={item.isDone && item.textValue === opt}
               disabled={!editable}
               onClick={() => choose(opt)}
               className="rounded-lg"
@@ -75,7 +73,6 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
           ))}
         </div>
       )}
-      <UndoStrip queued={undoable.queued !== null && !item.isDone} saved={undoable.saved} label={`Picked ${undoable.queued}`} onUndo={undoable.undo} />
     </ItemCardShell>
   );
 });

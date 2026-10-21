@@ -617,6 +617,12 @@ export const ticketService = {
     const afterTagIds = await ticketTagIds(id);
     const afterReviewerIds = await ticketReviewerIds(id);
 
+    const addedReviewers = afterReviewerIds.filter((r) => !beforeReviewerIds.includes(r))
+    if (addedReviewers.length) await notifySafely(() => notificationService.notifyReviewerAdded({ _id: id, title: afterRow!.title }, "TICKET", addedReviewers, user.sub))
+    if (input.status && input.status !== before.status && (input.status === "OPEN" || input.status === "IN_PROGRESS")) {
+      await notifySafely(() => notificationService.notifyStatusMoved({ _id: id, title: afterRow!.title, raiserId: afterRow!.userId }, "TICKET", input.status === "OPEN" ? "open again" : "in progress", user.sub))
+    }
+
     await auditService.record({
       entityType: "Ticket",
       entityId: id,
@@ -655,6 +661,10 @@ export const ticketService = {
     }
 
     const before = ticket;
+
+    if (files.length && settingsService.getCached().liveOnlyAttachments && input.captureMethod !== "LIVE") {
+      throw AppError.badRequest("Photos must be taken with the camera. Pick Camera, not Gallery.")
+    }
 
     if (input.status === before.status) {
       throw AppError.conflict("This ticket is already in that status.")
@@ -740,6 +750,10 @@ export const ticketService = {
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", afterRow!.approvalStage ?? "PC"));
+    }
+
+    if (input.status === "IN_PROGRESS" && before.status !== "IN_PROGRESS") {
+      await notifySafely(() => notificationService.notifyStatusMoved({ _id: id, title: afterRow!.title, raiserId: afterRow!.userId }, "TICKET", "in progress", user.sub))
     }
 
     if (input.status === "ON_HOLD" && before.status !== "ON_HOLD") {

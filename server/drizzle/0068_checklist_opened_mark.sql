@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistInstance` ADD `openedNotifiedAt` datetime;

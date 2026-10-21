@@ -1,3 +1,4 @@
+import { useLiveOnlyAttachments } from '../../lib/useLiveOnlyAttachments';
 import { useRef } from 'react';
 import { Paperclip, Camera } from 'lucide-react';
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
@@ -14,6 +15,7 @@ interface AttachFilesToolbarProps {
 
 export const AttachFilesToolbar = ({ onFiles, disabled, bordered = false }: AttachFilesToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const liveOnly = useLiveOnlyAttachments();
   const btnClass = `${BTN_CLASS} border ${bordered ? 'border-border hover:border-border-hover' : 'border-transparent'}`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,7 +25,7 @@ export const AttachFilesToolbar = ({ onFiles, disabled, bordered = false }: Atta
 
   return (
     <div className="flex items-center gap-2">
-      <input ref={fileInputRef} type="file" accept={ACCEPTED_ATTACHMENT_TYPES} multiple className="hidden" onChange={handleChange} />
+      <input ref={fileInputRef} type="file" accept={liveOnly ? ACCEPTED_ATTACHMENT_TYPES.replace(',image/*', '').replace(',video/*', '') : ACCEPTED_ATTACHMENT_TYPES} multiple className="hidden" onChange={handleChange} />
 
       <button type="button" disabled={disabled} className={btnClass} onClick={() => fileInputRef.current?.click()}>
         <Paperclip size={15} aria-hidden />

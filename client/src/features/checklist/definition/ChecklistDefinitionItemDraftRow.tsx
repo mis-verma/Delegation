@@ -1,5 +1,6 @@
-import { memo, type ReactNode } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { memo, useState, type ReactNode } from 'react';
+import { AlertCircle, Smartphone } from 'lucide-react';
+import { QuestionPhonePreview } from './builder/QuestionPhonePreview';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
 import { QuestionSummaryChips } from './builder/QuestionSummaryChips';
@@ -101,6 +102,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   trailing,
   className = '',
 }: ChecklistDefinitionItemDraftRowProps) => {
+  const [previewing, setPreviewing] = useState(false);
   const patch = (p: Partial<ItemDraft>) => onChange(draft.key, p);
   const type = questionTypeOf(draft);
   const TypeIcon = type.icon;
@@ -145,13 +147,15 @@ const ChecklistDefinitionItemDraftRowImpl = ({
                 className="w-full resize-none field-sizing-content min-h-7 -mx-1.5 px-1.5 py-0.5 rounded-md bg-transparent t-card leading-snug font-display font-semibold text-text placeholder:font-medium placeholder:text-text-light hover:bg-surface-hover/60 focus:bg-surface-hover/60 focus:outline-none transition-colors duration-150"
               />
             </div>
-            <div className="hidden sm:block shrink-0 pt-3">
+            <div className="hidden sm:flex shrink-0 items-center gap-1.5 pt-3">
+              <button type="button" onClick={() => setPreviewing(true)} aria-label="Preview this question on a phone" className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/70 bg-surface px-2.5 t-meta font-display font-semibold text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"><Smartphone size={13} aria-hidden />Preview</button>
               <QuestionTypeMenu draft={draft} onPick={pickType} />
             </div>
           </div>
 
-          <div className="sm:hidden">
+          <div className="flex items-center gap-2 sm:hidden">
             <QuestionTypeMenu draft={draft} onPick={pickType} />
+            <button type="button" onClick={() => setPreviewing(true)} aria-label="Preview this question on a phone" className="inline-flex h-11 items-center gap-1.5 rounded-full border border-border/70 bg-surface px-3 t-meta font-display font-semibold text-text-secondary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"><Smartphone size={14} aria-hidden />Preview</button>
           </div>
           <QuestionSummaryChips draft={draft} />
           <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} validPersonIds={validPersonIds} />
@@ -165,6 +169,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
 
         <div className="col-start-3 row-start-1 sm:col-start-4 justify-self-end">{trailing}</div>
       </div>
+      {previewing && <QuestionPhonePreview draft={draft} open onClose={() => setPreviewing(false)} />}
     </article>
   );
 };

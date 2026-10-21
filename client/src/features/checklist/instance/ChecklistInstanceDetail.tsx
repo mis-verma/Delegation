@@ -73,7 +73,8 @@ export const ChecklistInstanceDetail = () => {
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
-  const [show, setShow] = useState<'all' | 'left'>('all');
+  const [show, setShow] = useState<'all' | 'left' | 'one'>('all');
+  const [oneIndex, setOneIndex] = useState(0);
   const goBackAfterDecision = () => {
     const hasHistory = typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0;
     if (hasHistory) navigate(-1);
@@ -128,7 +129,13 @@ export const ChecklistInstanceDetail = () => {
   const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
-  const shownItems = show === 'left' ? instance.items.filter((i) => !answered(i)) : instance.items;
+  const lastIndex = Math.max(0, instance.items.length - 1);
+  const currentIndex = Math.min(oneIndex, lastIndex);
+  const shownItems = show === 'left'
+    ? instance.items.filter((i) => !answered(i))
+    : show === 'one'
+      ? instance.items.slice(currentIndex, currentIndex + 1)
+      : instance.items;
   const sectionCounts = new Map<string, { done: number; total: number }>();
   for (const i of instance.items) {
     const key = i.section ?? '';
@@ -140,6 +147,10 @@ export const ChecklistInstanceDetail = () => {
   const goToNext = () => {
     const next = instance.items.find((i) => !answered(i));
     if (!next) return;
+    if (show === 'one') {
+      setOneIndex(instance.items.indexOf(next));
+      return;
+    }
     if (show === 'left' && !shownItems.includes(next)) setShow('all');
     requestAnimationFrame(() => document.getElementById(`item-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
@@ -300,7 +311,7 @@ export const ChecklistInstanceDetail = () => {
                     <ArrowDown size={14} aria-hidden />
                   </Button>
                 )}
-                <PeriodTabControl value={show} options={['all', 'left'] as const} labels={{ all: 'All', left: `Left ${left}` }} onChange={setShow} />
+                <PeriodTabControl value={show} options={['all', 'left', 'one'] as const} labels={{ all: 'All', left: `Left ${left}`, one: 'One by one' }} onChange={(next) => { if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i)))); setShow(next); }} />
               </div>
             </div>
             <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
@@ -335,6 +346,20 @@ export const ChecklistInstanceDetail = () => {
           />
         ))}
       </div>
+
+      {show === 'one' && instance.items.length > 1 && (
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="outline" size="md" disabled={currentIndex <= 0} onClick={() => setOneIndex(currentIndex - 1)} className="pointer-coarse:h-11">
+            <ArrowLeft size={15} aria-hidden />
+            Back
+          </Button>
+          <span className="t-meta font-display font-semibold tabular-nums text-text-secondary">Question {currentIndex + 1} of {instance.items.length}</span>
+          <Button variant="primary" size="md" disabled={currentIndex >= lastIndex} onClick={() => setOneIndex(currentIndex + 1)} className="pointer-coarse:h-11">
+            Next
+            <ArrowDown size={15} className="-rotate-90" aria-hidden />
+          </Button>
+        </div>
+      )}
 
       {canSubmit && (
         <ChecklistSubmitBar instanceId={instanceId} total={total} resubmit={instance.verificationStatus === 'REJECTED'} />

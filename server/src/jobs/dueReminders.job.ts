@@ -139,6 +139,23 @@ const checklistsDueSoon = async (now: Date) => {
   await db.update(checklistInstances).set({ dueSoonNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
 };
 
+const checklistsOpened = async (now: Date) => {
+  const opensAtSql = sql`TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.opensTime}, ':00'))`;
+  const rows = await db.select().from(checklistInstances).where(and(
+    isNull(checklistInstances.openedNotifiedAt), isNotNull(checklistInstances.opensTime), parentNotDeletedExpr, unfinishedRun,
+    ne(checklistInstances.recurrence, 'ONE_TIME'),
+    sql`${opensAtSql} <= ${localNowExpr}`,
+    sql`${opensAtSql} > DATE_SUB(${localNowExpr}, INTERVAL 2 HOUR)`,
+    sql`${deadlineExpr} > ${localNowExpr}`,
+  )).limit(BATCH);
+  if (!rows.length) return;
+  const people = await assigneesOfRuns(rows.map((r) => r.id));
+  for (const r of rows) {
+    await notificationService.notifyChecklistOpened({ _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [], closesAt: r.cutoffTime ? formatClock(r.cutoffTime) : null });
+  }
+  await db.update(checklistInstances).set({ openedNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
+};
+
 const checklistsUpcoming = async (now: Date) => {
   const rows = await db.select().from(checklistInstances).where(and(
     isNull(checklistInstances.upcomingNotifiedAt), parentNotDeletedExpr, ne(checklistInstances.recurrence, 'DAILY'), ne(checklistInstances.recurrence, 'ONE_TIME'),
@@ -256,6 +273,7 @@ export const startDueReminders = () => {
       if (settings.notifyChecklistOverdueReminders) {
         await safely('checklists due soon', () => checklistsDueSoon(now));
         await safely('checklists upcoming', () => checklistsUpcoming(now));
+        await safely('checklists opened', () => checklistsOpened(now));
       }
     } finally {
       running = false;

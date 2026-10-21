@@ -1,0 +1,1 @@
+ALTER TABLE `Settings` ADD `liveOnlyAttachments` boolean DEFAULT false NOT NULL;

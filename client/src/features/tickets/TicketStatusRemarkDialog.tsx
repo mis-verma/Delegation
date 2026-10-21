@@ -1,3 +1,4 @@
+import { useLiveOnlyAttachments } from '../../lib/useLiveOnlyAttachments';
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { History, ArrowRight, Camera, ImageUp, ImagePlus } from 'lucide-react';
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
@@ -77,7 +78,9 @@ const PhotoAttachments = ({
   photos: File[];
   onAddPhotos: (files: FileList | null, method: CaptureMethod) => void;
   onRemovePhoto: (index: number) => void;
-}) => (
+}) => {
+  const liveOnly = useLiveOnlyAttachments();
+  return (
   <div className="flex flex-col gap-1.5">
     <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <ImagePlus size={14} className="text-text-light" aria-hidden /> Photo (optional)
@@ -87,7 +90,7 @@ const PhotoAttachments = ({
         <Camera size={14} strokeWidth={2.5} />
         <span>Camera</span>
       </LivePhotoTrigger>
-      <label className={PHOTO_BUTTON_CLASS}>
+      {!liveOnly && <label className={PHOTO_BUTTON_CLASS}>
         <ImageUp size={14} strokeWidth={2.5} />
         <span>Gallery</span>
         <input
@@ -97,7 +100,7 @@ const PhotoAttachments = ({
           className="sr-only"
           onChange={(e) => { onAddPhotos(e.target.files, 'GALLERY'); e.target.value = ''; }}
         />
-      </label>
+      </label>}
     </div>
     {photos.length > 0 && (
       <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 pt-1">
@@ -112,7 +115,8 @@ const PhotoAttachments = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 const ON_HOLD_SUGGESTIONS = ['Waiting for parts', 'Waiting for vendor', 'Waiting for customer', 'Need approval from manager'];
 

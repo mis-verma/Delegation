@@ -610,6 +610,7 @@ export const taskService = {
 
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, statusRemark, ...rest } = input;
         const beforeTagIds = await taskTagIds(id);
+        const beforeReviewerIds = reviewerIds !== undefined ? ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id) : [];
         const beforeAdditionalIds = additionalAssigneeIds !== undefined
             ? (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId)
             : [];
@@ -689,6 +690,14 @@ export const taskService = {
         const currentAdditionalIds = (await db.select({ userId: taskAdditionalAssignees.userId })
             .from(taskAdditionalAssignees)
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
+
+        if (reviewerIds !== undefined) {
+            const added = reviewerIds.filter((r) => !beforeReviewerIds.includes(r));
+            if (added.length) await notifySafely(() => notificationService.notifyReviewerAdded({ _id: task.id, title: task.title }, 'TASK', added, user.sub));
+        }
+        if (isStatusChange && (input.status === "in_progress" || input.status === "todo")) {
+            await notifySafely(() => notificationService.notifyStatusMoved({ _id: task.id, title: task.title, raiserId: task.userId }, 'TASK', input.status === "todo" ? 'to do again' : 'in progress', user.sub));
+        }
 
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             const reviewerIds = ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id);

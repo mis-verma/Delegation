@@ -6,6 +6,7 @@ import { users } from "../../db/schema/core.js"
 import { eq, and, asc, inArray, isNull, type SQL } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
+import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskCommentInput } from "./taskComment.validation.js"
 
@@ -101,6 +102,9 @@ export const taskCommentService = {
                 );
             }
         });
+
+        const helpers = (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, task.id))).map((r) => r.userId);
+        await notifySafely(() => notificationService.notifyCommentAdded({ _id: task.id, title: task.title, participantIds: [task.assigneeId, task.userId, ...helpers] }, "TASK", user.sub));
 
         const [comment] = await findCommentsWithDetails(eq(taskComments.id, commentId));
         return comment!;

@@ -480,6 +480,47 @@ export const notificationService = {
     });
   },
 
+  async notifyCommentAdded(entity: { _id: string; title: string; participantIds: (string | null | undefined)[] }, kind: 'TICKET' | 'TASK', authorId: string) {
+    const recipientIds = entity.participantIds.filter((id): id is string => !!id && id !== authorId);
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany(recipientIds, {
+      type: `${kind}_COMMENT`,
+      title: 'New comment',
+      message: `Someone commented on "${entity.title}".`,
+      ...idField,
+    });
+  },
+
+  async notifyReviewerAdded(entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK', reviewerIds: string[], actorId: string) {
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany(reviewerIds.filter((id) => id !== actorId), {
+      type: `${kind}_REVIEWER_ADDED`,
+      title: 'You are a reviewer',
+      message: `You were added as a reviewer on "${entity.title}". You will be asked to approve it when it is done.`,
+      ...idField,
+    });
+  },
+
+  async notifyStatusMoved(entity: { _id: string; title: string; raiserId: string }, kind: 'TICKET' | 'TASK', statusLabel: string, actorId: string) {
+    if (entity.raiserId === actorId) return [];
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany([entity.raiserId], {
+      type: `${kind}_STATUS`,
+      title: kind === 'TICKET' ? 'Ticket moved' : 'Delegation moved',
+      message: `"${entity.title}" is now ${statusLabel}.`,
+      ...idField,
+    });
+  },
+
+  async notifyChecklistOpened(instance: { _id: string; title: string; assigneeIds: string[]; closesAt: string | null }) {
+    return notificationService.notifyMany(instance.assigneeIds, {
+      type: 'CHECKLIST_OPENED',
+      title: 'Checklist is open',
+      message: instance.closesAt ? `"${instance.title}" is open now. It closes at ${instance.closesAt}.` : `"${instance.title}" is open now.`,
+      checklistInstanceId: instance._id,
+    });
+  },
+
   async notifyTicketDueSoon(ticket: { _id: string; title: string; assigneeId?: string | null; departmentId?: string | null; minutesLeft: number; dueAt: string }) {
     let recipientIds: string[] = ticket.assigneeId ? [ticket.assigneeId] : [];
     if (!recipientIds.length && ticket.departmentId) {

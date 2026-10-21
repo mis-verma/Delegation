@@ -1,4 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { LiveCameraDialog } from '../../checklist/instance/LiveCameraDialog';
+import { needsDesktopCamera } from '../../checklist/instance/cameraSupport';
+import { useLiveOnlyAttachments } from '../../../lib/useLiveOnlyAttachments';
 import { Camera, ImagePlus, Loader2, Plus, X } from 'lucide-react';
 import { useConfirm } from '@/components/confirmDialog';
 import { useUploadTicketAttachmentsMutation, useDeleteTicketAttachmentMutation } from '../hook';
@@ -18,6 +21,8 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
   const upload = useUploadTicketAttachmentsMutation(ticketId);
   const remove = useDeleteTicketAttachmentMutation();
   const confirm = useConfirm();
+  const liveOnly = useLiveOnlyAttachments();
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   if (attachments.length === 0 && !canEdit) return null;
 
@@ -38,7 +43,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
     if (ok) remove.mutate(attachment.id);
   };
 
-  const openPicker = () => inputRef.current?.click();
+  const openPicker = () => (liveOnly && needsDesktopCamera(true, 'image/*') ? setCameraOpen(true) : inputRef.current?.click());
 
   return (
     <section className="flex flex-col gap-2" aria-label="Photos">
@@ -52,7 +57,8 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
         )}
       </h3>
 
-      {canEdit && <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />}
+      {canEdit && <input ref={inputRef} type="file" accept="image/*" capture={liveOnly ? 'environment' : undefined} multiple className="hidden" onChange={handleFiles} />}
+      {cameraOpen && <LiveCameraDialog open onClose={() => setCameraOpen(false)} onCapture={(file) => upload.mutate([file])} />}
 
       {attachments.length === 0 ? (
         <button
@@ -66,7 +72,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="t-meta font-display font-semibold text-text">{upload.isPending ? 'Adding photos…' : 'Add photo'}</span>
-            <span className="t-meta text-text-muted">Take one or pick from the gallery</span>
+            <span className="t-meta text-text-muted">{liveOnly ? 'Take one with the camera' : 'Take one or pick from the gallery'}</span>
           </span>
         </button>
       ) : (

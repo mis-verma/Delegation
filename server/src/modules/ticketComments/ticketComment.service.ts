@@ -3,6 +3,7 @@ import { db } from "../../config/db.js"
 import { ticketComments, users } from "../../db/schema/index.js"
 import { eq } from "drizzle-orm"
 import { ticketService } from "../tickets/ticket.service.js"
+import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { emitTicketEvent } from "../../sockets/ticketEvent.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateCommentInput } from "./ticketComment.validation.js"
@@ -37,6 +38,8 @@ export const ticketCommentService = {
             departmentId: ticket.departmentId ?? null,
             storeId: ticket.storeId ?? null,
         }, ticket)
+
+        await notifySafely(() => notificationService.notifyCommentAdded({ _id: ticketId, title: ticket.title, participantIds: [ticket.assigneeId, ticket.userId] }, "TICKET", user.sub))
 
         return populated
     },

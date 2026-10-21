@@ -16,6 +16,8 @@ import {
   useChecklistTemplatesQuery,
   useAssignableUsersQuery,
 } from '../../hook';
+import { useDraftsQuery, useSaveDraftMutation } from '../../../drafts/hook';
+import { draftApi } from '../../../../api/drafts';
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
 import { QuestionTypePalette } from './QuestionTypePalette';
@@ -210,7 +212,14 @@ export const ChecklistBuilder = () => {
   const [copiedFromId, setCopiedFromId] = useState<string | undefined>(undefined);
   const [loadedVersion, setLoadedVersion] = useState<number | undefined>(undefined);
 
+  const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
   const [baseline, setBaseline] = useState(() => snapshotKey(BLANK_SNAPSHOT));
+
+  const draftParam = isEditing || isCopying ? '' : searchParams.get('draft') ?? '';
+  const { data: savedDrafts } = useDraftsQuery('CHECKLIST', !!draftParam);
+  const saveDraftMutation = useSaveDraftMutation('CHECKLIST');
+  const [savedDraftId, setSavedDraftId] = useState<string | undefined>(draftParam || undefined);
+  const [draftHydrated, setDraftHydrated] = useState(false);
 
   const applyDefinition = (def: ChecklistDefinition, asCopy: boolean) => {
     const nextName = asCopy ? copiedChecklistName(def.name) : def.name;
@@ -259,6 +268,33 @@ export const ChecklistBuilder = () => {
     }));
   };
 
+  const draftToLoad = draftParam && !draftHydrated ? savedDrafts?.find((d) => d.id === draftParam) : undefined;
+  if (draftToLoad) {
+    setDraftHydrated(true);
+    const p = draftToLoad.payload as Partial<BuilderSnapshot> & { step?: number };
+    const restored: BuilderSnapshot = { ...BLANK_SNAPSHOT, ...p };
+    setName(restored.name);
+    setDescription(restored.description);
+    setIcon(restored.icon);
+    setStoreIds(restored.storeIds);
+    setRecurrence(restored.recurrence);
+    setStartDate(restored.startDate);
+    setOpensTime(restored.opensTime);
+    setCutoffTime(restored.cutoffTime);
+    setLateUntilTime(restored.lateUntilTime);
+    setActiveWeekdays(restored.activeWeekdays);
+    setAssigneeIds(restored.assigneeIds);
+    setResponseMode(restored.responseMode);
+    setReviewerIds(restored.reviewerIds);
+    setItemDrafts(restored.itemDrafts);
+    setSections(restored.sections);
+    setBaseline(snapshotKey(restored));
+    const resumeAt = Math.min(Math.max(0, p.step ?? 0), STEPS.length - 1);
+    setStep(resumeAt);
+    setMaxStepReached(resumeAt);
+    setReviewerDefaultApplied(true);
+  }
+
   if (existing && hydratedId !== existing.id) {
     setHydratedId(existing.id);
     setLoadedVersion(existing.version);
@@ -269,7 +305,6 @@ export const ChecklistBuilder = () => {
     applyDefinition(copySource, true);
   }
 
-  const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
   const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying);
   if (!isEditing && !isCopying && !reviewerDefaultApplied && orgWideUsers.data) {
     setReviewerDefaultApplied(true);
@@ -512,6 +547,21 @@ export const ChecklistBuilder = () => {
 
   const isConflict = mutation.error instanceof ApiError && mutation.error.status === 409;
 
+  const saveAsDraft = () => {
+    const payload: Record<string, unknown> = {
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+      responseMode, assigneeIds, reviewerIds, itemDrafts, sections, step,
+    };
+    saveDraftMutation.mutate({ id: savedDraftId, title: name.trim() || 'Untitled checklist', payload }, {
+      onSuccess: (saved) => {
+        setSavedDraftId(saved.id);
+        markClean();
+        justSavedRef.current = false;
+        toast.success('Draft saved', { description: 'Open it again from Drafts on the Recurring Checklists page.' });
+      },
+    });
+  };
+
   const handleSubmit = async (options: { stay?: boolean } = {}) => {
     if (!canSubmit) return;
     if (isEditing && existing?.isActive && !hasPeople) {
@@ -559,6 +609,7 @@ export const ChecklistBuilder = () => {
       createDefinition.mutate(payload, {
         onSuccess: (created) => {
           markClean();
+          if (savedDraftId) void draftApi.remove(savedDraftId).catch(() => undefined);
           navigate(`/admin/scheduled-checklists/${created.id}`);
         },
       });
@@ -826,19 +877,19 @@ export const ChecklistBuilder = () => {
 
             {step < STEPS.length - 1 && (
               <div className="flex flex-wrap items-end justify-end gap-2">
-                {!isEditing && !hasPeople && (
+                {!isEditing && (
                   <Button
                     type="button"
                     variant="outline"
                     size="md"
-                    onClick={() => void handleSubmit()}
-                    isLoading={mutation.isPending}
-                    disabled={!canSubmit}
-                    title={!canSubmit ? 'Finish the steps that need attention first' : 'Save it now and keep it as a draft'}
+                    onClick={saveAsDraft}
+                    isLoading={saveDraftMutation.isPending}
+                    disabled={!name.trim()}
+                    title={!name.trim() ? 'Give it a name first' : 'Save what you have and finish later'}
                     className="font-display pointer-coarse:h-11"
                   >
                     <Save size={15} aria-hidden />
-                    <span>Save draft</span>
+                    <span>{savedDraftId ? 'Update draft' : 'Save draft'}</span>
                   </Button>
                 )}
                 {isEditing && (
@@ -876,6 +927,20 @@ export const ChecklistBuilder = () => {
                 </Button>
               </div>
               </div>
+            )}
+            {step === STEPS.length - 1 && !isEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={saveAsDraft}
+                isLoading={saveDraftMutation.isPending}
+                disabled={!name.trim()}
+                className="font-display pointer-coarse:h-11"
+              >
+                <Save size={15} aria-hidden />
+                <span>{savedDraftId ? 'Update draft' : 'Save draft'}</span>
+              </Button>
             )}
             {step === STEPS.length - 1 && (
               <Button
