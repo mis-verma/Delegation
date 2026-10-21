@@ -407,10 +407,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     }] : []),
   ];
 
-  const activeCount = activeChips.length;
+  const filterChips = activeChips.filter((chip) => !chip.scope);
+  const activeCount = filterChips.length;
 
   const isEmpty = sorted.length === 0;
-  const isFiltered = activeCount > 0 || quickFilter !== null;
+  const isFiltered = activeCount > 0 || quickFilter !== null || isAssignedToMe || isAssignedByMe;
 
   const headerActions = (
     <>
@@ -520,12 +521,12 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} storageKey={`view:tasks:${user?.id ?? "anon"}`} />
           </div>
 
-          {activeChips.length > 0 && (
-            <div className={`flex items-center gap-2 flex-wrap min-w-0 max-sm:order-last max-sm:basis-full ${activeChips.every(c => c.scope) ? 'max-sm:hidden' : ''}`}>
-              {activeChips.map(chip => (
+          {filterChips.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap min-w-0 max-sm:order-last max-sm:basis-full">
+              {filterChips.map(chip => (
                 <span
                   key={chip.key}
-                  className={`${chip.scope ? 'max-sm:hidden ' : ''}flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover`}
+                  className={`flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover`}
                 >
                   {chip.label}
                   <button
@@ -622,7 +623,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         <EmptyState
           icon={Inbox}
           size={isMobile ? 'compact' : undefined}
-          title={isFiltered && activeChips.every(c => c.scope) && quickFilter === null
+          title={isFiltered && filterChips.length === 0 && quickFilter === null
             ? (isAssignedToMe ? 'Nothing assigned to you' : 'You have not created any delegations')
             : isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}
           description={isMobile ? undefined : isFiltered
