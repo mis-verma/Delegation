@@ -46,6 +46,7 @@ interface NavItem {
   children?: NavChild[];
   soon?: boolean;
   quickCreateTo?: string;
+  tint?: string;
 }
 
 const TASK_CHILDREN: NavChild[] = [
@@ -65,17 +66,27 @@ const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'H
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
 
 const NAV: NavItem[] = [
-  { to: '/', icon: LayoutGrid, label: 'Dashboard' },
-  { to: '/tasks', icon: ClipboardList, label: 'Delegation', children: TASK_CHILDREN },
-  { to: '/tickets', icon: TicketCheck, label: 'Tickets' },
-  { to: '/todo', icon: ListTodo, label: 'To-Do' },
-  { to: '/events', icon: Megaphone, label: 'Events' },
-  { to: '/checklists', icon: ClipboardCheck, label: 'Checklists' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
+  { to: '/', icon: LayoutGrid, label: 'Dashboard', tint: 'primary' },
+  { to: '/tasks', icon: ClipboardList, label: 'Delegation', children: TASK_CHILDREN, tint: 'info' },
+  { to: '/tickets', icon: TicketCheck, label: 'Tickets', tint: 'coral' },
+  { to: '/todo', icon: ListTodo, label: 'To-Do', tint: 'success' },
+  { to: '/events', icon: Megaphone, label: 'Events', tint: 'warning' },
+  { to: '/checklists', icon: ClipboardCheck, label: 'Checklists', tint: 'primary' },
+  { to: '/projects', icon: FolderKanban, label: 'Projects', tint: 'info' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar', tint: 'coral' },
 ];
 
-const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settings' };
+const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settings', tint: 'neutral' };
+
+const TINTS: Record<string, { idle: string; active: string }> = {
+  primary: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  info: { idle: 'bg-info/10 text-info', active: 'from-info to-info/75' },
+  coral: { idle: 'bg-coral-500/10 text-coral-600 dark:text-coral-400', active: 'from-coral-500 to-coral-600' },
+  success: { idle: 'bg-success/10 text-success', active: 'from-success to-success/75' },
+  warning: { idle: 'bg-warning/10 text-warning', active: 'from-warning to-warning/75' },
+  danger: { idle: 'bg-danger/10 text-danger', active: 'from-danger to-danger/75' },
+  neutral: { idle: 'bg-surface-hover text-text-muted', active: 'from-primary-500 to-primary-600' },
+};
 
 const isChildActive = (child: NavChild, location: { pathname: string; search: string }) =>
   child.to.includes('?')
@@ -211,14 +222,14 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   });
 
   const adminNavItems: NavItem[] = [
-    ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
-    ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
-    ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart' }] : []),
-    ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals' }] : []),
+    ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics', tint: 'info' }] : []),
+    ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' }] : []),
+    ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' }] : []),
+    ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals', tint: 'coral' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
-      ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
+      ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),
-    ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin' }] : []),
+    ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin', tint: 'danger' }] : []),
   ];
 
   const handleNavClick = () => {
@@ -227,7 +238,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     }
   };
 
-  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo }: NavItem, isDrawer: boolean) => {
+  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo, tint = 'primary' }: NavItem, isDrawer: boolean) => {
     const hasActiveChild = children?.some((child) => !child.soon && isChildActive(child, location)) ?? false;
     const hasChildren = !!children?.length;
     const isExpanded = expandedKeys.has(to);
@@ -302,13 +313,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 )}
                 <span
                   className={[
-                    'relative z-10 flex items-center justify-center shrink-0 size-8 rounded-lg transition-colors duration-150',
-                    isActive || hasActiveChild ? 'bg-primary-500/12 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300' : 'text-text-muted group-hover/link:text-text',
+                    'relative z-10 flex items-center justify-center shrink-0 size-9 rounded-xl transition-[background-color,color,transform] duration-150 group-active/link:scale-95 motion-reduce:group-active/link:scale-100',
+                    isActive || hasActiveChild ? `bg-linear-to-br ${(TINTS[tint] ?? TINTS.primary).active} text-white` : (TINTS[tint] ?? TINTS.primary).idle,
                   ].join(' ')}
                 >
                   <Icon
                     size={19}
-                    strokeWidth={isActive || hasActiveChild ? 2.2 : 1.9}
+                    strokeWidth={isActive || hasActiveChild ? 2.4 : 2}
                     className="transition-transform duration-200 group-hover/link:scale-105"
                   />
                 </span>
