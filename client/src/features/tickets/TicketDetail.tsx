@@ -10,6 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
   useDeclineTicketMutation,
+  useApproveAssignmentMutation,
 } from './hook';
 import { Button, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
@@ -88,6 +89,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
   const verifyMut = useVerifyTicketMutation();
   const declineMut = useDeclineTicketMutation();
+  const approveAssignmentMut = useApproveAssignmentMutation();
   const [declining, setDeclining] = useState(false);
 
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
@@ -181,11 +183,13 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   };
 
   const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveTicket(currentUser, ticket);
+  const awaitingHead = !!ticket.awaitingHeadApproval && !ticket.declinedAt;
   const workerCanMove = canChangeStatus
+    && !awaitingHead
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
     && (!ownScope || ticket.assigneeId === currentUser?.id);
-  const statusOptions = showVerify
+  const statusOptions = showVerify || awaitingHead
     ? []
     : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
       .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
@@ -203,7 +207,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const canDecline = !ticket.declinedAt
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
     && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
-  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline;
+  const canApproveAssignment = awaitingHead && (isAdmin || (isDepartmentHead && ticket.assigneeId !== currentUser?.id));
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || awaitingHead;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
@@ -431,6 +436,25 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     onSendBack={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
                   />
                 </div>
+              )}
+              {awaitingHead && !canApproveAssignment && (
+                <p className="flex items-center gap-2 t-meta font-display font-semibold text-warning max-sm:justify-center">
+                  <ShieldCheck size={15} aria-hidden />
+                  Waiting for the department head to approve. Work starts after that.
+                </p>
+              )}
+              {canApproveAssignment && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  isLoading={approveAssignmentMut.isPending}
+                  disabled={approveAssignmentMut.isPending}
+                  onClick={() => approveAssignmentMut.mutate({ id: ticket.id })}
+                  className="max-sm:flex-1 max-sm:h-11 gap-1.5 font-display font-semibold"
+                >
+                  <ShieldCheck size={16} aria-hidden />
+                  Approve for team
+                </Button>
               )}
               {statusOptions.length > 0 && (
                 <TicketStatusMenu

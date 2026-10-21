@@ -47,6 +47,11 @@ export const ticketController = {
         res.json({ success : true , data : ticket})
     }),
 
+    approveAssignment : asyncHandler(async (req : Request , res : Response) => {
+        const ticket = await ticketService.approveAssignment(req.params.id, req.user!)
+        res.json({ success : true , data : ticket })
+    }),
+
     decline : asyncHandler(async (req : Request , res : Response) => {
         const input = declineTicketSchema.parse(req.body);
         const ticket = await ticketService.decline(req.params.id, input.reason, req.user!)

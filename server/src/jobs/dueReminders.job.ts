@@ -32,7 +32,7 @@ const safely = async (label: string, work: () => Promise<unknown>) => {
 
 const ticketsDueSoon = async (now: Date) => {
   const rows = await db.select().from(tickets).where(and(
-    isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.dueSoonNotifiedAt), isNotNull(tickets.tatDueAt),
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), isNull(tickets.dueSoonNotifiedAt), isNotNull(tickets.tatDueAt),
     notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']),
     gt(tickets.tatDueAt, now),
     lte(tickets.tatDueAt, new Date(now.getTime() + DUE_SOON_MINUTES * MINUTE_MS)),
@@ -50,7 +50,7 @@ const ticketsDueSoon = async (now: Date) => {
 
 const ticketsOverdue = async (now: Date) => {
   const rows = await db.select().from(tickets).where(and(
-    isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.overdueNotifiedAt), eq(tickets.isOverdue, true),
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), isNull(tickets.overdueNotifiedAt), eq(tickets.isOverdue, true),
     notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']),
     gt(tickets.tatDueAt, new Date(now.getTime() - OVERDUE_LOOKBACK_MS)),
   )).orderBy(asc(tickets.tatDueAt)).limit(BATCH);

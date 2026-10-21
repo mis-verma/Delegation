@@ -28,7 +28,7 @@ import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../ch
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
-import { canApproveAtStage, firstApprovalStage, type ApprovalStage } from "./ticketApproval.js"
+import { canApproveAtStage, firstApprovalStage, assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, type ApprovalStage } from "./ticketApproval.js"
 
 type TicketRow = typeof tickets.$inferSelect
 
@@ -465,6 +465,7 @@ export const ticketService = {
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
+    const needsHead = await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null, assigneeId: input.assigneeId ?? null }, user)
     await db.insert(tickets).values({
       id,
       title: input.title,
@@ -479,6 +480,7 @@ export const ticketService = {
       tatDueAt: deriveTatDueAt(tatHours ?? null, now),
       startDate: input.startDate ? new Date(input.startDate) : null,
       isOverdue: false,
+      awaitingHeadApproval: needsHead,
       userId: user.sub,
     })
 
@@ -498,7 +500,9 @@ export const ticketService = {
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:created", roomTarget(afterRow!), populated)
 
-    if (afterRow!.assigneeId) {
+    if (needsHead) {
+      await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
+    } else if (afterRow!.assigneeId) {
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)))
     } else {
       await notifySafely(() => notificationService.notifyTicketUnassigned({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId }, user.sub))
@@ -580,6 +584,17 @@ export const ticketService = {
       patch.startDate = input.startDate ? new Date(input.startDate) : null
     }
 
+    const nextAssigneeId = patch.assigneeId !== undefined ? patch.assigneeId : before.assigneeId
+    const nextDepartmentId = patch.departmentId !== undefined ? patch.departmentId : before.departmentId
+    const reassigned = (input.assigneeId !== undefined && input.assigneeId !== before.assigneeId) || (input.departmentId !== undefined && input.departmentId !== before.departmentId)
+    let nowAwaitingHead = false
+    if (reassigned && before.status === "OPEN") {
+      nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId, assigneeId: nextAssigneeId }, user)
+      patch.awaitingHeadApproval = nowAwaitingHead
+      patch.assignmentApprovedBy = null
+      patch.assignmentApprovedAt = null
+    }
+
     if (input.tatHours !== undefined && input.tatHours !== before.tatHours) {
       patch.tatHours = input.tatHours ?? null
       patch.tatDueAt = deriveTatDueAt(input.tatHours ?? null, new Date())
@@ -640,7 +655,8 @@ export const ticketService = {
     if (input.assigneeId && input.assigneeId !== before.assigneeId) {
       await db.update(tickets).set({ unassignedNotifiedAt: null }).where(eq(tickets.id, id))
       emitTicketEvent("ticket:assigned", target, populated)
-      await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
+      if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
+      else await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
@@ -662,6 +678,11 @@ export const ticketService = {
 
     const before = ticket;
 
+    const canActBeforeApproval = isVerifierRole(user) || isDepartmentHead(user, ticket)
+    if (before.awaitingHeadApproval && !canActBeforeApproval) {
+      throw AppError.forbidden("Your department head has to approve this ticket before work can start.")
+    }
+
     if (files.length && settingsService.getCached().liveOnlyAttachments && input.captureMethod !== "LIVE") {
       throw AppError.badRequest("Photos must be taken with the camera. Pick Camera, not Gallery.")
     }
@@ -682,6 +703,11 @@ export const ticketService = {
     }
 
     const patch: Partial<typeof tickets.$inferInsert> = { status: input.status, updatedAt: new Date() }
+    if (before.awaitingHeadApproval) {
+      patch.awaitingHeadApproval = false
+      patch.assignmentApprovedBy = user.sub
+      patch.assignmentApprovedAt = new Date()
+    }
     if ((before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "PENDING_APPROVAL") {
       patch.reopenCount = before.reopenCount + 1
     }
@@ -762,6 +788,39 @@ export const ticketService = {
 
     await dropTicketSummaries()
     return populated;
+  },
+
+  async approveAssignment(id: string, user: AccessTokenPayload) {
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
+    if (!ticket) throw AppError.notFound("Ticket not found")
+    if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this ticket.")
+    if (!ticket.awaitingHeadApproval) throw AppError.conflict("This ticket has already been approved.")
+
+    const now = new Date()
+    const patch: Partial<typeof tickets.$inferInsert> = {
+      awaitingHeadApproval: false,
+      assignmentApprovedBy: user.sub,
+      assignmentApprovedAt: now,
+      updatedAt: now,
+    }
+    if (ticket.tatHours) {
+      patch.tatDueAt = deriveTatDueAt(ticket.tatHours, now)
+      patch.isOverdue = false
+      patch.dueSoonNotifiedAt = null
+      patch.overdueNotifiedAt = null
+      patch.overdueEscalatedAt = null
+    }
+    const [result] = await db.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.awaitingHeadApproval, true), NOT_DELETED))
+    if (result.affectedRows === 0) throw AppError.conflict("Someone approved this ticket a moment ago.")
+
+    const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    await auditService.record({ entityType: "Ticket", entityId: id, action: "UPDATE", actorId: user.sub, before: ticket, after: afterRow })
+
+    const populated = await getPopulatedTicket(id)
+    emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
+    await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub))
+    await dropTicketSummaries()
+    return populated
   },
 
   async decline(id: string, reason: string, user: AccessTokenPayload) {

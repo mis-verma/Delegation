@@ -111,6 +111,31 @@ export const notificationService = {
     return [...sent, ...toHeads];
   },
 
+  async notifyTicketAwaitingHead(ticket: { _id: any; title: string; departmentId?: any; assigneeId?: any; userId?: any }) {
+    if (!ticket.departmentId) return [];
+    const exclude = new Set([ticket.assigneeId, ticket.userId].filter(Boolean).map((id: any) => id.toString()));
+    const heads = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
+    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => !exclude.has(id)), {
+      type: 'TICKET_AWAITING_HEAD',
+      title: 'Approve this ticket for your team',
+      message: `"${ticket.title}" was assigned to someone in your department. Approve it so they can start, or decline it.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
+  async notifyTicketHeadApproved(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, actorId: string) {
+    const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
+    return notificationService.notifyMany(ids, {
+      type: 'TICKET_ASSIGNMENT_APPROVED',
+      title: 'Ticket approved, you can start',
+      message: `The department head approved "${ticket.title}". The team can work on it now.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
   async notifyTicketDeclined(ticket: { _id: any; title: string; userId: any; assigneeId?: any }, reason: string, actorId: string) {
     const recipientIds = [ticket.userId?.toString(), ticket.assigneeId?.toString()].filter((id): id is string => !!id && id !== actorId);
     return notificationService.notifyMany(recipientIds, {

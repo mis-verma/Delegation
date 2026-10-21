@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlarmClock, CalendarDays, Clock3, User } from 'lucide-react';
+import { AlarmClock, CalendarDays, Clock3, ShieldQuestion, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
@@ -99,6 +99,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </TooltipContent>
           </Tooltip>
         ) : statusChip}
+
+        {ticket.awaitingHeadApproval && !ticket.declinedAt && (
+          <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
+        )}
 
         <PriorityChip meta={priorityInfo} />
 

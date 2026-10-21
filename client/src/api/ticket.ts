@@ -143,6 +143,8 @@ export type Ticket = {
   verifiedAt:       string | null;
   verificationNote: string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
+  awaitingHeadApproval?: boolean;
+  assignmentApprovedAt?: string | null;
   approvalStage?:   'HOD' | 'PC' | null;
   hodApprovedBy?:   string | null;
   hodApprovedAt?:   string | null;
@@ -260,6 +262,9 @@ export const ticketApi = {
 
   update: (id: string, payload: UpdateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  approveAssignment: (id: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   decline: (id: string, reason: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

@@ -42,3 +42,17 @@ export const firstApprovalStage = async (ticket: StageTicket): Promise<ApprovalS
   const heads = await activeDepartmentHeadIds(ticket.departmentId, [ticket.assigneeId, ticket.userId])
   return heads.length > 0 ? "HOD" : "PC"
 }
+
+export const assignmentNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId" | "assigneeId">, actor: Actor): Promise<boolean> => {
+  if (!ticket.assigneeId || !ticket.departmentId) return false
+  if (actor.role === "ADMIN" || actor.role === "PC") return false
+  if (isDepartmentHead(actor, ticket)) return false
+  const heads = await activeDepartmentHeadIds(ticket.departmentId, [ticket.assigneeId, actor.sub])
+  return heads.length > 0
+}
+
+export const canApproveAssignment = (ticket: Pick<StageTicket, "departmentId" | "assigneeId">, user: Actor): boolean => {
+  if (user.role === "ADMIN" || user.role === "PC") return true
+  if (ticket.assigneeId === user.sub) return false
+  return isDepartmentHead(user, ticket)
+}

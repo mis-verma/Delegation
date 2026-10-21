@@ -19,6 +19,7 @@ export const startSlaSweep = () => {
       const overdue = await db.select().from(tickets).where(and(
         lt(tickets.tatDueAt, new Date()),
         eq(tickets.isOverdue, false),
+        eq(tickets.awaitingHeadApproval, false),
         ne(tickets.status, 'CLOSED'),
         ne(tickets.status, 'PENDING_APPROVAL'),
         isNull(tickets.deletedAt),

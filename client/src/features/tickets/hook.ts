@@ -184,6 +184,16 @@ export const useTicketsBoardQuery = (enabled = true, assigneeId?: string) => {
   });
 };
 
+export const useApproveAssignmentMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id }: { id: string }) => ticketApi.approveAssignment(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
+    invalidateKeys: [['tickets']],
+    successMessage: 'Approved. The team can start work now.',
+    retryable: true,
+    errorFallback: "Couldn't approve the ticket. Try again.",
+  });
+
 export const useDeclineTicketMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => ticketApi.decline(id, reason).then(r => r.data),
