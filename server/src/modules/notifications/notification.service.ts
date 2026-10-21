@@ -138,6 +138,19 @@ export const notificationService = {
     });
   },
 
+  async notifyTicketProgress(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, remark: string, actorId: string) {
+    const raiserId = ticket.userId?.toString();
+    if (!raiserId || raiserId === actorId) return [];
+    const [actor] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, actorId)).limit(1);
+    const short = remark.length > 120 ? `${remark.slice(0, 117)}...` : remark;
+    return notificationService.notifyMany([raiserId], {
+      type: 'TICKET_PROGRESS',
+      title: 'Progress update',
+      message: `${actor?.firstName ?? 'The assignee'} on "${ticket.title}": ${short}`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
   async notifyTicketDeclined(ticket: { _id: any; title: string; userId: any; assigneeId?: any }, reason: string, actorId: string) {
     const recipientIds = [ticket.userId?.toString(), ticket.assigneeId?.toString()].filter((id): id is string => !!id && id !== actorId);
     return notificationService.notifyMany(recipientIds, {

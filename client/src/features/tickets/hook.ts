@@ -131,6 +131,17 @@ export const useAddTicketStatusUpdateMutation = (ticketId: string) =>
     errorFallback: "Couldn't change the status of the ticket. Try again.",
   });
 
+export const useTicketProgressMutation = (ticketId: string) =>
+  useEntityMutation({
+    mutationFn: (payload: { remark: string; captureMethod?: CaptureMethod; files?: File[] }) =>
+      ticketApi.addStatusUpdate(ticketId, { status: 'IN_PROGRESS', ...payload }).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
+    invalidateKeys: [['tickets']],
+    successMessage: 'Update posted. The person who raised it can see it.',
+    retryable: true,
+    errorFallback: "Couldn't post the update. Try again.",
+  });
+
 export const useTicketStatusMoveMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, payload }: { id: string; payload: { status: RestrictedStatus; remark?: string } }) =>

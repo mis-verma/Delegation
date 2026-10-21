@@ -16,6 +16,7 @@ export type ActivityKind =
     | "due_changed"
     | "priority_changed"
     | "reassigned"
+    | "progress"
     | "head_approved"
     | "declined"
     | "reopened"
@@ -195,6 +196,7 @@ export const activityService = {
             if (r.action === "VERIFY" || r.action === "APPROVE") { push({ kind: "approved" }, "v"); continue }
             if (r.action === "REJECT") { push({ kind: "sent_back" }, "r"); continue }
             if (r.action === "DECLINE") { push({ kind: "declined", remark: typeof a.declineReason === "string" ? a.declineReason : null }, "x"); continue }
+            if (r.action === "PROGRESS") { push({ kind: "progress", remark: remarkFor(r.actorId, "IN_PROGRESS", r.createdAt) }, "g"); continue }
             if (r.action === "REOPEN") { push({ kind: "reopened" }, "o"); continue }
             if (r.action !== "UPDATE") continue
 

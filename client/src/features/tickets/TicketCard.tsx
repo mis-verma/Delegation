@@ -1,8 +1,10 @@
 import { memo } from 'react';
-import { AlarmClock, BellRing, CalendarDays, Clock3, ShieldCheck, ShieldQuestion, User } from 'lucide-react';
+import { AlarmClock, BellRing, CalendarDays, Clock3, History, ShieldCheck, ShieldQuestion, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { useAuth } from '../../context/AuthContext';
 import { isDepartmentHead } from '../../lib/ticketApproval';
+import { useSharedNow } from '../../lib/useSharedNow';
+import { FRESHNESS_LOOK, freshnessOf, lastWorkTouchOf, progressUpdatesOf, timeAgo } from '../../lib/ticketProgress';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
@@ -41,6 +43,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     : null;
 
   const prefetchHandlers = usePrefetchTicket(ticket.id);
+  const working = ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !ticket.awaitingHeadApproval;
+  const lastTouch = working ? lastWorkTouchOf(ticket) : null;
+  const latestNote = working ? progressUpdatesOf(ticket)[0]?.remark ?? null : null;
+  const renderedAt = useSharedNow();
+  const touchLook = lastTouch ? FRESHNESS_LOOK[freshnessOf(lastTouch, renderedAt)] : null;
   const { user } = useAuth();
   const headApproved = !ticket.awaitingHeadApproval && !ticket.declinedAt && !!ticket.assignmentApprovedAt && ticket.status !== 'CLOSED';
   const needsMyDecision = !!ticket.awaitingHeadApproval && !ticket.declinedAt && !!user
@@ -86,6 +93,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
           </p>
         )}
+        {latestNote && (
+          <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
+            <span className="font-semibold text-text-secondary">Latest update:</span> {latestNote}
+          </p>
+        )}
         {((isOverdue && !due) || progress !== null || (departmentName && !isBoard)) && (
           <div className="flex items-center min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
             {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Late</span>}
@@ -110,6 +122,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </TooltipContent>
           </Tooltip>
         ) : statusChip}
+
+        {lastTouch && touchLook && (
+          <IconChip icon={History} tone={touchLook.tone} label={`Updated ${timeAgo(lastTouch, renderedAt)}`} className={touchLook.chip} labelClassName={touchLook.text} />
+        )}
 
         {ticket.awaitingHeadApproval && !ticket.declinedAt && (
           needsMyDecision ? (

@@ -72,7 +72,7 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
 const PHOTO_BUTTON_CLASS =
   'inline-flex items-center justify-center gap-2 t-meta font-display font-semibold px-3 h-10 sm:h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-500/5 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-500/40 [&_svg]:text-primary-600 dark:[&_svg]:text-primary-300';
 
-const PhotoAttachments = ({
+export const PhotoAttachments = ({
   photos, onAddPhotos, onRemovePhoto,
 }: {
   photos: File[];

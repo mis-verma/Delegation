@@ -3,7 +3,7 @@ import {
   Contact, Sparkles, Building2, CalendarClock, FolderKanban, Settings,
   Plus, Pencil, Trash2, ShieldCheck, ShieldX, Power, PowerOff, KeyRound,
   Store, CalendarOff, CheckCheck, Camera, ImageIcon, Send, Undo2, RotateCcw, ArrowRightLeft, UserMinus,
-  MessageCircle, Bot, UserRound, Shirt, Ban,
+  MessageCircle, Bot, UserRound, Shirt, Ban, Activity,
   type LucideIcon,
 } from 'lucide-react';
 import type { AuditEntityType, AuditAction, AuditLog, AuditLogFilter } from '../../../api/auditLogs';
@@ -50,6 +50,8 @@ export const ACTION_CONFIG: Record<AuditAction, { label: string; icon: LucideIco
   OFFBOARD: { label: 'Offboarded', icon: UserMinus, tone: 'bg-danger' },
   WAIVE: { label: 'Waived', icon: Ban, tone: 'bg-warning' },
   UNWAIVE: { label: 'Waiver removed', icon: RotateCcw, tone: 'bg-warning' },
+  DECLINE: { label: 'Declined', icon: Ban, tone: 'bg-danger' },
+  PROGRESS: { label: 'Work update', icon: Activity, tone: 'bg-warning' },
 };
 
 const ACTION_VERB: Record<AuditAction, string> = {
@@ -71,6 +73,8 @@ const ACTION_VERB: Record<AuditAction, string> = {
   OFFBOARD: 'offboarded',
   WAIVE: 'waived',
   UNWAIVE: 'removed the waiver on',
+  DECLINE: 'declined',
+  PROGRESS: 'posted a work update on',
 };
 
 export const actionVerb = (action: string) =>

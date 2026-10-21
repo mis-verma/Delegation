@@ -17,6 +17,7 @@ import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components'
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
 import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
+import { ProgressUpdatesPanel } from './detail/ProgressUpdatesPanel';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -411,6 +412,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </>
               )}
 
+              {ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !awaitingHead && !editing && (
+                <ProgressUpdatesPanel ticket={ticket} canPost={workerCanMove} onPreview={setPreviewImage} />
+              )}
+
               <TicketAttachments
                 ticketId={ticket.id}
                 attachments={ticket.attachments ?? []}
@@ -425,13 +430,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </div>
 
               <div className="flex flex-col gap-4 sm:gap-5 min-w-0 max-lg:order-3">
-              <TicketStatusHistory
-                statusUpdates={ticket.statusUpdates}
-                onPreview={setPreviewImage}
-                closure={ticket.status === 'CLOSED' && (ticket.verifiedAt ?? ticket.closedAt)
-                  ? { at: (ticket.verifiedAt ?? ticket.closedAt) as string, by: ticket.verifier?.firstName ?? null, note: ticket.verificationNote }
-                  : null}
-              />
+              <TicketStatusHistory ticket={ticket} departmentName={departmentName} onPreview={setPreviewImage} />
               </div>
             </div>
           </div>

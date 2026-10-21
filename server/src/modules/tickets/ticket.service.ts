@@ -696,8 +696,12 @@ export const ticketService = {
       throw AppError.badRequest("Photos must be taken with the camera. Pick Camera, not Gallery.")
     }
 
-    if (input.status === before.status) {
+    const isProgressNote = input.status === "IN_PROGRESS" && before.status === "IN_PROGRESS"
+    if (input.status === before.status && !isProgressNote) {
       throw AppError.conflict("This ticket is already in that status.")
+    }
+    if (isProgressNote && !input.remark) {
+      throw AppError.badRequest("Write a short update so the team can see where this stands.")
     }
     if (before.status === "CLOSED" && !isVerifierRole(user)) {
       throw AppError.forbidden("Only an admin or PC can reopen a closed ticket.")
@@ -773,7 +777,7 @@ export const ticketService = {
     await auditService.record({
       entityType: "Ticket",
       entityId: id,
-      action: "UPDATE",
+      action: isProgressNote ? "PROGRESS" : "UPDATE",
       actorId: user.sub,
       before,
       after: afterRow,
@@ -789,6 +793,10 @@ export const ticketService = {
 
     if (input.status === "IN_PROGRESS" && before.status !== "IN_PROGRESS") {
       await notifySafely(() => notificationService.notifyStatusMoved({ _id: id, title: afterRow!.title, raiserId: afterRow!.userId }, "TICKET", "in progress", user.sub))
+    }
+
+    if (isProgressNote) {
+      await notifySafely(() => notificationService.notifyTicketProgress(notificationTarget(afterRow!), input.remark ?? "", user.sub))
     }
 
     if (input.status === "ON_HOLD" && before.status !== "ON_HOLD") {

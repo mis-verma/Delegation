@@ -1,8 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, Ban, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, RotateCcw, ShieldCheck, Undo2, UserRound, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowRight, ArrowRightLeft, Ban, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, RotateCcw, ShieldCheck, Undo2, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
+import type { Role } from '../../api/auth';
+import { RoleChip } from '../roleChip';
+import { CountBadge } from '../countBadge';
+import { IconChip } from '../iconChip';
+import { PriorityChip } from '../priorityChip';
+import { StatusChip, getStatusChipMeta, type StatusChipStatus } from '../statusChip';
+import { PRIORITY_CONFIG } from '../../features/tickets/ticketDisplay';
 import { type ActivityEntity, type ActivityEvent, type ActivityKind } from '../../api/activity';
 import { Skeleton } from '../skeleton';
 import { activityQueryOptions } from './activityQuery';
@@ -20,12 +27,40 @@ const KIND: Record<ActivityKind, { icon: LucideIcon; tone: ActivityTone }> = {
   priority_changed: { icon: Flag, tone: 'coral' },
   reassigned: { icon: UserRound, tone: 'primary' },
   edited: { icon: Pencil, tone: 'muted' },
+  progress: { icon: Activity, tone: 'warning' },
   head_approved: { icon: ShieldCheck, tone: 'success' },
   declined: { icon: Ban, tone: 'danger' },
   reopened: { icon: RotateCcw, tone: 'info' },
 };
 
 const DAY = 86_400_000;
+
+const STATUS_ALIAS: Record<string, StatusChipStatus> = { done: 'completed', todo: 'open' };
+
+const chipKey = (label: string | null | undefined): StatusChipStatus | null => {
+  if (!label) return null;
+  const key = label.trim().toLowerCase().replace(/s+/g, '_');
+  const alias = STATUS_ALIAS[key];
+  if (alias) return alias;
+  return getStatusChipMeta(key as StatusChipStatus) ? (key as StatusChipStatus) : null;
+};
+
+const StatusStep = ({ from, to }: { from?: string | null; to: string }) => {
+  const toKey = chipKey(to);
+  if (!toKey) return null;
+  const fromKey = chipKey(from);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {fromKey && (
+        <>
+          <StatusChip status={fromKey} className="opacity-70" />
+          <ArrowRight size={13} className="shrink-0 text-text-light" strokeWidth={2.5} aria-label="to" />
+        </>
+      )}
+      <StatusChip status={toKey} />
+    </div>
+  );
+};
 
 const dayLabel = (date: Date) => {
   const today = new Date();
@@ -53,7 +88,8 @@ const sentence = (e: ActivityEvent, thing: string) => {
     case 'priority_changed': return `changed the priority to ${e.to}`;
     case 'reassigned': return e.to ? `assigned it to ${e.to}` : 'removed the assignee';
     case 'edited': return `edited the ${(e.fields ?? []).join(' and ')}`;
-    case 'head_approved': return `approved this ${thing} as department head. The team can start`;
+    case 'progress': return `posted a work update`;
+    case 'head_approved': return `approved this ${thing} for the team`;
     case 'declined': return `declined this ${thing}`;
     case 'reopened': return `reopened this ${thing}`;
   }
@@ -71,7 +107,46 @@ const groupByDay = (events: ActivityEvent[]) => {
   return groups;
 };
 
-const Detail = ({ e }: { e: ActivityEvent }) => {
+const Detail = ({ e, entityType }: { e: ActivityEvent; entityType: ActivityEntity }) => {
+  if (e.kind === 'progress') {
+    return (
+      <div className="flex flex-col gap-2">
+        <IconChip icon={Activity} tone="bg-warning" label="Work update" className="w-fit border-warning/30 bg-warning/10" labelClassName="text-warning" />
+        {e.remark && <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>}
+      </div>
+    );
+  }
+  if (e.kind === 'head_approved') return <IconChip icon={ShieldCheck} tone="bg-success" label="Approved by head" className="w-fit border-success/30 bg-success/10" labelClassName="text-success" />;
+  if (e.kind === 'reopened') return <IconChip icon={RotateCcw} tone="bg-info" label="Reopened" className="w-fit border-info/30 bg-info/10" labelClassName="text-info" />;
+  if (e.kind === 'declined') {
+    return (
+      <div className="flex flex-col gap-2">
+        <StatusChip status="declined" className="w-fit" />
+        {e.remark && <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>}
+      </div>
+    );
+  }
+  if ((e.kind === 'status' || e.kind === 'sent_back') && e.to && chipKey(e.to)) {
+    return (
+      <div className="flex flex-col gap-2">
+        <StatusStep from={e.from} to={e.to} />
+        {e.remark && <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>}
+      </div>
+    );
+  }
+  if (e.kind === 'approved' && e.to && chipKey(e.to)) return <StatusStep from={e.from} to={e.to} />;
+  if (e.kind === 'priority_changed' && e.to && entityType === 'Ticket') {
+    const meta = PRIORITY_CONFIG[e.to.toUpperCase() as keyof typeof PRIORITY_CONFIG];
+    if (meta) {
+      const prev = e.from ? PRIORITY_CONFIG[e.from.toUpperCase() as keyof typeof PRIORITY_CONFIG] : undefined;
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {prev && (<><PriorityChip meta={prev} className="opacity-70" /><ArrowRight size={13} className="shrink-0 text-text-light" strokeWidth={2.5} aria-label="to" /></>)}
+          <PriorityChip meta={meta} />
+        </div>
+      );
+    }
+  }
   if (e.kind === 'due_changed' && e.to) {
     const delta = e.from ? Math.round((new Date(e.to).getTime() - new Date(e.from).getTime()) / DAY) : 0;
     const tone = delta > 0 ? 'warning' : delta < 0 ? 'success' : 'primary';
@@ -88,13 +163,13 @@ const Detail = ({ e }: { e: ActivityEvent }) => {
   }
   if (e.kind === 'priority_changed' && e.to) return <ChangeCompare icon={Flag} tone="coral" from={e.from ?? undefined} to={e.to} />;
   if (e.kind === 'reassigned' && e.to) return <ChangeCompare icon={UserRound} tone="primary" from={e.from ?? undefined} to={e.to} />;
-  if (e.remark && (e.kind === 'status' || e.kind === 'sent_back' || e.kind === 'declined')) {
+  if (e.remark && (e.kind === 'status' || e.kind === 'sent_back')) {
     return <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 t-meta font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>;
   }
   return null;
 };
 
-const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
+const Row = ({ e, thing, entityType }: { e: ActivityEvent; thing: string; entityType: ActivityEntity }) => {
   const { icon: Icon, tone } = KIND[e.kind];
   const date = new Date(e.at);
   return (
@@ -105,15 +180,16 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
 
       <article className={ENTRY_CLASS}>
         <header className="flex items-start justify-between gap-3">
-          <p className="min-w-0 text-sm font-display leading-snug text-text-secondary">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-display leading-snug text-text-secondary">
             <span className="font-bold text-text">{e.actor?.name ?? 'System'}</span>
-            {e.actor?.role && <span className="sr-only"> ({e.actor.role})</span>} {sentence(e, thing)}
-          </p>
+            {e.actor?.role && <RoleChip role={e.actor.role as Role} />}
+            <span>{sentence(e, thing)}</span>
+          </div>
           <time dateTime={e.at} title={date.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })} className="shrink-0 pt-0.5 t-meta font-display font-medium tabular-nums text-text-muted">
             {timeLabel(date)}
           </time>
         </header>
-        <Detail e={e} />
+        <Detail e={e} entityType={entityType} />
       </article>
     </li>
   );
@@ -138,7 +214,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
           <History size={16} strokeWidth={2.5} />
         </span>
         Activity
-        {data && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 t-meta font-display font-bold tabular-nums text-text-secondary">{data.events.length}</span>}
+        {data && <CountBadge count={data.events.length} max={99} label={`${data.events.length} events`} />}
       </h3>
 
       {isPending && (
@@ -170,7 +246,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
                   <span className="h-px flex-1 bg-border/70" aria-hidden />
                 </div>
                 <ol className="relative flex flex-col gap-1 pl-11 before:absolute before:bottom-5 before:left-[15px] before:top-5 before:w-0.5 before:rounded-full before:bg-primary-500/40">
-                  {group.events.map((e) => <Row key={e.id} e={e} thing={thing} />)}
+                  {group.events.map((e) => <Row key={e.id} e={e} thing={thing} entityType={entityType} />)}
                 </ol>
               </div>
             );
