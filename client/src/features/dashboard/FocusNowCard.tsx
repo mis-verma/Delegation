@@ -199,9 +199,12 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
           <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
-            {items.length} {items.length === 1 ? 'thing needs' : 'things need'} you
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
+              {items.length} {items.length === 1 ? 'thing needs' : 'things need'} you
+            </h2>
+            <span className="shrink-0 rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">Yours</span>
+          </div>
           <div className="flex flex-wrap items-baseline gap-x-2">
             <p className={cn('t-meta font-medium', urgent > 0 ? 'text-danger' : 'text-text-muted')}>
               {urgent > 0 ? `${urgent} ${urgent === 1 ? 'is' : 'are'} late or sent back.` : 'All due today.'}
