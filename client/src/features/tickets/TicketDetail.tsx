@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
+import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -13,7 +13,7 @@ import {
   useApproveAssignmentMutation,
   useReopenDeclinedMutation,
 } from './hook';
-import { Button, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
+import { Button, IconChip, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
@@ -28,7 +28,7 @@ import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS, HAND_IN_LABEL } from './detail/d
 import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
-import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from './detail/propertyStyles';
+import { PROPERTY_TRIGGER_CLASS, dueTone } from './detail/propertyStyles';
 import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { TicketDescription } from './detail/TicketDescription';
@@ -264,20 +264,20 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {departmentName && (
-                    <TicketPropertyRow label="Department" wide icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" phoneHidden={!moreOpen}>
-                      <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span>
+                    <TicketPropertyRow label="Department" wide phoneHidden={!moreOpen}>
+                      <IconChip icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" label={departmentName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
                   {storeName && (
-                    <TicketPropertyRow label="Store" wide icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" phoneHidden={!moreOpen}>
-                      <span className={PROPERTY_VALUE_CLASS}>{storeName}</span>
+                    <TicketPropertyRow label="Store" wide phoneHidden={!moreOpen}>
+                      <IconChip icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" label={storeName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
-                    <TicketPropertyRow label="Category" wide icon={Layers} tone="bg-linear-to-br from-success to-success/70" phoneHidden={!moreOpen}>
-                      <span className={PROPERTY_VALUE_CLASS}>{categoryName}</span>
+                    <TicketPropertyRow label="Category" wide phoneHidden={!moreOpen}>
+                      <IconChip icon={Layers} tone="bg-linear-to-br from-success to-success/70" label={categoryName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
@@ -309,10 +309,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {due ? (
-                    <TicketPropertyRow label="Due" wide icon={CalendarDays} tone={dueTone(due.overdue)}>
-                      <span className={`t-meta font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
-                        {due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
-                      </span>
+                    <TicketPropertyRow label="Due" wide>
+                      <IconChip
+                        icon={due.overdue ? AlarmClock : CalendarDays}
+                        tone={dueTone(due.overdue)}
+                        label={due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
+                        className={`h-8 sm:h-8 pr-3 ${due.overdue ? 'border-danger/30 bg-danger/10' : ''}`}
+                        labelClassName={`text-sm ${due.overdue ? 'text-danger' : ''}`}
+                      />
                     </TicketPropertyRow>
                   ) : null}
 
