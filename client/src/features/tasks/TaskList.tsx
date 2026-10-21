@@ -270,20 +270,31 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     syncFiltersToUrl(next);
     persistFiltersIfSaved(next);
     setQuickFilter(null);
+    setScopeKey('all');
   };
 
   const toggleQuickFilter = (key: QuickFilterKey) => {
     setQuickFilter((prev) => (prev === key ? null : key));
   };
 
-  const isAssignedToMe = !!user && filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id;
-  const isAssignedByMe = !!user && filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id;
+  const [scopeKey, setScopeKey] = useState<TaskScopeKey>(() => {
+    if (!user) return 'all';
+    if (filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id) return 'mine';
+    if (filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id) return 'byMe';
+    return 'all';
+  });
+  const isAssignedToMe = !!user && scopeKey === 'mine';
+  const isAssignedByMe = !!user && scopeKey === 'byMe';
   const scope: { value: TaskScopeKey; onChange: (next: TaskScopeKey) => void } | undefined = !userId && user ? {
-    value: isAssignedToMe ? 'mine' : isAssignedByMe ? 'byMe' : 'all',
-    onChange: (next) => updateFilters({
-      assigneeIds: next === 'mine' ? [user.id] : isAssignedToMe ? [] : filters.assigneeIds,
-      raisedByIds: next === 'byMe' ? [user.id] : isAssignedByMe ? [] : filters.raisedByIds,
-    }),
+    value: scopeKey,
+    onChange: (next) => {
+      setScopeKey(next);
+      const selfAssignee = filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id;
+      const selfRaiser = filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id;
+      if (selfAssignee || selfRaiser) {
+        updateFilters({ ...(selfAssignee ? { assigneeIds: [] } : {}), ...(selfRaiser ? { raisedByIds: [] } : {}) });
+      }
+    },
   } : undefined;
 
   const saveFilters = () => {
@@ -388,7 +399,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         ? `Assignee: ${assigneeNames.get(filters.assigneeIds[0]) ?? 'Unknown'}`
         : `Assignees: ${filters.assigneeIds.length}`,
       onClear: () => updateFilters({ assigneeIds: [] }),
-      scope: isAssignedToMe,
+      scope: isAssignedToMe && !!user && filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id,
     }] : []),
     ...(filters.raisedByIds.length > 0 ? [{
       key: 'raisedByIds',
@@ -396,7 +407,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         ? `Raised by: ${assigneeNames.get(filters.raisedByIds[0]) ?? 'Unknown'}`
         : `Raised by: ${filters.raisedByIds.length}`,
       onClear: () => updateFilters({ raisedByIds: [] }),
-      scope: isAssignedByMe,
+      scope: isAssignedByMe && !!user && filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id,
     }] : []),
     ...(filters.tagIds.length > 0 ? [{
       key: 'tagIds',
