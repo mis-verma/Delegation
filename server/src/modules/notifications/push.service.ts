@@ -103,7 +103,7 @@ export const pushService = {
         const jobs: Promise<void>[] = []
         for (const row of rows) {
             if (!URGENT.test(row.type) && inQuietHours(prefsOf.get(row.recipientId), now)) continue
-            const payload = { title: row.title, body: row.message.slice(0, 180), url: pathFor(row), tag: `n-${row.type}-${row.ticketId ?? row.taskId ?? row.checklistInstanceId ?? row.recipientId}`, badge: unread.get(row.recipientId) ?? 1 }
+            const payload = { title: row.title, body: row.message.slice(0, 180), url: pathFor(row), tag: `n-${row.type}-${row.ticketId ?? row.taskId ?? row.checklistInstanceId ?? row.recipientId}`, urgent: URGENT.test(row.type), badge: unread.get(row.recipientId) ?? 1 }
             for (const sub of subs.filter((s) => s.userId === row.recipientId)) jobs.push(sendOne(sub, payload))
         }
         await Promise.all(jobs)

@@ -109,7 +109,7 @@ export const waitingSinceOf = (instance: Pick<ChecklistInstance, 'submittedAt' |
 export const formatWaiting = (since: number, now: number): string => {
   const diff = Math.max(0, now - since);
   const hours = Math.floor(diff / 3_600_000);
-  if (hours < 1) return 'Under an hour';
+  if (hours < 1) return '<1 hour';
   if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
   const days = Math.floor(diff / DAY_MS);
   return `${days} ${days === 1 ? 'day' : 'days'}`;

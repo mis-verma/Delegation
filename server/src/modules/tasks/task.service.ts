@@ -20,6 +20,14 @@ const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
 
 const NOT_DELETED = isNull(tasks.deletedAt);
 
+const approverNames = async (task: { hodApprovedBy: string | null; verifiedBy: string | null }) => {
+    const ids = [task.hodApprovedBy, task.verifiedBy].filter((id): id is string => !!id);
+    if (!ids.length) return { hodApprover: null, verifier: null };
+    const rows = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, ids));
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return { hodApprover: task.hodApprovedBy ? byId.get(task.hodApprovedBy) ?? null : null, verifier: task.verifiedBy ? byId.get(task.verifiedBy) ?? null : null };
+};
+
 const tagsByTask = async (taskIds: string[]) => {
     const byTask = new Map<string, { id: string; name: string; color: string | null }[]>();
     if (!taskIds.length) return byTask;
@@ -483,6 +491,7 @@ export const taskService = {
             attachments,
             tags: (await tagsByTask([task.id])).get(task.id) ?? [],
             reviewers: (await reviewersByTask([task.id])).get(task.id) ?? [],
+            ...(await approverNames(task)),
             statusUpdates: await loadStatusUpdates(task.id),
         };
     },
@@ -617,6 +626,7 @@ export const taskService = {
         if ("dueDate" in input || "reminderMinutesBefore" in input) {
             update.reminderSentAt = null;
             update.overdueNotifiedAt = null;
+            update.overdueEscalatedAt = null;
         }
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             update.submittedAt = new Date();
@@ -630,6 +640,8 @@ export const taskService = {
             update.approvalStage = headIds.length > 0 ? "HOD" : "PC";
             update.hodApprovedBy = null;
             update.hodApprovedAt = null;
+            update.approvalReminderSentAt = null;
+            update.approvalEscalatedAt = null;
         } else if (input.status !== undefined && input.status !== "pending_approval" && beforeStatus === "pending_approval") {
             update.approvalStage = null;
             update.hodApprovedBy = null;
@@ -745,6 +757,7 @@ export const taskService = {
             ...task,
             tags: (await tagsByTask([id])).get(id) ?? [],
             reviewers: (await reviewersByTask([id])).get(id) ?? [],
+            ...(await approverNames(task)),
             statusUpdates: await loadStatusUpdates(id),
         };
     },
@@ -769,6 +782,8 @@ export const taskService = {
             update.approvalStage = "PC";
             update.hodApprovedBy = user.sub;
             update.hodApprovedAt = new Date();
+            update.approvalReminderSentAt = null;
+            update.approvalEscalatedAt = null;
         } else if (input.action === "APPROVE") {
             update.status = "done";
             update.verifiedBy = user.sub;
@@ -799,6 +814,13 @@ export const taskService = {
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
 
         if (stageHandOff) {
+            await notifySafely(() => notificationService.notifyStageHandOff({
+                _id: updated!.id,
+                title: updated!.title,
+                userId: updated!.userId,
+                assigneeId: updated!.assigneeId ?? undefined,
+                additionalAssigneeIds,
+            }, 'TASK', user.sub));
             const reviewerIds = ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id);
             await notifySafely(() => notificationService.notifyPendingVerification({
                 _id: updated!.id,
@@ -830,7 +852,7 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: id, action: "VERIFY", actorId: user.sub, after: updated });
         await dropTaskSummaries();
 
-        return { ...updated!, statusUpdates: await loadStatusUpdates(id) };
+        return { ...updated!, ...(await approverNames(updated!)), statusUpdates: await loadStatusUpdates(id) };
     },
 
     async remove(id: string, user: AccessTokenPayload) {

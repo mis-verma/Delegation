@@ -153,6 +153,88 @@ const checklistsUpcoming = async (now: Date) => {
   await db.update(checklistInstances).set({ upcomingNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
 };
 
+const REMINDER_HOURS = 24;
+const ESCALATE_HOURS = 48;
+const HOUR_MS = 60 * MINUTE_MS;
+
+const waitingSince = (r: { hodApprovedAt: Date | null; submittedAt: Date | null; updatedAt: Date }) => (r.hodApprovedAt ?? r.submittedAt ?? r.updatedAt).getTime();
+
+const ticketApprovalChasers = async (now: Date) => {
+  const pending = await db.select().from(tickets).where(and(
+    isNull(tickets.deletedAt), eq(tickets.status, 'PENDING_APPROVAL'),
+  )).limit(BATCH);
+  for (const t of pending) {
+    const hours = (now.getTime() - waitingSince(t)) / HOUR_MS;
+    if (hours >= ESCALATE_HOURS && !t.approvalEscalatedAt) {
+      await notificationService.notifyApprovalEscalation({ _id: t.id, title: t.title }, 'TICKET', Math.floor(hours));
+      await db.update(tickets).set({ approvalEscalatedAt: now, approvalReminderSentAt: t.approvalReminderSentAt ?? now }).where(eq(tickets.id, t.id));
+    } else if (hours >= REMINDER_HOURS && !t.approvalReminderSentAt) {
+      await notificationService.notifyPendingVerification(
+        { _id: t.id, title: t.title, departmentId: t.departmentId, storeId: t.storeId, userId: t.userId, assigneeId: t.assigneeId, reviewerIds: [] },
+        'TICKET', t.approvalStage ?? 'PC', Math.floor(hours),
+      );
+      await db.update(tickets).set({ approvalReminderSentAt: now }).where(eq(tickets.id, t.id));
+    }
+  }
+};
+
+const taskApprovalChasers = async (now: Date) => {
+  const pending = await db.select().from(tasks).where(and(isNull(tasks.deletedAt), eq(tasks.status, 'pending_approval'))).limit(BATCH);
+  for (const t of pending) {
+    const hours = (now.getTime() - waitingSince(t)) / HOUR_MS;
+    if (hours >= ESCALATE_HOURS && !t.approvalEscalatedAt) {
+      await notificationService.notifyApprovalEscalation({ _id: t.id, title: t.title }, 'TASK', Math.floor(hours));
+      await db.update(tasks).set({ approvalEscalatedAt: now, approvalReminderSentAt: t.approvalReminderSentAt ?? now }).where(eq(tasks.id, t.id));
+    } else if (hours >= REMINDER_HOURS && !t.approvalReminderSentAt) {
+      await notificationService.notifyPendingVerification(
+        { _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId, assigneeId: t.assigneeId, reviewerIds: [] },
+        'TASK', t.approvalStage ?? 'PC', Math.floor(hours),
+      );
+      await db.update(tasks).set({ approvalReminderSentAt: now }).where(eq(tasks.id, t.id));
+    }
+  }
+};
+
+const overdueEscalations = async (now: Date) => {
+  const cutoff = new Date(now.getTime() - REMINDER_HOURS * HOUR_MS);
+  const floor = new Date(now.getTime() - 72 * HOUR_MS);
+  const lateTickets = await db.select().from(tickets).where(and(
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.overdueEscalatedAt), eq(tickets.isOverdue, true),
+    notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']), lte(tickets.tatDueAt, cutoff), gt(tickets.tatDueAt, floor),
+  )).limit(BATCH);
+  for (const t of lateTickets) await notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TICKET');
+  if (lateTickets.length) await db.update(tickets).set({ overdueEscalatedAt: now }).where(inArray(tickets.id, lateTickets.map((t) => t.id)));
+
+  const lateTasks = await db.select().from(tasks).where(and(
+    isNull(tasks.deletedAt), isNull(tasks.overdueEscalatedAt), notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
+    isNotNull(tasks.dueDate), lte(tasks.dueDate, cutoff), gt(tasks.dueDate, floor),
+  )).limit(BATCH);
+  for (const t of lateTasks) await notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TASK');
+  if (lateTasks.length) await db.update(tasks).set({ overdueEscalatedAt: now }).where(inArray(tasks.id, lateTasks.map((t) => t.id)));
+};
+
+const unassignedReminders = async (now: Date) => {
+  const cutoff = new Date(now.getTime() - REMINDER_HOURS * HOUR_MS);
+  const floor = new Date(now.getTime() - 72 * HOUR_MS);
+  const openTickets = await db.select().from(tickets).where(and(
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.assigneeId), isNull(tickets.unassignedNotifiedAt),
+    eq(tickets.status, 'OPEN'), lte(tickets.createdAt, cutoff), gt(tickets.createdAt, floor),
+  )).limit(BATCH);
+  for (const t of openTickets) await notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TICKET');
+  if (openTickets.length) await db.update(tickets).set({ unassignedNotifiedAt: now }).where(inArray(tickets.id, openTickets.map((t) => t.id)));
+
+  const openTasks = await db.select().from(tasks).where(and(
+    isNull(tasks.deletedAt), isNull(tasks.assigneeId), isNull(tasks.unassignedNotifiedAt),
+    notInArray(tasks.status, ['done', 'draft', 'pending_approval']), lte(tasks.createdAt, cutoff), gt(tasks.createdAt, floor),
+  )).limit(BATCH);
+  const withHelpers = openTasks.length
+    ? new Set((await db.select({ id: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees).where(inArray(taskAdditionalAssignees.taskId, openTasks.map((t) => t.id)))).map((r) => r.id))
+    : new Set<string>();
+  const unowned = openTasks.filter((t) => !withHelpers.has(t.id));
+  for (const t of unowned) await notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TASK');
+  if (unowned.length) await db.update(tasks).set({ unassignedNotifiedAt: now }).where(inArray(tasks.id, unowned.map((t) => t.id)));
+};
+
 export const startDueReminders = () => {
   let running = false;
   scheduleJob('due-reminders', '*/5 * * * *', 5, async () => {
@@ -166,6 +248,10 @@ export const startDueReminders = () => {
         await safely('tickets overdue', () => ticketsOverdue(now));
         await safely('delegations due soon', () => tasksDueSoon(now));
         await safely('delegations overdue', () => tasksOverdue(now));
+        await safely('overdue escalations', () => overdueEscalations(now));
+        await safely('unassigned reminders', () => unassignedReminders(now));
+        await safely('ticket approvals', () => ticketApprovalChasers(now));
+        await safely('delegation approvals', () => taskApprovalChasers(now));
       }
       if (settings.notifyChecklistOverdueReminders) {
         await safely('checklists due soon', () => checklistsDueSoon(now));

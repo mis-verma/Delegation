@@ -185,7 +185,8 @@ export const notificationService = {
     });
   },
 
-  async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET', stage: 'HOD' | 'PC' = 'PC') {
+  async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET', stage: 'HOD' | 'PC' = 'PC', waitingHours?: number) {
+    const waitText = waitingHours ? `has been waiting ${waitingHours} hours for your approval` : null;
     const idFieldOf = () => (kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() });
     if (stage === 'HOD') {
       const heads = entity.departmentId
@@ -199,8 +200,8 @@ export const notificationService = {
       if (headIds.length) {
         return notificationService.notifyMany(headIds, {
           type: `${kind}_PENDING_VERIFICATION`,
-          title: kind === 'TICKET' ? 'Ticket waiting for your approval' : 'Delegation waiting for your approval',
-          message: `"${entity.title}" is done. As department head you approve it first, then it goes to PC.`,
+          title: waitText ? 'Still waiting for your approval' : kind === 'TICKET' ? 'Ticket waiting for your approval' : 'Delegation waiting for your approval',
+          message: waitText ? `"${entity.title}" ${waitText}. Approve it or send it back.` : `"${entity.title}" is done. As department head you approve it first, then it goes to PC.`,
           ...idFieldOf(),
         });
       }
@@ -227,8 +228,8 @@ export const notificationService = {
     const idField = kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() };
     return notificationService.notifyMany(recipientIds, {
       type: `${kind}_PENDING_VERIFICATION`,
-      title: kind === 'TICKET' ? 'Ticket awaiting verification' : 'Delegation awaiting verification',
-      message: entity.departmentId ? `"${entity.title}" is ready for your final approval.` : `"${entity.title}" is ready for your review.`,
+      title: waitText ? 'Still waiting for your approval' : kind === 'TICKET' ? 'Ticket awaiting verification' : 'Delegation awaiting verification',
+      message: waitText ? `"${entity.title}" ${waitText}. Approve it or send it back.` : entity.departmentId ? `"${entity.title}" is ready for your final approval.` : `"${entity.title}" is ready for your review.`,
       ...idField,
     });
   },
@@ -424,6 +425,58 @@ export const notificationService = {
       title: 'Checklist closing soon',
       message: `"${instance.title}" closes at ${instance.closesAt}, about ${instance.minutesLeft} min from now. Fill it in before then.`,
       checklistInstanceId: instance._id,
+    });
+  },
+
+  async notifyApprovalEscalation(entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK', hoursWaiting: number) {
+    const recipientIds = await activeVerifierIds();
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany(recipientIds, {
+      type: `${kind}_APPROVAL_ESCALATION`,
+      title: 'Approval is late',
+      message: `"${entity.title}" has waited ${hoursWaiting} hours for approval. Please decide or chase the reviewer.`,
+      ...idField,
+    });
+  },
+
+  async notifyOverdueEscalation(entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK') {
+    const recipientIds = await activeVerifierIds();
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany(recipientIds, {
+      type: `${kind}_OVERDUE_ESCALATION`,
+      title: kind === 'TICKET' ? 'Ticket overdue for a day' : 'Delegation overdue for a day',
+      message: `"${entity.title}" has been overdue for more than 24 hours.`,
+      ...idField,
+    });
+  },
+
+  async notifyUnassignedReminder(entity: { _id: string; title: string; departmentId?: string | null }, kind: 'TICKET' | 'TASK') {
+    let recipientIds: string[] = [];
+    if (entity.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, entity.departmentId), eq(users.isActive, true)));
+      recipientIds = heads.map((h) => h.id);
+    }
+    if (!recipientIds.length) recipientIds = await activeVerifierIds();
+    const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+    return notificationService.notifyMany(recipientIds, {
+      type: `${kind}_UNASSIGNED`,
+      title: 'Still nobody on this',
+      message: `"${entity.title}" has had nobody working on it for a day. Pick someone.`,
+      ...idField,
+    });
+  },
+
+  async notifyStageHandOff(entity: VerifiableEntity, kind: 'TICKET' | 'TASK', actorId: string) {
+    const recipientIds = [entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()).filter((id) => id !== actorId);
+    const idField = kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() };
+    return notificationService.notifyMany(recipientIds, {
+      type: `${kind}_HOD_APPROVED`,
+      title: 'Department head approved',
+      message: `"${entity.title}" was approved by the department head. It is now with PC for the final approval.`,
+      ...idField,
     });
   },
 

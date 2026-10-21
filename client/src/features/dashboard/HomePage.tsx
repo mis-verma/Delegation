@@ -13,6 +13,7 @@ import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { ExceptionsCard } from './ExceptionsCard';
 import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
+import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { MyScoresCard } from './MyScoresCard';
 import { DashboardCardFrame } from './DashboardCardFrame';
@@ -166,6 +167,7 @@ export const HomePage = () => {
       />
 
       {!isCustomizing && <OvertimeNotice today={orgToday} />}
+      {!isCustomizing && <EnableAlertsBanner />}
       {!isCustomizing && (
         <FocusNowCard
           tasks={assignedTasks}

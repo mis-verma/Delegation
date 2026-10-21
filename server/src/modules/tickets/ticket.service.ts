@@ -586,6 +586,7 @@ export const ticketService = {
       patch.isOverdue = false
       patch.dueSoonNotifiedAt = null
       patch.overdueNotifiedAt = null
+      patch.overdueEscalatedAt = null
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
@@ -599,6 +600,8 @@ export const ticketService = {
       })
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
+      patch.approvalReminderSentAt = null
+      patch.approvalEscalatedAt = null
     } else if (input.status !== undefined && input.status !== "PENDING_APPROVAL" && before.status === "PENDING_APPROVAL") {
       patch.approvalStage = null
       patch.hodApprovedBy = null
@@ -629,6 +632,7 @@ export const ticketService = {
     emitTicketEvent("ticket:updated", target, populated);
 
     if (input.assigneeId && input.assigneeId !== before.assigneeId) {
+      await db.update(tickets).set({ unassignedNotifiedAt: null }).where(eq(tickets.id, id))
       emitTicketEvent("ticket:assigned", target, populated)
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
@@ -683,6 +687,8 @@ export const ticketService = {
       patch.approvalStage = await firstApprovalStage({ departmentId: before.departmentId, assigneeId: before.assigneeId, userId: before.userId })
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
+      patch.approvalReminderSentAt = null
+      patch.approvalEscalatedAt = null
     } else if (input.status !== "PENDING_APPROVAL" && before.status === "PENDING_APPROVAL") {
       patch.approvalStage = null
       patch.hodApprovedBy = null
@@ -797,6 +803,8 @@ export const ticketService = {
       patch.approvalStage = "PC"
       patch.hodApprovedBy = user.sub
       patch.hodApprovedAt = new Date()
+      patch.approvalReminderSentAt = null
+      patch.approvalEscalatedAt = null
     } else if (input.action === "APPROVE") {
       patch.status = "CLOSED";
       patch.closedAt = new Date();
@@ -840,6 +848,7 @@ export const ticketService = {
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated);
     if (stageHandOff) {
+      await notifySafely(() => notificationService.notifyStageHandOff(notificationTarget(afterRow!), "TICKET", user.sub))
       await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", "PC"))
     } else {
       const informHod = input.action === "REJECT" && stage === "PC" && ticket.hodApprovedBy && ticket.hodApprovedBy !== user.sub ? [ticket.hodApprovedBy] : []

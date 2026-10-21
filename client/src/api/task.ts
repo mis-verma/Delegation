@@ -52,6 +52,8 @@ export type Task = {
     approvalStage?:   'HOD' | 'PC' | null;
     hodApprovedBy?:   string | null;
     hodApprovedAt?:   string | null;
+    hodApprover?:     { id: string; firstName: string; lastName: string | null } | null;
+    verifier?:        { id: string; firstName: string; lastName: string | null } | null;
     verificationNote: string | null;
     aiMeta?: {
         rawInput : string;
