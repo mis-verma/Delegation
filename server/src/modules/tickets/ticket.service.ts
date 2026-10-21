@@ -136,7 +136,7 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
   if (!ticketRows.length) return []
   const ticketIds = ticketRows.map((t) => t.id)
 
-  const userIds = [...new Set(ticketRows.flatMap((t) => [t.assigneeId, t.userId, t.verifiedBy, t.hodApprovedBy]).filter((v): v is string => Boolean(v)))]
+  const userIds = [...new Set(ticketRows.flatMap((t) => [t.assigneeId, t.userId, t.verifiedBy, t.hodApprovedBy, t.declinedBy]).filter((v): v is string => Boolean(v)))]
   const userRows = userIds.length ? await db.select(userCols).from(users).where(inArray(users.id, userIds)) : []
   const userById = new Map(userRows.map((u) => [u.id, u]))
 
@@ -197,6 +197,7 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
     raisedBy: userById.get(t.userId) ?? null,
     verifier: t.verifiedBy ? userById.get(t.verifiedBy) ?? null : null,
     hodApprover: t.hodApprovedBy ? userById.get(t.hodApprovedBy) ?? null : null,
+    decliner: t.declinedBy ? userById.get(t.declinedBy) ?? null : null,
     checklists: checklistsByTicket.get(t.id) ?? [],
     attachments: attachmentsByTicket.get(t.id) ?? [],
     comments: commentsByTicket.get(t.id) ?? [],
@@ -517,6 +518,10 @@ export const ticketService = {
     if (!ticket) throw AppError.notFound("Ticket not found")
     assertCanMutate(user, ticket)
 
+    if (ticket.declinedAt && input.status !== undefined && input.status !== ticket.status) {
+      throw AppError.badRequest("This ticket was declined. Use Reopen ticket to bring it back.")
+    }
+
     if ((input.assigneeId !== undefined || input.departmentId !== undefined) && (user.role === "AGENT" || user.role === "USER")) {
       throw AppError.forbidden("Only a manager or above can reassign a ticket's assignee or department.")
     }
@@ -677,6 +682,10 @@ export const ticketService = {
 
     const before = ticket;
 
+    if (before.declinedAt) {
+      throw AppError.badRequest("This ticket was declined. Use Reopen ticket to bring it back.")
+    }
+
     const canActBeforeApproval = isVerifierRole(user) || isDepartmentHead(user, ticket)
     if (before.awaitingHeadApproval && !canActBeforeApproval) {
       throw AppError.forbidden("Your department head has to approve this ticket before work can start.")
@@ -814,6 +823,45 @@ export const ticketService = {
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
     await auditService.record({ entityType: "Ticket", entityId: id, action: "UPDATE", actorId: user.sub, before: ticket, after: afterRow })
+
+    const populated = await getPopulatedTicket(id)
+    emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
+    await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub))
+    await dropTicketSummaries()
+    return populated
+  },
+
+  async reopenDeclined(id: string, user: AccessTokenPayload) {
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
+    if (!ticket) throw AppError.notFound("Ticket not found")
+    if (!ticket.declinedAt) throw AppError.badRequest("This ticket was not declined.")
+    if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can reopen a declined ticket.")
+
+    const now = new Date()
+    const [result] = await db.update(tickets).set({
+      status: "OPEN",
+      declinedAt: null,
+      declinedBy: null,
+      declineReason: null,
+      closedAt: null,
+      verifiedBy: null,
+      verifiedAt: null,
+      verificationNote: null,
+      awaitingHeadApproval: false,
+      assignmentApprovedBy: user.sub,
+      assignmentApprovedAt: now,
+      reopenCount: ticket.reopenCount + 1,
+      tatDueAt: ticket.tatHours ? deriveTatDueAt(ticket.tatHours, now) : ticket.tatDueAt,
+      isOverdue: false,
+      dueSoonNotifiedAt: null,
+      overdueNotifiedAt: null,
+      overdueEscalatedAt: null,
+      updatedAt: now,
+    }).where(and(eq(tickets.id, id), isNotNull(tickets.declinedAt), NOT_DELETED))
+    if (result.affectedRows === 0) throw AppError.conflict("Someone reopened this ticket a moment ago.")
+
+    const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    await auditService.record({ entityType: "Ticket", entityId: id, action: "REOPEN", actorId: user.sub, before: ticket, after: afterRow })
 
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)

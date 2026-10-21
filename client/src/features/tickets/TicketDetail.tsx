@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
+import { RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -11,6 +11,7 @@ import {
   useDepartmentsQuery,
   useDeclineTicketMutation,
   useApproveAssignmentMutation,
+  useReopenDeclinedMutation,
 } from './hook';
 import { Button, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
@@ -90,6 +91,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const verifyMut = useVerifyTicketMutation();
   const declineMut = useDeclineTicketMutation();
   const approveAssignmentMut = useApproveAssignmentMutation();
+  const reopenMut = useReopenDeclinedMutation();
   const [declining, setDeclining] = useState(false);
 
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
@@ -189,7 +191,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
     && (!ownScope || ticket.assigneeId === currentUser?.id);
-  const statusOptions = showVerify || awaitingHead
+  const statusOptions = showVerify || awaitingHead || !!ticket.declinedAt
     ? []
     : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
       .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
@@ -208,7 +210,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
     && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
   const canApproveAssignment = awaitingHead && (isAdmin || isDepartmentHead);
-  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || awaitingHead;
+  const canReopenDeclined = !!ticket.declinedAt && (isAdmin || isDepartmentHead);
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || awaitingHead || canReopenDeclined;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
@@ -372,7 +375,22 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   onCancel={() => { setEditing(false); setEditDirty(false); }}
                 />
               ) : (
+                <>
+                {ticket.declinedAt && (
+                  <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3" role="status">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-danger to-danger/70 text-white" aria-hidden="true">
+                      <Ban size={16} strokeWidth={2.4} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="t-card font-display font-bold text-danger">
+                        Declined{ticket.decliner ? ` by ${ticket.decliner.firstName}` : ''}
+                      </p>
+                      {ticket.declineReason && <p className="mt-0.5 text-[0.9375rem] font-medium text-text-secondary leading-relaxed break-words">{ticket.declineReason}</p>}
+                    </div>
+                  </div>
+                )}
                 <TicketDescription description={ticket.description} />
+                </>
               )}
 
               <TicketAttachments
@@ -442,6 +460,19 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   <ShieldCheck size={15} aria-hidden />
                   Waiting for the department head to approve. Work starts after that.
                 </p>
+              )}
+              {canReopenDeclined && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  isLoading={reopenMut.isPending}
+                  disabled={reopenMut.isPending}
+                  onClick={() => reopenMut.mutate({ id: ticket.id })}
+                  className="max-sm:flex-1 max-sm:h-11 gap-1.5 font-display font-semibold"
+                >
+                  <RotateCcw size={16} aria-hidden />
+                  Reopen ticket
+                </Button>
               )}
               {canApproveAssignment && (
                 <Button

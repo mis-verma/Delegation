@@ -70,6 +70,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         {ticket.description?.trim() && (
           <p className="max-sm:hidden text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
         )}
+        {ticket.declinedAt && ticket.declineReason && (
+          <p className="t-meta text-danger leading-snug line-clamp-1 break-words">
+            <span className="font-semibold">Declined{ticket.decliner ? ` by ${ticket.decliner.firstName}` : ''}:</span> {ticket.declineReason}
+          </p>
+        )}
         {onHoldRemark && (
           <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
             <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}

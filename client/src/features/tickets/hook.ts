@@ -194,6 +194,16 @@ export const useApproveAssignmentMutation = () =>
     errorFallback: "Couldn't approve the ticket. Try again.",
   });
 
+export const useReopenDeclinedMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id }: { id: string }) => ticketApi.reopenDeclined(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
+    invalidateKeys: [['tickets'], ['scores']],
+    successMessage: 'Ticket reopened. The team has been told.',
+    retryable: true,
+    errorFallback: "Couldn't reopen the ticket. Try again.",
+  });
+
 export const useDeclineTicketMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => ticketApi.decline(id, reason).then(r => r.data),

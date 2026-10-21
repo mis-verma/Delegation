@@ -35,13 +35,13 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
       </span>
     )}
     <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5', stackOnPhone && 'max-sm:gap-1.5', !tileOnly && 'lg:gap-1')}>
-      <dt className="flex items-center gap-1.5 t-meta font-medium text-text-muted leading-none">
+      <dt className={cn(Icon && stackOnPhone ? 'flex items-center gap-1.5 sm:sr-only' : 'sr-only')}>
         {Icon && stackOnPhone && (
           <span className={cn('sm:hidden flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone)} aria-hidden="true">
             <Icon className="size-3" strokeWidth={2.5} />
           </span>
         )}
-        {label}
+        <span className="sr-only">{label}</span>
       </dt>
       <dd className={cn('flex min-w-0 flex-wrap items-center', stackOnPhone && 'max-sm:[&>*]:w-full max-sm:[&>*]:min-w-0')}>{children}</dd>
     </div>

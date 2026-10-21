@@ -132,6 +132,7 @@ export type Ticket = {
   declinedAt?: string | null;
   declinedBy?: string | null;
   declineReason?: string | null;
+  decliner?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
   assignee:      { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];
@@ -262,6 +263,9 @@ export const ticketApi = {
 
   update: (id: string, payload: UpdateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  reopenDeclined: (id: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/reopen-declined`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   approveAssignment: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

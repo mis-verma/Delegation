@@ -105,7 +105,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
         </div>
       </div>
 
-      <SheetTitle className="t-card font-display font-semibold text-text">
+      <SheetTitle className="text-lg sm:text-xl font-display font-bold text-text">
         <button
           type="button"
           onClick={() => setTitleOpen((o) => !o)}
