@@ -133,6 +133,7 @@ export type Ticket = {
   declinedBy?: string | null;
   declineReason?: string | null;
   decliner?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
+  raisedBy?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
   assignee:      { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];

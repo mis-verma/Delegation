@@ -1,6 +1,8 @@
 import { memo } from 'react';
-import { AlarmClock, CalendarDays, Clock3, ShieldQuestion, User } from 'lucide-react';
+import { AlarmClock, BellRing, CalendarDays, Clock3, ShieldQuestion, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
+import { useAuth } from '../../context/AuthContext';
+import { isDepartmentHead } from '../../lib/ticketApproval';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
@@ -39,6 +41,9 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     : null;
 
   const prefetchHandlers = usePrefetchTicket(ticket.id);
+  const { user } = useAuth();
+  const needsMyDecision = !!ticket.awaitingHeadApproval && !ticket.declinedAt && !!user
+    && (user.role === 'ADMIN' || isDepartmentHead(user, ticket));
 
   const statusChip = <StatusChip status={statusChipStatus} label={statusLabel} />;
 
@@ -106,7 +111,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         ) : statusChip}
 
         {ticket.awaitingHeadApproval && !ticket.declinedAt && (
-          <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
+          needsMyDecision ? (
+            <IconChip icon={BellRing} tone="bg-linear-to-br from-warning to-warning/70" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
+          ) : (
+            <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
+          )
         )}
 
         <PriorityChip meta={priorityInfo} />

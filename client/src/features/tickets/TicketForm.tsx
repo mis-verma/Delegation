@@ -7,9 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion } from 'lucide-react';
 
-import { Button, Modal, Input, Combobox, DepartmentChip, IconChip } from '../../components';
+import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
@@ -312,6 +312,12 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     </div>
   );
 
+  const targetDepartmentId = departmentId || (selectedCategory ? (typeof selectedCategory.departmentId === 'object' ? selectedCategory.departmentId.id : String(selectedCategory.departmentId)) : '');
+  const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
+  const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && user.departmentId === targetDepartmentId;
+  const needsHeadOk = !!targetDepartmentId && !isLeadership && !isTargetHead;
+  const targetDepartmentName = departments?.find((d) => d.id === targetDepartmentId)?.name;
+
   const dueError = errors.dueDate?.message ?? errors.dueTime?.message ?? errors.startDate?.message;
   const dueField = (
     <div data-field="dueDate">
@@ -473,6 +479,12 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
             title="Where it goes"
             subtitle={ownScopeOnly ? 'Pick what it is about and the rest fills in for you.' : 'Pick a category and the rest fills in for you.'}
           />
+
+          {needsHeadOk && (
+            <NoticeBanner tone="warning" icon={ShieldQuestion}>
+              <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
+            </NoticeBanner>
+          )}
 
           {ownScopeOnly ? (
             <>

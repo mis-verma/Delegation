@@ -13,8 +13,9 @@ import {
   useApproveAssignmentMutation,
   useReopenDeclinedMutation,
 } from './hook';
-import { Button, IconChip, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
+import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
+import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -207,11 +208,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const assigneeName = ticket.assignee?.firstName ?? null;
   const isDepartmentHead = (role === 'MANAGER' || role === 'SENIOR') && !!currentUser?.departmentId && currentUser.departmentId === ticket.departmentId;
   const canDecline = !ticket.declinedAt
+    && !awaitingHead
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
     && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
   const canApproveAssignment = awaitingHead && (isAdmin || isDepartmentHead);
   const canReopenDeclined = !!ticket.declinedAt && (isAdmin || isDepartmentHead);
-  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || awaitingHead || canReopenDeclined;
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || canReopenDeclined;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
@@ -360,10 +362,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </div>
               )}
 
-              {ticket.declinedAt && (
-                <NoticeBanner tone="danger" icon={Ban}>
-                  <span className="font-semibold">Declined by the department.</span> {ticket.declineReason}
-                </NoticeBanner>
+              {awaitingHead && (
+                <HeadDecisionPanel
+                  ticketTitle={ticket.title}
+                  raiser={ticket.raisedBy ?? null}
+                  assignee={ticket.assignee}
+                  departmentName={departmentName}
+                  canDecide={canApproveAssignment}
+                  isApproving={approveAssignmentMut.isPending}
+                  isDeclining={declineMut.isPending}
+                  onApprove={() => approveAssignmentMut.mutate({ id: ticket.id })}
+                  onDecline={() => setDeclining(true)}
+                />
               )}
               {!ticket.declinedAt && <TicketApprovalTrail ticket={ticket} />}
               {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />}
@@ -459,12 +469,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   />
                 </div>
               )}
-              {awaitingHead && !canApproveAssignment && (
-                <p className="flex items-center gap-2 t-meta font-display font-semibold text-warning max-sm:justify-center">
-                  <ShieldCheck size={15} aria-hidden />
-                  Waiting for the department head to approve. Work starts after that.
-                </p>
-              )}
               {canReopenDeclined && (
                 <Button
                   variant="primary"
@@ -476,19 +480,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 >
                   <RotateCcw size={16} aria-hidden />
                   Reopen ticket
-                </Button>
-              )}
-              {canApproveAssignment && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  isLoading={approveAssignmentMut.isPending}
-                  disabled={approveAssignmentMut.isPending}
-                  onClick={() => approveAssignmentMut.mutate({ id: ticket.id })}
-                  className="max-sm:flex-1 max-sm:h-11 gap-1.5 font-display font-semibold"
-                >
-                  <ShieldCheck size={16} aria-hidden />
-                  Approve for team
                 </Button>
               )}
               {statusOptions.length > 0 && (

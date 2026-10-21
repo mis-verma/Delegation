@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { CheckCircle2, Clock, ShieldCheck, UserCheck } from 'lucide-react';
+import { CheckCircle2, Clock, Inbox, ShieldCheck, UserCheck } from 'lucide-react';
 import { EmptyState, IconChip, InlineError, PageHeader, Skeleton } from '../../components';
 import { useAuth } from '../../context/AuthContext';
-import { canApproveTicket, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
+import { canApproveTicket, isDepartmentHead, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
 import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun } from '../verification/decisionRequests';
 import { TaskRow, TicketRow } from '../verification/TicketTaskRows';
 import { usePendingTasksQuery } from '../verification/usePendingTasksQuery';
@@ -10,7 +10,8 @@ import { useDeferredDecisions } from '../verification/useDeferredDecisions';
 import { useNow } from '../verification/useChecklistQueue';
 import { useRefreshAfterDecision } from '../verification/useRefreshAfterDecision';
 import { formatWaiting } from '../verification/verificationModel';
-import { useTicketsByStatusQuery } from './hook';
+import { useDepartmentsQuery, useTicketsBoardQuery, useTicketsByStatusQuery } from './hook';
+import { HeadRequestRow } from './approvals/HeadRequestRow';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 
@@ -22,6 +23,8 @@ export const TicketApprovals = () => {
   const now = useNow();
   const query = useTicketsByStatusQuery('PENDING_APPROVAL');
   const tasksQuery = usePendingTasksQuery('pending_approval');
+  const boardQuery = useTicketsBoardQuery();
+  const { data: departments } = useDepartmentsQuery();
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule } = useDeferredDecisions({ afterSaved: refresh });
 
@@ -31,6 +34,12 @@ export const TicketApprovals = () => {
       .filter((t) => stageOf(t) === 'HOD' && canApproveTicket(user, t) && !heldIds.has(t.id))
       .sort((a, b) => new Date(a.submittedAt ?? a.updatedAt).getTime() - new Date(b.submittedAt ?? b.updatedAt).getTime()),
     [all, user, heldIds],
+  );
+  const requests = useMemo(
+    () => (boardQuery.data ?? NO_TICKETS)
+      .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !!user && isDepartmentHead(user, t))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [boardQuery.data, user],
   );
   const allTasks = tasksQuery.data?.data ?? NO_TASKS;
   const myTasks = useMemo(
@@ -43,8 +52,12 @@ export const TicketApprovals = () => {
     () => all.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length + allTasks.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length,
     [all, allTasks],
   );
-  const waitingTotal = mine.length + myTasks.length;
-  const oldestTimes = [...mine, ...myTasks].map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime());
+  const waitingTotal = mine.length + myTasks.length + requests.length;
+  const oldestTimes = [
+    ...mine.map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime()),
+    ...myTasks.map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime()),
+    ...requests.map((t) => new Date(t.createdAt).getTime()),
+  ];
   const oldest = oldestTimes.length ? Math.min(...oldestTimes) : null;
 
   const approve = useCallback((id: string, title: string) => {
@@ -65,7 +78,7 @@ export const TicketApprovals = () => {
       <PageHeader
         icon={ShieldCheck}
         title="Team approvals"
-        subtitle="Tickets and delegations your team finished. You approve first, then they go to PC for the final check."
+        subtitle="New requests for your department, plus work your team finished. Approve or decline requests before anyone starts. Finished work goes to PC after you."
       />
 
       <ul className="flex flex-wrap gap-2" aria-label="Summary">
@@ -74,16 +87,38 @@ export const TicketApprovals = () => {
         <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
       </ul>
 
-      {(query.isPending || tasksQuery.isPending) && (
+      {(query.isPending || tasksQuery.isPending || boardQuery.isPending) && (
         <div className="flex flex-col gap-3" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
       )}
 
-      {(query.isError || tasksQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void query.refetch(); void tasksQuery.refetch(); }} />}
+      {(query.isError || tasksQuery.isError || boardQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void query.refetch(); void tasksQuery.refetch(); void boardQuery.refetch(); }} />}
 
-      {!query.isPending && !tasksQuery.isPending && !query.isError && !tasksQuery.isError && waitingTotal === 0 && (
-        <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No finished work is waiting for you. New items show up here as your team hands them in." />
+      {!query.isPending && !tasksQuery.isPending && !boardQuery.isPending && !query.isError && !tasksQuery.isError && !boardQuery.isError && waitingTotal === 0 && (
+        <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No requests or finished work are waiting for you. New items show up here as they come in." />
+      )}
+
+      {requests.length > 0 && (
+        <section aria-label="New requests" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+          <h2 className="flex items-center gap-2 t-section font-display font-bold text-text">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+              <Inbox size={15} strokeWidth={2.4} />
+            </span>
+            New requests <span className="font-normal text-text-muted tabular-nums">· {requests.length}</span>
+          </h2>
+          <p className="t-meta font-medium text-text-muted">Raised for your department. Nobody can start until you decide.</p>
+          </div>
+          {requests.map((ticket) => (
+            <HeadRequestRow
+              key={ticket.id}
+              ticket={ticket}
+              now={now}
+              departmentName={departments?.find((d) => d.id === ticket.departmentId)?.name}
+            />
+          ))}
+        </section>
       )}
 
       {mine.length > 0 && (

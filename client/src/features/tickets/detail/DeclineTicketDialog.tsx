@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { Ban } from 'lucide-react';
+import { Ban, Building2, CheckCheck, Copy, FileQuestion } from 'lucide-react';
 import { Button, Modal } from '../../../components';
 
 const MIN_REASON = 5;
-const QUICK_REASONS = ['Not our department', 'Already done', 'Not enough detail', 'Duplicate ticket'];
+const QUICK_REASONS = [
+  { label: 'Not our department', icon: Building2 },
+  { label: 'Already done', icon: CheckCheck },
+  { label: 'Not enough detail', icon: FileQuestion },
+  { label: 'Duplicate ticket', icon: Copy },
+];
 
 interface DeclineTicketDialogProps {
   open: boolean;
@@ -40,18 +45,27 @@ export const DeclineTicketDialog = ({ open, ticketTitle, isPending, onCancel, on
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2 t-card font-display font-semibold text-text">{ticketTitle}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_REASONS.map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => setReason(q)}
-              className="h-8 pointer-coarse:h-10 px-2.5 rounded-lg border border-border/60 bg-surface t-meta font-display font-semibold text-text-secondary hover:border-border-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
-              {q}
-            </button>
-          ))}
+        <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2 t-card font-display font-semibold text-text line-clamp-2 break-words">{ticketTitle}</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick reasons">
+          {QUICK_REASONS.map(({ label, icon: Icon }) => {
+            const active = trimmed === label;
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setReason(label)}
+                className={`inline-flex h-8 pointer-coarse:h-10 items-center gap-1.5 px-2.5 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  active
+                    ? 'border-danger/40 bg-danger/10 text-danger'
+                    : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover'
+                }`}
+              >
+                <Icon size={14} strokeWidth={2.25} aria-hidden="true" />
+                {label}
+              </button>
+            );
+          })}
         </div>
         <label htmlFor="decline-reason" className="t-meta font-display font-semibold text-text-secondary">Why are you declining it?</label>
         <textarea
