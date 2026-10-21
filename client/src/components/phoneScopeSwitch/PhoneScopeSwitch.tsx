@@ -9,7 +9,7 @@ interface PhoneScopeSwitchProps<T extends string> {
 }
 
 export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, onChange }: PhoneScopeSwitchProps<T>) => (
-  <div role="group" aria-label="Show" className="sm:hidden grid grid-cols-2 gap-1 flex-1 min-w-0 rounded-2xl border border-border bg-surface-hover/70 p-1">
+  <div role="group" aria-label="Show" className="grid grid-cols-2 gap-1 flex-1 min-w-0 sm:flex-none sm:w-auto sm:min-w-[24rem] sm:max-w-md rounded-2xl border border-border bg-surface-hover/70 p-1">
     {options.map((o) => {
       const active = value === o.value;
       const Icon = o.icon;
@@ -21,7 +21,7 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
           aria-label={o.label}
           onClick={() => onChange(active ? allValue : o.value)}
           className={cn(
-            'inline-flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl px-2.5 t-meta leading-tight font-display outline-none cursor-pointer transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
+            'inline-flex min-w-0 h-11 sm:h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-2.5 t-meta leading-tight font-display outline-none cursor-pointer transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
             active
               ? 'bg-surface text-primary-700 dark:text-primary-300 font-bold ring-1 ring-primary-500/40'
               : 'text-text-secondary font-semibold active:bg-surface/70',

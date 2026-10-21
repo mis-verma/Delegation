@@ -112,22 +112,29 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
   return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue, meta, dueAt: deadline };
 };
 
-const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortLabel: string; value: number | null; onClick?: () => void }) => {
+const MINI_TONE = {
+  success: { box: 'bg-success/10 hover:bg-success/15', value: 'text-success' },
+  info: { box: 'bg-info/10 hover:bg-info/15', value: 'text-info' },
+  neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
+} as const;
+
+const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { label: string; shortLabel: string; value: number | null; onClick?: () => void; tone?: keyof typeof MINI_TONE }) => {
+  const look = MINI_TONE[tone];
   const body = (
     <>
-      <span className="block t-card sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
-      <span className="block break-words t-meta leading-tight text-text-muted">
+      <span className={cn('block t-card sm:text-lg font-display font-bold tabular-nums leading-tight', look.value)}>{value ?? '-'}</span>
+      <span className="block break-words t-meta font-medium leading-tight text-text-muted">
         <span className="sm:hidden">{shortLabel}</span>
         <span className="hidden sm:inline">{label}</span>
       </span>
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl bg-surface-hover/50 px-1 py-2 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+    <button type="button" onClick={onClick} className={cn('flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl px-1 py-2 text-center outline-none transition-colors active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40', look.box)}>
       {body}
     </button>
   ) : (
-    <div className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl bg-surface-hover/50 px-1 py-2 text-center">{body}</div>
+    <div className={cn('flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl px-1 py-2 text-center', look.box)}>{body}</div>
   );
 };
 
@@ -174,8 +181,8 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
   return (
     <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
       <header className="flex items-center gap-2">
-        <span className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-xl text-white', tone.tile)}>
-          <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
+        <span className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl text-white', tone.tile)}>
+          <Icon className="size-4 sm:size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
@@ -231,22 +238,23 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
                 <RadialGauge percent={score.value ?? 0} size={56} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                   <span className={cn('t-meta font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
                 </RadialGauge>
-                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Score'}</span>
+                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Month score'}</span>
               </div>
             </div>
             {view.overdue > 0 && (
               <button
                 type="button"
                 onClick={() => onOpen('overdue')}
-                className="shrink-0 self-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-danger/10 px-2 t-meta font-display font-bold tabular-nums text-danger outline-none active:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
               >
-                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
+                <AlertTriangle className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
+                {view.overdue} overdue
               </button>
             )}
           </div>
           <div className="grid grid-cols-3 gap-1.5 text-center">
-            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} onClick={() => onOpen('completed')} />
-            <MiniStat label="New today" shortLabel="New" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
+            <MiniStat label="New today" shortLabel="New" value={view.newToday} tone="info" onClick={() => onOpen('newToday')} />
             <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} shortLabel="Total" value={view.total} />
           </div>
         </>

@@ -536,10 +536,11 @@ const deriveInstanceItemCompletion = (isDone: boolean, completedByUserId: string
 }
 
 export const syncVerificationStatus = async (instanceId: string) => {
-    const items = await db.select({ isDone: checklistInstanceItems.isDone }).from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, instanceId))
+    const [items, [instance]] = await Promise.all([
+        db.select({ isDone: checklistInstanceItems.isDone }).from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, instanceId)),
+        db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1),
+    ])
     const allDone = items.length > 0 && items.every((i) => i.isDone)
-
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
     if (!instance) return
 
     if (allDone && !instance.completedFirstAt) {
@@ -1281,8 +1282,10 @@ export const checklistInstanceService = {
         if (!instanceRow) throw AppError.notFound("Checklist instance not found.")
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
+        const runOpenCheck = assertRunOpenForUser(instanceRow.id, user)
+        runOpenCheck.catch(() => undefined)
         assertInstanceEditable(instanceRow, user)
-        await assertRunOpenForUser(instanceRow.id, user)
+        await runOpenCheck
         if (!isDone && item.isDone && !canWorkEndedRun(user)
             && isRunEnded({ ...instanceRow, totalItems: 1, doneItems: 0 }, Date.now(), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)) {
             throw AppError.badRequest(runClosedMessage(runClosingMs(instanceRow, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
@@ -1414,16 +1417,17 @@ export const checklistInstanceService = {
         const [finalItem] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
         if (!finalItem) throw AppError.notFound("Checklist item not found.")
 
-        await auditService.record({
-            entityType: "ChecklistInstanceItem",
-            entityId: itemId,
-            action: isDone ? (item.isDone ? "UPDATE" : "COMPLETE") : "REOPEN",
-            actorId: user.sub,
-            before: auditItemSnapshot(item),
-            after: auditItemSnapshot(finalItem),
-        })
-
-        await dropChecklistSummaries(assigneeIds)
+        await Promise.all([
+            auditService.record({
+                entityType: "ChecklistInstanceItem",
+                entityId: itemId,
+                action: isDone ? (item.isDone ? "UPDATE" : "COMPLETE") : "REOPEN",
+                actorId: user.sub,
+                before: auditItemSnapshot(item),
+                after: auditItemSnapshot(finalItem),
+            }),
+            dropChecklistSummaries(assigneeIds),
+        ])
         emitChecklistEvent("checklist-instance:updated", { storeId: instanceRow.storeId }, { instanceId: instanceRow.id })
         return stripSecretItemFields(finalItem)
     },

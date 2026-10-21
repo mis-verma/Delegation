@@ -22,15 +22,23 @@ interface NavItem {
   icon: LucideIcon;
   exact: boolean;
   center?: boolean;
+  tint: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Home', icon: LayoutGrid, exact: true },
-  { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false },
-  { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, center: true },
-  { to: '/todo', label: 'To-Do', icon: ListTodo, exact: false },
-  { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false },
+  { to: '/', label: 'Home', icon: LayoutGrid, exact: true, tint: 'primary' },
+  { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false, tint: 'coral' },
+  { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, center: true, tint: 'info' },
+  { to: '/todo', label: 'To-Do', icon: ListTodo, exact: false, tint: 'success' },
+  { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
 ];
+
+const TINTS: Record<string, { pill: string; text: string }> = {
+  primary: { pill: 'bg-primary-500/15', text: 'text-primary-600 dark:text-primary-300' },
+  coral: { pill: 'bg-coral-500/15', text: 'text-coral-600 dark:text-coral-400' },
+  success: { pill: 'bg-success/15', text: 'text-success' },
+  info: { pill: 'bg-info/15', text: 'text-info' },
+};
 
 const QUICK_CREATE: { label: string; hint: string; to: string; icon: LucideIcon }[] = [
   { label: 'New ticket', hint: 'Report a problem to a team', to: '/tickets?create=1', icon: TicketCheck },
@@ -76,8 +84,9 @@ export const BottomNav = () => {
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="relative h-14 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
+      <div className="relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent">
+        {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center, tint }) => {
+          const look = TINTS[tint] ?? TINTS.primary;
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
           const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;
           const summary = badge ? badgeSummary(badge) : '';
@@ -102,11 +111,11 @@ export const BottomNav = () => {
                 className="group relative flex flex-col items-center justify-end h-full pb-2 select-none outline-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
               >
                 <span
-                  className={`absolute -top-5 flex items-center justify-center size-12 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
+                  className={`absolute -top-5 flex items-center justify-center size-13 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-[0_6px_16px_-4px_var(--color-primary-600)] transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
                     isActive ? 'dark:from-primary-400 dark:to-primary-600' : ''
                   }`}
                 >
-                  <Icon size={22} strokeWidth={2.25} />
+                  <Icon size={24} strokeWidth={2.25} />
                 </span>
                 {badge && <NavCountBadge badge={badge} className="-top-6 left-1/2 ml-3" />}
                 <span
@@ -130,19 +139,21 @@ export const BottomNav = () => {
               aria-label={summary ? `${label}, ${summary}` : label}
               className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >
-              <span className="relative flex items-center justify-center w-12 h-8">
+              <span
+                className={`relative flex items-center justify-center h-8 rounded-full transition-[width,background-color] duration-200 ease-out motion-reduce:transition-none ${
+                  isActive ? `w-14 ${look.pill}` : 'w-12 bg-transparent'
+                }`}
+              >
                 <Icon
-                  size={19}
-                  strokeWidth={isActive ? 2.4 : 1.9}
-                  className={`relative transition-colors duration-200 ${
-                    isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted group-hover:text-text'
-                  }`}
+                  size={20}
+                  strokeWidth={isActive ? 2.5 : 2}
+                  className={`relative transition-colors duration-200 ${isActive ? look.text : 'text-text-muted group-hover:text-text'}`}
                 />
                 {badge && <NavCountBadge badge={badge} className="-top-1.5 left-1/2 ml-1.5" />}
               </span>
               <span
                 className={`relative text-[0.6875rem] leading-none font-display tracking-tight transition-colors duration-200 ${
-                  isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-muted font-medium group-hover:text-text'
+                  isActive ? `${look.text} font-bold` : 'text-text-muted font-medium group-hover:text-text'
                 }`}
               >
                 {label}
