@@ -216,11 +216,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               )}
             </button>
             <div className="flex flex-col items-center justify-center border-l border-border/60">
-              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
               <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
-                {score.label === 'Done' ? 'To-dos done' : 'Score this month'}
+                {score.label === 'Done' ? 'To-dos done' : 'Score today'}
                 {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
               </span>
             </div>
@@ -234,11 +234,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
                 </span>
                 <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
               </button>
-              <div className="flex flex-col items-center border-l border-border/60" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'}: ${formatPct(score.value)}`}>
-                <RadialGauge percent={score.value ?? 0} size={56} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+              <div className="flex flex-col items-center border-l border-border/60" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score today'}: ${formatPct(score.value)}`}>
+                <RadialGauge percent={score.value ?? 0} size={56} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                   <span className={cn('t-meta font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
                 </RadialGauge>
-                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Month score'}</span>
+                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Today'}</span>
               </div>
             </div>
             {view.overdue > 0 && (
@@ -302,9 +302,9 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
   }, [tasks, tickets, todos, checklist, checklistToday]);
 
   const orgToday = useOrgToday();
-  const month = windowFor('month', 0, orgToday);
-  const asked = capWindowAtToday(month.from, month.to, orgToday);
-  const monthScores = useQuery(scoreQuery('person', undefined, asked.from, asked.to));
+  const day = windowFor('day', 0, orgToday);
+  const asked = capWindowAtToday(day.from, day.to, orgToday);
+  const todayScores = useQuery(scoreQuery('person', undefined, asked.from, asked.to));
 
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
@@ -376,7 +376,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
           <ModuleCard
             key={view.key}
             view={view}
-            score={scoreFor(view.key, monthScores.data, view)}
+            score={scoreFor(view.key, todayScores.data, view)}
             scopeTag={simple ? undefined : SCOPE_TAG[view.scope]}
             onOpen={(kind) => setOpenDrill({ key: view.key, kind })}
           />
