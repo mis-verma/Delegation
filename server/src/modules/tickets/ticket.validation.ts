@@ -69,6 +69,9 @@ export const statusUpdateSchema = z.object({
 }).refine(v => v.status !== "ON_HOLD" || !!v.remark, {
     message : "A remark is required when putting a ticket on hold.",
     path : ["remark"],
+}).refine(v => v.status !== "PENDING_APPROVAL" || !!v.remark, {
+    message : "Write what was done before marking this ticket completed.",
+    path : ["remark"],
 })
 
 export const declineTicketSchema = z.object({

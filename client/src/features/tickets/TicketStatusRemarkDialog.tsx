@@ -133,17 +133,17 @@ export const TicketStatusRemarkDialog = ({
       to={chip(toStatus)}
       title={onHold ? 'Why is it on hold?' : handIn ? `${HAND_IN_LABEL}?` : undefined}
       confirmLabel={onHold ? 'Put on hold' : handIn ? HAND_IN_LABEL : `Move to ${getTicketStatusLabel(toStatus)}`}
-      optional={!onHold}
+      optional={!onHold && !handIn}
       description={onHold
         ? 'Say why and when work should start again. Everyone working on this ticket sees it.'
         : handIn
-          ? 'It goes to the reviewer for approval. Add a note for them if you want to.'
+          ? 'It goes to PC for approval. Say what was done so they can check it.'
           : 'Add a note if you want to. You can also move it without one.'}
-      phoneNote={onHold ? 'The due time keeps running while it is on hold.' : handIn ? 'It goes to the reviewer for approval.' : undefined}
+      phoneNote={onHold ? 'The due time keeps running while it is on hold.' : handIn ? 'It goes to PC for approval. Say what was done.' : undefined}
       suggestions={onHold ? ON_HOLD_SUGGESTIONS : undefined}
       placeholder={onHold
         ? "e.g. Waiting for the vendor's replacement part. Work starts again when it arrives."
-        : 'e.g. Replaced the printer cable and tested a print. Working again.'}
+        : handIn ? 'e.g. Replaced the cable and printed a test page. Everything works.' : 'e.g. Replaced the printer cable and tested a print. Working again.'}
       onCancel={onCancel}
       onConfirm={onConfirm}
       isSubmitting={isSubmitting}

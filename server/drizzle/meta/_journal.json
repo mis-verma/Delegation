@@ -498,6 +498,13 @@
       "when": 1792577923381,
       "tag": "0070_ticket_head_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "5",
+      "when": 1792640000000,
+      "tag": "0071_ticket_pc_only_approval",
+      "breakpoints": true
     }
   ]
 }

@@ -28,7 +28,7 @@ import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../ch
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
-import { canApproveAtStage, firstApprovalStage, assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, type ApprovalStage } from "./ticketApproval.js"
+import { canApproveAtStage, assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, type ApprovalStage } from "./ticketApproval.js"
 
 type TicketRow = typeof tickets.$inferSelect
 
@@ -252,15 +252,13 @@ const assertCanVerify = async (
   if (user.role !== "ADMIN" && ticket.assigneeId === user.sub) {
     throw AppError.forbidden("You can't approve a ticket assigned to you. Someone else has to review it.")
   }
-  const stage: ApprovalStage = ticket.approvalStage ?? "PC"
-  const [reviewer] = stage === "PC"
-    ? await db.select({ id: ticketReviewers.id })
-        .from(ticketReviewers)
-        .where(and(eq(ticketReviewers.ticketId, ticket.id), eq(ticketReviewers.userId, user.sub)))
-        .limit(1)
-    : []
+  const stage: ApprovalStage = "PC"
+  const [reviewer] = await db.select({ id: ticketReviewers.id })
+    .from(ticketReviewers)
+    .where(and(eq(ticketReviewers.ticketId, ticket.id), eq(ticketReviewers.userId, user.sub)))
+    .limit(1)
   if (canApproveAtStage(stage, ticket, user, !!reviewer)) return
-  throw AppError.forbidden(stage === "HOD" ? "This ticket is waiting for the department head to approve first." : "This ticket is waiting for the PC to give the final approval.")
+  throw AppError.forbidden("Only PC or an admin can approve this ticket.")
 }
 
 const isSameDeptOrStore = (user: AccessTokenPayload, ticket: Pick<TicketRow, "departmentId" | "storeId">) => {
@@ -613,11 +611,7 @@ export const ticketService = {
       const effectiveTatDueAt = patch.tatDueAt !== undefined ? patch.tatDueAt : before.tatDueAt
       patch.isOverdue = overdueAtHandOver(patch.isOverdue ?? before.isOverdue, effectiveTatDueAt, new Date())
       patch.submittedAt = new Date()
-      patch.approvalStage = await firstApprovalStage({
-        departmentId: patch.departmentId !== undefined ? patch.departmentId : before.departmentId,
-        assigneeId: patch.assigneeId !== undefined ? patch.assigneeId : before.assigneeId,
-        userId: before.userId,
-      })
+      patch.approvalStage = "PC"
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
       patch.approvalReminderSentAt = null
@@ -733,7 +727,7 @@ export const ticketService = {
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       patch.isOverdue = overdueAtHandOver(before.isOverdue, before.tatDueAt, new Date())
       patch.submittedAt = new Date()
-      patch.approvalStage = await firstApprovalStage({ departmentId: before.departmentId, assigneeId: before.assigneeId, userId: before.userId })
+      patch.approvalStage = "PC"
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
       patch.approvalReminderSentAt = null
@@ -924,17 +918,9 @@ export const ticketService = {
 
     const before = ticket;
     const fromStatus = ticket.status
-    const stage: ApprovalStage = ticket.approvalStage ?? "PC"
-    const stageHandOff = input.action === "APPROVE" && stage === "HOD" && user.role !== "ADMIN"
     const patch: Partial<typeof tickets.$inferInsert> = { updatedAt: new Date(), verificationNote: input.note ?? null }
 
-    if (stageHandOff) {
-      patch.approvalStage = "PC"
-      patch.hodApprovedBy = user.sub
-      patch.hodApprovedAt = new Date()
-      patch.approvalReminderSentAt = null
-      patch.approvalEscalatedAt = null
-    } else if (input.action === "APPROVE") {
+    if (input.action === "APPROVE") {
       patch.status = "CLOSED";
       patch.closedAt = new Date();
       patch.verifiedBy = user.sub;
@@ -976,13 +962,7 @@ export const ticketService = {
 
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated);
-    if (stageHandOff) {
-      await notifySafely(() => notificationService.notifyStageHandOff(notificationTarget(afterRow!), "TICKET", user.sub))
-      await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", "PC"))
-    } else {
-      const informHod = input.action === "REJECT" && stage === "PC" && ticket.hodApprovedBy && ticket.hodApprovedBy !== user.sub ? [ticket.hodApprovedBy] : []
-      await notifySafely(() => notificationService.notifyVerificationResult(notificationTarget(afterRow!), input.action, input.note, "TICKET", informHod))
-    }
+    await notifySafely(() => notificationService.notifyVerificationResult(notificationTarget(afterRow!), input.action, input.note, "TICKET", []))
     await dropTicketSummaries()
     return populated;
   },
@@ -1169,16 +1149,7 @@ export const ticketService = {
 
   async pendingApproval(user: AccessTokenPayload, limit = 8): Promise<{ data: TicketPendingApprovalRow[]; meta: { total: number } }> {
     const POOL = 40
-    const stageScope = user.role === "ADMIN"
-      ? undefined
-      : user.role === "PC"
-        ? or(isNull(tickets.approvalStage), eq(tickets.approvalStage, "PC"))
-        : and(
-            eq(tickets.approvalStage, "HOD"),
-            user.departmentId ? eq(tickets.departmentId, user.departmentId) : sql`1 = 0`,
-            or(isNull(tickets.assigneeId), ne(tickets.assigneeId, user.sub)),
-            ne(tickets.userId, user.sub),
-          )
+    const stageScope = user.role === "ADMIN" || user.role === "PC" ? undefined : sql`1 = 0`
     const pendingWhere = and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED, stageScope)
     const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tickets).where(pendingWhere)
     const total = Number(countRow?.total ?? 0)

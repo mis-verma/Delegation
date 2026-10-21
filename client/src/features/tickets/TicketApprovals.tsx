@@ -3,14 +3,14 @@ import { CheckCircle2, Clock, Inbox, ShieldCheck, UserCheck } from 'lucide-react
 import { EmptyState, IconChip, InlineError, PageHeader, Skeleton } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { canApproveTicket, isDepartmentHead, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
-import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun } from '../verification/decisionRequests';
-import { TaskRow, TicketRow } from '../verification/TicketTaskRows';
+import { approveTaskRun, rejectTaskRun } from '../verification/decisionRequests';
+import { TaskRow } from '../verification/TicketTaskRows';
 import { usePendingTasksQuery } from '../verification/usePendingTasksQuery';
 import { useDeferredDecisions } from '../verification/useDeferredDecisions';
 import { useNow } from '../verification/useChecklistQueue';
 import { useRefreshAfterDecision } from '../verification/useRefreshAfterDecision';
 import { formatWaiting } from '../verification/verificationModel';
-import { useDepartmentsQuery, useTicketsBoardQuery, useTicketsByStatusQuery } from './hook';
+import { useDepartmentsQuery, useTicketsBoardQuery } from './hook';
 import { HeadRequestRow } from './approvals/HeadRequestRow';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
@@ -21,20 +21,12 @@ const NO_TASKS: Task[] = [];
 export const TicketApprovals = () => {
   const { user } = useAuth();
   const now = useNow();
-  const query = useTicketsByStatusQuery('PENDING_APPROVAL');
   const tasksQuery = usePendingTasksQuery('pending_approval');
   const boardQuery = useTicketsBoardQuery();
   const { data: departments } = useDepartmentsQuery();
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule } = useDeferredDecisions({ afterSaved: refresh });
 
-  const all = query.data?.data ?? NO_TICKETS;
-  const mine = useMemo(
-    () => all
-      .filter((t) => stageOf(t) === 'HOD' && canApproveTicket(user, t) && !heldIds.has(t.id))
-      .sort((a, b) => new Date(a.submittedAt ?? a.updatedAt).getTime() - new Date(b.submittedAt ?? b.updatedAt).getTime()),
-    [all, user, heldIds],
-  );
   const requests = useMemo(
     () => (boardQuery.data ?? NO_TICKETS)
       .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !!user && isDepartmentHead(user, t))
@@ -49,23 +41,16 @@ export const TicketApprovals = () => {
     [allTasks, user, heldIds],
   );
   const withPc = useMemo(
-    () => all.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length + allTasks.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length,
-    [all, allTasks],
+    () => allTasks.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length,
+    [allTasks],
   );
-  const waitingTotal = mine.length + myTasks.length + requests.length;
+  const waitingTotal = myTasks.length + requests.length;
   const oldestTimes = [
-    ...mine.map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime()),
     ...myTasks.map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime()),
     ...requests.map((t) => new Date(t.createdAt).getTime()),
   ];
   const oldest = oldestTimes.length ? Math.min(...oldestTimes) : null;
 
-  const approve = useCallback((id: string, title: string) => {
-    schedule({ id, verb: 'Approved, sent to PC', label: title, run: approveTicketRun(id) });
-  }, [schedule]);
-  const sendBack = useCallback((id: string, title: string, note: string) => {
-    schedule({ id, verb: 'Sent back', label: title, run: rejectTicketRun(id, note) });
-  }, [schedule]);
   const approveTask = useCallback((id: string, title: string) => {
     schedule({ id, verb: 'Approved, sent to PC', label: title, run: approveTaskRun(id) });
   }, [schedule]);
@@ -78,7 +63,7 @@ export const TicketApprovals = () => {
       <PageHeader
         icon={ShieldCheck}
         title="Team approvals"
-        subtitle="New requests for your department, plus work your team finished. Approve or decline requests before anyone starts. Finished work goes to PC after you."
+        subtitle="New ticket requests for your department, plus delegations your team finished. Decide on requests before anyone starts. Finished tickets go straight to PC."
       />
 
       <ul className="flex flex-wrap gap-2" aria-label="Summary">
@@ -87,15 +72,15 @@ export const TicketApprovals = () => {
         <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
       </ul>
 
-      {(query.isPending || tasksQuery.isPending || boardQuery.isPending) && (
+      {(tasksQuery.isPending || boardQuery.isPending) && (
         <div className="flex flex-col gap-3" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
       )}
 
-      {(query.isError || tasksQuery.isError || boardQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void query.refetch(); void tasksQuery.refetch(); void boardQuery.refetch(); }} />}
+      {(tasksQuery.isError || boardQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void tasksQuery.refetch(); void boardQuery.refetch(); }} />}
 
-      {!query.isPending && !tasksQuery.isPending && !boardQuery.isPending && !query.isError && !tasksQuery.isError && !boardQuery.isError && waitingTotal === 0 && (
+      {!tasksQuery.isPending && !boardQuery.isPending && !tasksQuery.isError && !boardQuery.isError && waitingTotal === 0 && (
         <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No requests or finished work are waiting for you. New items show up here as they come in." />
       )}
 
@@ -116,23 +101,6 @@ export const TicketApprovals = () => {
               ticket={ticket}
               now={now}
               departmentName={departments?.find((d) => d.id === ticket.departmentId)?.name}
-            />
-          ))}
-        </section>
-      )}
-
-      {mine.length > 0 && (
-        <section aria-label="Tickets" className="flex flex-col gap-3">
-          <h2 className="t-section font-display font-bold text-text">Tickets <span className="font-normal text-text-muted tabular-nums">· {mine.length}</span></h2>
-          {mine.map((ticket) => (
-            <TicketRow
-              key={ticket.id}
-              ticket={ticket}
-              now={now}
-              departmentName={null}
-              raisedByName={null}
-              onApprove={approve}
-              onSendBack={sendBack}
             />
           ))}
         </section>

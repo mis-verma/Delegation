@@ -13,6 +13,7 @@ export interface ApprovalTrailProps {
   hodName?: string | null;
   finalAt?: string | null;
   finalName?: string | null;
+  hideHead?: boolean;
 }
 
 interface Step {
@@ -27,6 +28,11 @@ const shortWhen = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : null;
 
 const buildSteps = (p: ApprovalTrailProps): Step[] => {
+  const steps = buildAllSteps(p);
+  return p.hideHead ? steps.filter((s) => s.key !== 'hod') : steps;
+};
+
+const buildAllSteps = (p: ApprovalTrailProps): Step[] => {
   const hodDone = !!p.hodApprovedAt;
   const hodSkipped = !hodDone && (p.closed || (p.pending && p.stage === 'PC'));
   return [
@@ -47,7 +53,7 @@ const buildSteps = (p: ApprovalTrailProps): Step[] => {
       state: p.closed ? 'done' : p.pending && p.stage === 'PC' ? 'current' : 'waiting',
       detail: p.closed
         ? [p.finalName, shortWhen(p.finalAt)].filter(Boolean).join(', ') || 'Approved'
-        : p.pending && p.stage === 'PC' ? 'Reviewing now' : 'After the head',
+        : p.pending && p.stage === 'PC' ? 'Reviewing now' : p.hideHead ? 'Next' : 'After the head',
     },
   ];
 };
@@ -64,7 +70,7 @@ export const ApprovalTrail = (props: ApprovalTrailProps) => {
   const steps = buildSteps(props);
 
   return (
-    <ol aria-label="Approval progress" className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-surface p-2.5 sm:p-3">
+    <ol aria-label="Approval progress" className={cn('grid gap-2 rounded-xl border border-border/60 bg-surface p-2.5 sm:p-3', steps.length === 2 ? 'grid-cols-2' : 'grid-cols-3')}>
       {steps.map((step, index) => {
         const Icon = step.state === 'done' ? Check : step.state === 'skipped' ? Minus : step.state === 'waiting' ? Clock : step.icon;
         return (

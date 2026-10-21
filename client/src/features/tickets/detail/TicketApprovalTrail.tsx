@@ -15,5 +15,6 @@ export const TicketApprovalTrail = ({ ticket }: { ticket: Ticket }) => (
     hodName={personName(ticket.hodApprover)}
     finalAt={ticket.verifiedAt ?? ticket.closedAt}
     finalName={personName(ticket.verifier)}
+    hideHead
   />
 );

@@ -1,0 +1,1 @@
+UPDATE `Ticket` SET `approvalStage` = 'PC' WHERE `approvalStage` = 'HOD';

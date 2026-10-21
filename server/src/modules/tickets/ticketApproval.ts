@@ -38,11 +38,6 @@ export const activeDepartmentHeadIds = async (departmentId: string | null, exclu
   return rows.map((r) => r.id)
 }
 
-export const firstApprovalStage = async (ticket: StageTicket): Promise<ApprovalStage> => {
-  const heads = await activeDepartmentHeadIds(ticket.departmentId, [ticket.assigneeId, ticket.userId])
-  return heads.length > 0 ? "HOD" : "PC"
-}
-
 export const assignmentNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId">, actor: Actor): Promise<boolean> => {
   if (!ticket.departmentId) return false
   if (actor.role === "ADMIN" || actor.role === "PC") return false
