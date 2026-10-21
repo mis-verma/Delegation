@@ -52,9 +52,10 @@ interface TicketFormProps {
   onClose: () => void;
   defaultDueDate?: Date;
   draft?: Draft;
+  prefill?: Partial<TicketFields>;
 }
 
-export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) => {
+export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -98,7 +99,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...(draft?.payload as Partial<TicketFields> | undefined) },
+    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...prefill, ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
   const validateOnChange = submitCount > 0;
   const dirty = isDirty || photos.length > 0;

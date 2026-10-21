@@ -1,5 +1,6 @@
 import { memo, useState, type ReactNode } from 'react';
-import { Check, X, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, Film, UserRound } from 'lucide-react';
+import { TicketForm } from '../tickets/TicketForm';
+import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, Film, UserRound } from 'lucide-react';
 import { Button, IconChip, PriorityChip, DepartmentChip } from '../../components';
 import { SendBackForm } from '../checklist/instance/ReviewActions';
 import { cn } from '@/lib/utils';
@@ -75,6 +76,7 @@ const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
 };
 
 interface QueueRowProps {
+  raiseTicketFrom?: string;
   icon: ReactNode;
   title: string;
   facts: string;
@@ -93,8 +95,9 @@ interface QueueRowProps {
   onWarm?: () => void;
 }
 
-const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
+const QueueRow = ({ raiseTicketFrom, icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
   const [rejecting, setRejecting] = useState(false);
+  const [raising, setRaising] = useState(false);
   const [text, setText] = useState('');
 
   const flagForCorrection = (label: string) => {
@@ -153,26 +156,37 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
         </div>
 
         {!rejecting && (
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:self-start sm:shrink-0">
-            <Button size="sm" variant="ghost" className="w-full sm:w-auto" onClick={onToggleExpanded} aria-expanded={expanded}>
-              <ChevronDown size={14} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
-              {expanded ? 'Hide' : 'Checklist'}
+          <div role="group" aria-label={`Actions for ${title}`} className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:self-start sm:shrink-0">
+            <Button size="sm" variant="ghost" className="col-span-2 h-11 sm:h-9 gap-1.5 sm:col-span-1" onClick={onToggleExpanded} aria-expanded={expanded}>
+              <ChevronDown size={15} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
+              {expanded ? 'Hide details' : 'Checklist'}
             </Button>
+            {raiseTicketFrom && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 sm:h-9 gap-1.5 border-primary-500/30 text-primary-700 hover:border-primary-500/50 hover:bg-primary-500/10 dark:text-primary-300"
+                onClick={() => setRaising(true)}
+              >
+                <TicketPlus size={15} aria-hidden />
+                Raise ticket
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 sm:flex-none border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="h-11 sm:h-9 gap-1.5 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => setRejecting(true)}
             >
-              <X size={14} aria-hidden />
+              <CornerUpLeft size={15} aria-hidden />
               Send back
             </Button>
             <Button
               size="sm"
-              className="flex-1 sm:flex-none bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
+              className={cn('h-11 sm:h-9 gap-1.5 bg-success-strong text-white hover:bg-success-strong/90 hover:text-white', !raiseTicketFrom && 'col-span-2 sm:col-span-1')}
               onClick={onApprove}
             >
-              <Check size={14} aria-hidden />
+              <Check size={15} strokeWidth={2.75} aria-hidden />
               {approveLabel}
             </Button>
           </div>
@@ -192,6 +206,13 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
         <div className="pt-4 border-t border-border/50">
           {preview(flagForCorrection)}
         </div>
+      )}
+
+      {raising && raiseTicketFrom && (
+        <TicketForm
+          onClose={() => setRaising(false)}
+          prefill={{ title: `Follow up: ${raiseTicketFrom}`.slice(0, 190), description: `Raised from the Verification Queue about "${raiseTicketFrom}".` }}
+        />
       )}
 
       {rejecting && (
@@ -245,6 +266,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
     <>
       <QueueRow
         icon={<TicketIcon size={18} aria-hidden />}
+        raiseTicketFrom={ticket.title}
         title={ticket.title}
         facts={[raisedByName ? `Raised by ${raisedByName}` : null, ticket.assignee ? `handled by ${ticket.assignee.firstName}` : 'nobody working on it yet'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
@@ -288,6 +310,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
     <>
       <QueueRow
         icon={<CheckSquare size={18} aria-hidden />}
+        raiseTicketFrom={task.title}
         title={task.title}
         facts={[raisedByName ? `Raised by ${raisedByName}` : null, task.dueDate ? `due ${new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'no due date'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={

@@ -164,13 +164,13 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 px-3 t-meta border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="h-11 px-4 t-meta border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => onSendBack(id)}
             >
               <CornerUpLeft size={14} aria-hidden />
               Send back
             </Button>
-            <Button size="sm" className="h-8 px-3 t-meta bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
+            <Button size="sm" className="h-11 px-4 t-meta bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
               <Check size={14} aria-hidden />
               Approve
             </Button>

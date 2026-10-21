@@ -205,15 +205,21 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         justArrived && !open && (tone === 'dark' ? 'text-white bg-white/10' : 'text-danger bg-danger/10')
       )}
       aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+      title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}` : 'Notifications'}
       aria-haspopup="dialog"
       aria-expanded={open}
     >
-      <Bell className={cn("size-[1.125rem] transition-transform duration-300", open && "scale-90", justArrived && "animate-[bell-ring_0.5s_ease-in-out]")} />
+      {unreadCount > 0 ? (
+        <BellRing className={cn("size-5 transition-transform duration-300", open && "scale-90", justArrived && "animate-[bell-ring_0.5s_ease-in-out]")} strokeWidth={2.25} />
+      ) : (
+        <Bell className={cn("size-5 transition-transform duration-300", open && "scale-90")} strokeWidth={2} />
+      )}
+      {justArrived && !open && <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-danger/50 animate-ping motion-reduce:hidden" />}
 
       {unreadCount > 0 && (
         <span className={cn(
-          "absolute -top-1 -right-1 flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1",
-          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white t-meta font-display font-bold leading-none tabular-nums",
+          "absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-5 h-5 px-1.5",
+          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white text-[11px] font-display font-extrabold leading-none tabular-nums",
           badgeRing ? "ring-2 ring-surface" : "ring-2 ring-surface/80",
           "animate-in zoom-in duration-300",
           justArrived && "animate-pulse"

@@ -1,10 +1,19 @@
 import {
-  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell,
+  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren,
   type LucideIcon,
 } from 'lucide-react';
 import type { Notification } from '@/api/notifications';
 
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
+  { match: 'ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'HOD_APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
+  { match: 'DUE_SOON', icon: AlarmClock, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: 'COMMENT', icon: MessageSquare, tile: 'bg-linear-to-br from-info to-info/70 text-white' },
+  { match: 'OPENED', icon: DoorOpen, tile: 'bg-linear-to-br from-success to-success/70 text-white' },
+  { match: 'UPCOMING', icon: CalendarClock, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
+  { match: 'REVIEWER_ADDED', icon: UserPlus, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
+  { match: 'UNASSIGNED', icon: UserX, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: '_STATUS', icon: ArrowRightCircle, tile: 'bg-linear-to-br from-info to-info/70 text-white' },
   { match: 'APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-success to-success/70 text-white' },
   { match: 'REJECTED', icon: XCircle, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
   { match: 'OVERDUE', icon: AlarmClock, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
