@@ -465,7 +465,7 @@ export const ticketService = {
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
-    const needsHead = await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null, assigneeId: input.assigneeId ?? null }, user)
+    const needsHead = await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null }, user)
     await db.insert(tickets).values({
       id,
       title: input.title,
@@ -584,12 +584,11 @@ export const ticketService = {
       patch.startDate = input.startDate ? new Date(input.startDate) : null
     }
 
-    const nextAssigneeId = patch.assigneeId !== undefined ? patch.assigneeId : before.assigneeId
     const nextDepartmentId = patch.departmentId !== undefined ? patch.departmentId : before.departmentId
     const reassigned = (input.assigneeId !== undefined && input.assigneeId !== before.assigneeId) || (input.departmentId !== undefined && input.departmentId !== before.departmentId)
     let nowAwaitingHead = false
-    if (reassigned && before.status === "OPEN") {
-      nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId, assigneeId: nextAssigneeId }, user)
+    if (reassigned && before.status === "OPEN" && !before.declinedAt) {
+      nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
       patch.awaitingHeadApproval = nowAwaitingHead
       patch.assignmentApprovedBy = null
       patch.assignmentApprovedAt = null

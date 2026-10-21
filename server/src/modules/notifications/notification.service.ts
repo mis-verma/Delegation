@@ -113,15 +113,15 @@ export const notificationService = {
 
   async notifyTicketAwaitingHead(ticket: { _id: any; title: string; departmentId?: any; assigneeId?: any; userId?: any }) {
     if (!ticket.departmentId) return [];
-    const exclude = new Set([ticket.assigneeId, ticket.userId].filter(Boolean).map((id: any) => id.toString()));
+    const raiserId = ticket.userId ? ticket.userId.toString() : null;
     const heads = await db
       .select({ id: users.id })
       .from(users)
       .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
-    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => !exclude.has(id)), {
+    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
       type: 'TICKET_AWAITING_HEAD',
-      title: 'Approve this ticket for your team',
-      message: `"${ticket.title}" was assigned to someone in your department. Approve it so they can start, or decline it.`,
+      title: 'New ticket needs your approval',
+      message: `"${ticket.title}" was raised for your department. Approve it first, then the team can work on it.`,
       ticketId: ticket._id.toString(),
     });
   },

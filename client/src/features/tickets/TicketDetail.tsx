@@ -207,7 +207,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const canDecline = !ticket.declinedAt
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
     && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
-  const canApproveAssignment = awaitingHead && (isAdmin || (isDepartmentHead && ticket.assigneeId !== currentUser?.id));
+  const canApproveAssignment = awaitingHead && (isAdmin || isDepartmentHead);
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || awaitingHead;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
