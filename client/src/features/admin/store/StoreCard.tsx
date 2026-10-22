@@ -2,10 +2,10 @@ import { memo } from 'react';
 import { Link } from 'react-router';
 import { Building2, CalendarOff, CircleOff, CirclePower, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
+import { CountUp, ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
 import type { Store } from '../../../api/stores';
 import type { ExplorerRow } from '../../../api/scores';
-import { CardChip, ScoreStrip } from '../directory/orgScores';
+import { CardChip, ScoreStrip, StatBlock } from '../directory/orgScores';
 import { scoresHref } from '../directory/orgScoreData';
 
 interface StoreCardProps {
@@ -63,24 +63,31 @@ export const StoreCard = memo(({
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        {store.code && <CardChip icon={Hash} label={store.code} title={`Store code ${store.code}`} />}
-        {activeCount === undefined ? (
-          <Skeleton className="h-5 w-20 rounded-md" />
-        ) : activeCount !== null && (
-          <CardChip
-            icon={Users}
-            tone="coral"
-            label={`${activeCount} staff`}
-            title={inactiveCount > 0 ? `${activeCount} active, ${inactiveCount} deactivated` : undefined}
-          />
-        )}
-        {departmentCount !== undefined && (
-          <CardChip icon={Building2} tone="primary" label={`${departmentCount} ${departmentCount === 1 ? 'department' : 'departments'}`} />
-        )}
-        {!!store.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(store.weekOffDays)}`} title="Weekly day off for this store" />}
-        {!store.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+      <div className="grid grid-cols-2 gap-2">
+        <StatBlock
+          icon={Users}
+          tone="coral"
+          label="Staff"
+          value={typeof activeCount === 'number' ? <CountUp value={activeCount} fromZero /> : '-'}
+          caption={inactiveCount > 0 ? `${inactiveCount} off` : null}
+          loading={activeCount === undefined}
+        />
+        <StatBlock
+          icon={Building2}
+          tone="primary"
+          label={departmentCount === 1 ? 'Department' : 'Departments'}
+          value={typeof departmentCount === 'number' ? <CountUp value={departmentCount} fromZero /> : '-'}
+          loading={departmentCount === undefined}
+        />
       </div>
+
+      {(!!store.code || !!store.weekOffDays?.length || !store.isActive) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {store.code && <CardChip icon={Hash} label={store.code} title={`Store code ${store.code}`} />}
+          {!!store.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(store.weekOffDays)}`} title="Weekly day off for this store" />}
+          {!store.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+        </div>
+      )}
 
       <div className="mt-auto">
         <ScoreStrip kind="store" id={store.id} name={store.name} row={score} from={scoreWindow.from} to={scoreWindow.to} failed={scoreWindow.failed} />
@@ -99,11 +106,10 @@ export const StoreCardSkeleton = () => (
         <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
-    <div className="flex gap-1.5">
-      <Skeleton className="h-5 w-14 rounded-md" />
-      <Skeleton className="h-5 w-20 rounded-md" />
-      <Skeleton className="h-5 w-24 rounded-md" />
+    <div className="grid grid-cols-2 gap-2">
+      <Skeleton className="h-14 rounded-xl" />
+      <Skeleton className="h-14 rounded-xl" />
     </div>
-    <Skeleton className="h-12 w-full rounded-xl" />
+    <Skeleton className="h-28 w-full rounded-xl" />
   </div>
 );

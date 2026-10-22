@@ -1,11 +1,11 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Building2, CalendarOff, CircleOff, CirclePower, Crown, Store, TriangleAlert, Users } from 'lucide-react';
+import { Building2, CalendarOff, CircleOff, CirclePower, Crown, ShieldCheck, Store, TriangleAlert, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
+import { CountUp, ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
 import type { Department } from '../../../api/departments';
 import type { ExplorerRow } from '../../../api/scores';
-import { CardChip, ScoreStrip } from '../directory/orgScores';
+import { CardChip, ScoreStrip, StatBlock } from '../directory/orgScores';
 import { scoresHref } from '../directory/orgScoreData';
 
 interface DepartmentCardProps {
@@ -68,25 +68,30 @@ export const DepartmentCard = memo(({
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        {activeCount === undefined ? (
-          <Skeleton className="h-5 w-20 rounded-md" />
-        ) : activeCount !== null && (
-          <CardChip
-            icon={Users}
-            tone="primary"
-            label={`${activeCount} ${activeCount === 1 ? 'member' : 'members'}`}
-            title={inactiveCount > 0 ? `${activeCount} active, ${inactiveCount} deactivated` : undefined}
-          />
-        )}
-        {headName === undefined ? null : headName ? (
-          <CardChip icon={Crown} label={headName} title={`Head: ${headName}`} />
-        ) : department.headOptional ? null : (
-          <CardChip icon={TriangleAlert} tone="warning" label="No head" />
-        )}
-        {!!department.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(department.weekOffDays)}`} title="Weekly day off for this department" />}
-        {!department.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+      <div className="grid grid-cols-2 gap-2">
+        <StatBlock
+          icon={Users}
+          tone="primary"
+          label={activeCount === 1 ? 'Member' : 'Members'}
+          value={typeof activeCount === 'number' ? <CountUp value={activeCount} fromZero /> : '-'}
+          caption={inactiveCount > 0 ? `${inactiveCount} off` : null}
+          loading={activeCount === undefined}
+        />
+        <StatBlock
+          icon={headName ? Crown : department.headOptional ? ShieldCheck : TriangleAlert}
+          tone={headName ? 'success' : department.headOptional ? 'neutral' : 'warning'}
+          label="Head"
+          value={headName ?? (department.headOptional ? 'Not needed' : 'No head')}
+          loading={headName === undefined}
+        />
       </div>
+
+      {(!!department.weekOffDays?.length || !department.isActive) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {!!department.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(department.weekOffDays)}`} title="Weekly day off for this department" />}
+          {!department.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+        </div>
+      )}
 
       <div className="mt-auto">
         <ScoreStrip kind="department" id={department.id} name={department.name} row={score} from={scoreWindow.from} to={scoreWindow.to} failed={scoreWindow.failed} />
@@ -105,10 +110,10 @@ export const DepartmentCardSkeleton = () => (
         <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
-    <div className="flex gap-1.5">
-      <Skeleton className="h-5 w-20 rounded-md" />
-      <Skeleton className="h-5 w-24 rounded-md" />
+    <div className="grid grid-cols-2 gap-2">
+      <Skeleton className="h-14 rounded-xl" />
+      <Skeleton className="h-14 rounded-xl" />
     </div>
-    <Skeleton className="h-12 w-full rounded-xl" />
+    <Skeleton className="h-28 w-full rounded-xl" />
   </div>
 );
