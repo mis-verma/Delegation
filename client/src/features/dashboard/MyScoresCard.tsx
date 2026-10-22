@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, CalendarDays, Trophy, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, type LucideIcon } from 'lucide-react';
-import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
+import { Button, Combobox, CountUp, ExportMenu, IconChip, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { rateWord } from '../checklist/checklistDisplay';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
@@ -16,6 +16,9 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
 import { ScoreHero } from './ScoreHero';
+import { ToneChip } from './ToneChip';
+import { TONE_BAR } from './scoreTone';
+import { CATEGORY_ICON, CATEGORY_TILE } from './categoryLook';
 import { heroFacts } from './heroFacts';
 import { SimpleScoresView } from './SimpleScoresView';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
@@ -29,7 +32,7 @@ import { orgDayWindow } from './scoreDrill';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
-import { formatPct } from '../../lib/percent';
+import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
 import { HintPopover, HowCalculated } from '../scores/HowCalculated';
 import { dashboardViewFor } from './dashboardView';
@@ -89,43 +92,57 @@ const reportRows = (report: ScoreReport): TableRows => [
 ];
 
 interface ScoreTileProps {
+  module: ModuleKey;
   title: string;
   score: number | null;
   detail: string;
   loading: boolean;
   onOpen: () => void;
   change?: number | null;
+  index: number;
 }
 
-const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileProps) => {
+const ScoreTile = ({ module, title, score, detail, loading, onOpen, change, index }: ScoreTileProps) => {
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const tileClass = 'flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+  const Icon = CATEGORY_ICON[module];
+  const rounded = roundPct(score);
+  const tileClass = 'stat-rise relative flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-xl border border-border bg-surface p-3 pt-3.5 text-center transition-colors duration-150 hover:border-border-hover active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
   const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}, ${rateWord(score)}${detail ? `, ${detail}` : ''}`;
-  const body = (
-    <>
+  return (
+    <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties} className={tileClass}>
+      <span className={cn('absolute inset-x-0 top-0 h-1', TONE_BAR[tone])} aria-hidden="true" />
+      <span className="flex w-full min-w-0 items-center gap-2">
+        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', CATEGORY_TILE[module])} aria-hidden="true">
+          <Icon className="size-4" strokeWidth={2.25} />
+        </span>
+        <span className="min-w-0 flex-1 text-left t-card font-display font-bold leading-snug text-text break-words">{title}</span>
+      </span>
       <SemiGauge
         percent={score ?? 0}
         showFill={score !== null}
         gradientFrom={from}
         gradientTo={to}
         endLabels={false}
-        className="max-w-24 sm:max-w-28"
+        className="max-w-28 sm:max-w-32"
       />
-      <span className="t-stat font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '-' : formatPct(score)}</span>
-      <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
-      {!loading && score !== null && <span className={`t-meta font-display font-bold ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-danger' : 'text-text-muted'}`}>{rateWord(score)}</span>}
-      {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
+      <span className="t-stat font-display font-extrabold tabular-nums leading-none text-text">
+        {loading ? ' ' : rounded === null ? '-' : <CountUp value={rounded} decimals={1} fromZero format={(n) => `${n}%`} />}
+      </span>
+      {!loading && score !== null && <ToneChip tone={tone} />}
       {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
+      {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {change != null && change !== 0 && (
-        <span className={`inline-flex items-center gap-0.5 t-meta font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`}>
-          {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-          {Math.abs(change)} pts <span className="font-medium text-text-muted">vs last period</span>
-        </span>
+        <IconChip
+          icon={change > 0 ? ArrowUp : ArrowDown}
+          tone={change > 0 ? 'bg-success' : 'bg-danger'}
+          label={`${Math.abs(change)} pts`}
+          labelClassName={cn('tabular-nums', change > 0 ? 'text-success' : 'text-danger')}
+          title="Compared with the last period"
+        />
       )}
-    </>
+    </button>
   );
-  return <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} className={tileClass}>{body}</button>;
 };
 
 const spanDays = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
@@ -601,7 +618,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             { key: 'checklist', title: MODULE_LABEL.checklist },
             { key: 'ticket', title: MODULE_LABEL.ticket },
             { key: 'delegation', title: MODULE_LABEL.delegation },
-          ] as { key: ModuleKey; title: string }[]).map(({ key, title }) => {
+          ] as { key: ModuleKey; title: string }[]).map(({ key, title }, index) => {
             const now = data ? numbersFor(data, key) : null;
             const before = previous ? numbersFor(previous, key) : null;
             const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
@@ -614,6 +631,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             return (
               <ScoreTile
                 key={key}
+                module={key}
+                index={index}
                 loading={loading}
                 title={title}
                 score={score}

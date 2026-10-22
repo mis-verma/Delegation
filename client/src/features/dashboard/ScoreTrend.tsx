@@ -1,14 +1,16 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import { ScoreColumn } from './scoreBarShape';
 import { useQuery } from '@tanstack/react-query';
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ArrowDown, ArrowUp, Gauge, Minus, Trophy } from 'lucide-react';
+import { IconChip } from '../../components/iconChip';
 import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
-import { formatPct } from '../../lib/percent';
+import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL as MODULE_NAME } from '../../lib/scoreLabels';
 import { SeriesLegend } from './SeriesLegend';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
@@ -52,6 +54,15 @@ const TrendTooltip = ({ active, payload, series }: { active?: boolean; payload?:
   );
 };
 
+const pointValue = (p: Point, series: SeriesKey[]): number | null => {
+  if (p.due === 0) return null;
+  const values = series.map((k) => p[k]).filter((v): v is number => v !== null);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+};
+
+const toneText = (v: number) => (v >= 80 ? 'text-success' : v >= 50 ? 'text-warning' : 'text-danger');
+const toneBg = (v: number) => (v >= 80 ? 'bg-success' : v >= 50 ? 'bg-warning' : 'bg-danger');
+
 interface ScoreTrendProps {
   metric?: ScoreMetric;
   scope: ScoreScope;
@@ -82,6 +93,10 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
     );
   };
   const anyData = points.some((p) => p.due > 0);
+  const valued = points.flatMap((p) => { const v = pointValue(p, series); return v === null ? [] : [{ label: p.label, value: v }]; });
+  const average = valued.length ? roundPct(valued.reduce((t, x) => t + x.value, 0) / valued.length) : null;
+  const best = valued.length ? valued.reduce((a, b) => (b.value > a.value ? b : a)) : null;
+  const swing = valued.length > 1 ? Math.round((valued[valued.length - 1].value - valued[0].value) * 10) / 10 : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -89,6 +104,22 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
         <PeriodTabControl value={module} options={MODULE_KEYS} labels={MODULE_LABEL} onChange={setModule} />
         <SeriesLegend series={series} labels={SERIES_LABEL} />
       </div>
+
+      {anyData && !isPending && (
+        <div className="stat-rise flex flex-wrap gap-1.5" aria-label="Trend summary">
+          {average !== null && <IconChip icon={Gauge} tone={toneBg(average)} label={`Average ${formatPct(average)}`} labelClassName={`tabular-nums ${toneText(average)}`} />}
+          {best && <IconChip icon={Trophy} tone="bg-primary-600" label={`Best: ${best.label} ${formatPct(best.value)}`} labelClassName="tabular-nums" />}
+          {swing !== null && (
+            <IconChip
+              icon={swing > 0 ? ArrowUp : swing < 0 ? ArrowDown : Minus}
+              tone={swing > 0 ? 'bg-success' : swing < 0 ? 'bg-danger' : 'bg-text-muted'}
+              label={swing === 0 ? 'Steady' : `${swing > 0 ? 'Up' : 'Down'} ${Math.abs(swing)} pts`}
+              labelClassName={`tabular-nums ${swing > 0 ? 'text-success' : swing < 0 ? 'text-danger' : ''}`}
+              title="From the first bar to the last"
+            />
+          )}
+        </div>
+      )}
 
       <div className="relative h-48 w-full sm:h-56" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULE_LABEL[module]}: ${chartPoints.map((p) => `${p.label} ${series.map((k) => `${p[k] ?? 'none'}%`).join(', ')}`).join('; ')}` : 'Nothing was due in this window'}>
         {isPending ? (
@@ -106,6 +137,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
             <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>
               <XAxis dataKey="label" interval={0} tickFormatter={(v: string) => (isMobile && chartPoints.length > 6 ? String(v).slice(0, 3) : v)} tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} />
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
+              <ReferenceLine y={80} stroke="var(--color-success)" strokeDasharray="4 4" strokeOpacity={0.7} label={isMobile ? undefined : { value: 'Good', position: 'insideTopRight', fill: 'var(--color-success)', fontSize: 12, fontWeight: 700 }} />
               <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />
               {series.map((k, i) => (
                 <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: { due: number } }) => <ScoreColumn {...p} radius={6} empty={(p.payload?.due ?? 1) === 0} words={i === 0} />} maxBarSize={series.length === 1 ? (isMobile ? 34 : 56) : isMobile ? 24 : 38} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
@@ -116,7 +148,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
           </ResponsiveContainer>
         )}
       </div>
-      <p className="t-meta font-medium text-text-muted">Each bar is a slice of the window. Pale columns had nothing due.</p>
+      <p className="t-meta font-medium text-text-muted">Each bar is a slice of the window. Pale columns had nothing due. The dashed line marks 80%, a good score.</p>
     </div>
   );
 };
