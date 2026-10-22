@@ -17,7 +17,7 @@ export interface TaskFilters {
 export const OVERDUE_EXEMPT_STATUSES: ReadonlySet<Task['status']> = new Set(['done', 'draft', 'pending_approval']);
 
 export const isOverdueTask = (t: Task) =>
-  !!t.dueDate && !OVERDUE_EXEMPT_STATUSES.has(t.status) && new Date(t.dueDate).getTime() < Date.now();
+  !!t.dueDate && !t.awaitingHeadApproval && !OVERDUE_EXEMPT_STATUSES.has(t.status) && new Date(t.dueDate).getTime() < Date.now();
 
 export const CATEGORY_PREDICATES: Record<CategoryFilterKey, (t: Task) => boolean> = {
   all: () => true,

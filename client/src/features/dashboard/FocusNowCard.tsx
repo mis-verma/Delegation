@@ -99,7 +99,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
     }
 
     for (const t of tasks) {
-      if (t.status === 'done' || t.status === 'draft' || t.status === 'pending_approval' || !t.dueDate) continue;
+      if (t.status === 'done' || t.status === 'draft' || t.status === 'pending_approval' || t.awaitingHeadApproval || !t.dueDate) continue;
       const due = new Date(t.dueDate).getTime();
       if (isTaskOverdue(t, now)) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'overdue', at: due, detail: null, href: `/tasks?open=${t.id}` });
       else if (due <= end) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'dueToday', at: due, detail: null, href: `/tasks?open=${t.id}` });

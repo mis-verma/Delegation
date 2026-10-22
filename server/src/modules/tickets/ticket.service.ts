@@ -22,7 +22,7 @@ import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTicketInput, UpdateTicketInput, VerifyTicketInput, StatusUpdateInput } from "./ticket.validation.js"
-import { auditService } from "../audit/audit.service.js"
+import { auditService, type DbTransaction } from "../audit/audit.service.js"
 import { emitTicketEvent } from "../../sockets/ticketEvent.js"
 import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
@@ -78,7 +78,9 @@ const tagsByTicket = async (ticketIds: string[]) => {
   return byTicket
 }
 
-const syncTicketTags = async (executor: typeof db, ticketId: string, tagIds: string[]) => {
+type Executor = typeof db | DbTransaction
+
+const syncTicketTags = async (executor: Executor, ticketId: string, tagIds: string[]) => {
   await executor.delete(ticketTags).where(eq(ticketTags.ticketId, ticketId))
   if (!tagIds.length) return
 
@@ -102,7 +104,7 @@ const reviewerTicketIds = async (userId: string): Promise<string[]> => {
   return rows.map((r) => r.ticketId)
 }
 
-const syncTicketReviewers = async (executor: typeof db, ticketId: string, userIds: string[]) => {
+const syncTicketReviewers = async (executor: Executor, ticketId: string, userIds: string[]) => {
   await executor.delete(ticketReviewers).where(eq(ticketReviewers.ticketId, ticketId))
   if (!userIds.length) return
   const unique = [...new Set(userIds)]
@@ -460,32 +462,35 @@ export const ticketService = {
     return ticket;
   },
 
-  async create(input: CreateTicketInput, user: AccessTokenPayload) {
+  async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void> }) {
     assertCanSetReviewers(input.reviewerIds, user)
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
     const needsHead = await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null }, user)
-    await db.insert(tickets).values({
-      id,
-      title: input.title,
-      description: input.description,
-      priority: input.priority,
-      assignmentMode: input.assignmentMode,
-      assigneeId: input.assigneeId ?? null,
-      storeId: input.storeId ?? null,
-      categoryId: input.categoryId ?? null,
-      departmentId: input.departmentId ?? null,
-      tatHours: tatHours ?? null,
-      tatDueAt: deriveTatDueAt(tatHours ?? null, now),
-      startDate: input.startDate ? new Date(input.startDate) : null,
-      isOverdue: false,
-      awaitingHeadApproval: needsHead,
-      userId: user.sub,
-    })
+    await db.transaction(async (tx) => {
+      await tx.insert(tickets).values({
+        id,
+        title: input.title,
+        description: input.description,
+        priority: input.priority,
+        assignmentMode: input.assignmentMode,
+        assigneeId: input.assigneeId ?? null,
+        storeId: input.storeId ?? null,
+        categoryId: input.categoryId ?? null,
+        departmentId: input.departmentId ?? null,
+        tatHours: tatHours ?? null,
+        tatDueAt: deriveTatDueAt(tatHours ?? null, now),
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        isOverdue: false,
+        awaitingHeadApproval: needsHead,
+        userId: user.sub,
+      })
 
-    if (input.tagIds?.length) await syncTicketTags(db, id, input.tagIds)
-    if (input.reviewerIds?.length) await syncTicketReviewers(db, id, input.reviewerIds)
+      if (input.tagIds?.length) await syncTicketTags(tx, id, input.tagIds)
+      if (input.reviewerIds?.length) await syncTicketReviewers(tx, id, input.reviewerIds)
+      await hooks?.inTransaction?.(tx, id)
+    })
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
 
@@ -624,10 +629,11 @@ export const ticketService = {
       patch.hodApprovedAt = null
     }
 
-    await db.update(tickets).set(patch).where(eq(tickets.id, id))
-
-    if (input.tagIds !== undefined) await syncTicketTags(db, id, input.tagIds)
-    if (input.reviewerIds !== undefined) await syncTicketReviewers(db, id, input.reviewerIds)
+    await db.transaction(async (tx) => {
+      await tx.update(tickets).set(patch).where(eq(tickets.id, id))
+      if (input.tagIds !== undefined) await syncTicketTags(tx, id, input.tagIds)
+      if (input.reviewerIds !== undefined) await syncTicketReviewers(tx, id, input.reviewerIds)
+    })
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
     const afterTagIds = await ticketTagIds(id);
@@ -741,32 +747,35 @@ export const ticketService = {
     }
 
     const statusUpdateId = createId()
-    await db.insert(ticketStatusUpdates).values({
-      id: statusUpdateId,
-      ticketId: id,
-      changedBy: user.sub,
-      fromStatus: before.status,
-      toStatus: input.status,
-      remark: input.remark ?? "",
+    await db.transaction(async (tx) => {
+      const [moved] = await tx.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, before.status), NOT_DELETED))
+      if (moved.affectedRows === 0) throw AppError.conflict("Someone changed this ticket a moment ago. Open it again and retry.")
+
+      await tx.insert(ticketStatusUpdates).values({
+        id: statusUpdateId,
+        ticketId: id,
+        changedBy: user.sub,
+        fromStatus: before.status,
+        toStatus: input.status,
+        remark: input.remark ?? "",
+      })
+
+      if (files.length) {
+        await tx.insert(ticketAttachments).values(
+          files.map((file) => ({
+            id: createId(),
+            url: `/uploads/ticket-attachments/${path.basename(file.path)}`,
+            originalFilename: file.originalname,
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+            captureMethod: input.captureMethod ?? "GALLERY",
+            statusUpdateId,
+            ticketId: id,
+            uploadedBy: user.sub,
+          })),
+        )
+      }
     })
-
-    if (files.length) {
-      await db.insert(ticketAttachments).values(
-        files.map((file) => ({
-          id: createId(),
-          url: `/uploads/ticket-attachments/${path.basename(file.path)}`,
-          originalFilename: file.originalname,
-          mimeType: file.mimetype,
-          sizeBytes: file.size,
-          captureMethod: input.captureMethod ?? "GALLERY",
-          statusUpdateId,
-          ticketId: id,
-          uploadedBy: user.sub,
-        })),
-      )
-    }
-
-    await db.update(tickets).set(patch).where(eq(tickets.id, id))
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
 
@@ -935,21 +944,23 @@ export const ticketService = {
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
     }
-    const [result] = await db.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, fromStatus), NOT_DELETED))
-    if (result.affectedRows === 0) {
-      throw AppError.badRequest("This ticket isn't pending approval.")
-    }
+    await db.transaction(async (tx) => {
+      const [result] = await tx.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, fromStatus), NOT_DELETED))
+      if (result.affectedRows === 0) {
+        throw AppError.badRequest("This ticket isn't pending approval.")
+      }
 
-    if (input.action === "REJECT") {
-      await db.insert(ticketStatusUpdates).values({
-        id: createId(),
-        ticketId: id,
-        changedBy: user.sub,
-        fromStatus: fromStatus,
-        toStatus: "IN_PROGRESS",
-        remark: input.note?.trim() ?? "",
-      })
-    }
+      if (input.action === "REJECT") {
+        await tx.insert(ticketStatusUpdates).values({
+          id: createId(),
+          ticketId: id,
+          changedBy: user.sub,
+          fromStatus: fromStatus,
+          toStatus: "IN_PROGRESS",
+          remark: input.note?.trim() ?? "",
+        })
+      }
+    })
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
 

@@ -17,7 +17,7 @@ interface HeadRequestRowProps {
   embedded?: boolean;
 }
 
-const Avatar = ({ name }: { name: string | null }) =>
+export const Avatar = ({ name }: { name: string | null }) =>
   name ? (
     <span className={`flex size-6 shrink-0 items-center justify-center rounded-full t-meta font-bold text-white ${avatarColorClass(name)}`} aria-hidden="true">
       {getInitials(name)}

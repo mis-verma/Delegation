@@ -221,6 +221,36 @@ export const useVerifyTaskMutation = () =>
         errorFallback: "Couldn't save the decision on the delegation. Try again.",
     });
 
+export const useApproveTaskAssignmentMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ id }: { id: string }) => taskApi.approveAssignment(id),
+        setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
+        invalidateKeys: [['tasks']],
+        successMessage: 'Approved. The team can start work now.',
+        retryable: true,
+        errorFallback: "Couldn't approve the delegation. Try again.",
+    });
+
+export const useDeclineTaskMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ id, reason }: { id: string; reason: string }) => taskApi.decline(id, reason),
+        setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
+        invalidateKeys: [['tasks'], ['scores']],
+        successMessage: 'Delegation declined. The person who gave it has been told.',
+        retryable: true,
+        errorFallback: "Couldn't decline the delegation. Try again.",
+    });
+
+export const useReopenDeclinedTaskMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ id }: { id: string }) => taskApi.reopenDeclined(id),
+        setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
+        invalidateKeys: [['tasks'], ['scores']],
+        successMessage: 'Delegation reopened. The team has been told.',
+        retryable: true,
+        errorFallback: "Couldn't reopen the delegation. Try again.",
+    });
+
 export const useDeleteTaskMutation = () =>
     useEntityMutation({
         mutationFn: (id: string) => taskApi.delete(id),

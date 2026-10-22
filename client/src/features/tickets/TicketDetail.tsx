@@ -369,7 +369,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
               {awaitingHead && (
                 <HeadDecisionPanel
-                  ticketTitle={ticket.title}
+                  itemTitle={ticket.title}
                   raiser={ticket.raisedBy ?? null}
                   assignee={ticket.assignee}
                   departmentName={departmentName}

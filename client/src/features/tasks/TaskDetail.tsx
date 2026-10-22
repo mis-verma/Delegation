@@ -27,6 +27,7 @@ import type { Task, UpdateTaskPayload } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from '../../lib/ticketApproval';
 import { TaskApprovalTrail } from './TaskApprovalTrail';
+import { TaskHeadDecision } from './TaskHeadDecision';
 import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
 import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
 import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from '../tickets/detail/propertyStyles';
@@ -550,6 +551,8 @@ const TaskEditLayout = ({
 
       <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} />
 
+      <TaskHeadDecision task={task} departmentName={departmentName} nameOf={nameOf} />
+
       {approvedOrSentBack && (
         <NoticeBanner tone={approvedOrSentBack === 'approved' ? 'success' : 'warning'} icon={approvedOrSentBack === 'approved' ? ShieldCheck : ShieldX}>
           <p className="font-bold">{approvedOrSentBack === 'approved' ? 'Approved' : 'Sent back for changes'}</p>
@@ -616,7 +619,7 @@ const TaskEditLayout = ({
         )}
       </div>
 
-      <ItemScoreCard scoreAt={(now) => taskScore(task, now)} noun="delegation" />
+      {!task.declinedAt && !task.awaitingHeadApproval && <ItemScoreCard scoreAt={(now) => taskScore(task, now)} noun="delegation" />}
 
       <DetailLabelsField
         current={task.tags ?? []}
@@ -646,7 +649,7 @@ const TaskEditLayout = ({
         />
       )}
 
-      <TaskStatusStepper task={task} nameOf={nameOf} />
+      {!task.declinedAt && <TaskStatusStepper task={task} nameOf={nameOf} />}
 
       <div className="flex flex-col gap-3 border-t border-border/50 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

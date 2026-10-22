@@ -7,8 +7,8 @@ import { endOfDay } from './taskDisplay';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle } from 'lucide-react';
-import { Input, Modal, DateRangePicker, Button, useConfirm } from '../../components';
+import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle, ShieldQuestion } from 'lucide-react';
+import { Input, Modal, DateRangePicker, Button, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
 import { useAssignableUsersQuery as useDepartmentPeopleQuery } from '../tickets/hook';
@@ -138,6 +138,11 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     setPrevDepartmentId(departmentId);
     setAssigneeIds([]);
   }
+
+  const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
+  const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && !!departmentId && user.departmentId === departmentId;
+  const needsHeadOk = !!departmentId && !isLeadership && !isTargetHead && !saveAsDraft;
+  const targetDepartmentName = departments?.find((d) => d.id === departmentId)?.name;
 
   const isBusy = mutation.isPending || isSubmitting;
   const isCreateBusy = isBusy && !saveAsDraft;
@@ -336,6 +341,12 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
 
         <div className="flex flex-col gap-5 min-w-0 lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border/60 lg:bg-surface-hover/30">
           <StepHeading step={2} title="Who and when" subtitle={ownScopeOnly ? 'Pick the team. Its manager chooses who does it.' : 'Pick the team first, then the people.'} />
+
+          {needsHeadOk && (
+            <NoticeBanner tone="warning" icon={ShieldQuestion}>
+              <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
+            </NoticeBanner>
+          )}
 
           <div id={DEPARTMENT_FIELD_ID}>
             <FormField

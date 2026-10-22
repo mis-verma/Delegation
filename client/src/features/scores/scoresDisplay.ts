@@ -67,6 +67,14 @@ export const drillTargets = (row: ExplorerRow): DrillTarget[] => {
   return [];
 };
 
+export type ScoreScope = { departmentLocked: boolean; departmentId?: string };
+
+export const isHomeDepartment = (row: ExplorerRow, scope: ScoreScope | undefined): boolean =>
+  !!scope?.departmentLocked && row.kind === 'department' && row.id === scope.departmentId;
+
+export const isForeignDepartment = (row: ExplorerRow, scope: ScoreScope | undefined): boolean =>
+  !!scope?.departmentLocked && row.kind === 'department' && row.id !== scope.departmentId;
+
 export const asTrailItem = (row: ExplorerRow): TrailItem | null =>
   row.kind === 'department' || row.kind === 'store' || row.kind === 'person' ? { id: row.id, kind: row.kind, name: row.name } : null;
 

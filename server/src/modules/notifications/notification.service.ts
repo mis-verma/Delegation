@@ -150,6 +150,67 @@ export const notificationService = {
     });
   },
 
+  async notifyTaskAwaitingHead(task: { _id: any; title: string; departmentId?: any; userId?: any }) {
+    if (!task.departmentId) return [];
+    const raiserId = task.userId ? task.userId.toString() : null;
+    const heads = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, task.departmentId.toString()), eq(users.isActive, true)));
+    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
+      type: 'TASK_AWAITING_HEAD',
+      title: 'New delegation needs your approval',
+      message: `"${task.title}" was given to your department. Approve it first, then the team can start.`,
+      taskId: task._id.toString(),
+    });
+  },
+
+  async notifyTaskHeadDecisionReminder(task: { _id: any; title: string; departmentId?: any; userId?: any }, hoursWaiting: number) {
+    if (!task.departmentId) return [];
+    const raiserId = task.userId ? task.userId.toString() : null;
+    const heads = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, task.departmentId.toString()), eq(users.isActive, true)));
+    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
+      type: 'TASK_AWAITING_HEAD_REMINDER',
+      title: 'A delegation is waiting for your decision',
+      message: `"${task.title}" has waited ${hoursWaiting} hours. Nobody can start until you approve or decline it.`,
+      taskId: task._id.toString(),
+    });
+  },
+
+  async notifyTaskHeadDecisionEscalation(task: { _id: any; title: string }, hoursWaiting: number) {
+    return notificationService.notifyMany(await activeVerifierIds(), {
+      type: 'TASK_AWAITING_HEAD_ESCALATION',
+      title: 'Department head has not decided',
+      message: `"${task.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
+      taskId: task._id.toString(),
+    });
+  },
+
+  async notifyTaskHeadApproved(task: { _id: any; title: string; userId?: any; assigneeId?: any; additionalAssigneeIds?: any[] }, actorId: string) {
+    const ids = [task.assigneeId?.toString(), task.userId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
+    const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
+    const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
+    return notificationService.notifyMany(ids, {
+      type: 'TASK_ASSIGNMENT_APPROVED',
+      title: 'Delegation approved, you can start',
+      message: `${approverName ? `${approverName}, the department head, approved` : 'The department head approved'} "${task.title}". The team can work on it now.`,
+      taskId: task._id.toString(),
+    });
+  },
+
+  async notifyTaskDeclined(task: { _id: any; title: string; userId: any; assigneeId?: any; additionalAssigneeIds?: any[] }, reason: string, actorId: string) {
+    const recipientIds = [task.userId?.toString(), task.assigneeId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TASK_DECLINED',
+      title: 'Delegation declined',
+      message: `"${task.title}" was declined by the department: ${reason}`,
+      taskId: task._id.toString(),
+    });
+  },
+
   async notifyStaleWork(ticket: { _id: any; title: string; assigneeId?: any }, hoursQuiet: number) {
     const assigneeId = ticket.assigneeId?.toString();
     if (!assigneeId) return [];

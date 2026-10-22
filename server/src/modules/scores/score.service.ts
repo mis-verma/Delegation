@@ -76,7 +76,7 @@ type Finished = { submittedAt: Date | null; verifiedAt: Date | null; updatedAt: 
 
 const finishedAt = (t: Finished) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
 
-const DELEGATION_ONLY = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), isNull(tasks.parentTaskId))
+const DELEGATION_ONLY = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), isNull(tasks.parentTaskId), eq(tasks.awaitingHeadApproval, false), isNull(tasks.declinedAt))
 
 const taskCols = { status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt }
 const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, reopenCount: tickets.reopenCount }
@@ -150,7 +150,7 @@ const personMetrics = (viewer: AccessTokenPayload, from: string, to: string, use
 const totalsMetrics = (viewer: AccessTokenPayload, from: string, to: string, storeId?: string) =>
     checklistReportService.build(viewer, { from, to, groupBy: "department", storeId }).then((r) => r.totals)
 const departmentMetrics = (viewer: AccessTokenPayload, from: string, to: string, departmentId: string) =>
-    checklistReportService.build(viewer, { from, to, groupBy: "department", departmentId }).then((r) => r.departments.find((d) => d.departmentId === departmentId) ?? null)
+    checklistReportService.build(viewer.role === "MANAGER" || viewer.role === "SENIOR" ? { ...viewer, role: "PC" } : viewer, { from, to, groupBy: "department", departmentId }).then((r) => r.departments.find((d) => d.departmentId === departmentId) ?? null)
 
 export type OrgCounts = {
     stores: { active: number; inactive: number }
@@ -230,7 +230,7 @@ export const scoreService = {
         }
 
         if (scope === "department") {
-            if (!orgWide && !(hod && !!viewer.departmentId && viewer.departmentId === id)) throw AppError.forbidden()
+            if (!orgWide && !hod) throw AppError.forbidden()
             const [dept] = await db.select({ name: departments.name }).from(departments).where(eq(departments.id, id)).limit(1)
             if (!dept) throw AppError.notFound("Department not found")
             return {

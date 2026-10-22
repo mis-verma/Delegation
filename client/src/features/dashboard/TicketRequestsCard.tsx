@@ -11,11 +11,18 @@ import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { useDepartmentsQuery, useTicketsBoardQuery } from '../tickets/hook';
 import { HeadRequestRow } from '../tickets/approvals/HeadRequestRow';
+import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
+import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
+import { awaitingRequests } from '../tasks/taskFlow';
 import { cardIconTile } from './dashboardDisplay';
 import type { Ticket } from '../../api/ticket';
+import type { Task } from '../../api/task';
 
 const NO_TICKETS: Ticket[] = [];
+const NO_TASKS: Task[] = [];
 const PREVIEW_LIMIT = 3;
+
+type RequestItem = { kind: 'ticket'; at: number; ticket: Ticket } | { kind: 'task'; at: number; task: Task };
 
 export const TicketRequestsCard = () => {
   const { user } = useAuth();
@@ -24,20 +31,31 @@ export const TicketRequestsCard = () => {
   const isHod = user?.role === 'MANAGER' || user?.role === 'SENIOR';
   const allowed = isAdmin || isHod;
   const board = useTicketsBoardQuery(allowed);
+  const tasksQuery = useTasksQuery(undefined, allowed);
   const { data: departments } = useDepartmentsQuery(allowed);
+  const { data: people } = useAssignableUsersQuery();
 
-  const requests = useMemo(
-    () => (board.data ?? NO_TICKETS)
+  const requests = useMemo<RequestItem[]>(() => {
+    const tickets = (board.data ?? NO_TICKETS)
       .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !!user && (isAdmin || isDepartmentHead(user, t)))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-    [board.data, user, isAdmin],
-  );
+      .map((ticket): RequestItem => ({ kind: 'ticket', at: new Date(ticket.createdAt).getTime(), ticket }));
+    const delegations = awaitingRequests(tasksQuery.data ?? NO_TASKS, user, isAdmin)
+      .map((task): RequestItem => ({ kind: 'task', at: new Date(task.createdAt).getTime(), task }));
+    return [...tickets, ...delegations].sort((a, b) => a.at - b.at);
+  }, [board.data, tasksQuery.data, user, isAdmin]);
+
+  const nameOf = (id: string | null | undefined) => {
+    const person = id ? people?.find((p) => p.id === id) : undefined;
+    return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
+  };
 
   if (!allowed) return null;
-  if (isAdmin && !board.isPending && !board.isError && requests.length === 0) return null;
-  if (board.isPending) {
+  const pending = board.isPending || tasksQuery.isPending;
+  const failed = board.isError || tasksQuery.isError;
+  if (isAdmin && !pending && !failed && requests.length === 0) return null;
+  if (pending) {
     return (
-      <section aria-label="Loading ticket requests" role="status" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
+      <section aria-label="Loading requests" role="status" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
         <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
           <Skeleton className="size-9 shrink-0 rounded-lg" />
           <Skeleton className="h-5 w-40" />
@@ -51,7 +69,9 @@ export const TicketRequestsCard = () => {
 
   const visible = requests.slice(0, PREVIEW_LIMIT);
   const remaining = requests.length - visible.length;
-  const oldestHours = requests.length ? Math.floor((now - new Date(requests[0].createdAt).getTime()) / 3_600_000) : 0;
+  const oldestHours = requests.length ? Math.floor((now - requests[0].at) / 3_600_000) : 0;
+  const ticketCount = requests.filter((r) => r.kind === 'ticket').length;
+  const delegationCount = requests.length - ticketCount;
 
   return (
     <section aria-labelledby="ticket-requests-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden ${requests.length > 0 ? 'border-warning/30' : ''}`}>
@@ -61,14 +81,15 @@ export const TicketRequestsCard = () => {
             <ShieldQuestion className="size-4" strokeWidth={2.25} aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h2 id="ticket-requests-heading" className="t-section font-display font-bold text-text tracking-tight">Ticket requests</h2>
+            <h2 id="ticket-requests-heading" className="t-section font-display font-bold text-text tracking-tight">Requests</h2>
             <p className="hidden sm:block t-meta font-medium text-text-muted">
-              {isAdmin ? 'Waiting for a department head' : 'Raised for your department. Decide before work starts'}
+              {isAdmin ? 'Tickets and delegations waiting for a department head' : 'Raised for your department. Decide before work starts'}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {requests.length > 0 && <IconChip icon={Inbox} tone="bg-warning" label={requests.length} labelClassName="tabular-nums" />}
+          {ticketCount > 0 && <IconChip icon={Inbox} tone="bg-warning" label={`${ticketCount} ${ticketCount === 1 ? 'ticket' : 'tickets'}`} labelClassName="tabular-nums" />}
+          {delegationCount > 0 && <IconChip icon={Inbox} tone="bg-info" label={`${delegationCount} ${delegationCount === 1 ? 'delegation' : 'delegations'}`} labelClassName="tabular-nums" />}
           {requests.length > 0 && (
             <Link
               viewTransition
@@ -82,15 +103,15 @@ export const TicketRequestsCard = () => {
         </div>
       </div>
 
-      {board.isError && (
+      {failed && (
         <div className="px-4 py-3 sm:px-5">
-          <InlineError message="Couldn't load ticket requests." onRetry={() => void board.refetch()} />
+          <InlineError message="Couldn't load the requests." onRetry={() => { void board.refetch(); void tasksQuery.refetch(); }} />
         </div>
       )}
 
-      {!board.isError && requests.length === 0 && (
+      {!failed && requests.length === 0 && (
         <div className="p-4 sm:p-5">
-          <EmptyState size="compact" tone="success" icon={CheckCheck} title="No requests waiting" description="New tickets raised for your department show up here for your decision." />
+          <EmptyState size="compact" tone="success" icon={CheckCheck} title="No requests waiting" description="New tickets and delegations raised for your department show up here for your decision." />
         </div>
       )}
 
@@ -101,13 +122,23 @@ export const TicketRequestsCard = () => {
               {oldestHours >= 24 ? 'The oldest request has waited over a day. Decide it now.' : `The oldest request has waited ${oldestHours} hours.`}
             </p>
           )}
-          {visible.map((ticket) => (
+          {visible.map((r) => r.kind === 'ticket' ? (
             <HeadRequestRow
-              key={ticket.id}
-              ticket={ticket}
+              key={`k-${r.ticket.id}`}
+              ticket={r.ticket}
               now={now}
               embedded
-              departmentName={isAdmin ? departments?.find((d) => d.id === ticket.departmentId)?.name : undefined}
+              departmentName={isAdmin ? departments?.find((d) => d.id === r.ticket.departmentId)?.name : undefined}
+            />
+          ) : (
+            <HeadTaskRequestRow
+              key={`t-${r.task.id}`}
+              task={r.task}
+              now={now}
+              embedded
+              raiserName={nameOf(r.task.userId)}
+              assigneeName={nameOf(r.task.assigneeId)}
+              departmentName={isAdmin ? departments?.find((d) => d.id === r.task.departmentId)?.name : undefined}
             />
           ))}
         </div>

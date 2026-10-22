@@ -27,6 +27,8 @@ export type TaskStatusUpdate = {
     createdAt:     string;
 };
 
+export type TaskPerson = { id: string; email: string; firstName: string; lastName?: string | null; role: string };
+
 export type Task = {
     id:           string;
     title:        string;
@@ -53,6 +55,14 @@ export type Task = {
     hodApprovedBy?:   string | null;
     hodApprovedAt?:   string | null;
     hodApprover?:     { id: string; firstName: string; lastName: string | null } | null;
+    awaitingHeadApproval?: boolean;
+    assignmentApprovedBy?: string | null;
+    assignmentApprovedAt?: string | null;
+    assignmentApprover?:   TaskPerson | null;
+    declinedAt?:      string | null;
+    declinedBy?:      string | null;
+    declineReason?:   string | null;
+    decliner?:        TaskPerson | null;
     verifier?:        { id: string; firstName: string; lastName: string | null } | null;
     verificationNote: string | null;
     aiMeta?: {
@@ -225,6 +235,15 @@ export const taskApi = {
 
     verify: (id: string, payload: VerifyTaskPayload) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/verify`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => normalizeTask(r.data)),
+
+    approveAssignment: (id: string) =>
+        apiFetch<ApiResponse<Task>>(`/tasks/${id}/approve-assignment`, { method: 'POST' }).then(r => normalizeTask(r.data)),
+
+    decline: (id: string, reason: string) =>
+        apiFetch<ApiResponse<Task>>(`/tasks/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => normalizeTask(r.data)),
+
+    reopenDeclined: (id: string) =>
+        apiFetch<ApiResponse<Task>>(`/tasks/${id}/reopen-declined`, { method: 'POST' }).then(r => normalizeTask(r.data)),
 
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/tasks/${id}`, { method: 'DELETE' }),

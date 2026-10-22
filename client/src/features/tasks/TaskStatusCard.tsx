@@ -27,7 +27,9 @@ export const TaskStatusCard = ({ task, nameOf, departmentName }: TaskStatusCardP
   return (
     <section aria-label="Status" className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5 sm:p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusChip status={CHIP_KEY[task.status]} label={STATUS_LABEL[task.status]} />
+        {task.declinedAt
+          ? <StatusChip status="declined" label="Declined" />
+          : <StatusChip status={CHIP_KEY[task.status]} label={STATUS_LABEL[task.status]} />}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-display">

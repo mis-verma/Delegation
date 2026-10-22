@@ -75,7 +75,7 @@ const assigneesOfTasks = async (taskIds: string[], primary: Map<string, string |
 
 const tasksDueSoon = async (now: Date) => {
   const rows = await db.select().from(tasks).where(and(
-    isNull(tasks.deletedAt), isNull(tasks.reminderMinutesBefore), isNull(tasks.reminderSentAt), isNotNull(tasks.dueDate),
+    isNull(tasks.deletedAt), eq(tasks.awaitingHeadApproval, false), isNull(tasks.reminderMinutesBefore), isNull(tasks.reminderSentAt), isNotNull(tasks.dueDate),
     notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
     gt(tasks.dueDate, now),
     lte(tasks.dueDate, new Date(now.getTime() + DUE_SOON_MINUTES * MINUTE_MS)),
@@ -90,7 +90,7 @@ const tasksDueSoon = async (now: Date) => {
 
 const tasksOverdue = async (now: Date) => {
   const rows = await db.select().from(tasks).where(and(
-    isNull(tasks.deletedAt), isNull(tasks.overdueNotifiedAt), isNotNull(tasks.dueDate),
+    isNull(tasks.deletedAt), eq(tasks.awaitingHeadApproval, false), isNull(tasks.overdueNotifiedAt), isNotNull(tasks.dueDate),
     notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
     lte(tasks.dueDate, now),
     gt(tasks.dueDate, new Date(now.getTime() - OVERDUE_LOOKBACK_MS)),
@@ -218,6 +218,23 @@ const headDecisionChasers = async (now: Date) => {
   }
 };
 
+const taskHeadDecisionChasers = async (now: Date) => {
+  const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
+  const waiting = await db.select().from(tasks).where(and(
+    isNull(tasks.deletedAt), isNull(tasks.declinedAt), eq(tasks.awaitingHeadApproval, true), gt(tasks.createdAt, floor),
+  )).limit(BATCH);
+  for (const t of waiting) {
+    const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
+    if (hours >= HEAD_ESCALATE_HOURS && !t.headEscalatedAt) {
+      await notificationService.notifyTaskHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
+      await db.update(tasks).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tasks.id, t.id));
+    } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
+      await notificationService.notifyTaskHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId }, Math.floor(hours));
+      await db.update(tasks).set({ headReminderSentAt: now }).where(eq(tasks.id, t.id));
+    }
+  }
+};
+
 const staleWorkNudges = async (now: Date) => {
   const quietBefore = new Date(now.getTime() - STALE_WORK_HOURS * HOUR_MS);
   const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
@@ -262,7 +279,7 @@ const overdueEscalations = async (now: Date) => {
   if (lateTickets.length) await db.update(tickets).set({ overdueEscalatedAt: now }).where(inArray(tickets.id, lateTickets.map((t) => t.id)));
 
   const lateTasks = await db.select().from(tasks).where(and(
-    isNull(tasks.deletedAt), isNull(tasks.overdueEscalatedAt), notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
+    isNull(tasks.deletedAt), eq(tasks.awaitingHeadApproval, false), isNull(tasks.overdueEscalatedAt), notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
     isNotNull(tasks.dueDate), lte(tasks.dueDate, cutoff), gt(tasks.dueDate, floor),
   )).limit(BATCH);
   for (const t of lateTasks) await notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TASK');
@@ -280,7 +297,7 @@ const unassignedReminders = async (now: Date) => {
   if (openTickets.length) await db.update(tickets).set({ unassignedNotifiedAt: now }).where(inArray(tickets.id, openTickets.map((t) => t.id)));
 
   const openTasks = await db.select().from(tasks).where(and(
-    isNull(tasks.deletedAt), isNull(tasks.assigneeId), isNull(tasks.unassignedNotifiedAt),
+    isNull(tasks.deletedAt), eq(tasks.awaitingHeadApproval, false), isNull(tasks.assigneeId), isNull(tasks.unassignedNotifiedAt),
     notInArray(tasks.status, ['done', 'draft', 'pending_approval']), lte(tasks.createdAt, cutoff), gt(tasks.createdAt, floor),
   )).limit(BATCH);
   const withHelpers = openTasks.length
@@ -308,6 +325,7 @@ export const startDueReminders = () => {
         await safely('unassigned reminders', () => unassignedReminders(now));
         await safely('ticket approvals', () => ticketApprovalChasers(now));
         await safely('head decisions', () => headDecisionChasers(now));
+        await safely('delegation head decisions', () => taskHeadDecisionChasers(now));
         await safely('stale work', () => staleWorkNudges(now));
         await safely('delegation approvals', () => taskApprovalChasers(now));
       }

@@ -11,6 +11,7 @@ const QUICK_REASONS = [
 ];
 
 interface DeclineTicketDialogProps {
+  noun?: string;
   open: boolean;
   ticketTitle: string;
   isPending: boolean;
@@ -18,8 +19,9 @@ interface DeclineTicketDialogProps {
   onConfirm: (reason: string) => void;
 }
 
-export const DeclineTicketDialog = ({ open, ticketTitle, isPending, onCancel, onConfirm }: DeclineTicketDialogProps) => {
+export const DeclineTicketDialog = ({ noun = 'ticket', open, ticketTitle, isPending, onCancel, onConfirm }: DeclineTicketDialogProps) => {
   const [reason, setReason] = useState('');
+  const quickReasons = QUICK_REASONS.map((r) => (r.label === 'Duplicate ticket' ? { ...r, label: `Duplicate ${noun}` } : r));
   const trimmed = reason.trim();
   const close = () => {
     if (isPending) return;
@@ -33,13 +35,13 @@ export const DeclineTicketDialog = ({ open, ticketTitle, isPending, onCancel, on
       onClose={close}
       size="md"
       icon={<Ban className="size-5" />}
-      title="Decline this ticket"
+      title={`Decline this ${noun}`}
       description="It closes and goes back to the person who raised it with your reason. It does not count in anyone's score."
       footer={
         <div className="flex w-full items-center justify-end gap-2">
           <Button variant="ghost" onClick={close} disabled={isPending}>Cancel</Button>
           <Button variant="danger" onClick={() => onConfirm(trimmed)} isLoading={isPending} disabled={trimmed.length < MIN_REASON}>
-            Decline ticket
+            {`Decline ${noun}`}
           </Button>
         </div>
       }
@@ -47,7 +49,7 @@ export const DeclineTicketDialog = ({ open, ticketTitle, isPending, onCancel, on
       <div className="flex flex-col gap-3">
         <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2 t-card font-display font-semibold text-text line-clamp-2 break-words">{ticketTitle}</p>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick reasons">
-          {QUICK_REASONS.map(({ label, icon: Icon }) => {
+          {quickReasons.map(({ label, icon: Icon }) => {
             const active = trimmed === label;
             return (
               <button

@@ -20,7 +20,7 @@ import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
-import { eq, and, inArray, desc, asc, sql, gte, lte, lt, type SQL } from "drizzle-orm"
+import { eq, and, inArray, isNull, desc, asc, sql, gte, lte, lt, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
@@ -510,9 +510,14 @@ const applyConditionalSideEffects = async (
                 title: `Checklist flag : ${item.label}`,
                 description: `Raised automatically from "${instance.title}" -- "${item.label}" was answered "${values.booleanAnswer}".${reason ? `Reason: ${reason}` : ""}`,
                 storeId: instance.storeId,
-            }, user)
+            }, user, {
+                inTransaction: async (tx, ticketId) => {
+                    const [linked] = await tx.update(checklistInstanceItems).set({ issueId: ticketId, updatedAt: new Date() })
+                        .where(and(eq(checklistInstanceItems.id, item.id), isNull(checklistInstanceItems.issueId)))
+                    if (linked.affectedRows === 0) throw AppError.conflict("A ticket was already raised for this question.")
+                },
+            })
             const issueId = String((ticket as any)._id ?? (ticket as any).id)
-            await db.update(checklistInstanceItems).set({ issueId, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, item.id))
             updatedItem = { ...item, issueId }
         } catch (err) {
             console.error("Failed to auto-create issue from checklist flag:", err)
@@ -547,12 +552,10 @@ export const syncVerificationStatus = async (instanceId: string) => {
     }
 
     if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
+        const missed = (await missedInstanceIds([instanceId])).size > 0
         await db.update(checklistInstances)
-            .set({ verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
+            .set({ verificationStatus: missed ? "REJECTED" : "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
             .where(eq(checklistInstances.id, instanceId))
-        if ((await missedInstanceIds([instanceId])).size) {
-            await db.update(checklistInstances).set({ verificationStatus: "REJECTED" }).where(eq(checklistInstances.id, instanceId))
-        }
     }
 }
 
@@ -1509,9 +1512,10 @@ export const checklistInstanceService = {
         }
 
         const now = new Date()
-        await db.update(checklistInstances)
+        const [submitted] = await db.update(checklistInstances)
             .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: user.sub, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now })
-            .where(eq(checklistInstances.id, id))
+            .where(and(eq(checklistInstances.id, id), inArray(checklistInstances.verificationStatus, ["NOT_SUBMITTED", "REJECTED"])))
+        if (submitted.affectedRows === 0) throw AppError.conflict("This checklist was just submitted. Refresh to see where it stands.")
 
         notificationService
             .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds })
@@ -1547,6 +1551,9 @@ export const checklistInstanceService = {
         const now = new Date()
         const note = input.note.trim()
         await db.transaction(async (tx) => {
+            const [claimed] = await tx.update(checklistInstances).set({ updatedAt: now })
+                .where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+            if (claimed.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
             await tx.update(checklistInstanceItems).set({
                 sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
                 sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
@@ -1619,15 +1626,18 @@ export const checklistInstanceService = {
             storeId: instance.storeId,
             departmentId: person.departmentId ?? undefined,
             tatHours: input.tatHours,
-        }, user)
+        }, user, {
+            inTransaction: async (tx, ticketId) => {
+                const [linked] = await tx.update(checklistInstanceItems).set({
+                    reviewTicketId: ticketId,
+                    sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
+                    sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
+                    updatedAt: new Date(),
+                }).where(and(eq(checklistInstanceItems.id, itemId), isNull(checklistInstanceItems.reviewTicketId)))
+                if (linked.affectedRows === 0) throw AppError.conflict("A ticket was already raised for this question.")
+            },
+        })
         if (!ticket) throw AppError.badRequest("The ticket could not be created. Try again.")
-
-        await db.update(checklistInstanceItems).set({
-            reviewTicketId: ticket.id,
-            sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
-            sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
-            updatedAt: new Date(),
-        }).where(eq(checklistInstanceItems.id, itemId))
 
         await auditService.record({
             entityType: "ChecklistInstance", entityId: id, action: "RAISE_TICKET", actorId: user.sub,
@@ -1688,7 +1698,7 @@ export const checklistInstanceService = {
 
         if (input.action === "APPROVE") {
             afterRow = { ...instance, verificationStatus: "APPROVED", verifiedBy: user.sub, verifiedAt: now, verificationNote: input.note ?? null, updatedAt: now }
-            await db.update(checklistInstances).set({
+            const [approved] = await db.update(checklistInstances).set({
                 verificationStatus: "APPROVED",
                 verifiedBy: user.sub,
                 verifiedAt: now,
@@ -1696,11 +1706,12 @@ export const checklistInstanceService = {
                 approvalReminderSentAt: null,
                 approvalEscalatedAt: null,
                 updatedAt: now,
-            }).where(eq(checklistInstances.id, id))
+            }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+            if (approved.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
         } else {
             afterRow = { ...instance, verificationStatus: "REJECTED", verificationNote: input.note ?? null, rejectionCount: instance.rejectionCount + 1, updatedAt: now }
             await db.transaction(async (tx) => {
-                await tx.update(checklistInstances).set({
+                const [rejected] = await tx.update(checklistInstances).set({
                     verificationStatus: "REJECTED",
                     verificationNote: input.note ?? null,
                     approvalReminderSentAt: null,
@@ -1708,7 +1719,8 @@ export const checklistInstanceService = {
                     submitReminderSentAt: null,
                     rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                     updatedAt: now,
-                }).where(eq(checklistInstances.id, id))
+                }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+                if (rejected.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
                 await tx.update(checklistInstanceItems).set({
                     isDone: false,
                     completedAt: null,
@@ -1748,7 +1760,7 @@ export const checklistInstanceService = {
         }
 
         const now = new Date()
-        await db.update(checklistInstances).set({
+        const [reopened] = await db.update(checklistInstances).set({
             verificationStatus: "PENDING_APPROVAL",
             verifiedBy: null,
             verifiedAt: null,
@@ -1757,6 +1769,7 @@ export const checklistInstanceService = {
             approvalEscalatedAt: null,
             updatedAt: now,
         }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "APPROVED")))
+        if (reopened.affectedRows === 0) throw AppError.conflict("This approval was just changed. Refresh to see where it stands.")
 
         await auditService.record({
             entityType: "ChecklistInstance", entityId: id, action: "REOPEN_APPROVAL", actorId: user.sub,

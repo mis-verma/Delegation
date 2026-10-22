@@ -24,7 +24,7 @@ export type ExplorerParent = { id: string; kind: "person" | "department" | "stor
 
 export type ExplorerResponse = {
     window: { from: string; to: string; asOf: string; requestedTo: string; capped: boolean }
-    scope: { role: string; orgWide: boolean; departmentLocked: boolean; departmentId?: string }
+    scope: { role: string; orgWide: boolean; departmentLocked: boolean; departmentId?: string; allDepartments: boolean }
     view: ExplorerView
     parent: ExplorerParent | null
     total: ExplorerRow
@@ -38,6 +38,7 @@ export const orgToday = (now = Date.now()) => new Date(now + env.CHECKLIST_TIMEZ
 
 const isOrgWide = (v: AccessTokenPayload) => v.role === "ADMIN" || v.role === "PC"
 const isHead = (v: AccessTokenPayload) => v.role === "MANAGER" || v.role === "SENIOR"
+const asWideViewer = (v: AccessTokenPayload): AccessTokenPayload => ({ ...v, role: "PC" })
 
 const resolveParent = async (viewer: AccessTokenPayload, parentId: string): Promise<ExplorerParent> => {
     const [person] = await db.select({ firstName: users.firstName, lastName: users.lastName, departmentId: users.departmentId }).from(users).where(eq(users.id, parentId)).limit(1)
@@ -75,8 +76,9 @@ export const scoreExplorerService = {
         if (parent && q.view === "store") throw AppError.badRequest("Stores are the top of the tree: there is nothing to drill into.")
         if (q.view === "store" && q.departmentId) throw AppError.badRequest("Stores cannot be narrowed by department.")
 
-        const storeId = q.storeId ?? (parent?.kind === "store" ? parent.id : undefined)
-        const departmentId = q.departmentId ?? (parent?.kind === "department" ? parent.id : undefined)
+        const allDepartments = head && !parent && q.view === "department"
+        const storeId = head ? undefined : q.storeId ?? (parent?.kind === "store" ? parent.id : undefined)
+        const departmentId = head ? undefined : q.departmentId ?? (parent?.kind === "department" ? parent.id : undefined)
         const filter = { storeId, departmentId, recurrence: q.recurrence }
         const lockedDepartment = head ? viewer.departmentId ?? "no-department" : undefined
         let storesHidden = false
@@ -99,6 +101,10 @@ export const scoreExplorerService = {
                 blocks = { ...blocks, checklist: foldChecklist(report.totals) }
             }
             shape = shapeExplorer({ view: q.view, module: q.module, parentId: parent.id, total: asScored("total", parent.name, blocks), unassigned: null, definitions })
+        } else if (allDepartments) {
+            const c = await scoreService.collect(asWideViewer(viewer), from, to, true, filter)
+            sharing = c.checklistSharing
+            shape = shaped(c, { people: [], unassigned: null, stores: [] })
         } else if (q.view === "store") {
             if (head) {
                 storesHidden = true
@@ -122,14 +128,14 @@ export const scoreExplorerService = {
         const departmentOut = lockedDepartment ?? departmentId
         return {
             window: { from, to, asOf: now.toISOString(), requestedTo: q.to, capped: win.capped },
-            scope: { role: viewer.role, orgWide, departmentLocked: head, ...(departmentOut ? { departmentId: departmentOut } : {}) },
+            scope: { role: viewer.role, orgWide, departmentLocked: head, allDepartments, ...(departmentOut ? { departmentId: departmentOut } : {}) },
             view: q.view,
             parent,
             total: shape.total,
             rows: shape.rows,
             unassigned: shape.unassigned,
             sharing,
-            notes: explorerNotes({ view: q.view, module: q.module, recurrence: q.recurrence, storeId, departmentLocked: head, storesHidden, parentKind: parent?.kind ?? null }),
+            notes: explorerNotes({ view: q.view, module: q.module, recurrence: q.recurrence, storeId, departmentLocked: head, allDepartments, storesHidden, parentKind: parent?.kind ?? null }),
         }
     },
 }

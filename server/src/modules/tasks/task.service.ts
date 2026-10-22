@@ -9,7 +9,7 @@ import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
-import { activeDepartmentHeadIds, canApproveAtStage, type ApprovalStage } from "../tickets/ticketApproval.js"
+import { activeDepartmentHeadIds, assignmentNeedsHeadApproval, canApproveAssignment, canApproveAtStage, isDepartmentHead, type ApprovalStage } from "../tickets/ticketApproval.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
@@ -20,12 +20,21 @@ const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
 
 const NOT_DELETED = isNull(tasks.deletedAt);
 
-const approverNames = async (task: { hodApprovedBy: string | null; verifiedBy: string | null }) => {
-    const ids = [task.hodApprovedBy, task.verifiedBy].filter((id): id is string => !!id);
-    if (!ids.length) return { hodApprover: null, verifier: null };
-    const rows = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, ids));
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    return { hodApprover: task.hodApprovedBy ? byId.get(task.hodApprovedBy) ?? null : null, verifier: task.verifiedBy ? byId.get(task.verifiedBy) ?? null : null };
+const peopleByIds = async (ids: string[]) => {
+    if (!ids.length) return new Map<string, { id: string; email: string; firstName: string; lastName: string | null; role: string }>();
+    const rows = await db.select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName, role: users.role }).from(users).where(inArray(users.id, ids));
+    return new Map(rows.map((r) => [r.id, r]));
+};
+
+const approverNames = async (task: { hodApprovedBy: string | null; verifiedBy: string | null; assignmentApprovedBy?: string | null; declinedBy?: string | null }) => {
+    const ids = [task.hodApprovedBy, task.verifiedBy, task.assignmentApprovedBy, task.declinedBy].filter((id): id is string => !!id);
+    const byId = await peopleByIds([...new Set(ids)]);
+    return {
+        hodApprover: task.hodApprovedBy ? byId.get(task.hodApprovedBy) ?? null : null,
+        verifier: task.verifiedBy ? byId.get(task.verifiedBy) ?? null : null,
+        assignmentApprover: task.assignmentApprovedBy ? byId.get(task.assignmentApprovedBy) ?? null : null,
+        decliner: task.declinedBy ? byId.get(task.declinedBy) ?? null : null,
+    };
 };
 
 const tagsByTask = async (taskIds: string[]) => {
@@ -136,7 +145,7 @@ const buildVisibilityCondition = async (user: AccessTokenPayload) => {
     }
 
     if (user.role === "SENIOR" && user.departmentId) {
-        return or(and(eq(tasks.departmentId, user.departmentId), eq(tasks.status, "pending_approval")), withReviewer);
+        return or(and(eq(tasks.departmentId, user.departmentId), or(eq(tasks.status, "pending_approval"), eq(tasks.awaitingHeadApproval, true), isNotNull(tasks.declinedAt))), withReviewer);
     }
 
     return withReviewer;
@@ -259,6 +268,23 @@ const SUMMARY_TTL_SECONDS = 10;
 const TASK_SUMMARY_VERSION = `${TASK_SUMMARY_PREFIX}:all`;
 const dropTaskSummaries = () => bumpVersions(TASK_SUMMARY_VERSION);
 
+const NOT_GATED = and(eq(tasks.awaitingHeadApproval, false), isNull(tasks.declinedAt));
+
+const finishHeadDecision = async (id: string, before: typeof tasks.$inferSelect, action: string, user: AccessTokenPayload) => {
+    const [updated] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const additionalAssigneeIds = (await db.select({ userId: taskAdditionalAssignees.userId })
+        .from(taskAdditionalAssignees)
+        .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
+    emitTaskEvent('task:updated', {
+        userId: updated!.userId,
+        assigneeId: updated!.assigneeId ?? null,
+        departmentId: updated!.departmentId ?? null,
+    }, updated);
+    await auditService.record({ entityType: "Task", entityId: id, action, actorId: user.sub, before, after: updated });
+    await dropTaskSummaries();
+    return { updated: updated!, additionalAssigneeIds };
+};
+
 const taskOwnerStatsByColumn = async (
     column: SQL,
     conditions: SQL[],
@@ -270,6 +296,8 @@ const taskOwnerStatsByColumn = async (
         sql`t.status <> 'draft'`,
         sql`t.category = 'delegation'`,
         sql`t.parentTaskId IS NULL`,
+        sql`t.awaitingHeadApproval = 0`,
+        sql`t.declinedAt IS NULL`,
         ...conditions,
     ], sql` AND `)}`;
     const groupBy = grouped ? sql`GROUP BY ownerId` : sql``;
@@ -346,6 +374,7 @@ export const taskService = {
         if (!rows.length) return { data: [], meta };
 
         const taskIds = rows.map((t) => t.id);
+        const decisionPeople = await peopleByIds([...new Set(rows.flatMap((t) => [t.assignmentApprovedBy, t.declinedBy]).filter((v): v is string => !!v))]);
         const [attachmentRows, tagMap] = await Promise.all([
             db.select({ taskId: taskAttachments.taskId, url: taskAttachments.url, mimeType: taskAttachments.mimeType })
                 .from(taskAttachments)
@@ -385,6 +414,8 @@ export const taskService = {
                 ...task,
                 attachments: attachmentsByTask.get(task.id) ?? [],
                 tags: tagMap.get(task.id) ?? [],
+                assignmentApprover: task.assignmentApprovedBy ? decisionPeople.get(task.assignmentApprovedBy) ?? null : null,
+                decliner: task.declinedBy ? decisionPeople.get(task.declinedBy) ?? null : null,
                 ...(includeChecklistSummary
                     ? { checklistSummary: checklistSummaryByTask.get(task.id) ?? { total: 0, done: 0, missingPhotos: 0 } }
                     : {}),
@@ -395,6 +426,7 @@ export const taskService = {
 
     async createFromSmartInput(input: ConfirmSmartTaskInput, user: AccessTokenPayload) {
         const id = createId();
+        const needsHead = input.category === "delegated_task" && await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null }, user);
         await db.insert(tasks).values({
             id,
             title: input.title,
@@ -405,6 +437,7 @@ export const taskService = {
             userId: user.sub,
             assigneeId: input.assigneeId ?? null,
             departmentId: input.departmentId ?? null,
+            awaitingHeadApproval: needsHead,
             aiMeta: {
                 rawInput: input.rawInput,
                 inputMode: input.inputMode,
@@ -427,7 +460,9 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: task!.id, action: "CREATE", actorId: user.sub, after: task });
         await dropTaskSummaries();
 
-        if (task!.assigneeId) {
+        if (needsHead) {
+            await notifySafely(() => notificationService.notifyTaskAwaitingHead({ _id: task!.id, title: task!.title, departmentId: task!.departmentId, userId: task!.userId }));
+        } else if (task!.assigneeId) {
             await notifySafely(() => notificationService.notifyTaskAssigned({
                 _id: task!.id,
                 title: task!.title,
@@ -500,11 +535,13 @@ export const taskService = {
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, ...rest } = input;
         assertCanSetReviewers(reviewerIds, user);
         const id = createId();
+        const needsHead = rest.status !== "draft" && await assignmentNeedsHeadApproval({ departmentId: rest.departmentId ?? null }, user);
 
         const task = await db.transaction(async (tx) => {
             await tx.insert(tasks).values({
                 id,
                 ...rest,
+                awaitingHeadApproval: needsHead,
                 startDate: startDate ? new Date(startDate) : undefined,
                 dueDate: dueDate ? new Date(dueDate) : undefined,
                 userId: user.sub,
@@ -523,7 +560,9 @@ export const taskService = {
             return created!;
         });
 
-        if (task.assigneeId && task.status !== "draft") {
+        if (needsHead) {
+            await notifySafely(() => notificationService.notifyTaskAwaitingHead({ _id: task.id, title: task.title, departmentId: task.departmentId, userId: task.userId }));
+        } else if (task.assigneeId && task.status !== "draft") {
             await notifySafely(() => notificationService.notifyTaskAssigned({
                 _id: task.id,
                 title: task.title,
@@ -566,6 +605,14 @@ export const taskService = {
         }
 
         const beforeStatus = existing.status;
+
+        const statusMoves = input.status !== undefined && input.status !== beforeStatus;
+        if (existing.declinedAt && statusMoves) {
+            throw AppError.badRequest("This delegation was declined. Use Reopen to bring it back.")
+        }
+        if (existing.awaitingHeadApproval && statusMoves && user.role !== "ADMIN" && !isDepartmentHead(user, existing)) {
+            throw AppError.forbidden("The department head has to approve this delegation before work can start.")
+        }
 
         if (input.status === "draft" && beforeStatus !== "draft") {
             throw AppError.badRequest("A delegation that has gone out can't be turned back into a draft.")
@@ -654,6 +701,26 @@ export const taskService = {
             update.verificationNote = null;
         }
 
+        const nextDepartmentId = rest.departmentId !== undefined ? rest.departmentId : existing.departmentId;
+        const reassigned = beforeStatus === "todo"
+            && ((rest.assigneeId !== undefined && rest.assigneeId !== existing.assigneeId) || (rest.departmentId !== undefined && rest.departmentId !== existing.departmentId));
+        const publishing = beforeStatus === "draft" && input.status !== undefined && input.status !== "draft";
+        let headNeedsToDecide = false;
+        let headAutoApproved = false;
+        if ((reassigned || publishing) && existing.category === "delegation") {
+            headNeedsToDecide = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId ?? null }, user);
+            update.awaitingHeadApproval = headNeedsToDecide;
+            update.headReminderSentAt = null;
+            update.headEscalatedAt = null;
+            update.assignmentApprovedBy = null;
+            update.assignmentApprovedAt = null;
+        } else if (existing.awaitingHeadApproval && isStatusChange) {
+            headAutoApproved = true;
+            update.awaitingHeadApproval = false;
+            update.assignmentApprovedBy = user.sub;
+            update.assignmentApprovedAt = new Date();
+        }
+
         const task = await db.transaction(async (tx) => {
             await tx.update(tasks).set(update).where(and(eq(tasks.id, id), mutationCondition ?? eq(tasks.id, id)));
             await replaceAdditionalAssignees(tx, id, additionalAssigneeIds);
@@ -720,7 +787,17 @@ export const taskService = {
             }, remark, user.sub, 'TASK'));
         }
 
-        if (beforeStatus === "draft" && task.status !== "draft") {
+        if (headNeedsToDecide) {
+            await notifySafely(() => notificationService.notifyTaskAwaitingHead({ _id: task.id, title: task.title, departmentId: task.departmentId, userId: task.userId }));
+        } else if (headAutoApproved) {
+            await notifySafely(() => notificationService.notifyTaskHeadApproved({
+                _id: task.id,
+                title: task.title,
+                userId: task.userId,
+                assigneeId: task.assigneeId,
+                additionalAssigneeIds: currentAdditionalIds,
+            }, user.sub));
+        } else if (beforeStatus === "draft" && task.status !== "draft") {
             if (task.assigneeId || currentAdditionalIds.length) {
                 await notifySafely(() => notificationService.notifyTaskAssigned({
                     _id: task.id,
@@ -804,17 +881,19 @@ export const taskService = {
             update.hodApprovedBy = null;
             update.hodApprovedAt = null;
         }
-        const [result] = await db.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
-        if (result.affectedRows === 0) {
-            throw AppError.badRequest("This delegation isn't pending approval.")
-        }
+        await db.transaction(async (tx) => {
+            const [result] = await tx.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
+            if (result.affectedRows === 0) {
+                throw AppError.badRequest("This delegation isn't pending approval.")
+            }
 
-        await db.insert(taskStatusUpdates).values({
-            taskId: id,
-            changedBy: user.sub,
-            fromStatus,
-            toStatus: (update.status ?? fromStatus) as typeof TASK_STATUSES[number],
-            remark: input.note?.trim() || (stageHandOff ? "Approved by the department head, sent to PC." : input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
+            await tx.insert(taskStatusUpdates).values({
+                taskId: id,
+                changedBy: user.sub,
+                fromStatus,
+                toStatus: (update.status ?? fromStatus) as typeof TASK_STATUSES[number],
+                remark: input.note?.trim() || (stageHandOff ? "Approved by the department head, sent to PC." : input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
+            });
         });
 
         const [updated] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
@@ -862,6 +941,99 @@ export const taskService = {
         await dropTaskSummaries();
 
         return { ...updated!, ...(await approverNames(updated!)), statusUpdates: await loadStatusUpdates(id) };
+    },
+
+    async approveAssignment(id: string, user: AccessTokenPayload) {
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
+        if (!task) throw AppError.notFound("Delegation not found");
+        if (!canApproveAssignment(task, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this delegation.");
+        if (task.declinedAt) throw AppError.badRequest("This delegation was declined. Reopen it instead.");
+        if (!task.awaitingHeadApproval) throw AppError.conflict("This delegation has already been approved.");
+
+        const now = new Date();
+        const [result] = await db.update(tasks)
+            .set({ awaitingHeadApproval: false, assignmentApprovedBy: user.sub, assignmentApprovedAt: now, updatedAt: now })
+            .where(and(eq(tasks.id, id), eq(tasks.awaitingHeadApproval, true), isNull(tasks.declinedAt), NOT_DELETED));
+        if (result.affectedRows === 0) throw AppError.conflict("Someone approved this delegation a moment ago.");
+
+        const { updated, additionalAssigneeIds } = await finishHeadDecision(id, task, "UPDATE", user);
+        await notifySafely(() => notificationService.notifyTaskHeadApproved({
+            _id: updated.id,
+            title: updated.title,
+            userId: updated.userId,
+            assigneeId: updated.assigneeId,
+            additionalAssigneeIds,
+        }, user.sub));
+        return { ...updated, ...(await approverNames(updated)) };
+    },
+
+    async decline(id: string, reason: string, user: AccessTokenPayload) {
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
+        if (!task) throw AppError.notFound("Delegation not found");
+        const isVerifier = user.role === "ADMIN" || user.role === "PC";
+        if (!isVerifier && !isDepartmentHead(user, task)) throw AppError.forbidden("Only the department head, PC or an admin can decline this delegation.");
+        if (task.userId === user.sub && !isVerifier) throw AppError.badRequest("You gave out this delegation. Ask a manager to remove it instead of declining it.");
+        if (task.declinedAt) throw AppError.conflict("This delegation was already declined.");
+        if (!(["todo", "in_progress", "on_hold"] as string[]).includes(task.status)) {
+            throw AppError.badRequest(
+                task.status === "pending_approval" ? "This delegation is waiting for approval. Approve it or send it back instead."
+                    : task.status === "draft" ? "This delegation is still a draft."
+                        : "This delegation is already closed.",
+            );
+        }
+
+        const now = new Date();
+        const note = reason.trim();
+        const [result] = await db.update(tasks)
+            .set({ status: "done", declinedAt: now, declinedBy: user.sub, declineReason: note, awaitingHeadApproval: false, updatedAt: now })
+            .where(and(eq(tasks.id, id), eq(tasks.status, task.status), isNull(tasks.declinedAt), NOT_DELETED));
+        if (result.affectedRows === 0) throw AppError.conflict("Someone changed this delegation a moment ago. Open it again and retry.");
+
+        const { updated, additionalAssigneeIds } = await finishHeadDecision(id, task, "DECLINE", user);
+        await notifySafely(() => notificationService.notifyTaskDeclined({
+            _id: updated.id,
+            title: updated.title,
+            userId: updated.userId,
+            assigneeId: updated.assigneeId,
+            additionalAssigneeIds,
+        }, note, user.sub));
+        return { ...updated, ...(await approverNames(updated)) };
+    },
+
+    async reopenDeclined(id: string, user: AccessTokenPayload) {
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
+        if (!task) throw AppError.notFound("Delegation not found");
+        if (!task.declinedAt) throw AppError.badRequest("This delegation was not declined.");
+        if (!canApproveAssignment(task, user)) throw AppError.forbidden("Only the department head, PC or an admin can reopen a declined delegation.");
+
+        const now = new Date();
+        const [result] = await db.update(tasks).set({
+            status: "todo",
+            declinedAt: null,
+            declinedBy: null,
+            declineReason: null,
+            awaitingHeadApproval: false,
+            assignmentApprovedBy: user.sub,
+            assignmentApprovedAt: now,
+            verifiedBy: null,
+            verifiedAt: null,
+            verificationNote: null,
+            reminderSentAt: null,
+            overdueNotifiedAt: null,
+            overdueEscalatedAt: null,
+            updatedAt: now,
+        }).where(and(eq(tasks.id, id), isNotNull(tasks.declinedAt), NOT_DELETED));
+        if (result.affectedRows === 0) throw AppError.conflict("Someone reopened this delegation a moment ago.");
+
+        const { updated, additionalAssigneeIds } = await finishHeadDecision(id, task, "REOPEN", user);
+        await notifySafely(() => notificationService.notifyTaskHeadApproved({
+            _id: updated.id,
+            title: updated.title,
+            userId: updated.userId,
+            assigneeId: updated.assigneeId,
+            additionalAssigneeIds,
+        }, user.sub));
+        return { ...updated, ...(await approverNames(updated)) };
     },
 
     async remove(id: string, user: AccessTokenPayload) {
@@ -929,7 +1101,7 @@ export const taskService = {
                 : sql`1 = 0`);
         }
         if (userId) conditions.push(sql`(t.userId = ${userId} OR t.assigneeId = ${userId} OR taa.userId IS NOT NULL)`);
-        conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`, sql`t.category = 'delegation'`, sql`t.parentTaskId IS NULL`);
+        conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`, sql`t.category = 'delegation'`, sql`t.parentTaskId IS NULL`, sql`t.awaitingHeadApproval = 0`, sql`t.declinedAt IS NULL`);
         conditions.push(sql`(tci.isDone = 1 OR t.status IN ('done', 'pending_approval') OR (t.dueDate IS NOT NULL AND t.dueDate < UTC_TIMESTAMP()))`);
 
         const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
@@ -1009,7 +1181,7 @@ export const taskService = {
                 const mineCondition = additionalIds.length
                     ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
                     : selfAndDepartmentCondition(user);
-                where = and(NOT_DELETED, mineCondition);
+                where = and(NOT_DELETED, NOT_GATED, mineCondition);
             } else {
                 const scopeCondition = scope === "mine"
                     ? or(
@@ -1019,6 +1191,7 @@ export const taskService = {
                     : await buildVisibilityCondition(user);
                 where = and(
                     NOT_DELETED,
+                    NOT_GATED,
                     eq(tasks.category, "delegation"),
                     isNull(tasks.parentTaskId),
                     ne(tasks.status, "draft"),

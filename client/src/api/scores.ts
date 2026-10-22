@@ -140,7 +140,7 @@ export interface ExplorerParent { id: string; kind: 'person' | 'department' | 's
 
 export interface ExplorerResponse {
   window: { from: string; to: string; asOf: string; requestedTo: string; capped: boolean };
-  scope: { role: string; orgWide: boolean; departmentLocked: boolean; departmentId?: string };
+  scope: { role: string; orgWide: boolean; departmentLocked: boolean; departmentId?: string; allDepartments: boolean };
   view: ExplorerView;
   parent: ExplorerParent | null;
   total: ExplorerRow;

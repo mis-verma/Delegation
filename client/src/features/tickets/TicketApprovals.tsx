@@ -12,6 +12,9 @@ import { useRefreshAfterDecision } from '../verification/useRefreshAfterDecision
 import { formatWaiting } from '../verification/verificationModel';
 import { useDepartmentsQuery, useTicketsBoardQuery } from './hook';
 import { HeadRequestRow } from './approvals/HeadRequestRow';
+import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
+import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
+import { awaitingRequests } from '../tasks/taskFlow';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 
@@ -24,6 +27,8 @@ export const TicketApprovals = () => {
   const tasksQuery = usePendingTasksQuery('pending_approval');
   const boardQuery = useTicketsBoardQuery();
   const { data: departments } = useDepartmentsQuery();
+  const allTasksQuery = useTasksQuery();
+  const { data: people } = useAssignableUsersQuery();
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule } = useDeferredDecisions({ afterSaved: refresh });
 
@@ -33,6 +38,11 @@ export const TicketApprovals = () => {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
     [boardQuery.data, user],
   );
+  const delegationRequests = useMemo(() => awaitingRequests(allTasksQuery.data ?? NO_TASKS, user), [allTasksQuery.data, user]);
+  const nameOf = (id: string | null | undefined) => {
+    const person = id ? people?.find((p) => p.id === id) : undefined;
+    return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
+  };
   const allTasks = tasksQuery.data?.data ?? NO_TASKS;
   const myTasks = useMemo(
     () => allTasks
@@ -44,10 +54,11 @@ export const TicketApprovals = () => {
     () => allTasks.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length,
     [allTasks],
   );
-  const waitingTotal = myTasks.length + requests.length;
+  const waitingTotal = myTasks.length + requests.length + delegationRequests.length;
   const oldestTimes = [
     ...myTasks.map((t) => new Date(t.submittedAt ?? t.updatedAt).getTime()),
     ...requests.map((t) => new Date(t.createdAt).getTime()),
+    ...delegationRequests.map((t) => new Date(t.createdAt).getTime()),
   ];
   const oldest = oldestTimes.length ? Math.min(...oldestTimes) : null;
 
@@ -63,7 +74,7 @@ export const TicketApprovals = () => {
       <PageHeader
         icon={ShieldCheck}
         title="Team approvals"
-        subtitle="New ticket requests for your department, plus delegations your team finished. Decide on requests before anyone starts. Finished tickets go straight to PC."
+        subtitle="New ticket and delegation requests for your department, plus delegations your team finished. Decide on requests before anyone starts. Finished tickets go straight to PC."
       />
 
       <ul className="flex flex-wrap gap-2" aria-label="Summary">
@@ -72,15 +83,15 @@ export const TicketApprovals = () => {
         <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
       </ul>
 
-      {(tasksQuery.isPending || boardQuery.isPending) && (
+      {(tasksQuery.isPending || boardQuery.isPending || allTasksQuery.isPending) && (
         <div className="flex flex-col gap-3" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
       )}
 
-      {(tasksQuery.isError || boardQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void tasksQuery.refetch(); void boardQuery.refetch(); }} />}
+      {(tasksQuery.isError || boardQuery.isError || allTasksQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void tasksQuery.refetch(); void boardQuery.refetch(); void allTasksQuery.refetch(); }} />}
 
-      {!tasksQuery.isPending && !boardQuery.isPending && !tasksQuery.isError && !boardQuery.isError && waitingTotal === 0 && (
+      {!tasksQuery.isPending && !boardQuery.isPending && !allTasksQuery.isPending && !tasksQuery.isError && !boardQuery.isError && !allTasksQuery.isError && waitingTotal === 0 && (
         <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No requests or finished work are waiting for you. New items show up here as they come in." />
       )}
 
@@ -101,6 +112,30 @@ export const TicketApprovals = () => {
               ticket={ticket}
               now={now}
               departmentName={departments?.find((d) => d.id === ticket.departmentId)?.name}
+            />
+          ))}
+        </section>
+      )}
+
+      {delegationRequests.length > 0 && (
+        <section aria-label="New delegation requests" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="flex items-center gap-2 t-section font-display font-bold text-text">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-linear-to-br from-info to-info/70 text-white" aria-hidden="true">
+                <Inbox size={15} strokeWidth={2.4} />
+              </span>
+              New delegation requests <span className="font-normal text-text-muted tabular-nums">· {delegationRequests.length}</span>
+            </h2>
+            <p className="t-meta font-medium text-text-muted">Given to your department. Nobody can start until you decide.</p>
+          </div>
+          {delegationRequests.map((task) => (
+            <HeadTaskRequestRow
+              key={task.id}
+              task={task}
+              now={now}
+              raiserName={nameOf(task.userId)}
+              assigneeName={nameOf(task.assigneeId)}
+              departmentName={departments?.find((d) => d.id === task.departmentId)?.name}
             />
           ))}
         </section>

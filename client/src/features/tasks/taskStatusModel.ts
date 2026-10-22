@@ -75,6 +75,12 @@ export const waitingLine = (
     ? `Waiting for the ${departmentName} manager to pick someone`
     : 'Waiting for someone to be assigned';
 
+  if (task.declinedAt) {
+    const by = nameOf(task.declinedBy);
+    return { who: by ? `Declined by ${by}` : 'Declined', due: null };
+  }
+  if (task.awaitingHeadApproval) return { who: 'Waiting for the department head to approve it', due: null };
+
   let who: string;
   switch (task.status) {
     case 'draft':

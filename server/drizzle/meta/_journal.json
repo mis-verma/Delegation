@@ -533,6 +533,13 @@
       "when": 1792760000000,
       "tag": "0075_org_week_off",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "5",
+      "when": 1792770000000,
+      "tag": "0076_task_head_approval",
+      "breakpoints": true
     }
   ]
 }

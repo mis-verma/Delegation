@@ -19,6 +19,7 @@ import { ScoreRowDialog } from './ScoreRowDialog';
 import { ScoresFilterBar } from './ScoresFilterBar';
 import { ScoresMobileList, ScoresTable } from './ScoresTable';
 import { ScoresFillMatrix } from './ScoresFillMatrix';
+import { DepartmentStanding } from './DepartmentStanding';
 import { ScoresTotalCard, ScoresTotalSkeleton } from './ScoresTotalCard';
 import {
   RECURRENCE_OPTIONS, VIEW_LABEL, asTrailItem, exportRowsFor, modulesForFilter, parseModule, parseRecurrence, parseTrail, parseView,
@@ -44,7 +45,7 @@ export const ScoresPage = () => {
   const trail = useMemo(() => parseTrail(params.get('trail')), [params]);
   const parent = trail[trail.length - 1] ?? null;
   const allowedViews = viewsFor(parent?.kind ?? null, orgWide);
-  const defaultView: ExplorerView = orgWide ? 'department' : 'person';
+  const defaultView: ExplorerView = 'department';
   const requestedView = parseView(params.get('view'));
   const view: ExplorerView = requestedView && allowedViews.includes(requestedView) ? requestedView : allowedViews.includes(defaultView) ? defaultView : allowedViews[0];
 
@@ -121,7 +122,8 @@ export const ScoresPage = () => {
   const storeName = storeOptions.find((o) => o.value === storeId)?.label;
   const departmentName = departmentOptions.find((o) => o.value === departmentId)?.label;
   const recurrenceLabel = RECURRENCE_OPTIONS.find((o) => o.value === recurrence)?.label;
-  const totalTitle = parent ? parentName : orgWide ? 'Whole organisation' : 'Your department';
+  const totalTitle = parent ? parentName : orgWide || data?.scope.allDepartments ? 'Whole organisation' : 'Your department';
+  const homeDepartmentId = data?.scope.departmentLocked ? data.scope.departmentId : undefined;
   const sharing = data ? sharingLine(shownView, data.sharing) : null;
   const subjectParent = parent ? { kind: parent.kind, id: parent.id } : data?.scope.departmentLocked && data.scope.departmentId ? { kind: 'department' as const, id: data.scope.departmentId } : { kind: 'org' as const };
   const itemWindow = useMemo(() => ({ from: win.from, to: win.to, period: periodOf(win.from, win.to, win.today) }), [win.from, win.to, win.today]);
@@ -162,6 +164,7 @@ export const ScoresPage = () => {
         module={module}
         recurrence={recurrence}
         departmentLockedNote={!!data?.scope.departmentLocked}
+        allDepartments={!!data?.scope.allDepartments}
         onChange={changeFilters}
         onClear={clearFilters}
         filtered={filtered}
@@ -180,6 +183,10 @@ export const ScoresPage = () => {
       ) : (
         <>
           <ScoresTotalCard total={data.total} modules={modulesForFilter(module)} title={totalTitle} windowLabel={win.label} capped={data.window.capped} />
+
+          {data.scope.allDepartments && homeDepartmentId && shownView === 'department' && !matrix && (
+            <DepartmentStanding rows={data.rows} ranks={ranks} homeId={homeDepartmentId} total={data.total} modules={modulesForFilter(module)} />
+          )}
 
           <section aria-label={`By ${VIEW_LABEL[shownView].toLowerCase()}`} className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
             <nav aria-label="Where you are" className="flex flex-wrap items-center gap-1.5">
@@ -265,7 +272,7 @@ export const ScoresPage = () => {
               />
             ) : (
               <div className="flex flex-col gap-3">
-                <ScoresMobileList view={shownView} rows={visibleRows} ranks={ranks} modules={modules} onOpen={(r) => setOpenKey(`${r.kind}:${r.id}`)} />
+                <ScoresMobileList view={shownView} rows={visibleRows} ranks={ranks} modules={modules} scope={data.scope} onOpen={(r) => setOpenKey(`${r.kind}:${r.id}`)} />
                 <ScoresTable
                   view={shownView}
                   rows={visibleRows}
@@ -276,6 +283,7 @@ export const ScoresPage = () => {
                   onSort={sortBy}
                   onOpen={(r) => setOpenKey(`${r.kind}:${r.id}`)}
                   onDrill={drill}
+                  scope={data.scope}
                   caption={`Scores by ${VIEW_LABEL[shownView].toLowerCase()}, ${win.label}`}
                 />
               </div>
@@ -318,6 +326,7 @@ export const ScoresPage = () => {
         window={itemWindow}
         orgWide={orgWide}
         parentSubject={subjectParent}
+        scope={data?.scope}
         onClose={() => setOpenKey(null)}
         onDrill={drill}
       />

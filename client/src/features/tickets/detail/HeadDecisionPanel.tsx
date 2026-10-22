@@ -9,7 +9,8 @@ interface Person {
 }
 
 interface HeadDecisionPanelProps {
-  ticketTitle: string;
+  itemTitle: string;
+  noun?: 'ticket' | 'delegation';
   raiser: Person | null;
   assignee: Person | null;
   departmentName?: string;
@@ -64,7 +65,8 @@ const Connector = ({ filled }: { filled: boolean }) => (
 );
 
 export const HeadDecisionPanel = ({
-  ticketTitle,
+  itemTitle,
+  noun = 'ticket',
   raiser,
   assignee,
   departmentName,
@@ -92,11 +94,11 @@ export const HeadDecisionPanel = ({
         </span>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h2 className="t-section font-display font-bold leading-snug text-text">
-            {canDecide ? 'This ticket needs your decision' : `Waiting for the ${departmentName ?? 'department'} head`}
+            {canDecide ? `This ${noun} needs your decision` : `Waiting for the ${departmentName ?? 'department'} head`}
           </h2>
           <p className="t-card font-medium leading-snug text-text-secondary">
             {canDecide
-              ? `${raiserName} sent "${ticketTitle}" to the ${where}. Nobody can start until you approve it.`
+              ? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until you approve it.`
               : 'Work starts as soon as they approve it. If they decline, you will see their reason here.'}
           </p>
         </div>
@@ -108,7 +110,7 @@ export const HeadDecisionPanel = ({
         <PersonPill person={assignee} empty="Nobody picked yet" />
       </div>
 
-      <ol className="flex items-start justify-center" aria-label="Where this ticket is">
+      <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
         <Step icon={Send} label="Raised" state="done" />
         <Connector filled />
         <Step icon={ShieldQuestion} label="Head decides" state="current" />

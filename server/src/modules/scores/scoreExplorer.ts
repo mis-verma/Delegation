@@ -148,7 +148,7 @@ export const sumDue = (rows: readonly ExplorerRow[]) => rows.reduce((n, r) => n 
 
 export const completionOf = (b: { done: number; due: number }) => rawPct(b.done, b.due)
 
-export const explorerNotes = (opts: { view: ExplorerView; module?: ExplorerModule; recurrence?: string; storeId?: string; departmentLocked: boolean; storesHidden: boolean; parentKind?: string | null }): string[] => {
+export const explorerNotes = (opts: { view: ExplorerView; module?: ExplorerModule; recurrence?: string; storeId?: string; departmentLocked: boolean; allDepartments?: boolean; storesHidden: boolean; parentKind?: string | null }): string[] => {
     const notes = [...SCORE_REPORT_NOTES]
     if (opts.view === "person") notes.push("People: each row is that person's whole work, the same figures as their own score card. Work with nobody assigned is on the Unassigned row, kept apart from the people rows.")
     if (opts.view === "department") notes.push("Departments: each row is the work filed under that department. A checklist run shared across departments is counted in each of them (see Runs shared), so departments can add up to more than the total.")
@@ -160,7 +160,8 @@ export const explorerNotes = (opts: { view: ExplorerView; module?: ExplorerModul
     if (opts.module) notes.push(`Only ${opts.module === "ticket" ? "tickets" : opts.module === "delegation" ? "delegations" : "checklists"} are counted: Overall, due and rank follow that module alone.`)
     if (opts.storeId) notes.push("A store filter narrows every module to that store, people rows included.")
     if (opts.parentKind) notes.push(`Drill-down inside one ${opts.parentKind}.`)
-    if (opts.departmentLocked) notes.push("You see your own department: its work, and the people on its record with their whole numbers.")
+    if (opts.allDepartments) notes.push("Every department is shown so you can compare. Only your own department opens up to its people and checklists.")
+    else if (opts.departmentLocked) notes.push("You see your own department: its work, and the people on its record with their whole numbers.")
     if (opts.storesHidden) notes.push("Store figures are shown to Admin and PC only.")
     return notes
 }

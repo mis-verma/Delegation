@@ -23,6 +23,7 @@ export const startTaskDeadlineReminder = () => {
 
       const due = await db.select().from(tasks).where(and(
         isNull(tasks.deletedAt),
+        eq(tasks.awaitingHeadApproval, false),
         isNotNull(tasks.dueDate),
         isNotNull(tasks.reminderMinutesBefore),
         isNull(tasks.reminderSentAt),

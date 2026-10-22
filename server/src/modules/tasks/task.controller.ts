@@ -1,6 +1,6 @@
 import type { Request , Response } from "express"
 import { taskService } from "./task.service.js"
-import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
+import { createTaskSchema , updateTaskSchema, verifyTaskSchema, declineTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -37,6 +37,22 @@ export const taskController = {
     verify : asyncHandler(async (req : Request , res : Response) => {
         const input = verifyTaskSchema.parse(req.body);
         const task = await taskService.verify(req.params.id , input , req.user!)
+        res.json({ success : true, data : task });
+    }),
+
+    approveAssignment : asyncHandler(async (req : Request , res : Response) => {
+        const task = await taskService.approveAssignment(req.params.id , req.user!)
+        res.json({ success : true, data : task });
+    }),
+
+    decline : asyncHandler(async (req : Request , res : Response) => {
+        const input = declineTaskSchema.parse(req.body);
+        const task = await taskService.decline(req.params.id , input.reason , req.user!)
+        res.json({ success : true, data : task });
+    }),
+
+    reopenDeclined : asyncHandler(async (req : Request , res : Response) => {
+        const task = await taskService.reopenDeclined(req.params.id , req.user!)
         res.json({ success : true, data : task });
     }),
 

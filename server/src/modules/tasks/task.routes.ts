@@ -20,6 +20,9 @@ taskRouter.get("/reports/by-owner", requireRole("ADMIN", "PC", "MANAGER", "SENIO
 taskRouter.get("/:id" , taskController.getOne)
 taskRouter.patch("/:id" , taskController.update)
 taskRouter.patch("/:id/verify", taskController.verify)
+taskRouter.post("/:id/approve-assignment", taskController.approveAssignment)
+taskRouter.post("/:id/decline", taskController.decline)
+taskRouter.post("/:id/reopen-declined", taskController.reopenDeclined)
 taskRouter.delete("/:id" , taskController.remove)
 taskRouter.patch("/:id/restore", requireRole("ADMIN", "PC"), taskController.restore)
 

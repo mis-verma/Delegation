@@ -88,7 +88,8 @@ export const trendFrom = (current: number, previous: number): Trend => {
   };
 };
 
-export const isTaskOverdue = (task: Pick<Task, 'status' | 'dueDate'>, now: number): boolean => {
+export const isTaskOverdue = (task: Pick<Task, 'status' | 'dueDate' | 'awaitingHeadApproval'>, now: number): boolean => {
+  if (task.awaitingHeadApproval) return false;
   if (task.status === 'done' || task.status === 'draft' || task.status === 'pending_approval') return false;
   if (!task.dueDate) return false;
   return new Date(task.dueDate).getTime() < now;

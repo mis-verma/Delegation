@@ -10,7 +10,7 @@ import { ModuleFigures } from './ModuleFigures';
 import { DRILL_LINK_CLASS } from './controlStyles';
 import { CountsLine, ScorePct } from './ScorePct';
 import { DepartmentLine } from './scoreTableParts';
-import { drillTargets, itemLinksFor, type DrillLink, type ItemLinkWindow } from './scoresDisplay';
+import { drillTargets, isForeignDepartment, itemLinksFor, type DrillLink, type ItemLinkWindow, type ScoreScope } from './scoresDisplay';
 
 const KIND_WORD: Record<ExplorerRow['kind'], string> = {
   department: 'Department', store: 'Store', person: 'Person', checklist: 'Checklist', module: 'Module', total: 'Total', unassigned: 'Unassigned work',
@@ -23,6 +23,7 @@ interface ScoreRowDialogProps {
   window: ItemLinkWindow;
   orgWide: boolean;
   parentSubject: DrillSubject;
+  scope?: ScoreScope;
   onClose: () => void;
   onDrill: (row: ExplorerRow, view: ExplorerView) => void;
 }
@@ -30,7 +31,9 @@ interface ScoreRowDialogProps {
 const subjectOf = (row: ExplorerRow, parentSubject: DrillSubject): DrillSubject =>
   row.kind === 'department' || row.kind === 'store' || row.kind === 'person' ? { kind: row.kind, id: row.id } : parentSubject;
 
-export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, parentSubject, onClose, onDrill }: ScoreRowDialogProps) => (
+export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, parentSubject, scope, onClose, onDrill }: ScoreRowDialogProps) => {
+  const foreign = !!row && isForeignDepartment(row, scope);
+  return (
   <Dialog open={!!row} onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="gap-4 p-5 sm:max-w-lg sm:p-6">
       {row && (
@@ -54,7 +57,7 @@ export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, par
           <div className="flex flex-col gap-3">
             {modules.map((m) => {
               const b = row[m];
-              const links: DrillLink[] = b.due > 0 && row.kind !== 'unassigned' && row.kind !== 'total' ? itemLinksFor(orgWide, subjectOf(row, parentSubject), window, row, m) : [];
+              const links: DrillLink[] = !foreign && b.due > 0 && row.kind !== 'unassigned' && row.kind !== 'total' ? itemLinksFor(orgWide, subjectOf(row, parentSubject), window, row, m) : [];
               return (
                 <div key={m} className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
                   <div className="flex items-baseline justify-between gap-2">
@@ -89,7 +92,9 @@ export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, par
             </Link>
           )}
 
-          {drillTargets(row).length > 0 && (
+          {foreign && <p className="t-meta text-text-muted">This is another department. You see its scores to compare. Its people and checklists open for its own head.</p>}
+
+          {!foreign && drillTargets(row).length > 0 && (
             <div className="flex flex-col gap-2 sm:flex-row">
               {drillTargets(row).map((t, i) => (
                 <Button key={t.view} type="button" variant={i === 0 ? 'primary' : 'outline'} className="pointer-coarse:min-h-11 sm:flex-1" onClick={() => onDrill(row, t.view)}>
@@ -102,4 +107,5 @@ export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, par
       )}
     </DialogContent>
   </Dialog>
-);
+  );
+};

@@ -209,7 +209,7 @@ const streakOf = (byDay: Map<string, { total: number; missed: number }> | undefi
 }
 
 const ticketOpenStatuses = ["OPEN", "IN_PROGRESS", "ON_HOLD"] as const
-const openDelegationSql = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), sql`${tasks.status} NOT IN ('done', 'draft', 'pending_approval')`)
+const openDelegationSql = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), eq(tasks.awaitingHeadApproval, false), isNull(tasks.declinedAt), sql`${tasks.status} NOT IN ('done', 'draft', 'pending_approval')`)
 
 const lastReminders = async (ids: string[], sinceMs: number) => {
     if (!ids.length) return new Map<string, Date>()

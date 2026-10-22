@@ -20,6 +20,8 @@ import { isOverdueTask, OVERDUE_EXEMPT_STATUSES } from "./taskFilters";
 import { isMoveBlocked } from "./taskStatusModel";
 import { TaskScoreBadge } from "./TaskScoreBadge";
 import { TaskSourceBadge } from "./TaskSourceBadge";
+import { TaskFlowChips } from "./TaskFlowChips";
+import { taskFlowState } from "./taskFlow";
 import { coverPhotoFor } from "./taskAttachmentDisplay";
 import { UPLOADS_BASE } from "../../lib/uploadsBase";
 import { avatarColorClass } from "../../lib/avatarColors";
@@ -68,8 +70,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const isOverdue = isOverdueTask(task);
   const { doneItems, totalItems, progress } = getChecklistProgress(task.checklists ?? []);
 
-  const showDoneBadge = fields.status && task.status === 'done';
   const { user } = useAuth();
+  const flow = taskFlowState(task, user);
+  const showDoneBadge = fields.status && task.status === 'done' && !flow.declined;
+  const showDeclinedBadge = fields.status && flow.declined;
   const canApprove = canApproveTicket(user, taskApprovalSubject(task));
   const showReviewBadge = fields.status && task.status === 'pending_approval' && !canApprove;
   const showVerifyActions = task.status === 'pending_approval' && canApprove;
@@ -79,7 +83,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const clockStopped = OVERDUE_EXEMPT_STATUSES.has(task.status);
   const dueIsToday = !!task.dueDate && !clockStopped && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
   const dueTone = task.status === 'done' ? 'text-text-secondary' : isOverdue ? 'text-danger' : dueIsToday ? 'text-warning' : 'text-text';
-  const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
+  const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval' && !flow.awaiting;
 
   const prefetchHandlers = usePrefetchTask(task.id);
 
@@ -201,8 +205,15 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
 
       {showChecklistBar && <ChecklistProgressBar done={doneItems} total={totalItems} />}
 
-      {(fields.department || fields.priority || fields.category || showScoreBadge) && (
+      {flow.declined && task.declineReason && (
+        <p className="rounded-lg bg-danger/10 px-2.5 py-1.5 t-meta text-danger line-clamp-2 break-words">
+          <span className="font-semibold">Declined{task.decliner ? ` by ${task.decliner.firstName}` : ''}:</span> {task.declineReason}
+        </p>
+      )}
+
+      {(fields.department || fields.priority || fields.category || showScoreBadge || flow.awaiting || flow.headApproved) && (
         <div className="flex flex-wrap items-center gap-1.5">
+          <TaskFlowChips task={task} />
           {fields.department && departmentName && <DepartmentChip name={departmentName} />}
 
           {fields.priority && priority && <PriorityChip meta={priority} />}
@@ -317,6 +328,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         >
           {showVerifyActions ? (
             <TaskVerifyActions task={task} compact finalApproval={isFinalApproval(user, task)} />
+          ) : showDeclinedBadge ? (
+            <StatusChip status="declined" label="Declined" />
           ) : showDoneBadge ? (
             <StatusChip status="completed" label="Done" />
           ) : showReviewBadge ? (

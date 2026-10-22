@@ -1,9 +1,9 @@
 import { memo } from 'react';
-import { ArrowDown, ArrowUp, ChevronRight, UserMinus, Users, PowerOff } from 'lucide-react';
+import { ArrowDown, ArrowUp, Building2, ChevronRight, UserMinus, Users, PowerOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExplorerRow, ExplorerView } from '../../api/scores';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel, type ScoreModule } from '../../lib/scoreLabels';
-import { NAME_HEAD, drillTargets, measureOf, type Measure, type SortKey } from './scoresDisplay';
+import { NAME_HEAD, drillTargets, isForeignDepartment, isHomeDepartment, measureOf, type Measure, type ScoreScope, type SortKey } from './scoresDisplay';
 import { TABLE_FRAME_CLASS } from './controlStyles';
 import { ScorePct } from './ScorePct';
 import { ScoreChip } from './ScoreChip';
@@ -27,11 +27,12 @@ const SharedMarker = ({ row }: { row: ExplorerRow }) => {
   );
 };
 
-const NameBlock = ({ row, view }: { row: ExplorerRow; view: ExplorerView }) => (
+const NameBlock = ({ row, view, scope }: { row: ExplorerRow; view: ExplorerView; scope?: ScoreScope }) => (
   <span className="flex min-w-0 flex-col gap-0.5 text-left">
     <span className="flex flex-wrap items-center gap-1.5">
       <span className="t-card font-display font-semibold leading-snug text-text line-clamp-2">{row.name}</span>
       <StatusTag row={row} />
+      {isHomeDepartment(row, scope) && <ScoreChip label="Your department" icon={Building2} tone="success" />}
     </span>
     {row.kind === 'person' && <DepartmentLine name={row.departmentName} />}
     {(row.recurrence || row.shared.runsSharedWithOthers > 0 || row.totalDue === 0) && (
@@ -55,9 +56,10 @@ interface ScoresTableProps {
   onOpen: (row: ExplorerRow) => void;
   onDrill: (row: ExplorerRow, view: ExplorerView) => void;
   caption: string;
+  scope?: ScoreScope;
 }
 
-export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascending, onSort, onOpen, onDrill, caption }: ScoresTableProps) => (
+export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascending, onSort, onOpen, onDrill, caption, scope }: ScoresTableProps) => (
   <div className={TABLE_FRAME_CLASS}>
     <table className="w-full border-collapse text-left">
       <caption className="sr-only">{caption}</caption>
@@ -83,13 +85,13 @@ export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascendin
       </thead>
       <tbody>
         {rows.map((r) => {
-          const target = drillTargets(r)[0];
+          const target = isForeignDepartment(r, scope) ? undefined : drillTargets(r)[0];
           return (
-            <tr key={`${r.kind}:${r.id}`} onClick={() => onOpen(r)} className="group cursor-pointer border-t border-border/60">
+            <tr key={`${r.kind}:${r.id}`} onClick={() => onOpen(r)} className={cn('group cursor-pointer border-t border-border/60', isHomeDepartment(r, scope) && 'bg-primary-500/5')}>
               <NumCell meta className="font-display font-bold text-text-secondary transition-colors group-hover:bg-surface-hover">{ranks.get(r.id) ?? '-'}</NumCell>
               <th scope="row" className="sticky left-0 z-10 bg-surface px-3 py-2 font-normal transition-colors group-hover:bg-surface-hover">
                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(r); }} className="flex min-h-9 pointer-coarse:min-h-11 items-center text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                  <NameBlock row={r} view={view} />
+                  <NameBlock row={r} view={view} scope={scope} />
                 </button>
               </th>
               <NumCell className="border-l border-border/60 font-display transition-colors group-hover:bg-surface-hover">{r.totalDue === 0 ? <span className="text-text-light">-</span> : <ScorePct value={r.overall} strong />}</NumCell>
@@ -120,13 +122,13 @@ export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascendin
 ));
 ScoresTable.displayName = 'ScoresTable';
 
-export const ScoresMobileList = ({ view, rows, ranks, modules, onOpen }: { view: ExplorerView; rows: readonly ExplorerRow[]; ranks: ReadonlyMap<string, number>; modules: readonly ScoreModule[]; onOpen: (row: ExplorerRow) => void }) => (
+export const ScoresMobileList = ({ view, rows, ranks, modules, onOpen, scope }: { view: ExplorerView; rows: readonly ExplorerRow[]; ranks: ReadonlyMap<string, number>; modules: readonly ScoreModule[]; onOpen: (row: ExplorerRow) => void; scope?: ScoreScope }) => (
   <ol className="flex flex-col gap-2 md:hidden">
     {rows.map((r) => (
       <MobileScoreRow
         key={`${r.kind}:${r.id}`}
         rank={ranks.get(r.id) ?? null}
-        title={<NameBlock row={r} view={view} />}
+        title={<NameBlock row={r} view={view} scope={scope} />}
         overall={r.totalDue === 0 ? null : r.overall}
         cells={modules.map((m) => ({ key: m, label: MODULE_LABEL[m], value: r[m].due === 0 ? null : r[m].score }))}
         onOpen={() => onOpen(r)}

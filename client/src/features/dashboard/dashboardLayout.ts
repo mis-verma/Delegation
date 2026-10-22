@@ -76,7 +76,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
 
 export const CARD_LABEL: Record<DashboardCardId, string> = {
   todayStrip: 'Today',
-  ticketRequests: 'Ticket requests',
+  ticketRequests: 'Requests',
   needsApproval: 'Needs your approval',
   exceptions: 'Needs attention',
   myTeam: 'My team',
