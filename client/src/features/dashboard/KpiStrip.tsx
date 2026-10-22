@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, ListTodo, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, ListTodo, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { Skeleton } from '../../components/skeleton';
@@ -122,7 +122,7 @@ const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { lab
   const look = MINI_TONE[tone];
   const body = (
     <>
-      <span className={cn('block t-card sm:text-lg font-display font-bold tabular-nums leading-tight', look.value)}>{value ?? '-'}</span>
+      <span className={cn('block t-card sm:text-lg font-display font-extrabold tabular-nums leading-tight', look.value)}>{value ?? '-'}</span>
       <span className="block break-words t-meta font-medium leading-tight text-text-muted">
         <span className="sm:hidden">{shortLabel}</span>
         <span className="hidden sm:inline">{label}</span>
@@ -138,11 +138,28 @@ const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { lab
   );
 };
 
-const MODULE_TONE: Record<ModuleKey, { tile: string; text: string }> = {
-  delegation: { tile: 'bg-linear-to-br from-coral-500 to-coral-600', text: 'text-coral-600 dark:text-coral-300' },
-  tickets: { tile: 'bg-linear-to-br from-success to-success/70', text: 'text-success' },
-  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300' },
-  todo: { tile: 'bg-linear-to-br from-warning to-warning/70', text: 'text-warning' },
+const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }> = {
+  delegation: { tile: 'bg-linear-to-br from-coral-500 to-coral-600', text: 'text-coral-600 dark:text-coral-300', bar: 'bg-coral-500' },
+  tickets: { tile: 'bg-linear-to-br from-success to-success/70', text: 'text-success', bar: 'bg-info' },
+  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-500' },
+  todo: { tile: 'bg-linear-to-br from-warning to-warning/70', text: 'text-warning', bar: 'bg-warning' },
+};
+
+const OnTrack = ({ className }: { className?: string }) => (
+  <IconChip icon={CheckCircle2} tone="bg-success" label="On track" labelClassName="text-success" className={cn('shrink-0 border-success/30 bg-success/10', className)} />
+);
+
+const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue: number; open: number; openClass: string }) => {
+  const span = Math.max(1, done + open);
+  const late = Math.min(open, overdue);
+  const pct = (n: number) => `${(n / span) * 100}%`;
+  return (
+    <div role="img" aria-label={`${done} done, ${open - late} open, ${late} overdue`} className="flex h-1.5 w-full overflow-hidden rounded-full bg-border/50">
+      <span className="bar-grow h-full bg-success" style={{ width: pct(done) }} />
+      <span className="bar-grow h-full bg-danger" style={{ width: pct(late) }} />
+      <span className={cn('bar-grow h-full', openClass)} style={{ width: pct(open - late) }} />
+    </div>
+  );
 };
 
 const SCORE_MODULE: Record<Exclude<ModuleKey, 'todo'>, ScoreModule> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist' };
@@ -155,7 +172,7 @@ const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { va
 
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
 
-const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string }; scopeTag?: string }) => {
+const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string }; scopeTag?: string; index: number }) => {
   const Icon = view.icon;
   if (view.isPending) {
     return (
@@ -179,7 +196,12 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
   const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
   const tone = MODULE_TONE[view.key];
   return (
-    <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
+    <section
+      aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title}
+      style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
+      className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
+    >
+      <span className={cn('absolute inset-x-0 top-0 h-1', tone.tile)} aria-hidden="true" />
       <header className="flex items-center gap-2">
         <span className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl text-white', tone.tile)}>
           <Icon className="size-4 sm:size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
@@ -206,15 +228,21 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
       ) : (
         <>
           <div className="hidden sm:grid grid-cols-2 items-center gap-2">
-            <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-center justify-center rounded-xl py-1 outline-none transition-colors hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className={cn('t-stat font-display font-extrabold leading-none', tone.text)}>
-                <CountUp value={view.pending ?? 0} />
-              </span>
-              <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
-              {view.overdue > 0 && (
-                <IconChip className="mt-1.5" icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
+            <div className="flex min-w-0 flex-col items-start gap-1.5">
+              <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-start rounded-xl px-1 py-0.5 text-left outline-none transition-all duration-150 hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <span className={cn('t-figure font-display font-extrabold leading-none tabular-nums', tone.text)}>
+                  <CountUp value={view.pending ?? 0} fromZero />
+                </span>
+                <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
+              </button>
+              {view.overdue > 0 ? (
+                <button type="button" onClick={() => onOpen('overdue')} className="rounded-full outline-none transition-transform active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-danger/40">
+                  <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
+                </button>
+              ) : (
+                <OnTrack />
               )}
-            </button>
+            </div>
             <div className="flex flex-col items-center justify-center border-l border-border/60">
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
@@ -228,9 +256,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
 
           <div className="flex sm:hidden flex-col gap-1.5">
             <div className="grid grid-cols-2 items-center gap-1">
-              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('block t-stat font-display font-bold tabular-nums leading-none', tone.text)}>
-                  <CountUp value={view.pending ?? 0} />
+              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <span className={cn('block t-stat font-display font-extrabold tabular-nums leading-none', tone.text)}>
+                  <CountUp value={view.pending ?? 0} fromZero />
                 </span>
                 <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
               </button>
@@ -241,17 +269,26 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
                 <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Today'}</span>
               </div>
             </div>
-            {view.overdue > 0 && (
+            {view.overdue > 0 ? (
               <button
                 type="button"
                 onClick={() => onOpen('overdue')}
                 className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-danger/10 px-2 t-meta font-display font-bold tabular-nums text-danger outline-none active:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
               >
+                <span className="live-dot size-1.5 rounded-full bg-danger" aria-hidden="true" />
                 <AlertTriangle className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
                 {view.overdue} overdue
               </button>
+            ) : (
+              <div className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-success/10 px-2 t-meta font-display font-bold text-success">
+                <CheckCircle2 className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
+                On track
+              </div>
             )}
           </div>
+
+          <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
+
           <div className="grid grid-cols-3 gap-1.5 text-center">
             <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
             <MiniStat label="New today" shortLabel="New" value={view.newToday} tone="info" onClick={() => onOpen('newToday')} />
@@ -372,9 +409,10 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        {views.map((view) => (
+        {views.map((view, index) => (
           <ModuleCard
             key={view.key}
+            index={index}
             view={view}
             score={scoreFor(view.key, todayScores.data, view)}
             scopeTag={simple ? undefined : SCOPE_TAG[view.scope]}

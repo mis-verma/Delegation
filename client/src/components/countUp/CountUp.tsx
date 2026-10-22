@@ -7,12 +7,13 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 interface CountUpProps {
   value: number;
   format?: (n: number) => string;
+  fromZero?: boolean;
 }
 
-export const CountUp = ({ value, format = (n) => n.toLocaleString() }: CountUpProps) => {
+export const CountUp = ({ value, format = (n) => n.toLocaleString(), fromZero = false }: CountUpProps) => {
   const reduceMotion = usePrefersReducedMotion();
-  const [shown, setShown] = useState(value);
-  const shownRef = useRef(value);
+  const [shown, setShown] = useState(fromZero ? 0 : value);
+  const shownRef = useRef(fromZero ? 0 : value);
   const frame = useRef<number | null>(null);
 
   useEffect(() => {
