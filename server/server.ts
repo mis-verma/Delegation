@@ -18,6 +18,7 @@ import { startDueReminders } from "./src/jobs/dueReminders.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startDataBackup } from "./src/jobs/dataBackup.job.js";
 import { startRiskWatch } from "./src/jobs/riskWatch.job.js";
+import { startRequestStatsFlush } from "./src/modules/health/requestStats.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
 import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
@@ -44,6 +45,8 @@ class ServerBootstrap {
     this.httpServer.requestTimeout = 30_000;
     this.httpServer.headersTimeout = 35_000;
     const io = await initSocket(this.httpServer, workerCount > 1);
+
+    startRequestStatsFlush();
 
     const isCronOwner = !cluster.isWorker || cluster.worker?.id === 1;
     if (isCronOwner) {

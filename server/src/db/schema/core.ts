@@ -10,6 +10,7 @@ import {
   mysqlEnum,
   index,
   uniqueIndex,
+  primaryKey,
   type AnyMySqlColumn,
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
@@ -278,6 +279,24 @@ export const jobRuns = mysqlTable('JobRun', {
   failCount: int('failCount').notNull().default(0),
   lastFailedAt: datetime('lastFailedAt', { mode: 'date' }),
 });
+
+export const requestStats = mysqlTable(
+  'RequestStat',
+  {
+    minute: datetime('minute', { mode: 'date' }).notNull(),
+    workerId: int('workerId').notNull(),
+    requests: int('requests').notNull().default(0),
+    totalMs: int('totalMs').notNull().default(0),
+    maxMs: int('maxMs').notNull().default(0),
+    under100: int('under100').notNull().default(0),
+    under300: int('under300').notNull().default(0),
+    under1000: int('under1000').notNull().default(0),
+    under3000: int('under3000').notNull().default(0),
+    over3000: int('over3000').notNull().default(0),
+    serverErrors: int('serverErrors').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.minute, table.workerId] })],
+);
 
 export const projects = mysqlTable('Project', {
   id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),

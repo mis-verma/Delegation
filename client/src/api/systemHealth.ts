@@ -46,6 +46,7 @@ export type SystemHealth = {
   disk: { level: HealthLevel; known: boolean; totalGb: number; freeGb: number; usedPercent: number; uploads: { measuring: boolean; sizeMb: number; files: number } };
   growth: { known: boolean; days: number; rowsPerDay: number; sizeMbPerDay: number; totalRows: number };
   approvals: { level: HealthLevel; pcCount: number; pcOldestHours: number; headCount: number; headOldestHours: number };
+  responses: { level: HealthLevel; known: boolean; requests: number; avgMs: number; maxMs: number; p50Ms: number | null; p95Ms: number | null; slow: number; serverErrors: number };
   errors: { at: string; method: string; path: string; message: string }[];
 };
 

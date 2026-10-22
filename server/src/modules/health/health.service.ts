@@ -9,6 +9,7 @@ import { offsiteConfigured } from "../../utils/dataBackup.js"
 import { queryCacheStatus } from "../../config/queryCache.js"
 import { registeredJobs } from "../../utils/jobTracker.js"
 import { recentServerErrors } from "./errorBuffer.js"
+import { responseSection } from "./requestStats.js"
 import { approvalsSection, diskSection, growthSection, uploadsSection, QUEUE_WARN_HOURS } from "./risk.service.js"
 
 type Level = "ok" | "warn" | "down"
@@ -148,7 +149,7 @@ const backupsSection = async () => {
 
 export const healthService = {
     async snapshot() {
-        const [database, jobs, backups, alerts, disk, growth, approvals] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection(), diskSection(), growthSection(), approvalsSection()])
+        const [database, jobs, backups, alerts, disk, growth, approvals, responses] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection(), diskSection(), growthSection(), approvalsSection(), responseSection()])
         const uploads = uploadsSection()
         const cache = queryCacheStatus()
         const errors = recentServerErrors()
@@ -168,6 +169,8 @@ export const healthService = {
         else if (disk.level === "warn") attention.push(`The server disk is ${disk.usedPercent}% full. Plan more space or move photos to S3.`)
         if (approvals.pcCount > 0 && approvals.pcOldestHours >= QUEUE_WARN_HOURS) attention.push(`${approvals.pcCount} ${approvals.pcCount === 1 ? "ticket is" : "tickets are"} waiting for PC approval. The oldest has waited ${approvals.pcOldestHours} hours.`)
         if (approvals.headCount > 0 && approvals.headOldestHours >= QUEUE_WARN_HOURS) attention.push(`${approvals.headCount} ${approvals.headCount === 1 ? "ticket is" : "tickets are"} waiting for a department head. The oldest has waited ${approvals.headOldestHours} hours.`)
+        if (responses.known && responses.level === "down") attention.push("The app is answering very slowly or failing for many people right now.")
+        else if (responses.known && responses.level === "warn") attention.push("The app is slower than usual or returning some errors. Check the Response time tile.")
         if (recentErrorCount) attention.push(`${recentErrorCount} unexpected server ${recentErrorCount === 1 ? "error" : "errors"} in the last 24 hours.`)
 
         return {
@@ -189,6 +192,7 @@ export const healthService = {
             disk: { ...disk, uploads },
             growth,
             approvals,
+            responses,
             errors,
         }
     },

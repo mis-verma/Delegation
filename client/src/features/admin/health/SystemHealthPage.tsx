@@ -1,6 +1,6 @@
 import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BellRing, CheckCircle2, CircleDashed, Database, HardDriveDownload, ShieldQuestion, TrendingUp, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDashed, Database, Gauge, HardDriveDownload, ShieldQuestion, TrendingUp, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, RoleChip, Skeleton } from '../../../components';
 import type { Role } from '../../../api/auth';
@@ -190,6 +190,17 @@ export const SystemHealthPage = () => {
                 </>
               ) : (
                 <p>Needs two nightly full backups at least a day apart to show growth.</p>
+              )}
+            </Tile>
+            <Tile icon={<Gauge size={15} />} title="Response time" level={health.responses.known ? health.responses.level : 'ok'}>
+              {health.responses.known ? (
+                <>
+                  <Stat value={`${health.responses.avgMs} ms`} label="average, last hour" />
+                  <p>{health.responses.p95Ms === null ? 'Some requests take over 3 seconds.' : `95% of requests answered in under ${health.responses.p95Ms >= 1000 ? `${health.responses.p95Ms / 1000} s` : `${health.responses.p95Ms} ms`}.`}</p>
+                  <p>{health.responses.requests.toLocaleString()} requests, {health.responses.slow} slower than 1 s, {health.responses.serverErrors} server {health.responses.serverErrors === 1 ? 'error' : 'errors'}.</p>
+                </>
+              ) : (
+                <p>No traffic recorded in the last hour yet. It fills in as people use the app.</p>
               )}
             </Tile>
             <Tile icon={<ShieldQuestion size={15} />} title="Approval queue" level={health.approvals.level}>

@@ -15,6 +15,7 @@ import { holidayRouter } from "./modules/holidays/holiday.routes.js"
 import { extraWorkingDayRouter } from "./modules/extraWorkingDays/extraWorkingDay.routes.js"
 import { dressTypeRouter } from "./modules/dressTypes/dressType.routes.js"
 import { systemHealthRouter } from "./modules/health/health.routes.js"
+import { requestTimer } from "./modules/health/requestStats.js"
 import { categoryRouter } from "./modules/categories/category.routes.js"
 import { taskRouter } from "./modules/tasks/task.routes.js"
 import { tagRouter } from "./modules/tags/tag.routes.js"
@@ -72,6 +73,7 @@ class App {
         this.app.use(helmet({
             crossOriginResourcePolicy : { policy : "cross-origin"} 
         }))
+        this.app.use(requestTimer)
         this.app.use(compression())
         this.app.use(cors({
             origin: (origin, callback) => {

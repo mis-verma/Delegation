@@ -7,6 +7,7 @@ import { notificationService } from '../modules/notifications/notification.servi
 import { settingsService } from '../modules/settings/settings.service.js';
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from '../modules/checklistInstances/checklistInstance.service.js';
 import { formatClock } from '../modules/checklistDefinitions/lateWindow.js';
+import { utcSql } from '../modules/checklistInstances/checklistReportRange.js';
 
 const BATCH = 300;
 const MINUTE_MS = 60_000;
@@ -223,7 +224,7 @@ const staleWorkNudges = async (now: Date) => {
   const lastTouch = sql`COALESCE((SELECT MAX(su.createdAt) FROM TicketStatusUpdate su WHERE su.ticketId = Ticket.id AND su.toStatus = 'IN_PROGRESS'), Ticket.updatedAt)`;
   const quiet = await db.select({ ticket: tickets, lastTouch }).from(tickets).where(and(
     isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), eq(tickets.status, 'IN_PROGRESS'), isNotNull(tickets.assigneeId),
-    sql`${lastTouch} <= ${quietBefore}`, sql`${lastTouch} > ${floor}`,
+    sql`${lastTouch} <= ${utcSql(quietBefore)}`, sql`${lastTouch} > ${utcSql(floor)}`,
     sql`(${tickets.staleNudgeSentAt} IS NULL OR ${tickets.staleNudgeSentAt} < ${lastTouch})`,
   )).limit(BATCH);
   for (const { ticket: t, lastTouch: touched } of quiet) {
