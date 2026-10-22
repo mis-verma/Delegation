@@ -1,11 +1,14 @@
 import { db } from '../../config/db.js';
 import { notifications, users } from '../../db/schema/core.js';
-import { eq, and, or, desc, inArray } from 'drizzle-orm';
+import { checklistInstances } from '../../db/schema/index.js';
+import { eq, and, or, desc, inArray, sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { missedInstanceIds } from '../checklistInstances/checklistMissedRun.js';
+import { closedFromPastDayExpr, missedInstanceIds } from '../checklistInstances/checklistMissedRun.js';
 import { AppError } from '../../utils/AppError.js';
 import { getIO } from '../../sockets/socket.js';
 import { pushService } from './push.service.js';
+
+const FILLABLE_NOTICE_TYPES = ['CHECKLIST_DUE_SOON', 'CHECKLIST_OPENED', 'CHECKLIST_UPCOMING', 'CHECKLIST_OVERDUE', 'CHECKLIST_DRAFT_REMINDER'];
 
 export const notifySafely = async (fn: () => Promise<unknown>) => {
   try {
@@ -763,11 +766,15 @@ export const notificationService = {
     });
   },
 
-  async listForUser(userId: string) {
+  async listForUser(userId: string, role?: string) {
+    const canWorkClosed = role === 'ADMIN' || role === 'PC';
+    const stillFillable = canWorkClosed
+      ? undefined
+      : sql`NOT (${notifications.type} IN (${sql.join(FILLABLE_NOTICE_TYPES.map((t) => sql`${t}`), sql`, `)}) AND IFNULL(${notifications.checklistInstanceId} IN (SELECT ${checklistInstances.id} FROM ${checklistInstances} WHERE ${closedFromPastDayExpr}), 0))`;
     const rows = await db
       .select()
       .from(notifications)
-      .where(eq(notifications.recipientId, userId))
+      .where(and(eq(notifications.recipientId, userId), stillFillable))
       .orderBy(desc(notifications.createdAt))
       .limit(50);
     const missed = await missedInstanceIds(rows.map((r) => r.checklistInstanceId).filter((id): id is string => !!id));

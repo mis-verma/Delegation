@@ -41,7 +41,7 @@ export const notificationController = {
     }),
 
     list : asyncHandler( async (req : Request , res : Response) => {
-        const notifications = await notificationService.listForUser(req.user!.sub)
+        const notifications = await notificationService.listForUser(req.user!.sub, req.user!.role)
         res.json({ success : true , data : notifications })
     }),
 
