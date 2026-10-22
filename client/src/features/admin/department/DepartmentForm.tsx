@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, MapPin, ShieldCheck, Store, UserCog, UserX, Users } from 'lucide-react';
-import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch, EntityIconTile } from '../../../components';
+import { Building2, CalendarOff, MapPin, ShieldCheck, Store, UserCog, UserX, Users } from 'lucide-react';
+import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch, EntityIconTile, WeekdayPicker, formatWeekdays } from '../../../components';
 import { useCreateDepartmentMutation, useUpdateDepartmentMutation, useUsersQuery } from '../hook';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
@@ -28,6 +28,7 @@ const buildDepartmentSchema = (existing: Department[] | undefined, ignoreId: str
       }),
     storeId: z.string().optional(),
     headOptional: z.boolean(),
+    weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
   });
 
 type DepartmentFields = z.infer<ReturnType<typeof buildDepartmentSchema>>;
@@ -80,10 +81,10 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     formState: { errors, isDirty },
   } = useForm<DepartmentFields>({
     resolver: zodResolver(schema),
-    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false }
+    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false, weekOffDays: department?.weekOffDays ? [...department.weekOffDays] : [] }
   });
 
-  const [headOptional, nameValue, storeIdValue] = useWatch({ control, name: ['headOptional', 'name', 'storeId'] });
+  const [headOptional, nameValue, storeIdValue, weekOffValue] = useWatch({ control, name: ['headOptional', 'name', 'storeId', 'weekOffDays'] });
   const { data: users, isPending: isUsersLoading } = useUsersQuery();
   const members = useMemo(() => (department ? (users ?? []).filter((u) => u.isActive && u.departmentId === department.id) : []), [users, department]);
   const heads = useMemo(() => members.filter((u) => u.role === 'MANAGER' || u.role === 'SENIOR'), [members]);
@@ -96,12 +97,12 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
 
     if (isEditing && department) {
       updateMutation.mutate(
-        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null, headOptional: data.headOptional } },
+        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null, headOptional: data.headOptional, weekOffDays: data.weekOffDays } },
         { onSuccess: onClose }
       );
     } else {
       createMutation.mutate(
-        { name: data.name, storeId: storePayload, headOptional: data.headOptional },
+        { name: data.name, storeId: storePayload, headOptional: data.headOptional, weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined },
         { onSuccess: (created) => { onCreated?.(created); onClose(); } }
       );
     }
@@ -141,8 +142,9 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
             title={nameValue?.trim() || 'New department'}
             subtitle={storeName ? `Works from ${storeName}` : 'No store picked yet'}
             chips={
-              (isEditing || headOptional) && (
+              (isEditing || headOptional || weekOffValue.length > 0) && (
                 <>
+                  {weekOffValue.length > 0 && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(weekOffValue)}`} />}
                   {isEditing && <CardChip icon={Users} label={`${members.length} ${members.length === 1 ? 'person' : 'people'}`} />}
                   {headOptional ? (
                     <CardChip icon={ShieldCheck} tone="success" label="No head needed" />
@@ -205,6 +207,18 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
                 </label>
               )}
             />
+          </FormSection>
+
+          <FormSection title="Week off" icon={CalendarOff} description="Days this team does not work.">
+            <FormField label="Weekly days off" icon={CalendarOff} hint="Default for everyone here who has no week off of their own. A person's own week off wins." error={errors.weekOffDays?.message}>
+              <Controller
+                control={control}
+                name="weekOffDays"
+                render={({ field }) => (
+                  <WeekdayPicker value={field.value} onChange={field.onChange} tone="off" maxSelected={6} aria-label="Weekly days off for this department" />
+                )}
+              />
+            </FormField>
           </FormSection>
         </fieldset>
 

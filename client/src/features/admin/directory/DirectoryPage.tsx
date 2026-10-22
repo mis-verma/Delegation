@@ -4,6 +4,7 @@ import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Ra
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { IconChip, PageHeader, Skeleton } from '../../../components';
 import { UserList } from '../users';
+import { DirectoryStats } from './DirectoryStats';
 import { DepartmentList } from '../department';
 import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
@@ -61,6 +62,8 @@ export const DirectoryPage = () => {
     <div className="flex flex-col gap-5 w-full">
       <PageHeader icon={Contact} title="People & Teams" subtitle="Add people, place them in departments and stores, and choose what each person can see." />
 
+      <DirectoryStats onOpen={setTab} />
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <TabsList className="grid w-full grid-cols-5 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
@@ -74,12 +77,12 @@ export const DirectoryPage = () => {
                 <span className="sm:hidden">{short}</span>
                 <span className="hidden sm:inline">{label}</span>
                 {counts[value] !== undefined && (
-                  <span className="hidden sm:inline t-meta font-medium opacity-70 tabular-nums">{counts[value]}</span>
+                  <span className="hidden sm:inline-flex min-w-5 items-center justify-center rounded-full bg-text/8 px-1.5 t-meta font-display font-bold tabular-nums">{counts[value]}</span>
                 )}
               </TabsTrigger>
             ))}
           </TabsList>
-          {summary && <IconChip className="hidden sm:inline-flex" icon={summary === 'All active' ? CircleCheck : CircleAlert} tone={summary === 'All active' ? 'bg-success' : 'bg-warning'} label={summary} />}
+          {summary && <IconChip className="hidden sm:inline-flex" icon={summary === 'All active' ? CircleCheck : CircleAlert} tone={summary === 'All active' ? 'bg-success' : 'bg-warning'} label={summary} soft />}
         </div>
 
         <TabsContent value="users">

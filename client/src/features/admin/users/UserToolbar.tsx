@@ -14,6 +14,7 @@ import {
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../../components/optionsSheet';
+import { cn } from '@/lib/utils';
 import { ROLE_META, ROLE_ORDER } from '../roleBadge';
 import type { SortDir, UserFilters, UserSortKey, UserView } from './useFilteredUsers';
 
@@ -78,6 +79,16 @@ export const UserToolbar = ({
   const departments = departmentOptions.filter((o) => o.value !== '');
   const stores = storeOptions.filter((o) => o.value !== '');
 
+  const roleKey = filters.role as keyof typeof ROLE_META | '';
+  const filterChips: { key: string; label: string; icon: LucideIcon; clear: () => void }[] = [
+    ...(roleKey ? [{ key: 'role', label: ROLE_META[roleKey].label, icon: ShieldCheck, clear: () => onFilters({ role: '' }) }] : []),
+    ...(filters.department ? [{ key: 'department', label: departments.find((d) => d.value === filters.department)?.label ?? 'Department', icon: Building2, clear: () => onFilters({ department: '' }) }] : []),
+    ...(filters.store ? [{ key: 'store', label: stores.find((o) => o.value === filters.store)?.label ?? 'Store', icon: Store, clear: () => onFilters({ store: '' }) }] : []),
+    ...(filters.heads ? [{ key: 'heads', label: 'Department heads', icon: Crown, clear: () => onFilters({ heads: false }) }] : []),
+    ...(filters.noDepartment ? [{ key: 'noDepartment', label: 'No department', icon: MapPinOff, clear: () => onFilters({ noDepartment: false }) }] : []),
+    ...(filters.noStore ? [{ key: 'noStore', label: 'No store', icon: MapPinOff, clear: () => onFilters({ noStore: false }) }] : []),
+  ];
+
   const resetOptions = () => {
     onClear();
     onSort('name');
@@ -87,6 +98,12 @@ export const UserToolbar = ({
     { value: 'all', label: `All ${counts.all}`, icon: Users },
     { value: 'active', label: `Active ${counts.active}`, icon: UserCheck },
     { value: 'inactive', label: `Deactivated ${counts.inactive}`, icon: UserX },
+  ];
+
+  const statusTabs: { value: EntityStatusFilterValue; label: string; icon: LucideIcon; count: number }[] = [
+    { value: 'all', label: 'All', icon: Users, count: counts.all },
+    { value: 'active', label: 'Active', icon: UserCheck, count: counts.active },
+    { value: 'inactive', label: 'Deactivated', icon: UserX, count: counts.inactive },
   ];
 
   return (
@@ -235,15 +252,52 @@ export const UserToolbar = ({
       </div>
 
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>
-      {hasFilters && (
-        <div className="flex items-center gap-2 min-h-8">
-          {resultText && <span aria-hidden className="t-meta font-display text-text-muted">{resultText}</span>}
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="Show people" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border/60 bg-surface-hover/50 p-0.5 no-scrollbar">
+          {statusTabs.map(({ value, label, icon: Icon, count }) => {
+            const active = filters.status === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onFilters({ status: value })}
+                className={cn(
+                  'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 t-meta font-display font-semibold outline-none transition-all duration-200 cursor-pointer active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:h-8',
+                  active ? 'bg-primary-600 text-white' : 'text-text-secondary hover:bg-surface hover:text-text',
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden />
+                {label}
+                <span className={cn('min-w-5 rounded-full px-1.5 text-center tabular-nums', active ? 'bg-white/20' : 'bg-text/8')}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {filterChips.map(({ key, label, icon: Icon, clear }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={clear}
+            aria-label={`Remove filter ${label}`}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary-500/25 bg-primary-500/10 pl-2.5 pr-2 t-meta font-display font-semibold text-primary-700 outline-none transition-all duration-200 cursor-pointer hover:bg-primary-500/15 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:h-8"
+          >
+            <Icon className="size-3.5" aria-hidden />
+            {label}
+            <X className="size-3 opacity-70" aria-hidden />
+          </button>
+        ))}
+
+        {resultText && <span aria-hidden className="t-meta font-display font-medium text-text-muted">{resultText}</span>}
+        {hasFilters && (
           <Button variant="ghost" size="sm" onClick={onClear} className="min-h-11 sm:min-h-8">
             <X className="size-3.5" aria-hidden />
             Clear filters
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

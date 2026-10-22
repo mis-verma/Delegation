@@ -185,6 +185,14 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   });
   const isPending = mutation.isPending || isSubmitting;
 
+  const inheritedOff = useMemo(() => {
+    const fromStore = stores?.find((s) => s.id === storeId);
+    if (fromStore?.weekOffDays?.length) return { days: fromStore.weekOffDays, from: fromStore.name };
+    const fromDepartment = departments?.find((d) => d.id === departmentId);
+    if (fromDepartment?.weekOffDays?.length) return { days: fromDepartment.weekOffDays, from: fromDepartment.name };
+    return null;
+  }, [stores, departments, storeId, departmentId]);
+
   const { data: dressTypes, isLoading: isDressTypesLoading } = useDressTypesQuery();
   const dressTypeOptions = useMemo(
     () =>
@@ -388,7 +396,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                       isDepartmentHead(role) && <IconChip icon={AlertCircle} tone="bg-warning" label="No department" labelClassName="text-warning" />
                     )}
                     {storeName && <StoreChip name={storeName} />}
-                    {weekOffValue.length > 0 && <IconChip icon={CalendarOff} tone="bg-text-muted" label={`Off ${formatWeekdays(weekOffValue)}`} />}
+                    {weekOffValue.length > 0 ? <IconChip icon={CalendarOff} tone="bg-text-muted" label={`Off ${formatWeekdays(weekOffValue)}`} /> : inheritedOff && <IconChip icon={CalendarOff} tone="bg-text-muted" label={`Off ${formatWeekdays(inheritedOff.days)} (${inheritedOff.from})`} />}
                   </>
                 }
               />
@@ -617,7 +625,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 <FormField
                   label="Week off"
                   icon={CalendarOff}
-                  hint="No daily checklists for them on these days."
+                  hint={inheritedOff && weekOffValue.length === 0 ? `No week off set here, so they follow ${inheritedOff.from}: off ${formatWeekdays(inheritedOff.days)}. Pick days to override it.` : 'No daily checklists for them on these days.'}
                   error={errors.weekOffDays?.message}
                 >
                   <Controller

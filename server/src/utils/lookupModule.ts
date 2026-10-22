@@ -16,8 +16,12 @@ const listQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).optional(),
 })
 
+type LookupRow = Record<string, unknown> & { id: string }
+
 export type LookupOptions = {
     entityType?: string
+    normalize?: (input: Record<string, unknown>) => Record<string, unknown>
+    afterChange?: (before: LookupRow | undefined, after: LookupRow) => Promise<void>
     deleteBlockers?: (row: { id: string; name: string }) => Promise<string | null>
 }
 
@@ -74,7 +78,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
     router.use(authenticate, requireRole("ADMIN", "PC"))
 
     router.post("/", asyncHandler(async (req, res) => {
-        const input = bodySchema.parse(req.body)
+        const input = (options.normalize ?? ((v) => v))(bodySchema.parse(req.body)) as z.infer<typeof bodySchema>
         const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
         if (existing) throw AppError.conflict("Name already exists")
         try {
@@ -86,11 +90,12 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
         const [item] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
         await dropCache()
         if (item) await audit(req, item.id, "CREATE", undefined, item)
+        if (item) await options.afterChange?.(undefined, item as LookupRow)
         res.status(201).json({ success: true, data: item })
     }))
 
     router.patch("/:id", asyncHandler(async (req, res) => {
-        const input = updateSchema.parse(req.body)
+        const input = (options.normalize ?? ((v) => v))(updateSchema.parse(req.body)) as z.infer<typeof updateSchema>
         if (input.name !== undefined) {
             const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
             if (existing && existing.id !== req.params.id) throw AppError.conflict("Name already exists")
@@ -107,6 +112,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
         if (!item) throw AppError.notFound("Not Found")
         await dropCache()
         await audit(req, item.id, "UPDATE", before, item)
+        await options.afterChange?.(before as LookupRow, item as LookupRow)
         res.json({ success: true, data: item })
     }))
 

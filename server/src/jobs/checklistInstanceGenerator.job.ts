@@ -21,7 +21,9 @@ import {
     holidays,
     extraWorkingDays,
     departments,
+    stores,
 } from "../db/schema/index.js"
+import { effectiveWeekOff } from "../modules/users/orgWeekOff.js"
 import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
 import { getCurrentPeriod, getUpcomingPeriod, type Period } from "../utils/period.js"
@@ -370,6 +372,15 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
 
     const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays, isActive: users.isActive, departmentId: users.departmentId, storeId: users.storeId })
         .from(users).where(inArray(users.id, definition.assigneeIds))
+    const departmentIds = [...new Set(people.flatMap((p) => (p.departmentId ? [p.departmentId] : [])))]
+    const storeIds = [...new Set(people.flatMap((p) => (p.storeId ? [p.storeId] : [])))]
+    const [departmentOff, storeOff] = await Promise.all([
+        departmentIds.length ? db.select({ id: departments.id, days: departments.weekOffDays }).from(departments).where(inArray(departments.id, departmentIds)) : [],
+        storeIds.length ? db.select({ id: stores.id, days: stores.weekOffDays }).from(stores).where(inArray(stores.id, storeIds)) : [],
+    ])
+    const departmentDays = new Map(departmentOff.map((d) => [d.id, d.days]))
+    const storeDays = new Map(storeOff.map((s) => [s.id, s.days]))
+    const offDaysOf = (p: (typeof people)[number]) => effectiveWeekOff(p.weekOffDays, p.storeId ? storeDays.get(p.storeId) : null, p.departmentId ? departmentDays.get(p.departmentId) : null)
     const coveredByExtra = (p: (typeof people)[number]) => extras.some((e) => {
         const ids = e.targetIds ?? []
         if (e.scope === "ALL") return true
@@ -378,7 +389,7 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
         return !!p.storeId && ids.includes(p.storeId)
     })
     const workingIds = new Set(people
-        .filter((p) => p.isActive && ((dayOn && !(p.weekOffDays ?? []).includes(weekday)) || coveredByExtra(p)))
+        .filter((p) => p.isActive && ((dayOn && !offDaysOf(p).includes(weekday)) || coveredByExtra(p)))
         .map((p) => p.id))
     const working = definition.assigneeIds.filter((id) => workingIds.has(id))
     if (!working.length) return null

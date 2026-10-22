@@ -8,6 +8,7 @@ import { AppError } from "../../utils/AppError.js";
 import type { CreateDepartmentInput, UpdateDepartmentInput } from "./department.validation.js";
 import { auditService } from "../audit/audit.service.js";
 import { cached, invalidate, cacheKey } from "../../config/queryCache.js";
+import { normalizeWeekOff, refreshAfterOrgWeekOffChange, sameWeekOff } from "../users/orgWeekOff.js";
 
 const CACHE_PREFIX = "lookup:Department";
 const CACHE_TTL_SECONDS = 300;
@@ -85,6 +86,7 @@ export const departmentService = {
                 isActive: input.isActive,
                 storeId: input.storeId ?? null,
                 headOptional: input.headOptional ?? false,
+                weekOffDays: normalizeWeekOff(input).weekOffDays ?? null,
             });
         } catch (err) {
             if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists");
@@ -100,7 +102,7 @@ export const departmentService = {
     async update(id: string, input: UpdateDepartmentInput, actorId: string) {
         const before = await getByIdOrThrow(id);
 
-        const patch = { ...input, ...(input.name !== undefined ? { name: input.name.trim() } : {}) };
+        const patch = { ...normalizeWeekOff(input), ...(input.name !== undefined ? { name: input.name.trim() } : {}) };
         if (patch.name !== undefined) {
             const [existing] = await db.select({ id: departments.id }).from(departments).where(eq(departments.name, patch.name)).limit(1);
             if (existing && existing.id !== id) throw AppError.conflict("Name already exists");
@@ -118,6 +120,7 @@ export const departmentService = {
         const after = await getByIdOrThrow(id);
         await auditService.record({ entityType: "Department", entityId: id, action: "UPDATE", actorId, before, after });
         await dropCache();
+        if (!sameWeekOff(before.weekOffDays, after.weekOffDays)) await refreshAfterOrgWeekOffChange("department", id, after.name);
         return after;
     },
 

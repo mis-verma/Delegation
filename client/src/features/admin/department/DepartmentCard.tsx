@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Building2, CircleOff, CirclePower, Crown, Store, TriangleAlert, Users } from 'lucide-react';
+import { Building2, CalendarOff, CircleOff, CirclePower, Crown, Store, TriangleAlert, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
 import type { Department } from '../../../api/departments';
 import type { ExplorerRow } from '../../../api/scores';
 import { CardChip, ScoreStrip } from '../directory/orgScores';
@@ -84,6 +84,7 @@ export const DepartmentCard = memo(({
         ) : department.headOptional ? null : (
           <CardChip icon={TriangleAlert} tone="warning" label="No head" />
         )}
+        {!!department.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(department.weekOffDays)}`} title="Weekly day off for this department" />}
         {!department.isActive && <CardChip icon={CircleOff} label="Inactive" />}
       </div>
 

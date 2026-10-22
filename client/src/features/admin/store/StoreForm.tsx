@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, ExternalLink, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
-import { Input, Button, Modal, InlineError, EntityIconTile } from '../../../components';
+import { Building2, CalendarOff, ExternalLink, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
+import { Input, Button, Modal, InlineError, EntityIconTile, WeekdayPicker, formatWeekdays } from '../../../components';
 import { useCreateStoreMutation, useUpdateStoreMutation, useUsersQuery } from '../hook';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
 import { useDiscardGuard } from '../useDiscardGuard';
-import { FormPreview, FormSection } from '../users/FormField';
+import { FormField, FormPreview, FormSection } from '../users/FormField';
 import { CardChip } from '../directory/orgScores';
 import type { Store } from '../../../api/stores';
 
@@ -26,6 +26,7 @@ const buildStoreSchema = (existing: Store[] | undefined, ignoreId: string | unde
       }),
     code: z.string().trim().toUpperCase().max(32, 'Keep the code under 32 characters'),
     address: z.string().trim().max(500, 'Keep the address under 500 characters'),
+    weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
   });
 
 type StoreFields = z.infer<ReturnType<typeof buildStoreSchema>>;
@@ -78,10 +79,10 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
     formState: { errors, isDirty },
   } = useForm<StoreFields>({
     resolver: zodResolver(schema),
-    defaultValues: { name: store?.name || prefillName || '', code: initialCode, address: store?.address || '' },
+    defaultValues: { name: store?.name || prefillName || '', code: initialCode, address: store?.address || '', weekOffDays: store?.weekOffDays ? [...store.weekOffDays] : [] },
   });
 
-  const [nameValue, codeValue, addressValue] = useWatch({ control, name: ['name', 'code', 'address'] });
+  const [nameValue, codeValue, addressValue, weekOffValue] = useWatch({ control, name: ['name', 'code', 'address', 'weekOffDays'] });
   const codeIsSuggested = !isEditing && !!codeValue && codeValue === suggestedCode;
 
   const isPending = mutation.isPending;
@@ -105,12 +106,12 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
   const onSubmit = (data: StoreFields) => {
     if (isEditing && store) {
       updateMutation.mutate(
-        { id: store.id, payload: { name: data.name, code: data.code, address: data.address } },
+        { id: store.id, payload: { name: data.name, code: data.code, address: data.address, weekOffDays: data.weekOffDays } },
         { onSuccess: onClose }
       );
     } else {
       createMutation.mutate(
-        { name: data.name, code: data.code || undefined, address: data.address || undefined },
+        { name: data.name, code: data.code || undefined, address: data.address || undefined, weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined },
         { onSuccess: (created) => { onCreated?.(created); onClose(); } }
       );
     }
@@ -146,8 +147,9 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
             title={nameValue?.trim() || 'New store'}
             subtitle={address || 'No address yet'}
             chips={
-              (codeValue?.trim() || isEditing) && (
+              (codeValue?.trim() || isEditing || weekOffValue.length > 0) && (
                 <>
+                  {weekOffValue.length > 0 && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(weekOffValue)}`} />}
                   {codeValue?.trim() && <CardChip icon={Hash} tone="coral" label={codeValue.trim().toUpperCase()} />}
                   {isEditing && <CardChip icon={Building2} label={plural(departmentCount, 'department', 'departments')} />}
                   {isEditing && <CardChip icon={Users} label={plural(peopleCount, 'person', 'people')} />}
@@ -179,6 +181,18 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
                 </a>
               )}
             </div>
+          </FormSection>
+
+          <FormSection title="Week off" icon={CalendarOff} tone="coral" description="Days this store is closed for the team.">
+            <FormField label="Weekly days off" icon={CalendarOff} hint="Default for everyone in this store who has no week off of their own. A person's own week off wins over the store, and the store wins over the department." error={errors.weekOffDays?.message}>
+              <Controller
+                control={control}
+                name="weekOffDays"
+                render={({ field }) => (
+                  <WeekdayPicker value={field.value} onChange={field.onChange} tone="off" maxSelected={6} aria-label="Weekly days off for this store" />
+                )}
+              />
+            </FormField>
           </FormSection>
         </fieldset>
 

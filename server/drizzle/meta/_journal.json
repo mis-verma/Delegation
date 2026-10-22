@@ -526,6 +526,13 @@
       "when": 1792670000000,
       "tag": "0074_admin_login_code",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "5",
+      "when": 1792760000000,
+      "tag": "0075_org_week_off",
+      "breakpoints": true
     }
   ]
 }

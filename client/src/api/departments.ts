@@ -6,6 +6,7 @@ export type Department = {
   isActive: boolean;
   storeId: string | null;
   headOptional?: boolean;
+  weekOffDays?: number[] | null;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };
@@ -20,6 +21,7 @@ export type CreateDepartmentPayload = {
   name: string;
   storeId?: string;
   headOptional?: boolean;
+  weekOffDays?: number[];
 }
 
 export type UpdateDepartmentPayload = Partial<Omit<CreateDepartmentPayload, "storeId">> & {

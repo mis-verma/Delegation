@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { normalizeWeekOff, refreshAfterOrgWeekOffChange, sameWeekOff } from "../users/orgWeekOff.js"
 import { and, eq, isNull, ne, sql } from "drizzle-orm"
 import { createLookupRouter, describeBlockers } from "../../utils/lookupModule.js";
 import { db } from "../../config/db.js"
@@ -17,6 +18,7 @@ const storeBodySchema = z.object({
     code: z.string().trim().max(191).optional(),
     address: z.string().trim().max(500).optional(),
     isActive: z.boolean().optional(),
+    weekOffDays: z.array(z.number().int().min(0).max(6)).max(6, "Leave at least one working day").optional(),
 })
 
 const countOf = async (query: Promise<{ n: number }[]>) => Number((await query)[0]?.n ?? 0)
@@ -45,4 +47,9 @@ const storeBlockers = async (store: { id: string; name: string }) => {
 export const StoreRouter = createLookupRouter(stores, storeBodySchema, {
     entityType: "Store",
     deleteBlockers: storeBlockers,
+    normalize: normalizeWeekOff,
+    afterChange: async (before, after) => {
+        if (sameWeekOff(before?.weekOffDays as number[] | null | undefined, after.weekOffDays as number[] | null | undefined)) return
+        await refreshAfterOrgWeekOffChange("store", after.id, String(after.name))
+    },
 })

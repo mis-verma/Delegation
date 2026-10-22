@@ -6,6 +6,7 @@ export type Store = {
   code: string | null;
   address: string | null;
   isActive: boolean;
+  weekOffDays?: number[] | null;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };
@@ -20,6 +21,7 @@ export type CreateStorePayload = {
   name: string;
   code?: string;
   address?: string;
+  weekOffDays?: number[];
 };
 
 export type UpdateStorePayload = Partial<CreateStorePayload> & { isActive?: boolean };

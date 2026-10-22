@@ -44,7 +44,7 @@ const CHIP_TONE = {
 } as const;
 
 export const CardChip = ({ icon, label, tone = 'neutral', title }: { icon: LucideIcon; label: string; tone?: keyof typeof CHIP_TONE; title?: string }) => (
-  <IconChip icon={icon} label={label} tone={CHIP_TONE[tone].dot} labelClassName={CHIP_TONE[tone].text} title={title ?? label} />
+  <IconChip icon={icon} label={label} tone={CHIP_TONE[tone].dot} labelClassName={CHIP_TONE[tone].text} title={title ?? label} soft={tone !== 'neutral'} />
 );
 
 const TONE_TEXT ={ success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text' } as const;

@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Building2, CircleOff, CirclePower, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
+import { Building2, CalendarOff, CircleOff, CirclePower, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton, formatWeekdays } from '../../../components';
 import type { Store } from '../../../api/stores';
 import type { ExplorerRow } from '../../../api/scores';
 import { CardChip, ScoreStrip } from '../directory/orgScores';
@@ -78,6 +78,7 @@ export const StoreCard = memo(({
         {departmentCount !== undefined && (
           <CardChip icon={Building2} tone="primary" label={`${departmentCount} ${departmentCount === 1 ? 'department' : 'departments'}`} />
         )}
+        {!!store.weekOffDays?.length && <CardChip icon={CalendarOff} label={`Off ${formatWeekdays(store.weekOffDays)}`} title="Weekly day off for this store" />}
         {!store.isActive && <CardChip icon={CircleOff} label="Inactive" />}
       </div>
 
