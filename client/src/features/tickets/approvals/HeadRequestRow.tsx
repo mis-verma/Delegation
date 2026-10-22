@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ArrowRight, Ban, CircleCheck, Clock3, ShieldQuestion, User } from 'lucide-react';
-import { Button, DepartmentChip, PriorityChip } from '../../../components';
+import { ArrowRight, Ban, CircleCheck, ShieldQuestion, Timer, User } from 'lucide-react';
+import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../../components';
+import { cn } from '@/lib/utils';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
-import { formatWaiting } from '../../verification/verificationModel';
 import { PRIORITY_CONFIG } from '../ticketDisplay';
 import { useApproveAssignmentMutation, useDeclineTicketMutation } from '../hook';
 import { DeclineTicketDialog } from '../detail/DeclineTicketDialog';
@@ -14,6 +14,7 @@ interface HeadRequestRowProps {
   ticket: Ticket;
   now: number;
   departmentName?: string;
+  embedded?: boolean;
 }
 
 const Avatar = ({ name }: { name: string | null }) =>
@@ -27,7 +28,7 @@ const Avatar = ({ name }: { name: string | null }) =>
     </span>
   );
 
-export const HeadRequestRow = ({ ticket, now, departmentName }: HeadRequestRowProps) => {
+export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }: HeadRequestRowProps) => {
   const [open, setOpen] = useState(false);
   const [declining, setDeclining] = useState(false);
   const approveMut = useApproveAssignmentMutation();
@@ -36,10 +37,9 @@ export const HeadRequestRow = ({ ticket, now, departmentName }: HeadRequestRowPr
 
   const raiserName = ticket.raisedBy?.firstName ?? null;
   const assigneeName = ticket.assignee?.firstName ?? null;
-  const waiting = formatWaiting(new Date(ticket.createdAt).getTime(), now);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/5 p-3 transition-colors duration-150 hover:border-warning/50 sm:p-4">
+    <div className={cn('flex flex-col gap-3 transition-colors duration-150', embedded ? 'px-4 py-3 sm:px-5' : 'rounded-xl border border-warning/30 bg-warning/5 p-3 hover:border-warning/50 sm:p-4')}>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -64,10 +64,8 @@ export const HeadRequestRow = ({ ticket, now, departmentName }: HeadRequestRowPr
           <span className="flex flex-wrap items-center gap-1.5">
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
-            <span className="inline-flex items-center gap-1 t-meta font-medium text-text-muted tabular-nums">
-              <Clock3 size={12} strokeWidth={2.25} aria-hidden="true" />
-              Waiting {waiting}
-            </span>
+            <WaitChip since={ticket.createdAt} now={now} warnAfterHours={4} dangerAfterHours={24} />
+            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title="The clock starts when you approve" className="shrink-0" labelClassName="tabular-nums" />}
           </span>
         </span>
       </button>

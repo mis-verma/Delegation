@@ -6,6 +6,7 @@ import {
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
   HOD_ONLY_CARDS,
+  REQUEST_REVIEWER_CARDS,
   LAYOUT_VERSION,
   NEW_IN_V3,
   LEGACY_V1_DEFAULT_ORDER,
@@ -72,9 +73,9 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
   const isOrgWideRole = view.showOversightCards;
   const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
-  const visibleCards = useMemo(
-    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id))),
-    [view.order, isOrgWideRole, view.isHod],
+  const visibleCards = useMemo<DashboardCardId[]>(
+    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id)) && (view.reviewsTicketRequests || !REQUEST_REVIEWER_CARDS.has(id))),
+    [view.order, isOrgWideRole, view.isHod, view.reviewsTicketRequests],
   );
 
   const reconcile = useCallback((storedOrder: DashboardCardId[]): DashboardCardId[] => {
@@ -97,7 +98,12 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
       const front = NEW_IN_V3.filter((id) => visibleCards.includes(id));
       return [...front, ...reconcile(stored.order.filter((id) => !NEW_IN_V3.includes(id)))];
     }
-    return reconcile(stored.order);
+    const reconciled = reconcile(stored.order);
+    if (stored.version >= 12 || !visibleCards.includes('ticketRequests')) return reconciled;
+    const rest: DashboardCardId[] = reconciled.filter((id) => id !== 'ticketRequests');
+    const at = rest.indexOf('needsApproval');
+    rest.splice(at === -1 ? 0 : at, 0, 'ticketRequests');
+    return rest;
   });
   const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => sizesFrom(loadStoredLayout(storageKey)));
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);

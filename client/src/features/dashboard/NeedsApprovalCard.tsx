@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, TicketCheck, CheckSquare, ClipboardCheck, ChevronRight, CheckCheck, type LucideIcon } from 'lucide-react';
+import { ShieldAlert, ChevronRight, CheckCheck, User } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
+import { WaitChip } from '../../components/dueChip';
 import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
@@ -10,7 +11,8 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { waitingFor, ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, cardIconTile } from './dashboardDisplay';
+import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, cardIconTile } from './dashboardDisplay';
+import { CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
@@ -23,55 +25,34 @@ interface ApprovalRow {
   link: string;
 }
 
-const CATEGORY_ICON: Record<ApprovalCategory, LucideIcon> = {
-  ticket: TicketCheck,
-  delegation: CheckSquare,
-  checklist: ClipboardCheck,
-};
-
-const CATEGORY_TILE: Record<ApprovalCategory, string> = {
-  ticket: 'bg-linear-to-br from-success to-success/70',
-  delegation: 'bg-linear-to-br from-coral-500 to-coral-600',
-  checklist: 'bg-linear-to-br from-primary-500 to-primary-600',
-};
-
 const PREVIEW_LIMIT = 6;
 const MOBILE_PREVIEW_LIMIT = 3;
 
-const waitBadge = (isoDate: string, now: number) => {
-  const hours = Math.max(0, Math.floor((now - new Date(isoDate).getTime()) / 3_600_000));
-  const text = hours < 1 ? '<1h' : hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
-  const tone = hours >= 24 ? 'bg-danger/10 text-danger' : hours >= 12 ? 'bg-warning/10 text-warning' : 'bg-surface-hover text-text-secondary';
-  return { text, tone };
-};
-
 const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
   const Icon = CATEGORY_ICON[row.category];
-  const waiting = waitingFor(row.waitingSince, now);
-  const badge = waitBadge(row.waitingSince, now);
   return (
     <Link
       to={row.link}
       viewTransition
-      className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
+      className="group flex items-center gap-3 min-h-16 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <span className={cn('flex items-center justify-center size-9 rounded-xl shrink-0 text-white', CATEGORY_TILE[row.category])}>
-        <Icon className="size-4" strokeWidth={2.25} aria-hidden="true" />
+      <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0 text-white', CATEGORY_TILE[row.category])}>
+        <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
       </span>
-      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
+      <div className="flex flex-1 min-w-0 flex-col gap-1.5">
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
-        <p className="t-meta font-medium text-text-muted">
-          <span className="line-clamp-1 sm:hidden">{ACTIVITY_CATEGORY_LABEL[row.category]}{row.meta ? ` · ${row.meta}` : ''}</span>
-          <span className="hidden sm:inline">{row.meta ? `${row.meta}, waiting ${waiting}` : `Waiting ${waiting}`}</span>
-        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', CATEGORY_PILL[row.category])}>{ACTIVITY_CATEGORY_LABEL[row.category]}</span>
+          <WaitChip since={row.waitingSince} now={now} />
+          {row.meta && (
+            <span className="inline-flex min-w-0 items-center gap-1 t-meta font-medium text-text-muted">
+              <User className="size-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{row.meta}</span>
+            </span>
+          )}
+        </div>
       </div>
-      <span
-        className={cn('sm:hidden shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-bold tabular-nums', badge.tone)}
-        aria-label={`Waiting ${waiting}`}
-      >
-        {badge.text}
-      </span>
-      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
+      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
     </Link>
   );
 });

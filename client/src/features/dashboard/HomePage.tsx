@@ -10,6 +10,7 @@ import { useTodosQuery } from '../todo/hook';
 import { useMyFocusChecklistsQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
+import { TicketRequestsCard } from './TicketRequestsCard';
 import { ExceptionsCard } from './ExceptionsCard';
 import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
@@ -89,6 +90,8 @@ export const HomePage = () => {
     switch (id) {
       case 'exceptions':
         return <ExceptionsCard />;
+      case 'ticketRequests':
+        return dashboardView.reviewsTicketRequests ? <TicketRequestsCard /> : null;
       case 'needsApproval':
         return <NeedsApprovalCard />;
       case 'myTeam':

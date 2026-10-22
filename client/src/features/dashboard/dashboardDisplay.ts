@@ -54,6 +54,7 @@ const CARD_TILE_TONE = {
   info: 'bg-linear-to-br from-info to-info/70',
   coral: 'bg-linear-to-br from-coral-500 to-coral-600',
   success: 'bg-linear-to-br from-success to-success/70',
+  warning: 'bg-linear-to-br from-warning to-warning/70',
 } as const;
 export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
 

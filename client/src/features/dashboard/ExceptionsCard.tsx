@@ -12,7 +12,7 @@ import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { Button, IconChip } from '../../components';
+import { Button, DueChip, IconChip, WaitChip } from '../../components';
 import { useAttentionPeople, useNow, useRemindMutation } from '../attention/useAttention';
 import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/AttentionParts';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
@@ -26,10 +26,16 @@ const KIND_ICON: Record<ExceptionKind, LucideIcon> = {
   CHECKLIST_MISSED: ClipboardX,
 };
 
+const KIND_LABEL: Record<ExceptionKind, string> = {
+  TICKET_OVERDUE: 'Ticket late',
+  TICKET_STALE: 'Ticket stuck',
+  CHECKLIST_MISSED: 'Checklist missed',
+};
+
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
 
-const ExceptionRow = memo(({ item }: { item: ExceptionItem }) => {
+const ExceptionRow = memo(({ item, now }: { item: ExceptionItem; now: number }) => {
   const Icon = KIND_ICON[item.kind];
   const high = item.severity === 'high';
   return (
@@ -38,11 +44,22 @@ const ExceptionRow = memo(({ item }: { item: ExceptionItem }) => {
       viewTransition
       className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <span className={cn('flex items-center justify-center size-9 rounded-xl shrink-0 text-white', high ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70')}>
-        <Icon className="size-4" strokeWidth={2.25} aria-hidden="true" />
+      <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0 text-white', high ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70')}>
+        <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
       </span>
-      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
+      <div className="flex flex-1 min-w-0 flex-col gap-1.5">
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{item.title}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <IconChip
+            icon={Icon}
+            tone={high ? 'bg-danger' : 'bg-warning'}
+            label={KIND_LABEL[item.kind]}
+            labelClassName={high ? 'text-danger' : 'text-warning'}
+            className={cn('shrink-0', high ? 'border-danger/30 bg-danger/10' : 'border-warning/30 bg-warning/10')}
+          />
+          {item.kind === 'TICKET_OVERDUE' && <DueChip at={item.since} now={now} />}
+          {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} />}
+        </div>
         <p className="t-meta font-medium text-text-muted line-clamp-2">
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
         </p>
@@ -121,7 +138,7 @@ export const ExceptionsCard = () => {
         </div>
       ) : items.length === 0 ? null : (
         <div className="flex flex-col divide-y divide-border/60">
-          {visible.map((item) => <ExceptionRow key={item.id} item={item} />)}
+          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} />)}
         </div>
       )}
 

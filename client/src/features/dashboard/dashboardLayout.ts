@@ -1,5 +1,6 @@
 export type DashboardCardId =
   | 'todayStrip'
+  | 'ticketRequests'
   | 'needsApproval'
   | 'exceptions'
   | 'myTeam'
@@ -16,12 +17,13 @@ export type DashboardCardId =
 
 export type DashboardCardSize = 'small' | 'big';
 
-export const LAYOUT_VERSION = 11;
+export const LAYOUT_VERSION = 12;
 
 export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
 export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
+  'ticketRequests',
   'needsApproval',
   'exceptions',
   'myTeam',
@@ -52,8 +54,11 @@ export const ADMIN_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['complian
 
 export const HOD_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['myTeam']);
 
+export const REQUEST_REVIEWER_CARDS: ReadonlySet<DashboardCardId> = new Set(['ticketRequests']);
+
 export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   todayStrip: 'big',
+  ticketRequests: 'big',
   needsApproval: 'small',
   exceptions: 'small',
   myTeam: 'big',
@@ -71,6 +76,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
 
 export const CARD_LABEL: Record<DashboardCardId, string> = {
   todayStrip: 'Today',
+  ticketRequests: 'Ticket requests',
   needsApproval: 'Needs your approval',
   exceptions: 'Needs attention',
   myTeam: 'My team',

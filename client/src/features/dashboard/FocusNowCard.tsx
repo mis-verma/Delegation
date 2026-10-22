@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { BellRing, CheckCheck, ChevronRight, ClipboardCheck, ClipboardList, ListTodo, RotateCw, TicketCheck, type LucideIcon } from 'lucide-react';
+import { AlarmClockOff, BellRing, CheckCheck, ChevronRight, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { DueChip } from '../../components/dueChip';
+import { IconChip } from '../../components/iconChip';
+import { CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { instanceDeadline, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
-import { isTaskOverdue, isTicketLate } from './dashboardDisplay';
+import { ACTIVITY_CATEGORY_LABEL, isTaskOverdue, isTicketLate, type ActivityCategory } from './dashboardDisplay';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
@@ -17,32 +20,18 @@ type Reason = 'sentBack' | 'overdue' | 'submit' | 'dueToday';
 
 interface FocusItem {
   key: string;
-  icon: LucideIcon;
+  category: ActivityCategory;
   title: string;
   reason: Reason;
   at: number;
-  detail: string;
+  detail: string | null;
   href: string;
 }
 
 const ORDER: Record<Reason, number> = { sentBack: 0, overdue: 1, submit: 2, dueToday: 3 };
-const REASON_LABEL: Record<Reason, string> = { sentBack: 'Sent back', overdue: 'Overdue', submit: 'Ready to submit', dueToday: 'Due today' };
-const REASON_TONE: Record<Reason, string> = {
-  sentBack: 'bg-danger/10 text-danger',
-  overdue: 'bg-danger/10 text-danger',
-  submit: 'bg-warning/10 text-warning',
-  dueToday: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
-};
 const SHOW = 6;
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const ago = (ms: number, now: number) => {
-  const hours = Math.floor((now - ms) / 3_600_000);
-  if (hours < 1) return 'just now';
-  if (hours < 24) return `${hours}h late`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} late`;
-};
 
 const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
 const TILE_DANGER = 'bg-linear-to-br from-danger to-danger/70';
@@ -99,35 +88,35 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
       const done = c.items.length > 0 && c.items.every((i) => i.isDone);
       const deadline = instanceDeadline(c);
       if (c.verificationStatus === 'REJECTED') {
-        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}` });
       } else if (done && c.verificationStatus === 'NOT_SUBMITTED') {
-        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}` });
       } else if (!done && isInstanceOverdue(c, done)) {
-        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'overdue', at: deadline, detail: `Checklist, ${ago(deadline, now)}`, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'overdue', at: deadline, detail: null, href: `/checklists/${c.id}` });
       } else if (!done && deadline <= end) {
-        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'dueToday', at: deadline, detail: `Checklist, by ${time(deadline)}`, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'dueToday', at: deadline, detail: null, href: `/checklists/${c.id}` });
       }
     }
 
     for (const t of tasks) {
       if (t.status === 'done' || t.status === 'draft' || t.status === 'pending_approval' || !t.dueDate) continue;
       const due = new Date(t.dueDate).getTime();
-      if (isTaskOverdue(t, now)) out.push({ key: `t-${t.id}`, icon: ClipboardList, title: t.title, reason: 'overdue', at: due, detail: `Delegation, ${ago(due, now)}`, href: `/tasks?open=${t.id}` });
-      else if (due <= end) out.push({ key: `t-${t.id}`, icon: ClipboardList, title: t.title, reason: 'dueToday', at: due, detail: `Delegation, by ${time(due)}`, href: `/tasks?open=${t.id}` });
+      if (isTaskOverdue(t, now)) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'overdue', at: due, detail: null, href: `/tasks?open=${t.id}` });
+      else if (due <= end) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'dueToday', at: due, detail: null, href: `/tasks?open=${t.id}` });
     }
 
     for (const k of tickets) {
-      if (isTicketHandedIn(k)) continue;
+      if (isTicketHandedIn(k) || k.awaitingHeadApproval || k.declinedAt) continue;
       const due = k.tatDueAt ? new Date(k.tatDueAt).getTime() : null;
-      if (isTicketLate(k)) out.push({ key: `k-${k.id}`, icon: TicketCheck, title: k.title, reason: 'overdue', at: due ?? 0, detail: `Ticket, ${due ? ago(due, now) : 'past its time'}`, href: `/tickets?open=${k.id}` });
-      else if (due !== null && due <= end) out.push({ key: `k-${k.id}`, icon: TicketCheck, title: k.title, reason: 'dueToday', at: due, detail: `Ticket, by ${time(due)}`, href: `/tickets?open=${k.id}` });
+      if (isTicketLate(k)) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'overdue', at: due ?? 0, detail: due ? null : 'Past its time', href: `/tickets?open=${k.id}` });
+      else if (due !== null && due <= end) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'dueToday', at: due, detail: null, href: `/tickets?open=${k.id}` });
     }
 
     for (const d of todos) {
       if (d.completed || !d.dueDate) continue;
       const due = new Date(d.dueDate).getTime();
-      if (due < now) out.push({ key: `d-${d.id}`, icon: ListTodo, title: d.text, reason: 'overdue', at: due, detail: `To-do, ${ago(due, now)}`, href: '/todo' });
-      else if (due <= end) out.push({ key: `d-${d.id}`, icon: ListTodo, title: d.text, reason: 'dueToday', at: due, detail: `To-do, by ${time(due)}`, href: '/todo' });
+      if (due < now) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'overdue', at: due, detail: null, href: '/todo' });
+      else if (due <= end) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'dueToday', at: due, detail: null, href: '/todo' });
     }
 
     return out.sort((a, b) => ORDER[a.reason] - ORDER[b.reason] || a.at - b.at);
@@ -135,7 +124,12 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
 
   if (isPending) return <FocusSkeleton />;
 
-  const urgent = items.filter((i) => i.reason === 'sentBack' || i.reason === 'overdue').length;
+  const count = (reason: Reason) => items.filter((i) => i.reason === reason).length;
+  const lateCount = count('overdue');
+  const sentBackCount = count('sentBack');
+  const submitCount = count('submit');
+  const todayCount = count('dueToday');
+  const urgent = lateCount + sentBackCount;
   const updated = updatedAt ? <p className="t-meta text-text-muted tabular-nums">Updated {time(updatedAt)}</p> : null;
   const refresh = onRefresh && (
     <button
@@ -203,7 +197,6 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
             <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
               {items.length} {items.length === 1 ? 'thing needs' : 'things need'} you
             </h2>
-            <span className="shrink-0 rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">Yours</span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-2">
             <p className={cn('t-meta font-medium', urgent > 0 ? 'text-danger' : 'text-text-muted')}>
@@ -212,6 +205,12 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
             </p>
             {updated}
           </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {lateCount > 0 && <IconChip icon={AlarmClockOff} tone="bg-danger" label={`${lateCount} late`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
+            {sentBackCount > 0 && <IconChip icon={Undo2} tone="bg-danger" label={`${sentBackCount} sent back`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
+            {submitCount > 0 && <IconChip icon={Send} tone="bg-warning" label={`${submitCount} to submit`} labelClassName="tabular-nums text-warning" className="border-warning/30 bg-warning/10" />}
+            {todayCount > 0 && <IconChip icon={Clock3} tone="bg-primary-600" label={`${todayCount} due today`} labelClassName="tabular-nums text-primary-700 dark:text-primary-300" className="border-primary-500/25 bg-primary-500/10" />}
+          </div>
         </div>
         {refresh}
       </div>
@@ -219,23 +218,28 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
 
       <ul className="flex flex-col divide-y divide-border/60 border-t border-border/60">
         {shown.map((item) => {
-          const Icon = item.icon;
+          const Icon = CATEGORY_ICON[item.category];
+          const hot = item.reason === 'sentBack' || item.reason === 'overdue';
           return (
-            <li key={item.key}>
+            <li key={item.key} className="relative">
+              {hot && <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-danger" aria-hidden="true" />}
               <Link
                 viewTransition
                 to={item.href}
                 className="group flex min-h-16 items-center gap-3 px-4 py-2.5 outline-none transition-colors hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
               >
-                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', REASON_TONE[item.reason])}>
-                  <Icon className="size-4" aria-hidden="true" />
+                <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', CATEGORY_TILE[item.category])}>
+                  <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <span className="line-clamp-2 leading-snug text-sm font-display font-medium sm:font-semibold text-text">{item.title}</span>
                   <span className="flex flex-wrap items-center gap-1.5">
-                    <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', REASON_TONE[item.reason])}>{REASON_LABEL[item.reason]}</span>
-                    <span className="min-w-0 t-meta text-text-muted">{item.detail}</span>
+                    <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', CATEGORY_PILL[item.category])}>{ACTIVITY_CATEGORY_LABEL[item.category]}</span>
+                    {item.reason === 'sentBack' && <IconChip icon={Undo2} tone="bg-danger" label="Sent back" labelClassName="text-danger" className="shrink-0 border-danger/30 bg-danger/10" />}
+                    {item.reason === 'submit' && <IconChip icon={Send} tone="bg-warning" label="Ready to submit" labelClassName="text-warning" className="shrink-0 border-warning/30 bg-warning/10" />}
+                    {item.at > 0 && <DueChip at={item.at} now={now} />}
                   </span>
+                  {item.detail && <span className="line-clamp-2 t-meta text-text-muted">{item.detail}</span>}
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Link>

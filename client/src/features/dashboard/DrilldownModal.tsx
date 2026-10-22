@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router';
 import { ChevronRight, Inbox, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { Modal } from '../../components/modal';
 import { StatusChip } from '../../components/statusChip';
+import { DueChip } from '../../components/dueChip';
+import { useNow } from '../../lib/useNow';
 import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { Button } from '../../components/button';
@@ -32,7 +34,11 @@ interface DrilldownListProps {
   onSelect: (link: string) => void;
 }
 
-const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelect: (link: string) => void }) => {
+const DUE_TEXT = /^(Due|Late since)/;
+
+const DrilldownRowButton = memo(({ row, now, onSelect }: { row: DrilldownRow; now: number; onSelect: (link: string) => void }) => {
+  const showDue = !row.completed && !!row.dueAt;
+  const showMeta = !showDue || !row.meta || !DUE_TEXT.test(row.meta);
   const state = row.completed ? 'completed' : row.overdue ? 'overdue' : 'pending';
   return (
     <button
@@ -42,7 +48,10 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
     >
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className={`t-meta font-medium ${row.overdue && !row.completed ? 'text-danger' : 'text-text-muted'}`}>{row.meta ?? formatRelativeTime(row.createdAt)}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {showDue && row.dueAt && <DueChip at={row.dueAt} now={now} />}
+          {showMeta && <p className={`t-meta font-medium ${row.overdue && !row.completed ? 'text-danger' : 'text-text-muted'}`}>{row.meta ?? formatRelativeTime(row.createdAt)}</p>}
+        </div>
       </div>
       <span className="hidden sm:inline-flex shrink-0">
         <StatusChip status={state} />
@@ -54,6 +63,7 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
 DrilldownRowButton.displayName = 'DrilldownRowButton';
 
 const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, emptyTitle = 'Nothing here yet', emptyDescription = 'No items match this selection.', onSelect }: DrilldownListProps) => {
+  const now = useNow();
   const visible = rows.slice(0, PREVIEW_LIMIT);
   const remaining = rows.length - visible.length;
 
@@ -80,7 +90,7 @@ const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref
     <>
       <div className="flex flex-col gap-1.5">
         {visible.map((row) => (
-          <DrilldownRowButton key={row.id} row={row} onSelect={onSelect} />
+          <DrilldownRowButton key={row.id} row={row} now={now} onSelect={onSelect} />
         ))}
       </div>
 
