@@ -17,6 +17,7 @@ import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.j
 import { startDueReminders } from "./src/jobs/dueReminders.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startDataBackup } from "./src/jobs/dataBackup.job.js";
+import { startRiskWatch } from "./src/jobs/riskWatch.job.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
 import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
@@ -55,6 +56,7 @@ class ServerBootstrap {
       startDueReminders();
       startAuditRetention();
       startDataBackup();
+      startRiskWatch();
       startAuthTokenPurge();
       startScoreDataCheck();
       void presenceService.clearStale();

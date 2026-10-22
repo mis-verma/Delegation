@@ -43,6 +43,9 @@ export type SystemHealth = {
     withoutAlerts: { id: string; name: string; role: string }[];
     withoutCount: number;
   };
+  disk: { level: HealthLevel; known: boolean; totalGb: number; freeGb: number; usedPercent: number; uploads: { measuring: boolean; sizeMb: number; files: number } };
+  growth: { known: boolean; days: number; rowsPerDay: number; sizeMbPerDay: number; totalRows: number };
+  approvals: { level: HealthLevel; pcCount: number; pcOldestHours: number; headCount: number; headOldestHours: number };
   errors: { at: string; method: string; path: string; message: string }[];
 };
 

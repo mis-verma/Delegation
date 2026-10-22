@@ -1,6 +1,6 @@
 import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BellRing, CheckCircle2, CircleDashed, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDashed, Database, HardDriveDownload, ShieldQuestion, TrendingUp, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, RoleChip, Skeleton } from '../../../components';
 import type { Role } from '../../../api/auth';
@@ -172,11 +172,36 @@ export const SystemHealthPage = () => {
                 </>
               )}
             </Tile>
+            <Tile icon={<HardDriveDownload size={15} />} title="Disk space" level={health.disk.known ? health.disk.level : 'warn'}>
+              {health.disk.known ? (
+                <>
+                  <Stat value={`${health.disk.usedPercent}%`} label={`full, ${health.disk.freeGb} GB free of ${health.disk.totalGb} GB`} />
+                  <p>{health.disk.uploads.measuring ? 'Measuring the uploads folder.' : `Uploads folder: ${health.disk.uploads.sizeMb >= 1024 ? `${(health.disk.uploads.sizeMb / 1024).toFixed(1)} GB` : `${health.disk.uploads.sizeMb} MB`} in ${health.disk.uploads.files.toLocaleString()} files.`}</p>
+                </>
+              ) : (
+                <p>The server did not report its disk space.</p>
+              )}
+            </Tile>
+            <Tile icon={<TrendingUp size={15} />} title="Data growth" level="ok">
+              {health.growth.known ? (
+                <>
+                  <Stat value={`+${health.growth.rowsPerDay.toLocaleString()}`} label="rows a day" />
+                  <p>{health.growth.totalRows.toLocaleString()} rows now. Measured over the last {health.growth.days} {health.growth.days === 1 ? 'day' : 'days'} of backups.</p>
+                </>
+              ) : (
+                <p>Needs two nightly full backups at least a day apart to show growth.</p>
+              )}
+            </Tile>
+            <Tile icon={<ShieldQuestion size={15} />} title="Approval queue" level={health.approvals.level}>
+              <Stat value={`${health.approvals.pcCount}`} label={`waiting for PC${health.approvals.pcCount ? `, oldest ${health.approvals.pcOldestHours} h` : ''}`} />
+              <p>{health.approvals.headCount} waiting for a department head{health.approvals.headCount ? `, oldest ${health.approvals.headOldestHours} h` : ''}.</p>
+            </Tile>
             <Tile icon={<HardDrive size={15} />} title="Data backups" level={health.backups.level}>
               {health.backups.latestAt ? (
                 <>
                   <Stat value={timeAgo(health.backups.latestAt)} label="newest backup" />
                   <p>{health.backups.count} saved on the server. {health.backups.offsite ? 'A copy also goes to S3.' : 'No S3 copy is set up, so these only exist on this server.'}</p>
+                  <p>Each night saves a full copy of the whole database plus a snapshot of ticket, delegation and checklist data. Photos and uploaded files are not included.</p>
                 </>
               ) : (
                 <p>No backup found on the server. Run a backup before any large clean-up, and keep one with your hosting provider as well.</p>

@@ -13,7 +13,7 @@ const configured = !!env.VAPID_PUBLIC_KEY && !!env.VAPID_PRIVATE_KEY
 if (configured) webpush.setVapidDetails(env.VAPID_SUBJECT || "mailto:admin@karyaos.in", env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY)
 
 const hashEndpoint = (endpoint: string) => createHash("sha256").update(endpoint).digest("hex")
-const URGENT = /ESCALATION|OVERDUE|CRITICAL/
+const URGENT = /ESCALATION|OVERDUE|CRITICAL|FAILED/
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
 
 const orgHHmm = (now: Date) => new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16)
@@ -24,7 +24,8 @@ const inQuietHours = (prefs: Pick<NotificationPrefs, "quietStart" | "quietEnd"> 
     return prefs.quietStart < prefs.quietEnd ? t >= prefs.quietStart && t < prefs.quietEnd : t >= prefs.quietStart || t < prefs.quietEnd
 }
 
-const pathFor = (n: Pick<PushRow, "ticketId" | "taskId" | "checklistInstanceId">) => {
+const pathFor = (n: Pick<PushRow, "ticketId" | "taskId" | "checklistInstanceId"> & { type?: string }) => {
+    if (n.type?.startsWith("SYSTEM_")) return "/admin/system-health"
     if (n.ticketId) return `/tickets?open=${n.ticketId}`
     if (n.taskId) return `/tasks?open=${n.taskId}`
     if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`

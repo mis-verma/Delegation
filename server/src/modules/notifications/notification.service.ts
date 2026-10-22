@@ -161,6 +161,20 @@ export const notificationService = {
     });
   },
 
+  async notifyAdminsOfRisk(kind: string, title: string, message: string) {
+    const admins = (await db.select({ id: users.id }).from(users).where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true)))).map((u) => u.id);
+    return notificationService.notifyMany(admins, { type: `SYSTEM_RISK_CRITICAL_${kind}`, title, message });
+  },
+
+  async notifyBackupFailed(reason: string) {
+    const admins = (await db.select({ id: users.id }).from(users).where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true)))).map((u) => u.id);
+    return notificationService.notifyMany(admins, {
+      type: 'SYSTEM_BACKUP_FAILED',
+      title: 'Last night\'s data backup failed',
+      message: reason.slice(0, 160),
+    });
+  },
+
   async notifyTicketHeadApproved(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, actorId: string) {
     const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
     const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);

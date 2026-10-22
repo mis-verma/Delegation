@@ -6,6 +6,8 @@ import type { Notification } from '@/api/notifications';
 
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
   { match: 'ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'RISK_CRITICAL', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'BACKUP_FAILED', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
   { match: 'DECLINED', icon: Ban, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
   { match: 'AWAITING_HEAD_ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
   { match: 'TICKET_STALE', icon: Activity, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
@@ -45,6 +47,7 @@ export const notificationLook = (type: string) => {
 };
 
 export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'> & { type?: string }) => {
+  if (n.type?.startsWith('SYSTEM_')) return '/admin/system-health';
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
   if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;

@@ -53,6 +53,21 @@ export const runDataBackup = async (prefix = ''): Promise<BackupResult> => {
   return { name, dir, tables: detail.length, rows: detail.reduce((n, d) => n + d.rows, 0), detail }
 }
 
+export const verifyBackup = async (backup: BackupResult): Promise<void> => {
+  for (const { group, table, rows } of backup.detail) {
+    const file = join(backup.dir, group, `${table}.json`)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(await readFile(file, 'utf8'))
+    } catch {
+      throw new Error(`Backup file for ${table} could not be read back.`)
+    }
+    if (!Array.isArray(parsed) || parsed.length !== rows) {
+      throw new Error(`Backup file for ${table} has ${Array.isArray(parsed) ? parsed.length : 'no'} rows, expected ${rows}.`)
+    }
+  }
+}
+
 export const pruneAutoBackups = async (keep = 14): Promise<number> => {
   let names: string[]
   try {

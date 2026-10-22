@@ -9,6 +9,7 @@ import { offsiteConfigured } from "../../utils/dataBackup.js"
 import { queryCacheStatus } from "../../config/queryCache.js"
 import { registeredJobs } from "../../utils/jobTracker.js"
 import { recentServerErrors } from "./errorBuffer.js"
+import { approvalsSection, diskSection, growthSection, uploadsSection, QUEUE_WARN_HOURS } from "./risk.service.js"
 
 type Level = "ok" | "warn" | "down"
 
@@ -138,7 +139,7 @@ const backupsSection = async () => {
         stamped.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
         const latest = stamped[0] ?? null
         const ageDays = latest ? Math.floor((Date.now() - latest.mtime.getTime()) / DAY_MS) : null
-        const level: Level = latest && ageDays !== null && ageDays <= 14 ? "ok" : "warn"
+        const level: Level = latest && ageDays !== null && ageDays <= 2 ? "ok" : "warn"
         return { level, count: stamped.length, latestName: latest?.name ?? null, latestAt: latest?.mtime ?? null, ageDays, offsite: offsiteConfigured() }
     } catch {
         return { level: "warn" as Level, count: 0, latestName: null, latestAt: null, ageDays: null, offsite: offsiteConfigured() }
@@ -147,7 +148,8 @@ const backupsSection = async () => {
 
 export const healthService = {
     async snapshot() {
-        const [database, jobs, backups, alerts] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection()])
+        const [database, jobs, backups, alerts, disk, growth, approvals] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection(), diskSection(), growthSection(), approvalsSection()])
+        const uploads = uploadsSection()
         const cache = queryCacheStatus()
         const errors = recentServerErrors()
         const recentErrorCount = errors.filter((e) => Date.now() - Date.parse(e.at) < DAY_MS).length
@@ -158,10 +160,14 @@ export const healthService = {
         else if (database.level === "warn") attention.push("The database is slow to answer.")
         if (jobsBad) attention.push(`${jobsBad} background ${jobsBad === 1 ? "job needs" : "jobs need"} a look.`)
         if (cache !== "ok") attention.push("The cache (Redis) is not connected. Pages still work, just slower.")
-        if (backups.level === "warn") attention.push(backups.count ? "The newest data backup is more than 2 weeks old." : "No data backup found.")
+        if (backups.level === "warn") attention.push(backups.count ? "The newest data backup is more than 2 days old. The nightly backup may be failing." : "No data backup found.")
         if (!backups.offsite) attention.push("Backups are only saved on this server. Set up the S3 copy so one lost server does not lose everything.")
         if (!alerts.configured) attention.push("Phone alerts are not set up on the server, so nobody can turn them on yet.")
         else if (alerts.level === "warn") attention.push(`Only ${alerts.withAlerts} of ${alerts.activeUsers} people have alerts on. The rest will miss reminders when the app is closed.`)
+        if (disk.level === "down") attention.push(`The server disk is ${disk.usedPercent}% full. Uploads and the database can stop working. Free space now.`)
+        else if (disk.level === "warn") attention.push(`The server disk is ${disk.usedPercent}% full. Plan more space or move photos to S3.`)
+        if (approvals.pcCount > 0 && approvals.pcOldestHours >= QUEUE_WARN_HOURS) attention.push(`${approvals.pcCount} ${approvals.pcCount === 1 ? "ticket is" : "tickets are"} waiting for PC approval. The oldest has waited ${approvals.pcOldestHours} hours.`)
+        if (approvals.headCount > 0 && approvals.headOldestHours >= QUEUE_WARN_HOURS) attention.push(`${approvals.headCount} ${approvals.headCount === 1 ? "ticket is" : "tickets are"} waiting for a department head. The oldest has waited ${approvals.headOldestHours} hours.`)
         if (recentErrorCount) attention.push(`${recentErrorCount} unexpected server ${recentErrorCount === 1 ? "error" : "errors"} in the last 24 hours.`)
 
         return {
@@ -180,6 +186,9 @@ export const healthService = {
             jobs,
             backups,
             alerts,
+            disk: { ...disk, uploads },
+            growth,
+            approvals,
             errors,
         }
     },
