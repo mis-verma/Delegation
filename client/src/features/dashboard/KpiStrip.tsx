@@ -202,24 +202,24 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
       className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
     >
       <span className={cn('absolute inset-x-0 top-0 h-1', tone.tile)} aria-hidden="true" />
-      <header className="flex items-center gap-2">
-        <span className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl text-white', tone.tile)}>
+      <Link
+        viewTransition
+        to={view.href}
+        aria-label={`Open ${view.title}`}
+        className="group flex min-h-11 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-0"
+      >
+        <span className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl text-white max-[359px]:hidden', tone.tile)}>
           <Icon className="size-4 sm:size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
-          {scopeTag && <p className="t-meta text-text-muted">{scopeTag}</p>}
-        </div>
-        <Link
-          viewTransition
-          to={view.href}
-          aria-label={`Open ${view.title}`}
-          className="inline-flex size-10 sm:size-auto sm:min-h-8 shrink-0 items-center justify-center gap-0.5 rounded-lg sm:px-1.5 t-meta font-display font-semibold text-primary-600 hover:bg-surface-hover dark:text-primary-400"
-        >
-          <span className="hidden sm:inline">View all</span>
-          <ChevronRight className="size-4" aria-hidden="true" />
-        </Link>
-      </header>
+        <span className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 break-words leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
+          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}</span>}
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
+          <span className="hidden sm:inline group-hover:underline">View all</span>
+          <ChevronRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+        </span>
+      </Link>
 
       {failed ? (
         <button type="button" onClick={view.onRetry} className="rounded-lg border border-border/60 px-3 py-3 text-left t-meta text-text-muted hover:border-border-hover">
@@ -243,6 +243,12 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
                 <OnTrack />
               )}
             </div>
+            {score.value === null ? (
+              <div className="flex flex-col items-center justify-center gap-1 border-l border-border/60 px-2 text-center">
+                <span className="t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'No to-dos yet' : 'No score yet'}</span>
+                <span className="t-meta text-text-light">{score.label === 'Done' ? 'Add one to start' : 'Shows when work is due'}</span>
+              </div>
+            ) : (
             <div className="flex flex-col items-center justify-center border-l border-border/60">
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
@@ -252,47 +258,55 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
                 {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
               </span>
             </div>
+            )}
           </div>
 
-          <div className="flex sm:hidden flex-col gap-1.5">
-            <div className="grid grid-cols-2 items-center gap-1">
-              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('block t-stat font-display font-extrabold tabular-nums leading-none', tone.text)}>
+          <div className="flex flex-col gap-0.5 sm:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg py-0.5 text-left outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <span className={cn('block t-figure font-display font-extrabold tabular-nums leading-none', tone.text)}>
                   <CountUp value={view.pending ?? 0} fromZero />
                 </span>
-                <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
+                <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
               </button>
-              <div className="flex flex-col items-center border-l border-border/60" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score today'}: ${formatPct(score.value)}`}>
-                <RadialGauge percent={score.value ?? 0} size={56} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                  <span className={cn('t-meta font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
-                </RadialGauge>
-                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Today'}</span>
-              </div>
+              {score.value !== null && (
+                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score today'}: ${formatPct(score.value)}`}>
+                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                    <span className="t-meta font-display font-extrabold tabular-nums text-text">{formatPct(score.value)}</span>
+                  </RadialGauge>
+                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Today'}</span>
+                </div>
+              )}
             </div>
             {view.overdue > 0 ? (
-              <button
-                type="button"
-                onClick={() => onOpen('overdue')}
-                className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-danger/10 px-2 t-meta font-display font-bold tabular-nums text-danger outline-none active:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
-              >
-                <span className="live-dot size-1.5 rounded-full bg-danger" aria-hidden="true" />
-                <AlertTriangle className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
-                {view.overdue} overdue
+              <button type="button" onClick={() => onOpen('overdue')} className="flex min-h-9 w-fit items-center rounded-full outline-none active:scale-[0.97] pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-danger/40">
+                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
               </button>
             ) : (
-              <div className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-success/10 px-2 t-meta font-display font-bold text-success">
-                <CheckCircle2 className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
-                On track
+              <div className="flex min-h-9 items-center pointer-coarse:min-h-11">
+                <OnTrack className="w-fit" />
               </div>
             )}
           </div>
 
           <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
 
-          <div className="grid grid-cols-3 gap-1.5 text-center">
+          <div className="hidden grid-cols-3 gap-1.5 text-center sm:grid">
             <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
             <MiniStat label="New today" shortLabel="New" value={view.newToday} tone="info" onClick={() => onOpen('newToday')} />
             <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} shortLabel="Total" value={view.total} />
+          </div>
+
+          <div className="flex items-center border-t border-border/60 pt-1 sm:hidden">
+            <button type="button" onClick={() => onOpen('completed')} className="flex min-h-9 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-success/10 active:bg-success/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="font-extrabold tabular-nums text-success">{view.completed ?? '-'}</span>
+              done
+            </button>
+            <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+            <button type="button" onClick={() => onOpen('newToday')} className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-info/10 active:bg-info/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="font-extrabold tabular-nums text-info">{view.newToday ?? '-'}</span>
+              new
+            </button>
           </div>
         </>
       )}

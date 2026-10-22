@@ -75,6 +75,8 @@ export const MyTeamCard = () => {
   const total = report.data?.total;
   const ap = approvals.data;
   const loading = report.isPending;
+  const noScores = !loading && worstFirst.length === 0;
+  const showTiles = !noScores || (ap?.rate != null) || (ap?.waiting.total.now ?? 0) > 0;
 
   const exportRows = () => [
     ['Rank', 'Name', 'Overall %', 'Checklist completion %', 'Checklist compliance %', 'Checklists approved %', 'Ticket score %', 'Delegation score %', 'Checklists due', 'Tickets due', 'Delegations due'],
@@ -118,7 +120,7 @@ export const MyTeamCard = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-4 sm:px-5 sm:pt-4">
+          {showTiles && <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-4 sm:px-5 sm:pt-4">
             <Tile label="Team score" value={total?.overall} loading={loading} caption={total ? `${people.length} people` : undefined} />
             <Tile label="Checklists filled" value={total?.checklist.completionPct} loading={loading} caption={total?.checklist.due ? `${total.checklist.done} of ${total.checklist.due} due` : 'Nothing due yet'} />
             <Tile label="Compliance" value={total?.checklist.compliancePct} loading={loading} caption="Good answers" />
@@ -128,12 +130,14 @@ export const MyTeamCard = () => {
               loading={approvals.isPending}
               caption={ap ? `${ap.waiting.total.now} waiting${ap.waiting.total.over24h ? `, ${ap.waiting.total.over24h} late` : ''}` : undefined}
             />
-          </div>
+          </div>}
 
-          <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-1 sm:px-5">
-            <h3 className="t-card font-display font-bold text-text">Lowest first</h3>
-            <span className="t-meta font-medium text-text-muted">Tap a name for their live view</span>
-          </div>
+          {!noScores && (
+            <div className="flex flex-wrap items-center justify-between gap-x-2 px-4 pt-4 pb-1 sm:px-5">
+              <h3 className="t-card font-display font-bold text-text">Lowest first</h3>
+              <span className="t-meta font-medium text-text-muted">Tap a name for their live view</span>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading team">
@@ -196,7 +200,7 @@ export const MyTeamCard = () => {
               className="inline-flex min-h-11 sm:min-h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <BarChart3 className="size-4" aria-hidden />
-              All {people.length} scores
+              {people.length ? `All ${people.length} scores` : "All scores"}
             </Link>
             <Link
               to="/team/fill"
