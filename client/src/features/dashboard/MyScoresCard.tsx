@@ -15,6 +15,8 @@ import { PeriodTabControl } from './PeriodTabControl';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
+import { ScoreHero } from './ScoreHero';
+import { heroFacts } from './heroFacts';
 import { SimpleScoresView } from './SimpleScoresView';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
@@ -232,16 +234,21 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
   const previousRange = pageWindow
     ? { from: shiftDay(pageWindow.from, -spanDays(pageWindow.from, pageWindow.to)), to: shiftDay(pageWindow.from, -1) }
-    : windowFor(period, offset - 1, orgToday);
+    : windowFor(shownPeriod, (glance ? 0 : offset) - 1, orgToday);
   const previousAsked = capWindowAtToday(previousRange.from, previousRange.to, orgToday);
   const previousQuery = useScopeScores({
     scope,
     id: targetId,
     from: previousAsked.from,
     to: previousAsked.to,
-    enabled: ready && compare && !simple && !glance && (activeView === 'bars' || activeView === 'dials'),
+    enabled: ready && activeView !== 'trend',
   });
   const previous = compare && !simple && !glance ? previousQuery.data : undefined;
+
+  const heroNow = heroFacts(data).overall;
+  const heroBefore = heroFacts(previousQuery.data).overall;
+  const heroChange = heroNow !== null && heroBefore !== null ? heroNow - heroBefore : null;
+  const heroEmpty = !!data && (['checklist', 'ticket', 'delegation'] as const).every((k) => !numbersFor(data, k).hasData);
 
   const drillHref = (module: ModuleKey, kind: 'late' | 'completed'): string | null => {
     const mine = scope === 'person' && (!targetId || targetId === user?.id);
@@ -360,6 +367,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           offset={offset}
           onStep={(d) => setOffset((o) => (d < 0 ? o - 1 : Math.min(0, o + 1)))}
           data={data}
+          previous={previousQuery.data}
           loading={loading}
           isError={query.isError}
           onRetry={() => void query.refetch()}
@@ -555,6 +563,13 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         <div className="flex flex-col gap-2">
         {query.isPlaceholderData && (
           <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+        )}
+        {metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
+          <ScoreHero
+            facts={heroFacts(data)}
+            loading={loading}
+            changePts={heroChange}
+          />
         )}
         {activeView === 'bars' ? (
           <ScoreBars

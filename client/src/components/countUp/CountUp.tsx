@@ -8,9 +8,11 @@ interface CountUpProps {
   value: number;
   format?: (n: number) => string;
   fromZero?: boolean;
+  decimals?: number;
 }
 
-export const CountUp = ({ value, format = (n) => n.toLocaleString(), fromZero = false }: CountUpProps) => {
+export const CountUp = ({ value, format = (n) => n.toLocaleString(), fromZero = false, decimals = 0 }: CountUpProps) => {
+  const scale = 10 ** decimals;
   const reduceMotion = usePrefersReducedMotion();
   const [shown, setShown] = useState(fromZero ? 0 : value);
   const shownRef = useRef(fromZero ? 0 : value);
@@ -23,7 +25,7 @@ export const CountUp = ({ value, format = (n) => n.toLocaleString(), fromZero = 
     const started = performance.now();
     const tick = (now: number) => {
       const t = Math.min(1, (now - started) / DURATION_MS);
-      const next = Math.round(from + (value - from) * easeOutCubic(t));
+      const next = Math.round((from + (value - from) * easeOutCubic(t)) * scale) / scale;
       shownRef.current = next;
       setShown(next);
       if (t < 1) frame.current = requestAnimationFrame(tick);
@@ -32,7 +34,7 @@ export const CountUp = ({ value, format = (n) => n.toLocaleString(), fromZero = 
     return () => {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
-  }, [value, reduceMotion]);
+  }, [value, reduceMotion, scale]);
 
   return <>{format(reduceMotion || !Number.isFinite(value) ? value : shown)}</>;
 };

@@ -1,4 +1,4 @@
-import { memo, useId, useMemo, type ReactElement } from 'react';
+import { memo, useId, useMemo, type CSSProperties, type ReactElement } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp, ChevronRight, Trophy } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
@@ -95,7 +95,7 @@ const moduleAverage = (row: Row, series: SeriesKey[]) => {
 
 const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: SeriesKey[]; onOpenModule?: (module: ModuleKey) => void }) => (
   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Scores by module">
-    {rows.map((r) => {
+    {rows.map((r, index) => {
       const interactive = !!onOpenModule && r.hasData;
       const body = (
         <>
@@ -120,7 +120,7 @@ const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: Seri
                 <span className={`shrink-0 t-card font-display font-extrabold tabular-nums ${r[k] === null ? 'text-text-light' : 'text-text'}`}>{r[k] === null ? '-' : formatPct(r[k])}</span>
               </span>
               <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-                <span className="block h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${r[k] === null ? 0 : Math.max(3, Math.min(100, r[k]))}%`, backgroundColor: SERIES_COLOR[k] }} />
+                <span className="bar-grow block h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${r[k] === null ? 0 : Math.max(3, Math.min(100, r[k]))}%`, backgroundColor: SERIES_COLOR[k] }} />
               </span>
             </span>
           ))}
@@ -128,7 +128,7 @@ const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: Seri
       );
       const cls = 'flex w-full min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 text-left';
       return (
-        <li key={r.key}>
+        <li key={r.key} className="stat-rise" style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}>
           {interactive ? (
             <button type="button" onClick={() => onOpenModule?.(r.key)} className={`${cls} cursor-pointer outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99]`}>
               {body}

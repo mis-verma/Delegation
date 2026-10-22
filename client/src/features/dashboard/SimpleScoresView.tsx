@@ -1,17 +1,21 @@
-import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, CircleArrowDown, CircleCheck, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { RadialGauge } from '../../components/radialGauge/RadialGauge';
 import { InlineError } from '../../components/inlineError';
-import { IconChip } from '../../components/iconChip';
+import { CountUp } from '../../components/countUp';
 import { Skeleton } from '../../components/skeleton';
 import { HowCalculated } from '../scores/HowCalculated';
 import type { Scores } from '../../api/scores';
-import { formatPct } from '../../lib/percent';
+import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
 import { PeriodTabControl } from './PeriodTabControl';
 import { PERIOD_LABEL, type ScorePeriod } from './scorePeriods';
-import { moduleOverall, numbersFor, overallOf, type ModuleKey } from './scoreMetrics';
-import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
+import { moduleOverall, numbersFor, type ModuleKey } from './scoreMetrics';
+import { DASHBOARD_CARD_CLASS } from './dashboardDisplay';
+import { ScoreHero } from './ScoreHero';
+import { heroFacts } from './heroFacts';
+import { ToneChip } from './ToneChip';
+import { TONE_BAR, TONE_TEXT, TONE_WORD, toneOf } from './scoreTone';
 
 const SIMPLE_PERIODS: readonly ScorePeriod[] = ['week', 'month'];
 
@@ -21,26 +25,6 @@ const MODULES: readonly { key: ModuleKey; icon: LucideIcon; tile: string }[] = [
   { key: 'delegation', icon: ClipboardList, tile: 'from-coral-500 to-coral-600' },
 ];
 
-const TONE_TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
-const TONE_BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-border-hover' };
-const TONE_WORD: Record<RateTone, string> = { success: 'Good', warning: 'Fair', danger: 'Low', neutral: '' };
-const TONE_BG: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-muted' };
-const TONE_ICON: Record<RateTone, LucideIcon | null> = { success: CircleCheck, warning: CircleAlert, danger: CircleArrowDown, neutral: null };
-const TONE_COLOR: Record<RateTone, string> = {
-  success: 'var(--color-success)',
-  warning: 'var(--color-warning)',
-  danger: 'var(--color-danger)',
-  neutral: 'var(--color-primary-500)',
-};
-
-const toneOf = (v: number | null): RateTone => (v === null ? 'neutral' : rateTone(v, Number.MAX_SAFE_INTEGER));
-
-const ToneChip = ({ tone, className }: { tone: RateTone; className?: string }) => {
-  const Icon = TONE_ICON[tone];
-  if (!Icon) return null;
-  return <IconChip className={className} icon={Icon} tone={TONE_BG[tone]} label={TONE_WORD[tone]} />;
-};
-
 const MeasureBar = ({ label, value }: { label: string; value: number | null }) => {
   const tone = toneOf(value);
   return (
@@ -49,8 +33,8 @@ const MeasureBar = ({ label, value }: { label: string; value: number | null }) =
         <span className="min-w-0 t-meta text-text-muted">{label}</span>
         <span className={cn('shrink-0 t-meta font-display font-bold tabular-nums', value === null ? 'text-text-light' : 'text-text')}>{value === null ? '-' : formatPct(value)}</span>
       </div>
-      <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-        <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', TONE_BAR[tone])} style={{ width: `${Math.max(value === null ? 0 : 4, Math.min(100, value ?? 0))}%` }} />
+      <span className="h-2 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+        <span className={cn('bar-grow block h-full rounded-full transition-[width] duration-500 ease-out', TONE_BAR[tone])} style={{ width: `${Math.max(value === null ? 0 : 4, Math.min(100, value ?? 0))}%` }} />
       </span>
     </div>
   );
@@ -64,6 +48,7 @@ interface SimpleScoresViewProps {
   offset: number;
   onStep: (delta: -1 | 1) => void;
   data: Scores | undefined;
+  previous?: Scores | undefined;
   loading: boolean;
   isError: boolean;
   onRetry: () => void;
@@ -73,20 +58,13 @@ interface SimpleScoresViewProps {
 }
 
 export const SimpleScoresView = ({
-  heading, rangeLabel, period, onPeriodChange, offset, onStep, data, loading, isError, onRetry, isUpdating, emptyText, onOpenModule,
+  heading, rangeLabel, period, onPeriodChange, offset, onStep, data, previous, loading, isError, onRetry, isUpdating, emptyText, onOpenModule,
 }: SimpleScoresViewProps) => {
-  const overall = data ? overallOf(data) : null;
-  const overallTone = toneOf(overall);
+  const facts = heroFacts(data);
+  const before = heroFacts(previous).overall;
+  const changePts = facts.overall !== null && before !== null ? facts.overall - before : null;
   const nothingDue = !!data && MODULES.every((m) => !numbersFor(data, m.key).hasData);
   const stepClass = 'inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent sm:size-8 pointer-coarse:size-11';
-
-  const ranked = data
-    ? MODULES.map((m) => ({ key: m.key, score: moduleOverall(data, m.key), has: numbersFor(data, m.key).hasData }))
-        .filter((m): m is { key: ModuleKey; score: number; has: boolean } => m.has && m.score !== null)
-        .sort((a, b) => b.score - a.score)
-    : [];
-  const best = ranked.length > 1 ? ranked[0] : null;
-  const weakest = ranked.length > 1 ? ranked[ranked.length - 1] : null;
 
   return (
     <section className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-3.5 p-3.5 sm:gap-4 sm:p-4`} aria-label="Scores">
@@ -139,67 +117,39 @@ export const SimpleScoresView = ({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3.5 rounded-xl border border-border/60 bg-surface-hover/30 p-3 @lg:gap-5 @lg:p-4">
-            <RadialGauge
-              percent={overall ?? 0}
-              size={96}
-              variant="circle"
-              gradientFrom={TONE_COLOR[overallTone]}
-              gradientTo={TONE_COLOR[overallTone]}
-              ariaLabel={`Overall score ${overall === null ? 'not available' : `${formatPct(overall)}, ${TONE_WORD[overallTone]}`}`}
-              className="shrink-0"
-            >
-              {loading ? (
-                <Skeleton className="h-6 w-12 rounded-md" />
-              ) : (
-                <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', overall === null ? 'text-text-light' : 'text-text')}>{overall === null ? '-' : formatPct(overall)}</span>
-              )}
-            </RadialGauge>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="t-card font-display font-bold text-text">Overall score</span>
-                {overall !== null && <ToneChip tone={overallTone} />}
-              </div>
-              <p className="t-meta text-text-muted">Completion and accuracy of everything that came due, counted equally.</p>
-              {best && weakest && best.key !== weakest.key && (
-                <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 t-meta">
-                  <span className="inline-flex items-center gap-1 text-text-secondary">
-                    <CircleCheck className="size-3.5 text-success" aria-hidden="true" />
-                    Best: <strong className="font-display font-bold text-text">{MODULE_LABEL[best.key]}</strong> {formatPct(best.score)}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-text-secondary">
-                    <CircleAlert className="size-3.5 text-warning" aria-hidden="true" />
-                    Focus: <strong className="font-display font-bold text-text">{MODULE_LABEL[weakest.key]}</strong> {formatPct(weakest.score)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          <ScoreHero facts={facts} loading={loading} changePts={changePts} />
 
           <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-stretch @lg:gap-3">
-            {MODULES.map(({ key, icon: Icon, tile }) => {
+            {MODULES.map(({ key, icon: Icon, tile }, index) => {
               const n = data ? numbersFor(data, key) : null;
               const score = data ? moduleOverall(data, key) : null;
               const tone = toneOf(score);
               const has = !!n?.hasData;
+              const rounded = roundPct(score);
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onOpenModule(key)}
                   disabled={!data}
+                  style={{ '--stat-delay': `${120 + index * 70}ms` } as CSSProperties}
                   aria-label={`${MODULE_LABEL[key]}: ${score === null ? 'nothing due' : `${formatPct(score)}, ${TONE_WORD[tone]}`}. Open the details`}
-                  className="group flex w-full min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl border border-border/60 bg-surface p-3 text-left outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99] disabled:cursor-default @lg:p-3.5"
+                  className="stat-rise group flex w-full min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl border border-border/60 bg-surface p-3 text-left outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99] disabled:cursor-default @lg:p-3.5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br text-white', tile)} aria-hidden="true">
-                      <Icon className="size-4" strokeWidth={2.25} />
+                    <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-white', tile)} aria-hidden="true">
+                      <Icon className="size-[1.125rem]" strokeWidth={2.25} />
                     </span>
-                    <span className="min-w-0 flex-1 t-card font-display font-bold text-text">{MODULE_LABEL[key]}</span>
+                    <span className="min-w-0 flex-1 flex flex-col gap-0.5">
+                      <span className="t-card font-display font-bold text-text">{MODULE_LABEL[key]}</span>
+                      {has && <ToneChip tone={tone} className="self-start" />}
+                    </span>
                     {loading ? (
                       <Skeleton className="h-6 w-12 rounded-md" />
-                    ) : has ? (
-                      <span className={cn('shrink-0 t-section font-display font-extrabold tabular-nums leading-none', TONE_TEXT[tone])}>{formatPct(score ?? 0)}</span>
+                    ) : has && rounded !== null ? (
+                      <span className={cn('shrink-0 t-section font-display font-extrabold tabular-nums leading-none', TONE_TEXT[tone])}>
+                        <CountUp value={rounded} decimals={1} fromZero format={(v) => `${v}%`} />
+                      </span>
                     ) : (
                       <span className="shrink-0 t-meta font-display font-semibold text-text-light">Nothing due</span>
                     )}
