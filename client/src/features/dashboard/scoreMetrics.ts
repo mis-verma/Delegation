@@ -94,7 +94,7 @@ export const acrossModules = (s: ModuleScores): { due: number; done: number; onT
 
 export const totalDue = (s: ModuleScores): number => s.checklist.due + s.ticket.due + s.delegation.due;
 
-export const MODULE_EXPORT_HEAD = [SCORE_LABEL.overall, `${SCORE_LABEL.completion} %`, `${SCORE_LABEL.compliance} %`, `${SCORE_LABEL.onTime} %`, 'Due', 'Done', 'Late', 'Not done'] as const;
+export const MODULE_EXPORT_HEAD = [`${SCORE_LABEL.overall} %`, `${SCORE_LABEL.completion} %`, `${SCORE_LABEL.compliance} %`, `${SCORE_LABEL.onTime} %`, 'Due', 'Done', 'Late', 'Not done'] as const;
 
 export const moduleExportCells = (s: ModuleScores, key: ModuleKey): (number | null)[] => {
   const m = s[key];

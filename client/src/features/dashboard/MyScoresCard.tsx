@@ -24,7 +24,7 @@ import { scoreQuery } from './scoreQueries';
 import { explorerParamsFor, useScopeScores } from '../scores/useExplorerScores';
 import { scoreExplorerQuery } from '../scores/useScoreExplorer';
 import { capWindowAtToday } from '../scores/useScoreWindow';
-import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, moduleOverall, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, acrossModules, isMetric, moduleExportCells, moduleOverall, numbersFor, overallOf, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { orgDayWindow } from './scoreDrill';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
@@ -61,6 +61,8 @@ const RING: Record<RateTone, [string, string]> = {
   danger: ['var(--color-danger)', 'var(--color-danger)'],
   neutral: ['var(--color-primary-400)', 'var(--color-primary-700)'],
 };
+
+const EXPORT_LEGEND: TableRows = [[], ['Notes'], ['Colours: green is Good (80% or more), amber is Fair (50 to 79), red is Low (under 50).']];
 
 const REPORT_COLUMNS = [
   'Checklists due', 'Checklists done', 'Checklists missed', 'Checklist completion %', 'Checklist compliance %', 'Checklist on-time %',
@@ -296,13 +298,26 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         queryFn: () => scoreApi.trend({ scope, id: targetId, period: trendPeriod, from: range.from, to: range.to }),
         staleTime: 60_000,
       });
-      return [
-        ['Period', 'From', 'To', 'Module', ...MODULE_EXPORT_HEAD],
-        ...trend.buckets.flatMap((b) => MODULE_ROWS.map((m) => [b.label, formatExportDate(b.from), formatExportDate(b.to), m.label, ...moduleExportCells(b, m.key)])),
-      ];
+      return {
+        rows: [
+          ['Period', 'From', 'To', 'Module', ...MODULE_EXPORT_HEAD],
+          ...trend.buckets.flatMap((b) => MODULE_ROWS.map((m) => [b.label, formatExportDate(b.from), formatExportDate(b.to), m.label, ...moduleExportCells(b, m.key)])),
+          ...EXPORT_LEGEND,
+        ],
+        count: trend.buckets.length * MODULE_ROWS.length,
+      };
     }
     if (!data) return [];
-    return [['Module', ...MODULE_EXPORT_HEAD], ...MODULE_ROWS.map((m) => [m.label, ...moduleExportCells(data, m.key)])];
+    const all = acrossModules(data);
+    return {
+      rows: [
+        ['Module', ...MODULE_EXPORT_HEAD],
+        ...MODULE_ROWS.map((m) => [m.label, ...moduleExportCells(data, m.key)]),
+        ['All together', overallOf(data), all.completion, all.compliance, all.ontime, all.due, all.done, all.late, all.notDone],
+        ...EXPORT_LEGEND,
+      ],
+      count: MODULE_ROWS.length,
+    };
   };
   const exportSubject = data?.name ?? SCOPE_LABEL[scope];
   const exportFilters = { View: scope === 'org' ? null : SCOPE_LABEL[scope], Showing: activeView === 'trend' ? 'Trend' : null };

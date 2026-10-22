@@ -36,34 +36,179 @@ const columnName = (index: number): string => {
 
 const isFiniteNumber = (value: CellValue): value is number => typeof value === 'number' && Number.isFinite(value);
 
-const sheetXml = (rows: TableRows): string => {
+export interface SheetOptions {
+  titleRows?: number;
+}
+
+type RowKind = 'title' | 'subtitle' | 'blank' | 'section' | 'header' | 'data' | 'note';
+
+const STYLE = {
+  plain: 0,
+  title: 1,
+  subtitle: 2,
+  header: 3,
+  headerLeft: 4,
+  section: 5,
+  label: 6,
+  text: 7,
+  number: 8,
+  pctGood: 9,
+  pctFair: 10,
+  pctLow: 11,
+  note: 12,
+  empty: 13,
+} as const;
+
+const filled = (value: CellValue): boolean => value != null && value !== '';
+
+const classifyRows = (rows: TableRows, titleRows: number): RowKind[] => {
+  const kinds: RowKind[] = [];
+  const count = (row: readonly CellValue[]) => row.filter(filled).length;
+  for (let r = 0; r < rows.length; r++) {
+    const n = count(rows[r]);
+    const prev = kinds[r - 1];
+    if (r < titleRows && n > 0) kinds.push(r === 0 ? 'title' : 'subtitle');
+    else if (n === 0) kinds.push('blank');
+    else if (n === 1 && (prev === 'blank' || prev === undefined) && r + 1 < rows.length && count(rows[r + 1]) > 0) kinds.push('section');
+    else if (n === 1) kinds.push('note');
+    else if (prev === undefined || prev === 'blank' || prev === 'section' || prev === 'title' || prev === 'subtitle') kinds.push('header');
+    else kinds.push('data');
+  }
+  return kinds;
+};
+
+const percentStyle = (value: number): number => (value >= 80 ? STYLE.pctGood : value >= 50 ? STYLE.pctFair : STYLE.pctLow);
+
+const displayLength = (value: CellValue, kind: RowKind): number => {
+  if (!filled(value)) return 0;
+  if (typeof value === 'number') return 8;
+  const text = String(value);
+  return kind === 'header' ? Math.min(text.length, 20) : text.length;
+};
+
+const columnWidths = (rows: TableRows, kinds: RowKind[]): number[] => {
+  const widths: number[] = [];
+  rows.forEach((row, r) => {
+    const kind = kinds[r];
+    if (kind !== 'header' && kind !== 'data') return;
+    row.forEach((value, c) => {
+      widths[c] = Math.max(widths[c] ?? 0, displayLength(value, kind));
+    });
+  });
+  return widths.map((w) => Math.min(46, Math.max(10, Math.round(w * 1.15 + 3))));
+};
+
+const sheetXml = (rows: TableRows, options: SheetOptions): string => {
+  const kinds = classifyRows(rows, options.titleRows ?? 0);
+  const headerRows = kinds.flatMap((kind, r) => (kind === 'header' ? [r] : []));
+  const widths = columnWidths(rows, kinds);
+  let pctColumns = new Set<number>();
+
   const body = rows
     .map((row, r) => {
+      const kind = kinds[r];
+      if (kind === 'blank') pctColumns = new Set();
+      if (kind === 'header') pctColumns = new Set(row.flatMap((value, c) => (typeof value === 'string' && value.includes('%') ? [c] : [])));
+
       const cells = row
         .map((value, c) => {
-          if (value == null || value === '') return '';
           const ref = `${columnName(c)}${r + 1}`;
-          return isFiniteNumber(value)
-            ? `<c r="${ref}"><v>${value}</v></c>`
-            : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(String(value))}</t></is></c>`;
+          const empty = !filled(value);
+          if (empty) return kind === 'data' ? `<c r="${ref}" s="${STYLE.empty}"/>` : '';
+          if (isFiniteNumber(value)) {
+            const style = kind === 'data' ? (pctColumns.has(c) ? percentStyle(value) : STYLE.number) : STYLE.plain;
+            return `<c r="${ref}" s="${style}"><v>${value}</v></c>`;
+          }
+          const style =
+            kind === 'title' ? STYLE.title
+            : kind === 'subtitle' ? STYLE.subtitle
+            : kind === 'section' ? STYLE.section
+            : kind === 'header' ? (c === 0 ? STYLE.headerLeft : STYLE.header)
+            : kind === 'note' ? STYLE.note
+            : c === 0 ? STYLE.label
+            : STYLE.text;
+          return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(String(value))}</t></is></c>`;
         })
         .join('');
-      return `<row r="${r + 1}">${cells}</row>`;
+      const height = kind === 'title' ? ' ht="26" customHeight="1"' : kind === 'header' ? ' ht="34" customHeight="1"' : kind === 'section' ? ' ht="24" customHeight="1"' : '';
+      return `<row r="${r + 1}"${height}>${cells}</row>`;
     })
     .join('');
 
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+  const frozen = headerRows.length === 1 ? headerRows[0] + 1 : 0;
+  const pane = frozen > 0
+    ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft"/>`
+    : '';
+  const cols = widths.length
+    ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+    : '';
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<sheetViews><sheetView showGridLines="0" workbookViewId="0">${pane}</sheetView></sheetViews>` +
+    `<sheetFormatPr defaultRowHeight="18"/>${cols}<sheetData>${body}</sheetData></worksheet>`
+  );
 };
 
 const safeSheetName = (name: string) => (name.replace(/[:\\/?*[\]]/g, ' ').trim() || 'Sheet1').slice(0, 31);
 
-const workbookParts = (rows: TableRows, sheetName: string): Record<string, string> => ({
+const BORDER = 'borderId="1" applyBorder="1"';
+const CENTER = '<alignment horizontal="center" vertical="center" wrapText="1"/>';
+
+const stylesXml = (): string =>
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+  '<numFmts count="1"><numFmt numFmtId="165" formatCode="0.0&quot;%&quot;"/></numFmts>' +
+  '<fonts count="9">' +
+  '<font><sz val="11"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="15"/><color rgb="FF111827"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><sz val="10"/><color rgb="FF6B7280"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="12"/><color rgb="FF2F4FB8"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FF111827"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FF15803D"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FFB45309"/><name val="Calibri"/><family val="2"/></font>' +
+  '<font><b/><sz val="11"/><color rgb="FFB91C1C"/><name val="Calibri"/><family val="2"/></font>' +
+  '</fonts>' +
+  '<fills count="6">' +
+  '<fill><patternFill patternType="none"/></fill>' +
+  '<fill><patternFill patternType="gray125"/></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FF2F4FB8"/><bgColor indexed="64"/></patternFill></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFE6F6EC"/><bgColor indexed="64"/></patternFill></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF3DC"/><bgColor indexed="64"/></patternFill></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFFDE7E7"/><bgColor indexed="64"/></patternFill></fill>' +
+  '</fills>' +
+  '<borders count="2">' +
+  '<border><left/><right/><top/><bottom/><diagonal/></border>' +
+  '<border><left style="thin"><color rgb="FFE5E7EB"/></left><right style="thin"><color rgb="FFE5E7EB"/></right><top style="thin"><color rgb="FFE5E7EB"/></top><bottom style="thin"><color rgb="FFE5E7EB"/></bottom><diagonal/></border>' +
+  '</borders>' +
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+  '<cellXfs count="14">' +
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment vertical="center"/></xf>' +
+  '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+  `<xf numFmtId="0" fontId="3" fillId="2" ${BORDER} xfId="0" applyFont="1" applyFill="1" applyAlignment="1">${CENTER}</xf>` +
+  `<xf numFmtId="0" fontId="3" fillId="2" ${BORDER} xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>` +
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment vertical="center"/></xf>' +
+  `<xf numFmtId="0" fontId="5" fillId="0" ${BORDER} xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" ${BORDER} xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" ${BORDER} xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `<xf numFmtId="165" fontId="6" fillId="3" ${BORDER} xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `<xf numFmtId="165" fontId="7" fillId="4" ${BORDER} xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `<xf numFmtId="165" fontId="8" fillId="5" ${BORDER} xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+  `<xf numFmtId="0" fontId="0" fillId="0" ${BORDER} xfId="0"/>` +
+  '</cellXfs>' +
+  '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+  '</styleSheet>';
+
+const workbookParts = (rows: TableRows, sheetName: string, options: SheetOptions): Record<string, string> => ({
   '[Content_Types].xml':
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="xml" ContentType="application/xml"/>' +
     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
     '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
     '</Types>',
   '_rels/.rels':
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -76,8 +221,10 @@ const workbookParts = (rows: TableRows, sheetName: string): Record<string, strin
   'xl/_rels/workbook.xml.rels':
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
     '</Relationships>',
-  'xl/worksheets/sheet1.xml': sheetXml(rows),
+  'xl/styles.xml': stylesXml(),
+  'xl/worksheets/sheet1.xml': sheetXml(rows, options),
 });
 
 const CRC_TABLE = (() => {
@@ -193,8 +340,8 @@ const zipStored = (parts: Record<string, string>, now = new Date()): Uint8Array 
   return out.toUint8Array();
 };
 
-export const xlsxBlob = (rows: TableRows, sheetName = 'Sheet1'): Blob =>
-  new Blob([zipStored(workbookParts(rows, sheetName)) as unknown as BlobPart], {
+export const xlsxBlob = (rows: TableRows, sheetName = 'Sheet1', options: SheetOptions = {}): Blob =>
+  new Blob([zipStored(workbookParts(rows, sheetName, options)) as unknown as BlobPart], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
