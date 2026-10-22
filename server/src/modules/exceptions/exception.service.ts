@@ -3,12 +3,12 @@ import { db } from "../../config/db.js"
 import { checklistInstances, stores, tickets } from "../../db/schema/index.js"
 import { visibilityFilter } from "../tickets/ticket.service.js"
 import {
-    deadlineExpr,
     instanceInDepartmentCondition,
     isHod,
     localNowExpr,
     parentNotDeletedExpr,
 } from "../checklistInstances/checklistInstance.service.js"
+import { runClosingSql } from "../checklistInstances/checklistMissedRun.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
 const STALE_TICKET_HOURS = 4
@@ -92,7 +92,7 @@ export const exceptionService = {
                 .innerJoin(stores, eq(stores.id, checklistInstances.storeId))
                 .where(and(
                     sql`${checklistInstances.periodStart} >= DATE(${localNowExpr})`,
-                    sql`${deadlineExpr} <= ${localNowExpr}`,
+                    sql`${runClosingSql} <= ${localNowExpr}`,
                     parentNotDeletedExpr,
                     isNull(checklistInstances.submittedAt),
                     eq(checklistInstances.verificationStatus, "NOT_SUBMITTED"),
