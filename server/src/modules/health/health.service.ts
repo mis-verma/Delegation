@@ -1,9 +1,11 @@
 import { readdir, stat } from "node:fs/promises"
 import { join } from "node:path"
-import { sql } from "drizzle-orm"
+import { count, eq, sql } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
-import { jobRuns } from "../../db/schema/core.js"
+import { jobRuns, pushSubscriptions, users } from "../../db/schema/core.js"
+import { pushService } from "../notifications/push.service.js"
+import { offsiteConfigured } from "../../utils/dataBackup.js"
 import { queryCacheStatus } from "../../config/queryCache.js"
 import { registeredJobs } from "../../utils/jobTracker.js"
 import { recentServerErrors } from "./errorBuffer.js"
@@ -96,6 +98,38 @@ const jobsSection = async () => {
     }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
+const MAX_LISTED = 200
+
+const alertsSection = async () => {
+    const configured = pushService.isConfigured()
+    try {
+        const [people, subscriptions] = await Promise.all([
+            db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, role: users.role }).from(users).where(eq(users.isActive, true)),
+            db.select({ userId: pushSubscriptions.userId, devices: count() }).from(pushSubscriptions).groupBy(pushSubscriptions.userId),
+        ])
+        const devicesByUser = new Map(subscriptions.map((s) => [s.userId, Number(s.devices)]))
+        const without = people
+            .filter((p) => !devicesByUser.has(p.id))
+            .map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName ?? ""}`.trim(), role: p.role as string }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        const withAlerts = people.length - without.length
+        const rate = people.length ? withAlerts / people.length : 0
+        const level: Level = !configured ? "warn" : rate < 0.5 ? "warn" : "ok"
+        return {
+            level,
+            configured,
+            activeUsers: people.length,
+            withAlerts,
+            devices: [...devicesByUser.values()].reduce((sum, n) => sum + n, 0),
+            withoutAlerts: without.slice(0, MAX_LISTED),
+            withoutCount: without.length,
+        }
+    } catch (err) {
+        console.error("Health: could not read alert adoption", err)
+        return { level: "warn" as Level, configured, activeUsers: 0, withAlerts: 0, devices: 0, withoutAlerts: [], withoutCount: 0 }
+    }
+}
+
 const backupsSection = async () => {
     const dir = join(process.cwd(), "backups")
     try {
@@ -105,15 +139,15 @@ const backupsSection = async () => {
         const latest = stamped[0] ?? null
         const ageDays = latest ? Math.floor((Date.now() - latest.mtime.getTime()) / DAY_MS) : null
         const level: Level = latest && ageDays !== null && ageDays <= 14 ? "ok" : "warn"
-        return { level, count: stamped.length, latestName: latest?.name ?? null, latestAt: latest?.mtime ?? null, ageDays }
+        return { level, count: stamped.length, latestName: latest?.name ?? null, latestAt: latest?.mtime ?? null, ageDays, offsite: offsiteConfigured() }
     } catch {
-        return { level: "warn" as Level, count: 0, latestName: null, latestAt: null, ageDays: null }
+        return { level: "warn" as Level, count: 0, latestName: null, latestAt: null, ageDays: null, offsite: offsiteConfigured() }
     }
 }
 
 export const healthService = {
     async snapshot() {
-        const [database, jobs, backups] = await Promise.all([databaseSection(), jobsSection(), backupsSection()])
+        const [database, jobs, backups, alerts] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection()])
         const cache = queryCacheStatus()
         const errors = recentServerErrors()
         const recentErrorCount = errors.filter((e) => Date.now() - Date.parse(e.at) < DAY_MS).length
@@ -125,6 +159,9 @@ export const healthService = {
         if (jobsBad) attention.push(`${jobsBad} background ${jobsBad === 1 ? "job needs" : "jobs need"} a look.`)
         if (cache !== "ok") attention.push("The cache (Redis) is not connected. Pages still work, just slower.")
         if (backups.level === "warn") attention.push(backups.count ? "The newest data backup is more than 2 weeks old." : "No data backup found.")
+        if (!backups.offsite) attention.push("Backups are only saved on this server. Set up the S3 copy so one lost server does not lose everything.")
+        if (!alerts.configured) attention.push("Phone alerts are not set up on the server, so nobody can turn them on yet.")
+        else if (alerts.level === "warn") attention.push(`Only ${alerts.withAlerts} of ${alerts.activeUsers} people have alerts on. The rest will miss reminders when the app is closed.`)
         if (recentErrorCount) attention.push(`${recentErrorCount} unexpected server ${recentErrorCount === 1 ? "error" : "errors"} in the last 24 hours.`)
 
         return {
@@ -142,6 +179,7 @@ export const healthService = {
             cache: { level: (cache === "ok" ? "ok" : "warn") as Level, status: cache },
             jobs,
             backups,
+            alerts,
             errors,
         }
     },

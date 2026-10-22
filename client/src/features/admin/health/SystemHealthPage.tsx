@@ -1,8 +1,9 @@
-import { memo, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, CircleDashed, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
+import { BellRing, CheckCircle2, CircleDashed, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
+import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, RoleChip, Skeleton } from '../../../components';
+import type { Role } from '../../../api/auth';
 import { useSystemHealthQuery } from './hook';
 import type { HealthJob, HealthJobStatus, HealthLevel, SystemHealth } from '../../../api/systemHealth';
 
@@ -112,6 +113,9 @@ const HealthSkeleton = () => (
 export const SystemHealthPage = () => {
   const { data: health, isPending, isError, isFetching, refetch, dataUpdatedAt } = useSystemHealthQuery();
   const biggestTableMb = health?.database.biggestTables[0]?.sizeMb || 1;
+  const [showAllMissing, setShowAllMissing] = useState(false);
+  const missing = health?.alerts.withoutAlerts ?? [];
+  const missingShown = showAllMissing ? missing : missing.slice(0, 10);
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -158,17 +162,50 @@ export const SystemHealthPage = () => {
             <Tile icon={<Layers size={15} />} title="Cache" level={health.cache.level}>
               <p>{health.cache.status === 'ok' ? 'Redis is connected. Repeated lookups are served from memory.' : 'Redis is not connected. Everything still works, but lookups hit the database each time.'}</p>
             </Tile>
+            <Tile icon={<BellRing size={15} />} title="Phone alerts" level={health.alerts.level}>
+              {!health.alerts.configured ? (
+                <p>Alerts are not set up on the server yet, so nobody can turn them on. Add the web-push keys and restart.</p>
+              ) : (
+                <>
+                  <Stat value={`${health.alerts.withAlerts} of ${health.alerts.activeUsers}`} label="people have alerts on" />
+                  <p>{health.alerts.devices} {health.alerts.devices === 1 ? 'device' : 'devices'} registered. People without alerts miss reminders when the app is closed.</p>
+                </>
+              )}
+            </Tile>
             <Tile icon={<HardDrive size={15} />} title="Data backups" level={health.backups.level}>
               {health.backups.latestAt ? (
                 <>
                   <Stat value={timeAgo(health.backups.latestAt)} label="newest backup" />
-                  <p>{health.backups.count} saved on the server. Backups taken by your hosting provider are not visible here.</p>
+                  <p>{health.backups.count} saved on the server. {health.backups.offsite ? 'A copy also goes to S3.' : 'No S3 copy is set up, so these only exist on this server.'}</p>
                 </>
               ) : (
                 <p>No backup found on the server. Run a backup before any large clean-up, and keep one with your hosting provider as well.</p>
               )}
             </Tile>
           </div>
+
+          {health.alerts.configured && health.alerts.withoutCount > 0 && (
+            <section className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2">
+                <h2 className="t-section font-display font-bold text-text">People without alerts</h2>
+                <IconChip icon={BellRing} tone="bg-warning" label={`${health.alerts.withoutCount}`} labelClassName="tabular-nums" />
+              </div>
+              <p className="t-meta font-display text-text-muted">Ask them to open KaryaOS, tap Turn on on the home page, and allow notifications. On iPhone, add it to the Home Screen first.</p>
+              <ul className={cn(PANEL_CLASS, 'flex flex-col divide-y divide-border/60 overflow-hidden')}>
+                {missingShown.map((person) => (
+                  <li key={person.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                    <span className="min-w-0 truncate text-sm font-display font-semibold text-text">{person.name}</span>
+                    <RoleChip role={person.role as Role} />
+                  </li>
+                ))}
+              </ul>
+              {missing.length > 10 && (
+                <Button variant="outline" size="sm" className="self-start" onClick={() => setShowAllMissing((v) => !v)}>
+                  {showAllMissing ? 'Show fewer' : `Show all ${missing.length}`}
+                </Button>
+              )}
+            </section>
+          )}
 
           <section className="flex flex-col gap-2.5">
             <div className="flex items-center gap-2">

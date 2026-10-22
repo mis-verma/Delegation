@@ -505,6 +505,13 @@
       "when": 1792640000000,
       "tag": "0071_ticket_pc_only_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "5",
+      "when": 1792650000000,
+      "tag": "0072_ticket_timers",
+      "breakpoints": true
     }
   ]
 }

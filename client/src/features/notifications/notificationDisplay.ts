@@ -7,6 +7,8 @@ import type { Notification } from '@/api/notifications';
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
   { match: 'ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
   { match: 'DECLINED', icon: Ban, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'AWAITING_HEAD_ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'TICKET_STALE', icon: Activity, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'AWAITING_HEAD', icon: ShieldQuestion, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'TICKET_PROGRESS', icon: Activity, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'HOD_APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },

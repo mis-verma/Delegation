@@ -594,6 +594,8 @@ export const ticketService = {
     if (reassigned && before.status === "OPEN" && !before.declinedAt) {
       nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
       patch.awaitingHeadApproval = nowAwaitingHead
+      patch.headReminderSentAt = null
+      patch.headEscalatedAt = null
       patch.assignmentApprovedBy = null
       patch.assignmentApprovedAt = null
     }

@@ -195,6 +195,44 @@ const ticketApprovalChasers = async (now: Date) => {
   }
 };
 
+const HEAD_REMINDER_HOURS = 4;
+const HEAD_ESCALATE_HOURS = 24;
+const STALE_WORK_HOURS = 24;
+const TIMER_LOOKBACK_DAYS = 7;
+
+const headDecisionChasers = async (now: Date) => {
+  const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
+  const waiting = await db.select().from(tickets).where(and(
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, true), gt(tickets.createdAt, floor),
+  )).limit(BATCH);
+  for (const t of waiting) {
+    const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
+    if (hours >= HEAD_ESCALATE_HOURS && !t.headEscalatedAt) {
+      await notificationService.notifyHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
+      await db.update(tickets).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tickets.id, t.id));
+    } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
+      await notificationService.notifyHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId }, Math.floor(hours));
+      await db.update(tickets).set({ headReminderSentAt: now }).where(eq(tickets.id, t.id));
+    }
+  }
+};
+
+const staleWorkNudges = async (now: Date) => {
+  const quietBefore = new Date(now.getTime() - STALE_WORK_HOURS * HOUR_MS);
+  const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
+  const lastTouch = sql`COALESCE((SELECT MAX(su.createdAt) FROM TicketStatusUpdate su WHERE su.ticketId = Ticket.id AND su.toStatus = 'IN_PROGRESS'), Ticket.updatedAt)`;
+  const quiet = await db.select({ ticket: tickets, lastTouch }).from(tickets).where(and(
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), eq(tickets.status, 'IN_PROGRESS'), isNotNull(tickets.assigneeId),
+    sql`${lastTouch} <= ${quietBefore}`, sql`${lastTouch} > ${floor}`,
+    sql`(${tickets.staleNudgeSentAt} IS NULL OR ${tickets.staleNudgeSentAt} < ${lastTouch})`,
+  )).limit(BATCH);
+  for (const { ticket: t, lastTouch: touched } of quiet) {
+    const hours = Math.floor((now.getTime() - new Date(touched as unknown as string).getTime()) / HOUR_MS);
+    await notificationService.notifyStaleWork({ _id: t.id, title: t.title, assigneeId: t.assigneeId }, hours);
+  }
+  if (quiet.length) await db.update(tickets).set({ staleNudgeSentAt: now }).where(inArray(tickets.id, quiet.map((q) => q.ticket.id)));
+};
+
 const taskApprovalChasers = async (now: Date) => {
   const pending = await db.select().from(tasks).where(and(isNull(tasks.deletedAt), eq(tasks.status, 'pending_approval'))).limit(BATCH);
   for (const t of pending) {
@@ -268,6 +306,8 @@ export const startDueReminders = () => {
         await safely('overdue escalations', () => overdueEscalations(now));
         await safely('unassigned reminders', () => unassignedReminders(now));
         await safely('ticket approvals', () => ticketApprovalChasers(now));
+        await safely('head decisions', () => headDecisionChasers(now));
+        await safely('stale work', () => staleWorkNudges(now));
         await safely('delegation approvals', () => taskApprovalChasers(now));
       }
       if (settings.notifyChecklistOverdueReminders) {

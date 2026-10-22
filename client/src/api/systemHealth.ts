@@ -33,7 +33,16 @@ export type SystemHealth = {
   };
   cache: { level: HealthLevel; status: 'ok' | 'unavailable' };
   jobs: HealthJob[];
-  backups: { level: HealthLevel; count: number; latestName: string | null; latestAt: string | null; ageDays: number | null };
+  backups: { level: HealthLevel; count: number; latestName: string | null; latestAt: string | null; ageDays: number | null; offsite: boolean };
+  alerts: {
+    level: HealthLevel;
+    configured: boolean;
+    activeUsers: number;
+    withAlerts: number;
+    devices: number;
+    withoutAlerts: { id: string; name: string; role: string }[];
+    withoutCount: number;
+  };
   errors: { at: string; method: string; path: string; message: string }[];
 };
 

@@ -126,6 +126,41 @@ export const notificationService = {
     });
   },
 
+  async notifyHeadDecisionReminder(ticket: { _id: any; title: string; departmentId?: any; userId?: any }, hoursWaiting: number) {
+    if (!ticket.departmentId) return [];
+    const raiserId = ticket.userId ? ticket.userId.toString() : null;
+    const heads = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
+    return notificationService.notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
+      type: 'TICKET_AWAITING_HEAD_REMINDER',
+      title: 'A ticket is waiting for your decision',
+      message: `"${ticket.title}" has waited ${hoursWaiting} hours. Nobody can start until you approve or decline it.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
+  async notifyHeadDecisionEscalation(ticket: { _id: any; title: string }, hoursWaiting: number) {
+    return notificationService.notifyMany(await activeVerifierIds(), {
+      type: 'TICKET_AWAITING_HEAD_ESCALATION',
+      title: 'Department head has not decided',
+      message: `"${ticket.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
+  async notifyStaleWork(ticket: { _id: any; title: string; assigneeId?: any }, hoursQuiet: number) {
+    const assigneeId = ticket.assigneeId?.toString();
+    if (!assigneeId) return [];
+    return notificationService.notifyMany([assigneeId], {
+      type: 'TICKET_STALE_REMINDER',
+      title: 'Add a quick update',
+      message: `"${ticket.title}" has had no update for ${hoursQuiet} hours. Post a short note so everyone knows where it stands.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
   async notifyTicketHeadApproved(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, actorId: string) {
     const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
     const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
