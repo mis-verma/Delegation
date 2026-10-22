@@ -252,6 +252,7 @@ export const StatCard = ({
               tone={trendMood === 'good' ? 'bg-success' : trendMood === 'bad' ? 'bg-danger' : 'bg-text-muted'}
               label={trend.label}
               labelClassName="tabular-nums"
+              soft
             />
           )}
 

@@ -71,7 +71,7 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
           </span>
           {meta && <span className="line-clamp-1 t-meta font-medium text-text-muted">{meta}</span>}
           <span className="flex flex-wrap gap-1.5">
-            {shown.map((c) => <IconChip key={c.key} icon={c.icon} tone={c.tone} label={c.label} labelClassName={c.text} />)}
+            {shown.map((c) => <IconChip key={c.key} icon={c.icon} tone={c.tone} label={c.label} labelClassName={c.text} soft />)}
             {extra > 0 && <IconChip icon={false} label={`+${extra}`} />}
           </span>
         </span>

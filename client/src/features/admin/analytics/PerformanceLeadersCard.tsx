@@ -39,7 +39,7 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: 
   const content = (
     <>
       <span className="flex items-center gap-2">
-        <IconChip icon={Icon} tone={tone === 'success' ? 'bg-success' : 'bg-danger'} label={label} />
+        <IconChip icon={Icon} tone={tone === 'success' ? 'bg-success' : 'bg-danger'} label={label} soft />
         <span className="flex-1" />
         {row && <span className={`t-card font-display font-bold tabular-nums ${FIGURE_TONE[tone]}`}>{formatPercent(value)}</span>}
       </span>
