@@ -8,7 +8,7 @@ import { HowCalculated } from '../scores/HowCalculated';
 import type { Scores } from '../../api/scores';
 import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
-import { PeriodTabControl } from './PeriodTabControl';
+import { ScoreChoice } from './ScoreChoice';
 import { PERIOD_LABEL, type ScorePeriod } from './scorePeriods';
 import { moduleOverall, numbersFor, type ModuleKey } from './scoreMetrics';
 import { DASHBOARD_CARD_CLASS } from './dashboardDisplay';
@@ -95,7 +95,7 @@ export const SimpleScoresView = ({
               <ChevronRight className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <PeriodTabControl value={period === 'week' ? 'week' : 'month'} options={SIMPLE_PERIODS} labels={PERIOD_LABEL} onChange={onPeriodChange} fill className="@md:w-auto" />
+          <ScoreChoice label="Period" value={period === 'week' ? 'week' : 'month'} options={SIMPLE_PERIODS} labels={PERIOD_LABEL} onChange={onPeriodChange} />
         </div>
       </header>
 

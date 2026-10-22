@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp, Gauge, Minus, Trophy } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
-import { PeriodTabControl } from './PeriodTabControl';
+import { ScoreChoice } from './ScoreChoice';
+import { CATEGORY_ICON } from './categoryLook';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
@@ -101,7 +102,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PeriodTabControl value={module} options={MODULE_KEYS} labels={MODULE_LABEL} onChange={setModule} />
+        <ScoreChoice label="Module" value={module} options={MODULE_KEYS} labels={MODULE_LABEL} icons={CATEGORY_ICON} onChange={setModule} />
         <SeriesLegend series={series} labels={SERIES_LABEL} />
       </div>
 
