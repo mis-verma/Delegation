@@ -1,10 +1,8 @@
 import { memo } from 'react';
-import { AlarmClock, BellRing, CalendarDays, Clock3, History, ShieldCheck, ShieldQuestion, User } from 'lucide-react';
+import { AlarmClock, CalendarDays, Clock3, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
-import { useAuth } from '../../context/AuthContext';
-import { isDepartmentHead } from '../../lib/ticketApproval';
-import { useSharedNow } from '../../lib/useSharedNow';
-import { FRESHNESS_LOOK, freshnessOf, lastWorkTouchOf, progressUpdatesOf, timeAgo } from '../../lib/ticketProgress';
+import { progressUpdatesOf } from '../../lib/ticketProgress';
+import { TicketFlowChips } from './TicketFlowChips';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
@@ -44,14 +42,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
 
   const prefetchHandlers = usePrefetchTicket(ticket.id);
   const working = ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !ticket.awaitingHeadApproval;
-  const lastTouch = working ? lastWorkTouchOf(ticket) : null;
   const latestNote = working ? progressUpdatesOf(ticket)[0]?.remark ?? null : null;
-  const renderedAt = useSharedNow();
-  const touchLook = lastTouch ? FRESHNESS_LOOK[freshnessOf(lastTouch, renderedAt)] : null;
-  const { user } = useAuth();
-  const headApproved = !ticket.awaitingHeadApproval && !ticket.declinedAt && !!ticket.assignmentApprovedAt && ticket.status !== 'CLOSED';
-  const needsMyDecision = !!ticket.awaitingHeadApproval && !ticket.declinedAt && !!user
-    && (user.role === 'ADMIN' || isDepartmentHead(user, ticket));
 
   const statusChip = <StatusChip status={statusChipStatus} label={statusLabel} />;
 
@@ -123,21 +114,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </Tooltip>
         ) : statusChip}
 
-        {lastTouch && touchLook && (
-          <IconChip icon={History} tone={touchLook.tone} label={`Updated ${timeAgo(lastTouch, renderedAt)}`} className={touchLook.chip} labelClassName={touchLook.text} />
-        )}
-
-        {ticket.awaitingHeadApproval && !ticket.declinedAt && (
-          needsMyDecision ? (
-            <IconChip icon={BellRing} tone="bg-linear-to-br from-warning to-warning/70" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
-          ) : (
-            <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
-          )
-        )}
-
-        {headApproved && (
-          <IconChip icon={ShieldCheck} tone="bg-success" label="Head approved" title={`Approved by ${ticket.assignmentApprover?.firstName ?? 'the department head'}`} className="border-success/30 bg-success/10" labelClassName="text-success" />
-        )}
+        <TicketFlowChips ticket={ticket} />
 
         <PriorityChip meta={priorityInfo} />
 

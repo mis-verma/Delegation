@@ -1,11 +1,14 @@
 import {
-  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren,
+  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren, Ban, ShieldQuestion, Activity,
   type LucideIcon,
 } from 'lucide-react';
 import type { Notification } from '@/api/notifications';
 
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
   { match: 'ESCALATION', icon: Siren, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'DECLINED', icon: Ban, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'AWAITING_HEAD', icon: ShieldQuestion, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: 'TICKET_PROGRESS', icon: Activity, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'HOD_APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
   { match: 'DUE_SOON', icon: AlarmClock, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'COMMENT', icon: MessageSquare, tile: 'bg-linear-to-br from-info to-info/70 text-white' },

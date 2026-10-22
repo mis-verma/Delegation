@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { StatusChip, PriorityChip, DepartmentChip, TagChip } from '../../components';
 import { PRIORITY_CONFIG, formatDueLabel, formatShortDateTime } from './ticketDisplay';
+import { TicketFlowChips } from './TicketFlowChips';
 import type { StatusChipStatus } from '../../components/statusChip';
 import type { Ticket } from '../../api/ticket';
 
@@ -76,7 +77,10 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
                 </td>
 
                 <td className={CELL_CLASS}>
-                  <StatusChip status={statusChipStatus} label={statusLabel} />
+                  <div className="flex flex-col items-start gap-1.5">
+                    <StatusChip status={statusChipStatus} label={statusLabel} />
+                    <TicketFlowChips ticket={ticket} />
+                  </div>
                 </td>
 
                 <td className={CELL_CLASS}>

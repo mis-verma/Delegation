@@ -1,3 +1,4 @@
+import { TicketFlowChips } from './TicketFlowChips';
 import { memo, useMemo } from 'react';
 import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import type { Ticket } from '../../api/ticket';
@@ -128,6 +129,9 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                           <span className="t-meta font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                             {ticket.title}
                           </span>
+                          <span className="flex flex-wrap items-center gap-1.5 pt-1 empty:hidden">
+                            <TicketFlowChips ticket={ticket} />
+                          </span>
                           <span className="t-meta leading-4 font-medium break-words">
                             {overdue && due ? (
                               <span className="text-danger font-semibold">{due.label}</span>
@@ -153,10 +157,10 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                         <button
                           type="button"
                           onClick={() => onOpen(ticket)}
-                          title={`${ticket.title}, ${priority.label} priority${overdue ? ', late' : ''}${
+                          title={`${ticket.title}, ${priority.label} priority${overdue ? ', late' : ''}${ticket.awaitingHeadApproval && !ticket.declinedAt ? ', waiting for head approval' : ''}${ticket.declinedAt ? ', declined' : ''}${
                             clippedStart || clippedEnd ? '. Extends beyond the visible range.' : ''
                           }`}
-                          className={`absolute top-1/2 -translate-y-1/2 h-5 ${priority.bar} cursor-pointer transition-all duration-200 ease-in-out hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
+                          className={`absolute top-1/2 -translate-y-1/2 h-5 ${priority.bar} ${ticket.awaitingHeadApproval && !ticket.declinedAt ? 'opacity-50' : ''} ${ticket.declinedAt ? 'opacity-30' : ''} cursor-pointer transition-all duration-200 ease-in-out hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
                             clippedStart ? '' : 'rounded-l-md'
                           } ${clippedEnd ? '' : 'rounded-r-md'}`}
                           style={{
