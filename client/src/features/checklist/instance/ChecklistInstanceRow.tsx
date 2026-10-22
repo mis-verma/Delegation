@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { AlarmClock, AlarmClockOff, CalendarClock, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
+import { AlarmClockOff, CalendarClock, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -9,6 +9,8 @@ import {
   formatDateTime,
   getInstanceView,
   instanceProgressToneClass, formatPeriodSpan } from '../checklistDisplay';
+import { useSharedNow } from '../../../lib/useSharedNow';
+import { LateWindowOverlay } from './LateWindowOverlay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceRowProps {
@@ -19,11 +21,13 @@ interface ChecklistInstanceRowProps {
 const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40');
 
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate, inLateWindow, lateUntil, closed, closedAt, opensOn } = getInstanceView(instance);
+  const now = useSharedNow();
+  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
 
   if (storeName !== undefined) {
     return (
       <Link to={`/checklists/${instance.id}`} className={cn(ROW_CLASS, 'gap-3 p-3.5 sm:p-4', (inLateWindow || closed) && 'border-danger/50 bg-danger/5 hover:border-danger')}>
+        {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
@@ -34,7 +38,6 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {!closed && <StatusChip status={chipStatus} />}
-            {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
 {opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
             {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
@@ -69,6 +72,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
       )}
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
+        {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
         <p className="text-sm font-display font-medium text-text truncate">
           {formatPeriodSpan(instance)}
           {!isComplete && deadlineTime && <span className="text-text-muted"> · Due {deadlineTime}</span>}
@@ -81,7 +85,6 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
             {isComplete ? 'Done' : `${progress}% done`}
           </Badge>
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
-          {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
 {opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         </div>

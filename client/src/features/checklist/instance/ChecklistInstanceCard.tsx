@@ -1,4 +1,4 @@
-import { AlarmClock, AlarmClockOff, CalendarClock, Clock } from 'lucide-react';
+import { AlarmClockOff, CalendarClock, Clock } from 'lucide-react';
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,8 @@ import {
   instanceProgressToneClass,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
+import { useSharedNow } from '../../../lib/useSharedNow';
+import { LateWindowOverlay } from './LateWindowOverlay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
@@ -33,7 +35,8 @@ interface ChecklistInstanceCardProps {
 }
 
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate, inLateWindow, lateUntil, closed, closedAt, opensOn } = getInstanceView(instance);
+  const now = useSharedNow();
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
   const doneByOthers = (() => {
@@ -51,6 +54,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       to={`/checklists/${instance.id}`}
       className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]', (inLateWindow || closed) && 'border-danger/50 bg-danger/5 hover:border-danger')}
     >
+      {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
       <div className="flex flex-col gap-1 min-w-0">
         <p className="t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2">{instance.title}</p>
         <p className="t-meta font-medium text-text-muted">
@@ -61,7 +65,6 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {!closed && <StatusChip status={chipStatus} />}
-        {inLateWindow && lateUntil && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${lateUntil}`} />}
 {opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}

@@ -187,8 +187,8 @@ export const formatDeadlineTime = (instance: InstanceWindow): string | null => {
   return DEADLINE_FMT.format(new Date(instanceDeadline(instance) + ORG_TZ_OFFSET_MS));
 };
 
-export const isInstanceOverdue = (instance: InstanceWindow, isComplete: boolean) =>
-  !isComplete && instanceDeadline(instance) < Date.now();
+export const isInstanceOverdue = (instance: InstanceWindow, isComplete: boolean, now: number = Date.now()) =>
+  !isComplete && instanceDeadline(instance) < now;
 
 export const isInstanceNotYetOpen = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>) => {
   const opensAt = instanceOpensAt(instance);
@@ -285,14 +285,14 @@ export type InstanceView = {
 
 type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus; completedFirstAt?: string | null };
 
-export const getInstanceView = (instance: ViewableInstance): InstanceView => {
+export const getInstanceView = (instance: ViewableInstance, now: number = Date.now()): InstanceView => {
   const scores = runScores(instance.items);
   const isComplete = instance.items.length > 0 && instance.items.every(i => i.isDone || i.isNotApplicable);
-  const overdue = isInstanceOverdue(instance, isComplete);
+  const overdue = isInstanceOverdue(instance, isComplete, now);
   const closed = !isComplete
     && instance.verificationStatus !== 'REJECTED'
     && (instance as { recurrence?: string }).recurrence !== 'ONE_TIME'
-    && instanceClosing(instance) <= Date.now();
+    && instanceClosing(instance) <= now;
   return {
     done: scores.done,
     total: scores.total,
@@ -307,7 +307,7 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
     verification: verificationChipFor(instance.verificationStatus, isComplete),
     deadlineTime: formatDeadlineTime(instance),
     doneLate: isComplete && !!instance.completedFirstAt && new Date(instance.completedFirstAt).getTime() > instanceDeadline(instance),
-    inLateWindow: isInstanceInLateWindow(instance, isComplete),
+    inLateWindow: isInstanceInLateWindow(instance, isComplete, now),
     lateUntil: instance.lateUntilTime ? formatClockTime(instance.lateUntilTime) : null,
     closed,
     closedAt: closed ? DEADLINE_FMT.format(new Date(instanceClosing(instance) + ORG_TZ_OFFSET_MS)) : null,
