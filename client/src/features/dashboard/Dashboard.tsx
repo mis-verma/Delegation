@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { Construction } from 'lucide-react';
 import { Header, Footer, Sidebar, BottomNav } from '../../components/layout';
+import { ViewAsBanner } from '../viewAs/ViewAsBanner';
 import { RouteFallback } from '../../components/skeleton';
 import { PullToRefresh } from '../../components/pullToRefresh';
 import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNotice';
@@ -70,6 +71,7 @@ export const Dashboard = () => {
       className="flex flex-col h-svh w-full overflow-hidden text-text"
       style={{ background: 'var(--color-background)' }}
     >
+      <ViewAsBanner />
       <Header onToggleSidebar={() => setSidebarOpen(v => !v)} />
 
       <div className={`flex flex-1 min-h-0 relative ${mobileDrawerOpen ? 'z-50' : 'z-0'}`}>

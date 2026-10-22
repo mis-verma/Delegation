@@ -8,6 +8,7 @@ import { pingDB } from "./config/db.js"
 import { queryCacheStatus } from "./config/queryCache.js"
 import { createAuthRouter } from "./middleware/auth/auth.routes.js"
 import { userRouter } from "./modules/users/user.routes.js"
+import { viewAsRouter } from "./modules/viewAs/viewAs.routes.js"
 import { errorHandler } from "./middleware/errorHandler/errorHandler.js"
 import { StoreRouter } from "./modules/stores/store.routes.js"
 import { departmentRouter } from "./modules/departments/department.routes.js"
@@ -124,6 +125,7 @@ class App {
         });
         this.app.use('/auth', createAuthRouter(rateLimitStoreFactory));
         this.app.use('/users', userRouter);
+        this.app.use('/view-as', viewAsRouter);
         this.app.use('/stores', StoreRouter);
         this.app.use('/departments', departmentRouter);
         this.app.use('/holidays', holidayRouter);

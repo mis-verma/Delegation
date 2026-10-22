@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import {
   ChevronDown,
+  Eye,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -13,6 +14,7 @@ import {
   User,
 } from 'lucide-react';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { ViewAsPicker } from '../viewAs/ViewAsPicker';
 import { Dropdown, type DropdownAction } from '../../components/dropdown';
 import { greeting } from '../dashboard/dashboardDisplay';
 import { useIsMobile } from '../../lib/useMediaQuery';
@@ -37,7 +39,8 @@ interface AdminHeaderProps {
 
 export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) => {
   const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, realUser } = useAuth();
+  const [picking, setPicking] = useState(false);
 
   const initials = (user?.name ?? 'U')
     .split(' ')
@@ -101,6 +104,17 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
 
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {realUser?.role === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => setPicking(true)}
+                className={cn('inline-flex', ICON_BUTTON, 'border border-primary-500/20 bg-primary-500/[0.07] text-primary-700 dark:text-primary-300 hover:bg-primary-500/15')}
+                title="Preview the app as someone else"
+                aria-label="Preview as a person"
+              >
+                <Eye size={17} strokeWidth={2.25} />
+              </button>
+            )}
             <NotificationBell badgeRing={false} />
             <button
               onClick={toggleTheme}
@@ -142,6 +156,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
           )}
         </div>
       </div>
+      {picking && <ViewAsPicker onClose={() => setPicking(false)} />}
     </header>
   );
 };

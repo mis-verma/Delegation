@@ -25,6 +25,7 @@ import { PageHeaderTitleContext } from "../../components/pageHeader/pageHeaderCo
 import { Popover, PopoverAnchor, PopoverContent } from "../../components/ui/popover";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../../components/ui/tooltip";
 import { AdminHeader } from "./AdminHeader";
+import { ViewAsBanner } from "../viewAs/ViewAsBanner";
 import { getAdminBreadcrumbs } from "./adminBreadcrumbs";
 import { ROLE_META } from './roleBadge';
 import type { Role } from '../../api/auth';
@@ -402,6 +403,7 @@ export const AdminLayout = () => {
     });
   return (
     <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans">
+      <ViewAsBanner />
       <div inert={mobileDrawerOpen}>
         <AdminHeader onToggleSidebar={() => setSidebarOpen(v => !v)} pageLabel={currentNav?.label ?? 'Overview'} />
       </div>

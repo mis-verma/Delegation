@@ -20,6 +20,7 @@ declare global {
     namespace Express {
         interface Request {
             user?: AccessTokenPayload;
+            viewingAs?: { adminId: string };
         }
     }
 }
@@ -28,6 +29,20 @@ const isPasswordSetupCall = (req: Request) => {
     const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, '');
     return (req.method === 'GET' && path.endsWith('/users/me')) || (req.method === 'POST' && path.endsWith('/users/me/password'));
 };
+
+const loadAuthUser = (id: string) => cached(authUserKey(id), AUTH_USER_TTL_SECONDS, async () => {
+    const [row] = await db.select({
+        role: users.role,
+        isActive: users.isActive,
+        departmentId: users.departmentId,
+        storeId: users.storeId,
+        passwordChangedAt: users.passwordChangedAt,
+        mustChangePassword: users.mustChangePassword,
+    }).from(users).where(eq(users.id, id)).limit(1);
+    return row ?? null;
+});
+
+const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
     const header = req.headers.authorization;
@@ -43,17 +58,7 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
         return next(AppError.unauthorized('Invalid or expired access token'));
     }
 
-    const cachedUser = await cached(authUserKey(payload.sub), AUTH_USER_TTL_SECONDS, async () => {
-        const [row] = await db.select({
-            role: users.role,
-            isActive: users.isActive,
-            departmentId: users.departmentId,
-            storeId: users.storeId,
-            passwordChangedAt: users.passwordChangedAt,
-            mustChangePassword: users.mustChangePassword,
-        }).from(users).where(eq(users.id, payload.sub)).limit(1);
-        return row ?? null;
-    });
+    const cachedUser = await loadAuthUser(payload.sub);
     const currentUser = cachedUser && {
         ...cachedUser,
         passwordChangedAt: cachedUser.passwordChangedAt ? new Date(cachedUser.passwordChangedAt) : null,
@@ -68,6 +73,25 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
 
     if (currentUser.mustChangePassword && !isPasswordSetupCall(req)) {
         return next(AppError.forbidden('Choose your own password before you continue.'));
+    }
+
+    const viewAsId = req.headers["x-view-as"];
+    if (typeof viewAsId === "string" && viewAsId && viewAsId !== payload.sub && currentUser.role === "ADMIN") {
+        if (!READ_ONLY_METHODS.has(req.method)) {
+            return next(AppError.forbidden("You are previewing someone else’s account, so nothing can be changed. Exit the preview first."));
+        }
+        const target = await loadAuthUser(viewAsId);
+        if (!target || !target.isActive || target.role === "ADMIN") {
+            return next(AppError.forbidden("That account can’t be previewed. Exit the preview and pick someone else."));
+        }
+        req.user = {
+            sub: viewAsId,
+            role: target.role,
+            departmentId: target.departmentId ?? undefined,
+            storeId: target.storeId ?? undefined,
+        };
+        req.viewingAs = { adminId: payload.sub };
+        return next();
     }
 
     req.user = {

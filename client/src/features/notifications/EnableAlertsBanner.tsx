@@ -3,6 +3,7 @@ import { BellRing, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../components';
+import { useAuth } from '../../context/AuthContext';
 import { notificationApi } from '../../api/notifications';
 import { enablePush, isPushOnThisDevice, pushSupported } from '../../lib/push';
 import { handleQueryRetry } from '../../lib/queryHelpers';
@@ -22,6 +23,7 @@ const recentlyDismissed = () => {
 
 export const EnableAlertsBanner = () => {
   const queryClient = useQueryClient();
+  const { isPreviewing } = useAuth();
   const [onDevice, setOnDevice] = useState<boolean | null>(null);
   const [hidden, setHidden] = useState(recentlyDismissed);
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,7 @@ export const EnableAlertsBanner = () => {
   }, [status.data?.devices]);
 
   const blocked = typeof Notification !== 'undefined' && Notification.permission === 'denied';
-  if (hidden || onDevice !== false || blocked || !pushSupported() || !status.data?.configured) return null;
+  if (isPreviewing || hidden || onDevice !== false || blocked || !pushSupported() || !status.data?.configured) return null;
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { void 0; }

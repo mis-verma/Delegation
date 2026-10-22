@@ -1,4 +1,5 @@
 import { tokenStore } from '../lib/tokenStore';
+import { viewAsStore } from '../lib/viewAsStore';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
@@ -65,6 +66,10 @@ const forceLogout = () => {
 
 export const apiFetch = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const isAuthEndpoint = path.startsWith('/auth/');
+  const previewId = isAuthEndpoint || path.startsWith('/view-as/') ? null : viewAsStore.get();
+  if (previewId && !['GET', 'HEAD'].includes((options.method ?? 'GET').toUpperCase())) {
+    throw new ApiError('You are previewing someone else’s account, so nothing can be changed. Exit the preview first.', 403);
+  }
   const token = tokenStore.get();
   const isFormData = options.body instanceof FormData;
 
@@ -75,6 +80,7 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(t ? { Authorization: `Bearer ${t}` } : {}),
+        ...(previewId ? { 'X-View-As': previewId } : {}),
         ...options.headers,
       },
     });
