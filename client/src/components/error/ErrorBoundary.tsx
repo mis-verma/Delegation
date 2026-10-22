@@ -20,7 +20,8 @@ function MyErrorBoundary() {
       <ErrorScreen
         code={error.status}
         title="Something went wrong"
-        message={error.statusText || 'An unexpected error occurred while loading this page.'}
+        message="We couldn't load this page. Try again in a moment."
+        details={`${error.status} ${error.statusText}`.trim()}
         onRetry={() => window.location.reload()}
       />
     );
@@ -29,7 +30,8 @@ function MyErrorBoundary() {
   return (
     <ErrorScreen
       title="Something went wrong"
-      message={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+      message="We couldn't show this page. Try again in a moment."
+      details={error instanceof Error ? error.message : undefined}
       onRetry={() => window.location.reload()}
     />
   );

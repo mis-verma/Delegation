@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { clearKept, readKept, writeKept } from '../../lib/keptForm';
 import { haptic } from '../../lib/haptics';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -66,9 +67,14 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const { data: allAssignable, isLoading: isLoadingAllUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
   const { data: tags } = useTagsQuery();
-  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [tagIds, setTagIds] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: defaultDueDate ?? null });
+  const keptKey = `delegation:${user?.id ?? 'anon'}`;
+  const [kept] = useState(() => readKept<Partial<TaskFields> & { assigneeIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(kept?.assigneeIds ?? []);
+  const [tagIds, setTagIds] = useState<string[]>(kept?.tagIds ?? []);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    from: kept?.from ? new Date(kept.from) : null,
+    to: kept?.to ? new Date(kept.to) : defaultDueDate ?? null,
+  });
   const [showStart, setShowStart] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [saveAsDraft, setSaveAsDraft] = useState(false);
@@ -79,6 +85,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     handleSubmit,
     control,
     setError,
+    reset,
     formState: { errors, isSubmitting, isDirty, submitCount },
   } = useForm<TaskFields>({
     resolver: zodResolver(baseSchema),
@@ -86,8 +93,41 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       priority: 'medium',
       departmentId: startsOnOwnDepartment ? user?.departmentId ?? '' : '',
       description: '',
+      ...(kept ? { title: kept.title, description: kept.description ?? '', priority: kept.priority ?? 'medium', departmentId: kept.departmentId ?? '' } : {}),
     },
   });
+
+  const allValues = useWatch({ control });
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (allValues.title?.trim() || allValues.description?.trim()) {
+        writeKept(keptKey, {
+          title: allValues.title, description: allValues.description, priority: allValues.priority, departmentId: allValues.departmentId,
+          assigneeIds, tagIds, from: dateRange.from?.toISOString() ?? null, to: dateRange.to?.toISOString() ?? null,
+        });
+      } else {
+        clearKept(keptKey);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [allValues, assigneeIds, tagIds, dateRange, keptKey]);
+
+  useEffect(() => {
+    if (!kept) return;
+    toast.info('Brought back what you were typing.', {
+      action: {
+        label: 'Start over',
+        onClick: () => {
+          clearKept(keptKey);
+          reset({ priority: 'medium', departmentId: startsOnOwnDepartment ? user?.departmentId ?? '' : '', description: '' });
+          setAssigneeIds([]);
+          setTagIds([]);
+          setDateRange({ from: null, to: defaultDueDate ?? null });
+        },
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const departmentId = useWatch({ control, name: 'departmentId' });
   const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, !!departmentId && !ownScopeOnly);
@@ -121,6 +161,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       });
       if (!ok) return;
     }
+    clearKept(keptKey);
     onClose();
   };
 
@@ -158,6 +199,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           } else {
             toast.success(isDraft ? 'Saved as draft' : 'Delegation created', { action });
           }
+          clearKept(keptKey);
           onCreated?.(createdTask);
           onClose();
         },

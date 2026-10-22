@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { useAuth } from '@/context/AuthContext';
 import { SCOPE_FILTER_PREDICATES, type ScopeFilter } from './list/ticketFilters';
 import { SORT_COMPARATORS, type TicketSortKey } from './list/ticketSort';
 import { groupByDepartment, groupByAssignee } from './list/ticketGrouping';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
+import { clearKept, readKept, writeKept } from '../../lib/keptForm';
 import type { Ticket } from '../../api/ticket';
 import type { TicketQuickFilterKey, TicketQuickFilterCounts } from './list/TicketQuickStats';
 import type { TicketFilters } from './list/TicketFilterFields';
@@ -38,16 +39,21 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
 
-  const [view, setView] = useState<TicketView>('list');
-  const [filters, setFilters] = useState<TicketFilters>(DEFAULT_TICKET_FILTERS);
-  const [sort, setSort] = useState<TicketSortKey>('tatDueAt');
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('ALL');
-  const [search, setSearch] = useState('');
-  const [groupBy, setGroupBy] = useState<'department' | 'assignee'>('department');
+  const keptKey = `tickets-view:${user?.id ?? 'anon'}`;
+  const [restored] = useState(() =>
+    readQuickFilterParam(searchParams, QUICK_FILTER_VALUES) || assigneeIdFilter ? null : readKept<Partial<TicketViewSnapshot>>(keptKey),
+  );
+
+  const [view, setView] = useState<TicketView>(restored?.view ?? 'list');
+  const [filters, setFilters] = useState<TicketFilters>({ ...DEFAULT_TICKET_FILTERS, ...restored?.filters });
+  const [sort, setSort] = useState<TicketSortKey>(restored?.sort ?? 'tatDueAt');
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>(restored?.scopeFilter ?? 'ALL');
+  const [search, setSearch] = useState(restored?.search ?? '');
+  const [groupBy, setGroupBy] = useState<'department' | 'assignee'>(restored?.groupBy ?? 'department');
   const [page, setPage] = useState(1);
 
   const [quickFilter, setQuickFilter] = useState<TicketQuickFilterKey | null>(() =>
-    readQuickFilterParam(searchParams, QUICK_FILTER_VALUES)
+    readQuickFilterParam(searchParams, QUICK_FILTER_VALUES) ?? restored?.quickFilter ?? null
   );
 
   const toggleQuickFilter = (key: TicketQuickFilterKey) => {
@@ -66,6 +72,7 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     setScopeFilter('ALL');
     setQuickFilter(null);
     setPage(1);
+    clearKept(keptKey);
   };
 
   const scopeFiltered = useMemo(
@@ -129,6 +136,10 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     setQuickFilter(s.quickFilter);
     setPage(1);
   };
+
+  useEffect(() => {
+    writeKept(keptKey, { view, filters, sort, scopeFilter, search, groupBy, quickFilter });
+  }, [keptKey, view, filters, sort, scopeFilter, search, groupBy, quickFilter]);
 
   const hasActiveFilters = search.length > 0 || activeCount > 0 || scopeFilter !== 'ALL' || quickFilter !== null;
 

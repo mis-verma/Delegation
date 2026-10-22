@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+import { useAuth } from '../../context/AuthContext';
 import { Home, RefreshCcw, AlertTriangle, SearchX, WifiOff, type LucideIcon } from 'lucide-react';
 import { Button } from '../button';
 import { BrandLogo } from '../brandLogo';
@@ -7,6 +8,7 @@ interface ErrorScreenProps {
   code?: string | number;
   title: string;
   message?: string;
+  details?: string;
   onRetry?: () => void;
 }
 
@@ -16,8 +18,9 @@ const lookFor = (code?: string | number): { Icon: LucideIcon; tile: string; tag:
   return { Icon: AlertTriangle, tile: 'bg-danger/10 text-danger', tag: code ? `Error ${code}` : 'Something went wrong' };
 };
 
-export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps) => {
+export const ErrorScreen = ({ code, title, message, details, onRetry }: ErrorScreenProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { Icon, tile, tag } = lookFor(code);
 
   return (
@@ -50,6 +53,12 @@ export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps)
             </Button>
           )}
         </div>
+        {details && user?.role === 'ADMIN' && (
+          <details className="w-full rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 text-left">
+            <summary className="cursor-pointer t-meta font-display font-semibold text-text-secondary">Show details</summary>
+            <p className="pt-2 t-meta font-mono break-words text-text-muted">{details}</p>
+          </details>
+        )}
         <p className="t-meta text-text-light">If this keeps happening, tell your admin what you were doing.</p>
       </div>
     </div>

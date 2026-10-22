@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { readKept, writeKept } from "../../lib/keptForm";
 import { toast } from "sonner";
 import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload, UserCheck, PenLine } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
@@ -199,13 +200,20 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const [sort, setSort] = useState<TaskSortKey>('dueDate');
-  const [boardGroupBy, setBoardGroupBy] = useState<BoardGroupBy>('status');
+  const keptViewKey = `tasks-view:${user?.id ?? 'anon'}:${lockCategory ?? 'all'}`;
+  const [restored] = useState(() => readKept<{ view?: string; sort?: TaskSortKey; boardGroupBy?: BoardGroupBy }>(keptViewKey));
+  const [sort, setSort] = useState<TaskSortKey>(restored?.sort ?? 'dueDate');
+  const [boardGroupBy, setBoardGroupBy] = useState<BoardGroupBy>(restored?.boardGroupBy ?? 'status');
 
   const [view, setView] = useState<TaskViewKey>(() => {
     const fromUrl = searchParams.get('view');
-    return isTaskViewKey(fromUrl) ? fromUrl : defaultTaskView(isMobile);
+    if (isTaskViewKey(fromUrl)) return fromUrl;
+    return isTaskViewKey(restored?.view ?? null) ? (restored?.view as TaskViewKey) : defaultTaskView(isMobile);
   });
+
+  useEffect(() => {
+    writeKept(keptViewKey, { view, sort, boardGroupBy });
+  }, [keptViewKey, view, sort, boardGroupBy]);
 
   const changeView = (next: TaskViewKey) => {
     setView(next);

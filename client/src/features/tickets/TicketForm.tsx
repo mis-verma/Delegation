@@ -32,6 +32,7 @@ import { hoursUntil } from './ticketDisplay';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
 import { useAuth } from '../../context/AuthContext';
+import { clearKept, readKept, writeKept } from '../../lib/keptForm';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { errorMessage, invalidateScoreCaches } from '../../lib/queryHelpers';
 import type { Draft } from '../../api/drafts';
@@ -81,6 +82,9 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   };
   const removePhoto = (index: number) => setPhotos(prev => prev.filter((_, idx) => idx !== index));
 
+  const keptKey = `ticket:${user?.id ?? 'anon'}`;
+  const [kept] = useState(() => (draft || prefill ? null : readKept<Partial<TicketFields>>(keptKey)));
+
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
@@ -96,11 +100,30 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     control,
     setValue,
     getValues,
+    reset,
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...prefill, ...(draft?.payload as Partial<TicketFields> | undefined) },
+    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
+
+  const allValues = useWatch({ control });
+  useEffect(() => {
+    if (draft) return;
+    const timer = setTimeout(() => {
+      if (allValues.title?.trim() || allValues.description?.trim()) writeKept(keptKey, allValues);
+      else clearKept(keptKey);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [allValues, draft, keptKey]);
+
+  useEffect(() => {
+    if (!kept) return;
+    toast.info('Brought back what you were typing.', {
+      action: { label: 'Start over', onClick: () => { clearKept(keptKey); reset(); } },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const validateOnChange = submitCount > 0;
   const dirty = isDirty || photos.length > 0;
 
@@ -192,6 +215,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
         tagIds: !ownScopeOnly && data.tagIds?.length ? data.tagIds : undefined,
       });
       createdId = created.id;
+      clearKept(keptKey);
       if (draft) deleteDraft.mutate(draft.id);
     } catch {
       submittingRef.current = false;
@@ -233,6 +257,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     } catch {
       return;
     }
+    clearKept(keptKey);
     haptic('success');
     toast.success(photos.length ? 'Draft saved. Photos are not kept in a draft, add them when you send it.' : 'Draft saved', {
       description: 'Find it under Drafts on the Tickets page.',
@@ -248,6 +273,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       cancelLabel: 'Keep editing',
       variant: 'danger',
     }))) return;
+    clearKept(keptKey);
     onClose();
   };
 

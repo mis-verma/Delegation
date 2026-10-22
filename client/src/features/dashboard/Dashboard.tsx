@@ -11,6 +11,7 @@ import { PageMaintenance } from '../../components/error/PageMaintenance';
 import { isPathUnderMaintenance, maintenancePageLabel } from '../../lib/maintenance';
 import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
 import { directionBetween, type NavDirection } from '../../lib/appNav';
+import { useEdgeSwipeBack } from '../../lib/useEdgeSwipeBack';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -51,6 +52,8 @@ export const Dashboard = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mobileDrawerOpen]);
+
+  useEdgeSwipeBack(isMobileViewport && !mobileDrawerOpen);
 
   const isAdmin = user?.role === 'ADMIN';
   const maintenanceMatch = isPathUnderMaintenance(location.pathname);
