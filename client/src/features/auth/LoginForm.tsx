@@ -6,12 +6,15 @@ import { Link } from "react-router";
 import { Input, Button } from "../../components";
 import { loginSchema, type LoginFields } from "./Schemas";
 import { useLoginMutation } from "./hooks";
+import { LoginCodeStep } from "./LoginCodeStep";
+import { readDeviceToken } from "../../lib/adminDevice";
 import { AuthBackground } from "./AuthBackground";
 
 export const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const mutation = useLoginMutation();
+  const [pendingCode, setPendingCode] = useState<{ challenge: string; emailHint: string } | null>(null);
 
   
   const {
@@ -48,8 +51,11 @@ export const LoginForm = () => {
             </p>
           </div>
 
+          {pendingCode ? (
+            <LoginCodeStep challenge={pendingCode.challenge} emailHint={pendingCode.emailHint} onBack={() => { setPendingCode(null); mutation.reset(); }} />
+          ) : (
           <form
-            onSubmit={handleSubmit(d => mutation.mutate(d))}
+            onSubmit={handleSubmit(d => mutation.mutate({ ...d, deviceToken: readDeviceToken() }, { onSuccess: (result) => { if ('codeRequired' in result) setPendingCode({ challenge: result.challenge, emailHint: result.emailHint }); } }))}
             className="flex flex-col gap-3.5"
             noValidate
           >
@@ -117,6 +123,7 @@ export const LoginForm = () => {
               Sign in
             </Button>
           </form>
+          )}
         </div>
       </div>
 

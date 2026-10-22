@@ -28,7 +28,9 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "backup:full": "tsx src/scripts/fullBackup.ts",
-    "backup:restore-check": "tsx src/scripts/restoreCheck.ts"
+    "backup:restore-check": "tsx src/scripts/restoreCheck.ts",
+    "backup:uploads": "tsx src/scripts/syncUploads.ts",
+    "admin:code-off": "tsx src/scripts/disableAdminCode.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

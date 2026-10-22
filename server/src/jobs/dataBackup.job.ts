@@ -1,6 +1,7 @@
 import { scheduleJob } from '../utils/jobTracker.js'
 import { AUTO_BACKUP_PREFIX, copyBackupToS3, offsiteConfigured, pruneAutoBackups, runDataBackup, verifyBackup } from '../utils/dataBackup.js'
 import { copyFullBackupToS3, pruneFullBackups, runFullBackup } from '../utils/fullBackup.js'
+import { runUploadsSync } from '../utils/uploadsSync.js'
 import { notificationService } from '../modules/notifications/notification.service.js'
 
 const KEEP_LOCAL = 14
@@ -18,6 +19,13 @@ const runFullCycle = async () => {
     `[full-backup] ${full.name}: ${full.rows} rows in ${Object.keys(full.tables).length} tables, ${Math.round(full.sizeBytes / 1024)} KB, ` +
     `${copied ? 'copied to S3' : 'no S3 bucket configured, server copy only'}, ${removed} old removed`,
   )
+}
+
+const runUploadsCycle = async () => {
+  const result = await runUploadsSync()
+  if (!result.configured) return
+  console.log(`[uploads-sync] ${result.uploaded} new files copied to S3, ${result.pending} still waiting, ${result.total} on disk`)
+  if (result.failed > 0) throw new Error(`${result.failed} uploaded photos could not be copied to S3. They will be tried again tomorrow.`)
 }
 
 const runBackupCycle = async () => {
@@ -41,6 +49,7 @@ export const startDataBackup = () => {
     try {
       await runBackupCycle()
       await runFullCycle()
+      await runUploadsCycle()
     } catch (err) {
       await notificationService.notifyBackupFailed((err as Error).message).catch((notifyErr) => console.error('[data-backup] could not tell the admins', notifyErr))
       throw err

@@ -47,6 +47,7 @@ export type SystemHealth = {
   growth: { known: boolean; days: number; rowsPerDay: number; sizeMbPerDay: number; totalRows: number };
   approvals: { level: HealthLevel; pcCount: number; pcOldestHours: number; headCount: number; headOldestHours: number };
   responses: { level: HealthLevel; known: boolean; requests: number; avgMs: number; maxMs: number; p50Ms: number | null; p95Ms: number | null; slow: number; serverErrors: number };
+  photoSync: { syncedFiles: number; lastRunAt: string | null };
   errors: { at: string; method: string; path: string; message: string }[];
 };
 

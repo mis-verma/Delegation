@@ -10,6 +10,8 @@ export type Settings = {
     notifyTaskDeadlineReminders : boolean;
     notifyChecklistOverdueReminders : boolean;
     liveOnlyAttachments : boolean;
+    requireAdminLoginCode : boolean;
+    emailConfigured? : boolean;
     accessTokenExpiresMinutes : number;
     refreshTokenExpiresDays : number;
     orgName : string;

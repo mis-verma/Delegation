@@ -21,14 +21,22 @@ export type AuthResponse = {
   user:        AuthUser;
 };
 
-export type LoginPayload  = { email: string; password: string };
+export type LoginPayload  = { email: string; password: string; deviceToken?: string };
+
+export type LoginCodeRequired = { codeRequired: true; challenge: string; emailHint: string };
+export type LoginResult = AuthResponse | LoginCodeRequired;
+export type LoginCodeResponse = AuthResponse & { deviceToken?: string };
 
 export type ForgotPasswordPayload = { email: string };
 export type ResetPasswordPayload  = { token: string; password: string };
 export type ResetPasswordCodePayload = { email: string; code: string; password: string };
 
 export const authApi = {
-  login:   (p: LoginPayload) => apiFetch<AuthResponse>('/auth/login',   { method: 'POST', body: JSON.stringify(p) }),
+  login:   (p: LoginPayload) => apiFetch<LoginResult>('/auth/login',   { method: 'POST', body: JSON.stringify(p) }),
+  verifyLoginCode: (p: { challenge: string; code: string; rememberDevice: boolean }) =>
+    apiFetch<LoginCodeResponse>('/auth/login/verify', { method: 'POST', body: JSON.stringify(p) }),
+  resendLoginCode: (p: { challenge: string }) =>
+    apiFetch<{ success: boolean }>('/auth/login/resend', { method: 'POST', body: JSON.stringify(p) }),
   refresh: ()                => apiFetch<AuthResponse>('/auth/refresh', { method: 'POST' }),
   logout:  ()                => apiFetch<{ success: boolean }>('/auth/logout', { method: 'POST' }),
 

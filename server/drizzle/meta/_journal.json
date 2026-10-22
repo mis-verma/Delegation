@@ -519,6 +519,13 @@
       "when": 1792660000000,
       "tag": "0073_request_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "5",
+      "when": 1792670000000,
+      "tag": "0074_admin_login_code",
+      "breakpoints": true
     }
   ]
 }

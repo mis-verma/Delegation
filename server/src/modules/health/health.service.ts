@@ -10,6 +10,7 @@ import { queryCacheStatus } from "../../config/queryCache.js"
 import { registeredJobs } from "../../utils/jobTracker.js"
 import { recentServerErrors } from "./errorBuffer.js"
 import { responseSection } from "./requestStats.js"
+import { readSyncStatus } from "../../utils/uploadsSync.js"
 import { approvalsSection, diskSection, growthSection, uploadsSection, QUEUE_WARN_HOURS } from "./risk.service.js"
 
 type Level = "ok" | "warn" | "down"
@@ -149,7 +150,7 @@ const backupsSection = async () => {
 
 export const healthService = {
     async snapshot() {
-        const [database, jobs, backups, alerts, disk, growth, approvals, responses] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection(), diskSection(), growthSection(), approvalsSection(), responseSection()])
+        const [database, jobs, backups, alerts, disk, growth, approvals, responses, photoSync] = await Promise.all([databaseSection(), jobsSection(), backupsSection(), alertsSection(), diskSection(), growthSection(), approvalsSection(), responseSection(), readSyncStatus()])
         const uploads = uploadsSection()
         const cache = queryCacheStatus()
         const errors = recentServerErrors()
@@ -193,6 +194,7 @@ export const healthService = {
             growth,
             approvals,
             responses,
+            photoSync,
             errors,
         }
     },

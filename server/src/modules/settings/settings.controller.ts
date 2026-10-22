@@ -3,13 +3,14 @@ import { settingsService } from "./settings.service.js";
 import { updateSettingsSchema } from "./settings.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../utils/AppError.js";
+import { env } from "../../config/env.js";
 
 export const settingsController = {
     
 
     get : asyncHandler(async (_req : Request , res : Response) => {
         const settings = await settingsService.get()
-        res.json({ success : true , data : settings})
+        res.json({ success : true , data : { ...settings, emailConfigured : !!env.SMTP_HOST }})
     }),
 
     status : asyncHandler(async (_req : Request , res : Response) => {

@@ -8,7 +8,8 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '../../utils/AppError.js';
 import { hashPassword, comparePassword, deriveDefaultRank } from '../../utils/password.js';
-import type { LoginInput, RegisterInput, ResetPasswordInput } from './auth.validation.js';
+import type { LoginCodeInput, LoginInput, RegisterInput, ResetPasswordInput } from './auth.validation.js';
+import { adminCodeRequired, isTrustedDevice, issueLoginCode, maskEmail, readChallenge, signChallenge, signDeviceToken, verifyLoginCode } from './loginCode.service.js';
 import { passwordChangeStamp } from './auth.js';
 import { auditService } from '../../modules/audit/audit.service.js';
 import { mapDuplicateUserError } from '../../modules/users/dbErrors.js';
@@ -112,9 +113,38 @@ export const authService = {
 
     if (!user || !user.isActive || !valid) throw AppError.unauthorized('Invalid credentials');
 
+    if (user.role === 'ADMIN' && adminCodeRequired() && !isTrustedDevice(input.deviceToken, user.id)) {
+      await issueLoginCode(user);
+      return { codeRequired: true as const, challenge: signChallenge(user.id), emailHint: maskEmail(user.email) };
+    }
+
     const accessToken = signAccessToken(user);
     const refreshToken = await issueRefreshToken(user.id);
     return { accessToken, refreshToken, user: publicUser(user) };
+  },
+
+  async resendLoginCode(challenge: string) {
+    const userId = readChallenge(challenge);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !user.isActive || user.role !== 'ADMIN') throw AppError.unauthorized('Invalid credentials');
+    await issueLoginCode(user, { enforceCooldown: true });
+  },
+
+  async completeLoginWithCode(input: LoginCodeInput) {
+    const userId = readChallenge(input.challenge);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !user.isActive || user.role !== 'ADMIN') throw AppError.unauthorized('Invalid credentials');
+
+    await verifyLoginCode(user.id, input.code);
+
+    const accessToken = signAccessToken(user);
+    const refreshToken = await issueRefreshToken(user.id);
+    return {
+      accessToken,
+      refreshToken,
+      user: publicUser(user),
+      ...(input.rememberDevice ? { deviceToken: signDeviceToken(user.id) } : {}),
+    };
   },
 
   async refresh(rawToken: string | undefined) {

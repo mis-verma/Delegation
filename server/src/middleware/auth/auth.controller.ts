@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
 import { authService } from "./auth.service.js";
 import { settingsService } from "../../modules/settings/settings.service.js";
-import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, resetPasswordCodeSchema } from "./auth.validation.js";
+import { loginSchema, loginCodeSchema, loginResendSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, resetPasswordCodeSchema } from "./auth.validation.js";
 import { passwordOtpService } from "./passwordOtp.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../utils/AppError.js";
@@ -17,9 +17,9 @@ const cookeiOptions = () => ({
     maxAge: settingsService.getCached().refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
 } as const);
 
-const sendAuthResponse = (res: Response, result: { accessToken: string; refreshToken: string; user: unknown }) => {
+const sendAuthResponse = (res: Response, result: { accessToken: string; refreshToken: string; user: unknown; deviceToken?: string }) => {
     res.cookie(REFRESH_COOKIE, result.refreshToken, cookeiOptions());
-    res.json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
+    res.json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user, ...(result.deviceToken ? { deviceToken: result.deviceToken } : {}) });
 };
 
 const readRefreshToken = (req: Request): string | undefined =>
@@ -37,7 +37,22 @@ export const authController = {
     login: asyncHandler(async (req: Request, res: Response) => {
         const input = loginSchema.parse(req.body);
         const result = await authService.login(input);
+        if ('codeRequired' in result) {
+            res.json(result);
+            return;
+        }
         sendAuthResponse(res, result);
+    }),
+
+    loginWithCode: asyncHandler(async (req: Request, res: Response) => {
+        const input = loginCodeSchema.parse(req.body);
+        sendAuthResponse(res, await authService.completeLoginWithCode(input));
+    }),
+
+    resendLoginCode: asyncHandler(async (req: Request, res: Response) => {
+        const input = loginResendSchema.parse(req.body);
+        await authService.resendLoginCode(input.challenge);
+        res.json({ success: true });
     }),
 
     refresh: asyncHandler(async (req: Request, res: Response) => {

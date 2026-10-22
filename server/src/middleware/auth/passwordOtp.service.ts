@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
 import { sendMail } from '../../config/mailer.js';
@@ -15,13 +15,13 @@ import { invalidateAuthUsers } from './authCache.js';
 type Purpose = (typeof PASSWORD_OTP_PURPOSES)[number];
 
 const MAX_ATTEMPTS = 5;
-const LIFETIME_MINUTES: Record<Purpose, number> = { RESET: 10, SETUP: 24 * 60 };
+const LIFETIME_MINUTES: Record<Purpose, number> = { RESET: 10, SETUP: 24 * 60, LOGIN: 10 };
 const WRONG_CODE = 'That code is wrong or has expired. Ask for a new one.';
 
-const hashCode = (userId: string, code: string) =>
+export const hashCode = (userId: string, code: string) =>
   crypto.createHmac('sha256', env.JWT_ACCESS_SECRET).update(`${userId}:${code}`).digest('hex');
 
-const sameHash = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+export const sameHash = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
@@ -45,7 +45,7 @@ const issue = async (user: { id: string; email: string; firstName: string }, pur
   const now = new Date();
   await db.update(passwordOtps)
     .set({ usedAt: now })
-    .where(and(eq(passwordOtps.userId, user.id), isNull(passwordOtps.usedAt)));
+    .where(and(eq(passwordOtps.userId, user.id), inArray(passwordOtps.purpose, ['RESET', 'SETUP']), isNull(passwordOtps.usedAt)));
 
   const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
   await db.insert(passwordOtps).values({
@@ -93,7 +93,7 @@ export const passwordOtpService = {
 
     const now = new Date();
     const [otp] = await db.select().from(passwordOtps)
-      .where(and(eq(passwordOtps.userId, user.id), isNull(passwordOtps.usedAt), gt(passwordOtps.expiresAt, now)))
+      .where(and(eq(passwordOtps.userId, user.id), inArray(passwordOtps.purpose, ['RESET', 'SETUP']), isNull(passwordOtps.usedAt), gt(passwordOtps.expiresAt, now)))
       .orderBy(desc(passwordOtps.createdAt))
       .limit(1);
     if (!otp) throw AppError.badRequest(WRONG_CODE);

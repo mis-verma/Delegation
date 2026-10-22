@@ -27,6 +27,7 @@ const settingsSchema = z.object({
   notifyTaskDeadlineReminders: z.boolean(),
   notifyChecklistOverdueReminders: z.boolean(),
   liveOnlyAttachments: z.boolean(),
+  requireAdminLoginCode: z.boolean(),
   accessTokenExpiresMinutes: z.number().int().min(1, 'Must be at least 1 minute').max(1440, 'Must be 1440 minutes (1 day) or less'),
   refreshTokenExpiresDays: z.number().int().min(1, 'Must be at least 1 day').max(365, 'Must be 365 days or less'),
   auditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
@@ -46,9 +47,10 @@ interface SwitchRowProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   id: string;
+  disabled?: boolean;
 }
 
-const SwitchRow = ({ icon: Icon, iconClassName = 'text-primary-500', label, description, checked, onChange, id }: SwitchRowProps) => (
+const SwitchRow = ({ icon: Icon, iconClassName = 'text-primary-500', label, description, checked, onChange, id, disabled }: SwitchRowProps) => (
   <div className="flex items-center justify-between gap-4">
     <div className="flex items-center gap-2.5">
       <Icon size={16} className={`${iconClassName} shrink-0`} />
@@ -57,7 +59,7 @@ const SwitchRow = ({ icon: Icon, iconClassName = 'text-primary-500', label, desc
         <span className="t-meta text-text-muted">{description}</span>
       </div>
     </div>
-    <Switch checked={checked} onChange={onChange} id={id} />
+    <Switch checked={checked} onChange={onChange} id={id} disabled={disabled} />
   </div>
 );
 
@@ -422,6 +424,22 @@ export const SettingsPage = () => {
                   {...register('refreshTokenExpiresDays', { valueAsNumber: true })}
                 />
               </div>
+              <div className="h-px w-full bg-border" />
+              <Controller
+                control={control}
+                name="requireAdminLoginCode"
+                render={({ field }) => (
+                  <SwitchRow
+                    id="requireAdminLoginCode"
+                    icon={KeyRound}
+                    label="Email code for Admin sign-in"
+                    description={settings?.emailConfigured ? 'Admins enter a 6-digit code from their email after the password. A device can be trusted for 30 days.' : 'Email is not set up on the server, so codes cannot be sent. Add the mail settings first.'}
+                    checked={field.value}
+                    onChange={field.onChange}
+                    disabled={!settings?.emailConfigured && !field.value}
+                  />
+                )}
+              />
             </SettingsCard>
 
             <SettingsCard icon={Construction} title="Maintenance" tone="warning">

@@ -212,7 +212,8 @@ export const SystemHealthPage = () => {
                 <>
                   <Stat value={timeAgo(health.backups.latestAt)} label="newest backup" />
                   <p>{health.backups.count} saved on the server. {health.backups.offsite ? 'A copy also goes to S3.' : 'No S3 copy is set up, so these only exist on this server.'}</p>
-                  <p>Each night saves a full copy of the whole database plus a snapshot of ticket, delegation and checklist data. Photos and uploaded files are not included.</p>
+                  <p>Each night saves a full copy of the whole database plus a snapshot of ticket, delegation and checklist data.</p>
+                  <p>{health.backups.offsite ? (health.photoSync.lastRunAt ? `Photos: ${health.photoSync.syncedFiles.toLocaleString()} files copied to S3, last run ${timeAgo(health.photoSync.lastRunAt)}.` : 'Photos have not been copied to S3 yet. The first copy runs tonight.') : 'Photos and uploaded files are not copied anywhere off this server.'}</p>
                 </>
               ) : (
                 <p>No backup found on the server. Run a backup before any large clean-up, and keep one with your hosting provider as well.</p>

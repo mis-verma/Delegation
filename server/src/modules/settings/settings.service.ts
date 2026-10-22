@@ -3,6 +3,8 @@ import { settings } from "../../db/schema/core.js"
 import { eq } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { UpdateSettingsInput } from "./settings.validation.js"
+import { env } from "../../config/env.js"
+import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js";
 import path from "node:path";
 import fs from "node:fs";
@@ -44,6 +46,9 @@ export const settingsService = {
 
     async update(input: UpdateSettingsInput, actorId: string) {
         if (!cache) await this.init();
+        if (input.requireAdminLoginCode === true && !env.SMTP_HOST) {
+            throw AppError.badRequest("Email is not set up on the server, so sign-in codes cannot be sent. Add the mail settings first.");
+        }
         const id = cache!.id;
         const before = cache!;
         await db.update(settings).set({ ...input, updatedAt: new Date() }).where(eq(settings.id, id));

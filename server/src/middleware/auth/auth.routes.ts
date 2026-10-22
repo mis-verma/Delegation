@@ -20,6 +20,8 @@ export const createAuthRouter = (rateLimitStoreFactory?: (prefix: string) => Sto
 
     authRouter.post('/register', tight, authController.register)
     authRouter.post('/login', loginByIp, loginByEmail, authController.login)
+    authRouter.post('/login/verify', loginByIp, authController.loginWithCode)
+    authRouter.post('/login/resend', loginByIp, authController.resendLoginCode)
     authRouter.post('/refresh', loose, authController.refresh)
     authRouter.post('/logout', loose, authController.logout)
     authRouter.post('/forgot-password', tight, forgotByEmail, authController.forgotPassword)

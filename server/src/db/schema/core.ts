@@ -216,6 +216,7 @@ export const settings = mysqlTable('Settings', {
   notifyTaskDeadlineReminders: boolean('notifyTaskDeadlineReminders').notNull().default(true),
   notifyChecklistOverdueReminders: boolean('notifyChecklistOverdueReminders').notNull().default(true),
   liveOnlyAttachments: boolean('liveOnlyAttachments').notNull().default(false),
+  requireAdminLoginCode: boolean('requireAdminLoginCode').notNull().default(false),
   accessTokenExpiresMinutes: int('accessTokenExpiresMinutes').notNull().default(15),
   refreshTokenExpiresDays: int('refreshTokenExpiresDays').notNull().default(30),
   orgName: varchar('orgName', { length: 191 }).notNull().default('Karya'),
@@ -352,7 +353,7 @@ export const drafts = mysqlTable(
   (table) => [index('Draft_userId_kind_updatedAt_idx').on(table.userId, table.kind, table.updatedAt)],
 );
 
-export const PASSWORD_OTP_PURPOSES = ['SETUP', 'RESET'] as const;
+export const PASSWORD_OTP_PURPOSES = ['SETUP', 'RESET', 'LOGIN'] as const;
 
 export const passwordOtps = mysqlTable(
   'PasswordOtp',
