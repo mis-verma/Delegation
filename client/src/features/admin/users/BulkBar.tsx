@@ -34,7 +34,7 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
   );
   const { user: me } = useAuth();
   const roleItems = useMemo<DropdownAction[]>(
-    () => ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN')).map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),
+    () => ROLE_ORDER.filter((r) => !(me?.role === 'PC' && (r === 'ADMIN' || r === 'OWNER'))).map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),
     [onChangeRole, me?.role],
   );
 

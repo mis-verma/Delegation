@@ -5,13 +5,14 @@ import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskChecklistInput, UpdateTaskChecklistItemInput } from "./taskChecklist.validation.js"
-import { assertCanWorkChecklistItem, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
+import { assertCanWorkChecklistItem, assertChecklistOpenForWork, assertTaskStateAllowsChecklistWork, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 
 export const deriveChecklistItemCompletion = (isDone: boolean): { completedAt: Date | null } => ({
     completedAt: isDone ? new Date() : null,
 });
 
-const assertCanManage = (user: AccessTokenPayload, task: { userId: string }) => {
+const assertCanManage = (user: AccessTokenPayload, task: { userId: string; status: string; declinedAt: Date | null; awaitingHeadApproval: boolean }) => {
+    assertTaskStateAllowsChecklistWork(task, user, { managing: true });
     if (user.role === "ADMIN" || user.role === "PC") return;
     if (task.userId === user.sub) return;
     throw AppError.forbidden("Only the delegation owner can manage its checklists");
@@ -122,6 +123,7 @@ export const taskChecklistService = {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         await assertCanComplete(user, item);
+        await assertChecklistOpenForWork(user, item.taskChecklistId);
 
         const images = await db.select().from(taskImages).where(eq(taskImages.taskChecklistItemId, item.id));
 
@@ -147,6 +149,7 @@ export const taskChecklistService = {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         await assertCanComplete(user, item);
+        await assertChecklistOpenForWork(user, item.taskChecklistId);
 
         await db.update(taskChecklistItems).set({ remarks, updatedAt: new Date() }).where(eq(taskChecklistItems.id, itemId));
 

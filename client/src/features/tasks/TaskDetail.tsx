@@ -28,7 +28,7 @@ import type { AssignableUser } from '../../api/users';
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from '../../lib/ticketApproval';
 import { TaskApprovalTrail } from './TaskApprovalTrail';
 import { TaskHeadDecision } from './TaskHeadDecision';
-import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
+import { canAssignTask, canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
 import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
 import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from '../tickets/detail/propertyStyles';
 import { cn } from '@/lib/utils';
@@ -193,7 +193,7 @@ const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAd
       )}
       <div className="flex items-center justify-between w-full gap-3">
         <div className="hidden sm:flex items-center gap-3 flex-wrap">
-          {task.status === 'done' && (
+          {task.status === 'done' && !task.declinedAt && (
             <span className="flex items-center gap-1.5 t-meta font-semibold text-success">
               <CheckCircle2 size={15} /> Approved
             </span>
@@ -471,6 +471,7 @@ interface TaskEditLayoutProps {
   canRemoveFiles: boolean;
   currentUserId?: string;
   canReassign: boolean;
+  canAssign: boolean;
   allUsers: AssignableUser[] | undefined;
   isLoadingUsers: boolean;
   departments: ReturnType<typeof useDepartmentsQuery>['data'];
@@ -486,7 +487,7 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, readOnlyReason, canEditText, canAttach, canRemoveFiles, currentUserId, canReassign,
+  task, isVerifier, isViewOnly, readOnlyReason, canEditText, canAttach, canRemoveFiles, currentUserId, canReassign, canAssign,
   allUsers, isLoadingUsers, departments, isLoadingDepts, saveLabel,
   onSaveTitle, onSaveDescription, onDirtyChange, onUpdate, onChangeDepartment, onDelete, isDeleting,
 }: TaskEditLayoutProps) => {
@@ -569,7 +570,7 @@ const TaskEditLayout = ({
               onChange={(ids) => onUpdate({ assigneeId: ids[0] ?? null, additionalAssigneeIds: ids.slice(1) })}
               users={pickerUsers}
               isLoading={isLoadingUsers}
-              disabled={isViewOnly || !canReassign}
+              disabled={!canAssign}
             />
           </TicketPropertyRow>
 
@@ -639,7 +640,7 @@ const TaskEditLayout = ({
       />
 
     
-      {(task.checklists?.length ?? 0) > 0 && (
+      {((task.checklists?.length ?? 0) > 0 || (isVerifier && !task.declinedAt && task.status !== 'done' && task.status !== 'pending_approval')) && (
         <TaskChecklistPanel
           taskId={task.id}
           checklists={task.checklists ?? []}
@@ -706,6 +707,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const readOnlyReason = viewOnlyReason(task, user);
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
+  const canAssign = canReassign && canAssignTask(task, user);
   const canEditText = !isViewOnly;
   const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
     user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))
@@ -810,6 +812,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           canRemoveFiles={canRemoveFiles}
           currentUserId={user?.id}
           canReassign={canReassign}
+          canAssign={canAssign}
           allUsers={allUsers}
           isLoadingUsers={isLoadingUsers}
           departments={departments}

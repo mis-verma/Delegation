@@ -23,7 +23,7 @@ interface UserActionsMenuProps extends UserActionHandlers {
 const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete }: UserActionsMenuProps) => {
   const { user: me, realUser } = useAuth();
   const { start: startPreview } = useStartPreview();
-  const lockedAdmin = me?.role === 'PC' && user.role === 'ADMIN';
+  const lockedAdmin = me?.role === 'PC' && (user.role === 'ADMIN' || user.role === 'OWNER');
   const { mutate: sendCode } = useSendPasswordCodeMutation();
   const items = useMemo<DropdownAction[]>(() => {
     const list: DropdownAction[] = [{ label: 'Edit', icon: Pencil, onClick: () => onEdit(user) }];

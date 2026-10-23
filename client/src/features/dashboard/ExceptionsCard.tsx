@@ -72,7 +72,7 @@ ExceptionRow.displayName = 'ExceptionRow';
 
 export const ExceptionsCard = () => {
   const { user, token } = useAuth();
-  const allowed = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
+  const allowed = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
   const query = useQuery({
     queryKey: ['exceptions'] as const,
     queryFn: exceptionApi.list,

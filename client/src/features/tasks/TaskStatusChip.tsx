@@ -12,11 +12,11 @@ const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
   on_hold: 'on_hold',
 };
 
-export const TaskStatusChip = ({ status, className, iconOnlyOnMobile }: { status: Task['status']; className?: string; iconOnlyOnMobile?: boolean }) => (
+export const TaskStatusChip = ({ status, declined = false, className, iconOnlyOnMobile }: { status: Task['status']; declined?: boolean; className?: string; iconOnlyOnMobile?: boolean }) => (
   <StatusChip
-    status={CHIP_KEY[status]}
-    label={STATUS_LABEL[status]}
-    icon={status === 'draft' ? FileEdit : undefined}
+    status={declined ? 'declined' : CHIP_KEY[status]}
+    label={declined ? 'Declined' : STATUS_LABEL[status]}
+    icon={status === 'draft' && !declined ? FileEdit : undefined}
     className={className}
     iconOnlyOnMobile={iconOnlyOnMobile}
   />

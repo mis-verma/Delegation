@@ -6,7 +6,7 @@
 //
 // Bump CACHE_VERSION when this file's caching rules change. The hashed /assets/* files change name on every build,
 // so a normal deploy needs no bump: the new index.html points at the new files.
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
 const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];

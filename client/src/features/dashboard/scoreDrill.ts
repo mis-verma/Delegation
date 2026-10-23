@@ -32,7 +32,7 @@ export const delegationDrillHref = (subject: DrillSubject, from: string, to: str
   if (subject.kind === 'person' && subject.id) params.set('assigneeIds', subject.id);
   if (subject.kind === 'department' && subject.id) params.set('departmentId', subject.id);
   if (subject.kind === 'store' && subject.id) params.set('storeId', subject.id);
-  params.set('category', 'delegation');
+  params.set('category', 'work');
   withDue(params, from, to);
   if (kind === 'late') params.set('sla', 'done_late');
   else params.set('quickFilter', 'delayed');
@@ -55,7 +55,7 @@ export const checklistDrillHref = (orgWide: boolean, subject: DrillSubject, from
   return `/checklists/history?${params.toString()}`;
 };
 
-export const overdueDelegationsHref = () => '/tasks?category=delegation&quickFilter=delayed';
+export const overdueDelegationsHref = () => '/tasks?category=work&quickFilter=delayed';
 
 const DRILL_VIEW = { person: 'checklist', department: 'person', store: 'department' } as const;
 

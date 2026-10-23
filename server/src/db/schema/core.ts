@@ -15,7 +15,7 @@ import {
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
 
-export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const;
+export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC', 'OWNER'] as const;
 export const GENDERS = ['FEMALE', 'MALE'] as const;
 export type Gender = (typeof GENDERS)[number];
 export type Role = (typeof ROLES)[number];
@@ -29,6 +29,7 @@ export const DEFAULT_RANK_BY_ROLE: Record<Role, number> = {
   PC: 5,
   AGENT: 6,
   USER: 7,
+  OWNER: 1,
 };
 
 export const stores = mysqlTable(

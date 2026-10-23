@@ -1,6 +1,6 @@
 import { apiFetch } from './http';
 
-export type Role = "ADMIN" | "APPROVAL_MANAGER" | "PC" | "SENIOR" | "MANAGER" | "AGENT" | "USER";
+export type Role = "ADMIN" | "APPROVAL_MANAGER" | "PC" | "SENIOR" | "MANAGER" | "AGENT" | "USER" | "OWNER";
 
 export type AssignableUser = {
     id:           string;

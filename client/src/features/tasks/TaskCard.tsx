@@ -30,7 +30,7 @@ import { PriorityChip } from "../../components/priorityChip";
 import { DepartmentChip } from "../../components/departmentChip";
 import { IconChip } from "../../components/iconChip";
 import { getInitials } from "../../lib/getInitials";
-import { getChecklistProgress } from "../../lib/checklistProgress";
+import { getTaskChecklistProgress } from "../../lib/checklistProgress";
 import { ChecklistProgressBar } from "../../components/progress";
 import { CATEGORY_CONFIG, formatShortDate, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
 import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from "./taskDisplay";
@@ -68,7 +68,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const priority = PRIORITY_MAP[task.priority];
   const coverPhoto = coverPhotoFor(task.attachments);
   const isOverdue = isOverdueTask(task);
-  const { doneItems, totalItems, progress } = getChecklistProgress(task.checklists ?? []);
+  const { doneItems, totalItems, progress } = getTaskChecklistProgress(task);
 
   const { user } = useAuth();
   const flow = taskFlowState(task, user);
@@ -92,6 +92,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       {...prefetchHandlers}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onOpen(task);

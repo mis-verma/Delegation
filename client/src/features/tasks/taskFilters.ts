@@ -1,7 +1,9 @@
 import { CalendarClock, Flag, Clock, ArrowDownAZ, type LucideIcon } from 'lucide-react';
 import type { Task } from '../../api/task';
 
-export type CategoryFilterKey = 'all' | 'issue' | 'delegation' | 'task';
+export type CategoryFilterKey = 'all' | 'issue' | 'delegation' | 'task' | 'work';
+
+export const TASK_STATUS_FILTER_KEYS: readonly Task['status'][] = ['draft', 'todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 
 export interface TaskFilters {
   category:     CategoryFilterKey;
@@ -24,6 +26,7 @@ export const CATEGORY_PREDICATES: Record<CategoryFilterKey, (t: Task) => boolean
   issue: (t) => t.category === 'issue',
   delegation: (t) => t.category === 'delegation' && !!t.aiMeta,
   task: (t) => t.category === 'delegation' && !t.aiMeta,
+  work: (t) => t.category === 'delegation',
 };
 
 export type TaskSortKey = 'dueDate' | 'priority' | 'createdAt' | 'title';

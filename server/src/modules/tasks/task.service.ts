@@ -20,6 +20,27 @@ const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
 
 const NOT_DELETED = isNull(tasks.deletedAt);
 
+const DAY_MS = 86_400_000;
+
+const departmentOfUser = async (userId: string | null | undefined): Promise<string | null> => {
+    if (!userId) return null;
+    const [row] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, userId)).limit(1);
+    return row?.departmentId ?? null;
+};
+
+const ASSIGNMENT_ONLY_FIELDS = new Set(["assigneeId", "additionalAssigneeIds", "statusRemark"]);
+const isAssignmentOnly = (input: Record<string, unknown>) =>
+    Object.entries(input).every(([field, value]) => value === undefined || ASSIGNMENT_ONLY_FIELDS.has(field));
+
+const assertDatesInOrder = (start: Date | string | null | undefined, due: Date | string | null | undefined) => {
+    if (start && due && new Date(due).getTime() < new Date(start).getTime()) {
+        throw AppError.badRequest("The due date can't be before the start date.");
+    }
+};
+
+const lateApprovalDueDate = (dueDate: Date | null, now: Date): Date | undefined =>
+    dueDate && dueDate.getTime() < now.getTime() ? new Date(now.getTime() + DAY_MS) : undefined;
+
 const peopleByIds = async (ids: string[]) => {
     if (!ids.length) return new Map<string, { id: string; email: string; firstName: string; lastName: string | null; role: string }>();
     const rows = await db.select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName, role: users.role }).from(users).where(inArray(users.id, ids));
@@ -426,7 +447,8 @@ export const taskService = {
 
     async createFromSmartInput(input: ConfirmSmartTaskInput, user: AccessTokenPayload) {
         const id = createId();
-        const needsHead = input.category === "delegated_task" && await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null }, user);
+        const departmentId = input.departmentId ?? (await departmentOfUser(input.assigneeId));
+        const needsHead = input.category === "delegated_task" && await assignmentNeedsHeadApproval({ departmentId }, user);
         await db.insert(tasks).values({
             id,
             title: input.title,
@@ -436,7 +458,7 @@ export const taskService = {
             dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
             userId: user.sub,
             assigneeId: input.assigneeId ?? null,
-            departmentId: input.departmentId ?? null,
+            departmentId,
             awaitingHeadApproval: needsHead,
             aiMeta: {
                 rawInput: input.rawInput,
@@ -534,13 +556,16 @@ export const taskService = {
     async create(input: CreateTaskInput, user: AccessTokenPayload) {
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, ...rest } = input;
         assertCanSetReviewers(reviewerIds, user);
+        assertDatesInOrder(startDate, dueDate);
         const id = createId();
-        const needsHead = rest.status !== "draft" && await assignmentNeedsHeadApproval({ departmentId: rest.departmentId ?? null }, user);
+        const departmentId = rest.departmentId ?? (await departmentOfUser(rest.assigneeId)) ?? undefined;
+        const needsHead = rest.status !== "draft" && await assignmentNeedsHeadApproval({ departmentId: departmentId ?? null }, user);
 
         const task = await db.transaction(async (tx) => {
             await tx.insert(tasks).values({
                 id,
                 ...rest,
+                departmentId,
                 awaitingHeadApproval: needsHead,
                 startDate: startDate ? new Date(startDate) : undefined,
                 dueDate: dueDate ? new Date(dueDate) : undefined,
@@ -589,10 +614,18 @@ export const taskService = {
             throw AppError.forbidden(`${user.role === "PC" ? "PC" : "An approval manager"} can only act on a delegation through the verification queue.`)
         }
 
-        const mutationCondition = await buildMutationCondition(user);
+        let mutationCondition = await buildMutationCondition(user);
         const where = mutationCondition ? and(eq(tasks.id, id), mutationCondition, NOT_DELETED) : and(eq(tasks.id, id), NOT_DELETED);
 
-        const [existing] = await db.select().from(tasks).where(where).limit(1);
+        let [existing] = await db.select().from(tasks).where(where).limit(1);
+        if (!existing && (user.role === "MANAGER" || user.role === "SENIOR") && user.departmentId && isAssignmentOnly(input)) {
+            const [inDepartment] = await db.select().from(tasks)
+                .where(and(eq(tasks.id, id), eq(tasks.departmentId, user.departmentId), ne(tasks.status, "draft"), NOT_DELETED)).limit(1);
+            if (inDepartment) {
+                existing = inDepartment;
+                mutationCondition = undefined;
+            }
+        }
         if (!existing) throw AppError.notFound("Delegation not found");
 
         if ((input.assigneeId !== undefined || input.departmentId !== undefined) && (user.role === "AGENT" || user.role === "USER")) {
@@ -656,6 +689,12 @@ export const taskService = {
         }
 
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, statusRemark, ...rest } = input;
+        if (startDate !== undefined || dueDate !== undefined) {
+            assertDatesInOrder(startDate !== undefined ? startDate : existing.startDate, dueDate !== undefined ? dueDate : existing.dueDate);
+        }
+        if (rest.assigneeId && rest.departmentId === undefined && !existing.departmentId) {
+            rest.departmentId = await departmentOfUser(rest.assigneeId);
+        }
         const beforeTagIds = await taskTagIds(id);
         const beforeReviewerIds = reviewerIds !== undefined ? ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id) : [];
         const beforeAdditionalIds = additionalAssigneeIds !== undefined
@@ -716,13 +755,16 @@ export const taskService = {
             update.assignmentApprovedAt = null;
         } else if (existing.awaitingHeadApproval && isStatusChange) {
             headAutoApproved = true;
+            const shifted = dueDate === undefined ? lateApprovalDueDate(existing.dueDate, new Date()) : undefined;
+            if (shifted) update.dueDate = shifted;
             update.awaitingHeadApproval = false;
             update.assignmentApprovedBy = user.sub;
             update.assignmentApprovedAt = new Date();
         }
 
         const task = await db.transaction(async (tx) => {
-            await tx.update(tasks).set(update).where(and(eq(tasks.id, id), mutationCondition ?? eq(tasks.id, id)));
+            const [written] = await tx.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, beforeStatus), mutationCondition ?? eq(tasks.id, id)));
+            if (written.affectedRows === 0) throw AppError.conflict("Someone changed this delegation a moment ago. Open it again and retry.");
             await replaceAdditionalAssignees(tx, id, additionalAssigneeIds);
             if (tagIds !== undefined) await syncTaskTags(tx, id, tagIds);
             if (reviewerIds !== undefined) await syncTaskReviewers(tx, id, reviewerIds);
@@ -952,7 +994,13 @@ export const taskService = {
 
         const now = new Date();
         const [result] = await db.update(tasks)
-            .set({ awaitingHeadApproval: false, assignmentApprovedBy: user.sub, assignmentApprovedAt: now, updatedAt: now })
+            .set({
+                awaitingHeadApproval: false,
+                assignmentApprovedBy: user.sub,
+                assignmentApprovedAt: now,
+                updatedAt: now,
+                ...(lateApprovalDueDate(task.dueDate, now) ? { dueDate: lateApprovalDueDate(task.dueDate, now), reminderSentAt: null, overdueNotifiedAt: null, overdueEscalatedAt: null } : {}),
+            })
             .where(and(eq(tasks.id, id), eq(tasks.awaitingHeadApproval, true), isNull(tasks.declinedAt), NOT_DELETED));
         if (result.affectedRows === 0) throw AppError.conflict("Someone approved this delegation a moment ago.");
 
@@ -1225,7 +1273,7 @@ export const taskService = {
     },
 
     async pendingApproval(user: AccessTokenPayload, limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number } }> {
-        const POOL = 40;
+        const POOL = 200;
         const stageScope = user.role === "ADMIN"
             ? undefined
             : user.role === "PC"

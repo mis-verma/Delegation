@@ -364,12 +364,19 @@ const buildDraftFromParse = (
     };
 };
 
+const localDayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const endOfLocalDay = (key: string) => {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d, 23, 59, 59, 999);
+};
+
 const mapDraftToReview = (draft: Draft): ReviewState => ({
     title: draft.title,
     context: draft.context,
     category: draft.category,
     priority: draft.priority,
-    dueDate: (draft.dueDate ?? new Date()).toISOString().slice(0, 10),
+    dueDate: localDayKey(draft.dueDate ?? new Date()),
     assigneeId: draft.assigneeId,
     departmentId: draft.departmentId,
 });
@@ -627,7 +634,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                 context: review.context.trim() || undefined,
                 category: review.category,
                 priority: review.priority,
-                dueDate: review.dueDate ? new Date(review.dueDate).toISOString() : parsed.dueDate,
+                dueDate: review.dueDate ? endOfLocalDay(review.dueDate).toISOString() : parsed.dueDate,
                 assigneeId: review.assigneeId || undefined,
                 departmentId: review.departmentId || undefined,
                 assigneeRaw: parsed.assigneeRaw || undefined,

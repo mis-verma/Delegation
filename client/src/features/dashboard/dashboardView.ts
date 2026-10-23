@@ -22,7 +22,7 @@ export interface DashboardViewConfig {
 
 export const dashboardViewFor = (role: Role | undefined): DashboardViewConfig => {
   const frontLine = !!role && OWN_SCOPE_ROLES.includes(role);
-  const orgWide = role === 'ADMIN' || role === 'PC';
+  const orgWide = role === 'ADMIN' || role === 'PC' || role === 'OWNER';
   const isHod = role === 'MANAGER' || role === 'SENIOR';
   return {
     view: frontLine ? 'user' : 'admin',

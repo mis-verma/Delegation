@@ -2,8 +2,13 @@ import { z } from "zod"
 import { TASK_PRIORITIES , TASK_STATUSES, TASK_REMINDER_CHANNELS } from "../../db/schema/task.js" ;
 import { objectId } from "../../utils/index.js"
 
+const queryFlag = z.preprocess(
+    (v) => (v === "1" || v === "true" || v === true ? true : v === "0" || v === "false" || v === false ? false : v),
+    z.boolean(),
+)
+
 export const createTaskSchema = z.object({
-    title : z.string().min(1),
+    title : z.string().trim().min(1).max(191),
     description : z.string().optional(),
     status : z.enum(["draft", "todo"]).optional(),
     priority : z.enum(TASK_PRIORITIES).optional(),
@@ -13,14 +18,14 @@ export const createTaskSchema = z.object({
     reminderChannel : z.enum(TASK_REMINDER_CHANNELS).optional(),
     projectId : objectId.optional(),
     assigneeId : objectId.optional(),
-    additionalAssigneeIds : z.array(objectId).optional(),
+    additionalAssigneeIds : z.array(objectId).max(50).transform((ids) => [...new Set(ids)]).optional(),
     departmentId : objectId.optional(),
     tagIds : z.array(objectId).max(12).optional(),
     reviewerIds : z.array(objectId).max(20).optional()
 });
 
 export const confirmSmartTaskSchema = z.object({
-    title : z.string().min(1),
+    title : z.string().trim().min(1).max(191),
     context : z.string().optional(),
     category : z.enum(["issue", "delegated_task"]),
     priority : z.enum(TASK_PRIORITIES),
@@ -39,8 +44,8 @@ export const confirmSmartTaskSchema = z.object({
 export const listTasksQuerySchema = z.object({
     userId : objectId.optional(),
     status : z.enum(TASK_STATUSES).optional(),
-    archived : z.coerce.boolean().optional(),
-    checklistSummary : z.coerce.boolean().optional(),
+    archived : queryFlag.optional(),
+    checklistSummary : queryFlag.optional(),
     tagIds : z.string().optional().transform((v) =>
         v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
     ),

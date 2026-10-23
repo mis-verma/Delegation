@@ -72,7 +72,7 @@ const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus | null> = {
   on_hold: 'on_hold',
 };
 
-const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done', 'draft'];
+const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 const PRIORITY_ORDER: Task['priority'][] = ['high', 'medium', 'low'];
 
 export const TaskOptionsDialog = ({

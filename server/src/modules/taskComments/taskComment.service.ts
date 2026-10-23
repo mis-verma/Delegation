@@ -1,7 +1,7 @@
 import path from "node:path"
 import fs from "node:fs"
 import { db } from "../../config/db.js"
-import { tasks, taskAdditionalAssignees, taskComments, taskCommentAttachments, taskAttachments } from "../../db/schema/index.js"
+import { tasks, taskAdditionalAssignees, taskComments, taskCommentAttachments, taskAttachments, taskReviewers } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
 import { eq, and, asc, inArray, isNull, type SQL } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
@@ -9,9 +9,10 @@ import { AppError } from "../../utils/AppError.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskCommentInput } from "./taskComment.validation.js"
+import { isDepartmentHead } from "../tickets/ticketApproval.js"
 
-const assertCanComment = async (user: AccessTokenPayload, task: { userId: string; assigneeId: string | null; id: string }) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
+const assertCanComment = async (user: AccessTokenPayload, task: typeof tasks.$inferSelect) => {
+    if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER") return;
     if (task.userId === user.sub) return;
     if (task.assigneeId && task.assigneeId === user.sub) return;
 
@@ -19,6 +20,13 @@ const assertCanComment = async (user: AccessTokenPayload, task: { userId: string
         .from(taskAdditionalAssignees)
         .where(eq(taskAdditionalAssignees.taskId, task.id));
     if (additionalAssignees.some((a) => a.userId === user.sub)) return;
+
+    const headSeesAll = user.role === "MANAGER" || task.status === "pending_approval" || task.awaitingHeadApproval || task.declinedAt !== null;
+    if (headSeesAll && isDepartmentHead(user, task)) return;
+
+    const [reviewer] = await db.select({ id: taskReviewers.id }).from(taskReviewers)
+        .where(and(eq(taskReviewers.taskId, task.id), eq(taskReviewers.userId, user.sub))).limit(1);
+    if (reviewer) return;
 
     throw AppError.forbidden("You don't have access to this delegation's activity");
 };

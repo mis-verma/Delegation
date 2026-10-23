@@ -52,7 +52,7 @@ export const TaskStatusRemarkDialog = ({
       : toStatus === 'on_hold'
         ? 'Everyone working on this delegation will see the reason. The due date keeps running while it is on hold.'
         : task.status === 'done'
-        ? 'It goes back to In progress and needs approval again. Everyone on it will see the reason.'
+        ? `It goes back to ${toStatus === 'todo' ? 'To do' : 'In progress'} and needs approval again. Everyone on it will see the reason.`
         : BACK_STATUS[task.status] === toStatus
         ? 'Say why it is moving back. Everyone working on this delegation will see the note.'
         : "Status changes are recorded on this delegation's timeline for everyone working on it."}

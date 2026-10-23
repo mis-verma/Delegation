@@ -1,4 +1,4 @@
-import { BadgeCheck, ClipboardCheck, Headset, ShieldCheck, Star, User, Users, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, ClipboardCheck, Crown, Headset, ShieldCheck, Star, User, Users, type LucideIcon } from 'lucide-react';
 import type { Role } from '../../api/auth';
 
 export const ROLE_LOOK: Record<Role, { icon: LucideIcon; tone: string }> = {
@@ -9,4 +9,5 @@ export const ROLE_LOOK: Record<Role, { icon: LucideIcon; tone: string }> = {
   MANAGER: { icon: Users, tone: 'bg-primary-600' },
   AGENT: { icon: Headset, tone: 'bg-warning' },
   USER: { icon: User, tone: 'bg-text-muted' },
+  OWNER: { icon: Crown, tone: 'bg-primary-700' },
 };

@@ -6,6 +6,7 @@ import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { badgeSummary, useNavBadges, type NavBadgeMap } from './useNavBadges';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../ui/sheet';
 import { haptic } from '../../lib/haptics';
+import { useAuth } from '../../context/AuthContext';
 import { SCROLL_TOP_EVENT, isRunDetailPath } from '../../lib/appNav';
 import {
   Plus,
@@ -13,6 +14,9 @@ import {
   ClipboardList,
   TicketCheck,
   ClipboardCheck,
+  Crown,
+  LayoutDashboard,
+  ListOrdered,
   ListTodo,
 } from 'lucide-react';
 
@@ -33,6 +37,12 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
 ];
 
+const OWNER_NAV_ITEMS: NavItem[] = [
+  { to: '/admin/owner', label: 'Owner', icon: Crown, exact: true, tint: 'primary' },
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true, tint: 'info' },
+  { to: '/admin/scores', label: 'Scores', icon: ListOrdered, exact: false, tint: 'success' },
+];
+
 const TINTS: Record<string, { pill: string; text: string }> = {
   primary: { pill: 'bg-primary-500/15', text: 'text-primary-600 dark:text-primary-300' },
   coral: { pill: 'bg-coral-500/15', text: 'text-coral-600 dark:text-coral-400' },
@@ -51,6 +61,9 @@ const LONG_PRESS_MS = 420;
 export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
+  const items = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
   const [quickOpen, setQuickOpen] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
@@ -84,8 +97,8 @@ export const BottomNav = () => {
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center, tint }) => {
+      <div className={`relative h-16 max-w-lg mx-auto grid ${isOwner ? 'grid-cols-3' : 'grid-cols-5'} rounded-3xl border border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent`}>
+        {items.map(({ to, label, icon: Icon, exact, center, tint }) => {
           const look = TINTS[tint] ?? TINTS.primary;
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
           const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;

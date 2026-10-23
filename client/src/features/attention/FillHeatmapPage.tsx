@@ -17,7 +17,7 @@ const LEGEND: DayState[] = ['done', 'partial', 'missed', 'open', 'none'];
 
 export const FillHeatmapPage = () => {
   const { user } = useAuth();
-  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
+  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'OWNER';
   const today = useOrgToday();
   const [offset, setOffset] = useState(0);
   const [departmentId, setDepartmentId] = useState('');

@@ -59,7 +59,7 @@ export const taskAttachmentService = {
 
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, attachment.taskId), isNull(tasks.deletedAt))).limit(1);
         if (task) await assertCanAttach(user, task);
-        if (task && task.status === "done" && user.role !== "ADMIN") {
+        if (task && (task.status === "done" || task.status === "pending_approval") && user.role !== "ADMIN") {
             throw AppError.forbidden("This delegation is approved and closed. Only an admin can remove its files.");
         }
         if (!task && user.role !== "ADMIN" && user.role !== "PC" && attachment.uploadedBy !== user.sub) {

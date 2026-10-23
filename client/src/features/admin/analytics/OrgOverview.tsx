@@ -35,7 +35,7 @@ type SectionValue = (typeof SECTION_TABS)[number]['value'];
 const DEFAULT_SECTION: SectionValue = 'delegations';
 const SECTIONS_ANCHOR_ID = 'overview-sections';
 
-const isOrgWide = (role?: string) => role === 'ADMIN' || role === 'PC';
+const isOrgWide = (role?: string) => role === 'ADMIN' || role === 'PC' || role === 'OWNER';
 
 interface ScopeNoticeProps {
   role?: string;

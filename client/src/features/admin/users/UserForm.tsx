@@ -40,7 +40,7 @@ const buildUserSchema = (isEditing: boolean) =>
         .refine((v) => !v || /^\d{10,15}$/.test(v.replace(/[\s\-().[\]{}]/g, '').replace(/^\+/, '')), 'Enter a valid phone number (10 to 15 digits)')
         .optional(),
       password: z.string().optional(),
-      role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const),
+      role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC', 'OWNER'] as const),
       departmentId: z.string().optional(),
       storeId: z.string().optional(),
       gender: z.enum(['', 'FEMALE', 'MALE']),
@@ -129,7 +129,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   const isEditing = Boolean(user);
   const confirm = useConfirm();
   const { user: me } = useAuth();
-  const roleChoices = ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN'));
+  const roleChoices = ROLE_ORDER.filter((r) => !(me?.role === 'PC' && (r === 'ADMIN' || r === 'OWNER')));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);

@@ -36,7 +36,7 @@ const SHOW_LABEL: Record<ChecklistShow, string> = { list: 'List', matrix: 'Fill 
 
 export const ScoresPage = () => {
   const { user } = useAuth();
-  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
+  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'OWNER';
   const [params] = useSearchParams();
   const patch = useSearchPatch();
   const win = useScoreWindow();

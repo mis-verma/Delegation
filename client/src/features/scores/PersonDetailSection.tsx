@@ -27,7 +27,7 @@ interface PersonDetailSectionProps {
 
 export const PersonDetailSection = ({ personId, personName, departmentFromTrail, total, from, to, windowLabel }: PersonDetailSectionProps) => {
   const { user } = useAuth();
-  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC';
+  const orgWide = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'OWNER';
   const range = useMemo<TeamPeriodRange>(() => {
     const w = orgDayWindow(from, to);
     return { from, to, startMs: Date.parse(w.start), endMs: Date.parse(w.end) - 1 };

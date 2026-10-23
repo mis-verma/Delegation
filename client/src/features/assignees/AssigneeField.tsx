@@ -57,6 +57,8 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
   const [sheetOpen, setSheetOpen] = useState(false);
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const [draftIds, setDraftIds] = useState<string[] | null>(null);
+  const activeIds = single ? selectedIds : draftIds ?? selectedIds;
 
   const { data: departments } = useDepartmentsQuery(!disabled && !hintFor);
   const departmentName = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d.name])), [departments]);
@@ -68,10 +70,10 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
       onChange(selectedIds.includes(id) ? [] : [id]);
       return;
     }
-    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
+    setDraftIds(activeIds.includes(id) ? activeIds.filter((x) => x !== id) : [...activeIds, id]);
   };
 
-  const selectedUsers = selectedIds
+  const selectedUsers = activeIds
     .map((id) => (users ?? []).find((u) => u.id === id))
     .filter((u): u is AssignableUser => !!u);
 
@@ -82,7 +84,14 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
   }, [users, pinnedIds]);
 
   const onPickerOpenChange = (next: boolean) => {
-    if (next) setPinnedIds(selectedIds);
+    if (next) {
+      setPinnedIds(selectedIds);
+      setDraftIds(selectedIds);
+    } else if (draftIds) {
+      const changed = draftIds.length !== selectedIds.length || draftIds.some((id, i) => id !== selectedIds[i]);
+      if (changed) onChange(draftIds);
+      setDraftIds(null);
+    }
     setSheetOpen(next);
   };
 
@@ -184,15 +193,15 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               trigger={triggerButton}
               title={single ? 'Assign to' : 'Assign to (pick one or more)'}
               sheetFooter={!single && (
-                <Button variant="primary" onClick={() => setSheetOpen(false)} className="w-full h-11 font-display">
-                  {selectedIds.length ? `Done, ${selectedIds.length} selected` : 'Done'}
+                <Button variant="primary" onClick={() => onPickerOpenChange(false)} className="w-full h-11 font-display">
+                  {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
                 </Button>
               )}
             >
               <OptionList
                 multiple={!single}
                 options={sheetOptions}
-                selected={selectedIds}
+                selected={activeIds}
                 isLoading={isLoading}
                 emptyText="No assignable users"
                 searchPlaceholder="Search people…"
@@ -245,7 +254,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                 orderedUsers.map((u) => {
                   const name = nameOf(u);
                   const hint = hintOf(u);
-                  const checked = selectedIds.includes(u.id);
+                  const checked = activeIds.includes(u.id);
                   return (
                     <DropdownMenuCheckboxItem
                       key={u.id}

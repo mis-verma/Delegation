@@ -48,7 +48,7 @@ class ServerBootstrap {
 
     startRequestStatsFlush();
 
-    const isCronOwner = !cluster.isWorker || cluster.worker?.id === 1;
+    const isCronOwner = !cluster.isWorker || process.env.CRON_OWNER === "1";
     if (isCronOwner) {
       startSlaSweep();
       startChecklistInstanceGenerator();
@@ -129,11 +129,19 @@ const forkWorkerPool = (workerCount: number) => {
     console.log(`Sticky primary listening on http://localhost:${env.PORT}`);
   });
 
-  for (let i = 0; i < workerCount; i++) cluster.fork();
+  let cronWorkerId: number | null = null;
+  const forkWorker = () => {
+    const takesCron = cronWorkerId === null;
+    const worker = cluster.fork(takesCron ? { CRON_OWNER: "1" } : { CRON_OWNER: "0" });
+    if (takesCron) cronWorkerId = worker.id;
+  };
+
+  for (let i = 0; i < workerCount; i++) forkWorker();
 
   cluster.on("exit", (worker, code, signal) => {
     console.error(`Worker ${worker.id} died (code ${code}, signal ${signal}) — forking a replacement.`);
-    cluster.fork();
+    if (worker.id === cronWorkerId) cronWorkerId = null;
+    forkWorker();
   });
 };
 

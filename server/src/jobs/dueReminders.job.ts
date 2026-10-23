@@ -38,15 +38,24 @@ const ticketsDueSoon = async (now: Date) => {
     gt(tickets.tatDueAt, now),
     lte(tickets.tatDueAt, new Date(now.getTime() + DUE_SOON_MINUTES * MINUTE_MS)),
   )).orderBy(asc(tickets.tatDueAt)).limit(BATCH);
-  const done: string[] = [];
-  for (const t of rows) {
-    await notificationService.notifyTicketDueSoon({
-      _id: t.id, title: t.title, assigneeId: t.assigneeId, departmentId: t.departmentId,
-      minutesLeft: minutesUntil(t.tatDueAt!, now), dueAt: orgClock(t.tatDueAt!),
-    });
-    done.push(t.id);
-  }
+  const done = await sendEach(rows, (t) => notificationService.notifyTicketDueSoon({
+    _id: t.id, title: t.title, assigneeId: t.assigneeId, departmentId: t.departmentId,
+    minutesLeft: minutesUntil(t.tatDueAt!, now), dueAt: orgClock(t.tatDueAt!),
+  }));
   if (done.length) await db.update(tickets).set({ dueSoonNotifiedAt: now }).where(inArray(tickets.id, done));
+};
+
+const sendEach = async <T extends { id: string }>(rows: T[], send: (row: T) => Promise<unknown>): Promise<string[]> => {
+  const sent: string[] = [];
+  for (const row of rows) {
+    try {
+      await send(row);
+      sent.push(row.id);
+    } catch (err) {
+      console.error(`due reminders: could not notify ${row.id}, will retry`, err);
+    }
+  }
+  return sent;
 };
 
 const ticketsOverdue = async (now: Date) => {
@@ -55,11 +64,7 @@ const ticketsOverdue = async (now: Date) => {
     notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']),
     gt(tickets.tatDueAt, new Date(now.getTime() - OVERDUE_LOOKBACK_MS)),
   )).orderBy(asc(tickets.tatDueAt)).limit(BATCH);
-  const done: string[] = [];
-  for (const t of rows) {
-    await notificationService.notifyTicketOverdue({ _id: t.id, title: t.title, assigneeId: t.assigneeId, departmentId: t.departmentId });
-    done.push(t.id);
-  }
+  const done = await sendEach(rows, (t) => notificationService.notifyTicketOverdue({ _id: t.id, title: t.title, assigneeId: t.assigneeId, departmentId: t.departmentId }));
   if (done.length) await db.update(tickets).set({ overdueNotifiedAt: now }).where(inArray(tickets.id, done));
 };
 
@@ -82,10 +87,8 @@ const tasksDueSoon = async (now: Date) => {
   )).orderBy(asc(tasks.dueDate)).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfTasks(rows.map((t) => t.id), new Map(rows.map((t) => [t.id, t.assigneeId])));
-  for (const t of rows) {
-    await notificationService.notifyTaskDueSoon({ _id: t.id, title: t.title, assigneeIds: people.get(t.id) ?? [], minutesLeft: minutesUntil(t.dueDate!, now), dueAt: orgClock(t.dueDate!) });
-  }
-  await db.update(tasks).set({ reminderSentAt: now }).where(inArray(tasks.id, rows.map((t) => t.id)));
+  const done = await sendEach(rows, (t) => notificationService.notifyTaskDueSoon({ _id: t.id, title: t.title, assigneeIds: people.get(t.id) ?? [], minutesLeft: minutesUntil(t.dueDate!, now), dueAt: orgClock(t.dueDate!) }));
+  if (done.length) await db.update(tasks).set({ reminderSentAt: now }).where(inArray(tasks.id, done));
 };
 
 const tasksOverdue = async (now: Date) => {
@@ -97,10 +100,8 @@ const tasksOverdue = async (now: Date) => {
   )).orderBy(asc(tasks.dueDate)).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfTasks(rows.map((t) => t.id), new Map(rows.map((t) => [t.id, t.assigneeId])));
-  for (const t of rows) {
-    await notificationService.notifyTaskOverdue({ _id: t.id, title: t.title, assigneeIds: people.get(t.id) ?? [], creatorId: t.userId });
-  }
-  await db.update(tasks).set({ overdueNotifiedAt: now }).where(inArray(tasks.id, rows.map((t) => t.id)));
+  const done = await sendEach(rows, (t) => notificationService.notifyTaskOverdue({ _id: t.id, title: t.title, assigneeIds: people.get(t.id) ?? [], creatorId: t.userId }));
+  if (done.length) await db.update(tasks).set({ overdueNotifiedAt: now }).where(inArray(tasks.id, done));
 };
 
 const unfinishedRun = sql`(

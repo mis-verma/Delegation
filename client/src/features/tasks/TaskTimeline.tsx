@@ -53,7 +53,7 @@ const TaskTimelineComponent = ({
 
     let total = Math.floor((axisEnd - axisStart) / DAY_MS) + 1;
     if (total > MAX_DAYS) {
-      axisStart = axisEnd - (MAX_DAYS - 1) * DAY_MS;
+      axisStart = startOfDay(new Date()) - Math.min(7, MAX_DAYS - 1) * DAY_MS;
       total = MAX_DAYS;
     }
 
@@ -228,6 +228,7 @@ const TaskTimelineComponent = ({
                     tabIndex={0}
                     onClick={() => onOpen(task)}
                     onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         onOpen(task);

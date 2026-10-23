@@ -87,7 +87,8 @@ export const Dashboard = () => {
         <main className="flex-1 min-w-0 relative">
           <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col`}>
+            <div className="min-h-full flex flex-col">
+            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
               <MaintenanceNotice settingsPath="/admin/settings" />
               {maintenanceMatch && isAdmin && (
                 <div
@@ -111,13 +112,13 @@ export const Dashboard = () => {
                 </div>
               </Suspense>
             </div>
+            <div className="hidden md:block">
+              <Footer />
+            </div>
+            </div>
           </PullToRefresh>
         </main>
       </div>
-      <div className="relative z-20 hidden md:block">
-        <Footer />
-      </div>
-
       <BottomNav />
     </div>
   );

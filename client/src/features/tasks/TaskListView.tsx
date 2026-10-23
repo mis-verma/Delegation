@@ -13,7 +13,7 @@ import {
   CATEGORY_CONFIG,
   type CardFieldVisibility,
 } from './cardFields';
-import { getChecklistProgress } from '../../lib/checklistProgress';
+import { getTaskChecklistProgress } from '../../lib/checklistProgress';
 import type { Task } from '../../api/task';
 
 interface TaskListViewProps {
@@ -48,7 +48,7 @@ const TaskListViewComponent = ({
       const priority = PRIORITY_MAP[task.priority];
       const overdue = isOverdueTask(task);
       const progress = subtaskProgress(task);
-      const checklist = getChecklistProgress(task.checklists ?? []);
+      const checklist = getTaskChecklistProgress(task);
       const department = task.departmentId ? departmentNames?.get(task.departmentId) : undefined;
       const isNew = newlyAssignedTaskIds?.has(task.id);
       const owners = taskAssigneeIds(task)
@@ -120,7 +120,7 @@ const TaskListViewComponent = ({
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap mt-auto">
-              {fields.status && <TaskStatusChip status={task.status} />}
+              {fields.status && <TaskStatusChip status={task.status} declined={!!task.declinedAt} />}
 
               <PriorityChip meta={priority} />
 

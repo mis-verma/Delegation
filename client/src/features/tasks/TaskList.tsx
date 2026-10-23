@@ -28,7 +28,7 @@ import { TaskOptionsDialog, type TaskScopeKey } from "./TaskOptionsDialog";
 import { PhoneScopeSwitch } from "../../components/phoneScopeSwitch/PhoneScopeSwitch";
 import { TaskQuickStats, type QuickFilterKey } from "./TaskQuickStats";
 import { type BoardGroupBy } from "./taskBoardGroups";
-import { CATEGORY_PREDICATES, SORT_COMPARATORS, isOverdueTask, type CategoryFilterKey, type TaskSortKey, type TaskFilters } from "./taskFilters";
+import { CATEGORY_PREDICATES, SORT_COMPARATORS, TASK_STATUS_FILTER_KEYS, isOverdueTask, type CategoryFilterKey, type TaskSortKey, type TaskFilters } from "./taskFilters";
 import { STATUS_LABEL, PRIORITY_MAP } from "./taskDisplay";
 import { useCardFieldVisibility, taskAssigneeIds } from "./cardFields";
 import { useAuth } from "../../context/AuthContext";
@@ -54,10 +54,13 @@ interface TaskListProps {
   emptyDescription?: string;
 }
 
+const isLiveTask = (t: Task) => !t.awaitingHeadApproval && !t.declinedAt && t.status !== 'draft';
+const isActiveTask = (t: Task) => isLiveTask(t) && t.status !== 'done' && t.status !== 'pending_approval';
+
 const QUICK_FILTER_PREDICATES: Record<QuickFilterKey, (t: Task) => boolean> = {
-  pending: (t) => t.status !== 'done',
-  completed: (t) => t.status === 'done',
-  due: (t) => !!t.dueDate && t.status !== 'done' && !isOverdueTask(t),
+  pending: isActiveTask,
+  completed: (t) => isLiveTask(t) && (t.status === 'done' || t.status === 'pending_approval'),
+  due: (t) => isActiveTask(t) && !isOverdueTask(t),
   delayed: isOverdueTask,
 };
 
@@ -75,8 +78,8 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
   const departmentId = searchParams.get('departmentId');
   const assigneeIds = searchParams.get('assigneeIds');
   const raisedByIds = searchParams.get('raisedByIds');
-  if (category) fromUrl.category = category as CategoryFilterKey;
-  if (status) fromUrl.status = status as Task['status'];
+  if (category && Object.hasOwn(CATEGORY_PREDICATES, category)) fromUrl.category = category as CategoryFilterKey;
+  if (status && (TASK_STATUS_FILTER_KEYS as readonly string[]).includes(status)) fromUrl.status = status as Task['status'];
   if (storeId) fromUrl.storeId = storeId;
   if (departmentId) fromUrl.departmentId = departmentId;
   if (assigneeIds) fromUrl.assigneeIds = assigneeIds.split(',');
@@ -88,6 +91,23 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
 
 const filtersStorageKey = (userId?: string, lockCategory?: CategoryFilterKey) =>
   `task-filters:${userId ?? 'anon'}${lockCategory ? `:${lockCategory}` : ''}`;
+
+const readSavedFilters = (userId?: string, lockCategory?: CategoryFilterKey): Partial<TaskFilters> | null => {
+  try {
+    const raw = localStorage.getItem(filtersStorageKey(userId, lockCategory));
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved.priority)) delete saved.priority;
+    if (!Array.isArray(saved.assigneeIds)) delete saved.assigneeIds;
+    if (!Array.isArray(saved.raisedByIds)) delete saved.raisedByIds;
+    if (!Array.isArray(saved.tagIds)) delete saved.tagIds;
+    if (saved.category !== undefined && !Object.hasOwn(CATEGORY_PREDICATES, saved.category)) delete saved.category;
+    if (saved.status !== undefined && saved.status !== 'all' && !(TASK_STATUS_FILTER_KEYS as readonly string[]).includes(saved.status)) delete saved.status;
+    return saved;
+  } catch {
+    return null;
+  }
+};
 
 export const TaskList = ({ userId, hideHeader = false, lockCategory, title, emptyTitle, emptyDescription }: TaskListProps = {}) => {
   const { user } = useAuth();
@@ -112,19 +132,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     const fromUrl = filtersFromUrl(searchParams);
     if (Object.keys(fromUrl).length) return withLock({ ...DEFAULT_FILTERS, ...fromUrl });
 
-    try {
-      const raw = localStorage.getItem(filtersStorageKey(user?.id, lockCategory));
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (!Array.isArray(saved.priority)) delete saved.priority;
-        if (!Array.isArray(saved.assigneeIds)) delete saved.assigneeIds;
-        if (!Array.isArray(saved.raisedByIds)) delete saved.raisedByIds;
-        if (!Array.isArray(saved.tagIds)) delete saved.tagIds;
-        return withLock({ ...DEFAULT_FILTERS, ...saved });
-      }
-    } catch {
-    }
-    return withLock(DEFAULT_FILTERS);
+    const saved = readSavedFilters(user?.id, lockCategory);
+    return withLock(saved ? { ...DEFAULT_FILTERS, ...saved } : DEFAULT_FILTERS);
   });
 
   const { data: tasks, isPending, isError, refetch: refetchTasks } = useTasksQuery(userId, true, filters.tagIds);
@@ -196,7 +205,9 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       isFirstFiltersRun.current = false;
       return;
     }
-    setFilters(prev => withLock({ ...prev, ...URL_TRACKED_DEFAULTS, ...filtersFromUrl(searchParams) }));
+    const fromUrl = filtersFromUrl(searchParams);
+    const source = Object.keys(fromUrl).length ? fromUrl : readSavedFilters(user?.id, lockCategory) ?? {};
+    setFilters(prev => withLock({ ...prev, ...URL_TRACKED_DEFAULTS, ...source }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -360,7 +371,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return inStore;
   }, [mineFiltered, filters.storeId, departmentStoreId, user, isAssignedToMe, isAssignedByMe]);
 
-  const filtered = useMemo(() => {
+  const optionFiltered = useMemo(() => {
     const categoryFiltered = scopeFiltered.filter(CATEGORY_PREDICATES[filters.category]);
     const priorityFiltered = filters.priority.length === 0 ? categoryFiltered : categoryFiltered.filter(t => filters.priority.includes(t.priority));
     const departmentFiltered = filters.departmentId ? priorityFiltered.filter(t => t.departmentId === filters.departmentId) : priorityFiltered;
@@ -371,21 +382,26 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       ? assigneeFiltered
       : assigneeFiltered.filter(t => filters.raisedByIds.includes(t.userId));
     const statusFiltered = filters.status === 'all' ? raisedByFiltered : raisedByFiltered.filter(t => t.status === filters.status);
-    return quickFilter ? statusFiltered.filter(QUICK_FILTER_PREDICATES[quickFilter]) : statusFiltered;
-  }, [scopeFiltered, filters, quickFilter]);
+    return statusFiltered;
+  }, [scopeFiltered, filters]);
+
+  const filtered = useMemo(
+    () => (quickFilter ? optionFiltered.filter(QUICK_FILTER_PREDICATES[quickFilter]) : optionFiltered),
+    [optionFiltered, quickFilter],
+  );
 
   const quickCounts = {
-    pending: scopeFiltered.filter(QUICK_FILTER_PREDICATES.pending).length,
-    completed: scopeFiltered.filter(QUICK_FILTER_PREDICATES.completed).length,
-    due: scopeFiltered.filter(QUICK_FILTER_PREDICATES.due).length,
-    delayed: scopeFiltered.filter(QUICK_FILTER_PREDICATES.delayed).length,
+    pending: optionFiltered.filter(QUICK_FILTER_PREDICATES.pending).length,
+    completed: optionFiltered.filter(QUICK_FILTER_PREDICATES.completed).length,
+    due: optionFiltered.filter(QUICK_FILTER_PREDICATES.due).length,
+    delayed: optionFiltered.filter(QUICK_FILTER_PREDICATES.delayed).length,
   };
 
   const sorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
 
   const activeChips: { key: string; label: string; onClear: () => void; scope?: boolean }[] = [
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
-    ...(!lockCategory && filters.category !== 'all' ? [{ key: 'category', label: `Category: ${filters.category === 'task' ? 'Direct Task' : filters.category === 'issue' ? 'Issues' : 'Delegations'}`, onClear: () => updateFilters({ category: 'all' }) }] : []),
+    ...(!lockCategory && filters.category !== 'all' ? [{ key: 'category', label: `Category: ${filters.category === 'task' ? 'Direct Task' : filters.category === 'issue' ? 'Issues' : filters.category === 'work' ? 'Delegations and tasks' : 'Delegations'}`, onClear: () => updateFilters({ category: 'all' }) }] : []),
     ...(filters.priority.length > 0 ? [{
       key: 'priority',
       label: `Priority: ${filters.priority.map(p => PRIORITY_MAP[p].label).join(', ')}`,
@@ -505,7 +521,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
             <TaskQuickStats
               counts={quickCounts}
-              total={scopeFiltered.length}
+              total={optionFiltered.length}
               active={quickFilter}
               onToggle={toggleQuickFilter}
               onClear={() => setQuickFilter(null)}

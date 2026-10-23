@@ -44,6 +44,15 @@ const loadAuthUser = (id: string) => cached(authUserKey(id), AUTH_USER_TTL_SECON
 
 const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+const OWNER_WRITE_PATHS = [/^\/auth(\/|$)/, /^\/users\/me(\/(password|avatar))?$/, /^\/notifications(\/|$)/];
+
+export const ownerMayWrite = (req: Request) => {
+    const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, '');
+    return OWNER_WRITE_PATHS.some((pattern) => pattern.test(path));
+};
+
+const effectiveRole = (role: Role): Role => (role === "OWNER" ? "PC" : role);
+
 export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
     const header = req.headers.authorization;
 
@@ -75,6 +84,10 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
         return next(AppError.forbidden('Choose your own password before you continue.'));
     }
 
+    if (currentUser.role === "OWNER" && !READ_ONLY_METHODS.has(req.method) && !ownerMayWrite(req)) {
+        return next(AppError.forbidden("The owner view is read only, so nothing can be changed from this account."));
+    }
+
     const viewAsId = req.headers["x-view-as"];
     if (typeof viewAsId === "string" && viewAsId && viewAsId !== payload.sub && currentUser.role === "ADMIN") {
         if (!READ_ONLY_METHODS.has(req.method)) {
@@ -86,7 +99,7 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
         }
         req.user = {
             sub: viewAsId,
-            role: target.role,
+            role: effectiveRole(target.role),
             departmentId: target.departmentId ?? undefined,
             storeId: target.storeId ?? undefined,
         };
@@ -96,7 +109,7 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
 
     req.user = {
         sub: payload.sub,
-        role: currentUser.role,
+        role: effectiveRole(currentUser.role),
         departmentId: currentUser.departmentId ?? undefined,
         storeId: currentUser.storeId ?? undefined,
     };

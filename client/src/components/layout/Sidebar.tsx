@@ -10,6 +10,7 @@ import { useTodoSummaryQuery } from '../../features/todo/hook';
 import { useTodayChecklistSummary } from './useNavBadges';
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import {
+  Crown,
   LayoutDashboard,
   LayoutGrid,
   ClipboardList,
@@ -128,6 +129,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   const isPC = user?.role === 'PC';
   const isManager = user?.role === 'MANAGER';
   const isSenior = user?.role === 'SENIOR';
+  const isOwner = user?.role === 'OWNER';
   const canBeNamedReviewer = !!user && !isAdmin && !isPC && !isManager && !isSenior && user.role !== 'APPROVAL_MANAGER';
   const { data: reviewQueue } = usePendingVerificationChecklistInstancesQuery(1, canBeNamedReviewer);
   const hasReviewsWaiting = canBeNamedReviewer && (reviewQueue?.pages[0]?.meta?.total ?? 0) > 0;
@@ -199,7 +201,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     active?.scrollIntoView({ block: 'nearest' });
   }, [location.pathname, location.search, isOpen]);
 
-  const navItems: NavItem[] = NAV.map((item) => {
+  const navItems: NavItem[] = (isOwner ? [] : NAV).map((item) => {
     if (item.label === 'Checklists') {
       return {
         ...item,
@@ -230,7 +232,14 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     return item;
   });
 
-  const adminNavItems: NavItem[] = [
+  const ownerNavItems: NavItem[] = [
+    { to: '/admin/owner', icon: Crown, label: 'Owner view', tint: 'primary' },
+    { to: '/admin', icon: LayoutDashboard, label: 'Overview', tint: 'info' },
+    { to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' },
+    { to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' },
+  ];
+
+  const adminNavItems: NavItem[] = isOwner ? ownerNavItems : [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics', tint: 'info' }] : []),
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' }] : []),
     ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' }] : []),

@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Grid3x3,
   Trophy,
+  Crown,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -61,6 +62,7 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 ];
 
 const NAV: AdminNavItem[] = [
+  { group: 'insights', to: '/admin/owner', icon: Crown, label: 'Owner view', end: false },
   { group: 'insights', to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
   { group: 'insights', to: '/admin/scores', icon: Trophy, label: 'Scores', end: false },
   { group: 'insights', to: '/team/fill', icon: Grid3x3, label: 'Checklist Fill', end: false },
@@ -118,7 +120,12 @@ export const AdminLayout = () => {
     .join('')
     .toUpperCase();
 
-  const nav = user?.role === 'ADMIN' ? NAV : NAV.filter((item) => item.to !== '/admin/system-health');
+  const OWNER_NAV_PATHS = ['/admin/owner', '/admin', '/admin/scores', '/team/fill'];
+  const nav = user?.role === 'ADMIN'
+    ? NAV
+    : user?.role === 'OWNER'
+      ? NAV.filter((item) => OWNER_NAV_PATHS.includes(item.to))
+      : NAV.filter((item) => item.to !== '/admin/system-health');
 
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches

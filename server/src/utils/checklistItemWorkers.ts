@@ -19,6 +19,28 @@ export const assertCanWorkChecklistItem = async (
     throw AppError.forbidden(message)
 }
 
+type TaskState = { status: string; declinedAt: Date | null; awaitingHeadApproval: boolean }
+
+export const assertTaskStateAllowsChecklistWork = (task: TaskState, user: AccessTokenPayload, options: { managing?: boolean } = {}) => {
+    if (user.role === "ADMIN") return
+    if (task.declinedAt) throw AppError.forbidden("This delegation was declined, so its checklist can't be changed.")
+    if (task.awaitingHeadApproval && !options.managing) throw AppError.forbidden("The department head has to approve this delegation before its checklist can be worked on.")
+    if (task.status === "done" || task.status === "pending_approval") {
+        throw AppError.forbidden("This delegation is closed or waiting for review, so its checklist can't be changed.")
+    }
+}
+
+export const assertChecklistOpenForWork = async (user: AccessTokenPayload, taskChecklistId: string | null) => {
+    if (!taskChecklistId || user.role === "ADMIN") return
+    const [row] = await db.select({ status: tasks.status, declinedAt: tasks.declinedAt, awaitingHeadApproval: tasks.awaitingHeadApproval, deletedAt: tasks.deletedAt })
+        .from(taskChecklists)
+        .innerJoin(tasks, eq(tasks.id, taskChecklists.taskId))
+        .where(eq(taskChecklists.id, taskChecklistId))
+        .limit(1)
+    if (!row || row.deletedAt) throw AppError.notFound("Delegation not found")
+    assertTaskStateAllowsChecklistWork(row, user)
+}
+
 export const taskChecklistWorkerIds = async (taskChecklistId: string): Promise<string[]> => {
     const [row] = await db.select({ taskId: tasks.id, assigneeId: tasks.assigneeId })
         .from(taskChecklists)

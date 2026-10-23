@@ -261,7 +261,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     id: targetId,
     from: previousAsked.from,
     to: previousAsked.to,
-    enabled: ready && activeView !== 'trend',
+    enabled: ready && activeView !== 'trend' && (compare || glance),
   });
   const previous = compare && !simple && !glance ? previousQuery.data : undefined;
 
@@ -279,7 +279,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     const win = `&dueFrom=${encodeURIComponent(due.start)}&dueTo=${encodeURIComponent(due.end)}`;
     if (scope === 'org') {
       if (module === 'checklist') return late ? '/team/fill/compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
-      return module === 'ticket' ? `/tickets?quickFilter=${quick}${win}` : `/tasks?quickFilter=${quick}&category=delegation${win}`;
+      return module === 'ticket' ? `/tickets?quickFilter=${quick}${win}` : `/tasks?quickFilter=${quick}&category=work${win}`;
     }
     if (module === 'delegation') {
       if (scope === 'person') return mine ? `/tasks?quickFilter=${quick}&mine=1${win}` : `/tasks?quickFilter=${quick}&assigneeIds=${id}${win}`;
@@ -427,7 +427,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       ? `Your department${data?.name ? `, ${data.name}` : ''}.`
       : scope === 'person' && !targetId
         ? 'Your own scores. Pick someone to look at them instead.'
-        : undefined;
+        : scope === 'person'
+          ? `Showing ${data?.name ?? 'this person'}. Choose Me to see your own.`
+          : scope === 'department'
+            ? `Showing ${data?.name ?? 'this department'}.`
+            : `Showing ${data?.name ?? 'this store'}.`;
 
   return (
     <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
@@ -559,7 +563,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2">
                 <span className="min-w-0">
                   <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
-                  <span className="block t-meta text-text-muted">Shows the change under the chart</span>
+                  <span className="block t-meta text-text-muted">Shows the change on the score and under each bar</span>
                 </span>
                 <Switch checked={compare} onChange={setCompare} />
               </label>
@@ -586,7 +590,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               <ScoreHero
                 facts={heroFacts(data)}
                 loading={loading}
-                changePts={heroChange}
+                changePts={compare || glance ? heroChange : null}
               />
             )}
             {activeView === 'bars' ? (

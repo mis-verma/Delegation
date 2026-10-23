@@ -3,6 +3,7 @@ import { Trash2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDeleteTaskChecklistMutation } from './hook';
 import type { TaskChecklist } from '../../api/taskChecklist';
 import { ChecklistItemRow } from './ChecklistItemRow';
+import { useConfirm } from '../../components';
 
 export const ChecklistBlock = ({
   checklist, taskId, isAdmin, currentUserId, workerIds = [],
@@ -15,6 +16,17 @@ export const ChecklistBlock = ({
 }) => {
   const [open, setOpen] = useState(true);
   const deleteChecklist = useDeleteTaskChecklistMutation(taskId);
+  const confirm = useConfirm();
+  const askDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this checklist?',
+      description: 'Its items and any photos on them will be removed.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep it',
+      variant: 'danger',
+    });
+    if (ok) deleteChecklist.mutate(checklist.id);
+  };
   const doneCount = checklist.items.filter(i => i.isDone).length;
   const progress = checklist.items.length ? (doneCount / checklist.items.length) * 100 : 0;
   const isComplete = progress === 100;
@@ -70,7 +82,7 @@ export const ChecklistBlock = ({
         {isAdmin && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); deleteChecklist.mutate(checklist.id); }}
+            onClick={(e) => { e.stopPropagation(); void askDelete(); }}
             disabled={deleteChecklist.isPending}
             className="flex items-center justify-center size-8 pointer-coarse:size-10 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
             title="Delete checklist"

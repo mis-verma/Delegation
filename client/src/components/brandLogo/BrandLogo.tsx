@@ -57,10 +57,9 @@ export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClass
           </>
         )}
         <g filter={tile ? `url(#${lift})` : undefined} stroke={tile ? '#ffffff' : 'currentColor'} strokeLinejoin="round" className={tile ? undefined : 'text-primary-700 dark:text-white'}>
-          <rect x="10" y="9" width="20" height="24" rx="4.2" strokeWidth="2.8" />
-          <rect x="15" y="6.4" width="10" height="6" rx="2.4" fill={tile ? '#ffffff' : 'currentColor'} stroke="none" />
-          <path d="M14.4 19.2l2.1 2.1 3.9-4.6M14.4 27.2l2.1 2.1 3.9-4.6" strokeWidth="2.4" />
-          <path d="M23.2 19.6h4.2M23.2 27.6h4.2" strokeWidth="2.4" />
+          <circle cx="20" cy="24.5" r="10.5" strokeWidth="4" />
+          <path d="M20 3.2l3.6 3.8-3.6 3.8-3.6-3.8z" fill={tile ? '#ffffff' : 'currentColor'} stroke="none" />
+          <path d="M16 24.8l3 3 5.2-6.6" strokeWidth="3.4" />
         </g>
       </svg>
 

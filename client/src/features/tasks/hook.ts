@@ -37,7 +37,7 @@ const fetchAllTaskPages = async (userId?: string, tagIds?: string[]): Promise<Ta
     const all: Task[] = [];
     let meta: ListMeta | undefined;
     for (let page = 1; page <= MAX_LIST_PAGES; page++) {
-        const res = await taskApi.getAll(userId, undefined, page, LIST_PAGE_SIZE, tagIds);
+        const res = await taskApi.getAll(userId, undefined, page, LIST_PAGE_SIZE, tagIds, undefined, true);
         all.push(...res.data);
         meta = res.meta;
         if (!res.meta?.hasNext) break;
@@ -216,7 +216,7 @@ export const useVerifyTaskMutation = () =>
             taskApi.verify(id, payload),
         setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
         invalidateKeys: [['tasks']],
-        successMessage: (updatedTask) => (updatedTask.status === 'done' ? 'Delegation approved' : 'Delegation sent back'),
+        successMessage: (updatedTask) => (updatedTask.status === 'done' ? 'Delegation approved' : updatedTask.status === 'pending_approval' ? 'Approved, now with the PC' : 'Delegation sent back'),
         retryable: true,
         errorFallback: "Couldn't save the decision on the delegation. Try again.",
     });

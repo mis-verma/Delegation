@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, CheckSquare, Library, AlertCircle } from 'lucide-react';
-import { Button, Input, ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft } from '../../components';
+import { Button, Combobox, Input, ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft } from '../../components';
 import {
   useAddTaskChecklistMutation,
   useAssignableUsersQuery,
@@ -74,16 +74,12 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
           </div>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 sm:w-64">
-              <select
+              <Combobox
                 value={templateId}
-                onChange={e => setTemplateId(e.target.value)}
-                className="w-full px-3 py-2 text-sm text-text-secondary bg-surface rounded-lg border border-border shadow-xs focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all appearance-none cursor-pointer"
-              >
-                <option value="">Select a template...</option>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+                onChange={setTemplateId}
+                options={templates.map(t => ({ value: t.id, label: t.name }))}
+                placeholder="Select a template..."
+              />
             </div>
             <Button
               size="sm"

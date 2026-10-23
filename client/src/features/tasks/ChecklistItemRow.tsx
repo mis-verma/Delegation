@@ -1,5 +1,6 @@
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useState } from 'react';
+import { useConfirm } from '../../components';
 import {
   Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle, MessageSquarePlus
 } from 'lucide-react';
@@ -31,6 +32,17 @@ export const ChecklistItemRow = ({
   const updateRemarks = useUpdateTaskItemRemarksMutation(taskId);
   const completeItem  = useCompleteTaskChecklistItemMutation(taskId);
   const deleteItem    = useDeleteTaskChecklistItemMutation(taskId);
+  const confirm = useConfirm();
+  const askDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this item?',
+      description: 'Any photos on it will be removed.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep it',
+      variant: 'danger',
+    });
+    if (ok) deleteItem.mutate(item.id);
+  };
   const uploadImages  = useUploadTaskImagesMutation(taskId);
   const deleteImage   = useDeleteTaskImageMutation(taskId);
 
@@ -111,7 +123,7 @@ export const ChecklistItemRow = ({
           {isAdmin && (
             <button
               type="button"
-              onClick={() => deleteItem.mutate(item.id)}
+              onClick={() => void askDelete()}
               disabled={deleteItem.isPending}
               className="flex items-center justify-center size-8 pointer-coarse:size-11 text-text-light hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
               title="Delete item"
@@ -209,7 +221,7 @@ export const ChecklistItemRow = ({
                 <button
                   type="button"
                   onClick={() => updateRemarks.mutate({ id: item.id, remarks })}
-                  disabled={updateRemarks.isPending || !remarks.trim()}
+                  disabled={updateRemarks.isPending || remarks === (item.remarks ?? '')}
                   className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
                 >
                   {updateRemarks.isPending && <Loader2 size={16} className="animate-spin" />}
@@ -232,8 +244,12 @@ export const ChecklistItemRow = ({
               )}
               <button
                 type="button"
-                onClick={() => completeItem.mutate(item.id)}
-                disabled={completeItem.isPending}
+                onClick={() => {
+                  const remarkChanged = remarks !== (item.remarks ?? '');
+                  const saved = remarkChanged ? updateRemarks.mutateAsync({ id: item.id, remarks }).then(() => true, () => false) : Promise.resolve(true);
+                  void saved.then((ok) => { if (ok) completeItem.mutate(item.id); });
+                }}
+                disabled={completeItem.isPending || updateRemarks.isPending}
                 className="ml-auto inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-10 px-3 rounded-lg bg-primary-600 text-white t-meta font-display font-semibold hover:bg-primary-700 active:scale-[0.985] cursor-pointer transition-[background-color,transform] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
                 {completeItem.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />}

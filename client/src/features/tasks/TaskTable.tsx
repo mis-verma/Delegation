@@ -97,6 +97,7 @@ const TaskTableComponent = ({
                   onClick={() => onOpen(task)}
                   tabIndex={0}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       onOpen(task);
@@ -118,7 +119,7 @@ const TaskTableComponent = ({
 
                   {fields.status && (
                     <td className={CELL_CLASS}>
-                      <TaskStatusChip status={task.status} />
+                      <TaskStatusChip status={task.status} declined={!!task.declinedAt} />
                     </td>
                   )}
 

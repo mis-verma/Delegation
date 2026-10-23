@@ -85,7 +85,8 @@ export const CATEGORY_CONFIG: Record<Task['category'], { label: string; icon: Lu
   delegation: { label: 'Delegation', icon: UserCheck, solid: 'bg-info' },
 };
 
-export const subtaskProgress = (task: { checklists?: { items: { isDone: boolean }[] }[] }) => {
+export const subtaskProgress = (task: { checklists?: { items: { isDone: boolean }[] }[]; checklistSummary?: { total: number; done: number } }) => {
+  if (!task.checklists?.length && task.checklistSummary) return task.checklistSummary.total > 0 ? { done: task.checklistSummary.done, total: task.checklistSummary.total } : null;
   const items = (task.checklists ?? []).flatMap(c => c.items);
   if (items.length === 0) return null;
   return { done: items.filter(i => i.isDone).length, total: items.length };

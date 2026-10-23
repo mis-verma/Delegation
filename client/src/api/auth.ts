@@ -1,8 +1,20 @@
 import { apiFetch } from './http';
 
-export type Role = 'ADMIN' | 'APPROVAL_MANAGER' | 'SENIOR' | 'MANAGER' | 'AGENT' | 'USER' | 'PC';
+export type Role = 'ADMIN' | 'APPROVAL_MANAGER' | 'SENIOR' | 'MANAGER' | 'AGENT' | 'USER' | 'PC' | 'OWNER';
 
 export const ADMIN_AREA_ROLES: readonly Role[] = ['ADMIN', 'PC'];
+
+export const OWNER_HOME = '/admin/owner';
+
+const OWNER_EXACT_PATHS = ['/admin', OWNER_HOME];
+const OWNER_PATH_PREFIXES = ['/admin/scores', '/team/fill', '/settings', '/get-app'];
+
+export const ownerMayVisit = (pathname: string): boolean => {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  return OWNER_EXACT_PATHS.includes(path) || OWNER_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+};
+
+export const homeFor = (role: Role): string => (role === 'OWNER' ? OWNER_HOME : ADMIN_AREA_ROLES.includes(role) ? '/admin' : '/');
 
 export const OWN_SCOPE_ROLES: readonly Role[] = ['AGENT', 'USER'];
 

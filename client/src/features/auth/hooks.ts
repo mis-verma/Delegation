@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { authApi, ADMIN_AREA_ROLES } from '../../api/auth';
+import { authApi, homeFor } from '../../api/auth';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthResponse, LoginPayload, ForgotPasswordPayload, ResetPasswordPayload, ResetPasswordCodePayload } from '../../api/auth';
 import { saveDeviceToken } from '../../lib/adminDevice';
@@ -22,7 +22,7 @@ const useCompleteLogin = () => {
       storeId:      user.storeId,
       mustChangePassword: user.mustChangePassword === true,
     });
-    navigate(ADMIN_AREA_ROLES.includes(user.role) ? '/admin' : '/', { replace: true });
+    navigate(homeFor(user.role), { replace: true });
   };
 };
 

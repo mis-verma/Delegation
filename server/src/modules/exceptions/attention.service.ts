@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, or, sql, type SQL } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import {
@@ -90,6 +90,7 @@ const scopeOf = (viewer: AccessTokenPayload, filter: { departmentId?: string; st
 const userScope = (scope: Scope): SQL | undefined =>
     and(
         eq(users.isActive, true),
+        ne(users.role, "OWNER"),
         scope.departmentId ? eq(users.departmentId, scope.departmentId) : undefined,
         scope.orgWide && scope.storeId ? eq(users.storeId, scope.storeId) : undefined,
     )

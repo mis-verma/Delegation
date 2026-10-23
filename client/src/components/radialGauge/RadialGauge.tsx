@@ -44,19 +44,19 @@ export const RadialGauge = ({
   const clampedPercent = Math.min(Math.max(percent, 0), 100);
 
   const [animatedPercent, setAnimatedPercent] = useState(clampedPercent);
-  const fromRef = useRef(clampedPercent);
+  const shownRef = useRef(clampedPercent);
   const frameRef = useRef<number | null>(null);
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     if (!isCircle) return;
-    const from = fromRef.current;
+    const from = shownRef.current;
     const to = clampedPercent;
     if (from === to) return;
 
     if (prefersReducedMotion) {
-      fromRef.current = to;
+      shownRef.current = to;
       return;
     }
 
@@ -67,11 +67,12 @@ export const RadialGauge = ({
     const tick = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1);
       const eased = 1 - (1 - t) ** 3;
-      setAnimatedPercent(from + (to - from) * eased);
+      const value = t < 1 ? from + (to - from) * eased : to;
+      shownRef.current = value;
+      setAnimatedPercent(value);
       if (t < 1) {
         frameRef.current = requestAnimationFrame(tick);
       } else {
-        fromRef.current = to;
         frameRef.current = null;
       }
     };

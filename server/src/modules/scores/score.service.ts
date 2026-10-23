@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, gte, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { departments, stores, users } from "../../db/schema/core.js"
@@ -182,7 +182,8 @@ export const scoreService = {
             db.select({ total: sql<number>`COUNT(*)`, active: sql<number>`COALESCE(SUM(${departments.isActive}), 0)` }).from(departments),
             db
                 .select({ active: sql<number>`COALESCE(SUM(${users.isActive}), 0)`, joined: sql<number>`COALESCE(SUM(CASE WHEN ${users.isActive} = 1 AND ${users.createdAt} >= ${joinedSince} THEN 1 ELSE 0 END), 0)` })
-                .from(users),
+                .from(users)
+                .where(ne(users.role, "OWNER")),
             db
                 .select({ total: sql<number>`COUNT(*)` })
                 .from(departments)
@@ -325,7 +326,7 @@ export const scoreService = {
             db
                 .select(userCols)
                 .from(users)
-                .where(onlyDepartment ? eq(users.departmentId, onlyDepartment) : eq(users.isActive, true)),
+                .where(and(ne(users.role, "OWNER"), onlyDepartment ? eq(users.departmentId, onlyDepartment) : eq(users.isActive, true))),
             db.select({ id: departments.id, name: departments.name }).from(departments).where(onlyDepartment ? eq(departments.id, onlyDepartment) : undefined),
             db
                 .select({ id: tasks.id, ...taskCols, assigneeId: tasks.assigneeId, departmentId: tasks.departmentId })

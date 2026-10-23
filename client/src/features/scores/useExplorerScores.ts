@@ -7,7 +7,7 @@ import { explorerRowToScores } from './explorerAdapters';
 import { useScoreExplorer } from './useScoreExplorer';
 
 export const explorerParamsFor = (role: string | undefined, scope: ScoreScope, from: string, to: string): ExplorerParams | null => {
-  const orgWide = role === 'ADMIN' || role === 'PC';
+  const orgWide = role === 'ADMIN' || role === 'PC' || role === 'OWNER';
   const head = role === 'MANAGER' || role === 'SENIOR';
   if (!orgWide && !head) return null;
   if (scope === 'org') return orgWide ? { from, to, view: 'department' } : null;

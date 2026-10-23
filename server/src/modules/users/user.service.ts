@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { users, departments, stores, dressTypes, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
-import { eq, and, or, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, inArray, ne } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import { auditService } from "../audit/audit.service.js";
@@ -504,7 +504,7 @@ export const userService = {
             ? (isScoped ? storeIds.filter((id) => id === user.storeId) : storeIds)
             : undefined
 
-        const conditions = [eq(users.isActive, true)];
+        const conditions = [eq(users.isActive, true), ne(users.role, "OWNER")];
         if (effectiveDepartmentId) conditions.push(eq(users.departmentId, effectiveDepartmentId))
         if (effectiveStoreIds?.length) conditions.push(inArray(users.storeId, effectiveStoreIds))
         else if (effectiveStoreId) conditions.push(eq(users.storeId, effectiveStoreId))

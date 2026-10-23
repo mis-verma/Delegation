@@ -6,7 +6,7 @@ import { eq, count, inArray } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import { assertCanWorkChecklistItem, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
+import { assertCanWorkChecklistItem, assertChecklistOpenForWork, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; taskChecklistId: string | null }) =>
     assertCanWorkChecklistItem(
@@ -18,9 +18,19 @@ const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | 
 
 export const taskImageService = {
     async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
+        try {
+            return await taskImageService.storeUpload(itemId, files, captureMethod, user);
+        } catch (err) {
+            files.forEach((f) => fs.unlink(f.path, () => { }));
+            throw err;
+        }
+    },
+
+    async storeUpload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         await assertCanUpload(user, item);
+        await assertChecklistOpenForWork(user, item.taskChecklistId);
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
@@ -67,6 +77,7 @@ export const taskImageService = {
 
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, image.taskChecklistItemId)).limit(1);
         await assertCanUpload(user, item ?? { assigneeId: image.uploadedBy, taskChecklistId: null });
+        await assertChecklistOpenForWork(user, item?.taskChecklistId ?? null);
 
         const absolutePath = path.resolve(process.cwd(), "uploads", "tasks", path.basename(image.url));
         fs.unlink(absolutePath, (err) => {

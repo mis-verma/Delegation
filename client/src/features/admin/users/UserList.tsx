@@ -98,8 +98,8 @@ export const UserList = () => {
   const { mutate: deleteUser } = deleteMut;
 
   const handleEdit = useCallback((user: AdminUser) => {
-    if (me?.role === 'PC' && user.role === 'ADMIN') {
-      toast.info('Only an admin can change admin accounts.');
+    if (me?.role === 'PC' && (user.role === 'ADMIN' || user.role === 'OWNER')) {
+      toast.info('Only an admin can change admin and owner accounts.');
       return;
     }
     setEditingUser(user);

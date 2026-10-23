@@ -15,6 +15,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname === '/admin') {
     return null;
   }
+  if (pathname === '/admin/owner') {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Owner view' }];
+  }
   if (pathname.startsWith('/admin/scores')) {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores' }];
   }

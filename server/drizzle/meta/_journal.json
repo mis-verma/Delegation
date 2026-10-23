@@ -540,6 +540,13 @@
       "when": 1792770000000,
       "tag": "0076_task_head_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "5",
+      "when": 1792780000000,
+      "tag": "0077_owner_role",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } fr
 import { FolderKanban } from 'lucide-react';
 import { ComingSoon } from './components/comingSoon';
 import { useAuth } from './context/AuthContext';
-import { ADMIN_AREA_ROLES, type Role } from './api/auth';
+import { ADMIN_AREA_ROLES, OWNER_HOME, homeFor, ownerMayVisit, type Role } from './api/auth';
 import { Dashboard } from './features/dashboard';
 import { PublicLayout } from './components/layout';
 import { useTicketSocket } from './features/tickets/useTicketSocket';
@@ -32,6 +32,7 @@ const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(
 const ScoresPage = lazy(() => import('./features/scores').then(m => ({ default: m.ScoresPage })));
 const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ default: m.FillHub })));
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
+const OwnerPage = lazy(() => import('./features/owner').then(m => ({ default: m.OwnerPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const TicketApprovals = lazy(() => import('./features/tickets/TicketApprovals').then(m => ({ default: m.TicketApprovals })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
@@ -60,9 +61,11 @@ const ChecklistWeeklyReport = lazy(() => import('./features/checklist').then(m =
 
 const ProtectedRoute = () => {
   const { token, user } = useAuth();
+  const { pathname } = useLocation();
   const { data: maintenance } = usePublicSettingsQuery();
   if (!token) return <Navigate to="/login" replace />;
   if (user?.mustChangePassword) return <Suspense fallback={null}><ForcePasswordChange /></Suspense>;
+  if (user?.role === 'OWNER' && !ownerMayVisit(pathname)) return <Navigate to={OWNER_HOME} replace />;
   if (maintenance?.maintenanceMode && !(user && ADMIN_AREA_ROLES.includes(user.role))) {
     return <MaintenancePage message={maintenance.maintenanceMessage ?? undefined} />;
   }
@@ -76,7 +79,12 @@ const ProtectedRoute = () => {
 const AuthRoute = () => {
   const { token, user } = useAuth();
   if (!token) return <Outlet />;
-  return <Navigate to={user && ADMIN_AREA_ROLES.includes(user.role) ? '/admin' : '/'} replace />;
+  return <Navigate to={user ? homeFor(user.role) : '/'} replace />;
+};
+
+const HomeRoute = () => {
+  const { user } = useAuth();
+  return user?.role === 'OWNER' ? <Navigate to={OWNER_HOME} replace /> : <HomePage />;
 };
 
 const createRoleGuard = (...roles: Role[]) => () => {
@@ -85,7 +93,7 @@ const createRoleGuard = (...roles: Role[]) => () => {
   return user && roles.includes(user.role) ? <Outlet /> : <Navigate to="/" replace />;
 };
 
-const AdminRoute = createRoleGuard(...ADMIN_AREA_ROLES);
+const AdminRoute = createRoleGuard(...ADMIN_AREA_ROLES, 'OWNER');
 const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 
 const AdminOnlyRoute = createRoleGuard('ADMIN');
@@ -95,7 +103,12 @@ const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
 
 const AdminOverviewRoute = () => {
   const { user } = useAuth();
-  return user && ADMIN_AREA_ROLES.includes(user.role) ? <OrgOverview /> : <Navigate to="/admin/directory" replace />;
+  return user && [...ADMIN_AREA_ROLES, 'OWNER'].includes(user.role) ? <OrgOverview /> : <Navigate to="/admin/directory" replace />;
+};
+
+const OwnerRoute = () => {
+  const { user } = useAuth();
+  return user && [...ADMIN_AREA_ROLES, 'OWNER'].includes(user.role) ? <OwnerPage /> : <Navigate to="/admin/directory" replace />;
 };
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
@@ -190,7 +203,7 @@ const router = createBrowserRouter([
       {
         element: <Dashboard />,
         children: [
-          { path: '/', element: <HomePage /> },
+          { path: '/', element: <HomeRoute /> },
           {
             path: '/projects',
             element: (
@@ -298,6 +311,7 @@ const router = createBrowserRouter([
             ),
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
+              { path: '/admin/owner', element: <OwnerRoute /> },
               { path: '/admin/rankings', element: <RedirectToScores set={{ view: 'department' }} /> },
               { path: '/admin/scorecard', element: <ScorecardRedirect /> },
               { path: '/admin/checklist-store-daily', element: <RedirectToScores set={{ view: 'store' }} /> },
