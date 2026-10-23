@@ -80,7 +80,7 @@ export const DirectoryStats = ({ onOpen }: { onOpen: (tab: StatTab) => void }) =
             type="button"
             onClick={() => onOpen(t.tab)}
             style={{ '--stat-delay': `${index * 60}ms` } as CSSProperties}
-            className={cn(PANEL_CLASS, 'brand-tile border-white/15 stat-rise group flex min-w-0 cursor-pointer flex-col gap-2.5 p-3 text-left outline-none transition-all duration-150 hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:p-4')}
+            className={cn(PANEL_CLASS, 'stat-rise group flex min-w-0 cursor-pointer flex-col gap-2.5 p-3 text-left outline-none transition-all duration-150 hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:p-4')}
           >
             <span className="flex items-center justify-between gap-2">
               <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl text-white sm:size-10', t.tile)} aria-hidden="true">
@@ -96,7 +96,7 @@ export const DirectoryStats = ({ onOpen }: { onOpen: (tab: StatTab) => void }) =
             </span>
             <span className="flex min-w-0 flex-col gap-1.5">
               <span className="t-card font-display font-bold text-text">{t.label}</span>
-              {t.caption && <IconChip icon={t.caption.icon} tone={t.caption.tone} label={t.caption.text} className="self-start" />}
+              {t.caption && <IconChip icon={t.caption.icon} tone={t.caption.tone} label={t.caption.text} soft className="self-start" />}
             </span>
           </button>
         );

@@ -426,7 +426,7 @@ export const AdminLayout = () => {
           inert={!sidebarOpen}
           aria-label="Navigation menu"
           className={cn(
-            "brand-surface md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl border-r border-border px-4 pt-8 pb-6 transition-[translate] duration-300 ease-in-out focus:outline-none",
+            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate] duration-300 ease-in-out focus:outline-none",
             sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
@@ -463,7 +463,7 @@ export const AdminLayout = () => {
 
         <aside
           className={cn(
-            "brand-surface hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl border border-border",
+            "hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl bg-surface border border-border",
             "transition-all duration-300 ease-in-out overflow-hidden py-6",
             sidebarOpen ? "w-64 px-4" : "w-[84px] px-3"
           )}

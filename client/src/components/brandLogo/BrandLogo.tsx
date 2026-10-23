@@ -19,7 +19,6 @@ export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClass
   const shine = `karya-shine-${id}`;
   const shade = `karya-shade-${id}`;
   const lift = `karya-lift-${id}`;
-  const gold = `karya-gold-${id}`;
   return (
     <span className="inline-flex items-center gap-2 min-w-0">
       <svg
@@ -57,24 +56,11 @@ export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClass
             <rect x="0.5" y="0.5" width="39" height="39" rx="10.5" stroke="#ffffff" strokeOpacity="0.24" />
           </>
         )}
-        <defs>
-          <linearGradient id={gold} x1="-4" y1="-4" x2="4" y2="4" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#fff0b8" />
-            <stop offset="0.45" stopColor="#f0b93c" />
-            <stop offset="1" stopColor="#a86f0c" />
-          </linearGradient>
-        </defs>
-        <g filter={tile ? `url(#${lift})` : undefined}>
-          <g strokeWidth="5" strokeLinejoin="round" stroke={tile ? '#ffffff' : 'currentColor'} className={tile ? undefined : 'text-primary-700 dark:text-white'}>
-            <path d="M13.5 10.5V29.5" />
-            <path d="M15.8 20.6L24.4 12.4" />
-            <path d="M15.8 20.6L26.4 29.4" />
-          </g>
-          <g transform="translate(29.6 10.2) scale(1.2)">
-            <path d="M-4 -1.6L-2.3 -4H2.3L4 -1.6L0 4Z" fill={`url(#${gold})`} />
-            <path d="M-4 -1.6H4M-1.4 -4L-2 -1.6L0 4L2 -1.6L1.4 -4" stroke="#7a4f08" strokeOpacity="0.55" strokeWidth="0.45" strokeLinejoin="round" />
-            <path d="M-2.3 -4H2.3L1.6 -2.6H-1.6Z" fill="#ffffff" fillOpacity="0.6" />
-          </g>
+        <g filter={tile ? `url(#${lift})` : undefined} stroke={tile ? '#ffffff' : 'currentColor'} strokeLinejoin="round" className={tile ? undefined : 'text-primary-700 dark:text-white'}>
+          <rect x="10" y="9" width="20" height="24" rx="4.2" strokeWidth="2.8" />
+          <rect x="15" y="6.4" width="10" height="6" rx="2.4" fill={tile ? '#ffffff' : 'currentColor'} stroke="none" />
+          <path d="M14.4 19.2l2.1 2.1 3.9-4.6M14.4 27.2l2.1 2.1 3.9-4.6" strokeWidth="2.4" />
+          <path d="M23.2 19.6h4.2M23.2 27.6h4.2" strokeWidth="2.4" />
         </g>
       </svg>
 

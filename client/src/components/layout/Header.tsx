@@ -88,7 +88,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   ];
 
   return (
-    <header className={`brand-surface relative shrink-0 mx-3 mt-3 rounded-xl border border-white/15 z-30`}>
+    <header className={`relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30`}>
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {showBack && (
@@ -150,10 +150,10 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {user && <NotificationBell badgeRing={false} tone="dark" />}
+            {user && <NotificationBell badgeRing={false} />}
             <button
               onClick={toggleTheme}
-              className={cn(ICON_BUTTON_CLASS, 'hidden sm:inline-flex overflow-hidden', 'border-transparent text-white/80 hover:bg-white/10 hover:text-white')}
+              className={cn(ICON_BUTTON_CLASS, 'hidden sm:inline-flex overflow-hidden', 'hover:bg-coral-500/15 border-coral-500/15 bg-coral-500/[0.08] text-coral-600 dark:text-coral-300')}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >

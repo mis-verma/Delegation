@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
+import { Badge, type badgeVariants } from '../../components/ui/badge';
 import { Skeleton } from '../../components/skeleton';
 import { IconChip } from '../../components/iconChip';
 import { tintGradient } from './tintGradient';
 import { CountUp } from '../../components/countUp';
+import type { VariantProps } from 'class-variance-authority';
 
 interface StatCardProps {
   label: string;
@@ -27,14 +28,26 @@ interface StatCardProps {
   modern?: boolean;
 }
 
-const VALUE_TONE = { success: 'text-text', warning: 'text-text', danger: 'text-text' } as const;
+const VALUE_TONE = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const;
 
 type TrendMood = 'good' | 'bad' | 'flat';
+
+const TREND_STYLE: Record<TrendMood, string> = {
+  good: 'text-success bg-success/10 border-success/20',
+  bad: 'text-danger bg-danger/10 border-danger/20',
+  flat: 'text-text-muted bg-surface-hover border-border/60',
+};
 
 const TREND_STYLE_HIGHLIGHT: Record<TrendMood, string> = {
   good: 'text-white bg-white/20 border-white/30',
   bad: 'text-white bg-white/20 border-white/30',
   flat: 'text-white/80 bg-white/10 border-white/20',
+};
+
+const TREND_VARIANT: Record<TrendMood, NonNullable<VariantProps<typeof badgeVariants>['variant']>> = {
+  good: 'success',
+  bad: 'destructive',
+  flat: 'neutral',
 };
 
 const COMPACT_THRESHOLD = 10_000;
@@ -109,12 +122,12 @@ export const StatCard = ({
       ? decorative
         ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 overflow-hidden'
         : 'bg-gradient-to-br from-primary-600 to-primary-500'
-      : 'brand-tile border border-white/15 overflow-hidden'
+      : 'border border-border/60 bg-surface dark:border-white/[0.06] overflow-hidden'
   } ${
     isInteractive
       ? highlight
         ? 'cursor-pointer outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60 active:scale-[0.99]'
-        : 'cursor-pointer outline-none hover:border-white/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60 active:scale-[0.99]'
+        : 'cursor-pointer outline-none hover:border-primary-300 dark:hover:border-primary-500/50 focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50 active:scale-[0.99]'
       : ''
   }`;
 
@@ -239,14 +252,15 @@ export const StatCard = ({
               tone={trendMood === 'good' ? 'bg-success' : trendMood === 'bad' ? 'bg-danger' : 'bg-text-muted'}
               label={trend.label}
               labelClassName="tabular-nums"
+              soft
             />
           )}
 
           {hasTrend && !(modern && !highlight) && (
             <Badge
-              variant="outline"
+              variant={highlight ? 'outline' : TREND_VARIANT[trendMood]}
               className={`t-meta tabular-nums shrink-0 ${
-                TREND_STYLE_HIGHLIGHT[trendMood]
+                highlight ? TREND_STYLE_HIGHLIGHT[trendMood] : TREND_STYLE[trendMood]
               }`}
             >
               <TrendIcon size={12} strokeWidth={3} aria-hidden="true" />
@@ -265,7 +279,7 @@ export const StatCard = ({
               size={16}
               aria-hidden="true"
               className={`ml-auto shrink-0 opacity-70 sm:opacity-0 transition-opacity duration-200 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${
-                'text-white'
+                highlight ? 'text-white' : 'text-primary-600 dark:text-primary-400'
               }`}
             />
           )}

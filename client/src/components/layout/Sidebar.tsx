@@ -79,13 +79,13 @@ const NAV: NavItem[] = [
 const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settings', tint: 'neutral' };
 
 const TINTS: Record<string, { idle: string; active: string }> = {
-  primary: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  info: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  coral: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  success: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  warning: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  danger: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
-  neutral: { idle: 'bg-white/10 text-white/90', active: 'from-white/40 to-white/25' },
+  primary: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  info: { idle: 'bg-info/10 text-info', active: 'from-info to-info/75' },
+  coral: { idle: 'bg-coral-500/10 text-coral-600 dark:text-coral-400', active: 'from-coral-500 to-coral-600' },
+  success: { idle: 'bg-success/10 text-success', active: 'from-success to-success/75' },
+  warning: { idle: 'bg-warning/10 text-warning', active: 'from-warning to-warning/75' },
+  danger: { idle: 'bg-danger/10 text-danger', active: 'from-danger to-danger/75' },
+  neutral: { idle: 'bg-surface-hover text-text-muted', active: 'from-primary-500 to-primary-600' },
 };
 
 const isChildActive = (child: NavChild, location: { pathname: string; search: string }) =>
@@ -301,7 +301,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
-                  ? 'bg-white/20 text-white font-semibold'
+                  ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold'
                   : 'text-text-secondary font-medium hover:bg-surface-hover hover:text-text',
               ].join(' ')
             }
@@ -309,7 +309,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             {({ isActive }) => (
               <>
                 {!showLabel && (isActive || hasActiveChild) && (
-                  <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-full bg-white" />
+                  <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-full bg-primary-600 dark:bg-primary-400" />
                 )}
                 <span
                   className={[
@@ -569,7 +569,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
           swipeStartX.current = null;
         }}
-        className={`brand-surface md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 border-r border-border transition-[translate,box-shadow] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
+        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
           isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none pointer-events-none'
         }`}
       >
@@ -578,7 +578,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
       <div className="hidden md:block relative shrink-0 h-full z-20 p-3">
         <aside
-          className={`brand-surface flex flex-col h-full rounded-2xl border border-border overflow-hidden py-5 transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
+          className={`flex flex-col h-full rounded-2xl border border-border overflow-hidden py-5 bg-surface transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
             isOpen ? 'w-(--sidebar-width-expanded) px-4' : 'w-(--sidebar-width-collapsed) px-3'
           }`}
         >
@@ -591,7 +591,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             onClick={onToggleCollapse}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-white/30 bg-primary-600 text-white transition-all duration-200 cursor-pointer hover:bg-primary-500 active:scale-90"
+            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
           >
             {isOpen ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
           </button>
