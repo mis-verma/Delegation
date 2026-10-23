@@ -108,7 +108,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
               <button
                 type="button"
                 onClick={() => setPicking(true)}
-                className={cn('inline-flex', ICON_BUTTON, 'border border-primary-500/20 bg-primary-500/[0.07] text-primary-700 dark:text-primary-300 hover:bg-primary-500/15')}
+                className={cn('inline-flex', ICON_BUTTON, 'border border-border/60 bg-surface-hover/50 text-text-secondary hover:bg-surface-hover hover:text-text')}
                 title="Preview the app as someone else"
                 aria-label="Preview as a person"
               >
@@ -118,7 +118,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             <NotificationBell badgeRing={false} />
             <button
               onClick={toggleTheme}
-              className={cn('hidden sm:inline-flex', ICON_BUTTON, 'overflow-hidden border', 'hover:bg-coral-500/15 border-coral-500/15 bg-coral-500/[0.08] text-coral-600 dark:text-coral-300')}
+              className={cn('hidden sm:inline-flex', ICON_BUTTON, 'overflow-hidden border', 'border-border/60 bg-surface-hover/50 text-text-secondary hover:bg-surface-hover hover:text-text')}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >

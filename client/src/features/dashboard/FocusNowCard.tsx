@@ -31,7 +31,7 @@ interface FocusItem {
 const ORDER: Record<Reason, number> = { sentBack: 0, overdue: 1, submit: 2, dueToday: 3 };
 const SHOW = 6;
 
-const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 
 const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
 const TILE_DANGER = 'bg-linear-to-br from-danger to-danger/70';

@@ -199,8 +199,8 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
           : accent
             ? cn("text-primary-600 dark:text-primary-300 hover:bg-primary-500/10", open && "bg-primary-500/10")
             : cn(
-                "border-primary-500/15 bg-primary-500/[0.08] text-primary-600 dark:text-primary-300 hover:bg-primary-500/15",
-                open && "bg-primary-500/15"
+                "border-border/60 bg-surface-hover/50 text-text-secondary hover:bg-surface-hover hover:text-text",
+                open && "bg-surface-hover text-text"
               ),
         justArrived && !open && (tone === 'dark' ? 'text-white bg-white/10' : 'text-danger bg-danger/10')
       )}

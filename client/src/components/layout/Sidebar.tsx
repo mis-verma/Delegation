@@ -80,12 +80,12 @@ const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settin
 
 const TINTS: Record<string, { idle: string; active: string }> = {
   primary: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  info: { idle: 'bg-info/10 text-info', active: 'from-info to-info/75' },
-  coral: { idle: 'bg-coral-500/10 text-coral-600 dark:text-coral-400', active: 'from-coral-500 to-coral-600' },
-  success: { idle: 'bg-success/10 text-success', active: 'from-success to-success/75' },
-  warning: { idle: 'bg-warning/10 text-warning', active: 'from-warning to-warning/75' },
-  danger: { idle: 'bg-danger/10 text-danger', active: 'from-danger to-danger/75' },
-  neutral: { idle: 'bg-surface-hover text-text-muted', active: 'from-primary-500 to-primary-600' },
+  info: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  coral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  success: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  warning: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  danger: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  neutral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
 };
 
 const isChildActive = (child: NavChild, location: { pathname: string; search: string }) =>
@@ -173,12 +173,16 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   const navRef = useRef<HTMLElement>(null);
   const [navOverflowsBelow, setNavOverflowsBelow] = useState(false);
+  const [navOverflowsAbove, setNavOverflowsAbove] = useState(false);
 
   useEffect(() => {
     const el = navRef.current;
     if (!el) return;
 
-    const checkOverflow = () => setNavOverflowsBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    const checkOverflow = () => {
+      setNavOverflowsBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+      setNavOverflowsAbove(el.scrollTop > 4);
+    };
     checkOverflow();
 
     el.addEventListener('scroll', checkOverflow);
@@ -189,6 +193,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       resizeObserver.disconnect();
     };
   }, [expandedKeys, isOpen]);
+
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    active?.scrollIntoView({ block: 'nearest' });
+  }, [location.pathname, location.search, isOpen]);
 
   const navItems: NavItem[] = NAV.map((item) => {
     if (item.label === 'Checklists') {
@@ -485,6 +494,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             </>
           )}
         </nav>
+
+        {!isDrawer && navOverflowsAbove && (
+          <div
+            aria-hidden="true"
+            className="absolute top-0 left-0 right-1.5 z-10 h-6 bg-gradient-to-b from-surface to-transparent pointer-events-none"
+          />
+        )}
 
         {!isDrawer && navOverflowsBelow && (
           <div

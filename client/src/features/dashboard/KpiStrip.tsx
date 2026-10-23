@@ -113,8 +113,8 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 };
 
 const MINI_TONE = {
-  success: { box: 'bg-success/10 hover:bg-success/15', value: 'text-success' },
-  info: { box: 'bg-info/10 hover:bg-info/15', value: 'text-info' },
+  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-success' },
+  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-info' },
   neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
 } as const;
 
@@ -193,6 +193,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
     );
   }
   const failed = view.isError || view.pending == null;
+  const idle = !failed && (view.total ?? 0) === 0 && (view.pending ?? 0) === 0 && (view.completed ?? 0) === 0 && (view.newToday ?? 0) === 0 && view.overdue === 0;
   const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
   const tone = MODULE_TONE[view.key];
   return (
@@ -201,7 +202,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
       style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
       className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
     >
-      <span className={cn('absolute inset-x-0 top-0 h-1', tone.tile)} aria-hidden="true" />
+      <span className="absolute inset-x-0 top-0 h-1 bg-primary-500/70" aria-hidden="true" />
       <Link
         viewTransition
         to={view.href}
@@ -213,7 +214,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
         </span>
         <span className="min-w-0 flex-1">
           <h3 className="line-clamp-2 break-words leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
-          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}</span>}
+          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ''}</span>}
         </span>
         <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
           <span className="hidden sm:inline group-hover:underline">View all</span>
@@ -221,16 +222,21 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
         </span>
       </Link>
 
-      {failed ? (
+      {idle ? (
+        <div className="flex flex-1 flex-col justify-center gap-0.5 py-1">
+          <p className="t-card font-display font-semibold text-text">No {view.noun} yet</p>
+          <p className="t-meta text-text-muted">New ones show up here.</p>
+        </div>
+      ) : failed ? (
         <button type="button" onClick={view.onRetry} className="rounded-lg border border-border/60 px-3 py-3 text-left t-meta text-text-muted hover:border-border-hover">
           Couldn't load {view.noun}. Tap to try again.
         </button>
       ) : (
         <>
-          <div className="hidden sm:grid grid-cols-2 items-center gap-2">
+          <div className="hidden min-h-[7.75rem] grid-cols-2 items-center gap-2 sm:grid">
             <div className="flex min-w-0 flex-col items-start gap-1.5">
               <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-start rounded-xl px-1 py-0.5 text-left outline-none transition-all duration-150 hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('t-figure font-display font-extrabold leading-none tabular-nums', tone.text)}>
+                <span className={'t-figure font-display font-extrabold leading-none tabular-nums text-text'}>
                   <CountUp value={view.pending ?? 0} fromZero />
                 </span>
                 <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
@@ -264,7 +270,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
           <div className="flex flex-col gap-0.5 sm:hidden">
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg py-0.5 text-left outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('block t-figure font-display font-extrabold tabular-nums leading-none', tone.text)}>
+                <span className={'block t-figure font-display font-extrabold tabular-nums leading-none text-text'}>
                   <CountUp value={view.pending ?? 0} fromZero />
                 </span>
                 <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
@@ -292,9 +298,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
           <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
 
           <div className="hidden grid-cols-3 gap-1.5 text-center sm:grid">
-            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
+            <MiniStat label="Done" shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
             <MiniStat label="New today" shortLabel="New" value={view.newToday} tone="info" onClick={() => onOpen('newToday')} />
-            <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} shortLabel="Total" value={view.total} />
+            <MiniStat label="Total" shortLabel="Total" value={view.total} />
           </div>
 
           <div className="flex items-center border-t border-border/60 pt-1 sm:hidden">
