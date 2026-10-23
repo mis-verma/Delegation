@@ -57,8 +57,8 @@
   --color-white: #ffffff;
   --color-success-strong: #047857;
 
-  --font-sans: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Calibri", "Carlito", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Calibri", "Carlito", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 16.25rem;
@@ -411,6 +411,7 @@ body {
 
 @media (max-width: 639px) {
   :root {
+    --font-sans: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
     --font-display: var(--font-sans);
   }
 
