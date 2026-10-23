@@ -1,6 +1,6 @@
 import { memo, useId, useMemo, type CSSProperties, type ReactElement } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowDown, ArrowUp, ChevronRight, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
@@ -53,9 +53,7 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
             </div>
           </div>
         ))
-      ) : (
-        <p className="t-meta font-display text-text-muted">Nothing due</p>
-      )}
+      ) : null}
     </div>
   );
 };
@@ -106,9 +104,7 @@ const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: Seri
             </span>
             {r.hasData ? (
               interactive && <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
-            ) : (
-              <span className="t-meta font-display font-semibold text-text-light">Nothing due</span>
-            )}
+            ) : null}
           </span>
           {r.hasData && series.map((k) => (
             <span key={k} className="flex min-w-0 flex-col gap-1">
@@ -197,15 +193,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
             ))}
           </div>
         ) : allEmpty ? (
-          <div className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 px-4 py-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-text-light" aria-hidden="true">
-              <Trophy className="size-4.5" />
-            </span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="t-card font-display font-semibold text-text">{emptyText}</span>
-              <span className="t-meta text-text-muted">Bars appear once something comes due in this period.</span>
-            </div>
-          </div>
+          <div className="h-24 w-full rounded-xl bg-surface-hover/50 lg:h-64" />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: CHART_TOP, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '16%'} barGap={BAR_GAP}>

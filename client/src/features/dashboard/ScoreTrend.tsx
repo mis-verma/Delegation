@@ -132,7 +132,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
             <InlineError className="w-full" message="Couldn't load the trend." onRetry={() => void refetch()} />
           </div>
         ) : !anyData ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-border t-card font-medium text-text-muted">Nothing was due in this window.</div>
+          <div className="h-full w-full rounded-lg bg-surface-hover/50" />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>

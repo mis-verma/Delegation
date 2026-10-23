@@ -57,8 +57,8 @@
   --color-white: #ffffff;
   --color-success-strong: #047857;
 
-  --font-sans: "Inter", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Plus Jakarta Sans", "Inter", "Noto Sans Devanagari", "Segoe UI", sans-serif;
+  --font-sans: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 16.25rem;

@@ -61,7 +61,8 @@
        actual font fetch, which is a CORS request. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- Inter, not Poppins — Poppins' geometric, uniform-stroke letterforms read as soft/consumer-y
+  <!-- Josefin Sans is the one face for the whole app (owner's choice). It runs 100 to 700, so heavier
+       classes such as font-extrabold render at 700. The block below is the older note on why Inter was used before. Inter, not Poppins — Poppins' geometric, uniform-stroke letterforms read as soft/consumer-y
        rather than the crisper, more neutral feel the app wants; Inter is the de facto professional
        SaaS typeface (Linear, Notion, GitHub) and was designed specifically for UI text at small
        sizes, which this font-family swap is really about. Same weight coverage as before: 400/500/
@@ -69,7 +70,7 @@
        weight; 900 is what `font-black` uses). -->
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Plus+Jakarta+Sans:wght@200..800&family=Noto+Sans+Devanagari:wght@100..900&display=swap" />
+    href="https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+Devanagari:wght@100..900&display=swap" />
 
   <!-- No preconnect for the API: VITE_API_URL is `/api`, i.e. same-origin behind a reverse proxy,
        so there is no separate DNS/TLS handshake to warm. Add one here only if the API ever moves

@@ -51,10 +51,10 @@ const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-cent
 const CARD_TILE_TONE = {
   primary: 'bg-linear-to-br from-primary-500 to-primary-600',
   danger: 'bg-linear-to-br from-danger to-danger/70',
-  info: 'bg-linear-to-br from-info to-info/70',
-  coral: 'bg-linear-to-br from-coral-500 to-coral-600',
-  success: 'bg-linear-to-br from-success to-success/70',
-  warning: 'bg-linear-to-br from-warning to-warning/70',
+  info: 'bg-linear-to-br from-primary-500 to-primary-600',
+  coral: 'bg-linear-to-br from-primary-500 to-primary-600',
+  success: 'bg-linear-to-br from-primary-500 to-primary-600',
+  warning: 'bg-linear-to-br from-primary-500 to-primary-600',
 } as const;
 export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
 

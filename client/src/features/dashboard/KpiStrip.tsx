@@ -113,8 +113,8 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 };
 
 const MINI_TONE = {
-  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-success' },
-  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-info' },
+  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-primary-600 dark:text-primary-300' },
+  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-primary-600 dark:text-primary-300' },
   neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
 } as const;
 
@@ -139,14 +139,14 @@ const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { lab
 };
 
 const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }> = {
-  delegation: { tile: 'bg-linear-to-br from-coral-500 to-coral-600', text: 'text-coral-600 dark:text-coral-300', bar: 'bg-coral-500' },
-  tickets: { tile: 'bg-linear-to-br from-success to-success/70', text: 'text-success', bar: 'bg-info' },
-  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-500' },
-  todo: { tile: 'bg-linear-to-br from-warning to-warning/70', text: 'text-warning', bar: 'bg-warning' },
+  delegation: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
+  tickets: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
+  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
+  todo: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
 };
 
 const OnTrack = ({ className }: { className?: string }) => (
-  <IconChip icon={CheckCircle2} tone="bg-success" label="On track" labelClassName="text-success" className={cn('shrink-0 border-success/30 bg-success/10', className)} />
+  <IconChip icon={CheckCircle2} tone="bg-primary-600" label="On track" labelClassName="text-primary-700 dark:text-primary-300" className={cn('shrink-0 border-primary-500/30 bg-primary-500/10', className)} />
 );
 
 const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue: number; open: number; openClass: string }) => {
@@ -155,7 +155,7 @@ const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue
   const pct = (n: number) => `${(n / span) * 100}%`;
   return (
     <div role="img" aria-label={`${done} done, ${open - late} open, ${late} overdue`} className="flex h-1.5 w-full overflow-hidden rounded-full bg-border/50">
-      <span className="bar-grow h-full bg-success" style={{ width: pct(done) }} />
+      <span className="bar-grow h-full bg-primary-600" style={{ width: pct(done) }} />
       <span className="bar-grow h-full bg-danger" style={{ width: pct(late) }} />
       <span className={cn('bar-grow h-full', openClass)} style={{ width: pct(open - late) }} />
     </div>
@@ -170,7 +170,7 @@ const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { va
   return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score' };
 };
 
-const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
+const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 50 ? 'var(--color-primary-600)' : 'var(--color-danger)');
 
 const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string }; scopeTag?: string; index: number }) => {
   const Icon = view.icon;
@@ -224,8 +224,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
 
       {idle ? (
         <div className="flex flex-1 flex-col justify-center gap-0.5 py-1">
-          <p className="t-card font-display font-semibold text-text">No {view.noun} yet</p>
-          <p className="t-meta text-text-muted">New ones show up here.</p>
+          <div role="img" aria-label={`No ${view.noun} yet`} className="min-h-16 flex-1 rounded-xl bg-surface-hover/50" />
         </div>
       ) : failed ? (
         <button type="button" onClick={view.onRetry} className="rounded-lg border border-border/60 px-3 py-3 text-left t-meta text-text-muted hover:border-border-hover">
@@ -250,10 +249,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
               )}
             </div>
             {score.value === null ? (
-              <div className="flex flex-col items-center justify-center gap-1 border-l border-border/60 px-2 text-center">
-                <span className="t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'No to-dos yet' : 'No score yet'}</span>
-                <span className="t-meta text-text-light">{score.label === 'Done' ? 'Add one to start' : 'Shows when work is due'}</span>
-              </div>
+              <div role="img" aria-label={score.label === 'Done' ? 'No to-dos yet' : 'No score yet'} className="h-full min-h-24 rounded-xl bg-surface-hover/50" />
             ) : (
             <div className="flex flex-col items-center justify-center border-l border-border/60">
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
@@ -305,7 +301,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
 
           <div className="flex items-center border-t border-border/60 pt-1 sm:hidden">
             <button type="button" onClick={() => onOpen('completed')} className="flex min-h-9 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-success/10 active:bg-success/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="font-extrabold tabular-nums text-success">{view.completed ?? '-'}</span>
+              <span className="font-extrabold tabular-nums text-primary-600 dark:text-primary-300">{view.completed ?? '-'}</span>
               done
             </button>
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
