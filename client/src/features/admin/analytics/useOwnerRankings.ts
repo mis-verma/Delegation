@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { NO_DEPARTMENT_ROW_ID, type ScoreReportRow } from '../../../api/scores';
+import { NO_DEPARTMENT_ROW_ID, NO_STORE_ROW_ID, type ScoreReportRow } from '../../../api/scores';
 import { MIN_RANK_VOLUME, overallOf, totalDue } from '../../dashboard/scoreMetrics';
 import { explorerRowToReportRow } from '../../scores/explorerAdapters';
 import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
@@ -68,7 +68,7 @@ export const useOwnerRankings = (from?: string, to?: string) => {
     [departmentQuery.data, deptTat],
   );
   const storeRows: RankedRow[] = useMemo(
-    () => (storeQuery.data?.rows ?? []).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', storeTat.get(r.id) ?? null)),
+    () => (storeQuery.data?.rows ?? []).filter((r) => r.id !== NO_STORE_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', storeTat.get(r.id) ?? null)),
     [storeQuery.data, storeTat],
   );
 

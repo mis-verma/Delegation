@@ -82,6 +82,8 @@ export const onlyModule = (b: ModuleBlocks, module: ExplorerModule | undefined):
 
 export type ExplorerRowBase = { id: string; name: string; kind: ExplorerRowKind; parentId?: string; inactive?: boolean; left?: boolean; recurrence?: string; departmentId?: string | null; departmentName?: string }
 
+const CATCH_ALL_ROW_IDS: ReadonlySet<string> = new Set(["no-department", "no-store"])
+
 export const toExplorerRow = (base: ExplorerRowBase, blocks: ModuleBlocks, runsSharedWithOthers = 0): ExplorerRow => ({
     id: base.id,
     name: base.name,
@@ -121,8 +123,10 @@ export type ExplorerShape = { total: ExplorerRow; rows: ExplorerRow[]; unassigne
 
 export const shapeExplorer = (input: ExplorerShapeInput): ExplorerShape => {
     const { view, module, parentId } = input
-    const make = (r: ScoredRow, kind: ExplorerRowKind, shared = 0, extra: Partial<ExplorerRowBase> = {}) =>
-        toExplorerRow({ id: r.id, name: r.name, kind, parentId, left: r.left, inactive: r.inactive, ...extra }, onlyModule(r, module), shared)
+    const make = (r: ScoredRow, kind: ExplorerRowKind, shared = 0, extra: Partial<ExplorerRowBase> = {}) => {
+        const row = toExplorerRow({ id: r.id, name: r.name, kind, parentId, left: r.left, inactive: r.inactive, ...extra }, onlyModule(r, module), shared)
+        return CATCH_ALL_ROW_IDS.has(r.id) ? { ...row, rankable: false } : row
+    }
 
     const total = toExplorerRow({ id: input.total.id, name: input.total.name, kind: "total" }, onlyModule(input.total, module))
     let rows: ExplorerRow[] = []

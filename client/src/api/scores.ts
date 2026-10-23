@@ -60,6 +60,7 @@ export interface ScoreTrend {
 }
 
 export const NO_DEPARTMENT_ROW_ID = 'no-department';
+export const NO_STORE_ROW_ID = 'no-store';
 export const UNASSIGNED_ROW_ID = 'unassigned';
 
 export interface ScoreReportRow {
