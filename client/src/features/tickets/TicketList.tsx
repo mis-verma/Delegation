@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
-import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock } from 'lucide-react';
+import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { ticketMatchesDrill, useScoreDrill } from '../../lib/scoreDrill';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -204,35 +204,13 @@ export const TicketList = () => {
                 <span className="t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{draftCount}</span>
               </Button>
             )}
-            <div className="hidden md:flex items-center">
-              <Button
-                size="sm"
-                onClick={() => setShowForm(true)}
-                className={`h-9 font-display font-semibold ${isVerifier ? 'rounded-r-none' : ''}`}
-              >
-                <Plus size={16} strokeWidth={2.5} aria-hidden />
-                New ticket
-              </Button>
-              {isVerifier && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      aria-label="More ways to add tickets"
-                      className="h-9 px-2 rounded-l-none border-l-border/70"
-                    >
-                      <ChevronDown size={16} strokeWidth={2.5} aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 rounded-xl">
-                    <DropdownMenuItem onClick={() => setShowBulkImport(true)} className="gap-2.5 py-2 cursor-pointer">
-                      <Upload size={16} className="text-text-muted" />
-                      <span className="font-medium text-sm">Bulk import</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+            <CreateButton
+              label="New ticket"
+              onClick={() => setShowForm(true)}
+              className="hidden md:inline-flex"
+              menu={isVerifier ? [{ key: 'bulk', label: 'Bulk import', hint: 'Add many from an Excel sheet', icon: Upload, onSelect: () => setShowBulkImport(true) }] : undefined}
+              menuLabel="More ways to add tickets"
+            />
 
             <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TicketSettingsMenu

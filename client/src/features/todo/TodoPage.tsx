@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
 import { Fab } from '../../components';
@@ -121,18 +122,7 @@ export const TodoPage = () => {
 
           <CreatedRangePicker createdRange={dueRange} label="Due date" className="shrink-0" />
 
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="hidden md:inline-flex group items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
-          >
-            <span className="flex items-center gap-2 pl-3.5 pr-4">
-              <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
-                <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
-              </span>
-              New To-do
-            </span>
-          </button>
+          <CreateButton label="New to-do" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />
         </div>
       </div>
 

@@ -17,6 +17,8 @@ export { PageNav }         from './pagination';
 export { Skeleton, RouteFallback } from './skeleton';
 export { PullToRefresh }   from './pullToRefresh';
 export { Fab }              from './fab';
+export { CreateButton }     from './createButton';
+export type { CreateButtonProps, CreateMenuItem } from './createButton';
 export type { FabAction }   from './fab';
 export { Dropdown, SelectDropdown } from './dropdown';
 export type { DropdownAction, SelectDropdownOption } from './dropdown';

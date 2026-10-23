@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { CheckCircle2, CircleOff, LayoutGrid, ListFilter, Plus, Search, Table2, X } from 'lucide-react';
+import { CreateButton } from '../../../components/createButton';
+import { CheckCircle2, CircleOff, LayoutGrid, ListFilter, Search, Table2, X } from 'lucide-react';
 import {
   Button,
   Input,
@@ -84,18 +85,7 @@ export const OrgToolbar = ({
           {children}
         </OptionsSheet>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onNew}
-          onMouseEnter={onPreloadForm}
-          onFocus={onPreloadForm}
-          aria-label={newLabel}
-          className="group max-sm:size-11 max-sm:px-0"
-        >
-          <Plus className="size-4 sm:size-3.5 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
-          <span className="max-sm:sr-only">{newLabel}</span>
-        </Button>
+        <CreateButton label={newLabel} onClick={onNew} onPreload={onPreloadForm} />
       </div>
 
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>

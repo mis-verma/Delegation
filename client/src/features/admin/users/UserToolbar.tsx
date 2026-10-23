@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
+import { CreateButton } from '../../../components/createButton';
 import {
-  ArrowDownAZ, ArrowUpDown, Building2, Clock, Crown, LayoutGrid, MapPinOff, Plus, Search, ShieldCheck, Store, Table2,
+  ArrowDownAZ, ArrowUpDown, Building2, Clock, Crown, LayoutGrid, MapPinOff, Search, ShieldCheck, Store, Table2,
   UserCheck, UserX, Users, X, Activity, Layers, type LucideIcon,
 } from 'lucide-react';
 import {
@@ -237,18 +238,7 @@ export const UserToolbar = ({
 
         {exportMenu}
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onNew}
-          onMouseEnter={onPreloadForm}
-          onFocus={onPreloadForm}
-          aria-label="New user"
-          className="group max-sm:size-11 max-sm:px-0"
-        >
-          <Plus className="size-4 sm:size-3.5 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
-          <span className="max-sm:sr-only">New user</span>
-        </Button>
+        <CreateButton label="New user" onClick={onNew} onPreload={onPreloadForm} />
       </div>
 
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>

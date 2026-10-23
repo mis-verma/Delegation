@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { CreateButton } from '../../../components/createButton';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateScoreCaches } from '../../../lib/queryHelpers';
@@ -188,11 +189,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           <FileClock size={14} className="text-text-muted" />
           <span className="hidden sm:inline">Drafts{checklistDrafts?.length ? ` (${checklistDrafts.length})` : ''}</span>
         </Button>
-        <Button size="sm" variant="primary" onClick={() => navigate(BUILDER_PATH)}>
-          <Plus size={14} />
-          <span className="sm:hidden">New</span>
-          <span className="hidden sm:inline">New checklist</span>
-        </Button>
+        <CreateButton label="New checklist" onClick={() => navigate(BUILDER_PATH)} />
       </>
     )
   );

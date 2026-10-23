@@ -1,8 +1,9 @@
 import { useMemo, useState, lazy, Suspense } from "react";
+import { CreateButton } from '../../components/createButton';
 import { Plus, Tag, Building2, Users, Clock, Search, CircleOff, CirclePower } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import {
-  Button, Input, Skeleton, EmptyState, InlineError, useConfirm,
+  Input, Skeleton, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
@@ -152,10 +153,7 @@ export const CategoryList = () => {
             onChange={setStatus}
           />
         )}
-        <Button size="sm" variant="primary" aria-label="New category" className="gap-1.5 shrink-0 max-sm:size-11 max-sm:px-0 sm:ml-auto" onClick={() => setShowForm(true)}>
-          <Plus size={15} aria-hidden />
-          <span className="max-sm:sr-only">New category</span>
-        </Button>
+        <CreateButton label="New category" onClick={() => setShowForm(true)} className="sm:ml-auto" />
       </div>
 
       {renderContent()}

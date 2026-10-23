@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from "react-router";
 import { readKept, writeKept } from "../../lib/keptForm";
 import { toast } from "sonner";
-import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload, UserCheck, PenLine } from "lucide-react";
-import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
+import { Wand2, Save, Inbox, X, Plus, Upload, UserCheck, PenLine } from "lucide-react";
+import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { taskMatchesDrill, useScoreDrill } from "../../lib/scoreDrill";
 import { ExportDialog } from "../reports";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery, taskDetailQueryOptions } from "./hook";
 import { useTagsQuery } from "../tags/hook";
@@ -437,35 +437,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           
             {!userId && (
               <>
-                <div className="hidden md:flex items-center gap-1">
-                  <Button variant="primary" size="sm" onClick={() => setShowForm(true)} className="font-display">
-                    <Plus size={14} strokeWidth={2.5} />
-                    New delegation
-                  </Button>
-                  {isVerifier && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="px-2" aria-label="More ways to create">
-                          <ChevronDown size={14} strokeWidth={2.5} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" sideOffset={6} className="w-64 rounded-xl p-1.5">
-                        {[
-                          { key: 'smart', icon: Wand2, title: 'Smart Add', hint: 'Type it in plain words, the form fills itself', onClick: () => setShowSmartModal(true) },
-                          { key: 'bulk', icon: Upload, title: 'Bulk import', hint: 'Upload a sheet, create many at once', onClick: () => setShowBulkImport(true) },
-                        ].map(({ key, icon: ItemIcon, title: itemTitle, hint, onClick }) => (
-                          <DropdownMenuItem key={key} onClick={onClick} className="gap-3 px-2 py-2 rounded-lg cursor-pointer">
-                            <ItemIcon size={16} strokeWidth={2.25} className="shrink-0" />
-                            <span className="flex flex-col min-w-0 flex-1">
-                              <span className="text-sm font-display font-semibold text-text">{itemTitle}</span>
-                              <span className="t-meta text-text-muted leading-snug">{hint}</span>
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
+                <CreateButton
+                  label="New delegation"
+                  onClick={() => setShowForm(true)}
+                  className="hidden md:inline-flex"
+                  menu={isVerifier ? [
+                    { key: 'smart', label: 'Smart Add', hint: 'Type it in plain words, the form fills itself', icon: Wand2, onSelect: () => setShowSmartModal(true) },
+                    { key: 'bulk', label: 'Bulk import', hint: 'Upload a sheet, create many at once', icon: Upload, onSelect: () => setShowBulkImport(true) },
+                  ] : undefined}
+                />
 
                 <Fab
                   sheetTitle="Create"

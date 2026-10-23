@@ -26,8 +26,8 @@ const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
     'bg-danger text-white border border-transparent hover:bg-danger/90 focus-visible:ring-danger',
 };
 
-const PRIMARY_TOUCH_CLASS =
-  'pointer-coarse:bg-primary-800 dark:pointer-coarse:bg-primary-500 pointer-coarse:text-white pointer-coarse:disabled:bg-surface-active dark:pointer-coarse:disabled:bg-surface-active pointer-coarse:disabled:text-text';
+const PRIMARY_CLASS =
+  'bg-primary-800 text-white hover:bg-primary-900 dark:bg-primary-500 dark:hover:bg-primary-400 disabled:bg-surface-active dark:disabled:bg-surface-active disabled:text-text';
 const hasOwnBackground = (className: unknown) =>
   typeof className === 'string' && /(^|\s)(bg-|from-)/.test(className);
 
@@ -64,7 +64,7 @@ export function Button({
         'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100',
         sizeMap[size],
         variantMap[variant],
-        variant === 'primary' && !hasOwnBackground(className) && PRIMARY_TOUCH_CLASS,
+        variant === 'primary' && !hasOwnBackground(className) && PRIMARY_CLASS,
         className
       )}
       {...props}
