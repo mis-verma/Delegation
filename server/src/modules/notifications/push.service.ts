@@ -44,7 +44,7 @@ const unreadCounts = async (userIds: string[]) => {
 
 const sendOne = async (sub: typeof pushSubscriptions.$inferSelect, payload: Record<string, unknown>) => {
     try {
-        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), { TTL: 60 * 60 * 12, urgency: "normal" })
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), payload.urgent ? { TTL: 60 * 60 * 2, urgency: "high" } : { TTL: 60 * 60 * 12, urgency: "normal" })
         await db.update(pushSubscriptions).set({ lastUsedAt: new Date() }).where(eq(pushSubscriptions.id, sub.id))
     } catch (err) {
         const status = (err as { statusCode?: number }).statusCode

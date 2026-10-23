@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, Check, CheckCheck, BellRing, AlertCircle, ChevronRight, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { SwipeRow } from '../../components/swipeRow/SwipeRow';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router';
@@ -45,7 +45,6 @@ const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon
 );
 
 const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead, roomy = false }: NotificationListProps) => {
-  const dragged = useRef(false);
   if (isError) {
     return <NotificationEmpty icon={AlertCircle} tone="danger" title="Couldn't load notifications" hint="We couldn't reach the server. Check your connection and refresh the page." />;
   }
@@ -70,26 +69,13 @@ const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead,
               const canOpen = notificationPath(n) !== null;
               return (
                 <li key={n.id} className="relative overflow-hidden rounded-xl">
-                  {!n.isRead && (
-                    <span aria-hidden className="absolute inset-y-0 right-0 flex w-28 items-center justify-end gap-1.5 bg-primary-500/10 pr-4 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">
-                      <Check size={14} strokeWidth={2.5} />
-                      Mark read
-                    </span>
-                  )}
-                  <motion.div
-                    drag={n.isRead ? false : 'x'}
-                    dragDirectionLock
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={{ left: 0.5, right: 0 }}
-                    onDragStart={() => { dragged.current = true; }}
-                    onDragEnd={(_, info) => {
-                      window.setTimeout(() => { dragged.current = false; }, 80);
-                      if (info.offset.x < -72 || info.velocity.x < -600) onSwipeRead(n);
-                    }}
-                    className="relative bg-surface rounded-xl"
+                  <SwipeRow
+                    className="rounded-xl"
+                    left={n.isRead ? undefined : { label: 'Mark read', icon: <Check size={14} strokeWidth={2.5} />, tone: 'success', onTrigger: () => onSwipeRead(n) }}
                   >
+                  <div className="relative bg-surface rounded-xl">
                   <button
-                    onClick={() => { if (!dragged.current) onOpen(n); }}
+                    onClick={() => onOpen(n)}
                     className={cn(
                       'w-full flex items-start gap-2.5 px-2.5 py-2.5 rounded-xl text-left transition-colors duration-150 cursor-pointer touch-manipulation outline-none',
                       'focus-visible:ring-2 focus-visible:ring-primary-500/40',
@@ -125,7 +111,8 @@ const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead,
                       </div>
                     </div>
                   </button>
-                  </motion.div>
+                  </div>
+                  </SwipeRow>
                 </li>
               );
             })}

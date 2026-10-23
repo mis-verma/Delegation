@@ -55,21 +55,7 @@
     })();
   </script>
 
-  <!-- Fonts are requested from here rather than via `@import` in index.css, so the font CSS
-       downloads in parallel with our stylesheet instead of chaining behind it. gstatic (where the
-       woff2 files themselves live) needs `crossorigin` for the preconnect to be reused by the
-       actual font fetch, which is a CORS request. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- Calibri is the one face for the whole app (owner's choice). Calibri ships only with Windows and Office, so Carlito, the metric-compatible open font, is loaded from Google Fonts for every other device. Phones (under 640px) use Josefin Sans instead, set in index.css. Calibri and Carlito have regular and bold only, so heavier classes render bold there. The block below is the older note on why Inter was used before. Inter, not Poppins — Poppins' geometric, uniform-stroke letterforms read as soft/consumer-y
-       rather than the crisper, more neutral feel the app wants; Inter is the de facto professional
-       SaaS typeface (Linear, Notion, GitHub) and was designed specifically for UI text at small
-       sizes, which this font-family swap is really about. Same weight coverage as before: 400/500/
-       600/700/900 plus italic 400 (every italic in the app is muted placeholder text at regular
-       weight; 900 is what `font-black` uses). -->
-  <link
-    rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+Devanagari:wght@100..900&display=swap" />
+  <!-- Fonts are self-hosted (imported in main.tsx): Calibri on Windows, Carlito elsewhere, Josefin Sans on phones. No third-party font request, so text paints without waiting on another host. -->
 
   <!-- No preconnect for the API: VITE_API_URL is `/api`, i.e. same-origin behind a reverse proxy,
        so there is no separate DNS/TLS handshake to warm. Add one here only if the API ever moves

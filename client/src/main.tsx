@@ -1,6 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { installTapHaptics } from './lib/haptics';
+import '@fontsource/carlito/400.css';
+import '@fontsource/carlito/700.css';
+import '@fontsource-variable/josefin-sans/index.css';
+import '@fontsource-variable/noto-sans-devanagari/index.css';
 import './index.css';
 import App from './App.tsx';
 import { ThemeProvider } from './context/ThemeContext.tsx';

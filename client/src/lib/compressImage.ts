@@ -57,4 +57,8 @@ const shrinkOne = async (file: File): Promise<File> => {
   }
 };
 
-export const shrinkImages = (files: File[]): Promise<File[]> => Promise.all(files.map(shrinkOne));
+export const shrinkImages = async (files: File[]): Promise<File[]> => {
+  const shrunk: File[] = [];
+  for (const file of files) shrunk.push(await shrinkOne(file));
+  return shrunk;
+};

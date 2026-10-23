@@ -8,7 +8,7 @@ import { taskChecklistApi } from "../../api/taskChecklist";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { smartTaskConversationApi } from "../../api/smartTaskConversation";
 import type { SmartTaskConversationMessage, PatchSmartTaskConversationPayload } from "../../api/smartTaskConversation";
-import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage, ListMeta } from "../../api/task";
+import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage } from "../../api/task";
 import type {
     CreateTaskChecklistPayload,
     UpdateTaskChecklistItemPayload,
@@ -34,15 +34,16 @@ const LIST_PAGE_SIZE = 200;
 const MAX_LIST_PAGES = 20;
 
 const fetchAllTaskPages = async (userId?: string, tagIds?: string[]): Promise<TaskListPage> => {
-    const all: Task[] = [];
-    let meta: ListMeta | undefined;
-    for (let page = 1; page <= MAX_LIST_PAGES; page++) {
-        const res = await taskApi.getAll(userId, undefined, page, LIST_PAGE_SIZE, tagIds, undefined, true);
-        all.push(...res.data);
-        meta = res.meta;
-        if (!res.meta?.hasNext) break;
+    const first = await taskApi.getAll(userId, undefined, 1, LIST_PAGE_SIZE, tagIds, undefined, true);
+    const all: Task[] = [...first.data];
+    const lastPage = Math.min(first.meta?.totalPages ?? 1, MAX_LIST_PAGES);
+    if (first.meta?.hasNext && lastPage > 1) {
+        const rest = await Promise.all(
+            Array.from({ length: lastPage - 1 }, (_, i) => taskApi.getAll(userId, undefined, i + 2, LIST_PAGE_SIZE, tagIds, undefined, true)),
+        );
+        for (const res of rest) all.push(...res.data);
     }
-    const total = meta?.total ?? all.length;
+    const total = first.meta?.total ?? all.length;
     return {
         data: all,
         meta: { page: 1, limit: all.length, total, totalPages: 1, hasNext: all.length < total },

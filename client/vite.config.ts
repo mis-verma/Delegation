@@ -13,7 +13,7 @@ export default defineConfig({
     // this to every normal build, since the plugin does real work (parsing/gzipping every
     // module) that a routine `npm run build` shouldn't pay for.
     process.env.ANALYZE === 'true' &&
-      visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true, template: 'treemap' }),
+      visualizer({ filename: process.env.ANALYZE_TEMPLATE === 'raw-data' ? 'dist/stats.json' : 'dist/stats.html', gzipSize: true, brotliSize: true, template: (process.env.ANALYZE_TEMPLATE as 'treemap' | 'raw-data' | undefined) ?? 'treemap' }),
   ],
   resolve: {
     alias: {

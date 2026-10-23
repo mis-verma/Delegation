@@ -1,4 +1,5 @@
 import { apiFetch } from './http';
+import { shrinkImages } from '../lib/compressImage';
 
 export type Role = "ADMIN" | "APPROVAL_MANAGER" | "SENIOR" | "MANAGER" | "AGENT" | "USER" | "PC" | "OWNER";
 
@@ -117,9 +118,9 @@ export const adminApi = {
             body: JSON.stringify({ password }),
         }),
 
-    uploadAvatar: (id: string, file: File) => {
+    uploadAvatar: async (id: string, file: File) => {
         const formData = new FormData();
-        formData.append("avatar", file);
+        formData.append("avatar", (await shrinkImages([file]))[0]);
         return apiFetch<ApiResponse<AdminUser>>(`/users/${id}/avatar`, { method: "POST", body: formData });
     },
 

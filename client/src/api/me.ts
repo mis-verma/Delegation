@@ -1,4 +1,5 @@
 import { apiFetch } from './http';
+import { shrinkImages } from '../lib/compressImage';
 import type { Role } from './auth';
 import type { ApiResponse } from './admin';
 
@@ -37,9 +38,9 @@ export const meApi = {
   changePassword: (payload: ChangeMyPasswordPayload) =>
     apiFetch<ApiResponse<{ changed: boolean }>>('/users/me/password', { method: 'POST', body: JSON.stringify(payload) }),
 
-  uploadAvatar: (file: File) => {
+  uploadAvatar: async (file: File) => {
     const formData = new FormData();
-    formData.append('avatar', file);
+    formData.append('avatar', (await shrinkImages([file]))[0]);
     return apiFetch<ApiResponse<MyProfile>>('/users/me/avatar', { method: 'POST', body: formData });
   },
 
