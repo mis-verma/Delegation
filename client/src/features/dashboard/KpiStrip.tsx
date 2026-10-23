@@ -113,9 +113,9 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 };
 
 const MINI_TONE = {
-  success: { box: 'bg-success/10 hover:bg-success/15', value: 'text-success' },
-  info: { box: 'bg-info/10 hover:bg-info/15', value: 'text-info' },
-  neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
+  success: { box: 'bg-white/10 hover:bg-white/20', value: 'text-text' },
+  info: { box: 'bg-white/10 hover:bg-white/20', value: 'text-text' },
+  neutral: { box: 'bg-white/10 hover:bg-white/20', value: 'text-text' },
 } as const;
 
 const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { label: string; shortLabel: string; value: number | null; onClick?: () => void; tone?: keyof typeof MINI_TONE }) => {
@@ -146,7 +146,7 @@ const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }
 };
 
 const OnTrack = ({ className }: { className?: string }) => (
-  <IconChip icon={CheckCircle2} tone="bg-success" label="On track" labelClassName="text-success" className={cn('shrink-0 border-success/30 bg-success/10', className)} />
+  <IconChip icon={CheckCircle2} tone="bg-success" label="On track" className={cn('shrink-0', className)} />
 );
 
 const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue: number; open: number; openClass: string }) => {
@@ -199,9 +199,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
     <section
       aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title}
       style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
-      className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
+      className={cn(PANEL_CLASS, 'brand-tile border-white/15 stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
     >
-      <span className={cn('absolute inset-x-0 top-0 h-1', tone.tile)} aria-hidden="true" />
+      <span className="absolute inset-x-0 top-0 h-1 bg-white/30" aria-hidden="true" />
       <Link
         viewTransition
         to={view.href}
@@ -230,14 +230,14 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
           <div className="hidden sm:grid grid-cols-2 items-center gap-2">
             <div className="flex min-w-0 flex-col items-start gap-1.5">
               <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-start rounded-xl px-1 py-0.5 text-left outline-none transition-all duration-150 hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('t-figure font-display font-extrabold leading-none tabular-nums', tone.text)}>
+                <span className={'t-figure font-display font-extrabold leading-none tabular-nums text-text'}>
                   <CountUp value={view.pending ?? 0} fromZero />
                 </span>
                 <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
               </button>
               {view.overdue > 0 ? (
                 <button type="button" onClick={() => onOpen('overdue')} className="rounded-full outline-none transition-transform active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-danger/40">
-                  <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
+                  <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
                 </button>
               ) : (
                 <OnTrack />
@@ -264,7 +264,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
           <div className="flex flex-col gap-0.5 sm:hidden">
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg py-0.5 text-left outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={cn('block t-figure font-display font-extrabold tabular-nums leading-none', tone.text)}>
+                <span className={'block t-figure font-display font-extrabold tabular-nums leading-none text-text'}>
                   <CountUp value={view.pending ?? 0} fromZero />
                 </span>
                 <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
@@ -280,7 +280,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
             </div>
             {view.overdue > 0 ? (
               <button type="button" onClick={() => onOpen('overdue')} className="flex min-h-9 w-fit items-center rounded-full outline-none active:scale-[0.97] pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-danger/40">
-                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
+                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums" />
               </button>
             ) : (
               <div className="flex min-h-9 items-center pointer-coarse:min-h-11">
@@ -289,7 +289,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
             )}
           </div>
 
-          <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
+          <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass="bg-white/60" />
 
           <div className="hidden grid-cols-3 gap-1.5 text-center sm:grid">
             <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
@@ -298,13 +298,13 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
           </div>
 
           <div className="flex items-center border-t border-border/60 pt-1 sm:hidden">
-            <button type="button" onClick={() => onOpen('completed')} className="flex min-h-9 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-success/10 active:bg-success/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="font-extrabold tabular-nums text-success">{view.completed ?? '-'}</span>
+            <button type="button" onClick={() => onOpen('completed')} className="flex min-h-9 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-white/15 active:bg-white/20 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="font-extrabold tabular-nums text-text">{view.completed ?? '-'}</span>
               done
             </button>
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
-            <button type="button" onClick={() => onOpen('newToday')} className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-info/10 active:bg-info/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="font-extrabold tabular-nums text-info">{view.newToday ?? '-'}</span>
+            <button type="button" onClick={() => onOpen('newToday')} className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-white/15 active:bg-white/20 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="font-extrabold tabular-nums text-text">{view.newToday ?? '-'}</span>
               new
             </button>
           </div>

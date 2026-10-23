@@ -446,3 +446,35 @@ body {
     transition-duration: 1ms;
   }
 }
+
+.brand-surface {
+  background-image: linear-gradient(135deg, var(--color-primary-800) 0%, var(--color-primary-600) 62%, var(--color-primary-500) 100%);
+  --color-text: #ffffff;
+  --color-text-secondary: rgb(255 255 255 / 0.9);
+  --color-text-muted: rgb(255 255 255 / 0.74);
+  --color-text-light: rgb(255 255 255 / 0.6);
+  --color-surface: rgb(255 255 255 / 0.1);
+  --color-surface-hover: rgb(255 255 255 / 0.16);
+  --color-surface-active: rgb(255 255 255 / 0.22);
+  --color-border: rgb(255 255 255 / 0.2);
+  --color-border-hover: rgb(255 255 255 / 0.36);
+  color: #ffffff;
+}
+
+.brand-surface a[aria-current='page'] {
+  background-color: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+}
+
+.brand-tile {
+  background-image: linear-gradient(135deg, var(--color-primary-800) 0%, var(--color-primary-600) 100%);
+  --color-text: #ffffff;
+  --color-text-secondary: rgb(255 255 255 / 0.9);
+  --color-text-muted: rgb(255 255 255 / 0.76);
+  --color-text-light: rgb(255 255 255 / 0.6);
+  --color-surface: rgb(255 255 255 / 0.12);
+  --color-surface-hover: rgb(255 255 255 / 0.2);
+  --color-border: rgb(255 255 255 / 0.18);
+  --color-border-hover: rgb(255 255 255 / 0.4);
+  color: #ffffff;
+}

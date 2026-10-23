@@ -50,8 +50,6 @@ const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
 
 const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` });
 
-const LATE = new Set<string>(['delayed', 'overdue']);
-
 export function QuickFilterStats<K extends string>({
   tiles,
   counts,
@@ -73,7 +71,7 @@ export function QuickFilterStats<K extends string>({
   return (
     <div className="grid gap-1.5 sm:gap-3" style={gridStyle(shownTiles.length)}>
       {shownTiles.map((tile) => {
-        const { key, label, shortLabel, icon: Icon, bgTint, iconTint, accentBar, accentBorder } = tile;
+        const { key, label, shortLabel, icon: Icon, accentBar } = tile;
         const isTotalTile = hasTotal && key === 'all';
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
@@ -94,13 +92,13 @@ export function QuickFilterStats<K extends string>({
               'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              isActive ? cn(accentBorder, bgTint) : 'border-border bg-surface hover:border-border-hover',
+              'brand-tile border-white/15 hover:border-white/40', isActive && 'border-white/70 ring-2 ring-white/50',
             )}
           >
             <span className="min-w-0 max-w-full">
               <span className={cn(
                 'block t-stat font-extrabold sm:font-bold leading-none max-sm:tracking-tighter max-sm:break-all',
-                isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
+                count === 0 ? 'text-text-light' : 'text-text',
               )}>
                 <CountUp value={count} />
               </span>
