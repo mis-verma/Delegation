@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2, History, ChevronDown } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
+import { Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2, Plus } from 'lucide-react';
+import { Button, DateRangePicker, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { ActivitySheet } from '../../components/activitySheet';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
@@ -10,7 +12,8 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { TaskChecklistPanel } from './TaskChecklistPanel';
-import { STATUS_LABEL, NEXT_STATUS, endOfDay, PRIORITY_MAP } from './taskDisplay';
+import { STATUS_LABEL, NEXT_STATUS, endOfDay, PRIORITY_MAP, taskCode } from './taskDisplay';
+import { TaskDetailHeader } from './TaskDetailHeader';
 import { TaskStatusCard } from './TaskStatusCard';
 import { FORWARD_LABEL, BACK_STATUS, BACK_LABEL, CAN_HOLD, PUBLISH_REMARK, draftPublishProblem } from './taskStatusModel';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -97,7 +100,7 @@ const TitleEditor = ({ value, onSave, onDirtyChange, isViewMode }: EditorProps &
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   if (isViewMode) {
-    return <h2 className="t-card font-display font-semibold text-text leading-snug break-words select-text">{value}</h2>;
+    return <h2 className="t-title font-display font-bold text-text leading-snug break-words select-text">{value}</h2>;
   }
 
   const handleBlur = () => {
@@ -124,7 +127,7 @@ const TitleEditor = ({ value, onSave, onDirtyChange, isViewMode }: EditorProps &
         placeholder="Delegation title"
         aria-label="Delegation title"
         aria-invalid={emptyError || state === 'error'}
-        className="block t-card font-display font-semibold leading-snug w-full px-3 py-1 -ml-3 rounded-md border-0 bg-transparent text-text resize-none overflow-hidden outline-none transition-colors duration-150 ease-out focus:bg-surface-hover/50 focus:ring-2 focus:ring-primary-500/30"
+        className="block t-title font-display font-bold leading-snug w-full px-3 py-1 -ml-3 rounded-md border-0 bg-transparent text-text resize-none overflow-hidden outline-none transition-colors duration-150 ease-out focus:bg-surface-hover/50 focus:ring-2 focus:ring-primary-500/30"
       />
       {emptyError && <p role="alert" className="t-meta font-display font-medium text-danger">Title can't be empty</p>}
       {state === 'error' && <NotSaved onRetry={() => commit(text.trim())} />}
@@ -400,13 +403,46 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
   );
 };
 
-const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean }) => {
+const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean; isViewOnly: boolean }) => {
+  const [showStart, setShowStart] = useState(!!task.startDate);
+  const late = taskIsLate(task);
+  return (
+    <TicketPropertyRow
+      tileOnly
+      wide
+      label="Due"
+      icon={CalendarDays}
+      tone={dueTone(late)}
+      footer={!isViewOnly && canSetStart && !showStart ? (
+        <button
+          type="button"
+          onClick={() => setShowStart(true)}
+          className="self-start inline-flex items-center gap-1.5 h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
+          Add start day and time
+        </button>
+      ) : undefined}
+    >
+      {isViewOnly ? (
+        task.dueDate ? (
+          <span className={cn(PROPERTY_VALUE_CLASS, late && 'text-danger')}>
+            {task.startDate && !late ? `${formatRangeDate(task.startDate)} to ${taskDueWords(task.dueDate)}` : late ? `Late since ${formatRangeDate(task.dueDate)}` : taskDueWords(task.dueDate)}
+          </span>
+        ) : <span className="t-meta text-text-light">No due date</span>
+      ) : (
+        <TaskTimelineField task={task} onUpdate={onUpdate} showStart={showStart} />
+      )}
+    </TicketPropertyRow>
+  );
+};
+
+const TaskTimelineField = ({ task, onUpdate, showStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; showStart: boolean }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
   const savedKey = `${task.startDate ?? ''}|${task.dueDate ?? ''}`;
   const [draft, setDraft] = useState<DateRangeValue>({ from: fromSaved, to: toSaved });
   const [syncedKey, setSyncedKey] = useState(savedKey);
-  const [showStart, setShowStart] = useState(!!task.startDate);
   if (savedKey !== syncedKey) {
     setSyncedKey(savedKey);
     setDraft({ from: fromSaved, to: toSaved });
@@ -434,15 +470,6 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
         }}
         placeholder="Add due date"
       />
-      {canSetStart && !showStart && (
-        <button
-          type="button"
-          onClick={() => setShowStart(true)}
-          className="self-start inline-flex items-center h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-        >
-          Add start day and time
-        </button>
-      )}
     </div>
   );
 };
@@ -482,14 +509,12 @@ interface TaskEditLayoutProps {
   onDirtyChange: (field: 'title' | 'description', dirty: boolean) => void;
   onUpdate: (payload: UpdateTaskPayload) => void;
   onChangeDepartment: (departmentId: string | null) => void;
-  onDelete: (id: string) => void;
-  isDeleting: boolean;
 }
 
 const TaskEditLayout = ({
   task, isVerifier, isViewOnly, readOnlyReason, canEditText, canAttach, canRemoveFiles, currentUserId, canReassign, canAssign,
   allUsers, isLoadingUsers, departments, isLoadingDepts, saveLabel,
-  onSaveTitle, onSaveDescription, onDirtyChange, onUpdate, onChangeDepartment, onDelete, isDeleting,
+  onSaveTitle, onSaveDescription, onDirtyChange, onUpdate, onChangeDepartment,
 }: TaskEditLayoutProps) => {
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
   const selectedIds = taskAssigneeIds(task);
@@ -504,65 +529,19 @@ const TaskEditLayout = ({
   const raisedBy = task.userId === currentUserId ? 'You' : nameOf(task.userId);
   const created = new Date(task.createdAt);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [activityOpen, setActivityOpen] = useState(false);
   const onTitleDirty = useCallback((d: boolean) => onDirtyChange('title', d), [onDirtyChange]);
   const onDescriptionDirty = useCallback((d: boolean) => onDirtyChange('description', d), [onDirtyChange]);
   const approvedOrSentBack = task.verificationNote
     ? (task.status === 'done' && task.verifiedBy ? 'approved' : task.status !== 'done' ? 'sentBack' : null)
     : null;
 
-  return (
-  <div className="flex-1 min-h-0 flex flex-col">
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 max-w-2xl mx-auto w-full">
-
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-start justify-between gap-3">
-          <TitleEditor
-            value={task.title}
-            isViewMode={!canEditText}
-            onSave={onSaveTitle}
-            onDirtyChange={onTitleDirty}
-          />
-          {isVerifier && (
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={() => onDelete(task.id)}
-              aria-label="Delete delegation"
-              title="Delete delegation"
-              className="flex items-center justify-center size-8 pointer-coarse:size-11 shrink-0 rounded-full text-text-light hover:text-danger hover:bg-danger/10 active:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
-            >
-              {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-            </button>
-          )}
-        </div>
-        {saveLabel && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
-
-        <PlainDescriptionEditor
-          value={task.description ?? ''}
-          disabled={!canEditText}
-          onSave={onSaveDescription}
-          onDirtyChange={onDescriptionDirty}
-        />
-      </div>
-
-      {readOnlyReason && (
-        <NoticeBanner tone="neutral" icon={Info}>{readOnlyReason}</NoticeBanner>
-      )}
-
-      <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} />
-
-      <TaskHeadDecision task={task} departmentName={departmentName} nameOf={nameOf} />
-
-      {approvedOrSentBack && (
-        <NoticeBanner tone={approvedOrSentBack === 'approved' ? 'success' : 'warning'} icon={approvedOrSentBack === 'approved' ? ShieldCheck : ShieldX}>
-          <p className="font-bold">{approvedOrSentBack === 'approved' ? 'Approved' : 'Sent back for changes'}</p>
-          <p className="whitespace-pre-wrap break-words">{task.verificationNote}</p>
-        </NoticeBanner>
-      )}
-
+  const propertiesBlock = (
+    <aside
+      aria-label="Delegation properties"
+      className="flex flex-col gap-4 min-w-0 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:p-5"
+    >
       <div className="flex flex-col gap-2">
-        <dl className="grid grid-cols-2 gap-2">
+        <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-2">
           <TicketPropertyRow tileOnly wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
             <AssigneeField
               hideLabel
@@ -595,17 +574,7 @@ const TaskEditLayout = ({
             )}
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wide label="Due" icon={CalendarDays} tone={dueTone(taskIsLate(task))}>
-            {isViewOnly ? (
-              task.dueDate ? (
-                <span className={cn(PROPERTY_VALUE_CLASS, taskIsLate(task) && 'text-danger')}>
-                  {task.startDate && !taskIsLate(task) ? `${formatRangeDate(task.startDate)} to ${taskDueWords(task.dueDate)}` : taskIsLate(task) ? `Late since ${formatRangeDate(task.dueDate)}` : taskDueWords(task.dueDate)}
-                </span>
-              ) : <span className="t-meta text-text-light">No due date</span>
-            ) : (
-              <TaskTimelineField task={task} onUpdate={onUpdate} canSetStart={canReassign} />
-            )}
-          </TicketPropertyRow>
+          <TaskDueRow task={task} onUpdate={onUpdate} canSetStart={canReassign} isViewOnly={isViewOnly} />
         </dl>
 
         {!isViewOnly && !canReassign && (
@@ -630,56 +599,78 @@ const TaskEditLayout = ({
         iconOnly
         headingClassName={DETAIL_HEADING_CLASS}
       />
+    </aside>
+  );
 
-      <TaskAttachments
-        taskId={task.id}
-        attachments={task.attachments ?? []}
-        canEdit={canAttach}
-        canRemove={canRemoveFiles}
-        onPreview={setPreviewImage}
-      />
+  return (
+    <>
+      <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-x-8 lg:gap-y-5">
+        <div className="flex flex-col gap-4 sm:gap-5 min-w-0 lg:col-start-1">
+          <div className="flex flex-col gap-2">
+            <TitleEditor
+              value={task.title}
+              isViewMode={!canEditText}
+              onSave={onSaveTitle}
+              onDirtyChange={onTitleDirty}
+            />
+            {saveLabel && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
 
-    
-      {((task.checklists?.length ?? 0) > 0 || (isVerifier && !task.declinedAt && task.status !== 'done' && task.status !== 'pending_approval')) && (
-        <TaskChecklistPanel
-          taskId={task.id}
-          checklists={task.checklists ?? []}
-          isAdmin={isVerifier}
-          currentUserId={currentUserId}
-          workerIds={taskAssigneeIds(task)}
-        />
-      )}
+            <PlainDescriptionEditor
+              value={task.description ?? ''}
+              disabled={!canEditText}
+              onSave={onSaveDescription}
+              onDirtyChange={onDescriptionDirty}
+            />
+          </div>
 
-      {!task.declinedAt && <TaskStatusStepper task={task} nameOf={nameOf} />}
+          {readOnlyReason && (
+            <NoticeBanner tone="neutral" icon={Info}>{readOnlyReason}</NoticeBanner>
+          )}
 
-      <div className="flex flex-col gap-3 border-t border-border/50 pt-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
+          <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} hideChip />
+
+          <TaskHeadDecision task={task} departmentName={departmentName} nameOf={nameOf} />
+
+          {approvedOrSentBack && (
+            <NoticeBanner tone={approvedOrSentBack === 'approved' ? 'success' : 'warning'} icon={approvedOrSentBack === 'approved' ? ShieldCheck : ShieldX}>
+              <p className="font-bold">{approvedOrSentBack === 'approved' ? 'Approved' : 'Sent back for changes'}</p>
+              <p className="whitespace-pre-wrap break-words">{task.verificationNote}</p>
+            </NoticeBanner>
+          )}
+        </div>
+
+        {propertiesBlock}
+
+        <div className="flex flex-col gap-4 sm:gap-5 min-w-0 lg:col-start-1">
+          <TaskAttachments
+            taskId={task.id}
+            attachments={task.attachments ?? []}
+            canEdit={canAttach}
+            canRemove={canRemoveFiles}
+            onPreview={setPreviewImage}
+          />
+
+          {((task.checklists?.length ?? 0) > 0 || (isVerifier && !task.declinedAt && task.status !== 'done' && task.status !== 'pending_approval')) && (
+            <TaskChecklistPanel
+              taskId={task.id}
+              checklists={task.checklists ?? []}
+              isAdmin={isVerifier}
+              currentUserId={currentUserId}
+              workerIds={taskAssigneeIds(task)}
+            />
+          )}
+
+          {!task.declinedAt && <TaskStatusStepper task={task} nameOf={nameOf} />}
+
+          <p className="flex items-center gap-1.5 pt-3 border-t border-border/50 t-meta font-medium text-text-muted">
             <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
             {raisedBy ? `Raised by ${raisedBy}` : 'Raised'}, {formatStepDate(created)}, {formatStepTime(created)}
           </p>
-          <button
-            type="button"
-            onClick={() => setActivityOpen((o) => !o)}
-            aria-expanded={activityOpen}
-            className="inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 px-2.5 rounded-lg border border-border/60 bg-surface t-meta font-display font-semibold text-text-secondary hover:text-text hover:border-border-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            <History size={13} strokeWidth={2.25} aria-hidden="true" />
-            Activity and change log
-            <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${activityOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
-          </button>
         </div>
-        {activityOpen && (
-          <div className="flex flex-col gap-4">
-            <ActivityFeed entityType="Task" entityId={task.id} />
-            <FullChangeLog entityType="Task" entityId={task.id} />
-          </div>
-        )}
       </div>
-    </div>
 
-    <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
-  </div>
+      <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
+    </>
   );
 };
 
@@ -695,6 +686,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { user } = useAuth();
 
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [dirtyFields, setDirtyFields] = useState<{ title: boolean; description: boolean }>({ title: false, description: false });
   const handleDirtyChange = useCallback((field: 'title' | 'description', dirty: boolean) => {
     setDirtyFields((prev) => (prev[field] === dirty ? prev : { ...prev, [field]: dirty }));
@@ -772,73 +764,96 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const anySaved = fieldMutation.isSuccess || textMutation.isSuccess;
   const saveLabel = !canEditText ? null : anyFieldSaving ? 'Saving…' : anySaved ? 'Saved' : null;
 
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      dirty={dirtyFields.title || dirtyFields.description}
-      size="xl"
-      icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
-      title="Delegation"
-      bodyClassName="p-0 overflow-hidden rounded-b-xl"
-      footer={
-        <TaskFooter
-          task={task}
-          canMove={canMove}
-          canApprove={canApproveTicket(user, taskApprovalSubject(task))}
-          finalApproval={isFinalApproval(user, task)}
-          nextStatus={nextStatus}
-          onAdvance={() => {
-            if (task.status === 'draft') publish();
-            else if (nextStatus) setAdvanceTo(nextStatus);
-          }}
-          onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}
-          onBack={BACK_STATUS[task.status] ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
-          onReopen={task.status === 'done' && user?.role === 'ADMIN' ? () => setAdvanceTo('in_progress') : null}
-          isAdvancing={statusMutation.isPending}
-          onClose={onClose}
-        />
-      }
-    >
+  const dirty = dirtyFields.title || dirtyFields.description;
+  const requestClose = async () => {
+    if (!dirty) return onClose();
+    const ok = await confirm({
+      title: 'Discard changes?',
+      description: 'Your edits to this delegation will be lost.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      variant: 'danger',
+    });
+    if (ok) onClose();
+  };
+  const askDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this delegation?',
+      description: 'It is removed from the lists.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteMutation.mutate(task.id, { onSuccess: onClose });
+  };
+  const raisedByName = task.userId === user?.id ? 'You' : allUsers?.find((u) => u.id === task.userId)?.firstName;
+  const sheetRef = useRef<HTMLDivElement>(null);
 
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 md:min-h-[min(30rem,60dvh)]">
-        <TaskEditLayout
+  return (
+    <Sheet open onOpenChange={(v) => { if (!v) void requestClose(); }}>
+      <SheetContent
+        showCloseButton={false}
+        ref={sheetRef}
+        onInteractOutside={(e) => { if (dirty) e.preventDefault(); }}
+        onOpenAutoFocus={(e) => { e.preventDefault(); sheetRef.current?.focus({ preventScroll: true }); }}
+        className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
+      >
+        <TaskDetailHeader
           task={task}
-          isVerifier={isVerifier}
-          isViewOnly={isViewOnly}
-          readOnlyReason={readOnlyReason}
-          canEditText={canEditText}
-          canAttach={canAttach}
-          canRemoveFiles={canRemoveFiles}
-          currentUserId={user?.id}
-          canReassign={canReassign}
-          canAssign={canAssign}
-          allUsers={allUsers}
-          isLoadingUsers={isLoadingUsers}
-          departments={departments}
-          isLoadingDepts={isLoadingDepts}
-          saveLabel={saveLabel}
-          onSaveTitle={saveTitle}
-          onSaveDescription={saveDescription}
-          onDirtyChange={handleDirtyChange}
-          onUpdate={handleUpdate}
-          onChangeDepartment={(id) => void changeDepartment(id)}
-          onDelete={async (id: string) => {
-            const ok = await confirm({
-              title: 'Delete this delegation?',
-              description: 'It is removed from the lists.',
-              confirmLabel: 'Delete',
-              variant: 'danger',
-            });
-            if (ok) deleteMutation.mutate(id, { onSuccess: onClose });
-          }}
+          raisedBy={raisedByName}
+          onShowActivity={() => setActivityOpen(true)}
+          onDelete={isVerifier ? () => void askDelete() : undefined}
           isDeleting={deleteMutation.isPending}
         />
-      </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:px-8 lg:pt-2 lg:pb-6 custom-scrollbar">
+          <TaskEditLayout
+            task={task}
+            isVerifier={isVerifier}
+            isViewOnly={isViewOnly}
+            readOnlyReason={readOnlyReason}
+            canEditText={canEditText}
+            canAttach={canAttach}
+            canRemoveFiles={canRemoveFiles}
+            currentUserId={user?.id}
+            canReassign={canReassign}
+            canAssign={canAssign}
+            allUsers={allUsers}
+            isLoadingUsers={isLoadingUsers}
+            departments={departments}
+            isLoadingDepts={isLoadingDepts}
+            saveLabel={saveLabel}
+            onSaveTitle={saveTitle}
+            onSaveDescription={saveDescription}
+            onDirtyChange={handleDirtyChange}
+            onUpdate={handleUpdate}
+            onChangeDepartment={(id) => void changeDepartment(id)}
+          />
+        </div>
+
+        <div className="shrink-0 border-t border-border/60 bg-surface px-4 py-3 sm:px-6 lg:px-8">
+          <TaskFooter
+            task={task}
+            canMove={canMove}
+            canApprove={canApproveTicket(user, taskApprovalSubject(task))}
+            finalApproval={isFinalApproval(user, task)}
+            nextStatus={nextStatus}
+            onAdvance={() => {
+              if (task.status === 'draft') publish();
+              else if (nextStatus) setAdvanceTo(nextStatus);
+            }}
+            onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}
+            onBack={BACK_STATUS[task.status] ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
+            onReopen={task.status === 'done' && user?.role === 'ADMIN' ? () => setAdvanceTo('in_progress') : null}
+            isAdvancing={statusMutation.isPending}
+            onClose={onClose}
+          />
+        </div>
+
+        <ActivitySheet entityType="Task" entityId={task.id} code={taskCode(task.id)} open={activityOpen} onOpenChange={setActivityOpen} />
+      </SheetContent>
 
       {advanceTo && (
         <TaskStatusRemarkDialog
-          nested
           task={task}
           toStatus={advanceTo}
           isSubmitting={statusMutation.isPending}
@@ -859,6 +874,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           }}
         />
       )}
-    </Modal>
+
+    </Sheet>
   );
 };

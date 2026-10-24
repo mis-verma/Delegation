@@ -187,12 +187,12 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
           <span className="flex items-center justify-center size-12 rounded-2xl bg-surface-hover text-text-muted border border-border/60">
             <FileSpreadsheet className="size-6" />
           </span>
-          <div>
-            <p className="text-sm font-display font-semibold text-text">
+          <div className="flex flex-col gap-1">
+            <p className="t-card font-display font-semibold text-text">
               {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
             </p>
-            <p className="t-meta font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
-            <p className="t-meta font-display text-text-light mt-2">
+            <p className="t-meta font-display text-text-muted">CSV or Excel (.xlsx)</p>
+            <p className="t-meta font-display text-text-light pt-1">
               Columns: Title, Description, Assignee (email or name), Priority, Start Date, Due Date, Department, Labels. Only Title is required.
             </p>
           </div>
@@ -267,7 +267,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                       ) : row.startDate.raw ? (
                         <span className="text-danger font-medium" title={`Couldn't parse "${row.startDate.raw}"`}>Invalid date</span>
                       ) : (
-                        <span className="text-text-light">—</span>
+                        <span className="text-text-light">None</span>
                       )}
                     </td>
                     <td className="px-3 py-2 t-meta">
@@ -276,7 +276,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                       ) : row.dueDate.raw ? (
                         <span className="text-danger font-medium" title={`Couldn't parse "${row.dueDate.raw}"`}>Invalid date</span>
                       ) : (
-                        <span className="text-text-light">—</span>
+                        <span className="text-text-light">None</span>
                       )}
                     </td>
                     <td className="px-3 py-2 t-meta max-w-40">
@@ -288,7 +288,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                           <TagIcon size={11} /> {row.unmatchedLabelNames.length} unmatched
                         </span>
                       )}
-                      {!row.tagIds.length && !row.unmatchedLabelNames.length && <span className="text-text-light">—</span>}
+                      {!row.tagIds.length && !row.unmatchedLabelNames.length && <span className="text-text-light">None</span>}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <button
@@ -314,7 +314,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
           <span className="flex items-center justify-center size-12 rounded-2xl bg-success/10 text-success border border-success/20">
             <PartyPopper className="size-6" />
           </span>
-          <p className="text-sm font-display font-semibold text-text">
+          <p className="t-card font-display font-semibold text-text">
             {summary.created} delegation{summary.created === 1 ? '' : 's'} created
           </p>
 

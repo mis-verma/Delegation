@@ -83,6 +83,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const clockStopped = OVERDUE_EXEMPT_STATUSES.has(task.status);
   const dueIsToday = !!task.dueDate && !clockStopped && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
   const dueTone = task.status === 'done' ? 'text-text-secondary' : isOverdue ? 'text-danger' : dueIsToday ? 'text-warning' : 'text-text';
+  const showCategory = fields.category || task.category === 'issue';
   const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval' && !flow.awaiting;
 
   const prefetchHandlers = usePrefetchTask(task.id);
@@ -117,7 +118,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       <div className="flex items-start gap-2">
-        <h4 className={`flex-1 min-w-0 t-card sm:text-sm font-display font-semibold text-text leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
+        <h4 className={`flex-1 min-w-0 t-card font-display font-semibold text-text leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
         </h4>
         <TaskSourceBadge aiMeta={task.aiMeta} />
@@ -199,7 +200,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {task.description && (
-        <p className="text-sm sm:t-meta text-text-secondary leading-snug line-clamp-2">
+        <p className="t-meta text-text-secondary leading-snug line-clamp-2">
           {task.description}
         </p>
       )}
@@ -212,14 +213,14 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </p>
       )}
 
-      {(fields.department || fields.priority || fields.category || showScoreBadge || flow.awaiting || flow.headApproved) && (
+      {(fields.department || fields.priority || showCategory || showScoreBadge || flow.awaiting || flow.headApproved) && (
         <div className="flex flex-wrap items-center gap-1.5">
           <TaskFlowChips task={task} />
           {fields.department && departmentName && <DepartmentChip name={departmentName} />}
 
           {fields.priority && priority && <PriorityChip meta={priority} />}
 
-          {fields.category && (() => {
+          {showCategory && (() => {
             const cat = CATEGORY_CONFIG[task.category];
             return <IconChip icon={cat.icon} tone={cat.solid} label={cat.label} />;
           })()}
@@ -258,7 +259,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 <span className={`flex items-center justify-center size-5 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(raisedByName)}`} aria-hidden="true">
                   {getInitials(raisedByName).slice(0, 1)}
                 </span>
-                <span className="text-sm font-display font-semibold text-text truncate" title={raisedByName}>{raisedByName}</span>
+                <span className="t-meta font-display font-semibold text-text truncate" title={raisedByName}>{raisedByName}</span>
               </span>
             </div>
           )}
@@ -267,7 +268,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
               <span className="t-meta font-display font-medium text-text-muted">Due</span>
               <span className="flex items-center gap-1.5 min-w-0">
                 <CalendarDays size={14} strokeWidth={2.25} className={`shrink-0 ${dueTone}`} aria-hidden="true" />
-                <span className={`text-sm font-display font-semibold truncate ${dueTone}`} title={isOverdue ? 'Overdue' : 'Due date'}>
+                <span className={`t-meta font-display font-semibold truncate ${dueTone}`} title={isOverdue ? 'Overdue' : 'Due date'}>
                   {formatShortDate(task.dueDate!)}
                 </span>
                 {!clockStopped && (

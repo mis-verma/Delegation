@@ -42,7 +42,7 @@ export const TaskHeadDecision = ({ task, departmentName, nameOf }: TaskHeadDecis
             </span>
             <div className="min-w-0">
               <p className="t-card font-display font-bold text-danger">Declined{task.decliner ? ` by ${task.decliner.firstName}` : ''}</p>
-              {task.declineReason && <p className="mt-0.5 text-[0.9375rem] font-medium leading-relaxed text-text-secondary break-words">{task.declineReason}</p>}
+              {task.declineReason && <p className="t-card font-medium leading-relaxed text-text-secondary break-words">{task.declineReason}</p>}
             </div>
           </div>
           {canDecide && (

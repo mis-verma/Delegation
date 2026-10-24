@@ -14,12 +14,13 @@ interface TicketPropertyRowProps {
   tileOnly?: boolean;
   wideOnPhone?: boolean;
   stackOnPhone?: boolean;
+  footer?: ReactNode;
 }
 
-export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false }: TicketPropertyRowProps) => (
+export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false, footer }: TicketPropertyRowProps) => (
   <div
     className={cn(
-      railOnly ? 'hidden lg:flex' : 'flex',
+      railOnly ? 'hidden lg:flex' : footer ? 'grid grid-cols-[auto_minmax(0,1fr)] gap-y-1' : 'flex',
       phoneHidden && 'max-lg:hidden',
       wide && (tileOnly ? 'col-span-2' : 'max-lg:col-span-2'),
       first && 'max-lg:order-first',
@@ -45,5 +46,6 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
       </dt>
       <dd className={cn('flex min-w-0 flex-wrap items-center', stackOnPhone && 'max-sm:[&>*]:w-full max-sm:[&>*]:min-w-0')}>{children}</dd>
     </div>
+    {footer && <div className="col-start-2 min-w-0">{footer}</div>}
   </div>
 );

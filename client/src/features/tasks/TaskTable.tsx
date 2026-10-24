@@ -113,7 +113,7 @@ const TaskTableComponent = ({
                           title="Newly assigned to you"
                         />
                       )}
-                      <span className="font-display font-semibold text-sm text-text truncate" title={task.title}>{task.title}</span>
+                      <span className="t-card font-display font-semibold text-text truncate" title={task.title}>{task.title}</span>
                     </div>
                   </td>
 

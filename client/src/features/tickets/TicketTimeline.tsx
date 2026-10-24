@@ -12,7 +12,9 @@ const DAY_MS = 86_400_000;
 const startOfDay = (value: string | Date) => new Date(value).setHours(0, 0, 0, 0);
 
 const DAY_WIDTH_REM = 3.25;
+const MIN_DAYS = 14;
 const MAX_DAYS = 45;
+const LEAD_DAYS = 3;
 
 const LABEL_WIDTH = 'w-44 sm:w-52 lg:w-64 xl:w-72';
 
@@ -36,12 +38,13 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
     const barStart = (t: Ticket) => startOfDay(t.startDate ?? t.createdAt);
     const barEnd = (t: Ticket) => startOfDay(t.tatDueAt!);
 
-    let axisStart = Math.min(...scheduled.map(barStart), startOfDay(new Date()));
-    const axisEnd = Math.max(...scheduled.map(barEnd));
+    const today = startOfDay(new Date());
+    let axisStart = Math.min(...scheduled.map(barStart), today - LEAD_DAYS * DAY_MS);
+    const axisEnd = Math.max(...scheduled.map(barEnd), today + LEAD_DAYS * DAY_MS);
 
-    let total = Math.floor((axisEnd - axisStart) / DAY_MS) + 1;
+    let total = Math.max(MIN_DAYS, Math.floor((axisEnd - axisStart) / DAY_MS) + 1);
     if (total > MAX_DAYS) {
-      axisStart = axisEnd - (MAX_DAYS - 1) * DAY_MS;
+      axisStart = today - Math.min(7, MAX_DAYS - 1) * DAY_MS;
       total = MAX_DAYS;
     }
 
@@ -81,8 +84,9 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
               </span>
             </span>
           ))}
-          <span className="t-meta font-semibold text-danger tracking-tight">
-            Overdue is labelled on the row
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="size-2 rounded-full bg-danger" />
+            <span className="t-meta font-semibold text-text-muted tracking-tight">Overdue shows in red on the row</span>
           </span>
         </div>
       )}
@@ -185,7 +189,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
       {undated.length > 0 && (
         <section className="flex flex-col gap-2">
           <header className="flex items-center gap-2.5">
-            <h3 className="text-sm font-bold text-text-secondary tracking-tight">No due date</h3>
+            <h3 className="t-card font-display font-semibold text-text">No due date</h3>
             <span className="t-meta font-semibold text-text-muted tabular-nums">{undated.length}</span>
             <span className="flex-1 h-px bg-border/50" />
           </header>

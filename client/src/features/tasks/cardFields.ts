@@ -50,7 +50,7 @@ const DEFAULT_VISIBILITY: CardFieldVisibility = {
   dueDate: true,
   subtasks: true,
   priority: true,
-  category: true,
+  category: false,
   department: true,
   created: false,
   updated: false,

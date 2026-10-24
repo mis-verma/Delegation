@@ -2,7 +2,7 @@ import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
 import { useState } from 'react';
 import { useConfirm } from '../../components';
 import {
-  Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle, MessageSquarePlus
+  Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle, MessageSquarePlus, CalendarDays, CircleCheck
 } from 'lucide-react';
 import {
   useUpdateTaskChecklistItemMutation,
@@ -15,7 +15,7 @@ import {
 import type { TaskChecklistItem, CaptureMethod } from '../../api/taskChecklist';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { errorMessage } from '../../lib/queryHelpers';
-import { Badge } from '../../components/ui/badge';
+import { IconChip } from '../../components';
 
 export const ChecklistItemRow = ({
   item, taskId, isAdmin, canWork,
@@ -77,31 +77,32 @@ export const ChecklistItemRow = ({
           {item.isDone && <CheckSquare size={12} strokeWidth={3} />}
         </span>
 
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-display font-medium leading-snug ${
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <p className={`t-card font-display font-medium leading-snug ${
             item.isDone ? 'line-through text-text-light' : 'text-text'
           }`}>
             {item.label}
           </p>
 
           {((item.isDone && item.completedAt) || item.dueAt || item.requiredImageCount > 0) && (
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {((item.isDone && item.completedAt) || item.dueAt) && (
-              <Badge variant="neutral" className="t-meta bg-surface-hover">
-                {item.isDone && item.completedAt
+              <IconChip
+                icon={item.isDone && item.completedAt ? CircleCheck : CalendarDays}
+                tone={item.isDone && item.completedAt ? 'bg-success' : 'bg-primary-700'}
+                label={item.isDone && item.completedAt
                   ? `Done ${new Date(item.completedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
                   : `Due ${new Date(item.dueAt!).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
-              </Badge>
+              />
             )}
 
             {item.requiredImageCount > 0 && (
-              <Badge
-                variant={photosSatisfied ? 'default' : 'warning'}
-                className={`t-meta ${photosSatisfied ? 'bg-success/10 text-success' : 'bg-warning/10'}`}
-              >
-                <Camera size={12} strokeWidth={2.5} />
-                {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'Live' : 'Photos'}
-              </Badge>
+              <IconChip
+                icon={Camera}
+                tone={photosSatisfied ? 'bg-success' : 'bg-warning'}
+                label={`${qualifying}/${item.requiredImageCount} ${item.requiresLivePhoto ? 'live' : 'photos'}`}
+                className={photosSatisfied ? 'border-success/30 text-success' : 'border-warning/40'}
+              />
             )}
           </div>
           )}

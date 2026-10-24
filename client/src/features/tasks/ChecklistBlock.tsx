@@ -55,13 +55,13 @@ export const ChecklistBlock = ({
           <div className="p-1 rounded-md bg-surface border border-border text-text-muted group-hover:text-text-secondary group-hover:border-border-hover transition-colors shrink-0">
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className={`text-sm font-display font-semibold line-clamp-2 break-words leading-snug transition-colors ${
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <h4 className={`t-card font-display font-semibold line-clamp-2 break-words leading-snug transition-colors ${
               isComplete ? 'text-text-muted' : 'text-text'
             }`}>
               {checklist.title}
             </h4>
-            <div className="flex items-center gap-2.5 mt-1 max-w-[240px]">
+            <div className="flex items-center gap-2.5 max-w-[240px]">
               <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ease-out ${
@@ -71,7 +71,7 @@ export const ChecklistBlock = ({
                 />
               </div>
               <span className={`t-meta font-bold min-w-8 shrink-0 ${
-                isComplete ? 'text-primary-600' : 'text-text-muted'
+                isComplete ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted'
               }`}>
                 {doneCount}/{checklist.items.length}
               </span>
@@ -98,7 +98,7 @@ export const ChecklistBlock = ({
       >
         <div className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-4 bg-surface-hover/30">
           {checklist.items.length === 0 && (
-            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border border-border">
+            <div className="p-6 sm:p-8 t-meta text-center font-display font-medium text-text-muted bg-surface rounded-xl border border-border">
               No items in this checklist yet.
             </div>
           )}

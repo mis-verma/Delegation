@@ -7,7 +7,7 @@ import { endOfDay } from './taskDisplay';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle, ShieldQuestion } from 'lucide-react';
+import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle, ShieldQuestion, Plus, X } from 'lucide-react';
 import { Input, Modal, DateRangePicker, Button, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
@@ -304,7 +304,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           >
             <Input
               id="title"
-              placeholder="e.g. Complete the hallmarking audit for the Karol Bagh showroom"
+              placeholder="e.g. Complete the hallmarking audit"
               className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
               containerClassName={FIELD_CARD_CLASS}
               {...register('title')}
@@ -421,8 +421,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                   if (showStart) setDateRange((prev) => ({ from: null, to: prev.to }));
                   setShowStart((v) => !v);
                 }}
-                className="self-start inline-flex items-center h-8 pointer-coarse:h-11 -ml-1 px-1 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                className="self-start inline-flex items-center gap-1.5 h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
+                {showStart ? <X size={13} strokeWidth={2.5} aria-hidden="true" /> : <Plus size={13} strokeWidth={2.5} aria-hidden="true" />}
                 {showStart ? 'Remove start day' : 'Add start day and time'}
               </button>
             )}

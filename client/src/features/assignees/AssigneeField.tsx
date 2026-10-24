@@ -37,12 +37,12 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
   const name = nameOf(user);
   return (
     <span className="inline-flex items-center gap-1.5 h-7 pl-0.5 pr-2.5 rounded-full border border-border/60 bg-surface-hover/50 min-w-0 max-w-full">
-      <span className={`flex items-center justify-center size-6 rounded-full text-[0.625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`} aria-hidden="true">
+      <span className={`flex items-center justify-center size-6 rounded-full t-meta font-bold leading-none text-white shrink-0 ${avatarColorClass(name)}`} aria-hidden="true">
         {getInitials(name)}
       </span>
       <span className="min-w-0 truncate t-meta font-semibold text-text">
         {user.firstName}
-        {user.lastName && <span className="hidden sm:inline"> {user.lastName}</span>}
+        {user.lastName && <span> {user.lastName}</span>}
       </span>
       {main && <span className="shrink-0 rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted">Main</span>}
     </span>

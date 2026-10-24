@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { Task } from '../../api/task';
 import { PRIORITY_CHIP_META } from '../../components/priorityChip';
 
+export const taskCode = (id: string) => `DEL-${id ? id.slice(0, 6).toUpperCase() : '------'}`;
+
 export const PRIORITY_MAP = {
   low: {
     ...PRIORITY_CHIP_META.low,
