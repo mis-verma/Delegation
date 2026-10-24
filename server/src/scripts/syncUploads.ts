@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { runUploadsSync } from '../utils/uploadsSync.js'
 
 const run = async () => {

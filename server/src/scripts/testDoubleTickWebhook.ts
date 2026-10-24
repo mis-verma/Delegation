@@ -1,4 +1,4 @@
-import "dotenv/config"
+import '../config/loadEnv.js'
 import { env } from "../config/env.js"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { createReadStream } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { createGunzip } from 'node:zlib'

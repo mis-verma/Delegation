@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { isDuplicateEntryError } from '../utils/dbErrors.js'
 import type { CHECKLIST_ASSIGNEE_ROLES } from '../db/schema/checklistDefinition.js'
 import { eq } from 'drizzle-orm'

@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { and, eq, like } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
 import { connectDB, disconnectDB, db } from '../config/db.js'

@@ -44,6 +44,8 @@ const roomTarget = (ticket: Pick<TicketRow, "userId" | "assigneeId" | "departmen
   storeId: ticket.storeId ?? null,
 })
 
+const STALE_TICKET_MESSAGE = "Someone changed this ticket a moment ago. Open it again and retry."
+
 export const ticketService = {
   async list(user: AccessTokenPayload, query: ListTicketsQuery) {
     const { page, limit, status, assigneeId, overdue, from, to, dateField, sla, sort = "createdAt", bucket } = query
@@ -180,6 +182,9 @@ export const ticketService = {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     assertCanMutate(user, ticket)
+    if (input.expectedUpdatedAt && new Date(input.expectedUpdatedAt).getTime() !== ticket.updatedAt.getTime()) {
+      throw AppError.conflict(STALE_TICKET_MESSAGE)
+    }
 
     if (ticket.declinedAt && input.status !== undefined && input.status !== ticket.status) {
       throw AppError.badRequest("This ticket was declined. Use Reopen ticket to bring it back.")
@@ -289,8 +294,8 @@ export const ticketService = {
     }
 
     await db.transaction(async (tx) => {
-      const [written] = await tx.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, before.status), NOT_DELETED))
-      if (written.affectedRows === 0) throw AppError.conflict("Someone changed this ticket a moment ago. Open it again and retry.")
+      const [written] = await tx.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, before.status), eq(tickets.updatedAt, before.updatedAt), NOT_DELETED))
+      if (written.affectedRows === 0) throw AppError.conflict(STALE_TICKET_MESSAGE)
       if (input.tagIds !== undefined) await syncTicketTags(tx, id, input.tagIds)
       if (input.reviewerIds !== undefined) await syncTicketReviewers(tx, id, input.reviewerIds)
     })
@@ -659,8 +664,8 @@ export const ticketService = {
     }
 
     const deletedAt = new Date()
-    const [removed] = await db.update(tickets).set({ deletedAt, updatedAt: deletedAt }).where(and(eq(tickets.id, id), eq(tickets.status, ticket.status), NOT_DELETED))
-    if (removed.affectedRows === 0) throw AppError.conflict("Someone changed this ticket a moment ago. Open it again and retry.")
+    const [removed] = await db.update(tickets).set({ deletedAt, updatedAt: deletedAt }).where(and(eq(tickets.id, id), eq(tickets.status, ticket.status), eq(tickets.updatedAt, ticket.updatedAt), NOT_DELETED))
+    if (removed.affectedRows === 0) throw AppError.conflict(STALE_TICKET_MESSAGE)
 
     emitTicketEvent("ticket:deleted", roomTarget(ticket), { id: ticket.id })
 

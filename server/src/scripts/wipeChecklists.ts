@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import { checklistDefinitions } from '../db/schema/index.js'
 import { env } from '../config/env.js'

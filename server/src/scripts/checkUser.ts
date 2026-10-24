@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import { users } from '../db/schema/index.js'
 import { eq } from 'drizzle-orm'

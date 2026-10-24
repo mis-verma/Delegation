@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { copyFullBackupToS3, pruneFullBackups, runFullBackup } from '../utils/fullBackup.js'
 
 const run = async () => {

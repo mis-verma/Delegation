@@ -26,6 +26,7 @@ const validate = (title: string, description: string) => ({
 
 export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority, onSave, onCancel, onDirtyChange }: TicketEditFormProps) => {
   const formRef = useRef<HTMLFormElement>(null);
+  const [openedAt] = useState(ticket.updatedAt);
   const [title, setTitle] = useState(ticket.title);
   const [description, setDescription] = useState(ticket.description ?? '');
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
@@ -71,7 +72,7 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
       return;
     }
     if (unchanged) { onCancel(); return; }
-    const payload: UpdateTicketPayload = {};
+    const payload: UpdateTicketPayload = { expectedUpdatedAt: openedAt };
     if (titleChanged) payload.title = title.trim();
     if (descriptionChanged) payload.description = description.trim();
     if (priorityChanged) payload.priority = priority;

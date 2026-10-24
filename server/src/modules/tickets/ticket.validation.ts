@@ -25,7 +25,8 @@ export const createTicketSchema = z.object({
 export const updateTicketSchema = createTicketSchema.partial().extend({
     status : z.enum(TICKET_STATUSES).optional(),
     assigneeId : objectId.nullable().optional(),
-    startDate : z.string().datetime({ offset: true }).nullable().optional()
+    startDate : z.string().datetime({ offset: true }).nullable().optional(),
+    expectedUpdatedAt : z.string().datetime({ offset: true }).optional()
 })
 
 export const paginatioinSchema = z.object({

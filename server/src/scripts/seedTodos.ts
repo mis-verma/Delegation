@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { createId } from '@paralleldrive/cuid2'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import { users, todos, TODO_PRIORITIES } from '../db/schema/index.js'

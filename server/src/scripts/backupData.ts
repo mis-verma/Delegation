@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { connectDB, disconnectDB } from '../config/db.js'
 import { copyBackupToS3, runDataBackup } from '../utils/dataBackup.js'
 

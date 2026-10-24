@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import '../config/loadEnv.js'
 import { db, disconnectDB } from '../config/db.js'
 import { settings } from '../db/schema/core.js'
 

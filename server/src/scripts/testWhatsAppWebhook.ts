@@ -1,4 +1,4 @@
-import "dotenv/config"
+import '../config/loadEnv.js'
 import crypto from "node:crypto"
 import { env } from "../config/env.js"
 

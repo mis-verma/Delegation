@@ -1,4 +1,4 @@
-import "dotenv/config"
+import '../config/loadEnv.js'
 import { connectDB, disconnectDB } from "../config/db.js"
 import { extractWithRules } from "../modules/tasks/ai/providers/ruleBased.provider.js"
 import { resolveDueDate } from "../modules/tasks/ai/providers/task.ai.service.js"

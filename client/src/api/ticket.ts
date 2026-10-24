@@ -231,7 +231,7 @@ export type CreateTicketPayload = {
   reviewerIds?:    string[];
 };
 
-export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId' | 'startDate'> & { status: TicketStatus; assigneeId: string | null; startDate: string | null }>;
+export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId' | 'startDate'> & { status: TicketStatus; assigneeId: string | null; startDate: string | null; expectedUpdatedAt: string }>;
 
 export type VerifyTicketPayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 
