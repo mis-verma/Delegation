@@ -87,7 +87,7 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
     <>
       <div
         className={cn(
-          'md:hidden fixed right-4 sm:right-6 z-40 transition-transform duration-200 ease-out motion-reduce:transition-none',
+          'app-bottom-chrome md:hidden fixed right-4 sm:right-6 z-40 transition-transform duration-200 ease-out motion-reduce:transition-none',
           hidden && !sheetOpen ? 'translate-y-[calc(100%+8rem)]' : 'translate-y-0',
         )}
         style={{ bottom: 'calc(6.25rem + env(safe-area-inset-bottom))' }}

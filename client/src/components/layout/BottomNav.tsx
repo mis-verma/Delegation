@@ -93,7 +93,7 @@ export const BottomNav = () => {
   return (
     <>
     <nav
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pt-2 bg-background"
+      className="app-bottom-chrome md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pt-2 bg-background"
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
