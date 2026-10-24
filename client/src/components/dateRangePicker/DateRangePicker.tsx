@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Calendar as CalendarIcon, ChevronRight, Clock, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronRight, Clock, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '../button';
@@ -213,15 +213,14 @@ export function DateRangePicker({
       className={cn(
         'grid w-full items-stretch gap-1.5 rounded-xl border bg-surface p-1.5 text-left transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
         'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
-        tileSlots.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1',
+        tileSlots.length === 2 ? 'grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]' : 'grid-cols-1',
         open ? 'border-primary-500' : invalid ? 'border-danger/60' : 'border-border/70 hover:border-primary-400/70',
         hasValue && !disabled && 'pr-10 pointer-coarse:pr-12',
         triggerClassName,
       )}
     >
-      {tileSlots.map((slot, i) => (
+      {tileSlots.map((slot) => (
         <span key={slot.key} className="contents">
-          {i === 1 && <ArrowRight size={14} className="self-center text-text-light" aria-hidden="true" />}
           <span className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-hover/60 px-2 py-1.5">
             <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', slot.date ? 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'bg-surface text-text-light')} aria-hidden="true">
               {slot.key === 'from' ? <CalendarIcon size={14} strokeWidth={2.4} /> : <Clock size={14} strokeWidth={2.4} />}

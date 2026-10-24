@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2, Plus } from 'lucide-react';
+import { Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2 } from 'lucide-react';
 import { Button, DateRangePicker, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ActivitySheet } from '../../components/activitySheet';
@@ -410,7 +410,6 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
 };
 
 const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean; isViewOnly: boolean }) => {
-  const [showStart, setShowStart] = useState(!!task.startDate);
   const late = taskIsLate(task);
   return (
     <TicketPropertyRow
@@ -418,16 +417,6 @@ const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; o
       label="Due"
       icon={CalendarDays}
       tone={dueTone(late)}
-      footer={!isViewOnly && canSetStart && !showStart ? (
-        <button
-          type="button"
-          onClick={() => setShowStart(true)}
-          className="self-start inline-flex items-center gap-1.5 h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-        >
-          <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
-          Add start day and time
-        </button>
-      ) : undefined}
     >
       {isViewOnly ? (
         task.dueDate ? (
@@ -436,13 +425,13 @@ const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; o
           </span>
         ) : <span className="t-meta text-text-light">No due date</span>
       ) : (
-        <TaskTimelineField task={task} onUpdate={onUpdate} showStart={showStart} />
+        <TaskTimelineField task={task} onUpdate={onUpdate} canSetStart={canSetStart} />
       )}
     </TicketPropertyRow>
   );
 };
 
-const TaskTimelineField = ({ task, onUpdate, showStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; showStart: boolean }) => {
+const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
   const savedKey = `${task.startDate ?? ''}|${task.dueDate ?? ''}`;
@@ -461,7 +450,7 @@ const TaskTimelineField = ({ task, onUpdate, showStart }: { task: Task; onUpdate
         hidePresets
         invalid={taskIsLate(task)}
         value={draft}
-        dueOnly={!showStart}
+        dueOnly={!canSetStart && !task.startDate}
         onChange={(range: DateRangeValue) => {
           setDraft(range);
           if (!range.from && !range.to) {

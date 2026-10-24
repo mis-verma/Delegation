@@ -7,7 +7,7 @@ import { endOfDay } from './taskDisplay';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle, ShieldQuestion, Plus, X } from 'lucide-react';
+import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag, AlertCircle, ShieldQuestion } from 'lucide-react';
 import { Input, Modal, DateRangePicker, Button, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
@@ -75,7 +75,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     from: kept?.from ? new Date(kept.from) : null,
     to: kept?.to ? new Date(kept.to) : defaultDueDate ?? null,
   });
-  const [showStart, setShowStart] = useState(false);
+  const showStart = !ownScopeOnly;
   const [files, setFiles] = useState<File[]>([]);
   const [saveAsDraft, setSaveAsDraft] = useState(false);
   const [autoFocusTitle] = useState(() => !window.matchMedia('(pointer: coarse)').matches);
@@ -401,7 +401,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
             label="Due"
             icon={<CalendarDays size={14} className="text-text-light" />}
             optional
-            hint={showStart ? 'Pick the start day and the due day.' : 'Pick a quick due day, or open the calendar.'}
+            hint={showStart ? 'Pick the start and the end, each with a time. Or tap a quick due day.' : 'Pick a quick due day, or open the calendar.'}
           >
             <TaskQuickDue value={dateRange} onChange={setDateRange} />
             <DateRangePicker
@@ -411,22 +411,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               onChange={setDateRange}
               dueOnly={!showStart}
               hidePresets
-              placeholder={showStart ? 'Choose start and due day' : 'Choose a due day'}
+              placeholder={showStart ? 'Choose start and end' : 'Choose a due day'}
               minDate={new Date()}
             />
-            {!ownScopeOnly && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (showStart) setDateRange((prev) => ({ from: null, to: prev.to }));
-                  setShowStart((v) => !v);
-                }}
-                className="self-start inline-flex items-center gap-1.5 h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-              >
-                {showStart ? <X size={13} strokeWidth={2.5} aria-hidden="true" /> : <Plus size={13} strokeWidth={2.5} aria-hidden="true" />}
-                {showStart ? 'Remove start day' : 'Add start day and time'}
-              </button>
-            )}
           </FormField>
 
           <FormField
