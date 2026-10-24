@@ -68,7 +68,9 @@ export function DateRangePicker({
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
   const [today, setToday] = useState(() => startOfDay(new Date()));
   const [tab, setTab] = useState<'date' | 'time'>('date');
+  const slotMode = tiles && showTime && !dueOnly && !endTimeOnly;
   const [clockFor, setClockFor] = useState<'from' | 'to'>(endTimeOnly || dueOnly ? 'to' : 'from');
+  const [active, setActive] = useState<'from' | 'to'>(value.from ? 'to' : 'from');
   const closeTimer = useRef<number | null>(null);
   useEffect(() => () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
@@ -92,7 +94,8 @@ export function DateRangePicker({
       setHoverDate(null);
       setToday(startOfDay(new Date()));
       setTab('date');
-      setClockFor(endTimeOnly || dueOnly ? 'to' : 'from');
+      setClockFor(endTimeOnly || dueOnly ? 'to' : slotMode ? (value.from ? 'to' : 'from') : 'from');
+      setActive(value.from ? 'to' : 'from');
     }
     setOpen(next);
   };
@@ -106,7 +109,7 @@ export function DateRangePicker({
     return next;
   };
 
-  const isComplete = (range: DateRangeValue) => (dueOnly ? !!range.to : !!range.from && !!range.to);
+  const isComplete = (range: DateRangeValue) => (dueOnly || slotMode ? !!range.to : !!range.from && !!range.to);
 
   const commit = (next: DateRangeValue) => {
     setDraft(next);
@@ -118,6 +121,22 @@ export function DateRangePicker({
   };
 
   const handleDayClick = (day: Date) => {
+    if (slotMode) {
+      if (active === 'from') {
+        const from = stamp(day, 'from', draft.from);
+        const to = draft.to && draft.to < from ? from : draft.to;
+        commit({ from, to });
+        setActive('to');
+        setClockFor('from');
+        return;
+      }
+      const to = stamp(day, 'to', draft.to);
+      const from = draft.from && to < draft.from ? to : draft.from;
+      commit({ from, to });
+      setClockFor('to');
+      afterComplete();
+      return;
+    }
     if (dueOnly) {
       commit({ from: draft.from, to: stamp(day, 'to', draft.to) });
       afterComplete();
@@ -140,7 +159,7 @@ export function DateRangePicker({
     afterComplete();
   };
 
-  const pickingEnd = !dueOnly && !!draft.from && !draft.to;
+  const pickingEnd = !dueOnly && !slotMode && !!draft.from && !draft.to;
   const previewTo = pickingEnd ? hoverDate : draft.to;
 
   const getDayState = (day: Date): DayState => {
@@ -168,6 +187,7 @@ export function DateRangePicker({
   const setTime = (which: 'from' | 'to', next: Date) => {
     const range = { ...draft, [which]: next };
     if (which === 'from' && range.to && range.to < next) range.to = next;
+    if (which === 'to' && range.from && next < range.from) range.from = next;
     commit(range);
   };
 
@@ -226,12 +246,12 @@ export function DateRangePicker({
               {slot.key === 'from' ? <CalendarIcon size={14} strokeWidth={2.4} /> : <Clock size={14} strokeWidth={2.4} />}
             </span>
             <span className="flex min-w-0 flex-col">
-              <span className="t-meta font-display font-semibold text-text-muted leading-tight">{slot.label}</span>
-              <span className={cn('truncate t-card font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
+              <span className="t-meta font-display font-medium text-text-muted leading-tight">{slot.label}</span>
+              <span className={cn('truncate text-sm font-display font-normal leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
                 {slot.date ? formatDay(slot.date) : slot.key === 'from' ? 'Optional' : 'Pick a day'}
               </span>
               {showTime && slot.date && !(endTimeOnly && slot.key === 'from') && (
-                <span className="t-meta font-display font-medium tabular-nums text-text-secondary leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
+                <span className="t-meta font-display font-normal tabular-nums text-text-secondary leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
               )}
             </span>
           </span>
@@ -247,13 +267,15 @@ export function DateRangePicker({
 
   const hint = dueOnly
     ? (draft.to ? 'Due day set' : 'Pick the due day')
-    : pickingEnd ? 'Now pick the last day' : complete ? 'Range set' : 'Pick the first day';
+    : slotMode
+      ? (active === 'from' ? 'Tap a day to set the start. The start is optional.' : 'Tap a day to set the end.')
+      : pickingEnd ? 'Now pick the last day' : complete ? 'Range set' : 'Pick the first day';
 
   const slots = dueOnly
     ? ([{ key: 'to', label: 'Due', date: draft.to, active: !draft.to }] as const)
     : ([
-        { key: 'from', label: 'Start', date: draft.from, active: !pickingEnd },
-        { key: 'to', label: 'End', date: draft.to, active: pickingEnd },
+        { key: 'from', label: 'Start', date: draft.from, active: slotMode ? active === 'from' : !pickingEnd },
+        { key: 'to', label: 'End', date: draft.to, active: slotMode ? active === 'to' : pickingEnd },
       ] as const);
 
   const dateColumn = (
@@ -271,26 +293,48 @@ export function DateRangePicker({
         ))}
       </div>}
 
-      <div className={cn('grid items-center gap-2', slots.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1')}>
-        {slots.map((slot, i) => (
-          <div key={slot.key} className="contents">
-            {i === 1 && <ChevronRight size={14} className="text-text-light" aria-hidden="true" />}
-            <div
-              className={cn(
-                'flex flex-col gap-0.5 px-3 py-1.5 rounded-xl border',
-                slot.active ? 'border-primary-500/60 bg-gradient-to-br from-primary-500/12 to-transparent' : 'border-border/60 bg-surface-hover/40',
-              )}
-            >
-              <span className="t-meta font-display font-semibold text-text-muted leading-none">{slot.label}</span>
-              <span className={cn('text-sm font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
-                {slot.date ? formatDay(slot.date) : slot.active ? 'Pick a day' : 'None'}
+      <div className={cn('grid items-center gap-2', slots.length === 2 ? (slotMode ? 'grid-cols-2' : 'grid-cols-[1fr_auto_1fr]') : 'grid-cols-1')}>
+        {slots.map((slot, i) => {
+          const body = (
+            <>
+              <span className="t-meta font-display font-medium text-text-muted leading-none">{slot.label}</span>
+              <span className={cn('text-sm font-display font-normal leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
+                {slot.date ? formatDay(slot.date) : slot.active ? 'Pick a day' : slotMode && slot.key === 'from' ? 'Optional' : 'None'}
               </span>
               {showTime && slot.date && !(endTimeOnly && slot.key === 'from') && (
-                <span className="t-meta font-display font-medium tabular-nums text-text-muted leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
+                <span className="t-meta font-display font-normal tabular-nums text-text-muted leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
+              )}
+            </>
+          );
+          const box = cn(
+            'flex flex-col gap-0.5 px-3 py-1.5 rounded-xl border text-left',
+            slot.active ? 'border-primary-500/60 bg-gradient-to-br from-primary-500/12 to-transparent' : 'border-border/60 bg-surface-hover/40',
+          );
+          return (
+            <div key={slot.key} className="contents">
+              {i === 1 && !slotMode && <ChevronRight size={14} className="text-text-light" aria-hidden="true" />}
+              {slotMode ? (
+                <button
+                  type="button"
+                  aria-pressed={slot.active}
+                  onClick={() => {
+                    cancelClose();
+                    setActive(slot.key);
+                    setClockFor(slot.key === 'from' && !draft.from ? 'to' : slot.key);
+                    const at = slot.key === 'from' ? draft.from : draft.to;
+                    if (at) setViewMonth(startOfDay(at));
+                    setTab('date');
+                  }}
+                  className={cn(box, 'min-h-14 w-full cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]')}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className={box}>{body}</div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <CalendarGrid
@@ -302,12 +346,24 @@ export function DateRangePicker({
         today={today}
       />
 
-      <p className="t-meta font-display text-text-muted" role="status">{hint}</p>
+      <div className="flex items-center justify-between gap-2 min-h-8">
+        <p className="t-meta font-display text-text-muted" role="status">{hint}</p>
+        {slotMode && active === 'from' && draft.from && (
+          <button
+            type="button"
+            onClick={() => commit({ from: null, to: draft.to })}
+            className="shrink-0 inline-flex items-center h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            Remove start
+          </button>
+        )}
+      </div>
     </div>
   );
 
   const bothTimes = !endTimeOnly && !dueOnly;
-  const activeClock: 'from' | 'to' = bothTimes ? clockFor : 'to';
+  const clockKey = slotMode ? active : clockFor;
+  const activeClock: 'from' | 'to' = bothTimes ? (clockKey === 'from' && !draft.from ? 'to' : clockKey) : 'to';
   const timeColumn = showTime && (
     <div className="flex flex-col gap-3 w-full sm:w-60 min-w-0 sm:border-l sm:border-border/60 sm:pl-4">
       {bothTimes && (
@@ -319,16 +375,17 @@ export function DateRangePicker({
             <button
               key={t.key}
               type="button"
-              aria-pressed={clockFor === t.key}
-              onClick={() => setClockFor(t.key)}
+              aria-pressed={activeClock === t.key}
+              disabled={!t.date}
+              onClick={() => (slotMode ? setActive(t.key) : setClockFor(t.key))}
               className={cn(
-                'flex flex-col items-start gap-0.5 min-h-12 px-3 py-1.5 rounded-lg text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                clockFor === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
+                'flex flex-col items-start gap-0.5 min-h-12 px-3 py-1.5 rounded-lg text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50',
+                activeClock === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
               )}
             >
-              <span className="t-meta font-display font-semibold text-text-muted leading-none">{t.label} time</span>
-              <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', clockFor === t.key ? 'text-text' : 'text-text-secondary')}>
-                {t.date ? formatClock(t.date) : 'Pick a day'}
+              <span className="t-meta font-display font-medium text-text-muted leading-none">{t.label} time</span>
+              <span className={cn('text-sm font-display font-normal leading-tight tabular-nums', activeClock === t.key ? 'text-text' : 'text-text-secondary')}>
+                {t.date ? formatClock(t.date) : t.key === 'from' ? 'Optional' : 'Pick a day'}
               </span>
             </button>
           ))}
@@ -353,13 +410,13 @@ export function DateRangePicker({
   const phoneTabs = showTime && (
     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/80 sm:hidden">
       {([
-        { key: 'date', label: 'Date', text: draft.to ? formatDay(draft.to) : 'Pick a day' },
-        { key: 'time', label: 'Time', text: draft.to ? endClock(draft.to) : 'Day first' },
+        { key: 'date', label: 'Date', text: draft[slotMode ? active : 'to'] ? formatDay(draft[slotMode ? active : 'to']!) : 'Pick a day' },
+        { key: 'time', label: 'Time', text: slotMode ? (draft[active] ? (active === 'from' ? formatClock(draft.from!) : endClock(draft.to!)) : 'Day first') : draft.to ? endClock(draft.to) : 'Day first' },
       ] as const).map((t) => (
         <button
           key={t.key}
           type="button"
-          disabled={t.key === 'time' && !complete}
+          disabled={t.key === 'time' && (slotMode ? !draft[active] : !complete)}
           aria-pressed={tab === t.key}
           onClick={() => setTab(t.key)}
           className={cn(
@@ -367,8 +424,8 @@ export function DateRangePicker({
             tab === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
           )}
         >
-          <span className="t-meta font-display font-semibold text-text-muted leading-none">{t.label}</span>
-          <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', tab === t.key ? 'text-text' : 'text-text-secondary')}>{t.text}</span>
+          <span className="t-meta font-display font-medium text-text-muted leading-none">{t.label}</span>
+          <span className={cn('text-sm font-display font-normal leading-tight tabular-nums', tab === t.key ? 'text-text' : 'text-text-secondary')}>{t.text}</span>
         </button>
       ))}
     </div>
@@ -383,7 +440,7 @@ export function DateRangePicker({
       popoverClassName={showTime ? undefined : 'p-3'}
       sheetFooter={showTime && (
         <Button variant="primary" onClick={() => setOpen(false)} disabled={!complete} className="w-full h-11 font-display">
-          {complete ? 'Done' : dueOnly ? 'Pick the due day' : pickingEnd ? 'Now pick the last day' : 'Pick the first day'}
+          {complete ? 'Done' : dueOnly ? 'Pick the due day' : slotMode ? 'Pick the end day' : pickingEnd ? 'Now pick the last day' : 'Pick the first day'}
         </Button>
       )}
       trigger={tiles ? tileTriggerButton : (

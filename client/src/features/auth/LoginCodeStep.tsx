@@ -11,7 +11,7 @@ interface LoginCodeStepProps {
 
 export const LoginCodeStep = ({ challenge, emailHint, onBack }: LoginCodeStepProps) => {
   const [code, setCode] = useState('');
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const verify = useVerifyLoginCodeMutation();
   const resend = useResendLoginCodeMutation();
   const ready = /^[0-9]{6}$/.test(code);
@@ -45,7 +45,7 @@ export const LoginCodeStep = ({ challenge, emailHint, onBack }: LoginCodeStepPro
       />
 
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor="trust-device" className="t-meta font-display font-semibold text-text-secondary">Trust this device for 30 days</label>
+        <label htmlFor="trust-device" className="t-meta font-display font-semibold text-text-secondary">Skip this code on this device for 30 days</label>
         <Switch id="trust-device" checked={remember} onChange={setRemember} />
       </div>
 
