@@ -2,6 +2,7 @@ import { ArrowRight, Ban, Check, CircleCheck, Hourglass, Play, Send, ShieldQuest
 import { Button } from '../../../components';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
+import { haptic } from '../../../lib/haptics';
 
 interface Person {
   firstName: string;
@@ -149,7 +150,7 @@ export const HeadDecisionPanel = ({
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
           <Button
             variant="outline"
-            onClick={onDecline}
+            onClick={() => { haptic('tap'); onDecline(); }}
             disabled={busy}
             isLoading={isDeclining}
             className="h-11 gap-1.5 border-danger/40 font-display font-semibold text-danger hover:border-danger hover:bg-danger/10 hover:text-danger sm:h-10"
@@ -159,7 +160,7 @@ export const HeadDecisionPanel = ({
           </Button>
           <Button
             variant="primary"
-            onClick={onApprove}
+            onClick={() => { haptic('tap'); onApprove(); }}
             disabled={busy}
             isLoading={isApproving}
             className="h-11 gap-1.5 bg-linear-to-br from-success to-success/80 font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"

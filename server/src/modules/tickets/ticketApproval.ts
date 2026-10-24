@@ -2,6 +2,7 @@ import { and, eq, inArray, notInArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { users } from "../../db/schema/index.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { AppError } from "../../utils/AppError.js"
 
 export type ApprovalStage = "HOD" | "PC"
 
@@ -37,6 +38,21 @@ export const activeDepartmentHeadIds = async (departmentId: string | null, exclu
       excluded.length ? notInArray(users.id, excluded) : undefined,
     ))
   return rows.map((r) => r.id)
+}
+
+export const resolveGateDepartment = async (
+  departmentId: string | null,
+  assigneeId: string | null,
+  actor: Actor,
+): Promise<string | null> => {
+  if (!assigneeId) return departmentId
+  const [person] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, assigneeId)).limit(1)
+  const personDepartmentId = person?.departmentId ?? null
+  if (!departmentId) return personDepartmentId
+  if (personDepartmentId && personDepartmentId !== departmentId && !isAdminOrPc(actor.role)) {
+    throw AppError.badRequest("That person is not in the selected department. Pick the department they belong to so its head can approve.")
+  }
+  return departmentId
 }
 
 export const assignmentNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId">, actor: Actor): Promise<boolean> => {

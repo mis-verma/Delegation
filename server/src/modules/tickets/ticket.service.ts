@@ -19,7 +19,7 @@ import { emitTicketEvent } from "../../sockets/ticketEvent.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
-import { assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead } from "./ticketApproval.js"
+import { assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, resolveGateDepartment } from "./ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/roles.js"
 import { type TicketRow, NOT_DELETED, deriveTatDueAt, overdueAtHandOver } from "./ticketShared.js"
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
@@ -128,7 +128,8 @@ export const ticketService = {
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
-    const needsHead = await assignmentNeedsHeadApproval({ departmentId: input.departmentId ?? null }, user)
+    const departmentId = await resolveGateDepartment(input.departmentId ?? null, input.assigneeId ?? null, user)
+    const needsHead = await assignmentNeedsHeadApproval({ departmentId }, user)
     await db.transaction(async (tx) => {
       await tx.insert(tickets).values({
         id,
@@ -139,7 +140,7 @@ export const ticketService = {
         assigneeId: input.assigneeId ?? null,
         storeId: input.storeId ?? null,
         categoryId: input.categoryId ?? null,
-        departmentId: input.departmentId ?? null,
+        departmentId,
         tatHours: tatHours ?? null,
         tatDueAt: deriveTatDueAt(tatHours ?? null, now),
         startDate: input.startDate ? new Date(input.startDate) : null,
@@ -257,10 +258,16 @@ export const ticketService = {
       patch.startDate = input.startDate ? new Date(input.startDate) : null
     }
 
-    const nextDepartmentId = patch.departmentId !== undefined ? patch.departmentId : before.departmentId
+    const touchesPlacement = input.assigneeId !== undefined || input.departmentId !== undefined
+    const nextAssigneeId = input.assigneeId !== undefined ? input.assigneeId : before.assigneeId
+    const followsAssignee = input.assigneeId !== undefined && input.departmentId === undefined && !!nextAssigneeId
+    const requestedDepartmentId = followsAssignee ? null : patch.departmentId !== undefined ? patch.departmentId : before.departmentId
+    const resolvedDepartmentId = touchesPlacement ? await resolveGateDepartment(requestedDepartmentId, nextAssigneeId, user) : requestedDepartmentId
+    const nextDepartmentId = resolvedDepartmentId ?? before.departmentId
+    if (touchesPlacement && nextDepartmentId !== before.departmentId) patch.departmentId = nextDepartmentId
     const reassigned = (input.assigneeId !== undefined && input.assigneeId !== before.assigneeId) || (input.departmentId !== undefined && input.departmentId !== before.departmentId)
     let nowAwaitingHead = false
-    if (reassigned && before.status === "OPEN" && !before.declinedAt) {
+    if (reassigned && ["OPEN", "IN_PROGRESS", "ON_HOLD"].includes(before.status) && !before.declinedAt) {
       nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
       patch.awaitingHeadApproval = nowAwaitingHead
       patch.headReminderSentAt = null
@@ -327,9 +334,9 @@ export const ticketService = {
     if (input.assigneeId && input.assigneeId !== before.assigneeId) {
       await db.update(tickets).set({ unassignedNotifiedAt: null }).where(eq(tickets.id, id))
       emitTicketEvent("ticket:assigned", target, populated)
-      if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
-      else await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
+      if (!nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
+    if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", afterRow!.approvalStage ?? "PC"));

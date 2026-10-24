@@ -4,6 +4,7 @@ import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../
 import { cn } from '@/lib/utils';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
+import { haptic } from '../../../lib/haptics';
 import { PRIORITY_CONFIG } from '../ticketDisplay';
 import { useApproveAssignmentMutation, useDeclineTicketMutation } from '../hook';
 import { DeclineTicketDialog } from '../detail/DeclineTicketDialog';
@@ -73,7 +74,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
       <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
         <Button
           variant="outline"
-          onClick={() => setDeclining(true)}
+          onClick={() => { haptic('tap'); setDeclining(true); }}
           disabled={busy}
           className="h-11 gap-1.5 border-danger/40 font-display font-semibold text-danger hover:border-danger hover:bg-danger/10 hover:text-danger sm:h-10"
         >
@@ -82,7 +83,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         </Button>
         <Button
           variant="primary"
-          onClick={() => approveMut.mutate({ id: ticket.id })}
+          onClick={() => { haptic('tap'); approveMut.mutate({ id: ticket.id }); }}
           isLoading={approveMut.isPending}
           disabled={busy}
           className="h-11 gap-1.5 bg-linear-to-br from-success to-success/80 font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"

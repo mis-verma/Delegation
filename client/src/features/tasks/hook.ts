@@ -264,6 +264,7 @@ export const useDeclineTaskMutation = () =>
         setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
         invalidateKeys: [['tasks'], ['scores']],
         successMessage: 'Delegation declined. The person who gave it has been told.',
+        successHaptic: 'warning',
         retryable: true,
         errorFallback: "Couldn't decline the delegation. Try again.",
     });

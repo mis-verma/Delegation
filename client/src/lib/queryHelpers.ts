@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApiError } from '../api/http';
-import { haptic } from './haptics';
+import { haptic, type HapticKind } from './haptics';
 
 const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 
@@ -109,6 +109,7 @@ type EntityMutationConfig<TVars, TResult> = {
   setDetailData?: (result: TResult, vars: TVars) => { key: readonly unknown[]; data: TResult } | void;
   removeKey?: (result: TResult, vars: TVars) => readonly unknown[] | void;
   successMessage?: string | ((result: TResult, vars: TVars) => string) | null;
+  successHaptic?: HapticKind;
   errorFallback: string;
   errorToast?: boolean;
   retryable?: boolean;
@@ -169,7 +170,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
           ? config.successMessage(result, vars)
           : config.successMessage;
         toast.success(msg);
-        haptic('success');
+        haptic(config.successHaptic ?? 'success');
       }
     },
     onError: (err, vars, context) => {

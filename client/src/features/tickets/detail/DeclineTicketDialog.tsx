@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Ban, Building2, CheckCheck, Copy, FileQuestion } from 'lucide-react';
 import { Button, Modal } from '../../../components';
+import { haptic } from '../../../lib/haptics';
 
 const MIN_REASON = 5;
 const QUICK_REASONS = [
@@ -40,7 +41,7 @@ export const DeclineTicketDialog = ({ noun = 'ticket', open, ticketTitle, isPend
       footer={
         <div className="flex w-full items-center justify-end gap-2">
           <Button variant="ghost" onClick={close} disabled={isPending}>Cancel</Button>
-          <Button variant="danger" onClick={() => onConfirm(trimmed)} isLoading={isPending} disabled={trimmed.length < MIN_REASON}>
+          <Button variant="danger" onClick={() => { haptic('warning'); onConfirm(trimmed); }} isLoading={isPending} disabled={trimmed.length < MIN_REASON}>
             {`Decline ${noun}`}
           </Button>
         </div>

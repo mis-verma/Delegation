@@ -237,6 +237,7 @@ export const useDeclineTicketMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets'], ['scores']],
     successMessage: 'Ticket declined. The person who raised it has been told.',
+    successHaptic: 'warning',
     retryable: true,
     errorFallback: "Couldn't decline the ticket. Try again.",
   });
