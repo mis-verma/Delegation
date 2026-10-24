@@ -12,6 +12,7 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { TaskChecklistPanel } from './TaskChecklistPanel';
+import { TicketDescription } from '../tickets/detail/TicketDescription';
 import { STATUS_LABEL, NEXT_STATUS, endOfDay, PRIORITY_MAP, taskCode } from './taskDisplay';
 import { TaskDetailHeader } from './TaskDetailHeader';
 import { TaskStatusCard } from './TaskStatusCard';
@@ -186,76 +187,81 @@ const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAd
   const needsDecision = canApprove && task.status === 'pending_approval';
   const showAdvance = !!nextStatus && canMove;
   const hasMenu = canMove && (onBack || onHold || onReopen);
-  return (
-    <div className="flex flex-col gap-4 w-full">
-      {(task.status === 'pending_approval' || (task.status === 'done' && !!task.verifiedAt)) && <TaskApprovalTrail task={task} />}
-      {needsDecision && (
-        <div className="pb-4 border-b border-border/60">
+  const menu = hasMenu ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="shrink-0 px-2.5 pointer-coarse:min-w-11" aria-label="More status actions">
+          <MoreHorizontal size={16} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60 rounded-xl">
+        {onHold && (
+          <DropdownMenuItem onClick={onHold} className="gap-2.5 py-2 cursor-pointer">
+            <PauseCircle size={15} className="text-warning" />
+            <span className="font-medium text-sm">Put on hold</span>
+          </DropdownMenuItem>
+        )}
+        {onBack && (
+          <DropdownMenuItem onClick={onBack} className="gap-2.5 py-2 cursor-pointer">
+            <Undo2 size={15} />
+            <span className="font-medium text-sm">{BACK_LABEL[task.status]}</span>
+          </DropdownMenuItem>
+        )}
+        {onReopen && (
+          <DropdownMenuItem onClick={onReopen} className="gap-2.5 py-2 cursor-pointer">
+            <RotateCcw size={15} />
+            <span className="font-medium text-sm">{BACK_LABEL.done}</span>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+
+  if (needsDecision) {
+    return (
+      <div className="flex items-start gap-2 w-full">
+        <div className="flex-1 min-w-0">
           <TaskVerifyActions task={task} onDecided={onClose} nested finalApproval={finalApproval} />
         </div>
-      )}
-      <div className="flex items-center justify-between w-full gap-3">
-        <div className="hidden sm:flex items-center gap-3 flex-wrap">
-          {task.status === 'done' && !task.declinedAt && (
-            <span className="flex items-center gap-1.5 t-meta font-semibold text-success">
-              <CheckCircle2 size={15} /> Approved
-            </span>
-          )}
-          {task.status === 'pending_approval' && !needsDecision && (
-            <span className="flex items-center gap-1.5 t-meta font-semibold text-status-approve">
-              <ShieldCheck size={15} /> {STATUS_LABEL.pending_approval}
-            </span>
-          )}
-        </div>
+        {menu}
+      </div>
+    );
+  }
 
-        <div className="flex items-center gap-2 max-sm:flex-1 sm:flex-wrap">
-          {showAdvance && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="max-sm:flex-1 max-sm:min-w-0 font-display"
-              disabled={isAdvancing}
-              onClick={onAdvance}
-            >
-              {isAdvancing ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
-              <span className="truncate">{FORWARD_LABEL[task.status] ?? `Move to ${STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}`}</span>
-            </Button>
-          )}
-          {hasMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="px-2.5 pointer-coarse:min-w-11" aria-label="More status actions">
-                  <MoreHorizontal size={16} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60 rounded-xl">
-                {onHold && (
-                  <DropdownMenuItem onClick={onHold} className="gap-2.5 py-2 cursor-pointer">
-                    <PauseCircle size={15} className="text-warning" />
-                    <span className="font-medium text-sm">Put on hold</span>
-                  </DropdownMenuItem>
-                )}
-                {onBack && (
-                  <DropdownMenuItem onClick={onBack} className="gap-2.5 py-2 cursor-pointer">
-                    <Undo2 size={15} />
-                    <span className="font-medium text-sm">{BACK_LABEL[task.status]}</span>
-                  </DropdownMenuItem>
-                )}
-                {onReopen && (
-                  <DropdownMenuItem onClick={onReopen} className="gap-2.5 py-2 cursor-pointer">
-                    <RotateCcw size={15} />
-                    <span className="font-medium text-sm">{BACK_LABEL.done}</span>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {!showAdvance && (
-            <Button variant="outline" size="sm" onClick={onClose} className="sm:hidden flex-1">
-              Close
-            </Button>
-          )}
-        </div>
+  return (
+    <div className="flex items-center justify-between w-full gap-3">
+      <div className="hidden sm:flex items-center gap-3 flex-wrap">
+        {task.status === 'done' && !task.declinedAt && (
+          <span className="flex items-center gap-1.5 t-meta font-semibold text-success">
+            <CheckCircle2 size={15} /> Approved
+          </span>
+        )}
+        {task.status === 'pending_approval' && (
+          <span className="flex items-center gap-1.5 t-meta font-semibold text-status-approve">
+            <ShieldCheck size={15} /> {STATUS_LABEL.pending_approval}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 max-sm:flex-1 sm:flex-wrap">
+        {showAdvance && (
+          <Button
+            variant="primary"
+            size="sm"
+            className="max-sm:flex-1 max-sm:min-w-0 font-display"
+            disabled={isAdvancing}
+            onClick={onAdvance}
+          >
+            {isAdvancing ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+            <span className="truncate">{FORWARD_LABEL[task.status] ?? `Move to ${STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}`}</span>
+          </Button>
+        )}
+        {menu}
+        {!showAdvance && (
+          <Button variant="outline" size="sm" onClick={onClose} className="sm:hidden flex-1">
+            Close
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -408,7 +414,6 @@ const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; o
   const late = taskIsLate(task);
   return (
     <TicketPropertyRow
-      tileOnly
       wide
       label="Due"
       icon={CalendarDays}
@@ -494,6 +499,7 @@ interface TaskEditLayoutProps {
   isViewOnly: boolean;
   readOnlyReason: string | null;
   canEditText: boolean;
+  editing: boolean;
   canAttach: boolean;
   canRemoveFiles: boolean;
   currentUserId?: string;
@@ -512,7 +518,7 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, readOnlyReason, canEditText, canAttach, canRemoveFiles, currentUserId, canReassign, canAssign,
+  task, isVerifier, isViewOnly, readOnlyReason, canEditText, editing, canAttach, canRemoveFiles, currentUserId, canReassign, canAssign,
   allUsers, isLoadingUsers, departments, isLoadingDepts, saveLabel,
   onSaveTitle, onSaveDescription, onDirtyChange, onUpdate, onChangeDepartment,
 }: TaskEditLayoutProps) => {
@@ -541,8 +547,8 @@ const TaskEditLayout = ({
       className="flex flex-col gap-4 min-w-0 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:p-5"
     >
       <div className="flex flex-col gap-2">
-        <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-2">
-          <TicketPropertyRow tileOnly wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
+        <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
+          <TicketPropertyRow wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
             <AssigneeField
               hideLabel
               selectedIds={selectedIds}
@@ -553,11 +559,11 @@ const TaskEditLayout = ({
             />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wide label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
+          <TicketPropertyRow wide label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
             <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth triggerClassName={PROPERTY_TRIGGER_CLASS} />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wide label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
+          <TicketPropertyRow wide label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
             {isViewOnly || !canReassign ? (
               departmentName ? <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span> : <span className="t-meta text-text-light">None</span>
             ) : (
@@ -609,27 +615,33 @@ const TaskEditLayout = ({
           <div className="flex flex-col gap-2">
             <TitleEditor
               value={task.title}
-              isViewMode={!canEditText}
+              isViewMode={!canEditText || !editing}
               onSave={onSaveTitle}
               onDirtyChange={onTitleDirty}
             />
-            {saveLabel && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
+            {saveLabel && editing && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
 
-            <PlainDescriptionEditor
-              value={task.description ?? ''}
-              disabled={!canEditText}
-              onSave={onSaveDescription}
-              onDirtyChange={onDescriptionDirty}
-            />
+            {canEditText && editing ? (
+              <PlainDescriptionEditor
+                value={task.description ?? ''}
+                disabled={false}
+                onSave={onSaveDescription}
+                onDirtyChange={onDescriptionDirty}
+              />
+            ) : (
+              <TicketDescription description={task.description ?? ''} />
+            )}
           </div>
 
           {readOnlyReason && (
             <NoticeBanner tone="neutral" icon={Info}>{readOnlyReason}</NoticeBanner>
           )}
 
-          <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} hideChip />
+          {task.status !== 'done' && task.status !== 'pending_approval' && <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} hideChip />}
 
           <TaskHeadDecision task={task} departmentName={departmentName} nameOf={nameOf} />
+
+          {!task.declinedAt && (task.status === 'pending_approval' || (task.status === 'done' && !!task.verifiedAt)) && <TaskApprovalTrail task={task} />}
 
           {approvedOrSentBack && (
             <NoticeBanner tone={approvedOrSentBack === 'approved' ? 'success' : 'warning'} icon={approvedOrSentBack === 'approved' ? ShieldCheck : ShieldX}>
@@ -650,7 +662,7 @@ const TaskEditLayout = ({
             onPreview={setPreviewImage}
           />
 
-          {((task.checklists?.length ?? 0) > 0 || (isVerifier && !task.declinedAt && task.status !== 'done' && task.status !== 'pending_approval')) && (
+          {(task.checklists?.length ?? 0) > 0 && (
             <TaskChecklistPanel
               taskId={task.id}
               checklists={task.checklists ?? []}
@@ -686,6 +698,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { user } = useAuth();
 
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
+  const [editing, setEditing] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [dirtyFields, setDirtyFields] = useState<{ title: boolean; description: boolean }>({ title: false, description: false });
   const handleDirtyChange = useCallback((field: 'title' | 'description', dirty: boolean) => {
@@ -801,6 +814,8 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           task={task}
           raisedBy={raisedByName}
           onShowActivity={() => setActivityOpen(true)}
+          onEdit={canEditText ? () => setEditing((v) => !v) : undefined}
+          editing={editing}
           onDelete={isVerifier ? () => void askDelete() : undefined}
           isDeleting={deleteMutation.isPending}
         />
@@ -812,6 +827,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
             isViewOnly={isViewOnly}
             readOnlyReason={readOnlyReason}
             canEditText={canEditText}
+            editing={editing}
             canAttach={canAttach}
             canRemoveFiles={canRemoveFiles}
             currentUserId={user?.id}

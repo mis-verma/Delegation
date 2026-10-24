@@ -1,4 +1,4 @@
-import { Trash2, Loader2, X, MoreHorizontal, History } from 'lucide-react';
+import { Trash2, Loader2, X, MoreHorizontal, History, Pencil, Check } from 'lucide-react';
 import { SheetHeader, SheetDescription, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { TaskCodeChip } from './TaskCodeChip';
@@ -9,6 +9,8 @@ interface TaskDetailHeaderProps {
   task: Task;
   raisedBy?: string;
   onShowActivity: () => void;
+  onEdit?: () => void;
+  editing?: boolean;
   onDelete?: () => void;
   isDeleting?: boolean;
 }
@@ -17,7 +19,7 @@ const ICON_BUTTON =
   'relative flex items-center justify-center size-8 sm:size-9 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-1.5 sm:after:hidden';
 const MENU_ITEM = 'gap-2.5 min-h-11 sm:min-h-9 t-meta font-display font-semibold cursor-pointer';
 
-export const TaskDetailHeader = ({ task, raisedBy, onShowActivity, onDelete, isDeleting = false }: TaskDetailHeaderProps) => (
+export const TaskDetailHeader = ({ task, raisedBy, onShowActivity, onEdit, editing = false, onDelete, isDeleting = false }: TaskDetailHeaderProps) => (
   <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2.5 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-1.5 lg:pl-8 lg:pr-6 text-left">
     <div className="flex items-center gap-2">
       <div className="flex flex-1 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
@@ -26,6 +28,17 @@ export const TaskDetailHeader = ({ task, raisedBy, onShowActivity, onDelete, isD
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={editing ? 'Done editing' : 'Edit title and details'}
+            title={editing ? 'Done editing' : 'Edit title and details'}
+            className={ICON_BUTTON}
+          >
+            {editing ? <Check size={17} strokeWidth={2.75} className="text-success" /> : <Pencil size={16} strokeWidth={2.25} />}
+          </button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" disabled={isDeleting} aria-label="More actions" title="More actions" className={ICON_BUTTON}>

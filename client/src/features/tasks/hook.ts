@@ -5,12 +5,10 @@ import { useAuth } from "../../context/AuthContext";
 import { taskApi } from "../../api/task";
 import { userApi } from "../../api/users";
 import { taskChecklistApi } from "../../api/taskChecklist";
-import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { smartTaskConversationApi } from "../../api/smartTaskConversation";
 import type { SmartTaskConversationMessage, PatchSmartTaskConversationPayload } from "../../api/smartTaskConversation";
 import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage, TaskListQuery } from "../../api/task";
 import type {
-    CreateTaskChecklistPayload,
     UpdateTaskChecklistItemPayload,
     CaptureMethod,
 } from "../../api/taskChecklist";
@@ -333,14 +331,6 @@ export const useTaskBulkImportPublishMutation = () => {
     });
 };
 
-export const useAddTaskChecklistMutation = (taskId: string) =>
-    useEntityMutation({
-        mutationFn: (payload: CreateTaskChecklistPayload) => taskChecklistApi.create(taskId, payload).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
-        successMessage: 'Checklist added',
-        errorFallback: "Couldn't add the checklist. Try again.",
-    });
-
 export const useDeleteTaskChecklistMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (id: string) => taskChecklistApi.deleteChecklist(id),
@@ -402,24 +392,6 @@ export const useDeleteTaskImageMutation = (taskId: string) =>
         successMessage: 'Photo deleted',
         retryable: true,
         errorFallback: "Couldn't delete the photo. Try again.",
-    });
-
-export const useChecklistTemplatesQuery = () => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: ['checklist-templates', 'TASK'],
-        queryFn: () => checklistTemplateApi.getAll('TASK').then(r => r.data),
-        enabled: !!token,
-        retry: handleQueryRetry,
-    });
-};
-
-export const useApplyChecklistTemplateMutation = (taskId: string) =>
-    useEntityMutation({
-        mutationFn: (templateId: string) => checklistTemplateApi.applyToTask(taskId, templateId),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
-        successMessage: 'Template applied',
-        errorFallback: "Couldn't apply the template. Try again.",
     });
 
 export const useCreateSmartTaskMutation = () => 

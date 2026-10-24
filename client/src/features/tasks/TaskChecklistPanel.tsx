@@ -1,8 +1,5 @@
-import { useState } from 'react';
-import { Plus, ListChecks } from 'lucide-react';
-import { Button } from '../../components';
+import { ListChecks } from 'lucide-react';
 import type { TaskChecklist } from '../../api/taskChecklist';
-import { NewChecklistForm } from './NewChecklistForm';
 import { ChecklistBlock } from './ChecklistBlock';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/detailConstants';
@@ -16,7 +13,6 @@ interface TaskChecklistPanelProps {
 }
 
 export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId, workerIds }: TaskChecklistPanelProps) => {
-  const [adding, setAdding] = useState(false);
   const { doneItems, totalItems } = getChecklistProgress(checklists);
   const open = totalItems - doneItems;
 
@@ -36,15 +32,7 @@ export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId,
                 : `${open} of ${totalItems} open. Finish each, or add a remark why not, before marking completed.`}
           </p>
         </div>
-        {isAdmin && !adding && (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)} className="gap-1.5 font-display">
-            <Plus size={14} strokeWidth={2.5} />
-            New checklist
-          </Button>
-        )}
       </div>
-
-      {adding && <NewChecklistForm taskId={taskId} onDone={() => setAdding(false)} />}
 
       <div className="flex flex-col gap-2">
         {checklists.map(checklist => (
