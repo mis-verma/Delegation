@@ -5,12 +5,13 @@ import { drafts } from "../../db/schema/core.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateDraftInput, DraftKind, UpdateDraftInput } from "./draft.validation.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const MAX_DRAFTS_PER_KIND = 50
 
 const UNTITLED: Record<DraftKind, string> = { TICKET: "Untitled ticket", CHECKLIST: "Untitled checklist" }
 
-const canUseKind = (user: AccessTokenPayload, kind: DraftKind) => kind !== "CHECKLIST" || user.role === "ADMIN" || user.role === "PC"
+const canUseKind = (user: AccessTokenPayload, kind: DraftKind) => kind !== "CHECKLIST" || isAdminOrPc(user.role)
 
 const findOwn = async (id: string, userId: string) => {
     const [row] = await db.select().from(drafts).where(and(eq(drafts.id, id), eq(drafts.userId, userId))).limit(1)
@@ -33,7 +34,7 @@ export const draftService = {
 
     async create(user: AccessTokenPayload, input: CreateDraftInput) {
         if (!canUseKind(user, input.kind)) throw AppError.forbidden("Only an admin or PC can save checklist drafts.")
-        const [{ total }] = await db.select({ total: count() }).from(drafts).where(and(eq(drafts.userId, user.sub), eq(drafts.kind, input.kind)))
+        const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(drafts).where(and(eq(drafts.userId, user.sub), eq(drafts.kind, input.kind)))
         if (Number(total) >= MAX_DRAFTS_PER_KIND) throw AppError.conflict(`You already have ${MAX_DRAFTS_PER_KIND} drafts. Publish or delete one first.`)
         const id = createId()
         const now = new Date()

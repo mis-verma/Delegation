@@ -6,9 +6,10 @@ import { eq, and, inArray, isNull } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const assertCanAttach = async (user: AccessTokenPayload, task: { id: string; userId: string; assigneeId: string | null }) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
+    if (isAdminOrPc(user.role)) return;
     if (task.userId === user.sub) return;
     if (task.assigneeId && task.assigneeId === user.sub) return;
 
@@ -62,7 +63,7 @@ export const taskAttachmentService = {
         if (task && (task.status === "done" || task.status === "pending_approval") && user.role !== "ADMIN") {
             throw AppError.forbidden("This delegation is approved and closed. Only an admin can remove its files.");
         }
-        if (!task && user.role !== "ADMIN" && user.role !== "PC" && attachment.uploadedBy !== user.sub) {
+        if (!task && !isAdminOrPc(user.role) && attachment.uploadedBy !== user.sub) {
             throw AppError.forbidden("You don't have access to this delegation's attachments");
         }
 

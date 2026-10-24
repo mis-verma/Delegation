@@ -48,6 +48,19 @@ const describeZodError = (err: ZodError): string => {
   return parts.length ? `${parts.join(', ')}: ${message}` : message;
 };
 
+const clientErrorStatus = (err: unknown): number | undefined => {
+  const carrier = err as { status?: unknown; statusCode?: unknown } | null;
+  const status = typeof carrier?.status === 'number' ? carrier.status : typeof carrier?.statusCode === 'number' ? carrier.statusCode : undefined;
+  return status !== undefined && status >= 400 && status < 500 ? status : undefined;
+};
+
+const clientErrorMessage = (err: unknown, status: number): string => {
+  const type = (err as { type?: unknown } | null)?.type;
+  if (type === 'entity.too.large') return 'That request is bigger than the server accepts.';
+  if (type === 'entity.parse.failed') return "The request body isn't valid JSON.";
+  return status === 404 ? 'Not found' : 'The request could not be processed.';
+};
+
 export const errorHandler = (
   err: unknown,
   req: Request,
@@ -87,6 +100,17 @@ export const errorHandler = (
     return;
   }
 
+  if (err instanceof Error && err.message === 'Not allowed by CORS') {
+    res.status(403).json({ success: false, message: 'This origin is not allowed.' });
+    return;
+  }
+
+  const clientStatus = clientErrorStatus(err);
+  if (clientStatus !== undefined) {
+    res.status(clientStatus).json({ success: false, message: clientErrorMessage(err, clientStatus) });
+    return;
+  }
+
   const mysqlErr = asMySqlError(err);
 
   if (mysqlErr?.code === 'ER_DUP_ENTRY') {
@@ -115,7 +139,7 @@ export const errorHandler = (
   }
 
   console.error(err);
-  const pathWithoutQuery = req.originalUrl ? req.originalUrl.split('?')[0] : req.url;
+  const pathWithoutQuery = (req.originalUrl ?? req.url).replace(/\?.*$/, '');
   recordServerError(req.method, pathWithoutQuery, err);
 
   res.status(500).json({

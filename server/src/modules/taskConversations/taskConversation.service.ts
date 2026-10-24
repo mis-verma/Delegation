@@ -1,3 +1,4 @@
+import { isDuplicateEntryError } from "../../utils/dbErrors.js"
 import { db } from "../../config/db.js"
 import { pendingTaskConversations, CONVERSATION_SLOTS } from "../../db/schema/index.js"
 import { and, eq } from "drizzle-orm"
@@ -80,8 +81,8 @@ export async function startConversation(params: {
             ...fromDraftObject(params.draft),
             expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
         });
-    } catch (err: any) {
-        if (err?.code === "ER_DUP_ENTRY" || err?.cause?.code === "ER_DUP_ENTRY") {
+    } catch (err) {
+        if (isDuplicateEntryError(err)) {
             const existing = await findActiveConversation(params.phone);
             if (existing) return existing;
         }

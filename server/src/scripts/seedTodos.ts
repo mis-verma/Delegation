@@ -6,7 +6,7 @@ import { refuseInProductionUnlessOverridden } from './_productionGuard.js'
 
 refuseInProductionUnlessOverridden('seedTodos')
 
-const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
+const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)] as T
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 

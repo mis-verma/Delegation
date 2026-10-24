@@ -5,6 +5,9 @@ import morgan from "morgan"
 import path from "node:path"
 import { env } from "./config/env.js"
 import { pingDB } from "./config/db.js"
+import { isDraining } from "./config/lifecycle.js"
+import { discardUploadsOnFailure } from "./middleware/uploadCleanup.js"
+import { dropScoresOnWrite } from "./modules/scores/scoreCache.js"
 import { queryCacheStatus } from "./config/queryCache.js"
 import { createAuthRouter } from "./middleware/auth/auth.routes.js"
 import { userRouter } from "./modules/users/user.routes.js"
@@ -57,7 +60,7 @@ import { verifyUploadSignature, signUploadPathsDeep } from "./utils/signedUpload
 
 const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
 
-morgan.token<Request, Response>('url', (req) => (req.originalUrl ?? req.url ?? '').replace(/^(\/doubletick\/webhook\/)[^/?]+/, '$1[redacted]'));
+morgan.token<Request, Response>('url', (req) => (req.originalUrl ?? req.url ?? '').replace(/\?.*$/, '').replace(/^(\/doubletick\/webhook\/)[^/]+/, '$1[redacted]'));
 
 class App {
     public app: Application;
@@ -85,10 +88,12 @@ class App {
             credentials: true,
         }))
         this.app.use(express.json({
-            verify: (req, _res, buf) => { (req as any).rawBody = buf; },
+            limit: '1mb',
+            verify: (req, _res, buf) => { (req as Request).rawBody = buf; },
         }))
 
         this.app.use(cookieParser())
+        this.app.use(discardUploadsOnFailure)
         this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
         this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
@@ -96,14 +101,15 @@ class App {
         this.app.use('/uploads', (req: Request, res: Response, next) => {
             const fullPath = `/uploads${req.path}`
             if (!verifyUploadSignature(fullPath, req.query.exp, req.query.sig)) {
-                return res.status(403).json({ success: false, message: 'This link has expired. Reopen the page to get a fresh one.' })
+                res.status(403).json({ success: false, message: 'This link has expired. Reopen the page to get a fresh one.' })
+                return
             }
             next()
         }, express.static(path.resolve('uploads')))
 
         this.app.use((_req: Request, res: Response, next) => {
             const originalJson = res.json.bind(res)
-            res.json = ((body?: any) => originalJson(signUploadPathsDeep(body))) as typeof res.json
+            res.json = ((body?: unknown) => originalJson(signUploadPathsDeep(body))) as typeof res.json
             next()
         })
     }
@@ -114,48 +120,49 @@ class App {
         this.app.get('/health/ready', async (_req: Request, res: Response) => {
             const db = await pingDB();
             const redis = queryCacheStatus();
-            const status = db.ok ? 'ok' : 'degraded';
-            res.status(db.ok ? 200 : 503).json({
+            const draining = isDraining();
+            const status = draining ? 'draining' : db.ok ? 'ok' : 'degraded';
+            res.status(db.ok && !draining ? 200 : 503).json({
                 status,
                 checks: {
-                    database: db.ok ? { status: 'ok', latencyMs: db.latencyMs } : { status: 'down', error: db.error },
+                    database: db.ok ? { status: 'ok', latencyMs: db.latencyMs } : { status: 'down' },
                     redis: { status: redis },
                 },
             });
         });
         this.app.use('/auth', createAuthRouter(rateLimitStoreFactory));
-        this.app.use('/users', userRouter);
+        this.app.use('/users', dropScoresOnWrite, userRouter);
         this.app.use('/view-as', viewAsRouter);
-        this.app.use('/stores', StoreRouter);
-        this.app.use('/departments', departmentRouter);
-        this.app.use('/holidays', holidayRouter);
-        this.app.use('/extra-working-days', extraWorkingDayRouter);
+        this.app.use('/stores', dropScoresOnWrite, StoreRouter);
+        this.app.use('/departments', dropScoresOnWrite, departmentRouter);
+        this.app.use('/holidays', dropScoresOnWrite, holidayRouter);
+        this.app.use('/extra-working-days', dropScoresOnWrite, extraWorkingDayRouter);
         this.app.use('/dress-types', dressTypeRouter);
         this.app.use('/system-health', systemHealthRouter);
         this.app.use('/categories', categoryRouter);
 
         this.app.use('/tasks/ai', createAiLimiter(rateLimitStoreFactory?.('ai')));
-        this.app.use('/tasks', taskRouter);
+        this.app.use('/tasks', dropScoresOnWrite, taskRouter);
         this.app.use('/tags', tagRouter);
         this.app.use('/projects', projectRouter)
 
-        this.app.use('/tickets', ticketRouter);
+        this.app.use('/tickets', dropScoresOnWrite, ticketRouter);
         this.app.use('/exceptions', exceptionRouter);
         this.app.use('/ticket-attachments', ticketAttachmentRouter);
-        this.app.use('/checklists', checklistRouter);
-        this.app.use('/checklist-items', checklistItemRouter);
+        this.app.use('/checklists', dropScoresOnWrite, checklistRouter);
+        this.app.use('/checklist-items', dropScoresOnWrite, checklistItemRouter);
         this.app.use('/checklist-images', checklistImageRouter);
         this.app.use('/checklist-templates', checklistTemplateRouter);
         this.app.use('/checklist-template-items', checklistTemplateItemRouter);
-        this.app.use('/checklist-definitions', checklistDefinitionRouter);
-        this.app.use('/checklist-instances', checklistInstanceRouter);
-        this.app.use('/checklist-instance-items', checklistInstanceItemRouter);
+        this.app.use('/checklist-definitions', dropScoresOnWrite, checklistDefinitionRouter);
+        this.app.use('/checklist-instances', dropScoresOnWrite, checklistInstanceRouter);
+        this.app.use('/checklist-instance-items', dropScoresOnWrite, checklistInstanceItemRouter);
         this.app.use('/checklist-instance-images', checklistInstanceImageRouter);
-        this.app.use('/checklist-instance-item-submissions', checklistInstanceItemSubmissionRouter);
+        this.app.use('/checklist-instance-item-submissions', dropScoresOnWrite, checklistInstanceItemSubmissionRouter);
         this.app.use('/checklist-instance-item-submission-images', checklistInstanceItemSubmissionImageRouter);
 
-        this.app.use('/task-checklists', taskChecklistRouter);
-        this.app.use('/task-checklist-items', taskChecklistItemRouter);
+        this.app.use('/task-checklists', dropScoresOnWrite, taskChecklistRouter);
+        this.app.use('/task-checklist-items', dropScoresOnWrite, taskChecklistItemRouter);
         this.app.use('/task-images', taskImageRouter);
         this.app.use('/task-attachments', taskAttachmentRouter);
 

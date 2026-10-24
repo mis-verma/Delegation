@@ -4,7 +4,7 @@ import { reportExportQuerySchema, approvalTatQuerySchema, overdueSnapshotQuerySc
 import { overdueSnapshotService } from "./overdueSnapshot.service.js";
 import { approvalTatService } from "./approvalTat.service.js";
 import { REPORT_ROW_STREAMS, REPORT_COLUMNS, type ReportModule } from "./report.service.js";
-import { CsvColumn, streamCsv } from "../../utils/csv.js";
+import { streamCsv, type CsvColumn } from "../../utils/csv.js";
 import { streamXlsx } from "../../utils/xlsx.js";
 
 

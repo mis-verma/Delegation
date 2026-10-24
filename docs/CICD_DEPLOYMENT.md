@@ -73,6 +73,29 @@ location / {
 
 CloudPanel syntax-checks the vhost before applying it and won't take the site down on a typo.
 
+### 4b. Fast static files (client site's Vhost Editor)
+
+The built app names every file in `/assets/` with a content hash, so those files can be cached for a
+year. The HTML, the service worker and the manifest must always be re-checked, or phones keep an old
+app after a deploy. Add these blocks next to the `location /` block:
+
+```nginx
+location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files $uri =404;
+}
+location = /index.html            { add_header Cache-Control "no-cache"; }
+location = /sw.js                 { add_header Cache-Control "no-cache"; }
+location = /manifest.webmanifest  { add_header Cache-Control "no-cache"; }
+```
+
+Turn on gzip or brotli for `text/css`, `application/javascript` and `image/svg+xml` if CloudPanel has not
+already (Site → Settings). To put a CDN in front (Cloudflare free plan is enough): point the
+`karyaos.in` DNS record through Cloudflare (orange cloud), set SSL mode to Full (strict), and keep
+`api.karyaos.in` on DNS only (grey cloud) so WebSockets and uploads are untouched. Do not add a page
+rule that caches `/index.html` or `/sw.js`.
+
 ### 5. WebSocket headers (API site's Vhost Editor)
 
 Check the `api.karyaos.in` site's Vhost tab for an existing `proxy_set_header Upgrade`/
@@ -95,10 +118,12 @@ SSH in as the API site's user, in `~/htdocs/api.karyaos.in/`, create `.env` from
 - `CLIENT_URL=https://karyaos.in`
 - `PORT=5050` — must match the App Port from step 2
 - `REDIS_URL=redis://localhost:6379`
-- `JWT_ACCESS_SECRET` — long random string
+- `JWT_ACCESS_SECRET` — random string of at least 32 characters (the server refuses to start in production with a shorter one)
 - `COOKIE_SECURE=true`
 - `CLUSTER_WORKERS` — leave **unset** (see `deploy/ecosystem.config.cjs`'s own comment for why)
-- S3 / SMTP / WhatsApp keys as needed
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` — required in production, because password and sign-in codes are sent by email
+- `CRON_TIMEZONE=Asia/Kolkata` — optional, set it if the VPS clock is not on Indian time
+- S3 / WhatsApp keys as needed
 
 This file is never touched by CI — edit it directly on the VPS, then `pm2 reload
 ecosystem.config.cjs` (or wait for the next deploy, which reloads it too).

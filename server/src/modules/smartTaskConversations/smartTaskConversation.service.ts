@@ -59,7 +59,7 @@ export const smartTaskConversationService = {
             if (!existing) throw AppError.notFound("Conversation not found");
 
             if (input.messages && input.messages.length) {
-                const [{ count }] = await tx.select({ count: sql<number>`count(*)` })
+                const [{ count } = { count: 0 }] = await tx.select({ count: sql<number>`count(*)` })
                     .from(smartTaskConversationMessages)
                     .where(eq(smartTaskConversationMessages.conversationId, id));
                 const newMessages = input.messages.slice(Number(count));

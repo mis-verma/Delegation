@@ -7,7 +7,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import { auditService } from "../audit/audit.service.js";
 import { hashPassword, comparePassword, deriveDefaultRank } from "../../utils/password.js";
-import { AccessTokenPayload, passwordChangeStamp } from "../../middleware/auth/auth.js";
+import { passwordChangeStamp, type AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { presenceService } from "../presence/presence.service.js";
 import { disconnectUserSockets } from "../../sockets/socket.js";
 import { invalidateAuthUsers } from "../../middleware/auth/authCache.js";
@@ -24,6 +24,7 @@ import {
 } from "./userGuards.js";
 import { userOffboardingService } from "./userOffboarding.service.js";
 import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
+import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 
 export { assertCanDeactivate, revokeSessions };
 
@@ -357,9 +358,18 @@ export const userService = {
         return { updated: changed.length };
     },
 
-    async updateOwnProfile(id: string, input: UpdateOwnProfileInput) {
+    async updateOwnProfile(id: string, input: UpdateOwnProfileInput, role: string) {
         const before = await getSafeById(id);
         assertFound(before);
+
+        if (!isAdminOrPc(role)) {
+            if (input.weekOffDays !== undefined && !sameDays(input.weekOffDays, before.weekOffDays)) {
+                throw AppError.forbidden("Your days off are set by an admin or PC. Ask them to change them.");
+            }
+            if (input.phone !== undefined && (input.phone ?? null) !== (before.phone ?? null)) {
+                throw AppError.forbidden("Your phone number links your WhatsApp account, so an admin or PC sets it. Ask them to change it.");
+            }
+        }
 
         if (input.phone) await assertPhoneAvailable(input.phone, id);
 
@@ -497,8 +507,8 @@ export const userService = {
     },
 
     async listAssignable(user: AccessTokenPayload, departmentId?: string, storeId?: string, storeIds?: string[]) {
-        const isScoped = user.role !== "ADMIN" && user.role !== "PC";
-        const effectiveDepartmentId = departmentId
+        const isScoped = !isAdminOrPc(user.role);
+        const effectiveDepartmentId = isOwnScopeRole(user.role) && departmentId !== user.departmentId ? undefined : departmentId
         const effectiveStoreId = isScoped && storeId !== user.storeId ? undefined : storeId
         const effectiveStoreIds = storeIds?.length
             ? (isScoped ? storeIds.filter((id) => id === user.storeId) : storeIds)

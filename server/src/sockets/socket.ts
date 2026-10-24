@@ -51,10 +51,12 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
                 departmentId: users.departmentId,
                 storeId: users.storeId,
                 passwordChangedAt: users.passwordChangedAt,
+                mustChangePassword: users.mustChangePassword,
             }).from(users).where(eq(users.id, payload.sub)).limit(1);
 
             if (!current || !current.isActive) return next(new Error("Account is no longer active"));
             if (tokenPredatesPasswordChange(payload.iat, current.passwordChangedAt)) return next(new Error("Invalid access token"));
+            if (current.mustChangePassword) return next(new Error("Choose your own password before you continue."));
 
             socket.data.user = {
                 sub: payload.sub,

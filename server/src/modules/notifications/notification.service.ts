@@ -29,25 +29,28 @@ type CreateNotificationInput = {
 };
 
 type VerifiableChecklistInstance = {
-  _id: any;
+  _id: string;
   title: string;
-  storeId?: any;
-  assigneeIds?: any[];
+  storeId?: string | null;
+  assigneeIds?: string[];
 };
 
 type VerifiableEntity = {
-  _id: any;
+  _id: string;
   title: string;
-  departmentId?: any;
-  storeId?: any;
-  userId?: any;
-  assigneeId?: any;
-  additionalAssigneeIds?: any[];
+  departmentId?: string | null;
+  storeId?: string | null;
+  userId?: string | null;
+  assigneeId?: string | null;
+  additionalAssigneeIds?: string[];
   reviewerIds?: string[];
 };
 
 const activeVerifierIds = async () =>
   (await db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['ADMIN', 'PC']), eq(users.isActive, true)))).map((u) => u.id);
+
+const activeEscalationIds = async () =>
+  (await db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['ADMIN', 'PC', 'OWNER']), eq(users.isActive, true)))).map((u) => u.id);
 
 const emitToUser = (userId: string, notification: unknown) => {
   getIO().to(`user:${userId}`).emit('notification:new', notification);
@@ -86,7 +89,7 @@ export const notificationService = {
     return rows;
   },
 
-  async notifyTicketAssigned(ticket: { _id: any; title: string; departmentId?: any; assigneeId?: any }) {
+  async notifyTicketAssigned(ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null }) {
     const recipientIds: string[] = [];
 
     const assigneeId = ticket.assigneeId ? ticket.assigneeId.toString() : null;
@@ -114,7 +117,7 @@ export const notificationService = {
     return [...sent, ...toHeads];
   },
 
-  async notifyTicketAwaitingHead(ticket: { _id: any; title: string; departmentId?: any; assigneeId?: any; userId?: any }) {
+  async notifyTicketAwaitingHead(ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null; userId?: string | null }) {
     if (!ticket.departmentId) return [];
     const raiserId = ticket.userId ? ticket.userId.toString() : null;
     const heads = await db
@@ -129,7 +132,7 @@ export const notificationService = {
     });
   },
 
-  async notifyHeadDecisionReminder(ticket: { _id: any; title: string; departmentId?: any; userId?: any }, hoursWaiting: number) {
+  async notifyHeadDecisionReminder(ticket: { _id: string; title: string; departmentId?: string | null; userId?: string | null }, hoursWaiting: number) {
     if (!ticket.departmentId) return [];
     const raiserId = ticket.userId ? ticket.userId.toString() : null;
     const heads = await db
@@ -144,8 +147,8 @@ export const notificationService = {
     });
   },
 
-  async notifyHeadDecisionEscalation(ticket: { _id: any; title: string }, hoursWaiting: number) {
-    return notificationService.notifyMany(await activeVerifierIds(), {
+  async notifyHeadDecisionEscalation(ticket: { _id: string; title: string }, hoursWaiting: number) {
+    return notificationService.notifyMany(await activeEscalationIds(), {
       type: 'TICKET_AWAITING_HEAD_ESCALATION',
       title: 'Department head has not decided',
       message: `"${ticket.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
@@ -153,7 +156,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskAwaitingHead(task: { _id: any; title: string; departmentId?: any; userId?: any }) {
+  async notifyTaskAwaitingHead(task: { _id: string; title: string; departmentId?: string | null; userId?: string | null }) {
     if (!task.departmentId) return [];
     const raiserId = task.userId ? task.userId.toString() : null;
     const heads = await db
@@ -168,7 +171,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskHeadDecisionReminder(task: { _id: any; title: string; departmentId?: any; userId?: any }, hoursWaiting: number) {
+  async notifyTaskHeadDecisionReminder(task: { _id: string; title: string; departmentId?: string | null; userId?: string | null }, hoursWaiting: number) {
     if (!task.departmentId) return [];
     const raiserId = task.userId ? task.userId.toString() : null;
     const heads = await db
@@ -183,8 +186,8 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskHeadDecisionEscalation(task: { _id: any; title: string }, hoursWaiting: number) {
-    return notificationService.notifyMany(await activeVerifierIds(), {
+  async notifyTaskHeadDecisionEscalation(task: { _id: string; title: string }, hoursWaiting: number) {
+    return notificationService.notifyMany(await activeEscalationIds(), {
       type: 'TASK_AWAITING_HEAD_ESCALATION',
       title: 'Department head has not decided',
       message: `"${task.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
@@ -192,7 +195,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskHeadApproved(task: { _id: any; title: string; userId?: any; assigneeId?: any; additionalAssigneeIds?: any[] }, actorId: string) {
+  async notifyTaskHeadApproved(task: { _id: string; title: string; userId?: string | null; assigneeId?: string | null; additionalAssigneeIds?: string[] }, actorId: string) {
     const ids = [task.assigneeId?.toString(), task.userId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
     const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
     const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
@@ -204,7 +207,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskDeclined(task: { _id: any; title: string; userId: any; assigneeId?: any; additionalAssigneeIds?: any[] }, reason: string, actorId: string) {
+  async notifyTaskDeclined(task: { _id: string; title: string; userId: string; assigneeId?: string | null; additionalAssigneeIds?: string[] }, reason: string, actorId: string) {
     const recipientIds = [task.userId?.toString(), task.assigneeId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
     return notificationService.notifyMany(recipientIds, {
       type: 'TASK_DECLINED',
@@ -214,7 +217,7 @@ export const notificationService = {
     });
   },
 
-  async notifyStaleWork(ticket: { _id: any; title: string; assigneeId?: any }, hoursQuiet: number) {
+  async notifyStaleWork(ticket: { _id: string; title: string; assigneeId?: string | null }, hoursQuiet: number) {
     const assigneeId = ticket.assigneeId?.toString();
     if (!assigneeId) return [];
     return notificationService.notifyMany([assigneeId], {
@@ -239,7 +242,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTicketHeadApproved(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, actorId: string) {
+  async notifyTicketHeadApproved(ticket: { _id: string; title: string; userId?: string | null; assigneeId?: string | null }, actorId: string) {
     const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
     const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
     const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
@@ -251,7 +254,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTicketProgress(ticket: { _id: any; title: string; userId?: any; assigneeId?: any }, remark: string, actorId: string) {
+  async notifyTicketProgress(ticket: { _id: string; title: string; userId?: string | null; assigneeId?: string | null }, remark: string, actorId: string) {
     const raiserId = ticket.userId?.toString();
     if (!raiserId || raiserId === actorId) return [];
     const [actor] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, actorId)).limit(1);
@@ -264,7 +267,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTicketDeclined(ticket: { _id: any; title: string; userId: any; assigneeId?: any }, reason: string, actorId: string) {
+  async notifyTicketDeclined(ticket: { _id: string; title: string; userId: string; assigneeId?: string | null }, reason: string, actorId: string) {
     const recipientIds = [ticket.userId?.toString(), ticket.assigneeId?.toString()].filter((id): id is string => !!id && id !== actorId);
     return notificationService.notifyMany(recipientIds, {
       type: 'TICKET_DECLINED',
@@ -274,7 +277,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTicketUnassigned(ticket: { _id: any; title: string; departmentId?: any }, actorId: string) {
+  async notifyTicketUnassigned(ticket: { _id: string; title: string; departmentId?: string | null }, actorId: string) {
     let recipientIds: string[] = [];
     if (ticket.departmentId) {
       const heads = await db
@@ -294,7 +297,7 @@ export const notificationService = {
     });
   },
 
-  async notifyTaskAssigned(task: { _id: any; title: string; userId: any; assigneeId?: any; additionalAssigneeIds?: any[] }) {
+  async notifyTaskAssigned(task: { _id: string; title: string; userId: string; assigneeId?: string | null; additionalAssigneeIds?: string[] }) {
     const creatorId = task.userId.toString();
     const recipientIds = [
       ...(task.assigneeId ? [task.assigneeId.toString()] : []),
@@ -348,7 +351,7 @@ export const notificationService = {
             .from(users)
             .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, entity.departmentId.toString()), eq(users.isActive, true)))
         : [];
-      const people = new Set([entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()));
+      const people = new Set([entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter((id): id is string => Boolean(id)));
       const headIds = heads.map((h) => h.id).filter((id) => !people.has(id));
       if (headIds.length) {
         return notificationService.notifyMany(headIds, {
@@ -374,7 +377,7 @@ export const notificationService = {
     }
     if (!recipientIds.length) recipientIds = await activeVerifierIds();
 
-    const workers = new Set([entity.assigneeId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()));
+    const workers = new Set([entity.assigneeId, ...(entity.additionalAssigneeIds ?? [])].filter((id): id is string => Boolean(id)));
     recipientIds = recipientIds.filter((id) => !workers.has(id));
     if (!recipientIds.length) return [];
 
@@ -426,7 +429,7 @@ export const notificationService = {
     const pcs = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString())));
+      .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString()), eq(users.isActive, true)));
     const recipientIds = pcs.map((p) => p.id);
     if (!recipientIds.length) return [];
 
@@ -438,7 +441,7 @@ export const notificationService = {
     });
   },
 
-  async notifyChecklistApprovalReminder(instance: VerifiableChecklistInstance & { reviewerIds?: any[]; hoursWaiting: number }) {
+  async notifyChecklistApprovalReminder(instance: VerifiableChecklistInstance & { reviewerIds?: string[]; hoursWaiting: number }) {
     let recipientIds = (instance.reviewerIds ?? []).map((id) => id.toString());
     if (!recipientIds.length) {
       const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
@@ -495,7 +498,7 @@ export const notificationService = {
     const people = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(inArray(users.role, ['ADMIN', 'PC']), eq(users.isActive, true)));
+      .where(and(inArray(users.role, ['ADMIN', 'PC', 'OWNER']), eq(users.isActive, true)));
     const recipientIds = people.map((p) => p.id);
     if (!recipientIds.length) return [];
 
@@ -521,7 +524,7 @@ export const notificationService = {
   },
 
   async notifyAreaManagersOfChecklistFlag(instance: VerifiableChecklistInstance, item: { label: string }) {
-    const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, 'ADMIN'));
+    const admins = await db.select({ id: users.id }).from(users).where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true)));
     const recipientIds = admins.map((a) => a.id);
     if (!recipientIds.length) return [];
 
@@ -539,7 +542,7 @@ export const notificationService = {
       ? await db
           .select({ id: users.id })
           .from(users)
-          .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString())))
+          .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString()), eq(users.isActive, true)))
       : [];
     const pcIds = pcs.map((p) => p.id);
 
@@ -582,7 +585,7 @@ export const notificationService = {
   },
 
   async notifyApprovalEscalation(entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK', hoursWaiting: number) {
-    const recipientIds = await activeVerifierIds();
+    const recipientIds = await activeEscalationIds();
     const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
     return notificationService.notifyMany(recipientIds, {
       type: `${kind}_APPROVAL_ESCALATION`,
@@ -593,7 +596,7 @@ export const notificationService = {
   },
 
   async notifyOverdueEscalation(entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK') {
-    const recipientIds = await activeVerifierIds();
+    const recipientIds = await activeEscalationIds();
     const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
     return notificationService.notifyMany(recipientIds, {
       type: `${kind}_OVERDUE_ESCALATION`,
@@ -623,7 +626,7 @@ export const notificationService = {
   },
 
   async notifyStageHandOff(entity: VerifiableEntity, kind: 'TICKET' | 'TASK', actorId: string) {
-    const recipientIds = [entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()).filter((id) => id !== actorId);
+    const recipientIds = [entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter((id): id is string => Boolean(id)).filter((id) => id !== actorId);
     const idField = kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() };
     return notificationService.notifyMany(recipientIds, {
       type: `${kind}_HOD_APPROVED`,

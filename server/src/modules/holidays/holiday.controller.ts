@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { holidayService } from "./holiday.service.js"
 import { createHolidaySchema, createHolidaysSchema, listHolidaysQuerySchema, previewHolidayQuerySchema } from "./holiday.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const holidayController = {
     list: asyncHandler(async (req: Request, res: Response) => {
@@ -26,7 +27,7 @@ export const holidayController = {
     }),
 
     remove: asyncHandler(async (req: Request, res: Response) => {
-        const { backfilled } = await holidayService.remove(req.params.id, req.user!.sub)
+        const { backfilled } = await holidayService.remove(routeParam(req, "id"), req.user!.sub)
         res.json({ success: true, backfilled })
     }),
 }

@@ -153,7 +153,7 @@ export const MyTeamCard = () => {
               ))}
             </div>
           ) : worstFirst.length === 0 ? (
-            <div className="p-4 sm:p-5">
+            <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
               <EmptyState size="compact" icon={Users} title="Nothing due yet" description="Scores show once your team has work due in this period." />
             </div>
           ) : (

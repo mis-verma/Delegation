@@ -28,10 +28,14 @@ import { startNotificationDigest } from "./src/jobs/notificationDigest.job.js";
 import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
 import { startPendingConversationRetention } from "./src/jobs/pendingConversationRetention.job.js";
 import { settingsService } from "./src/modules/settings/settings.service.js";
+import { beginDraining } from "./src/config/lifecycle.js";
+import type { Server as SocketServer } from "socket.io";
 
 class ServerBootstrap {
   private appInstance!: App;
   private httpServer?: Server;
+  private io?: SocketServer;
+  private closing = false;
 
   public async start(): Promise<void> {
     await connectDB();
@@ -42,9 +46,11 @@ class ServerBootstrap {
     this.appInstance = new App(rateLimitStoreFactory);
 
     this.httpServer = http.createServer(this.appInstance.app);
-    this.httpServer.requestTimeout = 30_000;
+    this.httpServer.requestTimeout = 600_000;
     this.httpServer.headersTimeout = 35_000;
+    this.httpServer.keepAliveTimeout = 65_000;
     const io = await initSocket(this.httpServer, workerCount > 1);
+    this.io = io;
 
     startRequestStatsFlush();
 
@@ -84,11 +90,14 @@ class ServerBootstrap {
   }
 
   private shutdown(): void {
+    if (this.closing) return;
+    this.closing = true;
+    beginDraining();
     console.log("Shutting down server...");
 
-    setTimeout(() => process.exit(1), 15_000).unref();
+    setTimeout(() => process.exit(1), 20_000).unref();
 
-    this.httpServer?.close(async () => {
+    const release = async () => {
       try {
         await disconnectDB();
         await Promise.all([disconnectRedisClients(), disconnectQueryCache()]);
@@ -98,7 +107,12 @@ class ServerBootstrap {
       } finally {
         process.exit(0);
       }
-    });
+    };
+
+    this.httpServer?.closeIdleConnections();
+    if (this.io) void this.io.close(() => void release());
+    else if (this.httpServer) this.httpServer.close(() => void release());
+    else void release();
   }
 }
 
@@ -130,6 +144,8 @@ const forkWorkerPool = (workerCount: number) => {
   });
 
   let cronWorkerId: number | null = null;
+  let draining = false;
+  let recentExits: number[] = [];
   const forkWorker = () => {
     const takesCron = cronWorkerId === null;
     const worker = cluster.fork(takesCron ? { CRON_OWNER: "1" } : { CRON_OWNER: "0" });
@@ -138,10 +154,28 @@ const forkWorkerPool = (workerCount: number) => {
 
   for (let i = 0; i < workerCount; i++) forkWorker();
 
+  const drain = () => {
+    if (draining) return;
+    draining = true;
+    console.log("Primary draining: asking workers to finish and exit.");
+    httpServer.close();
+    for (const worker of Object.values(cluster.workers ?? {})) worker?.process.kill("SIGTERM");
+    setTimeout(() => process.exit(1), 25_000).unref();
+  };
+  process.on("SIGTERM", drain);
+  process.on("SIGINT", drain);
+
   cluster.on("exit", (worker, code, signal) => {
-    console.error(`Worker ${worker.id} died (code ${code}, signal ${signal}) — forking a replacement.`);
     if (worker.id === cronWorkerId) cronWorkerId = null;
-    forkWorker();
+    if (draining) {
+      if (Object.keys(cluster.workers ?? {}).length === 0) process.exit(0);
+      return;
+    }
+    const now = Date.now();
+    recentExits = [...recentExits.filter((at) => now - at < 60_000), now];
+    const delayMs = Math.min(30_000, 1_000 * 2 ** Math.min(recentExits.length - 1, 5));
+    console.error(`Worker ${worker.id} died (code ${code}, signal ${signal}). Forking a replacement in ${delayMs}ms.`);
+    setTimeout(forkWorker, delayMs);
   });
 };
 

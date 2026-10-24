@@ -78,6 +78,8 @@ export const tickets = mysqlTable(
     index('Ticket_createdAt_idx').on(table.createdAt),
     index('Ticket_storeId_closedAt_idx').on(table.storeId, table.closedAt),
     index('Ticket_departmentId_closedAt_idx').on(table.departmentId, table.closedAt),
+    index('Ticket_tatDueAt_idx').on(table.tatDueAt),
+    index('Ticket_isOverdue_tatDueAt_idx').on(table.isOverdue, table.tatDueAt),
   ],
 );
 
@@ -121,7 +123,10 @@ export const ticketStatusUpdates = mysqlTable(
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [index('TicketStatusUpdate_ticketId_idx').on(table.ticketId)],
+  (table) => [
+    index('TicketStatusUpdate_ticketId_idx').on(table.ticketId),
+    index('TicketStatusUpdate_toStatus_createdAt_idx').on(table.toStatus, table.createdAt),
+  ],
 );
 
 export const ticketAttachments = mysqlTable(

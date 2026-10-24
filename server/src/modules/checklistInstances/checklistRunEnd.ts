@@ -1,4 +1,6 @@
 import { AppError } from "../../utils/AppError.js"
+import { isAdminOrPc } from "../../utils/roles.js"
+import { clockParts } from "../../utils/clock.js"
 
 
 
@@ -17,7 +19,7 @@ const MINUTE_MS = 60_000
 export const runDeadlineMs = (run: Pick<RunEndInput, "periodStart" | "periodEnd" | "cutoffTime" | "opensTime">, offsetMinutes: number): number => {
     const offsetMs = offsetMinutes * MINUTE_MS
     if (!run.cutoffTime) return run.periodEnd.getTime() - offsetMs
-    const [hours, minutes] = run.cutoffTime.split(":").map(Number)
+    const [hours, minutes] = clockParts(run.cutoffTime)
     const dayRoll = run.opensTime && run.cutoffTime < run.opensTime ? 24 * 60 : 0
     return run.periodStart.getTime() + (hours * 60 + minutes + dayRoll) * MINUTE_MS - offsetMs
 }
@@ -27,8 +29,8 @@ const toMs = (now: Date | number) => (typeof now === "number" ? now : now.getTim
 export const runClosingMs = (run: Pick<RunEndInput, "periodStart" | "periodEnd" | "cutoffTime" | "opensTime" | "lateUntilTime">, offsetMinutes: number): number => {
     const deadline = runDeadlineMs(run, offsetMinutes)
     if (!run.lateUntilTime || !run.cutoffTime) return deadline
-    const [cutoffHours, cutoffMinutes] = run.cutoffTime.split(":").map(Number)
-    const [lateHours, lateMinutes] = run.lateUntilTime.split(":").map(Number)
+    const [cutoffHours, cutoffMinutes] = clockParts(run.cutoffTime)
+    const [lateHours, lateMinutes] = clockParts(run.lateUntilTime)
     const extraMinutes = lateHours * 60 + lateMinutes - (cutoffHours * 60 + cutoffMinutes)
     return extraMinutes > 0 ? deadline + extraMinutes * MINUTE_MS : deadline
 }
@@ -84,7 +86,7 @@ export const describeRunEnd = (deadlineMs: number, offsetMinutes: number): strin
 export const runClosedMessage = (deadlineMs: number, offsetMinutes: number): string =>
     `This checklist closed at ${describeRunEnd(deadlineMs, offsetMinutes)}. It can't be filled in any more. Today's checklist is in My Checklists.`
 
-export const canWorkEndedRun = (user: { role: string }): boolean => user.role === "ADMIN" || user.role === "PC"
+export const canWorkEndedRun = (user: { role: string }): boolean => isAdminOrPc(user.role)
 
 export const assertRunOpen = (
     run: RunEndInput & { totalItems: number; doneItems: number },

@@ -3,6 +3,7 @@ import { userController } from "./user.controller.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 import { avatarUpload } from "../../config/upload.js"
 import { protectAdminAccounts } from "./adminAccountGuard.js"
+import { passwordChangeLimiter } from "../../middleware/rateLimiter/rateLimiter.js"
 
 export const userRouter = Router()
 
@@ -12,7 +13,7 @@ userRouter.get("/assignable", userController.listAssignable)
 
 userRouter.get("/me", userController.getMe)
 userRouter.patch("/me", userController.updateMe)
-userRouter.post("/me/password", userController.changeOwnPassword)
+userRouter.post("/me/password", passwordChangeLimiter, userController.changeOwnPassword)
 userRouter.post("/me/avatar", avatarUpload, userController.uploadMyAvatar)
 userRouter.delete("/me/avatar", userController.removeMyAvatar)
 

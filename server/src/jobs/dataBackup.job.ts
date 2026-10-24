@@ -46,13 +46,19 @@ const runBackupCycle = async () => {
 
 export const startDataBackup = () => {
   scheduleJob('data-backup', '30 2 * * *', 1440, async () => {
-    try {
-      await runBackupCycle()
-      await runFullCycle()
-      await runUploadsCycle()
-    } catch (err) {
-      await notificationService.notifyBackupFailed((err as Error).message).catch((notifyErr) => console.error('[data-backup] could not tell the admins', notifyErr))
-      throw err
+    const failures: Error[] = []
+    for (const [label, cycle] of [['full dump', runFullCycle], ['json export', runBackupCycle], ['uploads', runUploadsCycle]] as const) {
+      try {
+        await cycle()
+      } catch (err) {
+        console.error(`[data-backup] ${label} failed`, err)
+        failures.push(new Error(`${label}: ${err instanceof Error ? err.message : String(err)}`, { cause: err }))
+      }
+    }
+    if (failures.length) {
+      const summary = failures.map((f) => f.message).join('; ')
+      await notificationService.notifyBackupFailed(summary).catch((notifyErr) => console.error('[data-backup] could not tell the admins', notifyErr))
+      throw new AggregateError(failures, summary)
     }
   })
 }

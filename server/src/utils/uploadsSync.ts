@@ -139,8 +139,9 @@ export const runUploadsSync = async (options: { upload?: UploadFile; maxFiles?: 
       const slice = toUpload.slice(i, i + PARALLEL)
       const outcomes = await Promise.allSettled(slice.map((file) => upload(file, join(root, ...file.rel.split('/')))))
       outcomes.forEach((outcome, k) => {
-        if (outcome.status === 'fulfilled') {
-          state.files[slice[k].rel] = { size: slice[k].size, mtimeMs: slice[k].mtimeMs }
+        const file = slice[k]
+        if (outcome.status === 'fulfilled' && file) {
+          state.files[file.rel] = { size: file.size, mtimeMs: file.mtimeMs }
           uploaded++
           sinceSave++
         } else {

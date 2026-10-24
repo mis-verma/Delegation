@@ -134,7 +134,7 @@ const parsePdfRows = async (buffer: Buffer): Promise<{ rows: BulkImportRawRow[];
         const tableResult = await parser.getTable()
         const table = tableResult.pages?.[0]?.tables?.[0]
         if (table && table.length >= 2) {
-            const [headerCells, ...dataCells] = table as string[][]
+            const [headerCells = [], ...dataCells] = table as string[][]
             const rows = rowsFromHeaderedLines(headerCells.map((c) => String(c ?? "").trim()), dataCells)
             if (rows.length) return { rows, warnings }
         }
@@ -143,7 +143,7 @@ const parsePdfRows = async (buffer: Buffer): Promise<{ rows: BulkImportRawRow[];
         const lines = textResult.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
         if (!lines.length) return { rows: [], warnings: [...warnings, "No readable text found in this PDF."] }
 
-        const [headerLine, ...dataLines] = lines
+        const [headerLine = "", ...dataLines] = lines
         const rows = rowsFromHeaderedLines(splitPdfLine(headerLine), dataLines.map(splitPdfLine))
         return { rows, warnings }
     } finally {

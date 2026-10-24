@@ -9,13 +9,14 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js";
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js";
 import { auditService } from "../audit/audit.service.js";
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: string }) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1);
     if (!instance) throw AppError.notFound("Checklist instance not found");
     assertInstanceEditable(instance, user);
     await assertRunOpenForUser(instance.id, user);
-    if (user.role === "ADMIN" || user.role === "PC") return;
+    if (isAdminOrPc(user.role)) return;
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId })
         .from(checklistInstanceAssignees)
         .where(eq(checklistInstanceAssignees.instanceId, instance.id));
@@ -95,7 +96,7 @@ export const checklistInstanceImageService = {
 
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, image.checklistInstanceItemId)).limit(1);
         if (item) await assertCanUpload(user, item);
-        if (!item && user.role !== "ADMIN" && user.role !== "PC" && image.uploadedBy !== user.sub) {
+        if (!item && !isAdminOrPc(user.role) && image.uploadedBy !== user.sub) {
             throw AppError.forbidden("Only an assignee of this checklist can upload evidence for it");
         }
 

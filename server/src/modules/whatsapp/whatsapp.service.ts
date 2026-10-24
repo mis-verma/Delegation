@@ -17,6 +17,7 @@ export async function sendWhatsAppMessage(to:string, body:string) {
             to,
             text : { body },
         }),
+        signal: AbortSignal.timeout(15_000),
     });
     if(!res.ok){
         console.error("WhatsApp send failed : ", await res.text())
@@ -26,6 +27,7 @@ export async function sendWhatsAppMessage(to:string, body:string) {
 export async function downloadWhatsAppMedia(mediaId:string):Promise<{buffer: Buffer; mimeType : string}> {
     const metaRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`, {
         headers : { Authorization : `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`},
+        signal: AbortSignal.timeout(15_000),
     });
 
     if(!metaRes.ok)throw new Error(`Failed to look up media ${mediaId} : ${await metaRes.text()}`);
@@ -33,6 +35,7 @@ export async function downloadWhatsAppMedia(mediaId:string):Promise<{buffer: Buf
 
     const fileRes = await fetch(url, {
         headers : { Authorization : `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`},
+        signal: AbortSignal.timeout(30_000),
     });
 
     if(!fileRes.ok) throw new Error(`Failed to download media : ${mediaId}`);
@@ -42,6 +45,7 @@ export async function downloadWhatsAppMedia(mediaId:string):Promise<{buffer: Buf
 }
 
 export function verifySignature(rawBody : Buffer, signatureHeader : string | undefined) : boolean {
+    if(!env.WHATSAPP_APP_SECRET) return false;
     if(!signatureHeader?.startsWith("sha256=")) return false;
     const expected = crypto.createHmac("sha256", env.WHATSAPP_APP_SECRET).update(rawBody).digest("hex");
     const provided = signatureHeader.slice("sha256=".length)

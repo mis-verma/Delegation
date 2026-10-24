@@ -10,9 +10,10 @@ import { notificationService, notifySafely } from "../notifications/notification
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskCommentInput } from "./taskComment.validation.js"
 import { isDepartmentHead } from "../tickets/ticketApproval.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const assertCanComment = async (user: AccessTokenPayload, task: typeof tasks.$inferSelect) => {
-    if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER") return;
+    if (isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER") return;
     if (task.userId === user.sub) return;
     if (task.assigneeId && task.assigneeId === user.sub) return;
 

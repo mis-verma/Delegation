@@ -8,6 +8,7 @@ import { settingsService } from '../modules/settings/settings.service.js';
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from '../modules/checklistInstances/checklistInstance.service.js';
 import { formatClock } from '../modules/checklistDefinitions/lateWindow.js';
 import { utcSql } from '../modules/checklistInstances/checklistReportRange.js';
+import { clockParts } from "../utils/clock.js"
 
 const BATCH = 300;
 const MINUTE_MS = 60_000;
@@ -23,11 +24,12 @@ const orgClock = (date: Date) => {
 
 const minutesUntil = (date: Date, now: Date) => Math.max(1, Math.round((date.getTime() - now.getTime()) / MINUTE_MS));
 
-const safely = async (label: string, work: () => Promise<unknown>) => {
+const safely = async (label: string, work: () => Promise<unknown>, failures: Error[]) => {
   try {
     await work();
   } catch (err) {
     console.error(`Due reminders (${label}) failed:`, err);
+    failures.push(new Error(`${label}: ${err instanceof Error ? err.message : String(err)}`));
   }
 };
 
@@ -117,7 +119,7 @@ const assigneesOfRuns = async (ids: string[]) => {
 };
 
 const runDeadlineAt = (r: typeof checklistInstances.$inferSelect) => {
-  const [h, m] = (r.cutoffTime as string).split(':').map(Number);
+  const [h, m] = clockParts((r.cutoffTime as string));
   const overnight = !!r.opensTime && (r.cutoffTime as string) < r.opensTime;
   return r.periodStart.getTime() + ((overnight ? 24 * 60 : 0) + h * 60 + m) * MINUTE_MS - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * MINUTE_MS;
 };
@@ -129,6 +131,7 @@ const checklistsDueSoon = async (now: Date) => {
     sql`${deadlineExpr} > ${localNowExpr}`,
     sql`${deadlineExpr} <= DATE_ADD(${localNowExpr}, INTERVAL ${CHECKLIST_DUE_SOON_MINUTES} MINUTE)`,
     sql`${checklistInstances.periodStart} <= DATE(${localNowExpr})`,
+    sql`${checklistInstances.periodStart} >= DATE_SUB(DATE(${localNowExpr}), INTERVAL 400 DAY)`,
   )).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfRuns(rows.map((r) => r.id));
@@ -310,33 +313,28 @@ const unassignedReminders = async (now: Date) => {
 };
 
 export const startDueReminders = () => {
-  let running = false;
   scheduleJob('due-reminders', '*/5 * * * *', 5, async () => {
-    if (running) return;
-    running = true;
-    try {
-      const settings = settingsService.getCached();
-      const now = new Date();
-      if (settings.notifyTaskDeadlineReminders) {
-        await safely('tickets due soon', () => ticketsDueSoon(now));
-        await safely('tickets overdue', () => ticketsOverdue(now));
-        await safely('delegations due soon', () => tasksDueSoon(now));
-        await safely('delegations overdue', () => tasksOverdue(now));
-        await safely('overdue escalations', () => overdueEscalations(now));
-        await safely('unassigned reminders', () => unassignedReminders(now));
-        await safely('ticket approvals', () => ticketApprovalChasers(now));
-        await safely('head decisions', () => headDecisionChasers(now));
-        await safely('delegation head decisions', () => taskHeadDecisionChasers(now));
-        await safely('stale work', () => staleWorkNudges(now));
-        await safely('delegation approvals', () => taskApprovalChasers(now));
-      }
-      if (settings.notifyChecklistOverdueReminders) {
-        await safely('checklists due soon', () => checklistsDueSoon(now));
-        await safely('checklists upcoming', () => checklistsUpcoming(now));
-        await safely('checklists opened', () => checklistsOpened(now));
-      }
-    } finally {
-      running = false;
+    const failures: Error[] = [];
+    const settings = settingsService.getCached();
+    const now = new Date();
+    if (settings.notifyTaskDeadlineReminders) {
+      await safely('tickets due soon', () => ticketsDueSoon(now), failures);
+      await safely('tickets overdue', () => ticketsOverdue(now), failures);
+      await safely('delegations due soon', () => tasksDueSoon(now), failures);
+      await safely('delegations overdue', () => tasksOverdue(now), failures);
+      await safely('overdue escalations', () => overdueEscalations(now), failures);
+      await safely('unassigned reminders', () => unassignedReminders(now), failures);
+      await safely('ticket approvals', () => ticketApprovalChasers(now), failures);
+      await safely('head decisions', () => headDecisionChasers(now), failures);
+      await safely('delegation head decisions', () => taskHeadDecisionChasers(now), failures);
+      await safely('stale work', () => staleWorkNudges(now), failures);
+      await safely('delegation approvals', () => taskApprovalChasers(now), failures);
     }
+    if (settings.notifyChecklistOverdueReminders) {
+      await safely('checklists due soon', () => checklistsDueSoon(now), failures);
+      await safely('checklists upcoming', () => checklistsUpcoming(now), failures);
+      await safely('checklists opened', () => checklistsOpened(now), failures);
+    }
+    if (failures.length) throw new AggregateError(failures, `${failures.length} reminder step(s) failed: ${failures.map((f) => f.message).join('; ').slice(0, 600)}`);
   });
 };

@@ -16,6 +16,7 @@ import {
     cancelConversation,
     toDraftObject,
 } from "../taskConversations/taskConversation.service.js";
+import { routeParam } from "../../utils/routeParam.js"
 
 interface DoubleTickIncomingPayload {
     to: string;
@@ -52,8 +53,9 @@ function formatTaskConfirmation(taskTitle: string, draft: ConversationDraftLike)
 
 export const doubletickController = {
     receive: asyncHandler(async (req: Request, res: Response) => {
-        if (!verifyDoubleTickAuth(req.params.secret)) {
-            return res.sendStatus(401);
+        if (!verifyDoubleTickAuth(routeParam(req, "secret"))) {
+            res.sendStatus(401);
+            return;
         }
 
         res.sendStatus(200);
@@ -68,6 +70,17 @@ export const doubletickController = {
         if (!(await claimInboundMessage("doubletick", body.messageId))) return;
 
         const from = body.from;
+
+        const sender = await findActiveUserByPhone(from);
+        if (!sender) {
+            await sendDoubleTickMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
+            return;
+        }
+        if (sender.role === "OWNER") {
+            await sendDoubleTickMessage(from, "Your account is read only, so it can't create work from WhatsApp. Open the app to view scores and approvals.");
+            return;
+        }
+
         let text: string;
         let inputMode: "voice" | "text";
 
@@ -86,12 +99,6 @@ export const doubletickController = {
             }
         } else {
             await sendDoubleTickMessage(from, "Sorry, I can only understand text messages or voice notes right now.");
-            return;
-        }
-
-        const sender = await findActiveUserByPhone(from);
-        if (!sender) {
-            await sendDoubleTickMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
             return;
         }
 
@@ -169,14 +176,10 @@ export const doubletickController = {
                 return;
             }
 
-            await startConversation({
-                phone: from,
-                userId: sender.id,
-                firstSlot: missing[0],
-                remainingSlots: missing.slice(1),
-                draft,
-            });
-            await sendDoubleTickMessage(from, SLOT_QUESTIONS[missing[0]]);
+            const [firstSlot, ...remainingSlots] = missing;
+            if (!firstSlot) return;
+            await startConversation({ phone: from, userId: sender.id, firstSlot, remainingSlots, draft });
+            await sendDoubleTickMessage(from, SLOT_QUESTIONS[firstSlot]);
         } catch (err) {
             console.error("DoubleTick task creation failed:", err);
             await sendDoubleTickMessage(from, "Sorry, something went wrong creating that delegation. Please try again or add it manually.");

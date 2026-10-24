@@ -3,7 +3,7 @@ import { tickets } from "../../db/schema/ticket.js";
 import { tasks, taskAdditionalAssignees } from "../../db/schema/task.js";
 import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from "../../db/schema/checklistInstance.js";
 import { users, departments, stores } from "../../db/schema/core.js";
-import { and, gte, lte, eq, or, inArray, isNull, isNotNull, desc, asc, sql } from "drizzle-orm";
+import { and, gte, lte, eq, or, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import type { CsvColumn } from "../../utils/csv.js";
 
@@ -104,7 +104,7 @@ export const reportService = {
             const activeCursor = cursor;
             const cursorCondition = activeCursor ? or(
                 sql`${tickets.createdAt} < ${activeCursor.createdAt}`,
-                and(eq(tickets.createdAt, activeCursor.createdAt), sql`${tickets.id} > ${activeCursor.id}`),
+                and(eq(tickets.createdAt, activeCursor.createdAt), sql`${tickets.id} < ${activeCursor.id}`),
             ) : undefined;
             const page: TicketReportRow[] = await db
                 .select({
@@ -127,7 +127,7 @@ export const reportService = {
                 .leftJoin(assigneeUsers, eq(assigneeUsers.id, tickets.assigneeId))
                 .leftJoin(raisedByUsers, eq(raisedByUsers.id, tickets.userId))
                 .where(and(where, cursorCondition))
-                .orderBy(desc(tickets.createdAt), asc(tickets.id))
+                .orderBy(desc(tickets.createdAt), desc(tickets.id))
                 .limit(PAGE_SIZE);
 
             if (page.length === 0) break;
@@ -148,7 +148,8 @@ export const reportService = {
                 };
             }
 
-            const last = page[page.length - 1];
+            const last = page.at(-1);
+            if (!last) break;
             cursor = { createdAt: last.createdAt, id: last.id };
             if (page.length < PAGE_SIZE) break;
         }
@@ -209,10 +210,10 @@ export const reportService = {
                     where,
                     cursor ? or(
                         sql`${tasks.createdAt} < ${cursor.createdAt}`,
-                        and(eq(tasks.createdAt, cursor.createdAt), sql`${tasks.id} > ${cursor.id}`),
+                        and(eq(tasks.createdAt, cursor.createdAt), sql`${tasks.id} < ${cursor.id}`),
                     ) : undefined,
                 ))
-                .orderBy(desc(tasks.createdAt), asc(tasks.id))
+                .orderBy(desc(tasks.createdAt), desc(tasks.id))
                 .limit(PAGE_SIZE);
 
             if (page.length === 0) break;
@@ -253,7 +254,8 @@ export const reportService = {
                 };
             }
 
-            const last = page[page.length - 1];
+            const last = page.at(-1);
+            if (!last) break;
             cursor = { createdAt: last.createdAt, id: last.id };
             if (page.length < PAGE_SIZE) break;
         }
@@ -294,10 +296,10 @@ export const reportService = {
                     where,
                     cursor ? or(
                         sql`${checklistInstances.periodStart} < ${cursor.periodStart}`,
-                        and(eq(checklistInstances.periodStart, cursor.periodStart), sql`${checklistInstances.id} > ${cursor.id}`),
+                        and(eq(checklistInstances.periodStart, cursor.periodStart), sql`${checklistInstances.id} < ${cursor.id}`),
                     ) : undefined,
                 ))
-                .orderBy(desc(checklistInstances.periodStart), asc(checklistInstances.id))
+                .orderBy(desc(checklistInstances.periodStart), desc(checklistInstances.id))
                 .limit(PAGE_SIZE);
 
             if (page.length === 0) break;
@@ -347,7 +349,8 @@ export const reportService = {
                 };
             }
 
-            const last = page[page.length - 1];
+            const last = page.at(-1);
+            if (!last) break;
             cursor = { periodStart: last.periodStart, id: last.id };
             if (page.length < PAGE_SIZE) break;
         }

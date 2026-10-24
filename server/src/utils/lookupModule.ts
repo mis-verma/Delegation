@@ -1,6 +1,6 @@
 import { Router } from "express"
 import { z } from "zod"
-import type { AnyMySqlColumn, MySqlTableWithColumns } from "drizzle-orm/mysql-core"
+import type { AnyMySqlColumn, AnyMySqlTable } from "drizzle-orm/mysql-core"
 import { asc, eq, sql, getTableName } from "drizzle-orm"
 import { authenticate, requireRole } from "../middleware/auth/auth.js"
 import { asyncHandler } from "./asyncHandler.js"
@@ -8,8 +8,9 @@ import { AppError } from "./AppError.js"
 import { db } from "../config/db.js"
 import { cached, invalidate, cacheKey } from "../config/queryCache.js"
 import { auditService } from "../modules/audit/audit.service.js"
+import { routeParam } from "./routeParam.js"
 
-type LookupTable = MySqlTableWithColumns<any> & { id: AnyMySqlColumn; name: AnyMySqlColumn }
+type LookupTable = AnyMySqlTable & { id: AnyMySqlColumn; name: AnyMySqlColumn }
 
 const listQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
@@ -41,7 +42,7 @@ const isStillReferenced = (err: unknown) => {
     return e?.code === "ER_ROW_IS_REFERENCED_2" || e?.cause?.code === "ER_ROW_IS_REFERENCED_2"
 }
 
-export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObject, options: LookupOptions = {}) => {
+export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, options: LookupOptions = {}) => {
     const updateSchema = bodySchema.partial()
     const audit = (req: { user?: { sub: string } }, entityId: string, action: string, before: unknown, after: unknown) =>
         options.entityType && req.user
@@ -79,7 +80,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
 
     router.post("/", asyncHandler(async (req, res) => {
         const input = (options.normalize ?? ((v) => v))(bodySchema.parse(req.body)) as z.infer<typeof bodySchema>
-        const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
+        const [existing] = (await db.select().from(table).where(eq(table.name, input.name)).limit(1)) as LookupRow[];
         if (existing) throw AppError.conflict("Name already exists")
         try {
             await db.insert(table).values(input)
@@ -87,7 +88,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
             if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists")
             throw err
         }
-        const [item] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
+        const [item] = (await db.select().from(table).where(eq(table.name, input.name)).limit(1)) as LookupRow[];
         await dropCache()
         if (item) await audit(req, item.id, "CREATE", undefined, item)
         if (item) await options.afterChange?.(undefined, item as LookupRow)
@@ -97,18 +98,18 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
     router.patch("/:id", asyncHandler(async (req, res) => {
         const input = (options.normalize ?? ((v) => v))(updateSchema.parse(req.body)) as z.infer<typeof updateSchema>
         if (input.name !== undefined) {
-            const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
-            if (existing && existing.id !== req.params.id) throw AppError.conflict("Name already exists")
+            const [existing] = (await db.select().from(table).where(eq(table.name, input.name)).limit(1)) as LookupRow[];
+            if (existing && existing.id !== routeParam(req, "id")) throw AppError.conflict("Name already exists")
         }
-        const [before] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
+        const [before] = await db.select().from(table).where(eq(table.id, routeParam(req, "id"))).limit(1);
         if (!before) throw AppError.notFound("Not Found")
         try {
-            await db.update(table).set({ ...input, updatedAt: new Date() }).where(eq(table.id, req.params.id));
+            await db.update(table).set({ ...input, updatedAt: new Date() }).where(eq(table.id, routeParam(req, "id")));
         } catch (err) {
             if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists")
             throw err
         }
-        const [item] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
+        const [item] = (await db.select().from(table).where(eq(table.id, routeParam(req, "id"))).limit(1)) as LookupRow[];
         if (!item) throw AppError.notFound("Not Found")
         await dropCache()
         await audit(req, item.id, "UPDATE", before, item)
@@ -117,12 +118,12 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
     }))
 
     router.delete("/:id", asyncHandler(async (req, res) => {
-        const [existing] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
+        const [existing] = (await db.select().from(table).where(eq(table.id, routeParam(req, "id"))).limit(1)) as LookupRow[];
         if (!existing) throw AppError.notFound("Not Found")
         const blocked = await options.deleteBlockers?.({ id: existing.id, name: String(existing.name) })
         if (blocked) throw AppError.conflict(blocked)
         try {
-            await db.delete(table).where(eq(table.id, req.params.id));
+            await db.delete(table).where(eq(table.id, routeParam(req, "id")));
         } catch (err) {
             if (isStillReferenced(err)) {
                 throw AppError.conflict(`${String(existing.name)} is still used by other records, so it can't be deleted. Deactivate it instead.`)

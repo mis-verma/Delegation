@@ -37,7 +37,7 @@ type Connection = Awaited<ReturnType<typeof connect>>
 
 const baseTables = async (connection: Connection): Promise<string[]> => {
   const [rows] = await connection.query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'")
-  return (rows as Record<string, string>[]).map((row) => Object.values(row)[0]).sort()
+  return (rows as Record<string, string>[]).map((row) => Object.values(row)[0] ?? "").filter(Boolean).sort()
 }
 
 const write = async (out: NodeJS.WritableStream, text: string) => {
@@ -46,7 +46,9 @@ const write = async (out: NodeJS.WritableStream, text: string) => {
 
 const dumpTable = async (connection: Connection, out: NodeJS.WritableStream, table: string): Promise<number> => {
   const [createRows] = await connection.query(`SHOW CREATE TABLE ${sqlName(table)}`)
-  const createStatement = String((createRows as Record<string, string>[])[0]['Create Table']).replace(/\s*\n\s*/g, ' ')
+  const createText = (createRows as Record<string, string>[])[0]?.['Create Table']
+  if (!createText) throw new Error(`Could not read the definition of table ${table}`)
+  const createStatement = String(createText).replace(/\s*\n\s*/g, ' ')
   await write(out, `DROP TABLE IF EXISTS ${sqlName(table)};\n${createStatement};\n`)
 
   let written = 0
@@ -135,7 +137,8 @@ export const pruneFullBackups = async (keep = 14): Promise<number> => {
 export const newestFullBackup = async (): Promise<string | null> => {
   try {
     const dumps = (await readdir(backupsRoot())).filter((n) => n.startsWith(FULL_BACKUP_PREFIX) && n.endsWith('.sql.gz')).sort()
-    return dumps.length ? join(backupsRoot(), dumps[dumps.length - 1]) : null
+    const newest = dumps.at(-1)
+    return newest ? join(backupsRoot(), newest) : null
   } catch {
     return null
   }

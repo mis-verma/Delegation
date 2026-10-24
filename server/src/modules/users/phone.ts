@@ -34,13 +34,21 @@ const inboundDigits = (raw: string): string | null => {
     return digits.length >= 10 ? digits : null
 }
 
+const DEFAULT_COUNTRY_CODE = "91"
+
+const samePerson = (stored: string, inbound: string): boolean => {
+    const local = stored.replace(/\D/g, "").replace(/^0+/, "")
+    if (local === inbound) return true
+    return local.length === 10 && inbound === `${DEFAULT_COUNTRY_CODE}${local}`
+}
+
 export const findActiveUserByPhone = async (rawFrom: string) => {
     const digits = inboundDigits(rawFrom)
     if (!digits) return undefined
     const rows = await db.select().from(users)
         .where(and(isNotNull(users.phone), eq(users.isActive, true), sameNumber(digits)))
         .limit(5)
-    return rows.find((r) => (r.phone ?? "").replace(/\D/g, "") === digits) ?? rows[0]
+    return rows.find((r) => samePerson(r.phone ?? "", digits))
 }
 
 export const assertPhoneAvailable = async (digits: string | null | undefined, exceptUserId?: string) => {

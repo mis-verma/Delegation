@@ -75,6 +75,7 @@ export const dressTypeService = {
             throw err
         }
         const [row] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
+        if (!row) throw AppError.notFound("Dress type not found")
         const created = toPublic(row, 0, 0)
         await auditService.record({ entityType: "DressType", entityId: id, action: "CREATE", actorId, after: created })
         return created
@@ -97,6 +98,7 @@ export const dressTypeService = {
             throw err
         }
         const [row] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
+        if (!row) throw AppError.notFound("Dress type not found")
         const [peopleCount, questionCounts] = await Promise.all([countPeople(id), auditQuestionCounts()])
         const questionCount = questionCounts.get(id) ?? 0
         const updated = toPublic(row, peopleCount, questionCount)

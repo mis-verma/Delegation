@@ -37,6 +37,7 @@ module.exports = {
         NODE_ENV: 'production',
       },
       max_memory_restart: '500M',
+      kill_timeout: 30000,
       out_file: path.join(os.homedir(), 'logs', 'karya-server-out.log'),
       error_file: path.join(os.homedir(), 'logs', 'karya-server-error.log'),
       time: true,

@@ -21,6 +21,7 @@ import {
     type TicketLike,
     type TicketScore,
 } from "./scoreBlocks.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 
 export type { ChecklistScore, DelegationScore, ModuleBlocks, TicketScore }
 
@@ -137,7 +138,7 @@ const bucketsFor = (period: TrendPeriod, from: string, to: string): { label: str
         const start = Math.max(cursor.getTime(), fromMs)
         const nextMonth = Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1)
         const end = Math.min(nextMonth - DAY_MS, toMs)
-        out.push({ label: MONTH_NAMES[cursor.getUTCMonth()], from: ymd(start), to: ymd(end) })
+        out.push({ label: MONTH_NAMES[cursor.getUTCMonth()] ?? "", from: ymd(start), to: ymd(end) })
         cursor.setUTCMonth(cursor.getUTCMonth() + 1)
     }
     return out
@@ -150,7 +151,7 @@ const personMetrics = (viewer: AccessTokenPayload, from: string, to: string, use
 const totalsMetrics = (viewer: AccessTokenPayload, from: string, to: string, storeId?: string) =>
     checklistReportService.build(viewer, { from, to, groupBy: "department", storeId }).then((r) => r.totals)
 const departmentMetrics = (viewer: AccessTokenPayload, from: string, to: string, departmentId: string) =>
-    checklistReportService.build(viewer.role === "MANAGER" || viewer.role === "SENIOR" ? { ...viewer, role: "PC" } : viewer, { from, to, groupBy: "department", departmentId }).then((r) => r.departments.find((d) => d.departmentId === departmentId) ?? null)
+    checklistReportService.build(isDepartmentHeadRole(viewer.role) ? { ...viewer, role: "PC" } : viewer, { from, to, groupBy: "department", departmentId }).then((r) => r.departments.find((d) => d.departmentId === departmentId) ?? null)
 
 export type OrgCounts = {
     stores: { active: number; inactive: number }
@@ -175,7 +176,7 @@ export type ScoreCollection = {
 
 export const scoreService = {
     async orgCounts(viewer: AccessTokenPayload): Promise<OrgCounts> {
-        if (viewer.role !== "ADMIN" && viewer.role !== "PC") throw AppError.forbidden()
+        if (!isAdminOrPc(viewer.role)) throw AppError.forbidden()
         const joinedSince = new Date(Date.now() - 30 * DAY_MS)
         const [[storeRow], [deptRow], [userRow], [leadRow]] = await Promise.all([
             db.select({ total: sql<number>`COUNT(*)`, active: sql<number>`COALESCE(SUM(${stores.isActive}), 0)` }).from(stores),
@@ -200,8 +201,8 @@ export const scoreService = {
     },
 
     async resolve(viewer: AccessTokenPayload, scope: ScoreScope, id: string): Promise<Target> {
-        const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
-        const hod = viewer.role === "MANAGER" || viewer.role === "SENIOR"
+        const orgWide = isAdminOrPc(viewer.role)
+        const hod = isDepartmentHeadRole(viewer.role)
 
         if (scope === "person") {
             const [target] = await db
@@ -284,14 +285,17 @@ export const scoreService = {
         for (let i = 0; i < buckets.length; i += 4) {
             const slice = buckets.slice(i, i + 4)
             const scored = await Promise.all(slice.map((b) => this.forScope(viewer, scope, id, b.from, b.to, target)))
-            scored.forEach((s, k) => out.push({ label: slice[k].label, from: slice[k].from, to: slice[k].to, checklist: s.checklist, ticket: s.ticket, delegation: s.delegation, overall: s.overall }))
+            scored.forEach((s, k) => {
+                const bucket = slice[k]
+                if (bucket) out.push({ label: bucket.label, from: bucket.from, to: bucket.to, checklist: s.checklist, ticket: s.ticket, delegation: s.delegation, overall: s.overall })
+            })
         }
         return { scope, id, name: target.name, period, buckets: out }
     },
 
     async report(viewer: AccessTokenPayload, from: string, to: string, parts: { people?: boolean; stores?: boolean } = {}): Promise<ScoreReport> {
-        const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
-        const hod = viewer.role === "MANAGER" || viewer.role === "SENIOR"
+        const orgWide = isAdminOrPc(viewer.role)
+        const hod = isDepartmentHeadRole(viewer.role)
         if (!orgWide && !hod) throw AppError.forbidden()
         const wantPeople = parts.people !== false
         const wantStores = parts.stores === true && orgWide

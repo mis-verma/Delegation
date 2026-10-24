@@ -1,7 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { z } from 'zod';
 import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { Tag } from './tags';
 
 export type Priority       = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -228,12 +227,12 @@ export type UpdateChecklistItemPayload = {
 };
 
 const ticketArrayDefaults = withArrayDefaults({
-  comments: arrayField(z.unknown()),
-  attachments: arrayField(z.unknown()),
-  checklists: arrayField(z.unknown()),
-  statusUpdates: arrayField(z.unknown()),
-  tags: arrayField(z.unknown()),
-  reviewers: arrayField(z.unknown()),
+  comments: arrayField(n.unknown()),
+  attachments: arrayField(n.unknown()),
+  checklists: arrayField(n.unknown()),
+  statusUpdates: arrayField(n.unknown()),
+  tags: arrayField(n.unknown()),
+  reviewers: arrayField(n.unknown()),
 });
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 

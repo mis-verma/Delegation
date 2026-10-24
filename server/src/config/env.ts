@@ -24,7 +24,11 @@ const envSchema = z.object({
 
     JWT_ACCESS_SECRET: z.string().min(10),
 
-    COOKIE_SECURE: z.coerce.boolean().default(false),
+    COOKIE_SECURE: z.preprocess(
+        (v) => (typeof v === 'string' ? ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase()) : v),
+        z.boolean(),
+    ).default(false),
+    CRON_TIMEZONE: z.string().optional(),
     COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
     ALLOW_SELF_REGISTRATION: z.preprocess(
@@ -69,6 +73,10 @@ const data = parsed.data;
 
 if (data.NODE_ENV === 'production' && !data.COOKIE_SECURE) {
     throw new Error('COOKIE_SECURE must be true when NODE_ENV=production (the refresh-token cookie must be sent over HTTPS only).');
+}
+
+if (data.NODE_ENV === 'production' && data.JWT_ACCESS_SECRET.length < 32) {
+    throw new Error('JWT_ACCESS_SECRET must be at least 32 characters in production. Use a random value of 48 or more characters.');
 }
 
 const baseDatabaseUrl =

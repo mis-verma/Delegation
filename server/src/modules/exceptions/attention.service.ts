@@ -19,6 +19,7 @@ import { notificationService } from "../notifications/notification.service.js"
 import { scoreService } from "../scores/score.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const MINUTE_MS = 60_000
 const DAY_MS = 86_400_000
@@ -82,7 +83,7 @@ const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00
 const fullName = (u: { firstName: string; lastName: string | null }) => `${u.firstName} ${u.lastName ?? ""}`.trim()
 
 const scopeOf = (viewer: AccessTokenPayload, filter: { departmentId?: string; storeId?: string } = {}): Scope | null => {
-    if (viewer.role === "ADMIN" || viewer.role === "PC") return { orgWide: true, departmentId: filter.departmentId, storeId: filter.storeId }
+    if (isAdminOrPc(viewer.role)) return { orgWide: true, departmentId: filter.departmentId, storeId: filter.storeId }
     if (isHod(viewer) && viewer.departmentId) return { orgWide: false, departmentId: viewer.departmentId }
     return null
 }
@@ -132,7 +133,7 @@ const loadTodayRuns = async (where: SQL | undefined, now: number): Promise<Today
         .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
         .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
         .leftJoin(stores, eq(stores.id, checklistInstances.storeId))
-        .where(and(deadlineTodaySql, sql`DATE(${checklistInstances.periodStart}) <= DATE(${localNowSql})`, parentNotDeletedExpr, where))
+        .where(and(deadlineTodaySql, sql`${checklistInstances.periodStart} >= DATE_SUB(DATE(${localNowSql}), INTERVAL 400 DAY)`, sql`DATE(${checklistInstances.periodStart}) <= DATE(${localNowSql})`, parentNotDeletedExpr, where))
 
     return rows.map((r) => {
         const deadlineMs = localToUtcMs(r.deadline)
@@ -169,6 +170,7 @@ const loadDailyFill = async (where: SQL | undefined, from: string, to: string, t
         .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
         .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
         .where(and(
+            sql`${checklistInstances.periodStart} >= DATE_SUB(TIMESTAMP(${from}), INTERVAL 400 DAY)`,
             sql`${runDeadlineSql} > TIMESTAMP(${from})`,
             sql`${runDeadlineSql} <= TIMESTAMP(DATE_ADD(${to}, INTERVAL 1 DAY))`,
             sql`${checklistInstances.recurrence} <> 'ONE_TIME'`,

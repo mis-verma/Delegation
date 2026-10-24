@@ -4,10 +4,11 @@ import { ticketService } from "../tickets/ticket.service.js"
 import { todoService } from "../todos/todo.service.js"
 import { checklistInstanceService } from "../checklistInstances/checklistInstance.service.js"
 import type { DashboardSummariesQuery } from "./dashboard.validation.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export const dashboardService = {
     async summaries(user: AccessTokenPayload, { scope, today, readyFrom }: DashboardSummariesQuery) {
-        const isOrgWide = user.role === "ADMIN" || user.role === "PC"
+        const isOrgWide = isAdminOrPc(user.role)
         const mineChecklist = { userId: user.sub, hideEnded: !isOrgWide, includeDeleted: false }
         const [tasksKpi, ticketsKpi, tasksMine, ticketsMine, todos, checklist, checklistToday, checklistReady] = await Promise.all([
             taskService.summary(user, scope),

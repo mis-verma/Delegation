@@ -88,7 +88,7 @@ export const Dashboard = () => {
           <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
             <div className="min-h-full flex flex-col">
-            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
+            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(13rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
               <MaintenanceNotice settingsPath="/admin/settings" />
               {maintenanceMatch && isAdmin && (
                 <div

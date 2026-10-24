@@ -2,6 +2,7 @@ import cron from "node-cron"
 import { sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import { jobRuns } from "../db/schema/core.js"
+import { env } from "../config/env.js"
 
 type RegisteredJob = { name: string; expression: string; everyMinutes: number }
 const registry = new Map<string, RegisteredJob>()
@@ -45,18 +46,30 @@ const recordRun = async (job: RegisteredJob, startedAt: Date, error: unknown) =>
     }
 }
 
+const runningSince = new Map<string, number>()
+
 export const scheduleJob = (name: string, expression: string, everyMinutes: number, run: () => unknown | Promise<unknown>) => {
     const job: RegisteredJob = { name, expression, everyMinutes }
     registry.set(name, job)
+    const stuckAfterMs = Math.max(everyMinutes * 2, 10) * 60_000
     return cron.schedule(expression, async () => {
-        const startedAt = new Date()
+        const startedAtMs = Date.now()
+        const previous = runningSince.get(name)
+        if (previous !== undefined) {
+            if (startedAtMs - previous < stuckAfterMs) return
+            console.error(`Job ${name} has been running for over ${Math.round((startedAtMs - previous) / 60_000)} minutes, starting a new run.`)
+        }
+        runningSince.set(name, startedAtMs)
+        const startedAt = new Date(startedAtMs)
         let error: unknown = null
         try {
             await run()
         } catch (err) {
             error = err
             console.error(`Job ${name} failed`, err)
+        } finally {
+            if (runningSince.get(name) === startedAtMs) runningSince.delete(name)
         }
         await recordRun(job, startedAt, error)
-    })
+    }, env.CRON_TIMEZONE ? { timezone: env.CRON_TIMEZONE } : undefined)
 }

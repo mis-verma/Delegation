@@ -8,6 +8,7 @@ import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanMutate } from "../tickets/ticket.service.js";
 import { auditService } from "../audit/audit.service.js";
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export const ticketAttachmentService = {
     async upload(ticketId: string, files: Express.Multer.File[], user: AccessTokenPayload) {
@@ -46,7 +47,7 @@ export const ticketAttachmentService = {
 
         const [ticket] = await db.select().from(tickets).where(eq(tickets.id, attachment.ticketId)).limit(1);
         if (ticket) assertCanMutate(user, ticket);
-        if (!ticket && user.role !== "ADMIN" && user.role !== "PC" && attachment.uploadedBy !== user.sub) {
+        if (!ticket && !isAdminOrPc(user.role) && attachment.uploadedBy !== user.sub) {
             throw AppError.forbidden("You don't have access to this ticket's attachments");
         }
 

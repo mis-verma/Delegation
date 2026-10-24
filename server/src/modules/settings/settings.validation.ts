@@ -17,6 +17,7 @@ export const updateSettingsSchema = z.object({
     androidAppUrl : z.string().trim().url("Paste a full link starting with https://").startsWith("https://", "Paste a full link starting with https://").max(500).nullable().optional(),
     iosAppUrl : z.string().trim().url("Paste a full link starting with https://").startsWith("https://", "Paste a full link starting with https://").max(500).nullable().optional(),
     auditRetentionDays : z.number().int().min(0).max(3650).optional(),
+    checklistAuditRetentionDays : z.number().int().min(0).max(3650).optional(),
     notificationRetentionDays : z.number().int().min(0).max(3650).optional(),
     inboundMessageRetentionDays : z.number().int().min(0).max(3650).optional(),
 })

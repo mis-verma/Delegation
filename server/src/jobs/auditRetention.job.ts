@@ -1,42 +1,39 @@
 import { scheduleJob } from '../utils/jobTracker.js';
-import { and, lt, notLike } from 'drizzle-orm';
+import { and, like, lt, notLike, type SQL } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { auditLogs } from '../db/schema/core.js';
 import { settingsService } from '../modules/settings/settings.service.js';
 
 const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 50;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const sweepAuditRows = async (where: SQL | undefined): Promise<number> => {
+    let removed = 0;
+    for (let batch = 0; batch < MAX_BATCHES_PER_RUN; batch++) {
+        const stale = await db.select({ id: auditLogs.id }).from(auditLogs).where(where).limit(BATCH_SIZE);
+        if (!stale.length) break;
+        await db.delete(auditLogs).where(where).limit(BATCH_SIZE);
+        removed += stale.length;
+        if (stale.length < BATCH_SIZE) break;
+    }
+    return removed;
+};
 
 export const startAuditRetention = () => {
     scheduleJob("audit-retention", '15 3 * * *', 1440, async () => {
-        const days = settingsService.getCached().auditRetentionDays;
-        if (days <= 0) return;
+        const { auditRetentionDays, checklistAuditRetentionDays } = settingsService.getCached();
 
-        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-        let removed = 0;
+        if (auditRetentionDays > 0) {
+            const cutoff = new Date(Date.now() - auditRetentionDays * DAY_MS);
+            const removed = await sweepAuditRows(and(lt(auditLogs.createdAt, cutoff), notLike(auditLogs.entityType, 'ChecklistInstance%')));
+            if (removed > 0) console.log(`Audit retention: removed ${removed} log rows older than ${auditRetentionDays} days`);
+        }
 
-        try {
-            for (let batch = 0; batch < MAX_BATCHES_PER_RUN; batch++) {
-                const where = and(lt(auditLogs.createdAt, cutoff), notLike(auditLogs.entityType, 'ChecklistInstance%'));
-                const stale = await db
-                    .select({ id: auditLogs.id })
-                    .from(auditLogs)
-                    .where(where)
-                    .limit(BATCH_SIZE);
-
-                if (!stale.length) break;
-
-                await db.delete(auditLogs).where(where).limit(BATCH_SIZE);
-                removed += stale.length;
-
-                if (stale.length < BATCH_SIZE) break;
-            }
-
-            if (removed > 0) {
-                console.log(`Audit retention: removed ${removed} log rows older than ${days} days`);
-            }
-        } catch (err) {
-            console.error('Audit retention sweep failed', err);
+        if (checklistAuditRetentionDays > 0) {
+            const cutoff = new Date(Date.now() - checklistAuditRetentionDays * DAY_MS);
+            const removed = await sweepAuditRows(and(lt(auditLogs.createdAt, cutoff), like(auditLogs.entityType, 'ChecklistInstance%')));
+            if (removed > 0) console.log(`Audit retention: removed ${removed} checklist log rows older than ${checklistAuditRetentionDays} days`);
         }
     });
 };

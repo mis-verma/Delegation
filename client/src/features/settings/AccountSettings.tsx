@@ -14,6 +14,7 @@ import {
   useRemoveMyAvatarMutation,
 } from './hook';
 import { SettingsCard } from './SettingsCard';
+import { useAuth } from '../../context/AuthContext';
 
 const profileSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
@@ -45,7 +46,7 @@ const PasswordToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () => v
   </button>
 );
 
-const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSaving: boolean; onSave: (days: number[]) => void }) => {
+const WeekOffCard = ({ initial, isSaving, onSave, readOnly }: { initial: number[]; isSaving: boolean; onSave: (days: number[]) => void; readOnly: boolean }) => {
   const [days, setDays] = useState<number[]>(initial);
   const dirty = days.join(',') !== initial.join(',');
   return (
@@ -53,19 +54,23 @@ const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSavin
       icon={CalendarOff}
       title="Week off"
       aside={<span className="rounded-full border border-border/60 bg-surface-hover/50 px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">{days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>}
-      hint="You won't get daily checklists on these days."
+      hint={readOnly ? 'An admin or PC sets your days off. Ask them if they need to change.' : "You won't get daily checklists on these days."}
     >
-      <WeekdayPicker value={days} onChange={setDays} tone="off" maxSelected={6} aria-label="Your weekly days off" />
-      <div className="flex justify-end">
-        <Button type="button" variant="primary" size="sm" isLoading={isSaving} disabled={!dirty} onClick={() => onSave(days)}>
-          Save week off
-        </Button>
-      </div>
+      <WeekdayPicker value={days} onChange={setDays} tone="off" maxSelected={6} disabled={readOnly} aria-label="Your weekly days off" />
+      {!readOnly && (
+        <div className="flex justify-end">
+          <Button type="button" variant="primary" size="sm" isLoading={isSaving} disabled={!dirty} onClick={() => onSave(days)}>
+            Save week off
+          </Button>
+        </div>
+      )}
     </SettingsCard>
   );
 };
 
 export const AccountSettings = () => {
+  const { user } = useAuth();
+  const canEditHrFields = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: profile, isPending } = useMyProfileQuery();
   const updateProfileMut = useUpdateMyProfileMutation();
   const uploadAvatarMut = useUploadMyAvatarMutation();
@@ -99,7 +104,7 @@ export const AccountSettings = () => {
 
   const onProfileSubmit = (data: ProfileFields) =>
     updateProfileMut.mutate(
-      { firstName: data.firstName, lastName: data.lastName || undefined, phone: data.phone || undefined },
+      { firstName: data.firstName, lastName: data.lastName || undefined, ...(canEditHrFields ? { phone: data.phone || undefined } : {}) },
       {
         onSuccess: (updated) =>
           resetProfile({ firstName: updated.firstName, lastName: updated.lastName ?? '', phone: updated.phone ?? '' }),
@@ -156,7 +161,10 @@ export const AccountSettings = () => {
           <p className="t-meta text-text-muted px-1">Contact an admin to change your email address.</p>
         </div>
 
-        <Input id="phone" label="Phone (optional)" icon={Phone} error={profileErrors.phone?.message} {...registerProfile('phone')} />
+        <div className="flex flex-col gap-1">
+          <Input id="phone" label={canEditHrFields ? 'Phone (optional)' : 'Phone'} icon={Phone} error={profileErrors.phone?.message} disabled={!canEditHrFields} {...registerProfile('phone')} />
+          {!canEditHrFields && <p className="t-meta text-text-muted px-1">Your phone links your WhatsApp account. Contact an admin or PC to change it.</p>}
+        </div>
 
         <div className="flex justify-end pt-1">
           <Button type="submit" variant="primary" size="sm" isLoading={updateProfileMut.isPending} disabled={!profileDirty}>
@@ -175,6 +183,7 @@ export const AccountSettings = () => {
       <WeekOffCard
         key={(profile.weekOffDays ?? []).join(',')}
         initial={profile.weekOffDays ?? []}
+        readOnly={!canEditHrFields}
         isSaving={updateProfileMut.isPending}
         onSave={(weekOffDays) => updateProfileMut.mutate({ weekOffDays })}
       />

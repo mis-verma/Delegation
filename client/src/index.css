@@ -411,7 +411,7 @@ body {
 
 @media (max-width: 639px) {
   :root {
-    --font-sans: "Josefin Sans", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+    --font-sans: "League Spartan Variable", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
     --font-display: var(--font-sans);
   }
 

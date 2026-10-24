@@ -5,6 +5,19 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../utils/AppError.js";
 import { env } from "../../config/env.js";
 
+const ADMIN_ONLY_SETTINGS = [
+    "requireAdminLoginCode",
+    "accessTokenExpiresMinutes",
+    "refreshTokenExpiresDays",
+    "auditRetentionDays",
+    "checklistAuditRetentionDays",
+    "notificationRetentionDays",
+    "inboundMessageRetentionDays",
+    "maxUploadSizeMb",
+    "maxUploadFiles",
+    "allowedImageTypes",
+] as const
+
 export const settingsController = {
     
 
@@ -31,6 +44,11 @@ export const settingsController = {
 
     update : asyncHandler(async (req : Request , res : Response) => {
         const input = updateSettingsSchema.parse(req.body)
+        if (req.user!.role !== "ADMIN") {
+            const current = await settingsService.get()
+            const changed = ADMIN_ONLY_SETTINGS.filter((key) => input[key] !== undefined && JSON.stringify(input[key]) !== JSON.stringify(current?.[key]))
+            if (changed.length) throw AppError.forbidden("Only an admin can change sign-in security, token lifetimes, data retention and upload limits.")
+        }
         const settings = await settingsService.update(input, req.user!.sub)
         res.json({ success : true, data : settings})
     }),

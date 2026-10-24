@@ -1,6 +1,5 @@
-import { z } from 'zod';
 import { apiFetch } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
 export type ChecklistTemplateTarget = 'TASK' | 'TICKET';
 
@@ -49,7 +48,7 @@ export type UpdateChecklistTemplateItemPayload = Omit<Partial<CreateChecklistTem
   defaultAssigneeId?: string | null;
 };
 
-const templateDefaults = withArrayDefaults({ items: arrayField(z.object({}).passthrough()) });
+const templateDefaults = withArrayDefaults({ items: arrayField(n.object({}).passthrough()) });
 const normalizeTemplate = (raw: unknown) => normalizeWith<ChecklistTemplate>(templateDefaults, raw);
 
 export const checklistTemplateApi = {

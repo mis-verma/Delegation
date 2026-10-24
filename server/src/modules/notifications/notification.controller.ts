@@ -3,9 +3,19 @@ import { notificationService } from "./notification.service.js"
 import { z } from "zod"
 import { pushService } from "./push.service.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 const HHMM = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/)
-const subscribeSchema = z.object({ endpoint: z.string().url().max(2048), keys: z.object({ p256dh: z.string().min(1).max(255), auth: z.string().min(1).max(255) }) })
+const PUSH_HOSTS = ["fcm.googleapis.com", "android.googleapis.com", "push.services.mozilla.com", "push.apple.com", "notify.windows.com"]
+const isPushServiceUrl = (value: string) => {
+    try {
+        const url = new URL(value)
+        return url.protocol === "https:" && PUSH_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))
+    } catch {
+        return false
+    }
+}
+const subscribeSchema = z.object({ endpoint: z.string().url().max(2048).refine(isPushServiceUrl, "That is not a supported push service address."), keys: z.object({ p256dh: z.string().min(1).max(255), auth: z.string().min(1).max(255) }) })
 const unsubscribeSchema = z.object({ endpoint: z.string().url().max(2048) })
 const unreadSchema = z.object({ ids: z.array(z.string().min(1).max(191)).min(1).max(500) })
 const prefsSchema = z.object({ quietStart: HHMM.nullable(), quietEnd: HHMM.nullable(), morningDigest: z.boolean() })
@@ -46,7 +56,7 @@ export const notificationController = {
     }),
 
     markRead : asyncHandler(async (req : Request , res : Response) => {
-        const notification = await notificationService.markRead(req.params.id , req.user!.sub);
+        const notification = await notificationService.markRead(routeParam(req, "id") , req.user!.sub);
         res.json({ success : true, data : notification})
     }),
 

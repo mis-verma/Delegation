@@ -6,6 +6,7 @@ import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateProjectInput, UpdateProjectInput } from "./project.validation.js"
 import { auditService } from "../audit/audit.service.js";
+import { isAdminOrPc } from "../../utils/roles.js"
 
 type ProjectRow = typeof projects.$inferSelect;
 
@@ -40,7 +41,7 @@ const getRawById = async (id: string) => {
 };
 
 const visibilityCondition = async (user: AccessTokenPayload) => {
-    if (user.role === "ADMIN" || user.role === "PC") return undefined;
+    if (isAdminOrPc(user.role)) return undefined;
 
     const memberOf = await db.select({ projectId: projectMembers.projectId })
         .from(projectMembers)
@@ -67,8 +68,9 @@ export const projectService = {
         if (!project) throw AppError.notFound("Project not found");
 
         const [mapped] = await attachMemberIds([project]);
+        if (!mapped) throw AppError.notFound("Project not found");
         const isMember = mapped.memberIds.includes(user.sub);
-        if (user.role !== "ADMIN" && user.role !== "PC" && project.ownerId !== user.sub && !isMember) {
+        if (!isAdminOrPc(user.role) && project.ownerId !== user.sub && !isMember) {
             throw AppError.notFound("Project not found");
         }
 
@@ -103,7 +105,7 @@ export const projectService = {
     async update(id: string, input: UpdateProjectInput, user: AccessTokenPayload) {
         const project = await getRawById(id);
         if (!project) throw AppError.notFound("Project not found");
-        if (user.role !== "ADMIN" && user.role !== "PC" && project.ownerId !== user.sub) {
+        if (!isAdminOrPc(user.role) && project.ownerId !== user.sub) {
             throw AppError.forbidden("Only the project owner can update this project")
         }
         const [before] = await attachMemberIds([project]);
@@ -134,7 +136,7 @@ export const projectService = {
     async remove(id: string, user: AccessTokenPayload) {
         const project = await getRawById(id);
         if (!project) throw AppError.notFound("Project not found");
-        if (user.role !== "ADMIN" && user.role !== "PC" && project.ownerId !== user.sub) {
+        if (!isAdminOrPc(user.role) && project.ownerId !== user.sub) {
             throw AppError.forbidden("Only the project owner can delete this project")
         }
         const [mapped] = await attachMemberIds([project]);

@@ -6,6 +6,8 @@ import { AppError } from '../../utils/AppError.js';
 import { exceptionService } from './exception.service.js';
 import { attentionService } from './attention.service.js';
 import { approvalTatService } from '../reports/approvalTat.service.js';
+import { isAdminOrPc } from "../../utils/roles.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const exceptionRouter = Router();
 
@@ -35,7 +37,7 @@ exceptionRouter.post('/people/remind', requireRole(...OVERSIGHT), asyncHandler(a
   res.json({ success: true, data: await attentionService.remind(req.user!, userIds) });
 }));
 exceptionRouter.get('/people/:id', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
-  const id = z.string().min(1).max(191).parse(req.params.id);
+  const id = z.string().min(1).max(191).parse(routeParam(req, "id"));
   res.json({ success: true, data: await attentionService.person(req.user!, id) });
 }));
 exceptionRouter.get('/heatmap', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
@@ -45,7 +47,7 @@ exceptionRouter.get('/heatmap', requireRole(...OVERSIGHT), asyncHandler(async (r
 exceptionRouter.get('/approvals', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
   const { from, to } = approvalSchema.parse(req.query);
   const user = req.user!;
-  const orgWide = user.role === 'ADMIN' || user.role === 'PC';
+  const orgWide = isAdminOrPc(user.role);
   if (!orgWide && !user.departmentId) throw AppError.forbidden();
   res.json({ success: true, data: await approvalTatService.summary(new Date(from), new Date(to), Date.now(), orgWide ? undefined : user.departmentId) });
 }));

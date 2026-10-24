@@ -42,7 +42,7 @@ export const taskImageService = {
         }
 
         if (item.maxImageCount != null) {
-            const [{ existingCount }] = await db.select({ existingCount: count() })
+            const [{ existingCount } = { existingCount: 0 }] = await db.select({ existingCount: count() })
                 .from(taskImages)
                 .where(eq(taskImages.taskChecklistItemId, item.id));
             if (existingCount + files.length > item.maxImageCount) {

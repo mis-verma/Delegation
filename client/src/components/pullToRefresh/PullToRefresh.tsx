@@ -131,6 +131,7 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled, scroll
   return (
     <div
       ref={scrollRef}
+      data-app-scroll=""
       className={cn("relative", className)}
       onScroll={onScroll}
       onTouchStart={onTouchStart}

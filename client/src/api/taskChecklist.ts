@@ -1,7 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { z } from 'zod';
 import { apiFetch } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
 export type CaptureMethod = 'LIVE' | 'GALLERY';
 
@@ -66,7 +65,7 @@ export type UpdateTaskChecklistItemPayload = {
   isDone?:             false;
 };
 
-const taskChecklistItemDefaults = withArrayDefaults({ images: arrayField(z.unknown()) });
+const taskChecklistItemDefaults = withArrayDefaults({ images: arrayField(n.unknown()) });
 export const taskChecklistDefaults = withArrayDefaults({ items: arrayField(taskChecklistItemDefaults) });
 const normalizeChecklist = (raw: unknown) => normalizeWith<TaskChecklist>(taskChecklistDefaults, raw);
 const normalizeChecklistItem = (raw: unknown) => normalizeWith<TaskChecklistItem>(taskChecklistItemDefaults, raw);

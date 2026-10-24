@@ -1,5 +1,3 @@
-import { appendFile } from "fs";
-
 export class AppError extends Error {
     statusCode: number;
 

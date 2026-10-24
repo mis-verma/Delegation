@@ -19,9 +19,10 @@ import { auditService } from "../audit/audit.service.js"
 import { accessoriesForPerson, loadAuditListSource, typeHasList } from "../../jobs/checklistInstanceGenerator.job.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export const assertCanAccess = async (instanceId: string, user: AccessTokenPayload) => {
-    if (user.role === "ADMIN" || user.role === "PC") return
+    if (isAdminOrPc(user.role)) return
     const [assignee] = await db.select({ userId: checklistInstanceAssignees.userId })
         .from(checklistInstanceAssignees)
         .where(and(eq(checklistInstanceAssignees.instanceId, instanceId), eq(checklistInstanceAssignees.userId, user.sub)))

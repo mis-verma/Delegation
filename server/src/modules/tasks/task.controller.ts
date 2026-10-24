@@ -4,6 +4,7 @@ import { createTaskSchema , updateTaskSchema, verifyTaskSchema, declineTaskSchem
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 const seniorDepartmentIds = async (user: AccessTokenPayload): Promise<string[] | undefined> => {
     if (user.role !== "SENIOR") return undefined;
@@ -18,7 +19,7 @@ export const taskController = {
     }),
 
     getOne : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.getById(req.params.id , req.user!);
+        const task = await taskService.getById(routeParam(req, "id") , req.user!);
         res.json({ success : true, data : task })
     }),
 
@@ -30,39 +31,39 @@ export const taskController = {
 
     update : asyncHandler(async (req : Request , res : Response) => {
         const input = updateTaskSchema.parse(req.body);
-        const task = await taskService.update(req.params.id , input , req.user!)
+        const task = await taskService.update(routeParam(req, "id") , input , req.user!)
         res.json({ success : true, data : task });
     }),
 
     verify : asyncHandler(async (req : Request , res : Response) => {
         const input = verifyTaskSchema.parse(req.body);
-        const task = await taskService.verify(req.params.id , input , req.user!)
+        const task = await taskService.verify(routeParam(req, "id") , input , req.user!)
         res.json({ success : true, data : task });
     }),
 
     approveAssignment : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.approveAssignment(req.params.id , req.user!)
+        const task = await taskService.approveAssignment(routeParam(req, "id") , req.user!)
         res.json({ success : true, data : task });
     }),
 
     decline : asyncHandler(async (req : Request , res : Response) => {
         const input = declineTaskSchema.parse(req.body);
-        const task = await taskService.decline(req.params.id , input.reason , req.user!)
+        const task = await taskService.decline(routeParam(req, "id") , input.reason , req.user!)
         res.json({ success : true, data : task });
     }),
 
     reopenDeclined : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.reopenDeclined(req.params.id , req.user!)
+        const task = await taskService.reopenDeclined(routeParam(req, "id") , req.user!)
         res.json({ success : true, data : task });
     }),
 
     remove : asyncHandler(async (req : Request , res : Response) => {
-        await taskService.remove(req.params.id , req.user!)
+        await taskService.remove(routeParam(req, "id") , req.user!)
         res.json({ success : true, data : { deleted : true } })
     }),
 
     restore : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.restore(req.params.id , req.user!)
+        const task = await taskService.restore(routeParam(req, "id") , req.user!)
         res.json({ success : true, data : task })
     }),
 

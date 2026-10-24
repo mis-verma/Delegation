@@ -36,7 +36,7 @@ export async function extractTaskFromText(rawInput: string, referenceDate: Date)
 
     if (succeeded.length === 0) {
         settled.forEach((s, i) => {
-            if (s.status === "rejected") console.error(`[AI extraction] ${PROVIDERS[i].name} failed:`, s.reason?.message ?? s.reason);
+            if (s.status === "rejected") console.error(`[AI extraction] ${PROVIDERS[i]?.name ?? "provider"} failed:`, s.reason?.message ?? s.reason);
         });
 
         console.warn("[AI extraction] all AI providers unavailable - falling back to rule-based extraction");
@@ -46,7 +46,7 @@ export async function extractTaskFromText(rawInput: string, referenceDate: Date)
             ...fallback,
             wonBy: "rules",
             providerResults: settled.map((s, i) => ({
-                provider: PROVIDERS[i].name,
+                provider: PROVIDERS[i]?.name ?? "provider",
                 ok: false,
                 error: s.status === "rejected" ? (s.reason?.message ?? String(s.reason)) : undefined,
             })),
@@ -59,11 +59,11 @@ export async function extractTaskFromText(rawInput: string, referenceDate: Date)
         if (candidate.result.confidence !== best.result.confidence) {
             return candidate.result.confidence > best.result.confidence ? candidate : best;
         }
-        return TIEBREAK_RANK[candidate.provider] > TIEBREAK_RANK[best.provider] ? candidate : best;
+        return (TIEBREAK_RANK[candidate.provider] ?? 0) > (TIEBREAK_RANK[best.provider] ?? 0) ? candidate : best;
     });
 
     const providerResults = settled.map((s, i) => {
-        const name = PROVIDERS[i].name;
+        const name = PROVIDERS[i]?.name ?? "provider";
         return s.status === "fulfilled" ? { provider: name, ok: true, confidence: s.value.result.confidence }
             : { provider: name, ok: false, error: (s.reason as Error).message }
     });
@@ -91,7 +91,7 @@ const RELATIVE_DATE_RESOLVERS: Record<string, (ref: Date) => Date> = {
 function resolveWeekday(rawInput: string, referenceDate: Date): Date | null {
     const match = rawInput.toLowerCase().match(new RegExp(`\\b(${WEEKDAYS.join("|")})\\b`));
     if (!match) return null;
-    const targetDay = WEEKDAYS.indexOf(match[1]);
+    const targetDay = WEEKDAYS.indexOf(match[1] ?? "");
     const result = new Date(referenceDate);
     result.setDate(result.getDate() + daysUntilWeekday(result.getDay(), targetDay));
     return result;
@@ -113,7 +113,8 @@ export function resolveDueDate(dueDateISO: string, rawInput: string, referenceDa
     const resolved = resolveInDays(rawInput, referenceDate) ??
         resolveWeekday(rawInput, referenceDate) ?? (() => {
             const keyword = Object.keys(RELATIVE_DATE_RESOLVERS).find((k) => rawInput.toLowerCase().includes(k));
-            return keyword ? RELATIVE_DATE_RESOLVERS[keyword](referenceDate) : new Date(referenceDate);
+            const resolver = keyword ? RELATIVE_DATE_RESOLVERS[keyword] : undefined;
+            return resolver ? resolver(referenceDate) : new Date(referenceDate);
         })()
 
     resolved.setHours(23, 59, 59, 999);

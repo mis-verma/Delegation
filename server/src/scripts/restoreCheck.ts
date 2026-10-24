@@ -52,7 +52,7 @@ const run = async () => {
     let mismatches = 0
     for (const [table, expected] of Object.entries(manifest.tables)) {
       const [rows] = await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\``)
-      const actual = Number((rows as { n: number | string }[])[0].n)
+      const actual = Number((rows as { n: number | string }[])[0]?.n ?? 0)
       const ok = actual === expected
       if (!ok) mismatches++
       console.log(`${ok ? 'ok  ' : 'FAIL'} ${table}: ${actual} of ${expected} rows`)

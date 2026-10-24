@@ -21,6 +21,7 @@ declare global {
         interface Request {
             user?: AccessTokenPayload;
             viewingAs?: { adminId: string };
+            rawBody?: Buffer;
         }
     }
 }

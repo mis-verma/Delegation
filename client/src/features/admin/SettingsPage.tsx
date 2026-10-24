@@ -31,6 +31,7 @@ const settingsSchema = z.object({
   accessTokenExpiresMinutes: z.number().int().min(1, 'Must be at least 1 minute').max(1440, 'Must be 1440 minutes (1 day) or less'),
   refreshTokenExpiresDays: z.number().int().min(1, 'Must be at least 1 day').max(365, 'Must be 365 days or less'),
   auditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
+  checklistAuditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   notificationRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   inboundMessageRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   androidAppUrl: z.string().trim().max(500).refine((v) => !v || /^https:\/\/\S+$/.test(v), 'Paste a full link starting with https://'),
@@ -323,7 +324,7 @@ export const SettingsPage = () => {
             </SettingsCard>
 
             <SettingsCard icon={Database} title="Data retention" hint="How long each type of record is kept before a nightly sweep deletes it. Set any of these to 0 to keep that record forever, the right choice if you must retain audit history indefinitely.">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   id="auditRetentionDays"
                   label="Audit log"
@@ -332,6 +333,15 @@ export const SettingsPage = () => {
                   suffix={<span className="t-meta text-text-light">days</span>}
                   error={errors.auditRetentionDays?.message}
                   {...register('auditRetentionDays', { valueAsNumber: true })}
+                />
+                <Input
+                  id="checklistAuditRetentionDays"
+                  label="Checklist answer history"
+                  type="number"
+                  step="1"
+                  suffix={<span className="t-meta text-text-light">days</span>}
+                  error={errors.checklistAuditRetentionDays?.message}
+                  {...register('checklistAuditRetentionDays', { valueAsNumber: true })}
                 />
                 <Input
                   id="notificationRetentionDays"

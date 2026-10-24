@@ -17,13 +17,20 @@ const cookeiOptions = () => ({
     maxAge: settingsService.getCached().refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
 } as const);
 
-const sendAuthResponse = (res: Response, result: { accessToken: string; refreshToken: string; user: unknown; deviceToken?: string }) => {
+const isNativeApp = (req: Request) => req.headers['x-client-platform'] === 'native';
+
+const sendAuthResponse = (req: Request, res: Response, result: { accessToken: string; refreshToken: string; user: unknown; deviceToken?: string }) => {
     res.cookie(REFRESH_COOKIE, result.refreshToken, cookeiOptions());
-    res.json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user, ...(result.deviceToken ? { deviceToken: result.deviceToken } : {}) });
+    res.json({
+        accessToken: result.accessToken,
+        ...(isNativeApp(req) ? { refreshToken: result.refreshToken } : {}),
+        user: result.user,
+        ...(result.deviceToken ? { deviceToken: result.deviceToken } : {}),
+    });
 };
 
 const readRefreshToken = (req: Request): string | undefined =>
-    req.cookies?.[REFRESH_COOKIE] ?? req.body?.refreshToken;
+    req.cookies?.[REFRESH_COOKIE] ?? (isNativeApp(req) ? req.body?.refreshToken : undefined);
 
 export const authController = {
     register: asyncHandler(async (req: Request, res: Response) => {
@@ -31,7 +38,7 @@ export const authController = {
         const input = registerSchema.parse(req.body);
         const result = await authService.register(input);
         res.status(201);
-        sendAuthResponse(res, result);
+        sendAuthResponse(req, res, result);
     }),
 
     login: asyncHandler(async (req: Request, res: Response) => {
@@ -41,12 +48,12 @@ export const authController = {
             res.json(result);
             return;
         }
-        sendAuthResponse(res, result);
+        sendAuthResponse(req, res, result);
     }),
 
     loginWithCode: asyncHandler(async (req: Request, res: Response) => {
         const input = loginCodeSchema.parse(req.body);
-        sendAuthResponse(res, await authService.completeLoginWithCode(input));
+        sendAuthResponse(req, res, await authService.completeLoginWithCode(input));
     }),
 
     resendLoginCode: asyncHandler(async (req: Request, res: Response) => {
@@ -57,7 +64,7 @@ export const authController = {
 
     refresh: asyncHandler(async (req: Request, res: Response) => {
         const result = await authService.refresh(readRefreshToken(req));
-        sendAuthResponse(res, result);
+        sendAuthResponse(req, res, result);
     }),
 
     logout: asyncHandler(async (req: Request, res: Response) => {

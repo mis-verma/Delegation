@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { useQuery , useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery , useMutation, useQueryClient, keepPreviousData, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { activityQueryOptions } from "../../components/activityTimeline/activityQuery";
 import { useAuth } from "../../context/AuthContext";
 import { taskApi } from "../../api/task";
@@ -33,11 +33,17 @@ const TASK_KEYS = {
 const LIST_PAGE_SIZE = 200;
 const MAX_LIST_PAGES = 20;
 
-const fetchAllTaskPages = async (userId?: string, tagIds?: string[]): Promise<TaskListPage> => {
+const fetchAllTaskPages = async (client: QueryClient, queryKey: QueryKey, userId?: string, tagIds?: string[]): Promise<TaskListPage> => {
     const first = await taskApi.getAll(userId, undefined, 1, LIST_PAGE_SIZE, tagIds, undefined, true);
     const all: Task[] = [...first.data];
     const lastPage = Math.min(first.meta?.totalPages ?? 1, MAX_LIST_PAGES);
     if (first.meta?.hasNext && lastPage > 1) {
+        if (client.getQueryData(queryKey) === undefined) {
+            client.setQueryData<TaskListPage>(queryKey, {
+                data: first.data,
+                meta: { ...first.meta, page: 1, limit: first.data.length, hasNext: true, loadingMore: true },
+            });
+        }
         const rest = await Promise.all(
             Array.from({ length: lastPage - 1 }, (_, i) => taskApi.getAll(userId, undefined, i + 2, LIST_PAGE_SIZE, tagIds, undefined, true)),
         );
@@ -52,7 +58,7 @@ const fetchAllTaskPages = async (userId?: string, tagIds?: string[]): Promise<Ta
 
 export const tasksListQueryOptions = (userId?: string, tagIds?: string[]) => ({
     queryKey: TASK_KEYS.all(userId, tagIds),
-    queryFn:  () => fetchAllTaskPages(userId, tagIds),
+    queryFn:  ({ client, queryKey }: { client: QueryClient; queryKey: QueryKey }) => fetchAllTaskPages(client, queryKey, userId, tagIds),
     staleTime: 2 * 60_000,
 });
 

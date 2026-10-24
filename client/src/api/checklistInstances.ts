@@ -1,7 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { z } from 'zod';
 import { apiFetch, type PendingApprovalPreview } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { ApiResponse, ChecklistRecurrence, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
 
@@ -257,9 +256,9 @@ export const toDayParam = (value: string): string => {
 };
 
 const checklistInstanceArrayDefaults = withArrayDefaults({
-  assigneeIds: arrayField(z.string()),
-  reviewerIds: arrayField(z.string()),
-  items: arrayField(z.unknown()),
+  assigneeIds: arrayField(n.string()),
+  reviewerIds: arrayField(n.string()),
+  items: arrayField(n.unknown()),
 });
 const normalizeInstance = (raw: unknown) => normalizeWith<ChecklistInstance>(checklistInstanceArrayDefaults, raw);
 const normalizeInstances = (raw: unknown[]) => raw.map(normalizeInstance);

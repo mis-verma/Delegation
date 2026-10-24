@@ -8,6 +8,7 @@ import { checklistReportService, type DefinitionRow } from "../checklistReports/
 import { foldChecklist, type ModuleBlocks } from "./scoreBlocks.js"
 import { capWindow, explorerNotes, shapeExplorer, type ExplorerModule, type ExplorerRow, type ExplorerShape, type ExplorerView, type ScoredRow } from "./scoreExplorer.js"
 import { scoreService, type ScoreCollection } from "./score.service.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 
 export type ExplorerQuery = {
     from: string
@@ -36,8 +37,8 @@ export type ExplorerResponse = {
 
 export const orgToday = (now = Date.now()) => new Date(now + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10)
 
-const isOrgWide = (v: AccessTokenPayload) => v.role === "ADMIN" || v.role === "PC"
-const isHead = (v: AccessTokenPayload) => v.role === "MANAGER" || v.role === "SENIOR"
+const isOrgWide = (v: AccessTokenPayload) => isAdminOrPc(v.role)
+const isHead = (v: AccessTokenPayload) => isDepartmentHeadRole(v.role)
 const asWideViewer = (v: AccessTokenPayload): AccessTokenPayload => ({ ...v, role: "PC" })
 
 const resolveParent = async (viewer: AccessTokenPayload, parentId: string): Promise<ExplorerParent> => {

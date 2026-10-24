@@ -88,7 +88,7 @@ const pruneRequestStats = async () => {
 export const startRequestStatsFlush = () => {
     const flush = setInterval(() => { void flushRequestStats() }, MINUTE_MS)
     flush.unref()
-    if (workerId() <= 1) {
+    if (!cluster.isWorker || process.env.CRON_OWNER === "1") {
         const prune = setInterval(() => { void pruneRequestStats() }, 60 * MINUTE_MS)
         prune.unref()
     }
@@ -99,8 +99,8 @@ const UPPER_BOUNDS = [100, 300, 1000, 3000]
 const percentileUpperBound = (counts: number[], total: number, share: number): number | null => {
     let seen = 0
     for (let i = 0; i < counts.length; i++) {
-        seen += counts[i]
-        if (seen >= total * share) return i < UPPER_BOUNDS.length ? UPPER_BOUNDS[i] : null
+        seen += counts[i] ?? 0
+        if (seen >= total * share) return UPPER_BOUNDS[i] ?? null
     }
     return null
 }
@@ -123,7 +123,7 @@ export const responseSection = async () => {
             .from(requestStats)
             .where(gte(requestStats.minute, since))
         const total = Number(row?.requests ?? 0)
-        if (total === 0) return { level: "ok" as Level, known: false, requests: 0, avgMs: 0, maxMs: 0, p50Ms: null, p95Ms: null, slow: 0, serverErrors: 0 }
+        if (!row || total === 0) return { level: "ok" as Level, known: false, requests: 0, avgMs: 0, maxMs: 0, p50Ms: null, p95Ms: null, slow: 0, serverErrors: 0 }
         const counts = [row.under100, row.under300, row.under1000, row.under3000, row.over3000].map(Number)
         const p95Ms = percentileUpperBound(counts, total, 0.95)
         const errorRate = Number(row.serverErrors) / total
@@ -137,7 +137,7 @@ export const responseSection = async () => {
             maxMs: Number(row.maxMs),
             p50Ms: percentileUpperBound(counts, total, 0.5),
             p95Ms,
-            slow: counts[3] + counts[4],
+            slow: (counts[3] ?? 0) + (counts[4] ?? 0),
             serverErrors: Number(row.serverErrors),
         }
     } catch (err) {

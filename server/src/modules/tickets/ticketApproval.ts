@@ -1,6 +1,7 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { users } from "../../db/schema/index.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 
 export type ApprovalStage = "HOD" | "PC"
 
@@ -13,7 +14,7 @@ type StageTicket = {
 }
 
 export const isDepartmentHead = (user: Actor, ticket: Pick<StageTicket, "departmentId">): boolean =>
-  (user.role === "MANAGER" || user.role === "SENIOR") && !!user.departmentId && ticket.departmentId === user.departmentId
+  isDepartmentHeadRole(user.role) && !!user.departmentId && ticket.departmentId === user.departmentId
 
 export const canApproveAtStage = (stage: ApprovalStage, ticket: StageTicket, user: Actor, isNamedReviewer: boolean): boolean => {
   if (user.role === "ADMIN") return true
@@ -40,13 +41,13 @@ export const activeDepartmentHeadIds = async (departmentId: string | null, exclu
 
 export const assignmentNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId">, actor: Actor): Promise<boolean> => {
   if (!ticket.departmentId) return false
-  if (actor.role === "ADMIN" || actor.role === "PC") return false
+  if (isAdminOrPc(actor.role)) return false
   if (isDepartmentHead(actor, ticket)) return false
   const heads = await activeDepartmentHeadIds(ticket.departmentId, [actor.sub])
   return heads.length > 0
 }
 
 export const canApproveAssignment = (ticket: Pick<StageTicket, "departmentId">, user: Actor): boolean => {
-  if (user.role === "ADMIN" || user.role === "PC") return true
+  if (isAdminOrPc(user.role)) return true
   return isDepartmentHead(user, ticket)
 }

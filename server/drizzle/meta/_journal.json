@@ -547,6 +547,20 @@
       "when": 1792780000000,
       "tag": "0077_owner_role",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "5",
+      "when": 1792790000000,
+      "tag": "0078_query_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "5",
+      "when": 1792800000000,
+      "tag": "0079_checklist_audit_retention",
+      "breakpoints": true
     }
   ]
 }

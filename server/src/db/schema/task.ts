@@ -96,6 +96,8 @@ export const tasks = mysqlTable(
     index('Task_category_status_createdAt_idx').on(table.category, table.status, table.createdAt),
     index('Task_parentTaskId_idx').on(table.parentTaskId),
     index('Task_createdAt_idx').on(table.createdAt),
+    index('Task_dueDate_idx').on(table.dueDate),
+    index('Task_submittedAt_idx').on(table.submittedAt),
   ],
 );
 

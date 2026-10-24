@@ -50,22 +50,23 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
   }, [sheetOpen]);
 
   useEffect(() => {
-    lastY.current = window.scrollY;
     let frame = 0;
-    const onScroll = () => {
+    const onScroll = (event: Event) => {
+      const scroller = event.target;
+      if (!(scroller instanceof HTMLElement) || !scroller.hasAttribute('data-app-scroll')) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const y = window.scrollY;
+        const y = scroller.scrollTop;
         const delta = y - lastY.current;
         if (y < 80 || delta < -6) setHidden(false);
         else if (delta > 6) setHidden(true);
         lastY.current = y;
       });
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('scroll', onScroll, { capture: true });
     };
   }, []);
 

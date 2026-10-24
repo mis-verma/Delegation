@@ -78,8 +78,11 @@ export const growthSection = async () => {
     try {
         const names = (await readdir(dir)).filter((n) => n.startsWith("full-") && n.endsWith(".manifest.json")).sort()
         if (names.length < 2) return { known: false, days: 0, rowsPerDay: 0, sizeMbPerDay: 0, totalRows: 0 }
-        const oldest = JSON.parse(await readFile(join(dir, names[0]), "utf8")) as Manifest
-        const newest = JSON.parse(await readFile(join(dir, names[names.length - 1]), "utf8")) as Manifest
+        const oldestName = names[0]
+        const newestName = names.at(-1)
+        if (!oldestName || !newestName) return { known: false, days: 0, rowsPerDay: 0, sizeMbPerDay: 0, totalRows: 0 }
+        const oldest = JSON.parse(await readFile(join(dir, oldestName), "utf8")) as Manifest
+        const newest = JSON.parse(await readFile(join(dir, newestName), "utf8")) as Manifest
         const days = (Date.parse(newest.createdAt) - Date.parse(oldest.createdAt)) / (24 * HOUR_MS)
         if (!(days >= 1)) return { known: false, days: 0, rowsPerDay: 0, sizeMbPerDay: 0, totalRows: newest.rows }
         return {

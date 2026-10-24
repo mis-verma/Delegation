@@ -28,17 +28,16 @@ export function derivePriorityHint(text: string): "low" | "medium" | "high" | nu
 }
 
 export function levenshteinDistance(a: string, b: string): number {
-    const rows: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0))
-    for (let i = 0; i <= a.length; i++) rows[i][0] = i
-    for (let j = 0; j <= b.length; j++) rows[0][j] = j
+    let previous = Array.from({ length: b.length + 1 }, (_, j) => j)
     for (let i = 1; i <= a.length; i++) {
+        const current = [i]
         for (let j = 1; j <= b.length; j++) {
-            rows[i][j] = a[i - 1] === b[j - 1]
-                ? rows[i - 1][j - 1]
-                : 1 + Math.min(rows[i - 1][j - 1], rows[i - 1][j], rows[i][j - 1])
+            const substitution = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+            current[j] = Math.min(substitution, (previous[j] ?? 0) + 1, (current[j - 1] ?? 0) + 1)
         }
+        previous = current
     }
-    return rows[a.length][b.length]
+    return previous[b.length] ?? 0
 }
 
 export function containsFuzzyWord(text: string, keyword: string, maxDistance = 2): boolean {

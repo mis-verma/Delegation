@@ -133,7 +133,7 @@ export const ExceptionsCard = () => {
           <InlineError message="Couldn't load alerts." onRetry={() => void query.refetch()} />
         </div>
       ) : nothingAtAll ? (
-        <div className="p-4 sm:p-5">
+        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
           <EmptyState size="compact" tone="success" icon={CheckCheck} title="All clear" description="Nothing is late or stuck, and everyone is on track." />
         </div>
       ) : items.length === 0 ? null : (

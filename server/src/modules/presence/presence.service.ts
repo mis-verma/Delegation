@@ -32,6 +32,10 @@ const connect = async () => {
                 socket: { reconnectStrategy: (retries) => (retries > 5 ? new Error("giving up") : Math.min(retries * 200, 2000)) },
             }) as RedisClientType
             c.on("error", (err) => console.error("Redis presence client error:", err.message))
+            c.on("end", () => {
+                if (client === c) client = null
+                connecting = null
+            })
             await c.connect()
             client = c
         })().catch((err) => {

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { projectService } from './project.service.js';
 import { createProjectSchema, updateProjectSchema } from './project.validation.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
+import { routeParam } from "../../utils/routeParam.js"
 
 export const projectController = {
   list: asyncHandler(async (req: Request, res: Response) => {
@@ -10,7 +11,7 @@ export const projectController = {
   }),
 
   getOne: asyncHandler(async (req: Request, res: Response) => {
-    const project = await projectService.getById(req.params.id, req.user!);
+    const project = await projectService.getById(routeParam(req, "id"), req.user!);
     res.json({ success: true, data: project });
   }),
 
@@ -22,12 +23,12 @@ export const projectController = {
 
   update: asyncHandler(async (req: Request, res: Response) => {
     const input = updateProjectSchema.parse(req.body);
-    const project = await projectService.update(req.params.id, input, req.user!);
+    const project = await projectService.update(routeParam(req, "id"), input, req.user!);
     res.json({ success: true, data: project });
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {
-    await projectService.remove(req.params.id, req.user!);
+    await projectService.remove(routeParam(req, "id"), req.user!);
     res.json({ success: true, data: { deleted: true } });
   }),
 };

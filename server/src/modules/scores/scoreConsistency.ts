@@ -133,7 +133,7 @@ export const evaluateConsistency = (input: ConsistencyInput): ConsistencyResult 
 }
 
 export const nightlyWindows = (today: string): { label: string; from: string; to: string }[] => {
-    const [y, m] = today.split("-").map(Number)
+    const [y = 0, m = 0] = today.split("-").map(Number)
     const pad = (n: number) => String(n).padStart(2, "0")
     const firstThis = `${y}-${pad(m)}-01`
     const lastPrevMs = Date.parse(`${firstThis}T00:00:00.000Z`) - 86_400_000
@@ -177,7 +177,10 @@ export const assertScoreConsistency = async (from: string, to: string): Promise<
         departments: departmentView.rows,
         stores: storeView.rows,
         people,
-        samples: sampleRows.map((r, i) => ({ id: r.id, name: r.name, card: cards[i], row: r })),
+        samples: sampleRows.flatMap((r, i) => {
+            const card = cards[i]
+            return card ? [{ id: r.id, name: r.name, card, row: r }] : []
+        }),
         sharing: departmentView.sharing,
     })
 }

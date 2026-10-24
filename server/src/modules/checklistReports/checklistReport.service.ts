@@ -14,6 +14,8 @@ import { runDeadlineMs } from "../checklistInstances/checklistRunEnd.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { clockParts } from "../../utils/clock.js"
 
 export type ReportMetrics = {
     assigned: number
@@ -200,7 +202,7 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     const status = r.verificationStatus
     let opensAt = r.periodStart.getTime() - offsetMs
     if (r.opensTime) {
-        const [oh, om] = r.opensTime.split(":").map(Number)
+        const [oh, om] = clockParts(r.opensTime)
         opensAt += (oh * 60 + om) * 60_000
     }
     const date = r.periodStart.toISOString().slice(0, 10)
@@ -280,8 +282,8 @@ const byCompletionThenName = (a: { completionPct: number | null }, b: { completi
     (a.completionPct ?? 101) - (b.completionPct ?? 101) || an.localeCompare(bn)
 
 const resolveDepartmentScope = (user: AccessTokenPayload, requested?: string): { departmentId?: string; locked: boolean } => {
-    if (user.role === "ADMIN" || user.role === "PC") return { departmentId: requested, locked: false }
-    if (user.role === "MANAGER" || user.role === "SENIOR") {
+    if (isAdminOrPc(user.role)) return { departmentId: requested, locked: false }
+    if (isDepartmentHeadRole(user.role)) {
         return { departmentId: user.departmentId ?? "no-department", locked: true }
     }
     throw AppError.forbidden()
@@ -359,7 +361,6 @@ export const checklistReportService = {
         const flagCtx: RunFlagContext = { offDayRules, assigneesByRun, offsetMs, now }
         const flagsByRun = new Map<string, RunFlags>(runRows.map((r) => [r.id, runFlagsOf(r, flagCtx)]))
         const countedRuns = [...flagsByRun.values()].filter((f) => !f.skip)
-        const skippedRunIds = [...flagsByRun.values()].filter((f) => f.skip).map((f) => f.id)
 
         const cu = alias(users, "cu")
         const itemWhere = and(runWhere, sql`(${item.isDone} = 1 OR ${item.sendBackCount} > 0)`)

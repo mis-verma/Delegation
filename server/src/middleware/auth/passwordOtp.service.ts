@@ -10,11 +10,11 @@ import { disconnectUserSockets } from '../../sockets/socket.js';
 import { AppError } from '../../utils/AppError.js';
 import { hashPassword } from '../../utils/password.js';
 import { passwordChangeStamp } from './auth.js';
+import { recordWrongCode } from './otpAttempts.js';
 import { invalidateAuthUsers } from './authCache.js';
 
 type Purpose = (typeof PASSWORD_OTP_PURPOSES)[number];
 
-const MAX_ATTEMPTS = 5;
 const LIFETIME_MINUTES: Record<Purpose, number> = { RESET: 10, SETUP: 24 * 60, LOGIN: 10 };
 const WRONG_CODE = 'That code is wrong or has expired. Ask for a new one.';
 
@@ -99,12 +99,8 @@ export const passwordOtpService = {
     if (!otp) throw AppError.badRequest(WRONG_CODE);
 
     if (!sameHash(otp.codeHash, hashCode(user.id, input.code))) {
-      const attempts = otp.attempts + 1;
-      await db.update(passwordOtps)
-        .set({ attempts, ...(attempts >= MAX_ATTEMPTS ? { usedAt: now } : {}) })
-        .where(eq(passwordOtps.id, otp.id));
-      const left = MAX_ATTEMPTS - attempts;
-      throw AppError.badRequest(left > 0 ? `Wrong code. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong tries. Ask for a new code.');
+      await recordWrongCode(otp.id);
+      throw AppError.badRequest(WRONG_CODE);
     }
 
     const passwordHash = await hashPassword(input.password);

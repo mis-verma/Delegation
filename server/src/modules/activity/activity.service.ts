@@ -5,6 +5,7 @@ import { taskAdditionalAssignees, taskStatusUpdates, tasks } from "../../db/sche
 import { ticketStatusUpdates, tickets } from "../../db/schema/ticket.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export type ActivityEntity = "Task" | "Ticket"
 
@@ -112,7 +113,7 @@ export const activityService = {
 
         if (!entity) throw AppError.notFound(entityType === "Task" ? "Delegation not found" : "Ticket not found")
 
-        const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
+        const orgWide = isAdminOrPc(viewer.role)
         let allowed = orgWide || entity.userId === viewer.sub || entity.assigneeId === viewer.sub
             || (isHod(viewer.role) && !!viewer.departmentId && viewer.departmentId === entity.departmentId)
 
@@ -218,7 +219,7 @@ export const activityService = {
             if (!same(b.assigneeId, a.assigneeId)) push({ kind: "reassigned", from: nameOf(b.assigneeId), to: nameOf(a.assigneeId) }, "a")
 
             const touched = Object.keys(FIELD_LABEL).filter((k) => !same(b[k], a[k]))
-            if (touched.length) push({ kind: "edited", fields: touched.map((k) => FIELD_LABEL[k]) }, "e")
+            if (touched.length) push({ kind: "edited", fields: touched.map((k) => FIELD_LABEL[k] ?? k) }, "e")
         }
 
         if (!sawCreate && !truncated) {

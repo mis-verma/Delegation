@@ -8,8 +8,6 @@ import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from "../../utils/checklistItemWorkers.js";
 
-type ChecklistItemRow = typeof checklistItems.$inferSelect;
-
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; checklistId: string | null }) =>
     assertCanWorkChecklistItem(
         user,
@@ -34,7 +32,7 @@ export const checklistImageService = {
         }
 
         if (item.maxImageCount != null) {
-            const [{ count: existingCount }] = await db
+            const [{ count: existingCount } = { count: 0 }] = await db
                 .select({ count: sql<number>`count(*)` })
                 .from(checklistImages)
                 .where(eq(checklistImages.checklistItemId, item.id));

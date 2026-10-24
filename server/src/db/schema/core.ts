@@ -227,6 +227,7 @@ export const settings = mysqlTable('Settings', {
   androidAppUrl: varchar('androidAppUrl', { length: 500 }),
   iosAppUrl: varchar('iosAppUrl', { length: 500 }),
   auditRetentionDays: int('auditRetentionDays').notNull().default(365),
+  checklistAuditRetentionDays: int('checklistAuditRetentionDays').notNull().default(0),
   notificationRetentionDays: int('notificationRetentionDays').notNull().default(90),
   inboundMessageRetentionDays: int('inboundMessageRetentionDays').notNull().default(7),
   createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -337,7 +338,11 @@ export const notifications = mysqlTable(
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [index('Notification_recipientId_idx').on(table.recipientId)],
+  (table) => [
+    index('Notification_recipientId_idx').on(table.recipientId),
+    index('Notification_recipientId_createdAt_idx').on(table.recipientId, table.createdAt),
+    index('Notification_recipientId_isRead_idx').on(table.recipientId, table.isRead),
+  ],
 );
 
 export const DRAFT_KINDS = ['TICKET', 'CHECKLIST'] as const;

@@ -5,6 +5,8 @@ import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
 import { cachedReport } from "../../utils/reportCache.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 const parseIdsParam = (value: unknown): string[] | undefined => {
     if (typeof value !== "string" || !value) return undefined
@@ -23,7 +25,7 @@ export const checklistInstanceController = {
             departmentId: req.query.departmentId as string | undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
             includeDeleted: false,
-            hideEnded: !(req.user!.role === "ADMIN" || req.user!.role === "PC"),
+            hideEnded: !(isAdminOrPc(req.user!.role)),
             from,
             to,
             page,
@@ -33,13 +35,13 @@ export const checklistInstanceController = {
     }),
 
     getMyFocus: asyncHandler(async (req: Request, res: Response) => {
-        const data = await checklistInstanceService.getMyFocus(req.user!.sub, { hideEnded: !(req.user!.role === "ADMIN" || req.user!.role === "PC") })
+        const data = await checklistInstanceService.getMyFocus(req.user!.sub, { hideEnded: !(isAdminOrPc(req.user!.role)) })
         res.json({ success: true, data })
     }),
 
     list: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit, from, to, status, definitionId, storeId, assigneeId } = listChecklistInstancesQuerySchema.parse(req.query)
-        const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const isOrgWide = isAdminOrPc(req.user!.role)
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
         const result = await checklistInstanceService.listAll({
             definitionId,
@@ -81,7 +83,7 @@ export const checklistInstanceController = {
     }),
 
     reopenApproval: asyncHandler(async (req: Request, res: Response) => {
-        const instance = await checklistInstanceService.reopenApproval(req.params.id, req.user!)
+        const instance = await checklistInstanceService.reopenApproval(routeParam(req, "id"), req.user!)
         res.json({ success: true, data: instance })
     }),
 
@@ -95,7 +97,7 @@ export const checklistInstanceController = {
 
     personRuns: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
-        const result = await checklistInstanceService.personRuns(req.params.userId, { page, limit })
+        const result = await checklistInstanceService.personRuns(routeParam(req, "userId"), { page, limit })
         res.json({ success: true, ...result })
     }),
 
@@ -108,8 +110,8 @@ export const checklistInstanceController = {
         const { definitionId, storeId, assigneeId, mine } = req.query
         const { from, to } = summaryQuerySchema.parse(req.query)
         const scopedToSelf = mine === "1" || mine === "true"
-        const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
-        const isDeptHead = req.user!.role === "MANAGER" || req.user!.role === "SENIOR"
+        const isOrgWide = isAdminOrPc(req.user!.role)
+        const isDeptHead = isDepartmentHeadRole(req.user!.role)
         const wantsVisible = req.query.scope === "visible" && !scopedToSelf
         const useDepartment = wantsVisible && isDeptHead
         const data = await checklistInstanceService.summary({
@@ -138,56 +140,56 @@ export const checklistInstanceController = {
         res.json({ success: true, data: await cachedReport("departments", req, () => checklistInstanceService.periodDepartmentScores(req.user!, from, to, storeId)) })
     }),
     getOne: asyncHandler(async (req: Request, res: Response) => {
-        const instance = await checklistInstanceService.getById(req.params.id, req.user!)
+        const instance = await checklistInstanceService.getById(routeParam(req, "id"), req.user!)
         res.json({ success: true, data: instance })
     }),
 
     itemHistory: asyncHandler(async (req: Request, res: Response) => {
-        const data = await checklistInstanceService.itemHistory(req.params.id, req.user!)
+        const data = await checklistInstanceService.itemHistory(routeParam(req, "id"), req.user!)
         res.json({ success: true, data })
     }),
 
     setItemDone: asyncHandler(async (req: Request, res: Response) => {
         const { isDone, ...values } = setChecklistInstanceItemDoneSchema.parse(req.body)
-        const item = await checklistInstanceService.setItemDone(req.params.id, isDone, req.user!, values)
+        const item = await checklistInstanceService.setItemDone(routeParam(req, "id"), isDone, req.user!, values)
         res.json({ success: true, data: item })
     }),
 
     verify: asyncHandler(async (req: Request, res: Response) => {
         const input = verifyChecklistInstanceSchema.parse(req.body)
-        const instance = await checklistInstanceService.verify(req.params.id, input, req.user!)
+        const instance = await checklistInstanceService.verify(routeParam(req, "id"), input, req.user!)
         res.json({ success: true, data: instance })
     }),
 
     submit: asyncHandler(async (req: Request, res: Response) => {
-        const instance = await checklistInstanceService.submit(req.params.id, req.user!)
+        const instance = await checklistInstanceService.submit(routeParam(req, "id"), req.user!)
         res.json({ success: true, data: instance })
     }),
 
     waiveItem: asyncHandler(async (req: Request, res: Response) => {
         const input = waiveChecklistItemSchema.parse(req.body)
-        const instance = await checklistInstanceService.waiveItem(req.params.id, req.params.itemId, input, req.user!)
+        const instance = await checklistInstanceService.waiveItem(routeParam(req, "id"), routeParam(req, "itemId"), input, req.user!)
         res.json({ success: true, data: instance })
     }),
     unwaiveItem: asyncHandler(async (req: Request, res: Response) => {
-        const instance = await checklistInstanceService.unwaiveItem(req.params.id, req.params.itemId, req.user!)
+        const instance = await checklistInstanceService.unwaiveItem(routeParam(req, "id"), routeParam(req, "itemId"), req.user!)
         res.json({ success: true, data: instance })
     }),
     raiseTicket: asyncHandler(async (req: Request, res: Response) => {
         const input = raiseChecklistTicketSchema.parse(req.body)
-        const instance = await checklistInstanceService.raiseTicket(req.params.id, req.params.itemId, input, req.user!)
+        const instance = await checklistInstanceService.raiseTicket(routeParam(req, "id"), routeParam(req, "itemId"), input, req.user!)
         res.status(201).json({ success: true, data: instance })
     }),
     sendBack: asyncHandler(async (req: Request, res: Response) => {
         const input = sendBackChecklistInstanceSchema.parse(req.body)
-        const instance = await checklistInstanceService.sendBack(req.params.id, input, req.user!)
+        const instance = await checklistInstanceService.sendBack(routeParam(req, "id"), input, req.user!)
         res.json({ success: true, data: instance })
     }),
 
     complianceReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceComplianceReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!, query.storeId)
-        const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const isOrgWide = isAdminOrPc(req.user!.role)
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
         const data = await cachedReport("compliance", req, () => checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted, assigneeId: query.assigneeId }))
         res.json({ success: true, data })

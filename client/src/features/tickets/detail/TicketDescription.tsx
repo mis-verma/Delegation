@@ -5,33 +5,35 @@ interface TicketDescriptionProps {
   description?: string;
 }
 
-const renderFormattedText = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
 
-  return parts.map((part, index) => {
-    if (part.match(urlRegex)) {
-      return (
+const renderFormattedText = (text: string) =>
+  text.split(URL_PATTERN).map((part, index) => {
+    if (index % 2 === 0) return part;
+    const trailing = part.match(TRAILING_PUNCTUATION)?.[0] ?? '';
+    const href = trailing ? part.slice(0, -trailing.length) : part;
+    return (
+      <span key={index}>
         <a
-          key={index}
-          href={part}
+          href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-text font-semibold no-underline hover:text-text-secondary transition-colors break-all"
+          className="text-text font-semibold underline underline-offset-2 hover:text-text-secondary transition-colors break-all"
           onClick={(e) => e.stopPropagation()}
         >
-          {part}
+          {href}
         </a>
-      );
-    }
-    return part;
+        {trailing}
+      </span>
+    );
   });
-};
 
 export const TicketDescription = ({ description }: TicketDescriptionProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedText, setExpandedText] = useState<string | null>(null);
 
   const trimmedText = description?.trim();
+  const isExpanded = !!trimmedText && expandedText === trimmedText;
   const isLongText = !!trimmedText && (trimmedText.length > 350 || trimmedText.split('\n').length > 6);
 
   return (
@@ -48,7 +50,8 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
           {isLongText && (
             <button
               type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
+              aria-expanded={isExpanded}
+              onClick={() => setExpandedText(isExpanded ? null : trimmedText ?? null)}
               className="self-start inline-flex items-center gap-1 min-h-11 sm:min-h-8 t-meta font-semibold text-text-secondary hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
             >
               {isExpanded ? 'Show less' : 'Show more'}

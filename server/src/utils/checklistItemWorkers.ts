@@ -3,6 +3,7 @@ import { db } from "../config/db.js"
 import { checklists, taskAdditionalAssignees, taskChecklists, tasks, tickets } from "../db/schema/index.js"
 import { AppError } from "./AppError.js"
 import type { AccessTokenPayload } from "../middleware/auth/auth.js"
+import { isAdminOrPc } from "./roles.js"
 
 export const assertCanWorkChecklistItem = async (
     user: AccessTokenPayload,
@@ -10,7 +11,7 @@ export const assertCanWorkChecklistItem = async (
     workerIds: () => Promise<string[]>,
     message: string,
 ) => {
-    if (user.role === "ADMIN" || user.role === "PC") return
+    if (isAdminOrPc(user.role)) return
     if (item.assigneeId) {
         if (item.assigneeId === user.sub) return
         throw AppError.forbidden(message)

@@ -4,6 +4,7 @@ import { and, count, eq, inArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { notificationPreferences, notifications, pushSubscriptions } from "../../db/schema/core.js"
+import { URGENT_TYPE, emailUrgentWithoutPush } from "./urgentEmail.js"
 
 export type PushSubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } }
 export type NotificationPrefs = { quietStart: string | null; quietEnd: string | null; morningDigest: boolean }
@@ -13,7 +14,7 @@ const configured = !!env.VAPID_PUBLIC_KEY && !!env.VAPID_PRIVATE_KEY
 if (configured) webpush.setVapidDetails(env.VAPID_SUBJECT || "mailto:admin@karyaos.in", env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY)
 
 const hashEndpoint = (endpoint: string) => createHash("sha256").update(endpoint).digest("hex")
-const URGENT = /ESCALATION|OVERDUE|CRITICAL|FAILED/
+const URGENT = URGENT_TYPE
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
 
 const orgHHmm = (now: Date) => new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16)
@@ -91,7 +92,9 @@ export const pushService = {
     },
 
     async deliver(rows: PushRow[]) {
-        if (!configured || !rows.length) return
+        if (!rows.length) return
+        await emailUrgentWithoutPush(rows, configured).catch((err) => console.error("Urgent email fallback failed", err))
+        if (!configured) return
         const userIds = [...new Set(rows.map((r) => r.recipientId))]
         const [subs, prefs, unread] = await Promise.all([
             db.select().from(pushSubscriptions).where(inArray(pushSubscriptions.userId, userIds)),

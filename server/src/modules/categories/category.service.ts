@@ -36,7 +36,7 @@ const attachRelations = async (rows: CategoryRow[]) => {
 
     const assigneesByCategory = new Map<string, typeof assigneeRows>();
     for (const row of assigneeRows) {
-        const { categoryId, ...user } = row;
+        const { categoryId } = row;
         const list = assigneesByCategory.get(categoryId) ?? [];
         list.push(row);
         assigneesByCategory.set(categoryId, list);
@@ -57,6 +57,7 @@ const getByIdOrThrow = async (id: string) => {
     const [category] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
     if (!category) throw AppError.notFound("Category not found");
     const [mapped] = await attachRelations([category]);
+    if (!mapped) throw AppError.notFound("Category not found");
     return mapped;
 };
 

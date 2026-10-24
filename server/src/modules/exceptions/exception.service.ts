@@ -10,6 +10,7 @@ import {
 } from "../checklistInstances/checklistInstance.service.js"
 import { runClosingSql } from "../checklistInstances/checklistMissedRun.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 const STALE_TICKET_HOURS = 4
 const PER_KIND_LIMIT = 20
@@ -80,7 +81,7 @@ export const exceptionService = {
             })
         }
 
-        const orgWide = user.role === "ADMIN" || user.role === "PC"
+        const orgWide = isAdminOrPc(user.role)
         if (orgWide || (isHod(user) && user.departmentId)) {
             const missed = await db
                 .select({

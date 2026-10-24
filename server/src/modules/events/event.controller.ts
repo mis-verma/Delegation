@@ -2,6 +2,7 @@ import { type Request, type Response } from "express";
 import { eventService } from "./event.service.js";
 import { createEventSchema, updateEventSchema, listUpcomingEventsQuerySchema } from "./event.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { routeParam } from "../../utils/routeParam.js"
 
 export const eventController = {
     list: asyncHandler(async (_req: Request, res: Response) => {
@@ -16,7 +17,7 @@ export const eventController = {
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {
-        const event = await eventService.getById(req.params.id)
+        const event = await eventService.getById(routeParam(req, "id"))
         res.json({ success: true, data: event })
     }),
 
@@ -28,12 +29,12 @@ export const eventController = {
 
     update: asyncHandler(async (req: Request, res: Response) => {
         const input = updateEventSchema.parse(req.body)
-        const event = await eventService.update(req.params.id, input, req.user!.sub)
+        const event = await eventService.update(routeParam(req, "id"), input, req.user!.sub)
         res.json({ success: true, data: event })
     }),
 
     remove: asyncHandler(async (req: Request, res: Response) => {
-        await eventService.remove(req.params.id, req.user!.sub)
+        await eventService.remove(routeParam(req, "id"), req.user!.sub)
         res.json({ success: true, data: { deleted: true } })
     }),
 }

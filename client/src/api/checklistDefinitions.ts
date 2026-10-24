@@ -1,6 +1,5 @@
-import { z } from 'zod';
 import { apiFetch } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
 export type ChecklistRecurrence = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
 
@@ -165,23 +164,23 @@ const buildQuery = (params: Record<string, string | undefined>) => {
 };
 
 const definitionItemDefaults = withArrayDefaults({
-  auditUserIds: arrayField(z.string()),
-  accessories: arrayField(z.string()),
-  accessoriesFemale: arrayField(z.string()),
-  accessoriesMale: arrayField(z.string()),
-  accessoriesByType: z.record(z.string(), z.array(z.string())).nullable().catch(null),
-  options: arrayField(z.string()),
-  signatureLabels: arrayField(z.string()),
-  yesActions: arrayField(z.string()),
-  noActions: arrayField(z.string()),
+  auditUserIds: arrayField(n.string()),
+  accessories: arrayField(n.string()),
+  accessoriesFemale: arrayField(n.string()),
+  accessoriesMale: arrayField(n.string()),
+  accessoriesByType: n.record(n.array(n.string())).nullable().catch(null),
+  options: arrayField(n.string()),
+  signatureLabels: arrayField(n.string()),
+  yesActions: arrayField(n.string()),
+  noActions: arrayField(n.string()),
 });
 
 const definitionDefaults = withArrayDefaults({
-  storeIds: arrayField(z.string()),
-  assigneeIds: arrayField(z.string()),
-  departmentNames: arrayField(z.string()),
-  reviewerIds: arrayField(z.string()),
-  assigneeRoles: arrayField(z.string()),
+  storeIds: arrayField(n.string()),
+  assigneeIds: arrayField(n.string()),
+  departmentNames: arrayField(n.string()),
+  reviewerIds: arrayField(n.string()),
+  assigneeRoles: arrayField(n.string()),
   items: arrayField(definitionItemDefaults),
 });
 

@@ -1,6 +1,7 @@
 import crypto from "node:crypto"
 import { env } from "../../config/env.js"
 
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024
 const SEND_TEXT_URL = "https://public.doubletick.io/whatsapp/message/text"
 
 export async function sendDoubleTickMessage(to: string, body: string) {
@@ -15,6 +16,7 @@ export async function sendDoubleTickMessage(to: string, body: string) {
             to,
             content: { text: body },
         }),
+        signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
         console.error("DoubleTick send failed : ", await res.text())
@@ -50,8 +52,9 @@ function assertSafeAudioUrl(url : string) : URL {
 
 export async function downloadDoubleTickAudio(url : string) : Promise<{ buffer : Buffer, mimeType : string}>{
     const safeUrl = assertSafeAudioUrl(url);
-    const res = await fetch(safeUrl)
+    const res = await fetch(safeUrl, { redirect: "error", signal: AbortSignal.timeout(30_000) })
     if(!res.ok) throw new Error(`Failed to download DoubleTick audio ${url}`);
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_AUDIO_BYTES) throw new Error("DoubleTick audio is larger than the allowed size");
     const mimeType = res.headers.get("content-type") || "audio/mpeg";
     return { buffer : Buffer.from(await res.arrayBuffer()), mimeType}
 }

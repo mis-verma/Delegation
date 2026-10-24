@@ -1,5 +1,7 @@
 import 'dotenv/config'
-import { eq, and } from 'drizzle-orm'
+import { isDuplicateEntryError } from '../utils/dbErrors.js'
+import type { CHECKLIST_ASSIGNEE_ROLES } from '../db/schema/checklistDefinition.js'
+import { eq } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import {
@@ -15,7 +17,7 @@ refuseInProductionUnlessOverridden('seedDemoData')
 
 type TaskStatus = (typeof TASK_STATUSES)[number]
 
-const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
+const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)] as T
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 const daysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000)
 
@@ -167,7 +169,7 @@ const run = async () => {
 
   const pad2 = (n: number) => String(n).padStart(2, '0')
 
-  type ChecklistSpec = { name: string; description: string; assigneeRoles: string[]; items: string[]; doneBias: number; storeIds: string[] }
+  type ChecklistSpec = { name: string; description: string; assigneeRoles: (typeof CHECKLIST_ASSIGNEE_ROLES)[number][]; items: string[]; doneBias: number; storeIds: string[] }
 
   const checklistSpecs: ChecklistSpec[] = [
     {
@@ -204,7 +206,7 @@ const run = async () => {
         description: spec.description,
         recurrence: 'DAILY',
         startDate: daysFromNow(-30),
-        assigneeRoles: spec.assigneeRoles as any,
+        assigneeRoles: spec.assigneeRoles,
         createdBy: admin.id,
       })
       await db.insert(checklistDefinitionStores).values(
@@ -237,8 +239,8 @@ const run = async () => {
           periodEnd,
           generatedAt: periodStart,
         })
-      } catch (err: any) {
-        if (err?.code === 'ER_DUP_ENTRY' || err?.cause?.code === 'ER_DUP_ENTRY') continue
+      } catch (err) {
+        if (isDuplicateEntryError(err)) continue
         throw err
       }
       await db.insert(checklistInstanceAssignees).values({ instanceId, userId: pick(userRows).id })

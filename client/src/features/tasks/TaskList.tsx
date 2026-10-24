@@ -569,7 +569,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
        
 
-          {listMeta?.hasNext && (
+          {listMeta?.loadingMore && (
+            <span role="status" className="t-meta font-semibold tracking-tight text-text-muted tabular-nums">
+              Showing {listMeta.limit} of {listMeta.total}. Loading the rest.
+            </span>
+          )}
+
+          {listMeta?.hasNext && !listMeta.loadingMore && (
             <span className="t-meta font-semibold tracking-tight text-warning tabular-nums">
               Showing the newest {listMeta.limit} of {listMeta.total}. Counts above cover these only.
             </span>

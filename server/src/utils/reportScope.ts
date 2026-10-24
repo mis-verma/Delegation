@@ -2,6 +2,7 @@ import type { AccessTokenPayload } from "../middleware/auth/auth.js"
 import { db } from "../config/db.js"
 import { departments } from "../db/schema/core.js"
 import { eq } from "drizzle-orm"
+import { isAdminOrPc } from "./roles.js"
 
 export interface ReportScope {
     departmentId?: string;
@@ -11,7 +12,7 @@ export interface ReportScope {
 export const NO_SCOPE_ID = "__no_scope__"
 
 export const resolveReportScope = (user: AccessTokenPayload, requested: ReportScope): ReportScope => {
-    if (user.role === "ADMIN" || user.role === "PC") return requested;
+    if (isAdminOrPc(user.role)) return requested;
     if (user.role === "MANAGER") return { departmentId: user.departmentId || NO_SCOPE_ID };
     if (user.role === "SENIOR") return { storeId: user.storeId || NO_SCOPE_ID };
     return {};

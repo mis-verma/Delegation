@@ -132,7 +132,7 @@ export const auditService = {
 
         const p = paginate(filters.page, filters.limit);
 
-        const [rows, [{ value: total }]] = await Promise.all([
+        const [rows, [{ value: total } = { value: 0 }]] = await Promise.all([
             db
                 .select({
                     id: auditLogs.id,

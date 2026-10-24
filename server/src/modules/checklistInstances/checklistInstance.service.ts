@@ -20,11 +20,15 @@ import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
+import { groupBy } from "../../utils/groupBy.js"
+import { assertPhotosSatisfied, VALUE_VALIDATORS_BY_ITEM_TYPE, type ChecklistItem, type ItemValueInput } from "./checklistItemValidators.js"
+export type { ItemValueInput } from "./checklistItemValidators.js"
+import { dropScoreCache } from "../scores/scoreCache.js"
 import { eq, and, inArray, isNull, desc, asc, sql, gte, lte, lt, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
-import { closedBeforeTodayExpr, closedFromPastDayExpr, missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
+import { closedBeforeTodayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
 import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runClosingMs, runDeadlineMs, runPhase } from "./checklistRunEnd.js"
 import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
@@ -32,7 +36,6 @@ import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { VerifyChecklistInstanceInput, RaiseChecklistTicketInput } from "./checklistInstance.validation.js"
 import type { Role } from "../../db/schema/core.js"
-import type { CHECKLIST_ITEM_TYPES } from "../../db/schema/checklistDefinition.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
@@ -41,6 +44,8 @@ import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { isRankable, metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome } from "../scores/scoreFormulas.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { clockParts } from "../../utils/clock.js"
 
 export type InstanceStatusFilter = "OPEN" | "DUE" | "COMPLETED" | "OVERDUE"
 
@@ -133,9 +138,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
             .map((t) => ({ id: t.id, name: t.name, gender: t.gender }))
             .sort((x, y) => x.name.localeCompare(y.name))
 
-    const submissionsByItem = new Map<string, any[]>()
-    for (const submission of submissions) {
-        const mapped = {
+    const submissionViews = submissions.map((submission) => ({
             ...submission,
             userId: submissionUserById.get(submission.userId) ?? null,
             dressType: submission.dressTypeId && dressTypeById.has(submission.dressTypeId)
@@ -143,11 +146,8 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
                 : null,
             accessories: (accessoriesBySubmission.get(submission.id) ?? []).map((a) => ({ id: a.id, name: a.name, checked: a.checked })),
             images: submissionImagesBySubmission.get(submission.id) ?? [],
-        }
-        const list = submissionsByItem.get(submission.itemId) ?? []
-        list.push(mapped)
-        submissionsByItem.set(submission.itemId, list)
-    }
+        }))
+    const submissionsByItem = groupBy(submissionViews, (view) => view.itemId)
 
     const nameUserIds = [...new Set([
         ...items.map((i) => i.completedBy).filter((id): id is string => !!id),
@@ -158,19 +158,14 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         : []
     const nameById = new Map(nameRows.map((u) => [u.id, `${u.firstName}${u.lastName ? ` ${u.lastName}` : ""}`]))
 
-    const itemsByInstance = new Map<string, any[]>()
-    for (const item of items) {
-        const mapped = {
+    const itemViews = items.map((item) => ({
             ...stripSecretItemFields(item),
             completedByName: item.completedBy ? (nameById.get(item.completedBy) ?? null) : null,
             images: imagesByItem.get(item.id) ?? [],
             submissions: submissionsByItem.get(item.id) ?? [],
             ...(item.itemType === "AUDIT" ? { dressTypeOptions: dressTypeOptionsFor(item.definitionItemId) } : {}),
-        }
-        const list = itemsByInstance.get(item.instanceId) ?? []
-        list.push(mapped)
-        itemsByInstance.set(item.instanceId, list)
-    }
+        }))
+    const itemsByInstance = groupBy(itemViews, (view) => view.instanceId)
 
     const nowMs = Date.now()
     const offsetMinutes = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
@@ -207,7 +202,7 @@ const getPopulatedInstanceById = async (id: string) => {
 }
 
 export const assertInstanceOpen = (instance: { opensTime: string | null; periodStart: Date }) => {
-    const [hours, minutes] = instance.opensTime ? instance.opensTime.split(":").map(Number) : [0, 0]
+    const [hours, minutes] = instance.opensTime ? clockParts(instance.opensTime) : [0, 0]
     const opensAt = new Date(instance.periodStart)
     opensAt.setUTCHours(hours, minutes, 0, 0)
     opensAt.setTime(opensAt.getTime() - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
@@ -292,17 +287,17 @@ const buildMeta = (p: { page: number; limit: number }, total: number) => ({
     hasNext: p.page * p.limit < total,
 })
 
-const countInstances = async (where: any) => {
+const countInstances = async (where: SQL | undefined) => {
     const [row] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistInstances).where(where)
     return Number(row?.value ?? 0)
 }
 
 const assertCanAccess = (instance: { assigneeIds: string[] }, user: AccessTokenPayload) => {
     const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
-    if (user.role !== "ADMIN" && user.role !== "PC" && !isAssignee) throw AppError.forbidden()
+    if (!isAdminOrPc(user.role) && !isAssignee) throw AppError.forbidden()
 }
 
-export const isHod = (user: { role: string }) => user.role === "MANAGER" || user.role === "SENIOR"
+export const isHod = (user: { role: string }) => isDepartmentHeadRole(user.role)
 
 const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string>> => {
     if (!userIds.length) return new Set()
@@ -312,7 +307,7 @@ const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string
 
 const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[] }, user: AccessTokenPayload) => {
     const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
-    if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isAssignee || instance.reviewerIds.includes(user.sub)) return
+    if (isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER" || isAssignee || instance.reviewerIds.includes(user.sub)) return
     if (isHod(user) && user.departmentId) {
         const departmentIds = await getDepartmentIdsForUserIds(instance.assigneeIds)
         if (departmentIds.has(user.departmentId)) return
@@ -320,159 +315,16 @@ const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: str
     throw AppError.forbidden()
 }
 
-const assertPhotosSatisfied = async (item: any) => {
-    if (item.requiredImageCount <= 0) return
-    const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")))
-    const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE") : images
-    if (qualifying.length < item.requiredImageCount) {
-        const missing = item.requiredImageCount - qualifying.length
-        const kind = item.requiresLivePhoto ? "live photo(s)" : "photo(s)"
-        throw AppError.badRequest(`Upload ${missing} more ${kind} before this item can be marked complete`)
-    }
-}
-
-const assertNumberEntrySatisfied = (item: any, numericValue: number | undefined) => {
-    if (numericValue == null || Number.isNaN(numericValue)) {
-        throw AppError.badRequest("Enter a value before this item can be marked complete")
-    }
-    if (item.numberEntryMin != null && numericValue < item.numberEntryMin) {
-        throw AppError.badRequest(`Value must be at least ${item.numberEntryMin}${item.numberEntryUnit ? ` ${item.numberEntryUnit}` : ""}`)
-    }
-    if (item.numberEntryMax != null && numericValue > item.numberEntryMax) {
-        throw AppError.badRequest(`Value must be at most ${item.numberEntryMax}${item.numberEntryUnit ? ` ${item.numberEntryUnit}` : ""}`)
-    }
-}
-
-const assertRatingSatisfied = (item: any, numericValue: number | undefined) => {
-    const scale = item.ratingScale ?? 5
-    if (numericValue == null || Number.isNaN(numericValue) || !Number.isInteger(numericValue)) {
-        throw AppError.badRequest("Pick a rating before this item can be marked complete")
-    }
-    if (numericValue < 1 || numericValue > scale) {
-        throw AppError.badRequest(`Rating must be between 1 and ${scale}`)
-    }
-}
-
-const assertBooleanAnswerSatisfied = (booleanAnswer: "YES" | "NO" | undefined) => {
-    if (booleanAnswer !== "YES" && booleanAnswer !== "NO") {
-        throw AppError.badRequest("Choose an answer before this item can be marked complete")
-    }
-}
-
-const assertOptionSatisfied = (item: any, textValue: string | undefined) => {
-    if (!textValue || !(item.options ?? []).includes(textValue)) {
-        throw AppError.badRequest("Choose one of the listed options before this item can be marked complete")
-    }
-}
-
-const assertTextSatisfied = (textValue: string | undefined) => {
-    if (!textValue?.trim()) {
-        throw AppError.badRequest("Enter an answer before this item can be marked complete")
-    }
-}
-
-const assertDateSatisfied = (dateValue: string | undefined) => {
-    if (!dateValue || Number.isNaN(new Date(dateValue).getTime())) {
-        throw AppError.badRequest("Pick a date before this item can be marked complete")
-    }
-}
-
-const EARTH_RADIUS_METERS = 6371000
-const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const toRad = (deg: number) => (deg * Math.PI) / 180
-    const dLat = toRad(lat2 - lat1)
-    const dLng = toRad(lng2 - lng1)
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
-    return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a))
-}
-
-const assertGpsSatisfied = (item: any, lat: number | undefined, lng: number | undefined) => {
-    if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) {
-        throw AppError.badRequest("Capture your location before this item can be marked complete")
-    }
-    if (item.gpsTargetLat != null && item.gpsTargetLng != null && item.gpsRadiusMeters != null) {
-        const distance = haversineMeters(lat, lng, item.gpsTargetLat, item.gpsTargetLng)
-        if (distance > item.gpsRadiusMeters) {
-            throw AppError.badRequest(
-                `You're ${Math.round(distance)}m from the required location — must be within ${item.gpsRadiusMeters}m`,
-            )
-        }
-    }
-}
-
-const assertQrSatisfied = (item: any, textValue: string | undefined) => {
-    if (!textValue?.trim()) {
-        throw AppError.badRequest("Scan a code before this item can be marked complete")
-    }
-    if (item.qrExpectedValue && textValue.trim() !== item.qrExpectedValue) {
-        throw AppError.badRequest("Scanned code doesn't match the expected code")
-    }
-}
-
-const assertSignatureSatisfied = (signatureValue: string | undefined) => {
-    if (!signatureValue) {
-        throw AppError.badRequest("Add a signature before this item can be marked complete")
-    }
-}
-
-const assertDualSignatureSatisfied = (signatureValue: string | undefined, secondSignatureValue: string | undefined) => {
-    if (!signatureValue || !secondSignatureValue) {
-        throw AppError.badRequest("Both signatures are required before this item can be marked complete")
-    }
-}
-
-export type ItemValueInput = {
-    numericValue?: number
-    booleanAnswer?: "YES" | "NO"
-    textValue?: string
-    dateValue?: string
-    gpsLat?: number
-    gpsLng?: number
-    gpsAccuracy?: number
-    signatureValue?: string
-    secondSignatureValue?: string
-    conditionalReasonValue?: string
-    remarks?: string | null
-    notApplicable?: boolean
-}
-
-type ItemValueValidator = (item: any, values: ItemValueInput) => void
-
-const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<(typeof CHECKLIST_ITEM_TYPES)[number], ItemValueValidator | null> = {
-    STANDARD: null,
-    AUDIT: null,
-    VIDEO_UPLOAD: null,
-    NUMBER_ENTRY: (item, v) => assertNumberEntrySatisfied(item, v.numericValue),
-    RATING: (item, v) => assertRatingSatisfied(item, v.numericValue),
-    YES_NO: (_item, v) => assertBooleanAnswerSatisfied(v.booleanAnswer),
-    PASS_FAIL: (_item, v) => assertBooleanAnswerSatisfied(v.booleanAnswer),
-    MULTIPLE_CHOICE: (item, v) => assertOptionSatisfied(item, v.textValue),
-    DROPDOWN: (item, v) => assertOptionSatisfied(item, v.textValue),
-    TEXT_BOX: (_item, v) => assertTextSatisfied(v.textValue),
-    DATE_TIME: (_item, v) => assertDateSatisfied(v.dateValue),
-    GPS: (item, v) => assertGpsSatisfied(item, v.gpsLat, v.gpsLng),
-    QR_SCAN: (item, v) => assertQrSatisfied(item, v.textValue),
-    CASH_TALLY: (item, v) => {
-        assertNumberEntrySatisfied(item, v.numericValue)
-        if (item.cashExpectedAmount != null && v.numericValue !== item.cashExpectedAmount && !v.conditionalReasonValue?.trim()) {
-            const diff = (v.numericValue ?? 0) - item.cashExpectedAmount
-            throw AppError.badRequest(`Count is ${diff < 0 ? "short" : "over"} by ${Math.abs(diff)}. Add a reason before saving`)
-        }
-    },
-    SIGNATURE: (_item, v) => assertSignatureSatisfied(v.signatureValue),
-    DUAL_SIGNATURE: (_item, v) => assertDualSignatureSatisfied(v.signatureValue, v.secondSignatureValue),
-}
-
-const actionsForAnswer = (item: any, answer: "YES" | "NO" | undefined): string[] => {
+const actionsForAnswer = (item: ChecklistItem, answer: "YES" | "NO" | undefined): string[] => {
     if (answer === "YES") return item.yesActions ?? []
     if (answer === "NO") return item.noActions ?? []
     return []
 }
 
-const isConditionTriggered = (item: any, values: ItemValueInput) =>
+const isConditionTriggered = (item: ChecklistItem, values: ItemValueInput) =>
     actionsForAnswer(item, values.booleanAnswer).length > 0
 
-const assertConditionalActionsSatisfied = async (item: any, values: ItemValueInput) => {
+const assertConditionalActionsSatisfied = async (item: ChecklistItem, values: ItemValueInput) => {
     if (!isConditionTriggered(item, values)) return
     const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
 
@@ -493,7 +345,7 @@ const assertConditionalActionsSatisfied = async (item: any, values: ItemValueInp
 }
 
 const applyConditionalSideEffects = async (
-    item: any,
+    item: ChecklistItem,
     instance: { id: string; title: string; storeId: string },
     user: AccessTokenPayload,
     values: ItemValueInput,
@@ -507,7 +359,7 @@ const applyConditionalSideEffects = async (
         try {
             const reason = values.conditionalReasonValue ?? item.conditionalReasonValue
             const ticket = await ticketService.create({
-                title: `Checklist flag : ${item.label}`,
+                title: `Checklist flag : ${item.label}`.slice(0, 191),
                 description: `Raised automatically from "${instance.title}" -- "${item.label}" was answered "${values.booleanAnswer}".${reason ? `Reason: ${reason}` : ""}`,
                 storeId: instance.storeId,
             }, user, {
@@ -517,7 +369,8 @@ const applyConditionalSideEffects = async (
                     if (linked.affectedRows === 0) throw AppError.conflict("A ticket was already raised for this question.")
                 },
             })
-            const issueId = String((ticket as any)._id ?? (ticket as any).id)
+            if (!ticket) throw new Error("The ticket was not returned after it was created.")
+            const issueId = String(ticket.id)
             updatedItem = { ...item, issueId }
         } catch (err) {
             console.error("Failed to auto-create issue from checklist flag:", err)
@@ -610,7 +463,7 @@ const loadWaivable = async (id: string, itemId: string, user: AccessTokenPayload
     assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
     if (!["ADMIN", "PC", "MANAGER", "SENIOR"].includes(user.role)) throw AppError.forbidden("Only a department head, PC or Admin can waive a question.")
     if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You cannot waive a question on a checklist you fill in yourself.")
-    const orgWide = user.role === "ADMIN" || user.role === "PC"
+    const orgWide = isAdminOrPc(user.role)
     if (!orgWide && instance.verificationStatus !== "PENDING_APPROVAL" && instance.verificationStatus !== "REJECTED") {
         throw AppError.badRequest("A question can only be waived while the checklist is being reviewed. Ask an admin.")
     }
@@ -710,7 +563,7 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
 }
 
 export const pendingApprovalScope = (user: AccessTokenPayload): SQL | undefined => {
-    if (user.role === "ADMIN" || user.role === "PC") return undefined
+    if (isAdminOrPc(user.role)) return undefined
     const parts: SQL[] = [sql`EXISTS (
         SELECT 1 FROM ${checklistInstanceReviewers} r
         WHERE r.instanceId = ${checklistInstances.id} AND r.userId = ${user.sub}
@@ -731,7 +584,7 @@ export const dropChecklistSummaries = (assigneeIds: string[]) => {
     const namespaces = assigneeIds.length > 4
         ? [SUMMARY_VERSION_ALL]
         : [summaryOwnerKey(undefined), ...assigneeIds.map((id) => summaryOwnerKey(id))].map(summaryVersionOf)
-    return bumpVersions(...namespaces)
+    return Promise.all([bumpVersions(...namespaces), dropScoreCache()]).then(() => undefined)
 }
 
 export const checklistInstanceService = {
@@ -859,7 +712,7 @@ export const checklistInstanceService = {
         if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
         if (filter.from) conditions.push(gte(checklistInstances.periodStart, dayStartUtc(asOrgDay(filter.from))))
         if (filter.to) conditions.push(lt(checklistInstances.periodStart, dayStartUtc(addDays(asOrgDay(filter.to), 1))))
-        if (user.role !== "ADMIN" && user.role !== "PC") {
+        if (!isAdminOrPc(user.role)) {
             if (!isHod(user) || !user.departmentId) return { data: [], meta: buildMeta(p, 0) }
             conditions.push(eq(users.departmentId, user.departmentId))
         }
@@ -1079,14 +932,14 @@ export const checklistInstanceService = {
             parentNotDeletedExpr,
         ]
         if (storeId) conditions.push(eq(checklistInstances.storeId, storeId))
-        if (user.role !== "ADMIN" && user.role !== "PC") {
+        if (!isAdminOrPc(user.role)) {
             if (!isHod(user) || !user.departmentId) return empty
             conditions.push(instanceInDepartmentCondition(user.departmentId))
         } else if (departmentId) {
             conditions.push(instanceInDepartmentCondition(departmentId))
         }
 
-        const headDepartmentId = (user.role !== "ADMIN" && user.role !== "PC" ? user.departmentId : departmentId) || undefined
+        const headDepartmentId = (!isAdminOrPc(user.role) ? user.departmentId : departmentId) || undefined
 
         const runs = await db.select({
             id: checklistInstances.id,
@@ -1161,7 +1014,7 @@ export const checklistInstanceService = {
         const opensAtOf = (r: Run) => {
             let at = r.periodStart.getTime() - offsetMs
             if (r.opensTime) {
-                const [oh, om] = r.opensTime.split(":").map(Number)
+                const [oh, om] = clockParts(r.opensTime)
                 at += (oh * 60 + om) * 60_000
             }
             return at
@@ -1247,19 +1100,19 @@ export const checklistInstanceService = {
     },
 
     async periodDepartmentScores(user: AccessTokenPayload, from: string, to: string, storeId?: string) {
-        const isOrgWide = user.role === "ADMIN" || user.role === "PC"
+        const isOrgWide = isAdminOrPc(user.role)
         const list = await db.select({ id: departments.id, name: departments.name }).from(departments)
             .where(isOrgWide ? undefined : eq(departments.id, user.departmentId ?? ""))
             .orderBy(asc(departments.name))
         const reports = await Promise.all(list.map((dep) => this.periodReport(user, from, to, storeId, dep.id)))
-        return list.map((dep, i) => ({ departmentId: dep.id, departmentName: dep.name, ...reports[i].summary }))
+        return list.map((dep, i) => ({ departmentId: dep.id, departmentName: dep.name, ...reports[i]?.summary }))
     },
 
     async itemHistory(id: string, user: AccessTokenPayload) {
         const instance = await getPopulatedInstanceById(id)
         if (!instance) throw AppError.notFound("Checklist instance not found")
         await assertCanView(instance, user)
-        const oversees = user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isHod(user) || instance.reviewerIds.includes(user.sub)
+        const oversees = isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER" || isHod(user) || instance.reviewerIds.includes(user.sub)
         if (!oversees) throw AppError.forbidden()
 
         const itemIds = instance.items.map((item) => item.id)
@@ -1783,7 +1636,7 @@ export const checklistInstanceService = {
     },
 
     async decisions(user: AccessTokenPayload, query: { from?: string; to?: string; limit?: number } = {}): Promise<ChecklistDecision[]> {
-        const orgWide = user.role === "ADMIN" || user.role === "PC"
+        const orgWide = isAdminOrPc(user.role)
         if (!orgWide && (!isHod(user) || !user.departmentId)) return []
 
         const limit = Math.min(DECISIONS_MAX, Math.max(1, Math.trunc(query.limit ?? DECISIONS_MAX) || DECISIONS_MAX))

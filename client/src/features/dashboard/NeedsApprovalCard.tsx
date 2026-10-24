@@ -152,7 +152,7 @@ export const NeedsApprovalCard = () => {
           ))}
         </div>
       ) : allCaughtUp ? (
-        <div className="p-4 sm:p-5">
+        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
           <EmptyState size="compact" tone="success" icon={CheckCheck} title="All caught up" description="Nothing is waiting on your review right now." />
         </div>
       ) : (

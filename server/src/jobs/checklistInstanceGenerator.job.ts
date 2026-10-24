@@ -1,4 +1,5 @@
 import { scheduleJob } from '../utils/jobTracker.js';
+import { isDuplicateEntryError } from '../utils/dbErrors.js';
 import { createId } from "@paralleldrive/cuid2"
 import { eq, and, inArray, asc, lte, gt, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
@@ -266,7 +267,8 @@ const stampItems = async (tx: Tx, instanceId: string, items: GenerationItem[]) =
     )
 
     for (const [index, item] of items.entries()) {
-        if (item.itemType === "AUDIT") await stampAuditPeople(tx, itemIds[index], item.auditUserIds, item)
+        const itemId = itemIds[index]
+        if (item.itemType === "AUDIT" && itemId) await stampAuditPeople(tx, itemId, item.auditUserIds, item)
     }
 }
 
@@ -341,8 +343,8 @@ const generateInstanceForStore = async (
 
             await stampInstanceContents(tx, instanceId, { ...definition, assigneeIds: scope.assigneeIds })
         })
-    } catch (err: any) {
-        if (err?.code === "ER_DUP_ENTRY") return null
+    } catch (err) {
+        if (isDuplicateEntryError(err)) return null
         throw err
     }
 
@@ -849,33 +851,37 @@ export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRu
 export const generateDueInstances = async () => {
     const now = new Date()
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
-    const definitionRows = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
-        .where(and(
-            eq(checklistDefinitions.isActive, true),
-            lte(checklistDefinitions.startDate, localNow),
-            isNull(checklistDefinitions.deletedAt),
-        ))
-        .orderBy(asc(checklistDefinitions.startDate))
-        .limit(GENERATOR_BATCH_SIZE)
+    const failures: string[] = []
+    let cursor = ""
+    for (;;) {
+        const definitionRows = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
+            .where(and(
+                eq(checklistDefinitions.isActive, true),
+                lte(checklistDefinitions.startDate, localNow),
+                isNull(checklistDefinitions.deletedAt),
+                gt(checklistDefinitions.id, cursor),
+            ))
+            .orderBy(asc(checklistDefinitions.id))
+            .limit(GENERATOR_BATCH_SIZE)
+        if (!definitionRows.length) break
+        cursor = definitionRows[definitionRows.length - 1]!.id
 
-    if (definitionRows.length === GENERATOR_BATCH_SIZE) {
-        console.warn(`Checklist instance generator: hit the ${GENERATOR_BATCH_SIZE}-definition batch cap — there may be more due definitions still waiting; they'll be picked up on the next sweep.`)
-    }
-
-    const definitionsById = await loadDefinitionsForGeneration(definitionRows.map((r) => r.id))
-    for (const { id } of definitionRows) {
-        try {
-            const definition = definitionsById.get(id)
-            if (definition) await generateInstanceForDefinition(definition, now)
-        } catch (err) {
-            console.error(`Checklist instance generation failed for definition ${id}:`, err)
+        const definitionsById = await loadDefinitionsForGeneration(definitionRows.map((r) => r.id))
+        for (const { id } of definitionRows) {
+            try {
+                const definition = definitionsById.get(id)
+                if (definition) await generateInstanceForDefinition(definition, now)
+            } catch (err) {
+                console.error(`Checklist instance generation failed for definition ${id}:`, err)
+                failures.push(id)
+            }
         }
+        if (definitionRows.length < GENERATOR_BATCH_SIZE) break
     }
+    if (failures.length) throw new Error(`Checklist generation failed for ${failures.length} definition(s): ${failures.slice(0, 5).join(", ")}`)
 }
 
 export const startChecklistInstanceGenerator = () => {
     generateDueInstances().catch((err) => console.error("Initial checklist instance generation failed:", err))
-    scheduleJob("checklist-generator", "0,30 * * * *", 30, () => {
-        generateDueInstances().catch((err) => console.error("Checklist instance sweep failed:", err))
-    })
+    scheduleJob("checklist-generator", "0,30 * * * *", 30, () => generateDueInstances())
 }

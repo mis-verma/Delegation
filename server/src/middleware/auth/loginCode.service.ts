@@ -8,11 +8,11 @@ import { passwordOtps } from '../../db/schema/core.js'
 import { settingsService } from '../../modules/settings/settings.service.js'
 import { AppError } from '../../utils/AppError.js'
 import { hashCode, sameHash } from './passwordOtp.service.js'
+import { recordWrongCode } from './otpAttempts.js'
 
 const CODE_MINUTES = 10
 const CHALLENGE_MINUTES = 15
 const DEVICE_DAYS = 30
-const MAX_ATTEMPTS = 5
 const RESEND_AFTER_MS = 30_000
 const WRONG_CODE = 'That code is wrong or has expired. Ask for a new one.'
 
@@ -25,7 +25,7 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 export const adminCodeRequired = () => settingsService.getCached().requireAdminLoginCode && !!env.SMTP_HOST
 
 export const maskEmail = (email: string) => {
-  const [name, domain = ''] = email.split('@')
+  const [name = '', domain = ''] = email.split('@')
   return `${name.slice(0, 1)}${'*'.repeat(Math.max(2, Math.min(6, name.length - 1)))}@${domain}`
 }
 
@@ -110,12 +110,8 @@ export const verifyLoginCode = async (userId: string, code: string) => {
   if (!otp) throw AppError.badRequest(WRONG_CODE)
 
   if (!sameHash(otp.codeHash, hashCode(userId, code))) {
-    const attempts = otp.attempts + 1
-    await db.update(passwordOtps)
-      .set({ attempts, ...(attempts >= MAX_ATTEMPTS ? { usedAt: now } : {}) })
-      .where(eq(passwordOtps.id, otp.id))
-    const left = MAX_ATTEMPTS - attempts
-    throw AppError.badRequest(left > 0 ? `Wrong code. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong tries. Ask for a new code.')
+    await recordWrongCode(otp.id)
+    throw AppError.badRequest(WRONG_CODE)
   }
 
   const [claimed] = await db.update(passwordOtps)

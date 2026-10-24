@@ -35,7 +35,7 @@ const refreshAccessToken = (): Promise<string | null> => {
 
       const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Client-Platform": "native" },
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) return null;
@@ -70,6 +70,7 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
       ...options,
       headers: {
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        "X-Client-Platform": "native",
         ...(t ? { Authorization: `Bearer ${t}` } : {}),
         ...options.headers,
       },

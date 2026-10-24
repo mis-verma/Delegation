@@ -1,7 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { z } from 'zod';
 import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
-import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
 import type { Tag } from './tags';
 
@@ -162,7 +161,7 @@ export type TaskOwnerStatsRow = {
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
-export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
+export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; loadingMore?: boolean };
 export type TaskListPage = { data: Task[]; meta: ListMeta };
 
 export type TaskSummary = {
@@ -183,12 +182,12 @@ export type TaskPendingApproval = {
 };
 
 const taskArrayDefaults = withArrayDefaults({
-    additionalAssigneeIds: arrayField(z.string()),
+    additionalAssigneeIds: arrayField(n.string()),
     checklists: arrayField(taskChecklistDefaults).optional(),
-    attachments: arrayField(z.unknown()).optional(),
-    statusUpdates: arrayField(z.unknown()).optional(),
-    tags: arrayField(z.unknown()).optional(),
-    reviewers: arrayField(z.unknown()).optional(),
+    attachments: arrayField(n.unknown()).optional(),
+    statusUpdates: arrayField(n.unknown()).optional(),
+    tags: arrayField(n.unknown()).optional(),
+    reviewers: arrayField(n.unknown()).optional(),
 });
 const normalizeTask = (raw: unknown) => normalizeWith<Task>(taskArrayDefaults, raw);
 

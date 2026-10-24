@@ -1,3 +1,4 @@
+import { clockParts } from "../../utils/clock.js"
 export type LateWindowInput = {
     recurrence: string
     opensTime?: string | null
@@ -15,7 +16,7 @@ export const lateWindowProblem = (input: LateWindowInput): string | null => {
 }
 
 export const formatClock = (time: string): string => {
-    const [hours, minutes] = time.split(":").map(Number)
+    const [hours, minutes] = clockParts(time)
     const hour12 = hours % 12 === 0 ? 12 : hours % 12
     return `${hour12}:${String(minutes).padStart(2, "0")} ${hours < 12 ? "AM" : "PM"}`
 }

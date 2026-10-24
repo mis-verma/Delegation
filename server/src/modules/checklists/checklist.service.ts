@@ -14,6 +14,7 @@ import { emitTicketEvent } from '../../sockets/ticketEvent.js';
 import type { CreateChecklistInput, UpdateChecklistItemInput } from './checklist.validation.js';
 import type { AccessTokenPayload } from '../../middleware/auth/auth.js';
 import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from '../../utils/checklistItemWorkers.js';
+import { isAdminOrPc } from "../../utils/roles.js"
 
 type ChecklistItemRow = typeof checklistItems.$inferSelect;
 
@@ -40,7 +41,7 @@ const getChecklistWithItems = async (id: string) => {
 
 
 const assertCanManage = (user: AccessTokenPayload, ticket: { userId: string }) => {
-  if (user.role === 'ADMIN' || user.role === 'PC') return;
+  if (isAdminOrPc(user.role)) return;
   if (ticket.userId === user.sub) return;
   throw AppError.forbidden('Only the ticket owner can manage its checklists');
 };

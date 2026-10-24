@@ -3,6 +3,7 @@ import { checklistDefinitionService } from "./checklistDefinition.service.js"
 import { createChecklistDefinitionSchema, updateChecklistDefinitionSchema, setChecklistDefinitionActiveSchema, listChecklistDefinitionsQuerySchema } from "./checklistDefinition.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import type { ChecklistRecurrence } from "./checklistDefinition.service.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const checklistDefinitionController = {
     list: asyncHandler(async (req: Request, res: Response) => {
@@ -25,7 +26,7 @@ export const checklistDefinitionController = {
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {
-        const definition = await checklistDefinitionService.getById(req.params.id)
+        const definition = await checklistDefinitionService.getById(routeParam(req, "id"))
         res.json({ success: true, data: definition })
     }),
 
@@ -37,23 +38,23 @@ export const checklistDefinitionController = {
 
     update: asyncHandler(async (req: Request, res: Response) => {
         const input = updateChecklistDefinitionSchema.parse(req.body)
-        const { definition, liveRuns, wentLive, paused, lateToday } = await checklistDefinitionService.update(req.params.id, input, req.user!.sub)
+        const { definition, liveRuns, wentLive, paused, lateToday } = await checklistDefinitionService.update(routeParam(req, "id"), input, req.user!.sub)
         res.json({ success: true, data: definition, liveRuns, wentLive, paused, lateToday })
     }),
 
     setActive: asyncHandler(async (req: Request, res: Response) => {
         const input = setChecklistDefinitionActiveSchema.parse(req.body)
-        const definition = await checklistDefinitionService.setActive(req.params.id, input, req.user!.sub)
+        const definition = await checklistDefinitionService.setActive(routeParam(req, "id"), input, req.user!.sub)
         res.json({ success: true, data: definition })
     }),
 
     restore: asyncHandler(async (req: Request, res: Response) => {
-        const definition = await checklistDefinitionService.restore(req.params.id, req.user!.sub)
+        const definition = await checklistDefinitionService.restore(routeParam(req, "id"), req.user!.sub)
         res.json({ success: true, data: definition })
     }),
 
     remove: asyncHandler(async (req: Request, res: Response) => {
-        await checklistDefinitionService.remove(req.params.id, req.user!.sub)
+        await checklistDefinitionService.remove(routeParam(req, "id"), req.user!.sub)
         res.json({ success: true, data: { deleted: true } })
     }),
 }

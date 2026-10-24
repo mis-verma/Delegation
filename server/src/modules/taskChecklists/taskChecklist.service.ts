@@ -6,6 +6,7 @@ import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskChecklistInput, UpdateTaskChecklistItemInput } from "./taskChecklist.validation.js"
 import { assertCanWorkChecklistItem, assertChecklistOpenForWork, assertTaskStateAllowsChecklistWork, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export const deriveChecklistItemCompletion = (isDone: boolean): { completedAt: Date | null } => ({
     completedAt: isDone ? new Date() : null,
@@ -13,7 +14,7 @@ export const deriveChecklistItemCompletion = (isDone: boolean): { completedAt: D
 
 const assertCanManage = (user: AccessTokenPayload, task: { userId: string; status: string; declinedAt: Date | null; awaitingHeadApproval: boolean }) => {
     assertTaskStateAllowsChecklistWork(task, user, { managing: true });
-    if (user.role === "ADMIN" || user.role === "PC") return;
+    if (isAdminOrPc(user.role)) return;
     if (task.userId === user.sub) return;
     throw AppError.forbidden("Only the delegation owner can manage its checklists");
 };

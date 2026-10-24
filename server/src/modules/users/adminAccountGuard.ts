@@ -4,6 +4,7 @@ import { db } from "../../config/db.js"
 import { users } from "../../db/schema/core.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { AppError } from "../../utils/AppError.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 const MESSAGE = "Only an admin can create or change admin and owner accounts."
 
@@ -23,7 +24,7 @@ export const protectAdminAccounts = asyncHandler(async (req: Request, _res: Resp
         }
     }
 
-    const targetId = req.params.id
+    const targetId = routeParam(req, "id")
     if (targetId) {
         const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, targetId)).limit(1)
         if (isProtectedRole(target?.role)) throw AppError.forbidden(MESSAGE)

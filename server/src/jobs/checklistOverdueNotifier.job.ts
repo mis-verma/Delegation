@@ -174,7 +174,5 @@ const sweep = async () => {
 
 export const startChecklistOverdueNotifier = () => {
     sweep().catch((err) => console.error("Initial checklist overdue notification sweep failed:", err))
-    scheduleJob("checklist-overdue-notifier", "*/10 * * * *", 10, () => {
-        sweep().catch((err) => console.error("Checklist overdue notification sweep failed:", err))
-    })
+    scheduleJob("checklist-overdue-notifier", "*/10 * * * *", 10, () => sweep())
 }

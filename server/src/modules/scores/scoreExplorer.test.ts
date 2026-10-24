@@ -34,9 +34,9 @@ describe("shapeExplorer", () => {
         })
         expect(out.rows.map((r) => r.id)).toEqual(["d1", "d2"])
         expect(out.rows.every((r) => r.kind === "department" && r.parentId === "store-1")).toBe(true)
-        expect(out.rows[0].shared.runsSharedWithOthers).toBe(1)
-        expect(out.rows[0].checklist).toMatchObject({ due: 4, done: 4, completion: 100, compliance: 100, wGood: 4, wScored: 4 })
-        expect(out.rows[0].ticket.waitingOnTime).toBe(0)
+        expect(out.rows[0]!.shared.runsSharedWithOthers).toBe(1)
+        expect(out.rows[0]!.checklist).toMatchObject({ due: 4, done: 4, completion: 100, compliance: 100, wGood: 4, wScored: 4 })
+        expect(out.rows[0]!.ticket.waitingOnTime).toBe(0)
         expect(out.total).toMatchObject({ kind: "total", totalDue: 12 })
         expect(out.total.parentId).toBeUndefined()
         expect(out.unassigned).toMatchObject({ kind: "unassigned", totalDue: 1 })
@@ -51,14 +51,14 @@ describe("shapeExplorer", () => {
             sharedRunsByPerson: new Map([["p1", 2]]),
         })
         expect(out.rows.map((r) => r.id)).toEqual(["p1"])
-        expect(out.rows[0].shared.runsSharedWithOthers).toBe(2)
+        expect(out.rows[0]!.shared.runsSharedWithOthers).toBe(2)
         expect(out.unassigned).toBeNull()
     })
 
     it("marks inactive stores", () => {
         const out = shapeExplorer({ view: "store", total, unassigned: null, stores: [{ ...scored("s1", "Mall (inactive)", { runs: 2 }), inactive: true }, scored("no-store", "Other / no store", { tickets: 1 })] })
         expect(out.rows[0]).toMatchObject({ kind: "store", inactive: true })
-        expect(out.rows[1].inactive).toBeUndefined()
+        expect(out.rows[1]!.inactive).toBeUndefined()
     })
 
     it("marks people who have left", () => {
@@ -84,7 +84,7 @@ describe("shapeExplorer", () => {
 
     it("leaves department fields off non-person rows", () => {
         const out = shapeExplorer({ view: "department", total, unassigned: null, departments: [{ ...scored("d1", "Sales", { runs: 4 }), department: "Sales" }] })
-        expect(out.rows[0].departmentName).toBeUndefined()
+        expect(out.rows[0]!.departmentName).toBeUndefined()
     })
 
     it("builds checklist rows from definitions, with only the checklist block filled", () => {
@@ -92,9 +92,9 @@ describe("shapeExplorer", () => {
         const out = shapeExplorer({ view: "checklist", parentId: "p1", total, unassigned: null, definitions: [def] })
         expect(out.rows).toHaveLength(1)
         expect(out.rows[0]).toMatchObject({ id: "def-1", name: "Opening", kind: "checklist", recurrence: "DAILY", parentId: "p1" })
-        expect(out.rows[0].checklist).toMatchObject({ due: 10, done: 8, late: 1, notDone: 2, completion: 80, compliance: 75 })
-        expect(out.rows[0].ticket.due).toBe(0)
-        expect(out.rows[0].totalDue).toBe(10)
+        expect(out.rows[0]!.checklist).toMatchObject({ due: 10, done: 8, late: 1, notDone: 2, completion: 80, compliance: 75 })
+        expect(out.rows[0]!.ticket.due).toBe(0)
+        expect(out.rows[0]!.totalDue).toBe(10)
     })
 
     it("cuts the total into three module rows that add up to it", () => {
@@ -102,7 +102,7 @@ describe("shapeExplorer", () => {
         expect(out.rows.map((r) => r.id)).toEqual(["checklist", "ticket", "delegation"])
         expect(out.rows.map((r) => r.totalDue)).toEqual([6, 4, 2])
         expect(out.rows.reduce((n, r) => n + r.totalDue, 0)).toBe(out.total.totalDue)
-        expect(out.rows[1].checklist.due).toBe(0)
+        expect(out.rows[1]!.checklist.due).toBe(0)
     })
 
     it("applies the module filter: other modules emptied, overall follows one module, empty rows dropped", () => {
@@ -114,10 +114,10 @@ describe("shapeExplorer", () => {
             departments: [scored("d1", "Sales", { runs: 4, tickets: 2 }), scored("d2", "Ops", { runs: 3 })],
         })
         expect(out.rows.map((r) => r.id)).toEqual(["d1"])
-        expect(out.rows[0].checklist.due).toBe(0)
-        expect(out.rows[0].totalDue).toBe(2)
+        expect(out.rows[0]!.checklist.due).toBe(0)
+        expect(out.rows[0]!.totalDue).toBe(2)
         expect(out.total.totalDue).toBe(4)
-        expect(out.rows[0].overall).toBe(100)
+        expect(out.rows[0]!.overall).toBe(100)
     })
 })
 

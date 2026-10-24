@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { smartTaskConversationService } from "./smartTaskConversation.service.js"
 import { createSmartTaskConversationSchema, patchSmartTaskConversationSchema } from "./smartTaskConversation.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const smartTaskConversationController = {
     create: asyncHandler(async (req: Request, res: Response) => {
@@ -12,7 +13,7 @@ export const smartTaskConversationController = {
 
     patch: asyncHandler(async (req: Request, res: Response) => {
         const input = patchSmartTaskConversationSchema.parse(req.body);
-        const conversation = await smartTaskConversationService.patch(req.params.id, req.user!.sub, input);
+        const conversation = await smartTaskConversationService.patch(routeParam(req, "id"), req.user!.sub, input);
         res.json({ success: true, data: conversation });
     }),
 
@@ -22,7 +23,7 @@ export const smartTaskConversationController = {
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {
-        const conversation = await smartTaskConversationService.getOne(req.params.id, req.user!.sub);
+        const conversation = await smartTaskConversationService.getOne(routeParam(req, "id"), req.user!.sub);
         res.json({ success: true, data: conversation });
     }),
 

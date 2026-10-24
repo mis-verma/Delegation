@@ -3,6 +3,7 @@ import { ticketService } from "./ticket.service.js"
 import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const ticketController = {
     list : asyncHandler( async ( req : Request , res : Response) => {
@@ -12,7 +13,7 @@ export const ticketController = {
     }),
 
     getOne : asyncHandler(async (req : Request , res : Response) => {
-        const ticket = await ticketService.getById(req.params.id , req.user!);
+        const ticket = await ticketService.getById(routeParam(req, "id") , req.user!);
         res.json({ success : true , data : ticket})
     }),
 
@@ -35,7 +36,7 @@ export const ticketController = {
 
     update : asyncHandler ( async (req : Request , res : Response) => {
         const input = updateTicketSchema.parse(req.body);
-        const ticket = await ticketService.update(req.params.id , input , req.user!)
+        const ticket = await ticketService.update(routeParam(req, "id") , input , req.user!)
         res.json({ success : true , data : ticket})
     }),
 
@@ -43,34 +44,34 @@ export const ticketController = {
     addStatusUpdate : asyncHandler ( async (req : Request , res : Response) => {
         const input = statusUpdateSchema.parse(req.body);
         const files = (req.files as Express.Multer.File[]) ?? [];
-        const ticket = await ticketService.addStatusUpdate(req.params.id , input , files , req.user!)
+        const ticket = await ticketService.addStatusUpdate(routeParam(req, "id") , input , files , req.user!)
         res.json({ success : true , data : ticket})
     }),
 
     approveAssignment : asyncHandler(async (req : Request , res : Response) => {
-        const ticket = await ticketService.approveAssignment(req.params.id, req.user!)
+        const ticket = await ticketService.approveAssignment(routeParam(req, "id"), req.user!)
         res.json({ success : true , data : ticket })
     }),
 
     reopenDeclined : asyncHandler(async (req : Request , res : Response) => {
-        const ticket = await ticketService.reopenDeclined(req.params.id, req.user!)
+        const ticket = await ticketService.reopenDeclined(routeParam(req, "id"), req.user!)
         res.json({ success : true , data : ticket })
     }),
 
     decline : asyncHandler(async (req : Request , res : Response) => {
         const input = declineTicketSchema.parse(req.body);
-        const ticket = await ticketService.decline(req.params.id, input.reason, req.user!)
+        const ticket = await ticketService.decline(routeParam(req, "id"), input.reason, req.user!)
         res.json({ success : true , data : ticket })
     }),
 
     verify : asyncHandler ( async (req : Request , res : Response) => {
         const input = verifyTicketSchema.parse(req.body);
-        const ticket = await ticketService.verify(req.params.id , input , req.user!)
+        const ticket = await ticketService.verify(routeParam(req, "id") , input , req.user!)
         res.json({ success : true , data : ticket})
     }),
 
     remove : asyncHandler ( async ( req : Request, res : Response) => {
-        await ticketService.remove(req.params.id , req.user!)
+        await ticketService.remove(routeParam(req, "id") , req.user!)
         res.json({ success : true , data : { deleted : true}})
     }),
 

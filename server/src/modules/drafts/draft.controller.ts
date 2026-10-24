@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { draftService } from "./draft.service.js"
 import { createDraftSchema, listDraftsQuerySchema, updateDraftSchema } from "./draft.validation.js"
+import { routeParam } from "../../utils/routeParam.js"
 
 export const draftController = {
     list: asyncHandler(async (req: Request, res: Response) => {
@@ -11,7 +12,7 @@ export const draftController = {
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {
-        const data = await draftService.get(req.params.id, req.user!)
+        const data = await draftService.get(routeParam(req, "id"), req.user!)
         res.json({ success: true, data })
     }),
 
@@ -23,12 +24,12 @@ export const draftController = {
 
     update: asyncHandler(async (req: Request, res: Response) => {
         const input = updateDraftSchema.parse(req.body)
-        const data = await draftService.update(req.params.id, req.user!, input)
+        const data = await draftService.update(routeParam(req, "id"), req.user!, input)
         res.json({ success: true, data })
     }),
 
     remove: asyncHandler(async (req: Request, res: Response) => {
-        await draftService.remove(req.params.id, req.user!)
+        await draftService.remove(routeParam(req, "id"), req.user!)
         res.json({ success: true, data: { deleted: true } })
     }),
 }

@@ -57,7 +57,7 @@ export const whatsappController = {
         const token = req.query["hub.verify_token"];
         const challenge = req.query["hub.challenge"]
 
-        if(mode === "subscribe" && token === env.WHATSAPP_VERIFY_TOKEN){
+        if(mode === "subscribe" && !!env.WHATSAPP_VERIFY_TOKEN && token === env.WHATSAPP_VERIFY_TOKEN){
             return res.status(200).send(challenge)
         }
         return res.sendStatus(403)
@@ -65,8 +65,9 @@ export const whatsappController = {
 
     receive : asyncHandler(async(req : Request , res : Response) => {
         const signature = req.headers["x-hub-signature-256"] as string | undefined
-        if(!verifySignature(req.rawBody!, signature)){
-            return res.sendStatus(403);
+        if(!verifySignature(req.rawBody ?? Buffer.alloc(0), signature)){
+            res.sendStatus(403);
+            return;
         }
 
         res.sendStatus(200);
@@ -81,6 +82,16 @@ export const whatsappController = {
         if (!(await claimInboundMessage("whatsapp", message.id as string))) return;
 
         const from = message.from as string;
+
+        const sender = await findActiveUserByPhone(from);
+        if (!sender) {
+            await sendWhatsAppMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
+            return;
+        }
+        if (sender.role === "OWNER") {
+            await sendWhatsAppMessage(from, "Your account is read only, so it can't create work from WhatsApp. Open the app to view scores and approvals.");
+            return;
+        }
 
         try {
             let text: string;
@@ -100,12 +111,6 @@ export const whatsappController = {
                 }
             } else {
                 await sendWhatsAppMessage(from, "Sorry, I can only understand text messages or voice notes right now.");
-                return;
-            }
-
-            const sender = await findActiveUserByPhone(from);
-            if (!sender) {
-                await sendWhatsAppMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
                 return;
             }
 
@@ -182,14 +187,10 @@ export const whatsappController = {
                 return;
             }
 
-            await startConversation({
-                phone: from,
-                userId: sender.id,
-                firstSlot: missing[0],
-                remainingSlots: missing.slice(1),
-                draft,
-            });
-            await sendWhatsAppMessage(from, SLOT_QUESTIONS[missing[0]]);
+            const [firstSlot, ...remainingSlots] = missing;
+            if (!firstSlot) return;
+            await startConversation({ phone: from, userId: sender.id, firstSlot, remainingSlots, draft });
+            await sendWhatsAppMessage(from, SLOT_QUESTIONS[firstSlot]);
         }catch(err){
             console.error("WhatsApp task creation failed:" ,err);
             await sendWhatsAppMessage(from, "Sorry, something went wrong creating that delegation. Please try again or add it manually.")

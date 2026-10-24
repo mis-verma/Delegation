@@ -19,6 +19,7 @@ export type Settings = {
     androidAppUrl : string | null;
     iosAppUrl : string | null;
     auditRetentionDays : number;
+    checklistAuditRetentionDays : number;
     notificationRetentionDays : number;
     inboundMessageRetentionDays : number;
 }
