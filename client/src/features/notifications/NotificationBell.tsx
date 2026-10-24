@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Check, CheckCheck, BellRing, AlertCircle, ChevronRight, X } from 'lucide-react';
-import { SwipeRow } from '../../components/swipeRow/SwipeRow';
+import { Bell, CheckCheck, BellRing, AlertCircle, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router';
 import type { Notification } from '@/api/notifications';
 import { useNotificationsQuery, useMarkNotificationReadMutation, useMarkAllNotificationsReadMutation } from './hooks';
 import { useNotificationSocket } from './useNotificationSocket';
-import { notificationLook, notificationPath, formatNotificationTime, formatRelativeShort, groupNotifications } from './notificationDisplay';
+import { clusterNotifications, groupNotifications, notificationPath } from './notificationDisplay';
+import { NotificationItem } from './NotificationItem';
+import { NotificationCluster } from './NotificationCluster';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '../../components/ui/sheet';
 import { haptic } from '../../lib/haptics';
 import { setAppBadge } from '../../lib/push';
@@ -32,6 +33,7 @@ interface NotificationListProps {
   onOpen: (n: Notification) => void;
   roomy?: boolean;
   onSwipeRead: (n: Notification) => void;
+  onMarkAllRead: (items: Notification[]) => void;
 }
 
 const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon: typeof BellRing; title: string; hint: string; tone?: 'neutral' | 'danger' }) => (
@@ -44,7 +46,7 @@ const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon
   </div>
 );
 
-const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead, roomy = false }: NotificationListProps) => {
+const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead, onMarkAllRead, roomy = false }: NotificationListProps) => {
   if (isError) {
     return <NotificationEmpty icon={AlertCircle} tone="danger" title="Couldn't load notifications" hint="We couldn't reach the server. Check your connection and refresh the page." />;
   }
@@ -63,59 +65,13 @@ const NotificationList = ({ notifications, isError, filter, onOpen, onSwipeRead,
         <section key={group.label} aria-label={group.label}>
           <h4 className="px-4 pt-3 pb-1 t-meta font-display font-semibold text-text-light">{group.label}</h4>
           <ul className="flex flex-col gap-0.5 px-2">
-            {group.items.map((n) => {
-              const look = notificationLook(n.type);
-              const Icon = look.icon;
-              const canOpen = notificationPath(n) !== null;
-              return (
-                <li key={n.id} className="relative overflow-hidden rounded-xl">
-                  <SwipeRow
-                    className="rounded-xl"
-                    left={n.isRead ? undefined : { label: 'Mark read', icon: <Check size={14} strokeWidth={2.5} />, tone: 'success', onTrigger: () => onSwipeRead(n) }}
-                  >
-                  <div className="relative bg-surface rounded-xl">
-                  <button
-                    onClick={() => onOpen(n)}
-                    className={cn(
-                      'w-full flex items-start gap-2.5 px-2.5 py-2.5 rounded-xl text-left transition-colors duration-150 cursor-pointer touch-manipulation outline-none',
-                      'focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                      roomy && 'active:bg-surface-hover',
-                      n.isRead ? 'hover:bg-surface-hover' : 'bg-primary-500/[0.07] hover:bg-primary-500/[0.12]',
-                    )}
-                  >
-                    <span className={cn('flex items-center justify-center size-8 rounded-lg shrink-0', look.tile)}>
-                      <Icon size={15} strokeWidth={2.25} />
-                    </span>
-
-                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={cn('t-meta font-display leading-snug break-words', n.isRead ? 'font-medium text-text-secondary' : 'font-semibold text-text')}>
-                          {n.title}
-                        </p>
-                        {!n.isRead && <span className="mt-1.5 size-2 rounded-full bg-primary-500 shrink-0" aria-label="Unread" />}
-                      </div>
-                      <p className={cn('t-meta leading-snug break-words', roomy ? 'line-clamp-3' : 'line-clamp-2', n.isRead ? 'text-text-muted' : 'text-text-secondary')}>
-                        {n.message}
-                      </p>
-                      <div className="flex items-center gap-1.5 pt-0.5 t-meta font-display text-text-light">
-                        <span className="font-semibold text-text-muted">{look.kindLabel}</span>
-                        <span aria-hidden>·</span>
-                        <time dateTime={n.createdAt} title={formatNotificationTime(n.createdAt)}>{formatRelativeShort(n.createdAt)}</time>
-                        {n.checklistMissed && (
-                          <>
-                            <span aria-hidden>·</span>
-                            <span>Closed</span>
-                          </>
-                        )}
-                        {canOpen && <ChevronRight size={12} className="ml-auto shrink-0" aria-hidden />}
-                      </div>
-                    </div>
-                  </button>
-                  </div>
-                  </SwipeRow>
-                </li>
-              );
-            })}
+            {clusterNotifications(group.items).map((entry) =>
+              entry.kind === 'single' ? (
+                <NotificationItem key={entry.item.id} notification={entry.item} onOpen={onOpen} onSwipeRead={onSwipeRead} roomy={roomy} />
+              ) : (
+                <NotificationCluster key={entry.type} items={entry.items} onOpen={onOpen} onSwipeRead={onSwipeRead} onMarkAllRead={onMarkAllRead} roomy={roomy} />
+              ),
+            )}
           </ul>
         </section>
       ))}
@@ -265,7 +221,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         <AttentionStrip onNavigate={() => setOpen(false)} />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} onSwipeRead={(n) => { haptic('tap'); markRead.mutate(n.id); }} roomy />
+          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} onSwipeRead={(n) => { haptic('tap'); markRead.mutate(n.id); }} onMarkAllRead={(items) => { haptic('tap'); items.forEach((n) => markRead.mutate(n.id)); }} roomy />
         </div>
       </SheetContent>
     </Sheet>

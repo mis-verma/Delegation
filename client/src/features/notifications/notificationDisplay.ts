@@ -1,5 +1,5 @@
 import {
-  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren, Ban, ShieldQuestion, Activity,
+  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren, Ban, ShieldQuestion, Activity, Handshake,
   type LucideIcon,
 } from 'lucide-react';
 import type { Notification } from '@/api/notifications';
@@ -15,6 +15,7 @@ const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
   { match: 'TICKET_PROGRESS', icon: Activity, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
   { match: 'HOD_APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
   { match: 'DUE_SOON', icon: AlarmClock, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: 'HANDED_OVER', icon: Handshake, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
   { match: 'COMMENT', icon: MessageSquare, tile: 'bg-linear-to-br from-info to-info/70 text-white' },
   { match: 'OPENED', icon: DoorOpen, tile: 'bg-linear-to-br from-success to-success/70 text-white' },
   { match: 'UPCOMING', icon: CalendarClock, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white' },
@@ -48,6 +49,7 @@ export const notificationLook = (type: string) => {
 
 export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'> & { type?: string }) => {
   if (n.type?.startsWith('SYSTEM_')) return '/admin/system-health';
+  if (n.type === 'WORK_HANDED_OVER') return '/';
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
   if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;
@@ -100,3 +102,30 @@ export const groupNotifications = (list: Notification[]): NotificationGroup[] =>
   }
   return buckets.filter((b) => b.items.length > 0);
 };
+
+export type NotificationEntry =
+  | { kind: 'single'; item: Notification }
+  | { kind: 'cluster'; type: string; items: Notification[] };
+
+const CLUSTER_MIN = 3;
+
+export const clusterNotifications = (list: Notification[]): NotificationEntry[] => {
+  const byType = new Map<string, Notification[]>();
+  for (const n of list) byType.set(n.type, [...(byType.get(n.type) ?? []), n]);
+  const placed = new Set<string>();
+  const entries: NotificationEntry[] = [];
+  for (const n of list) {
+    const same = byType.get(n.type) ?? [n];
+    if (same.length < CLUSTER_MIN) {
+      entries.push({ kind: 'single', item: n });
+      continue;
+    }
+    if (placed.has(n.type)) continue;
+    placed.add(n.type);
+    entries.push({ kind: 'cluster', type: n.type, items: same });
+  }
+  return entries;
+};
+
+export const clusterSubjects = (list: Notification[]): string[] =>
+  list.map((n) => /"([^"]+)"/.exec(n.message)?.[1] ?? n.title);

@@ -9,6 +9,7 @@ import { useTicketSummaryQuery } from '../../features/tickets/hook';
 import { useTodoSummaryQuery } from '../../features/todo/hook';
 import { useTodayChecklistSummary } from './useNavBadges';
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
+import { NavCountBadge } from './NavCountBadge';
 import {
   Crown,
   LayoutDashboard,
@@ -270,7 +271,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       return (
         <span
           key={to}
-          title={!showLabel ? `${label} — coming soon` : undefined}
+          title={!showLabel ? `${label}, coming soon` : undefined}
           className={[
             'flex items-center rounded-xl text-sm font-semibold text-text-muted/60 cursor-not-allowed select-none',
             isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
@@ -340,6 +341,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                     strokeWidth={isActive || hasActiveChild ? 2.4 : 2}
                     className="transition-transform duration-200 group-hover/link:scale-105"
                   />
+                  {!showLabel && SUMMARY_BY_LABEL[label] && (
+                    <NavCountBadge badge={{ due: SUMMARY_BY_LABEL[label].due, overdue: SUMMARY_BY_LABEL[label].overdue }} className="-top-1 -right-1" />
+                  )}
                 </span>
                 <span
                   className={[
@@ -361,6 +365,8 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               completedLabel={label === 'Tickets' ? 'Closed' : 'Completed'}
             />
           )}
+
+          {!hasChildren && showLabel && <span aria-hidden="true" className="shrink-0 size-8 pointer-coarse:size-11" />}
 
           {hasChildren && showLabel && (
             <button

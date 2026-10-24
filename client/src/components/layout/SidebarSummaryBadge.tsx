@@ -57,14 +57,14 @@ export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' 
           onBlur={scheduleClose}
           tabIndex={0}
           role="button"
-          aria-label={`${label}: ${active} to act on — ${data.overdue} overdue`}
+          aria-label={`${label}: ${data.overdue} overdue, ${data.due} due`}
           className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full t-meta font-display font-bold flex items-center justify-center tabular-nums cursor-default outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
             data.overdue > 0
-              ? 'bg-primary-500/15 text-primary-700 dark:bg-primary-500/25 dark:text-primary-300'
-              : 'bg-surface-active text-text-secondary'
+              ? 'bg-danger text-white'
+              : 'bg-primary-600 text-white dark:bg-primary-500'
           }`}
         >
-          {active}
+          {data.overdue > 0 ? data.overdue : data.due}
         </span>
       </PopoverTrigger>
       <PopoverContent
