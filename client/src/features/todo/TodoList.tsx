@@ -6,10 +6,12 @@ import { Skeleton, EmptyState, IconChip, PriorityChip } from '../../components';
 import { ErrorMessage } from '../admin/adminDisplay';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
-import { useTodosQuery, useUpdateTodoMutation, useDeleteTodoMutation } from './hook';
+import { useTodosQuery, useUpdateTodoMutation, useDeleteTodoMutation, useClearCompletedMutation } from './hook';
+import { useConfirm } from '../../components/confirmDialog/ConfirmDialog';
 import { relativeDayLabel } from './todoDate';
 import { TODO_QUICK_FILTER_PREDICATES, isOverdueTodo } from './todoQuickFilters';
 import { sortTodos, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
+import { dueBucketOf, groupTodosByDue, type TodoGroup } from './todoGroups';
 import { EditTodoModal } from './EditTodoModal';
 import type { TodoQuickFilterKey } from './TodoQuickStats';
 import type { Todo, TodoPriority } from '../../api/todos';
@@ -35,11 +37,14 @@ const dueText = (iso: string) => {
 };
 
 const UNDO_MS = 6000;
+const CLEAR_BATCH_MAX = 500;
 
 export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFilters, rangeFilter }: TodoListProps) => {
   const { data: allTodos = [], isPending, isError } = useTodosQuery();
   const updateMut = useUpdateTodoMutation();
   const deleteMut = useDeleteTodoMutation();
+  const clearMut = useClearCompletedMutation();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState<Todo | null>(null);
 
   const inRange = rangeFilter ? allTodos.filter(rangeFilter) : allTodos;
@@ -58,8 +63,20 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
     });
   };
 
+  const clearCompleted = async (list: Todo[]) => {
+    const batch = list.slice(0, CLEAR_BATCH_MAX);
+    const ok = await confirm({
+      title: batch.length === 1 ? "Clear this completed to-do?" : `Clear ${batch.length} completed to-dos?`,
+      description: "They leave your list. You can undo right after.",
+      confirmLabel: "Clear",
+      variant: "danger",
+    });
+    if (ok) clearMut.mutate(batch.map((t) => t.id));
+  };
+
   const renderRow = (todo: Todo, index: number) => {
     const overdue = isOverdueTodo(todo);
+    const dueToday = !overdue && !todo.completed && dueBucketOf(todo) === 'today';
 
     return (
       <SwipeRow
@@ -82,7 +99,9 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
         className={`group flex items-start gap-3 p-3.5 rounded-2xl border transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 active:bg-surface-hover/50 [-webkit-tap-highlight-color:transparent] animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none ${
           todo.completed
             ? 'border-border/40 dark:border-white/[0.04] bg-surface/60'
-            : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50'
+            : overdue
+              ? 'border-danger/40 bg-surface hover:border-danger/70'
+              : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50'
         }`}
         style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
       >
@@ -120,10 +139,10 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
               {todo.dueDate && (
                 <IconChip
                   icon={CalendarDays}
-                  tone={overdue ? 'bg-danger' : 'bg-primary-700'}
-                  label={dueText(todo.dueDate)}
-                  title={overdue ? 'Overdue' : 'Due'}
-                  className={overdue ? 'border-danger/30 text-danger' : undefined}
+                  tone={overdue ? 'bg-danger' : dueToday ? 'bg-warning' : 'bg-primary-700'}
+                  label={overdue ? `Overdue, ${dueText(todo.dueDate)}` : dueText(todo.dueDate)}
+                  title={overdue ? 'Overdue' : dueToday ? 'Due today' : 'Due'}
+                  className={overdue ? 'border-danger/30 text-danger' : dueToday ? 'border-warning/40' : undefined}
                 />
               )}
             </div>
@@ -174,7 +193,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
       <EmptyState
         icon={ListTodo}
         title="Your list is empty"
-        description="Add something you need to get done, then tick it off here."
+        description="Type a to-do in the box above and press Enter. Tick it off here when it is done."
       />
     );
   }
@@ -185,8 +204,18 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
   return (
     <div className="@container flex flex-col gap-5">
       <div className="flex flex-col @lg:flex-row gap-6 @lg:gap-5 items-start">
-        <TodoColumn label="Pending" dotClassName="bg-primary-600" todos={pending} emptyMessage="All done. Nothing left to do." renderRow={renderRow} />
-        <TodoColumn label="Completed" dotClassName="bg-success" todos={completed} emptyMessage="Ticked-off to-dos show up here." renderRow={renderRow} maxVisible={5} />
+        <TodoColumn label="Pending" dotClassName="bg-primary-600" todos={pending} groups={sort === 'due' ? groupTodosByDue(pending) : undefined} emptyMessage="All done. Nothing left to do." renderRow={renderRow} />
+        <TodoColumn label="Completed" dotClassName="bg-success" todos={completed} emptyMessage="Ticked-off to-dos show up here." renderRow={renderRow} maxVisible={5} action={completed.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => void clearCompleted(completed)}
+            disabled={clearMut.isPending}
+            className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-2.5 -my-2 rounded-lg t-meta font-display font-semibold text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            <Trash2 size={13} aria-hidden="true" />
+            Clear completed
+          </button>
+        ) : undefined} />
       </div>
 
       {editing && <EditTodoModal todo={editing} onClose={() => setEditing(null)} />}
@@ -198,12 +227,14 @@ interface TodoColumnProps {
   label: string;
   dotClassName: string;
   todos: Todo[];
+  groups?: TodoGroup[];
   emptyMessage: string;
   renderRow: (todo: Todo, index: number) => ReactNode;
   maxVisible?: number;
+  action?: ReactNode;
 }
 
-const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVisible }: TodoColumnProps) => {
+const TodoColumn = ({ label, dotClassName, todos, groups, emptyMessage, renderRow, maxVisible, action }: TodoColumnProps) => {
   const [expanded, setExpanded] = useState(false);
   const isCapped = maxVisible !== undefined && !expanded && todos.length > maxVisible;
   const visible = isCapped ? todos.slice(0, maxVisible) : todos;
@@ -215,6 +246,7 @@ const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVi
         <span className={`size-2 rounded-full shrink-0 ${dotClassName}`} aria-hidden="true" />
         <h3 className="t-card font-display font-semibold text-text tracking-tight">{label}</h3>
         <span className="t-meta font-semibold text-text-muted tabular-nums">{todos.length}</span>
+        {action && <div className="ml-auto">{action}</div>}
       </header>
 
       <div className="flex flex-col gap-2">
@@ -222,6 +254,17 @@ const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVi
           <div className="flex items-center justify-center px-4 py-8 text-center border border-border/70 rounded-2xl">
             <span className="t-meta font-display font-medium text-text-muted">{emptyMessage}</span>
           </div>
+        ) : groups ? (
+          groups.map((group) => (
+            <div key={group.key} role="group" aria-label={group.label} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-0.5 pt-1">
+                <h4 className={`t-meta font-display font-semibold ${group.key === 'overdue' ? 'text-danger' : 'text-text-secondary'}`}>{group.label}</h4>
+                <span className="t-meta font-semibold text-text-muted tabular-nums">{group.todos.length}</span>
+                <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
+              </div>
+              {group.todos.map((todo, i) => renderRow(todo, i))}
+            </div>
+          ))
         ) : (
           visible.map((todo, i) => renderRow(todo, i))
         )}

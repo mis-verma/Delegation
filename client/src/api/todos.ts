@@ -16,6 +16,8 @@ export type ApiResponse<T> = { success: boolean; data: T };
 export type CreateTodoPayload = { text: string; dueDate?: string; priority?: TodoPriority };
 export type UpdateTodoPayload = { text?: string; completed?: boolean; dueDate?: string | null; priority?: TodoPriority };
 
+export type RestoreTodoPayload = { text: string; completed: boolean; dueDate: string | null; priority: TodoPriority; createdAt: string };
+
 export type TodoSummary = {
     total: number;
     newToday: number;
@@ -33,6 +35,10 @@ export const todoApi = {
         apiFetch<ApiResponse<Todo>>("/todos", { method: "POST", body: JSON.stringify(payload) }),
     update: (id: string, payload: UpdateTodoPayload) =>
         apiFetch<ApiResponse<Todo>>(`/todos/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    clearCompleted: (ids: string[]) =>
+        apiFetch<ApiResponse<{ deleted: number }>>("/todos/clear-completed", { method: "POST", body: JSON.stringify({ ids }) }),
+    restore: (todos: RestoreTodoPayload[]) =>
+        apiFetch<ApiResponse<{ restored: number }>>("/todos/restore", { method: "POST", body: JSON.stringify({ todos }) }),
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/todos/${id}`, { method: "DELETE" }),
 };

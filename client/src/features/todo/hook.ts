@@ -95,6 +95,44 @@ const restoreTodo = async (queryClient: QueryClient, todo: Todo) => {
     }
 };
 
+const restoreTodos = async (queryClient: QueryClient, removed: Todo[]) => {
+    try {
+        await todoApi.restore(removed.map((t) => ({ text: t.text, completed: t.completed, dueDate: t.dueDate, priority: t.priority, createdAt: t.createdAt })));
+        toast.success(removed.length === 1 ? "To-do restored" : `${removed.length} to-dos restored`);
+    } catch (err) {
+        notifyError(err, "Couldn't restore the to-dos. Try again.");
+    } finally {
+        queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+    }
+};
+
+export const useClearCompletedMutation = () => {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (ids: string[]) => todoApi.clearCompleted(ids).then((r) => r.data),
+        onMutate: async (ids) => {
+            const drop = new Set(ids);
+            const { previous } = await beginOptimistic(queryClient, (todos) => todos.filter((t) => !drop.has(t.id)));
+            return { previous, removed: (previous ?? []).filter((t) => drop.has(t.id)) };
+        },
+        onSuccess: (_data, _ids, context) => {
+            const removed = context?.removed ?? [];
+            toast.success(removed.length === 1 ? "1 completed to-do cleared" : `${removed.length} completed to-dos cleared`, removed.length ? {
+                duration: 8000,
+                action: { label: "Undo", onClick: () => void restoreTodos(queryClient, removed) },
+            } : undefined);
+        },
+        onError: (err, ids, context) => {
+            if (context?.previous) queryClient.setQueryData(TODO_KEY.all, context.previous);
+            notifyError(err, "Couldn't clear the completed to-dos. Try again.", { retry: () => mutation.mutate(ids) });
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+        },
+    });
+    return mutation;
+};
+
 export const useDeleteTodoMutation = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation({

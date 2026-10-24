@@ -14,6 +14,7 @@ import { TodoQuickStats, type TodoQuickFilterKey } from './TodoQuickStats';
 import { TODO_SORT_LABEL, TODO_SORT_ICON, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
 import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
 import { CreateTodoModal } from './CreateTodoModal';
+import { TodoQuickAdd } from './TodoQuickAdd';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
 import type { Todo, TodoPriority } from '../../api/todos';
@@ -86,43 +87,49 @@ export const TodoPage = () => {
           isLoading={isPending}
         />
 
-        <div className="hidden sm:flex flex-row-reverse items-center gap-3">
-          <OptionsSheet
-            isOpen={showOptions}
-            setIsOpen={setShowOptions}
-            activeCount={priority === 'all' ? 0 : 1}
-            subtitle={`${shownCount} of ${todos.length} to-dos`}
-            onReset={() => { setPriority('all'); setSort('created'); }}
-            canReset={priority !== 'all' || sort !== 'created'}
-            showLabel={`Show ${shownCount} ${shownCount === 1 ? 'to-do' : 'to-dos'}`}
-          >
-            <OptionSection icon={Flag} label="Priority" aside={priority !== 'all' && <ChoiceClear onClick={() => setPriority('all')} />}>
-              <ChoiceWrap>
-                {PRIORITIES.map((p) => (
-                  <ChoiceChip
-                    key={p}
-                    active={priority === p}
-                    onClick={() => setPriority(priority === p ? 'all' : p)}
-                    lead={<ChoiceIcon icon={PRIORITY_MAP[p].icon} tone={PRIORITY_MAP[p].solid} />}
-                  >
-                    {PRIORITY_MAP[p].label}
-                  </ChoiceChip>
-                ))}
-              </ChoiceWrap>
-            </OptionSection>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-3 sm:gap-x-3">
+          <div className="flex-1 min-w-0 sm:basis-full">
+            <TodoQuickAdd />
+          </div>
 
-            <OptionSection icon={ArrowUpDown} label="Sort by">
-              <OptionSegmented
-                options={SORT_KEYS.map((k) => ({ value: k, label: TODO_SORT_LABEL[k], icon: TODO_SORT_ICON[k] }))}
-                value={sort}
-                onChange={setSort}
-              />
-            </OptionSection>
-          </OptionsSheet>
+          <div className="flex flex-row-reverse items-center gap-3 sm:basis-full">
+            <OptionsSheet
+              isOpen={showOptions}
+              setIsOpen={setShowOptions}
+              activeCount={priority === 'all' ? 0 : 1}
+              subtitle={`${shownCount} of ${todos.length} to-dos`}
+              onReset={() => { setPriority('all'); setSort('created'); }}
+              canReset={priority !== 'all' || sort !== 'created'}
+              showLabel={`Show ${shownCount} ${shownCount === 1 ? 'to-do' : 'to-dos'}`}
+            >
+              <OptionSection icon={Flag} label="Priority" aside={priority !== 'all' && <ChoiceClear onClick={() => setPriority('all')} />}>
+                <ChoiceWrap>
+                  {PRIORITIES.map((p) => (
+                    <ChoiceChip
+                      key={p}
+                      active={priority === p}
+                      onClick={() => setPriority(priority === p ? 'all' : p)}
+                      lead={<ChoiceIcon icon={PRIORITY_MAP[p].icon} tone={PRIORITY_MAP[p].solid} />}
+                    >
+                      {PRIORITY_MAP[p].label}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
 
-          <CreatedRangePicker createdRange={dueRange} label="Due date" className="shrink-0" />
+              <OptionSection icon={ArrowUpDown} label="Sort by">
+                <OptionSegmented
+                  options={SORT_KEYS.map((k) => ({ value: k, label: TODO_SORT_LABEL[k], icon: TODO_SORT_ICON[k] }))}
+                  value={sort}
+                  onChange={setSort}
+                />
+              </OptionSection>
+            </OptionsSheet>
 
-          <CreateButton label="New to-do" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />
+            <CreatedRangePicker createdRange={dueRange} label="Due date" className="hidden sm:inline-flex shrink-0" />
+
+            <CreateButton label="New to-do" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />
+          </div>
         </div>
       </div>
 

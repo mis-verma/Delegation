@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { haptic } from '../../lib/haptics';
-import { ListTodo, Check, Circle, CalendarDays, Lock, Flag } from 'lucide-react';
+import { ListTodo, Check, Circle, CalendarDays, Lock, Flag, Trash2, CircleCheck } from 'lucide-react';
 import { Button, Modal, DatePicker } from '../../components';
 import { cn } from '@/lib/utils';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
-import { useCreateTodoMutation, useUpdateTodoMutation } from './hook';
+import { useCreateTodoMutation, useUpdateTodoMutation, useDeleteTodoMutation } from './hook';
+import { relativeDayLabel } from './todoDate';
 import type { Todo, TodoPriority } from '../../api/todos';
 
 interface TodoFormModalProps {
@@ -37,11 +38,24 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   const [text, setText] = useState(todo?.text ?? '');
   const [dueDate, setDueDate] = useState<Date | null>(todo?.dueDate ? new Date(todo.dueDate) : null);
   const [priority, setPriority] = useState<TodoPriority>(todo?.priority ?? 'medium');
+  const [completed, setCompleted] = useState(todo?.completed ?? false);
   const [error, setError] = useState<string | null>(null);
 
   const createMut = useCreateTodoMutation();
   const updateMut = useUpdateTodoMutation();
+  const deleteMut = useDeleteTodoMutation();
   const isBusy = createMut.isPending || updateMut.isPending;
+
+  const savedDue = todo?.dueDate ? new Date(todo.dueDate).toISOString() : null;
+  const isDirty = todo
+    ? text.trim() !== todo.text || priority !== todo.priority || completed !== todo.completed || (dueDate?.toISOString() ?? null) !== savedDue
+    : text.trim().length > 0 || dueDate !== null;
+
+  const handleDelete = () => {
+    if (!todo) return;
+    deleteMut.mutate(todo.id);
+    onClose();
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -53,7 +67,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
     }
     if (todo) {
       updateMut.mutate(
-        { id: todo.id, payload: { text: trimmed, priority, dueDate: dueDate ? dueDate.toISOString() : null } },
+        { id: todo.id, payload: { text: trimmed, priority, completed, dueDate: dueDate ? dueDate.toISOString() : null } },
         { onSuccess: onClose },
       );
     } else {
@@ -65,6 +79,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   };
 
   const quickPicked = QUICK_DUE.find((q) => sameDay(dueDate, at6pm(q.days)));
+  const dueOverdue = !!dueDate && dueDate < new Date() && !completed;
 
   return (
     <Modal
@@ -77,8 +92,15 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
       headerClassName="border-b-0"
       footerClassName="border-t-0"
       closeButtonClassName="sm:hidden"
+      dirty={isDirty && !isBusy}
       footer={
         <div className="flex items-center justify-end gap-2 sm:gap-3 w-full">
+          {todo && (
+            <Button type="button" variant="ghost" size="sm" onClick={handleDelete} disabled={isBusy} className="mr-auto font-display text-danger hover:bg-danger/10 max-sm:h-11">
+              <Trash2 size={15} aria-hidden="true" />
+              Delete
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="hidden sm:inline-flex font-display">
             Cancel
           </Button>
@@ -119,6 +141,23 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
           </div>
         </div>
 
+        {isEdit && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={completed}
+            onClick={() => setCompleted((v) => !v)}
+            disabled={isBusy}
+            className={cn(
+              'flex items-center gap-2.5 min-h-11 sm:min-h-10 px-3 rounded-xl border t-meta font-display font-semibold text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]',
+              completed ? 'border-success/40 bg-success/10 text-success' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover',
+            )}
+          >
+            <CircleCheck size={16} aria-hidden="true" />
+            {completed ? 'Marked as done' : 'Mark as done'}
+          </button>
+        )}
+
         <div className="flex flex-col gap-2">
           <span className={SECTION_LABEL}><CalendarDays size={13} className="text-text-light" aria-hidden="true" />Due</span>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -141,6 +180,19 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
               />
             </div>
           </div>
+          {!dueDate && <p className="t-meta text-text-muted">No due date. Pick one, or leave it open.</p>}
+          {dueDate && (quickPicked || dueOverdue) && (
+            <p className="flex items-center gap-2 t-meta text-text-muted">
+              <span className={dueOverdue ? 'font-semibold text-danger' : undefined}>
+                {dueOverdue
+                  ? 'This time has already passed.'
+                  : `Due ${relativeDayLabel(dueDate)} at ${dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}. Pick a date to change the time.`}
+              </span>
+              <button type="button" onClick={() => setDueDate(null)} className="font-display font-semibold text-primary-700 dark:text-primary-300 hover:underline cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded px-1 -mx-1 pointer-coarse:py-2">
+                Clear
+              </button>
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
