@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useCallback, useRef } from 'react';
 import { activityQueryOptions } from '../../components/activityTimeline/activityQuery';
 import { useAuth } from '../../context/AuthContext';
-import { ticketApi } from '../../api/ticket';
+import { ticketApi, type TicketListQuery } from '../../api/ticket';
 import { ticketBulkImportApi } from '../../api/ticketBulkImport';
 import type { TicketBulkImportPublishPayload } from '../../api/ticketBulkImport';
 import type {
@@ -184,6 +184,22 @@ export const ticketsBoardQueryOptions = (assigneeId?: string) => ({
   queryFn: () => fetchAllTickets(undefined, assigneeId).then((r) => r.data),
   staleTime: 2 * 60_000,
 });
+
+export const TICKET_PAGE_SIZE = 20;
+
+export type PagedTicketQuery = Omit<TicketListQuery, "limit">;
+
+export const useTicketsPagedQuery = (query: PagedTicketQuery, enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['tickets', 'paged', query] as const,
+    queryFn: () => ticketApi.getPage({ ...query, limit: TICKET_PAGE_SIZE }),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+};
 
 export const useTicketsBoardQuery = (enabled = true, assigneeId?: string) => {
   const { token } = useAuth();

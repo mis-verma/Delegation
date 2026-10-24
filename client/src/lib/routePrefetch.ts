@@ -19,7 +19,6 @@ type Prefetcher = (queryClient: QueryClient) => void;
 const PREFETCHERS: Record<string, Prefetcher> = {
   '/tickets': (qc) => {
     void import('../features/tickets/TicketList');
-    void qc.prefetchQuery(ticketsBoardQueryOptions());
     void qc.prefetchQuery(departmentsQueryOptions());
     void qc.prefetchQuery(storesQueryOptions());
     void qc.prefetchQuery(assignableUsersQueryOptions());
@@ -30,7 +29,7 @@ const PREFETCHERS: Record<string, Prefetcher> = {
 
 PREFETCHERS['/tasks'] = (qc) => {
   void import('../features/tasks/TaskList');
-  void qc.prefetchQuery(tasksListQueryOptions());
+  if (window.matchMedia('(min-width: 640px)').matches) void qc.prefetchQuery(tasksListQueryOptions());
   void qc.prefetchQuery(assignableUsersAllQueryOptions());
   void qc.prefetchQuery(departmentsQueryOptions());
   void qc.prefetchQuery(storesQueryOptions());

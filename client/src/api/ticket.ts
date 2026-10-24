@@ -9,7 +9,7 @@ export type TicketStatus   = 'OPEN' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'CLOS
 
 export type TatReportGroupBy = "day" | "week" | "month" | "year" | "none"
 
-export type TicketSlaFilter = 'overdue_open' | 'closed_late' | 'closed_on_time';
+export type TicketSlaFilter = 'overdue_open' | 'closed_late' | 'closed_on_time' | 'not_done';
 
 export type TatReportRow = {
   bucket : string;
@@ -158,7 +158,57 @@ export type Ticket = {
 export type PaginatedResponse<T> = {
   success: boolean;
   data:    T[];
-  meta:    { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
+  meta:    { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; counts?: TicketListCounts };
+};
+
+export type TicketListCounts = { scope: number; pending: number; completed: number; due: number; delayed: number };
+
+export type TicketListQuery = {
+  page: number;
+  limit: number;
+  sort?: "tatDueAt" | "priority" | "createdAt" | "title";
+  bucket?: "pending" | "completed" | "due" | "delayed";
+  handledBy?: "assignee" | "creator";
+  status?: TicketStatus;
+  priority?: Priority[];
+  departmentId?: string;
+  assigneeIds?: string[];
+  raisedByIds?: string[];
+  labelIds?: string[];
+  search?: string;
+  personId?: string;
+  drillDepartmentId?: string;
+  drillStoreId?: string;
+  createdFrom?: number;
+  createdTo?: number;
+  dueFrom?: number;
+  dueTo?: number;
+  sla?: TicketSlaFilter;
+};
+
+const ticketListParams = (query: TicketListQuery) => {
+  const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
+  const set = (key: string, value: string | undefined) => { if (value) params.set(key, value); };
+  const iso = (at: number | undefined) => (at === undefined ? undefined : new Date(at).toISOString());
+  set("sort", query.sort);
+  set("bucket", query.bucket);
+  set("handledBy", query.handledBy);
+  set("filterStatus", query.status);
+  set("priority", query.priority?.join(","));
+  set("filterDepartmentId", query.departmentId);
+  set("assigneeIds", query.assigneeIds?.join(","));
+  set("raisedByIds", query.raisedByIds?.join(","));
+  set("labelIds", query.labelIds?.join(","));
+  set("q", query.search);
+  set("assigneeId", query.personId);
+  set("departmentId", query.drillDepartmentId);
+  set("storeId", query.drillStoreId);
+  set("createdFrom", iso(query.createdFrom));
+  set("createdTo", iso(query.createdTo));
+  set("dueFrom", iso(query.dueFrom));
+  set("dueTo", iso(query.dueTo));
+  set("sla", query.sla);
+  return params;
 };
 
 export type ApiResponse<T> = {
@@ -249,6 +299,10 @@ export const ticketApi = {
     return apiFetch<PaginatedResponse<Ticket>>(`/tickets?${params.toString()}`)
       .then(r => ({ ...r, data: r.data.map(normalizeTicket) }));
   },
+
+  getPage: (query: TicketListQuery) =>
+    apiFetch<PaginatedResponse<Ticket>>(`/tickets?${ticketListParams(query).toString()}`)
+      .then(r => ({ ...r, data: r.data.map(normalizeTicket) })),
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`).then(r => ({ ...r, data: normalizeTicket(r.data) })),

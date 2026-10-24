@@ -8,11 +8,12 @@ import {
   ticketAttachments,
 
 } from "../../db/schema/index.js"
-import { eq, and, inArray, desc, sql, gte, lte, ne, isNotNull } from "drizzle-orm"
+import { eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import type { CreateTicketInput, UpdateTicketInput, VerifyTicketInput, StatusUpdateInput } from "./ticket.validation.js"
+import type { CreateTicketInput, ListTicketsQuery, UpdateTicketInput, VerifyTicketInput, StatusUpdateInput } from "./ticket.validation.js"
+import { ticketBucketCondition, ticketListCounts, ticketListOrder, ticketOptionConditions, ticketScopeConditions } from "./ticketListQuery.js"
 import { auditService, type DbTransaction } from "../audit/audit.service.js"
 import { emitTicketEvent } from "../../sockets/ticketEvent.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
@@ -44,7 +45,8 @@ const roomTarget = (ticket: Pick<TicketRow, "userId" | "assigneeId" | "departmen
 })
 
 export const ticketService = {
-  async list(user: AccessTokenPayload, page: number, limit: number, status?: string, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField: "createdAt" | "closedAt" | "tatDueAt" = "createdAt", sla?: "overdue_open" | "closed_late" | "closed_on_time") {
+  async list(user: AccessTokenPayload, query: ListTicketsQuery) {
+    const { page, limit, status, assigneeId, overdue, from, to, dateField, sla, sort = "createdAt", bucket } = query
     const conditions = [NOT_DELETED]
     const vis = await visibilityFilter(user)
     if (vis) conditions.push(vis)
@@ -62,19 +64,45 @@ export const ticketService = {
       if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
     }
     if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"), ne(tickets.status, "PENDING_APPROVAL"))
+    if (sla === "not_done") conditions.push(notInArray(tickets.status, ["CLOSED", "PENDING_APPROVAL"]))
     if (sla === "closed_late") conditions.push(inArray(tickets.status, ["CLOSED", "PENDING_APPROVAL"]), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) > ${tickets.tatDueAt}`)
     if (sla === "closed_on_time") conditions.push(inArray(tickets.status, ["CLOSED", "PENDING_APPROVAL"]), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) <= ${tickets.tatDueAt}`)
-    const where = conditions.length ? and(...conditions) : undefined
+    conditions.push(...ticketScopeConditions({
+      viewerId: user.sub,
+      handledBy: query.handledBy,
+      createdFrom: query.createdFrom,
+      createdTo: query.createdTo,
+      dueFrom: query.dueFrom,
+      dueTo: query.dueTo,
+      departmentId: query.departmentId,
+      storeId: query.storeId,
+    }).filter((c): c is SQL => !!c))
+    const baseWhere = and(...conditions)
 
-    const [rows, totalRows] = await Promise.all([
-      db.select().from(tickets).where(where).orderBy(desc(tickets.createdAt)).offset((page - 1) * limit).limit(limit),
-      db.select({ count: sql<number>`count(*)` }).from(tickets).where(where),
+    const optionList = ticketOptionConditions({
+      status: query.filterStatus,
+      priority: query.priority,
+      departmentId: query.filterDepartmentId,
+      assigneeIds: query.assigneeIds,
+      raisedByIds: query.raisedByIds,
+      labelIds: query.labelIds,
+      search: query.q,
+    }).filter((c): c is SQL => !!c)
+    const optionWhere = optionList.length ? and(...optionList) : undefined
+    const where = and(baseWhere, optionWhere, bucket ? ticketBucketCondition(bucket) : undefined)
+
+    const [rows, counts] = await Promise.all([
+      db.select().from(tickets).where(where).orderBy(...ticketListOrder(sort)).offset((page - 1) * limit).limit(limit),
+      ticketListCounts(baseWhere, optionWhere, bucket),
     ])
     const data = await populateTickets(rows)
-    const total = Number(totalRows[0]?.count ?? 0)
+    const total = counts.matched
     return {
       data,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: page * limit < total },
+      meta: {
+        page, limit, total, totalPages: Math.ceil(total / limit), hasNext: page * limit < total,
+        counts: { scope: counts.scopeTotal, pending: counts.pending, completed: counts.completed, due: counts.due, delayed: counts.delayed },
+      },
     }
   },
 

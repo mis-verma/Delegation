@@ -7,8 +7,7 @@ import { routeParam } from "../../utils/routeParam.js"
 
 export const ticketController = {
     list : asyncHandler( async ( req : Request , res : Response) => {
-        const { page , limit, status, assigneeId, overdue, from, to, dateField, sla } = paginatioinSchema.parse(req.query);
-        const result = await ticketService.list(req.user!, page , limit, status, assigneeId, overdue, from, to, dateField, sla)
+        const result = await ticketService.list(req.user!, paginatioinSchema.parse(req.query))
         res.json({ success : true , ...result})
     }),
 

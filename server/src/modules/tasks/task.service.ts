@@ -2,12 +2,14 @@ import { asRows } from "../../utils/dbErrors.js"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, and, or, inArray, desc, sql, isNull, isNotNull, ne } from "drizzle-orm"
+import { eq, and, or, inArray, sql, isNull, isNotNull, ne } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
+import type { ConfirmSmartTaskInput, CreateTaskInput, ListTasksQuery, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
+import { bucketCondition, optionConditions, scopeConditions, taskListCounts, taskListOrder } from "./taskListQuery.js"
+import { resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import { activeDepartmentHeadIds, assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, type ApprovalStage } from "../tickets/ticketApproval.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
@@ -55,7 +57,8 @@ const finishHeadDecision = async (id: string, before: typeof tasks.$inferSelect,
 };
 
 export const taskService = {
-    async list(user: AccessTokenPayload, filterUserId?: string, status?: string, page = 1, limit = 200, tagIds?: string[], archived = false, includeChecklistSummary = false) {
+    async list(user: AccessTokenPayload, query: ListTasksQuery) {
+        const { userId: filterUserId, status, page, limit, tagIds, archived = false, checklistSummary: includeChecklistSummary = false, sort = "createdAt", bucket } = query;
         let condition;
         if (status === "draft") {
             condition = eq(tasks.userId, user.sub);
@@ -73,26 +76,52 @@ export const taskService = {
             ? eq(tasks.status, status as (typeof TASK_STATUSES)[number])
             : (archived ? undefined : ne(tasks.status, "draft"));
 
-        const filters = [deletedFilter, condition, statusFilter];
+        const base = [deletedFilter, condition, statusFilter];
 
         if (tagIds?.length) {
             const idList = sql.join(tagIds.map((id) => sql`${id}`), sql`, `);
-            filters.push(sql`EXISTS (SELECT 1 FROM ${taskTags} tt WHERE tt.taskId = ${tasks.id} AND tt.tagId IN (${idList}))`);
+            base.push(sql`EXISTS (SELECT 1 FROM ${taskTags} tt WHERE tt.taskId = ${tasks.id} AND tt.tagId IN (${idList}))`);
         }
 
-        const active = filters.filter(Boolean);
-        const where = active.length ? and(...active) : undefined;
+        const now = new Date();
+        const storeDepartmentIds = query.storeId ? await resolveDepartmentIdsForStore(query.storeId) : undefined;
+        const baseWhere = and(...base.filter(Boolean));
+        const scopeWhere = and(...scopeConditions({
+            mine: query.mine,
+            viewerId: user.sub,
+            handledBy: query.handledBy,
+            storeDepartmentIds,
+            createdFrom: query.createdFrom,
+            createdTo: query.createdTo,
+            dueFrom: query.dueFrom,
+            dueTo: query.dueTo,
+            sla: query.sla,
+        }).filter(Boolean));
+        const optionList = optionConditions({
+            category: query.category,
+            priority: query.priority,
+            departmentId: query.departmentId,
+            assigneeIds: query.assigneeIds,
+            raisedByIds: query.raisedByIds,
+            status: query.filterStatus,
+        }).filter(Boolean);
+        const optionWhere = optionList.length ? and(...optionList) : undefined;
+        const bucketWhere = bucket ? bucketCondition(bucket, now) : undefined;
+        const where = and(baseWhere, scopeWhere, optionWhere, bucketWhere);
 
-        const [rows, totalRows] = await Promise.all([
+        const [rows, counts] = await Promise.all([
             db.select().from(tasks)
                 .where(where)
-                .orderBy(desc(tasks.createdAt))
+                .orderBy(...taskListOrder(sort))
                 .offset((page - 1) * limit)
                 .limit(limit),
-            db.select({ count: sql<number>`count(*)` }).from(tasks).where(where),
+            taskListCounts(baseWhere, scopeWhere, optionWhere, bucket, now),
         ]);
-        const total = Number(totalRows[0]?.count ?? 0);
-        const meta = { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: page * limit < total };
+        const total = counts.matched;
+        const meta = {
+            page, limit, total, totalPages: Math.ceil(total / limit), hasNext: page * limit < total,
+            counts: { scope: counts.scopeTotal, options: counts.optionTotal, pending: counts.pending, completed: counts.completed, due: counts.due, delayed: counts.delayed },
+        };
         if (!rows.length) return { data: [], meta };
 
         const taskIds = rows.map((t) => t.id);

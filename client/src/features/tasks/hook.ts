@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { useQuery , useMutation, useQueryClient, keepPreviousData, type QueryClient, type QueryKey } from "@tanstack/react-query";
+import { useQuery , useMutation, useQueryClient, useInfiniteQuery, keepPreviousData, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { activityQueryOptions } from "../../components/activityTimeline/activityQuery";
 import { useAuth } from "../../context/AuthContext";
 import { taskApi } from "../../api/task";
@@ -8,7 +8,7 @@ import { taskChecklistApi } from "../../api/taskChecklist";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { smartTaskConversationApi } from "../../api/smartTaskConversation";
 import type { SmartTaskConversationMessage, PatchSmartTaskConversationPayload } from "../../api/smartTaskConversation";
-import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage } from "../../api/task";
+import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage, TaskListQuery } from "../../api/task";
 import type {
     CreateTaskChecklistPayload,
     UpdateTaskChecklistItemPayload,
@@ -71,6 +71,28 @@ export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]
         retry: handleQueryRetry,
         placeholderData: keepPreviousData,
         ...options,
+    });
+};
+
+const PAGED_LIST_SIZE = 50;
+
+export type PagedTaskQuery = Omit<TaskListQuery, "page" | "limit">;
+
+export const useTasksPagedQuery = (query: PagedTaskQuery, enabled = true) => {
+    const { token } = useAuth();
+    return useInfiniteQuery({
+        queryKey: ["tasks", "paged", query] as const,
+        queryFn: ({ pageParam }) => taskApi.getPage({ ...query, page: pageParam, limit: PAGED_LIST_SIZE }),
+        initialPageParam: 1,
+        getNextPageParam: (last) => (last.meta.hasNext ? last.meta.page + 1 : undefined),
+        select: (data) => ({
+            tasks: data.pages.flatMap((page) => page.data),
+            meta: data.pages[data.pages.length - 1]!.meta,
+        }),
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+        staleTime: 30_000,
+        placeholderData: keepPreviousData,
     });
 };
 

@@ -10,7 +10,8 @@ import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, ticketDetailQueryOptions, BOARD_MAX_TICKETS } from './hook';
+import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, useTicketsPagedQuery, ticketDetailQueryOptions, BOARD_MAX_TICKETS } from './hook';
+import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { NoticeBanner } from '../../components/noticeBanner';
 import { PhoneScopeSwitch } from '../../components/phoneScopeSwitch/PhoneScopeSwitch';
 import { useCategoriesQuery } from '../settings/hook';
@@ -25,7 +26,7 @@ import { ExportDialog } from '../reports';
 import { TicketListSkeleton } from './list/TicketListSkeleton';
 import { TicketGroupedList } from './list/TicketGroupedList';
 import { TicketQuickStats } from './list/TicketQuickStats';
-import { useTicketOrganizer, type TicketView, type TicketViewSnapshot } from './useTicketOrganizer';
+import { useTicketOrganizer, useTicketViewState, ticketServerQuery, type TicketServerExtras, type TicketView, type TicketViewSnapshot } from './useTicketOrganizer';
 import { TicketSettingsMenu } from './TicketSettingsMenu';
 import { TicketActiveTags } from './TicketActiveTags';
 import type { Ticket } from '../../api/ticket';
@@ -80,16 +81,46 @@ export const TicketList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
   const selfLink = !!assigneeIdFilter && assigneeIdFilter === user?.id;
-  const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, selfLink ? undefined : assigneeIdFilter);
+  const viewState = useTicketViewState(user);
+  const paged = viewState.view === 'list';
+  const personId = selfLink ? undefined : assigneeIdFilter;
+  const boardQuery = useTicketsBoardQuery(!paged, personId);
   const createdRange = useCreatedRange();
   const scoreDrill = useScoreDrill(true);
+  const debouncedSearch = useDebouncedValue(viewState.search, 300);
+  const dueSla = scoreDrill.sla === 'closed_late' || scoreDrill.sla === 'closed_on_time' || scoreDrill.sla === 'not_done' ? scoreDrill.sla : undefined;
+  const serverExtras = useMemo<TicketServerExtras>(() => ({
+    personId,
+    drillDepartmentId: scoreDrill.departmentId ?? undefined,
+    drillStoreId: scoreDrill.storeId ?? undefined,
+    createdFrom: createdRange.range?.from,
+    createdTo: createdRange.range?.to,
+    dueFrom: scoreDrill.due?.from,
+    dueTo: scoreDrill.due?.to,
+    sla: dueSla,
+  }), [personId, scoreDrill.departmentId, scoreDrill.storeId, scoreDrill.due, dueSla, createdRange.range]);
+  const { filters: stateFilters, sort: stateSort, scopeFilter: stateScope, quickFilter: stateQuick, page: statePage } = viewState;
+  const serverQuery = useMemo(
+    () => ticketServerQuery({ filters: stateFilters, sort: stateSort, scopeFilter: stateScope, quickFilter: stateQuick, page: statePage }, debouncedSearch, serverExtras),
+    [stateFilters, stateSort, stateScope, stateQuick, statePage, debouncedSearch, serverExtras],
+  );
+  const pageQuery = useTicketsPagedQuery(serverQuery, paged);
+  const allTicketsData = boardQuery.data;
+  const isPending = paged ? pageQuery.isPending : boardQuery.isPending;
+  const isError = paged ? pageQuery.isError : boardQuery.isError;
+  const refetch = paged ? pageQuery.refetch : boardQuery.refetch;
   const ticketsInRange = useMemo(() => {
     const everything = allTicketsData ?? [];
     const created = createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
     return scoreDrill.active ? created.filter((t) => ticketMatchesDrill(scoreDrill, t)) : created;
   }, [allTicketsData, createdRange, scoreDrill]);
-  const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
+  const serverPage = useMemo(
+    () => (paged && pageQuery.data ? { tickets: pageQuery.data.data, total: pageQuery.data.meta.total, counts: pageQuery.data.meta.counts } : null),
+    [paged, pageQuery.data],
+  );
+  const organizer = useTicketOrganizer(viewState, ticketsInRange, user, departmentNames, paged ? serverPage ?? { tickets: [], total: 0 } : null);
   const { setScopeFilter } = organizer;
+  const loadedTickets = paged ? serverPage?.tickets : allTicketsData;
   useEffect(() => {
     if (!selfLink) return;
     setScopeFilter('ASSIGNED_TO_ME');
@@ -99,6 +130,10 @@ export const TicketList = () => {
       return params;
     }, { replace: true });
   }, [selfLink, setScopeFilter, setSearchParams]);
+  const { page: currentPage, safePage: clampedPage, setPage: setCurrentPage } = organizer;
+  useEffect(() => {
+    if (paged && pageQuery.isSuccess && !pageQuery.isPlaceholderData && currentPage !== clampedPage) setCurrentPage(clampedPage);
+  }, [paged, pageQuery.isSuccess, pageQuery.isPlaceholderData, currentPage, clampedPage, setCurrentPage]);
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const changePage = (page: number) => {
     organizer.setPage(page);
@@ -109,8 +144,8 @@ export const TicketList = () => {
 
   useEffect(() => {
     const openId = searchParams.get('open');
-    if (!openId || !allTicketsData) return;
-    const match = allTicketsData.find((t) => t.id === openId);
+    if (!openId || !loadedTickets) return;
+    const match = loadedTickets.find((t) => t.id === openId);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) setSelectedTicket(match);
     else {
@@ -128,7 +163,7 @@ export const TicketList = () => {
       { replace: true },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, allTicketsData]);
+  }, [searchParams, loadedTickets]);
 
   useEffect(() => {
     if (!searchParams.get('create')) return;
@@ -193,7 +228,7 @@ export const TicketList = () => {
             />
           </div>
 
-          <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
+          <TicketActiveTags organizer={organizer} allTickets={loadedTickets ?? []} />
 
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
@@ -245,13 +280,13 @@ export const TicketList = () => {
         />
       )}
 
-      {!isPending && !isError && (allTicketsData?.length ?? 0) >= BOARD_MAX_TICKETS && (
+      {!isPending && !isError && !paged && (allTicketsData?.length ?? 0) >= BOARD_MAX_TICKETS && (
         <NoticeBanner tone="warning" icon={AlertCircle}>
           Showing the newest {BOARD_MAX_TICKETS.toLocaleString()} tickets. Older ones are not listed here.
         </NoticeBanner>
       )}
 
-      {!isPending && !isError && organizer.sorted.length === 0 && (
+      {!isPending && !isError && organizer.resultTotal === 0 && (
         <EmptyState
           icon={Inbox}
           size={isMobile ? 'compact' : undefined}
@@ -263,7 +298,7 @@ export const TicketList = () => {
         />
       )}
 
-      {organizer.view === 'list' && !isPending && organizer.sorted.length > 0 && (
+      {organizer.view === 'list' && !isPending && organizer.resultTotal > 0 && (
         <TicketGroupedList
           groups={organizer.groups}
           groupBy={organizer.groupBy}
@@ -272,7 +307,7 @@ export const TicketList = () => {
         />
       )}
 
-      {organizer.view === 'board' && !isPending && organizer.sorted.length > 0 && (
+      {organizer.view === 'board' && !isPending && organizer.resultTotal > 0 && (
         <TicketBoard
           tickets={organizer.sorted}
           departmentNames={departmentNames}
@@ -280,7 +315,7 @@ export const TicketList = () => {
         />
       )}
 
-      {organizer.view === 'table' && !isPending && organizer.sorted.length > 0 && (
+      {organizer.view === 'table' && !isPending && organizer.resultTotal > 0 && (
         <TicketTable
           tickets={organizer.sorted}
           departmentNames={departmentNames}
@@ -291,7 +326,7 @@ export const TicketList = () => {
         />
       )}
 
-      {organizer.view === 'timeline' && !isPending && organizer.sorted.length > 0 && (
+      {organizer.view === 'timeline' && !isPending && organizer.resultTotal > 0 && (
         <TicketTimeline tickets={organizer.sorted} onOpen={setSelectedTicket} />
       )}
 

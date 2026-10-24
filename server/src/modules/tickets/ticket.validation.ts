@@ -1,6 +1,12 @@
 import { z } from "zod"
 import { TICKET_PRIORITIES, ASSIGNMENT_MODES, TICKET_STATUSES, RESTRICTED_STATUSES } from "../../db/schema/ticket.js"
 import { objectId } from "../../utils/index.js"
+import { TICKET_LIST_BUCKETS, TICKET_LIST_HANDLERS, TICKET_LIST_SLAS, TICKET_LIST_SORTS } from "./ticketListParams.js"
+
+const splitCsv = (v: string | undefined) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined)
+const idCsv = (max: number) => z.string().optional().transform(splitCsv).pipe(z.array(objectId).max(max).optional())
+const priorityCsv = z.string().optional().transform(splitCsv).pipe(z.array(z.enum(TICKET_PRIORITIES)).max(TICKET_PRIORITIES.length).optional())
+
 
 export const createTicketSchema = z.object({
     title : z.string().min(1),
@@ -31,7 +37,23 @@ export const paginatioinSchema = z.object({
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
     dateField : z.enum(["createdAt", "closedAt", "tatDueAt"]).optional().default("createdAt"),
-    sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
+    sla : z.enum(TICKET_LIST_SLAS).optional(),
+    sort : z.enum(TICKET_LIST_SORTS).optional(),
+    bucket : z.enum(TICKET_LIST_BUCKETS).optional(),
+    handledBy : z.enum(TICKET_LIST_HANDLERS).optional(),
+    createdFrom : z.coerce.date().optional(),
+    createdTo : z.coerce.date().optional(),
+    dueFrom : z.coerce.date().optional(),
+    dueTo : z.coerce.date().optional(),
+    departmentId : objectId.optional(),
+    storeId : objectId.optional(),
+    filterStatus : z.enum(TICKET_STATUSES).optional(),
+    filterDepartmentId : objectId.optional(),
+    priority : priorityCsv,
+    assigneeIds : idCsv(50),
+    raisedByIds : idCsv(50),
+    labelIds : idCsv(50),
+    q : z.string().trim().max(100).optional(),
 })
 
 export const ticketSummaryQuerySchema = z.object({
@@ -78,6 +100,7 @@ export const declineTicketSchema = z.object({
     reason : z.string().trim().min(5, "Say why this ticket is declined.").max(1000),
 })
 
+export type ListTicketsQuery = z.infer<typeof paginatioinSchema>;
 export type DeclineTicketInput = z.infer<typeof declineTicketSchema>;
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;

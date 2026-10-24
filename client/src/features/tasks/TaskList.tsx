@@ -4,13 +4,13 @@ import { useSearchParams } from "react-router";
 import { readKept, writeKept } from "../../lib/keptForm";
 import { toast } from "sonner";
 import { Wand2, Save, Inbox, X, Plus, Upload, UserCheck, PenLine } from "lucide-react";
-import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, type ViewTab } from "../../components";
+import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { taskMatchesDrill, useScoreDrill } from "../../lib/scoreDrill";
 import { ExportDialog } from "../reports";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery, taskDetailQueryOptions } from "./hook";
+import { useTasksQuery, useTasksMetaQuery, useTasksPagedQuery, useAssignableUsersQuery, taskDetailQueryOptions, type PagedTaskQuery } from "./hook";
 import { useTagsQuery } from "../tags/hook";
 import { useDepartmentsQuery, useStoresQuery } from "../tickets/hook";
 import type { Task } from '../../api/task';
@@ -136,8 +136,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return withLock(saved ? { ...DEFAULT_FILTERS, ...saved } : DEFAULT_FILTERS);
   });
 
-  const { data: tasks, isPending, isError, refetch: refetchTasks } = useTasksQuery(userId, true, filters.tagIds);
-  const { data: listMeta } = useTasksMetaQuery(userId, true, filters.tagIds);
   const { data: tags } = useTagsQuery();
   const { data: assignableUsers } = useAssignableUsersQuery();
   const { data: departments } = useDepartmentsQuery();
@@ -167,25 +165,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     if (notificationId) markNotificationRead.mutate(notificationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unreadAssignmentByTaskId]);
-
-  useEffect(() => {
-    const openId = searchParams.get('open');
-    if (!openId || !tasks) return;
-    const match = tasks.find(t => t.id === openId);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (match) handleOpen(match);
-    else {
-      queryClient.fetchQuery(taskDetailQueryOptions(openId))
-        .then((task) => handleOpen(task))
-        .catch(() => toast.error("Couldn't open that delegation. It may have been deleted."));
-    }
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.delete('open');
-      return next;
-    }, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, tasks]);
 
   useEffect(() => {
     if (!searchParams.get('create')) return;
@@ -352,6 +331,60 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const mineOnly = searchParams.get('mine') === '1';
   const createdRange = useCreatedRange();
   const scoreDrill = useScoreDrill(false);
+
+  const paged = view === 'list' || view === 'table';
+  const dueSla = scoreDrill.sla === 'not_done' || scoreDrill.sla === 'done_late' ? scoreDrill.sla : undefined;
+  const serverQuery = useMemo<PagedTaskQuery>(() => ({
+    userId,
+    sort,
+    bucket: quickFilter ?? undefined,
+    category: filters.category === 'all' ? undefined : filters.category,
+    status: filters.status === 'all' ? undefined : filters.status,
+    priority: filters.priority.length ? filters.priority : undefined,
+    departmentId: filters.departmentId || undefined,
+    storeId: filters.storeId || undefined,
+    assigneeIds: filters.assigneeIds.length ? filters.assigneeIds : undefined,
+    raisedByIds: filters.raisedByIds.length ? filters.raisedByIds : undefined,
+    tagIds: filters.tagIds.length ? filters.tagIds : undefined,
+    mine: mineOnly || undefined,
+    handledBy: isAssignedToMe ? 'assignee' : isAssignedByMe ? 'creator' : undefined,
+    createdFrom: createdRange.range?.from,
+    createdTo: createdRange.range?.to,
+    dueFrom: scoreDrill.due?.from,
+    dueTo: scoreDrill.due?.to,
+    sla: dueSla,
+  }), [userId, sort, quickFilter, filters, mineOnly, isAssignedToMe, isAssignedByMe, createdRange.range, scoreDrill.due, dueSla]);
+
+  const fullQuery = useTasksQuery(userId, !paged, filters.tagIds);
+  const { data: listMeta } = useTasksMetaQuery(userId, !paged, filters.tagIds);
+  const pagedQuery = useTasksPagedQuery(serverQuery, paged);
+  const tasks = fullQuery.data;
+  const pagedTasks = pagedQuery.data?.tasks;
+  const pagedMeta = pagedQuery.data?.meta;
+  const loadedTasks = paged ? pagedTasks : tasks;
+  const isPending = paged ? pagedQuery.isPending : fullQuery.isPending;
+  const isError = paged ? pagedQuery.isError : fullQuery.isError;
+  const refetchTasks = paged ? pagedQuery.refetch : fullQuery.refetch;
+
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (!openId || !loadedTasks) return;
+    const match = loadedTasks.find(t => t.id === openId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (match) handleOpen(match);
+    else {
+      queryClient.fetchQuery(taskDetailQueryOptions(openId))
+        .then((task) => handleOpen(task))
+        .catch(() => toast.error("Couldn't open that delegation. It may have been deleted."));
+    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loadedTasks]);
+
   const mineFiltered = useMemo(() => {
     const everything = tasks ?? [];
     const mine = !mineOnly || !user
@@ -397,7 +430,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     delayed: optionFiltered.filter(QUICK_FILTER_PREDICATES.delayed).length,
   };
 
-  const sorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
+  const localSorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
+  const sorted = paged ? (pagedTasks ?? []) : localSorted;
+  const shownQuickCounts = paged && pagedMeta?.counts
+    ? { pending: pagedMeta.counts.pending, completed: pagedMeta.counts.completed, due: pagedMeta.counts.due, delayed: pagedMeta.counts.delayed }
+    : quickCounts;
+  const optionsTotal = paged ? pagedMeta?.counts?.options ?? 0 : optionFiltered.length;
+  const scopeTotal = paged ? pagedMeta?.counts?.scope ?? 0 : scopeFiltered.length;
+  const resultTotal = paged ? pagedMeta?.total ?? 0 : localSorted.length;
+  const loadedRemaining = paged && pagedMeta ? Math.max(0, pagedMeta.total - sorted.length) : 0;
 
   const activeChips: { key: string; label: string; onClear: () => void; scope?: boolean }[] = [
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
@@ -500,8 +541,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               canExport={isVerifier}
               onExport={() => setShowExport(true)}
               hideCategory={!!lockCategory}
-              resultCount={sorted.length}
-              totalCount={scopeFiltered.length}
+              resultCount={resultTotal}
+              totalCount={scopeTotal}
               scope={scope}
             />
             </div>
@@ -520,8 +561,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             <h1 className="sr-only">{title ?? 'Delegation'}</h1>
 
             <TaskQuickStats
-              counts={quickCounts}
-              total={optionFiltered.length}
+              counts={shownQuickCounts}
+              total={optionsTotal}
               active={quickFilter}
               onToggle={toggleQuickFilter}
               onClear={() => setQuickFilter(null)}
@@ -703,6 +744,14 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               isFiltered={isFiltered}
               groupBy={boardGroupBy}
             />
+          )}
+
+          {paged && pagedQuery.hasNextPage && (
+            <div className="flex justify-center pt-4">
+              <Button variant="outline" size="sm" isLoading={pagedQuery.isFetchingNextPage} onClick={() => { void pagedQuery.fetchNextPage(); }}>
+                Load more ({loadedRemaining} remaining)
+              </Button>
+            </div>
           )}
         </div>
       )}

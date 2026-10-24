@@ -49,7 +49,7 @@ export const TicketSettingsMenu = ({
     organizer.setPage(1);
   };
   const people = (assignableUsers ?? []).map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName ?? ''}`.trim(), first: u.firstName }));
-  const resultCount = organizer.sorted.length;
+  const resultCount = organizer.resultTotal;
 
   const personChips = (selected: string[], onChange: (ids: string[]) => void) => (
     <ChoiceWrap>

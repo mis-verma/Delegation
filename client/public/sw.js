@@ -1,11 +1,3 @@
-// KaryaOS service worker: makes the app installable, opens the app shell without a network, and tells the page
-// when a new version is ready (the page shows "New version, tap to refresh"; nothing reloads on its own).
-//
-// What it never touches: the API (/api), live updates (/socket.io) and uploaded files (/uploads). Those always go
-// to the network, so a cached copy can never show someone stale data or another person's work.
-//
-// Bump CACHE_VERSION when this file's caching rules change. The hashed /assets/* files change name on every build,
-// so a normal deploy needs no bump: the new index.html points at the new files.
 const CACHE_VERSION = 'v7';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
@@ -24,7 +16,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// The page asks for this when the person taps Refresh on the "new version" bar.
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
@@ -37,7 +28,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || NEVER_CACHE.test(url.pathname)) return;
 
-  // Pages: the network first, so a deploy shows at once; the saved shell when offline.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -51,7 +41,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Built files have a content hash in their name: once saved, a copy is always right.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(request).then(
@@ -69,7 +58,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Icons, manifest and other static files: the saved copy at once, refreshed in the background.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)

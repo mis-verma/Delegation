@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { TASK_PRIORITIES , TASK_STATUSES, TASK_REMINDER_CHANNELS } from "../../db/schema/task.js" ;
 import { objectId } from "../../utils/index.js"
+import { TASK_LIST_BUCKETS, TASK_LIST_CATEGORIES, TASK_LIST_SLAS, TASK_LIST_SORTS } from "./taskListParams.js"
 
 const queryFlag = z.preprocess(
     (v) => (v === "1" || v === "true" || v === true ? true : v === "0" || v === "false" || v === false ? false : v),
@@ -41,6 +42,14 @@ export const confirmSmartTaskSchema = z.object({
     channel : z.enum(["whatsapp" , "web"])
 })
 
+const idCsv = (max: number) => z.string().optional().transform((v) =>
+    v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+).pipe(z.array(objectId).max(max).optional())
+
+const priorityCsv = z.string().optional().transform((v) =>
+    v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+).pipe(z.array(z.enum(TASK_PRIORITIES)).max(TASK_PRIORITIES.length).optional())
+
 export const listTasksQuerySchema = z.object({
     userId : objectId.optional(),
     status : z.enum(TASK_STATUSES).optional(),
@@ -51,6 +60,22 @@ export const listTasksQuerySchema = z.object({
     ),
     page : z.coerce.number().int().min(1).optional().default(1),
     limit : z.coerce.number().int().min(1).max(200).optional().default(200),
+    filterStatus : z.enum(TASK_STATUSES).optional(),
+    sort : z.enum(TASK_LIST_SORTS).optional(),
+    bucket : z.enum(TASK_LIST_BUCKETS).optional(),
+    category : z.enum(TASK_LIST_CATEGORIES).optional(),
+    priority : priorityCsv,
+    departmentId : objectId.optional(),
+    storeId : objectId.optional(),
+    assigneeIds : idCsv(50),
+    raisedByIds : idCsv(50),
+    mine : queryFlag.optional(),
+    handledBy : z.enum(["assignee", "creator"]).optional(),
+    createdFrom : z.coerce.date().optional(),
+    createdTo : z.coerce.date().optional(),
+    dueFrom : z.coerce.date().optional(),
+    dueTo : z.coerce.date().optional(),
+    sla : z.enum(TASK_LIST_SLAS).optional(),
 })
 
 export const taskSummaryQuerySchema = z.object({

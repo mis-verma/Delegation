@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
   <link rel="icon" type="image/png" href="/favicon.png?v=3" />
-  <!-- Installable app: the manifest names it and gives its icons and shortcuts; sw.js lets it open offline. -->
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -13,17 +12,10 @@
   <meta name="apple-mobile-web-app-title" content="KaryaOS" />
   <meta name="application-name" content="KaryaOS" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <!-- The status bar matches the page colour in each theme. -->
   <meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)" />
-  <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to anything but 0 on
-       notched devices — without it, the safe-area padding already used in BottomNav/TodoDrawer
-       silently does nothing. -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>Karya</title>
-  <!-- Form text is 14px. iPhone Safari zooms the page into any field under 16px when it is tapped; maximum-scale
-       stops that zoom on iOS (where pinch-zoom still works regardless). Set on iOS only, so Android keeps
-       pinch-zoom. -->
   <script>
     (function () {
       var ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -33,11 +25,6 @@
     })();
   </script>
 
-  <!-- Applies the saved theme before the first paint. ThemeContext only stamps data-theme from an
-       effect, which runs after the browser has already drawn a frame, so a dark-mode user saw a
-       white flash on every load. Same rule as ThemeContext: 'tm-theme' = light | dark | system, with
-       system (or nothing saved) following the OS. The inline background colours are the page
-       colours from index.css, so the frame before the stylesheet arrives is not white either. -->
   <script>
     (function () {
       var dark = false;
@@ -55,11 +42,6 @@
     })();
   </script>
 
-  <!-- Fonts are self-hosted (imported in main.tsx): Calibri on Windows, Carlito elsewhere, League Spartan on phones. No third-party font request, so text paints without waiting on another host. -->
-
-  <!-- No preconnect for the API: VITE_API_URL is `/api`, i.e. same-origin behind a reverse proxy,
-       so there is no separate DNS/TLS handshake to warm. Add one here only if the API ever moves
-       to its own hostname. -->
 </head>
 
 <body>

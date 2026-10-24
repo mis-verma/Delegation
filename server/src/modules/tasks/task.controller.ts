@@ -14,7 +14,7 @@ const seniorDepartmentIds = async (user: AccessTokenPayload): Promise<string[] |
 export const taskController = {
     list : asyncHandler(async ( req : Request , res : Response) => {
         const query = listTasksQuerySchema.parse(req.query);
-        const { data, meta } = await taskService.list(req.user!, query.userId, query.status, query.page, query.limit, query.tagIds, query.archived, query.checklistSummary)
+        const { data, meta } = await taskService.list(req.user!, query)
         res.json({ success : true, data, meta })
     }),
 

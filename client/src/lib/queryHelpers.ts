@@ -88,6 +88,9 @@ export function patchEntityInCache<T extends { id: string }>(old: unknown, id: s
     const obj = old as Record<string, unknown> & { id?: string; data?: unknown };
     if (obj.id === id) return { ...obj, ...patch };
     if (Array.isArray(obj.data)) return { ...obj, data: patchEntityInCache(obj.data, id, patch) };
+    if (Array.isArray((obj as { pages?: unknown }).pages)) {
+      return { ...obj, pages: ((obj as { pages: unknown[] }).pages).map((page) => patchEntityInCache(page, id, patch)) };
+    }
   }
   return old;
 }

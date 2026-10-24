@@ -161,8 +161,57 @@ export type TaskOwnerStatsRow = {
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
-export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; loadingMore?: boolean };
+export type ListCounts = { scope: number; options: number; pending: number; completed: number; due: number; delayed: number };
+export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; loadingMore?: boolean; counts?: ListCounts };
 export type TaskListPage = { data: Task[]; meta: ListMeta };
+
+export type TaskListQuery = {
+    page: number;
+    limit: number;
+    sort?: "dueDate" | "priority" | "createdAt" | "title";
+    bucket?: "pending" | "completed" | "due" | "delayed";
+    category?: "issue" | "delegation" | "task" | "work";
+    status?: Task["status"];
+    priority?: Task["priority"][];
+    departmentId?: string;
+    storeId?: string;
+    assigneeIds?: string[];
+    raisedByIds?: string[];
+    tagIds?: string[];
+    mine?: boolean;
+    handledBy?: "assignee" | "creator";
+    createdFrom?: number;
+    createdTo?: number;
+    dueFrom?: number;
+    dueTo?: number;
+    sla?: "not_done" | "done_late";
+    userId?: string;
+};
+
+const taskListParams = (query: TaskListQuery) => {
+    const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
+    const set = (key: string, value: string | undefined) => { if (value) params.set(key, value); };
+    set("sort", query.sort);
+    set("bucket", query.bucket);
+    set("category", query.category);
+    set("filterStatus", query.status);
+    set("priority", query.priority?.join(","));
+    set("departmentId", query.departmentId);
+    set("storeId", query.storeId);
+    set("assigneeIds", query.assigneeIds?.join(","));
+    set("raisedByIds", query.raisedByIds?.join(","));
+    set("tagIds", query.tagIds?.join(","));
+    set("handledBy", query.handledBy);
+    set("sla", query.sla);
+    set("userId", query.userId);
+    if (query.mine) params.set("mine", "1");
+    const iso = (at: number | undefined) => (at === undefined ? undefined : new Date(at).toISOString());
+    set("createdFrom", iso(query.createdFrom));
+    set("createdTo", iso(query.createdTo));
+    set("dueFrom", iso(query.dueFrom));
+    set("dueTo", iso(query.dueTo));
+    return params;
+};
 
 export type TaskSummary = {
     total: number;
@@ -204,6 +253,10 @@ export const taskApi = {
         return apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?${params.toString()}`)
             .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta }));
     },
+
+    getPage: (query: TaskListQuery): Promise<TaskListPage> =>
+        apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?${taskListParams(query).toString()}`)
+            .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta })),
 
     parseSmart: (text: string) =>
         apiFetch<SmartTaskParseResult>('/tasks/ai/parse', { method: 'POST', body: JSON.stringify({ text }) }),
