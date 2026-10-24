@@ -9,17 +9,29 @@ import { AppError } from "../../utils/AppError.js";
 
 const REFRESH_COOKIE = 'refreshToken';
 
-const cookeiOptions = () => ({
+const LEGACY_COOKIE_PATH = '/auth';
+
+const cookieBase = () => ({
     httpOnly: true,
     secure: env.COOKIE_SECURE,
     sameSite: env.COOKIE_SAMESITE,
-    path: '/auth',
+} as const);
+
+const cookeiOptions = () => ({
+    ...cookieBase(),
+    path: '/',
     maxAge: settingsService.getCached().refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
 } as const);
+
+const clearRefreshCookies = (res: Response) => {
+    res.clearCookie(REFRESH_COOKIE, { ...cookieBase(), path: LEGACY_COOKIE_PATH });
+    res.clearCookie(REFRESH_COOKIE, { ...cookieBase(), path: '/' });
+};
 
 const isNativeApp = (req: Request) => req.headers['x-client-platform'] === 'native';
 
 const sendAuthResponse = (req: Request, res: Response, result: { accessToken: string; refreshToken: string; user: unknown; deviceToken?: string }) => {
+    res.clearCookie(REFRESH_COOKIE, { ...cookieBase(), path: LEGACY_COOKIE_PATH });
     res.cookie(REFRESH_COOKIE, result.refreshToken, cookeiOptions());
     res.json({
         accessToken: result.accessToken,
@@ -69,7 +81,7 @@ export const authController = {
 
     logout: asyncHandler(async (req: Request, res: Response) => {
         await authService.logout(readRefreshToken(req));
-        res.clearCookie(REFRESH_COOKIE, { path: '/auth' });
+        clearRefreshCookies(res);
         res.json({ success: true });
     }),
 

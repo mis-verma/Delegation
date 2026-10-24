@@ -4,7 +4,7 @@ import { env } from '../../config/env.js';
 import { settingsService } from '../../modules/settings/settings.service.js';
 import { db } from '../../config/db.js';
 import { users, refreshTokens, passwordResetTokens, type Role } from '../../db/schema/core.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, ne, gte, lte } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '../../utils/AppError.js';
 import { hashPassword, comparePassword, deriveDefaultRank } from '../../utils/password.js';
@@ -20,6 +20,19 @@ const revokeAllSessions = (userId: string) =>
   db.update(refreshTokens)
     .set({ revokedAt: new Date(), updatedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+
+const REUSE_GRACE_MS = 20_000;
+
+const wasJustRotated = async (stored: { id: string; userId: string; revokedAt: Date | null }): Promise<boolean> => {
+  if (!stored.revokedAt) return false;
+  if (Date.now() - stored.revokedAt.getTime() > REUSE_GRACE_MS) return false;
+  const from = new Date(stored.revokedAt.getTime() - 2_000);
+  const to = new Date(stored.revokedAt.getTime() + 5_000);
+  const [successor] = await db.select({ id: refreshTokens.id }).from(refreshTokens)
+    .where(and(eq(refreshTokens.userId, stored.userId), ne(refreshTokens.id, stored.id), gte(refreshTokens.createdAt, from), lte(refreshTokens.createdAt, to)))
+    .limit(1);
+  return !!successor;
+};
 
 const DUMMY_PASSWORD_HASH = '$2a$12$AP9v7BykEtGtvg7jStw7XusQRbTIjqkuvFNOcvITorrW1v566Io3.';
 
@@ -154,7 +167,8 @@ export const authService = {
     const [stored] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).limit(1);
     if (!stored) throw AppError.unauthorized('Invalid refresh token');
 
-    if (stored.revokedAt) {
+    const retriedAfterRotation = await wasJustRotated(stored);
+    if (stored.revokedAt && !retriedAfterRotation) {
       await revokeAllSessions(stored.userId);
       throw AppError.unauthorized('Invalid refresh token');
     }
@@ -163,13 +177,11 @@ export const authService = {
     const [user] = await db.select().from(users).where(eq(users.id, stored.userId)).limit(1);
     if (!user || !user.isActive) throw AppError.unauthorized('Invalid refresh token');
 
-    const now = new Date();
-    const [revoked] = await db.update(refreshTokens)
-      .set({ revokedAt: now, updatedAt: now })
-      .where(and(eq(refreshTokens.id, stored.id), isNull(refreshTokens.revokedAt)));
-    if (revoked.affectedRows !== 1) {
-      await revokeAllSessions(stored.userId);
-      throw AppError.unauthorized('Invalid refresh token');
+    if (!stored.revokedAt) {
+      const now = new Date();
+      await db.update(refreshTokens)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(and(eq(refreshTokens.id, stored.id), isNull(refreshTokens.revokedAt)));
     }
 
     const accessToken = signAccessToken(user);

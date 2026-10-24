@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { haptic } from '../../lib/haptics';
 import { ListTodo, Check, Circle, CalendarDays, Lock, Flag, Trash2, CircleCheck } from 'lucide-react';
-import { Button, Modal, DatePicker } from '../../components';
+import { Button, Modal, DateRangePicker, type DateRangeValue } from '../../components';
+import { QuickDueOptions } from '../tickets/form/QuickDueOptions';
 import { cn } from '@/lib/utils';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
 import { useCreateTodoMutation, useUpdateTodoMutation, useDeleteTodoMutation } from './hook';
-import { relativeDayLabel } from './todoDate';
 import type { Todo, TodoPriority } from '../../api/todos';
 
 interface TodoFormModalProps {
@@ -15,21 +15,7 @@ interface TodoFormModalProps {
 
 const PRIORITIES: TodoPriority[] = ['low', 'medium', 'high'];
 
-const at6pm = (daysFromToday: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  d.setHours(18, 0, 0, 0);
-  return d;
-};
-const sameDay = (a: Date | null, b: Date) => !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-const QUICK_DUE: { label: string; days: number }[] = [
-  { label: 'Today', days: 0 },
-  { label: 'Tomorrow', days: 1 },
-  { label: 'Next week', days: 7 },
-];
-
 const SECTION_LABEL = 'flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary';
-const PILL = 'inline-flex items-center gap-1.5 h-8 pointer-coarse:h-9 px-2.5 rounded-full border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]';
 const PILL_ON = 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300';
 const PILL_OFF = 'border-border/60 bg-surface text-text-secondary hover:border-border-hover';
 
@@ -78,7 +64,6 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
     }
   };
 
-  const quickPicked = QUICK_DUE.find((q) => sameDay(dueDate, at6pm(q.days)));
   const dueOverdue = !!dueDate && dueDate < new Date() && !completed;
 
   return (
@@ -160,39 +145,20 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
 
         <div className="flex flex-col gap-2">
           <span className={SECTION_LABEL}><CalendarDays size={13} className="text-text-light" aria-hidden="true" />Due</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {QUICK_DUE.map((q) => {
-              const on = quickPicked?.days === q.days;
-              return (
-                <button key={q.label} type="button" aria-pressed={on} onClick={() => setDueDate(on ? null : at6pm(q.days))} className={cn(PILL, on ? PILL_ON : PILL_OFF)}>
-                  {on && <Check size={12} strokeWidth={3} aria-hidden="true" />}
-                  {q.label}
-                </button>
-              );
-            })}
-            <div title="Pick a date and time">
-              <DatePicker
-                value={dueDate}
-                onChange={setDueDate}
-                showTime
-                placeholder="Pick date"
-                className={cn(PILL, 'w-auto shadow-none', dueDate && !quickPicked ? PILL_ON : PILL_OFF, dueDate ? 'pr-9' : '')}
-              />
-            </div>
-          </div>
+          <QuickDueOptions value={dueDate} onPick={setDueDate} />
+          <DateRangePicker
+            tiles
+            showTime
+            hidePresets
+            dueOnly
+            value={{ from: null, to: dueDate }}
+            onChange={(range: DateRangeValue) => setDueDate(range.to)}
+            minDate={new Date()}
+            invalid={dueOverdue}
+            placeholder="Choose a due day"
+          />
           {!dueDate && <p className="t-meta text-text-muted">No due date. Pick one, or leave it open.</p>}
-          {dueDate && (quickPicked || dueOverdue) && (
-            <p className="flex items-center gap-2 t-meta text-text-muted">
-              <span className={dueOverdue ? 'font-semibold text-danger' : undefined}>
-                {dueOverdue
-                  ? 'This time has already passed.'
-                  : `Due ${relativeDayLabel(dueDate)} at ${dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}. Pick a date to change the time.`}
-              </span>
-              <button type="button" onClick={() => setDueDate(null)} className="font-display font-semibold text-primary-700 dark:text-primary-300 hover:underline cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded px-1 -mx-1 pointer-coarse:py-2">
-                Clear
-              </button>
-            </p>
-          )}
+          {dueOverdue && <p className="t-meta font-semibold text-danger">This time has already passed.</p>}
         </div>
 
         <div className="flex flex-col gap-2">
