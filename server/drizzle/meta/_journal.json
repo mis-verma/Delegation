@@ -561,6 +561,13 @@
       "when": 1792800000000,
       "tag": "0079_checklist_audit_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "5",
+      "when": 1792810000000,
+      "tag": "0080_task_department_approvals",
+      "breakpoints": true
     }
   ]
 }

@@ -27,6 +27,7 @@ export type TaskStatusUpdate = {
 };
 
 export type TaskPerson = { id: string; email: string; firstName: string; lastName?: string | null; role: string };
+export type TaskDepartmentApproval = { departmentId: string; status: 'pending' | 'approved'; decidedAt: string | null; approver: { id: string; firstName: string; lastName?: string | null } | null };
 
 export type Task = {
     id:           string;
@@ -55,6 +56,7 @@ export type Task = {
     hodApprovedAt?:   string | null;
     hodApprover?:     { id: string; firstName: string; lastName: string | null } | null;
     awaitingHeadApproval?: boolean;
+    departmentApprovals?: TaskDepartmentApproval[];
     assignmentApprovedBy?: string | null;
     assignmentApprovedAt?: string | null;
     assignmentApprover?:   TaskPerson | null;

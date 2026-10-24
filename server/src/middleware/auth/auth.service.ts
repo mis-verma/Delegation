@@ -23,13 +23,14 @@ const revokeAllSessions = (userId: string) =>
 
 const REUSE_GRACE_MS = 20_000;
 
-const wasJustRotated = async (stored: { id: string; userId: string; revokedAt: Date | null }): Promise<boolean> => {
+const wasJustRotated = async (stored: { id: string; userId: string; revokedAt: Date | null; expiresAt: Date }): Promise<boolean> => {
   if (!stored.revokedAt) return false;
   if (Date.now() - stored.revokedAt.getTime() > REUSE_GRACE_MS) return false;
+  if (stored.expiresAt.getTime() <= stored.revokedAt.getTime() + 60_000) return false;
   const from = new Date(stored.revokedAt.getTime() - 2_000);
   const to = new Date(stored.revokedAt.getTime() + 5_000);
   const [successor] = await db.select({ id: refreshTokens.id }).from(refreshTokens)
-    .where(and(eq(refreshTokens.userId, stored.userId), ne(refreshTokens.id, stored.id), gte(refreshTokens.createdAt, from), lte(refreshTokens.createdAt, to)))
+    .where(and(eq(refreshTokens.userId, stored.userId), ne(refreshTokens.id, stored.id), isNull(refreshTokens.revokedAt), gte(refreshTokens.createdAt, from), lte(refreshTokens.createdAt, to)))
     .limit(1);
   return !!successor;
 };
@@ -192,7 +193,7 @@ export const authService = {
   async logout(rawToken: string | undefined) {
     if (!rawToken) return;
     await db.update(refreshTokens)
-      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .set({ revokedAt: new Date(), expiresAt: new Date(), updatedAt: new Date() })
       .where(eq(refreshTokens.tokenHash, hashToken(rawToken)));
   },
 

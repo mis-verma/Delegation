@@ -6,18 +6,20 @@ import { DeclineTicketDialog } from '../tickets/detail/DeclineTicketDialog';
 import { HeadApprovedBanner } from '../tickets/detail/HeadApprovedBanner';
 import { HeadDecisionPanel } from '../tickets/detail/HeadDecisionPanel';
 import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useReopenDeclinedTaskMutation } from './hook';
-import { canDecideOnTask, taskFlowState } from './taskFlow';
+import { canApproveTaskNow, canDecideOnTask, taskFlowState } from './taskFlow';
 import type { Task } from '../../api/task';
+import type { Department } from '../../api/departments';
 
 interface TaskHeadDecisionProps {
   task: Task;
   departmentName?: string;
+  departments?: Department[];
   nameOf: (id: string | null | undefined) => string | undefined;
 }
 
 const LIVE_STATUSES: readonly Task['status'][] = ['todo', 'in_progress', 'on_hold'];
 
-export const TaskHeadDecision = ({ task, departmentName, nameOf }: TaskHeadDecisionProps) => {
+export const TaskHeadDecision = ({ task, departmentName, departments, nameOf }: TaskHeadDecisionProps) => {
   const { user } = useAuth();
   const approveMut = useApproveTaskAssignmentMutation();
   const declineMut = useDeclineTaskMutation();
@@ -26,6 +28,13 @@ export const TaskHeadDecision = ({ task, departmentName, nameOf }: TaskHeadDecis
 
   const { awaiting, declined, headApproved } = taskFlowState(task, user);
   const canDecide = canDecideOnTask(task, user);
+  const canApprove = canApproveTaskNow(task, user);
+  const decisions = (task.departmentApprovals ?? []).map((a) => ({
+    name: departments?.find((d) => d.id === a.departmentId)?.name ?? 'Department',
+    approved: a.status === 'approved',
+    approverName: a.approver ? a.approver.firstName : undefined,
+    mine: !!user?.departmentId && a.departmentId === user.departmentId,
+  }));
   const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
   const canDeclineLive = canDecide && headApproved && LIVE_STATUSES.includes(task.status) && (isLeadership || task.userId !== user?.id);
 
@@ -67,7 +76,8 @@ export const TaskHeadDecision = ({ task, departmentName, nameOf }: TaskHeadDecis
           raiser={raiser ? { firstName: raiser } : null}
           assignee={assignee ? { firstName: assignee } : null}
           departmentName={departmentName}
-          canDecide={canDecide}
+          departments={decisions}
+          canDecide={canApprove}
           isApproving={approveMut.isPending}
           isDeclining={declineMut.isPending}
           onApprove={() => approveMut.mutate({ id: task.id })}

@@ -3,13 +3,22 @@ import { users } from '../../db/schema/core.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { notifyMany, activeVerifierIds, activeEscalationIds } from './notificationCore.js';
 
-export const notifyTaskAwaitingHead = async (task: { _id: string; title: string; departmentId?: string | null; userId?: string | null }) => {
-  if (!task.departmentId) return [];
-  const raiserId = task.userId ? task.userId.toString() : null;
-  const heads = await db
+const pendingDepartmentIds = (task: { departmentId?: string | null; departmentIds?: string[] }): string[] =>
+  task.departmentIds?.length ? task.departmentIds : task.departmentId ? [task.departmentId.toString()] : [];
+
+const headsOf = async (departmentIds: string[]) => {
+  if (!departmentIds.length) return [];
+  return db
     .select({ id: users.id })
     .from(users)
-    .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, task.departmentId.toString()), eq(users.isActive, true)));
+    .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), inArray(users.departmentId, departmentIds), eq(users.isActive, true)));
+};
+
+export const notifyTaskAwaitingHead = async (task: { _id: string; title: string; departmentId?: string | null; departmentIds?: string[]; userId?: string | null }) => {
+  const departmentIds = pendingDepartmentIds(task);
+  if (!departmentIds.length) return [];
+  const raiserId = task.userId ? task.userId.toString() : null;
+  const heads = await headsOf(departmentIds);
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TASK_AWAITING_HEAD',
     title: 'New delegation needs your approval',
@@ -18,13 +27,11 @@ export const notifyTaskAwaitingHead = async (task: { _id: string; title: string;
   });
 }
 
-export const notifyTaskHeadDecisionReminder = async (task: { _id: string; title: string; departmentId?: string | null; userId?: string | null }, hoursWaiting: number) => {
-  if (!task.departmentId) return [];
+export const notifyTaskHeadDecisionReminder = async (task: { _id: string; title: string; departmentId?: string | null; departmentIds?: string[]; userId?: string | null }, hoursWaiting: number) => {
+  const departmentIds = pendingDepartmentIds(task);
+  if (!departmentIds.length) return [];
   const raiserId = task.userId ? task.userId.toString() : null;
-  const heads = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, task.departmentId.toString()), eq(users.isActive, true)));
+  const heads = await headsOf(departmentIds);
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TASK_AWAITING_HEAD_REMINDER',
     title: 'A delegation is waiting for your decision',
@@ -50,6 +57,19 @@ export const notifyTaskHeadApproved = async (task: { _id: string; title: string;
     type: 'TASK_ASSIGNMENT_APPROVED',
     title: 'Delegation approved, you can start',
     message: `${approverName ? `${approverName}, the department head, approved` : 'The department head approved'} "${task.title}". The team can work on it now.`,
+    taskId: task._id.toString(),
+  });
+}
+
+export const notifyTaskPartlyApproved = async (task: { _id: string; title: string; userId?: string | null }, remaining: number, actorId: string) => {
+  const raiserId = task.userId?.toString();
+  if (!raiserId || raiserId === actorId) return [];
+  const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
+  const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : 'A department head';
+  return notifyMany([raiserId], {
+    type: 'TASK_ASSIGNMENT_APPROVED',
+    title: 'One department approved your delegation',
+    message: `${approverName} approved "${task.title}". Waiting for ${remaining} more department${remaining === 1 ? '' : 's'} before work can start.`,
     taskId: task._id.toString(),
   });
 }

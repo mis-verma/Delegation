@@ -8,12 +8,20 @@ interface Person {
   lastName?: string | null;
 }
 
+export interface DepartmentDecision {
+  name: string;
+  approved: boolean;
+  approverName?: string;
+  mine?: boolean;
+}
+
 interface HeadDecisionPanelProps {
   itemTitle: string;
   noun?: 'ticket' | 'delegation';
   raiser: Person | null;
   assignee: Person | null;
   departmentName?: string;
+  departments?: DepartmentDecision[];
   canDecide: boolean;
   isApproving: boolean;
   isDeclining: boolean;
@@ -70,6 +78,7 @@ export const HeadDecisionPanel = ({
   raiser,
   assignee,
   departmentName,
+  departments,
   canDecide,
   isApproving,
   isDeclining,
@@ -78,7 +87,9 @@ export const HeadDecisionPanel = ({
 }: HeadDecisionPanelProps) => {
   const busy = isApproving || isDeclining;
   const raiserName = raiser ? raiser.firstName : 'Someone';
-  const where = departmentName ? `${departmentName} department` : 'your department';
+  const several = (departments?.length ?? 0) > 1;
+  const where = several ? 'departments below' : departmentName ? `${departmentName} department` : 'your department';
+  const waitingFor = departments?.filter((d) => !d.approved).map((d) => d.name) ?? [];
 
   return (
     <section
@@ -94,12 +105,14 @@ export const HeadDecisionPanel = ({
         </span>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h2 className="t-section font-display font-bold leading-snug text-text">
-            {canDecide ? `This ${noun} needs your decision` : `Waiting for the ${departmentName ?? 'department'} head`}
+            {canDecide ? `This ${noun} needs your decision` : several ? 'Waiting for the department heads' : `Waiting for the ${departmentName ?? 'department'} head`}
           </h2>
           <p className="t-card font-medium leading-snug text-text-secondary">
             {canDecide
-              ? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until you approve it.`
-              : 'Work starts as soon as they approve it. If they decline, you will see their reason here.'}
+              ? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until ${several ? 'every head has approved it' : 'you approve it'}.`
+              : several
+                ? `Work starts once every head approves it${waitingFor.length ? `. Still waiting for ${waitingFor.join(', ')}` : ''}. If one declines, you will see the reason here.`
+                : 'Work starts as soon as they approve it. If they decline, you will see their reason here.'}
           </p>
         </div>
       </div>
@@ -110,10 +123,24 @@ export const HeadDecisionPanel = ({
         <PersonPill person={assignee} empty="Nobody picked yet" />
       </div>
 
+      {several && (
+        <ul className="flex flex-col gap-1.5" aria-label="Department approvals">
+          {departments!.map((d) => (
+            <li key={d.name} className="flex items-center gap-2 rounded-lg border border-border/60 bg-surface px-2.5 py-1.5">
+              <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-white ${d.approved ? 'bg-success' : 'bg-warning'}`} aria-hidden="true">
+                {d.approved ? <Check size={12} strokeWidth={3} /> : <Hourglass size={11} strokeWidth={2.6} />}
+              </span>
+              <span className="min-w-0 flex-1 truncate t-card font-display font-semibold text-text">{d.name}{d.mine && !d.approved ? ' (you)' : ''}</span>
+              <span className="shrink-0 t-meta font-medium text-text-muted">{d.approved ? `Approved${d.approverName ? ` by ${d.approverName}` : ''}` : 'Waiting'}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
         <Step icon={Send} label="Raised" state="done" />
         <Connector filled />
-        <Step icon={ShieldQuestion} label="Head decides" state="current" />
+        <Step icon={ShieldQuestion} label={several ? 'Heads decide' : 'Head decides'} state="current" />
         <Connector filled={false} />
         <Step icon={Play} label="Work starts" state="next" />
       </ol>

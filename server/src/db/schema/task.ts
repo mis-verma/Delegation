@@ -115,6 +115,25 @@ export const taskAdditionalAssignees = mysqlTable(
   ],
 );
 
+export const TASK_DEPARTMENT_APPROVAL_STATUSES = ['pending', 'approved'] as const;
+
+export const taskDepartmentApprovals = mysqlTable(
+  'TaskDepartmentApproval',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    taskId: varchar('taskId', { length: 191 }).notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+    departmentId: varchar('departmentId', { length: 191 }).notNull().references(() => departments.id),
+    status: mysqlEnum('status', TASK_DEPARTMENT_APPROVAL_STATUSES).notNull().default('pending'),
+    decidedBy: varchar('decidedBy', { length: 191 }).references(() => users.id),
+    decidedAt: datetime('decidedAt', { mode: 'date' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('TaskDepartmentApproval_taskId_departmentId_key').on(table.taskId, table.departmentId),
+    index('TaskDepartmentApproval_departmentId_status_idx').on(table.departmentId, table.status),
+  ],
+);
+
 export const taskDependencies = mysqlTable(
   'TaskDependency',
   {

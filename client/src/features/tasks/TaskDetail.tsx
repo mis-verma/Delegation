@@ -628,7 +628,7 @@ const TaskEditLayout = ({
 
           {task.status !== 'done' && task.status !== 'pending_approval' && <TaskStatusCard task={task} nameOf={nameOf} departmentName={departmentName} hideChip />}
 
-          <TaskHeadDecision task={task} departmentName={departmentName} nameOf={nameOf} />
+          <TaskHeadDecision task={task} departmentName={departmentName} departments={departments} nameOf={nameOf} />
 
           {!task.declinedAt && (task.status === 'pending_approval' || (task.status === 'done' && !!task.verifiedAt)) && <TaskApprovalTrail task={task} />}
 

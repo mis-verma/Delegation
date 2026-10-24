@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { clearKept, readKept, writeKept } from '../../lib/keptForm';
 import { haptic } from '../../lib/haptics';
 import { useNavigate } from 'react-router';
@@ -11,7 +12,9 @@ import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, Ca
 import { Input, Modal, DateRangePicker, Button, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
-import { useAssignableUsersQuery as useDepartmentPeopleQuery } from '../tickets/hook';
+import { assignableUsersQueryOptions } from '../tickets/hook';
+import type { AssignableUser } from '../../api/users';
+import { ExtraDepartmentsField } from './ExtraDepartmentsField';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { TaskDescriptionField } from './TaskDescriptionField';
@@ -68,8 +71,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
   const { data: tags } = useTagsQuery();
   const keptKey = `delegation:${user?.id ?? 'anon'}`;
-  const [kept] = useState(() => readKept<Partial<TaskFields> & { assigneeIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
+  const [kept] = useState(() => readKept<Partial<TaskFields> & { assigneeIds?: string[]; extraDepartmentIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
   const [assigneeIds, setAssigneeIds] = useState<string[]>(kept?.assigneeIds ?? []);
+  const [extraDepartmentIds, setExtraDepartmentIds] = useState<string[]>(kept?.extraDepartmentIds ?? []);
   const [tagIds, setTagIds] = useState<string[]>(kept?.tagIds ?? []);
   const [dateRange, setDateRange] = useState<DateRangeValue>({
     from: kept?.from ? new Date(kept.from) : null,
@@ -103,14 +107,14 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       if (allValues.title?.trim() || allValues.description?.trim()) {
         writeKept(keptKey, {
           title: allValues.title, description: allValues.description, priority: allValues.priority, departmentId: allValues.departmentId,
-          assigneeIds, tagIds, from: dateRange.from?.toISOString() ?? null, to: dateRange.to?.toISOString() ?? null,
+          assigneeIds, extraDepartmentIds, tagIds, from: dateRange.from?.toISOString() ?? null, to: dateRange.to?.toISOString() ?? null,
         });
       } else {
         clearKept(keptKey);
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [allValues, assigneeIds, tagIds, dateRange, keptKey]);
+  }, [allValues, assigneeIds, extraDepartmentIds, tagIds, dateRange, keptKey]);
 
   useEffect(() => {
     if (!kept) return;
@@ -121,6 +125,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           clearKept(keptKey);
           reset({ priority: 'medium', departmentId: startsOnOwnDepartment ? user?.departmentId ?? '' : '', description: '' });
           setAssigneeIds([]);
+          setExtraDepartmentIds([]);
           setTagIds([]);
           setDateRange({ from: null, to: defaultDueDate ?? null });
         },
@@ -130,19 +135,43 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   }, []);
 
   const departmentId = useWatch({ control, name: 'departmentId' });
-  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, !!departmentId && !ownScopeOnly);
-  const assignableUsers = departmentId ? departmentPeople : allAssignable;
-  const isLoadingUsers = departmentId ? isLoadingDepartmentPeople : isLoadingAllUsers;
-  const [prevDepartmentId, setPrevDepartmentId] = useState(departmentId);
-  if (departmentId !== prevDepartmentId) {
-    setPrevDepartmentId(departmentId);
-    setAssigneeIds([]);
-  }
+  const selectedDepartmentIds = [departmentId, ...extraDepartmentIds].filter((id): id is string => !!id);
+  const departmentPeople = useQueries({
+    queries: selectedDepartmentIds.map((id) => ({ ...assignableUsersQueryOptions(id), enabled: !ownScopeOnly })),
+    combine: (results) => ({
+      users: [...new Map(results.flatMap((r) => r.data ?? []).map((u) => [u.id, u])).values()] as AssignableUser[],
+      isLoading: results.some((r) => r.isLoading),
+    }),
+  });
+  const assignableUsers = departmentId ? departmentPeople.users : allAssignable;
+  const isLoadingUsers = departmentId ? departmentPeople.isLoading : isLoadingAllUsers;
+  const userDepartmentOf = (id: string) => assignableUsers?.find((u) => u.id === id)?.departmentId ?? null;
+  const keepPeopleIn = (allowed: string[]) =>
+    setAssigneeIds((ids) => ids.filter((id) => { const d = userDepartmentOf(id); return !d || allowed.includes(d); }));
+  const changePrimaryDepartment = (next: string, apply: (value: string) => void) => {
+    const extras = next ? extraDepartmentIds.filter((d) => d !== next) : [];
+    setExtraDepartmentIds(extras);
+    apply(next);
+    if (next) keepPeopleIn([next, ...extras]);
+    else setAssigneeIds([]);
+  };
+  const addExtraDepartment = (id: string) => setExtraDepartmentIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  const removeExtraDepartment = (id: string) => {
+    const extras = extraDepartmentIds.filter((d) => d !== id);
+    setExtraDepartmentIds(extras);
+    keepPeopleIn([departmentId, ...extras].filter((d): d is string => !!d));
+  };
+  const peopleInDepartment = (id: string) => assigneeIds.filter((p) => userDepartmentOf(p) === id).length;
 
   const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
-  const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && !!departmentId && user.departmentId === departmentId;
-  const needsHeadOk = !!departmentId && !isLeadership && !isTargetHead && !saveAsDraft;
-  const targetDepartmentName = departments?.find((d) => d.id === departmentId)?.name;
+  const headOfDepartment = (user?.role === 'MANAGER' || user?.role === 'SENIOR') ? user.departmentId ?? null : null;
+  const involvedDepartmentIds = [...new Set([departmentId, ...assigneeIds.map(userDepartmentOf)].filter((id): id is string => !!id))];
+  const approvalDepartmentIds = isLeadership ? [] : involvedDepartmentIds.filter((id) => id !== headOfDepartment);
+  const needsHeadOk = approvalDepartmentIds.length > 0 && !saveAsDraft;
+  const approvalDepartmentNames = approvalDepartmentIds.map((id) => departments?.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
+  const approvalNamesLabel = approvalDepartmentNames.length > 1
+    ? `${approvalDepartmentNames.slice(0, -1).join(', ')} and ${approvalDepartmentNames[approvalDepartmentNames.length - 1]}`
+    : approvalDepartmentNames[0];
 
   const isBusy = mutation.isPending || isSubmitting;
   const isCreateBusy = isBusy && !saveAsDraft;
@@ -150,6 +179,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
 
   const hasInput = isDirty
     || assigneeIds.length > 0
+    || extraDepartmentIds.length > 0
     || tagIds.length > 0
     || files.length > 0
     || dateRange.from !== null
@@ -344,7 +374,12 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
 
           {needsHeadOk && (
             <NoticeBanner tone="warning" icon={ShieldQuestion}>
-              <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
+              <span className="font-semibold">
+                {approvalDepartmentNames.length > 1
+                  ? `The ${approvalNamesLabel} heads each approve this first.`
+                  : approvalNamesLabel ? `The ${approvalNamesLabel} head approves this first.` : 'The department head approves this first.'}
+              </span>{' '}
+              Work starts once {approvalDepartmentNames.length > 1 ? 'every head says' : 'they say'} yes. If one declines, you will see why.
             </NoticeBanner>
           )}
 
@@ -354,7 +389,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               icon={<Building2 size={14} className="text-text-light" />}
               required={ownScopeOnly}
               optional={!ownScopeOnly}
-              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the team first. The people list then shows only that team.'}
+              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the team first. You can add people from other departments below.'}
               error={errors.departmentId?.message}
             >
               <Controller
@@ -364,7 +399,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                   <TaskFormDepartmentField
                     hideLabel
                     value={field.value ?? ''}
-                    onChange={field.onChange}
+                    onChange={(next) => changePrimaryDepartment(next, field.onChange)}
                     departments={departments}
                     isLoading={isLoadingDepts}
                     triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
@@ -374,12 +409,24 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
             </FormField>
           </div>
 
+          {!ownScopeOnly && !!departmentId && (
+            <ExtraDepartmentsField
+              departments={departments}
+              isLoading={isLoadingDepts}
+              primaryId={departmentId}
+              extraIds={extraDepartmentIds}
+              peopleCount={peopleInDepartment}
+              onAdd={addExtraDepartment}
+              onRemove={removeExtraDepartment}
+            />
+          )}
+
           {!ownScopeOnly && (
             <FormField
               label="Assign to"
               icon={<UserCheck size={14} className="text-text-light" />}
               optional
-              hint={departmentId ? 'Pick one or more people. The first one is the main owner.' : 'Choose a department first.'}
+              hint={departmentId ? (extraDepartmentIds.length ? 'Pick people from each department. The first one is the main owner.' : 'Pick one or more people. The first one is the main owner.') : 'Choose a department first.'}
             >
               {departmentId ? (
                 <AssigneeField

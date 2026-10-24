@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskReviewers } from "../../db/schema/index.js"
-import { eq, and, or, inArray, isNull, isNotNull } from "drizzle-orm"
+import { eq, and, or, inArray, isNull, isNotNull, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateTaskInput } from "./task.validation.js"
@@ -26,6 +26,9 @@ export const reviewerTaskIds = async (userId: string): Promise<string[]> => {
     return rows.map((r) => r.taskId);
 };
 
+export const departmentApprovalInvolves = (departmentId: string) =>
+    sql`${tasks.id} IN (SELECT taskId FROM TaskDepartmentApproval WHERE departmentId = ${departmentId})`;
+
 export const buildVisibilityCondition = async (user: AccessTokenPayload) => {
     if (isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER") return undefined;
 
@@ -40,11 +43,11 @@ export const buildVisibilityCondition = async (user: AccessTokenPayload) => {
         : selfCondition;
 
     if (user.role === "MANAGER" && user.departmentId) {
-        return or(eq(tasks.departmentId, user.departmentId), withReviewer);
+        return or(eq(tasks.departmentId, user.departmentId), departmentApprovalInvolves(user.departmentId), withReviewer);
     }
 
     if (user.role === "SENIOR" && user.departmentId) {
-        return or(and(eq(tasks.departmentId, user.departmentId), or(eq(tasks.status, "pending_approval"), eq(tasks.awaitingHeadApproval, true), isNotNull(tasks.declinedAt))), withReviewer);
+        return or(and(or(eq(tasks.departmentId, user.departmentId), departmentApprovalInvolves(user.departmentId)), or(eq(tasks.status, "pending_approval"), eq(tasks.awaitingHeadApproval, true), isNotNull(tasks.declinedAt))), withReviewer);
     }
 
     return withReviewer;

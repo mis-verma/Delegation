@@ -2,7 +2,7 @@ import { scheduleJob } from '../utils/jobTracker.js';
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, ne, notInArray, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { env } from '../config/env.js';
-import { tickets, tasks, taskAdditionalAssignees, checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from '../db/schema/index.js';
+import { tickets, tasks, taskAdditionalAssignees, taskDepartmentApprovals, checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from '../db/schema/index.js';
 import { notificationService } from '../modules/notifications/notification.service.js';
 import { settingsService } from '../modules/settings/settings.service.js';
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from '../modules/checklistInstances/checklistInstance.service.js';
@@ -227,13 +227,19 @@ const taskHeadDecisionChasers = async (now: Date) => {
   const waiting = await db.select().from(tasks).where(and(
     isNull(tasks.deletedAt), isNull(tasks.declinedAt), eq(tasks.awaitingHeadApproval, true), gt(tasks.createdAt, floor),
   )).limit(BATCH);
+  const pendingRows = waiting.length
+    ? await db.select({ taskId: taskDepartmentApprovals.taskId, departmentId: taskDepartmentApprovals.departmentId }).from(taskDepartmentApprovals)
+      .where(and(inArray(taskDepartmentApprovals.taskId, waiting.map((t) => t.id)), eq(taskDepartmentApprovals.status, 'pending')))
+    : [];
+  const pendingByTask = new Map<string, string[]>();
+  for (const row of pendingRows) pendingByTask.set(row.taskId, [...(pendingByTask.get(row.taskId) ?? []), row.departmentId]);
   for (const t of waiting) {
     const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
     if (hours >= HEAD_ESCALATE_HOURS && !t.headEscalatedAt) {
       await notificationService.notifyTaskHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
       await db.update(tasks).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tasks.id, t.id));
     } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
-      await notificationService.notifyTaskHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId }, Math.floor(hours));
+      await notificationService.notifyTaskHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, departmentIds: pendingByTask.get(t.id), userId: t.userId }, Math.floor(hours));
       await db.update(tasks).set({ headReminderSentAt: now }).where(eq(tasks.id, t.id));
     }
   }
