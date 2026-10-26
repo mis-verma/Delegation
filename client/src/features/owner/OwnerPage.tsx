@@ -8,7 +8,7 @@ import { exceptionApi } from '../../api/exceptions';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { ScoreBars } from '../dashboard/ScoreBars';
+import { ScoreNumbers } from '../dashboard/ScoreNumbers';
 import { ScoreHero } from '../dashboard/ScoreHero';
 import { ExceptionsCard } from '../dashboard/ExceptionsCard';
 import { heroFacts } from '../dashboard/heroFacts';
@@ -106,7 +106,7 @@ export const OwnerPage = () => {
 
       <section aria-label="Company score" className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
         <ScoreHero facts={heroFacts(now.data)} loading={loading} changePts={change} title="Company score" />
-        <ScoreBars
+        <ScoreNumbers
           scores={now.data}
           loading={loading}
           previous={prior.data}

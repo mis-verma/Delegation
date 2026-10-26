@@ -15,7 +15,8 @@ import { ScoreChoice } from './ScoreChoice';
 import { ScoreField, ScoreFilterShell } from './ScoreFilterShell';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
-import { ScoreBars } from './ScoreBars';
+import { ScoreNumbers } from './ScoreNumbers';
+import { LazyWhenVisible } from './LazyWhenVisible';
 import { ScoreHero } from './ScoreHero';
 import { ToneChip } from './ToneChip';
 import { TONE_BAR } from './scoreTone';
@@ -49,7 +50,7 @@ const METRIC_HINT: Record<ScoreMetric, string> = {
 };
 type ScoreView = 'bars' | 'dials' | 'trend';
 const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
-const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend' };
+const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Numbers', dials: 'Dials', trend: 'Days' };
 const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine };
 
 interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
@@ -604,7 +605,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               />
             )}
             {activeView === 'bars' ? (
-              <ScoreBars
+              <ScoreNumbers
                 scores={data}
                 loading={loading}
                 metric={metric}
@@ -661,7 +662,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             <ListOrdered className="size-4 text-text-light" aria-hidden="true" />
             Ranking
           </h3>
-          <ScoreRanking metric={metric} scope={isHod && scope === 'department' ? 'person' : scope} from={range.from} to={range.to} onOpen={openRanked} />
+          <LazyWhenVisible minHeight="12rem">
+            <ScoreRanking metric={metric} scope={isHod && scope === 'department' ? 'person' : scope} from={range.from} to={range.to} onOpen={openRanked} />
+          </LazyWhenVisible>
         </section>
       )}
       {drillPopup}

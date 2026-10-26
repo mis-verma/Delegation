@@ -7,6 +7,7 @@ import { acrossModules, overallOf } from './scoreMetrics';
 import { roundPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
 import { SEARCH_INPUT_CLASS } from '../scores/controlStyles';
+import type { RateTone } from './dashboardDisplay';
 import { ScorePct } from '../scores/ScorePct';
 import { NumCell, SortHead } from '../scores/scoreTableParts';
 import { Skeleton } from '../../components/skeleton';
@@ -15,17 +16,19 @@ import { ExportMenu } from '../../components/exportMenu';
 import { exportTitle, type TableRows } from '../../lib/exportTable';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
-import { rateTone, type RateTone } from './dashboardDisplay';
 import type { ScoreMetric } from './scoreMetrics';
+import { toneOf } from './scoreTone';
 
 type Metric = 'overview' | 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
+type ModuleColumn = 'checklist' | 'ticket' | 'delegation';
+
+const PREVIEW_ROWS = 8;
 
 const METRIC_LABEL: Record<Metric, string> = { overview: SCORE_LABEL.overall, completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL_SHORT.onTime };
 const SUBJECT: Record<ScoreScope, string> = { org: 'departments', person: 'people', department: 'departments', store: 'stores' };
 const SUBJECT_ONE: Record<ScoreScope, string> = { org: 'department', person: 'person', department: 'department', store: 'store' };
 const SUBJECT_HEAD: Record<ScoreScope, string> = { org: 'Department', person: 'Person', department: 'Department', store: 'Store' };
-const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
 
 interface Computed {
   row: ScoreReportRow;
@@ -66,9 +69,16 @@ const compute = (row: ScoreReportRow): Computed => {
 
 const Pct = ({ value }: { value: number | null }) => <ScorePct value={value} strong />;
 
-const MiniBar = ({ value }: { value: number | null }) => (
-  <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-    {value !== null && <span className={cn('block h-full rounded-full transition-[width] duration-500', BAR[rateTone(value, Number.MAX_SAFE_INTEGER)])} style={{ width: `${value}%` }} />}
+const HEAT: Record<RateTone, string> = {
+  success: 'bg-success/12',
+  warning: 'bg-warning/15',
+  danger: 'bg-danger/12',
+  neutral: '',
+};
+
+const HeatPct = ({ value }: { value: number | null }) => (
+  <span className={cn('inline-flex min-w-16 items-center justify-end rounded-md px-2 py-1 font-display', HEAT[toneOf(value)])}>
+    <Pct value={value} />
   </span>
 );
 
@@ -87,6 +97,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   const isStore = scope === 'store';
   const peopleReport = useScoreReport(from, to, !isStore);
@@ -132,12 +143,24 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     return `, ${ascending ? 'lowest' : 'highest'} ${column} first`;
   })();
 
+  const activeModules = (['checklist', 'ticket', 'delegation'] as const).filter((m: ModuleColumn) => rows.some((c) => c[metric][m] !== null));
+  const showModules = activeModules.length > 1;
   const heads: { key: SortKey; label: string }[] = [
     { key: 'overall', label: 'Overall' },
-    { key: 'checklist', label: MODULE_LABEL.checklist },
-    { key: 'ticket', label: MODULE_LABEL.ticket },
-    { key: 'delegation', label: MODULE_LABEL.delegation },
+    ...(showModules ? activeModules.map((m) => ({ key: m as SortKey, label: MODULE_LABEL[m] })) : []),
   ];
+  const searching = query.trim().length > 0;
+  const shown = showAll || searching ? rows : rows.slice(0, PREVIEW_ROWS);
+  const hiddenCount = rows.length - shown.length;
+  const showMore = hiddenCount > 0 && (
+    <button
+      type="button"
+      onClick={() => setShowAll(true)}
+      className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+    >
+      Show all {rows.length}
+    </button>
+  );
 
   if (isPending) {
     return (
@@ -201,7 +224,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
       {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center t-card font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
       <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
-        {rows.map((c) => {
+        {shown.map((c) => {
           const value = c[metric].overall;
           return (
             <li key={c.row.id}>
@@ -222,12 +245,13 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                     <span className="t-stat font-display font-bold"><Pct value={value} /></span>
                     <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
                   </span>
-                  <MiniBar value={value} />
-                  <span className="grid grid-cols-3 gap-2 t-meta font-display text-text-muted">
-                    <span className="flex flex-col">Checklist<Pct value={c[metric].checklist} /></span>
-                    <span className="flex flex-col">Tickets<Pct value={c[metric].ticket} /></span>
-                    <span className="flex flex-col">Delegations<Pct value={c[metric].delegation} /></span>
-                  </span>
+                  {showModules && (
+                    <span className="flex flex-wrap gap-x-4 gap-y-1 t-meta font-display text-text-muted">
+                      {activeModules.map((m) => (
+                        <span key={m} className="inline-flex items-baseline gap-1.5">{MODULE_LABEL[m]}<Pct value={c[metric][m]} /></span>
+                      ))}
+                    </span>
+                  )}
                 </span>
               </button>
             </li>
@@ -252,20 +276,22 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
             </tr>
           </thead>
           <tbody>
-            {rows.map((c) => (
+            {shown.map((c) => (
               <tr key={c.row.id} className="group cursor-pointer border-b border-border/60 last:border-0 hover:bg-surface-hover/40" onClick={() => onOpen(c.row.id)}>
                 <th scope="row" className="px-3 py-2 font-normal">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(c.row.id); }} className="flex min-h-10 flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                    <span className="t-card font-display font-bold text-text">{c.row.name}</span>
-                    {c.row.department && scope === 'person' && <span className="t-meta font-medium text-text-muted">{c.row.department}</span>}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(c.row.id); }} className="flex min-h-10 items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                    {scope === 'person' && (
+                      <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(c.row.name))}>{getInitials(c.row.name)}</span>
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="t-card font-display font-bold text-text">{c.row.name}</span>
+                      {c.row.department && scope === 'person' && <span className="t-meta font-medium text-text-muted">{c.row.department}</span>}
+                    </span>
                   </button>
                 </th>
                 {heads.map((h) => (
                   <NumCell key={h.key}>
-                    <span className="flex flex-col items-end gap-1">
-                      <span className="font-display"><Pct value={c[metric][h.key as Exclude<SortKey, 'name'>]} /></span>
-                      <MiniBar value={c[metric][h.key as Exclude<SortKey, 'name'>]} />
-                    </span>
+                    <HeatPct value={c[metric][h.key as Exclude<SortKey, 'name'>]} />
                   </NumCell>
                 ))}
                 <td className="pr-3"><ChevronRight className="size-4 text-text-light" aria-hidden="true" /></td>
@@ -274,6 +300,8 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
           </tbody>
         </table>
       </div>
+      {showMore}
+
       <p className="hidden t-meta font-medium text-text-muted sm:block">
         {metric === 'overview' ? 'Overall score: completion and compliance counted equally.' : 'Big figure: all three together.'}
       </p>
