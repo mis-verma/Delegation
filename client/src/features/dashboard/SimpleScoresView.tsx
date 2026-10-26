@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineError } from '../../components/inlineError';
@@ -7,15 +7,15 @@ import { Skeleton } from '../../components/skeleton';
 import { HowCalculated } from '../scores/HowCalculated';
 import type { Scores } from '../../api/scores';
 import { formatPct, roundPct } from '../../lib/percent';
-import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
+import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { ScoreChoice } from './ScoreChoice';
 import { PERIOD_LABEL, type ScorePeriod } from './scorePeriods';
-import { moduleOverall, numbersFor, type ModuleKey } from './scoreMetrics';
+import { moduleCounts, moduleOverall, numbersFor, type ModuleKey } from './scoreMetrics';
 import { DASHBOARD_CARD_CLASS } from './dashboardDisplay';
 import { ScoreHero } from './ScoreHero';
 import { heroFacts } from './heroFacts';
 import { ToneChip } from './ToneChip';
-import { TONE_BAR, TONE_TEXT, TONE_WORD, toneOf } from './scoreTone';
+import { TONE_TEXT, TONE_WORD, toneOf } from './scoreTone';
 
 const SIMPLE_PERIODS: readonly ScorePeriod[] = ['week', 'month'];
 
@@ -25,17 +25,32 @@ const MODULES: readonly { key: ModuleKey; icon: LucideIcon; tile: string }[] = [
   { key: 'delegation', icon: ClipboardList, tile: 'from-coral-500 to-coral-600' },
 ];
 
-const MeasureBar = ({ label, value }: { label: string; value: number | null }) => {
-  const tone = toneOf(value);
+const COUNT_WORD: Record<ModuleKey, string> = { checklist: 'not filled', ticket: 'still open', delegation: 'past due' };
+
+const FIX_TEXT: Record<ModuleKey, (n: number) => string> = {
+  checklist: (n) => `${n} ${n === 1 ? 'checklist' : 'checklists'} not filled`,
+  ticket: (n) => `${n} ${n === 1 ? 'ticket' : 'tickets'} still open`,
+  delegation: (n) => `${n} ${n === 1 ? 'delegation' : 'delegations'} past due`,
+};
+
+const FixLine = ({ data, onOpen }: { data: Scores; onOpen: (key: ModuleKey) => void }) => {
+  const items = MODULES.map(({ key }) => ({ key, count: moduleCounts(data, key).notDone })).filter((i) => i.count > 0);
+  if (items.length === 0) {
+    return <p className="t-meta font-display font-semibold text-success">Everything that came due is done.</p>;
+  }
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 t-meta text-text-muted">{label}</span>
-        <span className={cn('shrink-0 t-meta font-display font-bold tabular-nums', value === null ? 'text-text-light' : 'text-text')}>{value === null ? '-' : formatPct(value)}</span>
-      </div>
-      <span className="h-2 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-        <span className={cn('bar-grow block h-full rounded-full transition-[width] duration-500 ease-out', TONE_BAR[tone])} style={{ width: `${Math.max(value === null ? 0 : 4, Math.min(100, value ?? 0))}%` }} />
-      </span>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="t-card font-display font-bold text-text">To fix</span>
+      {items.map(({ key, count }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onOpen(key)}
+          className="inline-flex min-h-9 items-center rounded-full border border-danger/30 bg-danger/10 px-3 t-meta font-display font-bold tabular-nums text-danger outline-none transition-colors duration-150 hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40 active:scale-[0.98] pointer-coarse:min-h-11"
+        >
+          {FIX_TEXT[key](count)}
+        </button>
+      ))}
     </div>
   );
 };
@@ -55,10 +70,11 @@ interface SimpleScoresViewProps {
   isUpdating: boolean;
   emptyText: string;
   onOpenModule: (key: ModuleKey) => void;
+  dayStrip?: ReactNode;
 }
 
 export const SimpleScoresView = ({
-  heading, rangeLabel, period, onPeriodChange, offset, onStep, data, previous, loading, isError, onRetry, isUpdating, emptyText, onOpenModule,
+  heading, rangeLabel, period, onPeriodChange, offset, onStep, data, previous, loading, isError, onRetry, isUpdating, emptyText, onOpenModule, dayStrip,
 }: SimpleScoresViewProps) => {
   const facts = heroFacts(data);
   const before = heroFacts(previous).overall;
@@ -118,6 +134,7 @@ export const SimpleScoresView = ({
       ) : (
         <div className="flex flex-col gap-3">
           <ScoreHero facts={facts} loading={loading} changePts={changePts} />
+          {data && <FixLine data={data} onOpen={onOpenModule} />}
 
           <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-stretch @lg:gap-3">
             {MODULES.map(({ key, icon: Icon, tile }, index) => {
@@ -155,16 +172,25 @@ export const SimpleScoresView = ({
                     )}
                     <ChevronRight className="size-4 shrink-0 text-text-light transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
                   </div>
-                  {has && n && (
-                    <div className="flex flex-col gap-2">
-                      <MeasureBar label={SCORE_LABEL.completion} value={n.completion} />
-                      <MeasureBar label={complianceLabel(key)} value={n.compliance} />
-                    </div>
-                  )}
+                  {has && data && (() => {
+                    const c = moduleCounts(data, key);
+                    return (
+                      <p className="t-meta font-medium tabular-nums text-text-muted">
+                        {c.done} done{c.late > 0 ? `, ${c.late} late` : ''}{c.notDone > 0 ? `, ${c.notDone} ${COUNT_WORD[key]}` : ''}
+                      </p>
+                    );
+                  })()}
                 </button>
               );
             })}
           </div>
+
+          {dayStrip && (
+            <div className="flex flex-col gap-2">
+              <h3 className="t-card font-display font-bold text-text">Day by day</h3>
+              {dayStrip}
+            </div>
+          )}
         </div>
       )}
     </section>

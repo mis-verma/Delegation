@@ -30,7 +30,7 @@ import { scoreExplorerQuery } from '../scores/useScoreExplorer';
 import { capWindowAtToday } from '../scores/useScoreWindow';
 import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, acrossModules, isMetric, moduleExportCells, moduleOverall, numbersFor, overallOf, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { orgDayWindow } from './scoreDrill';
-import { ScoreTrend } from './ScoreTrend';
+import { DayStrip } from './DayStrip';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 import { formatPct, roundPct } from '../../lib/percent';
@@ -416,6 +416,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           isUpdating={query.isPlaceholderData}
           emptyText={`Nothing was due ${simpleWindow}`}
           onOpenModule={openDrill}
+          dayStrip={<DayStrip scope={scope} id={targetId} period="day" from={asked.from} to={asked.to} />}
         />
         {drillPopup}
       </>
@@ -587,7 +588,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
           </div>
         ) : activeView === 'trend' ? (
-          <ScoreTrend metric={metric} scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
+          <DayStrip scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
         ) : query.isError && !data ? (
           <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
         ) : (
