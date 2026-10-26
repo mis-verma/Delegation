@@ -1,7 +1,7 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { ImageLightbox } from '../../../components';
+import { ImageLightbox, ThumbImage } from '../../../components';
 import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { formatTimeOnly } from '../checklistDisplay';
 import type { CaptureMethod } from '../../../api/ticket';
@@ -20,12 +20,19 @@ interface EvidenceThumbProps {
   fallbackAlt?: string;
   onDelete?:    (imageId: string) => void;
   deleting?:    boolean;
+  siblings?:    EvidenceImage[];
+  large?:       boolean;
 }
 
-export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 'Evidence', onDelete, deleting }: EvidenceThumbProps) {
-  const [open, setOpen] = useState(false);
-  const closeLightbox = useCallback(() => setOpen(false), []);
+export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 'Evidence', onDelete, deleting, siblings, large = false }: EvidenceThumbProps) {
   const src = `${UPLOADS_BASE}${image.url}`;
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState(src);
+  const closeLightbox = useCallback(() => setOpen(false), []);
+  const gallery = useMemo(
+    () => (siblings ?? [image]).filter((i) => !i.mimeType.startsWith('video/')).map((i) => `${UPLOADS_BASE}${i.url}`),
+    [siblings, image],
+  );
   const isVideo = image.mimeType.startsWith('video/');
   const alt = image.originalFilename ?? fallbackAlt;
 
@@ -44,16 +51,15 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => { setCurrent(src); setOpen(true); }}
           aria-label={`View ${alt} larger`}
           className="block rounded-lg outline-none cursor-zoom-in focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          <img
+          <ThumbImage
             src={src}
             alt={alt}
-            loading="lazy"
-            decoding="async"
-            className="size-16 object-cover rounded-lg border border-border bg-surface-hover"
+            width={large ? 320 : 160}
+            className={`object-cover rounded-lg border border-border bg-surface-hover ${large ? 'size-24 sm:size-28' : 'size-16'}`}
           />
         </button>
       )}
@@ -81,7 +87,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
         </button>
       )}
 
-      {open && !isVideo && createPortal(<ImageLightbox src={src} onClose={closeLightbox} />, document.body)}
+      {open && !isVideo && createPortal(<ImageLightbox src={current} images={gallery} onChange={setCurrent} onClose={closeLightbox} />, document.body)}
     </div>
   );
 });

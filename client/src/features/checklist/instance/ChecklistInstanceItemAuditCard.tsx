@@ -402,6 +402,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
                 <li key={img.id} className="flex justify-center">
                   <EvidenceThumb
                     image={img}
+                    siblings={images}
                     fallbackAlt={`Photo of ${name}`}
                     onDelete={editable ? deleteImage.mutate : undefined}
                     deleting={deleteImage.isPending}

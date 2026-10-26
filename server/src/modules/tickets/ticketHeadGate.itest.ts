@@ -133,9 +133,24 @@ describe("ticket raised to a department user", () => {
         expect(res.body.message ?? res.body.error).toMatch(/not in the selected department/i)
     })
 
-    it("asks no one when the PC raises it, and allows the mismatch", async () => {
-        const res = await raise("pc", { assigneeId: people.workerB!.id, departmentId: departmentIds.c })
-        expect(res.body.data.awaitingHeadApproval).toBe(false)
+    it("asks the head even when the PC or an admin raises it", async () => {
+        const res = await raise("pc", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        expect(res.body.data.awaitingHeadApproval).toBe(true)
+        expect((await start("workerB", res.body.data.id as string)).status).toBe(403)
+        const approved = await as("headB", request(app).post(`/tickets/${res.body.data.id as string}/approve-assignment`))
+        expect(approved.status).toBe(200)
+        expect((await start("workerB", res.body.data.id as string)).status).toBe(200)
+    })
+
+    it("lets the PC approve on the head's behalf", async () => {
+        const res = await raise("headA", { assigneeId: people.workerB!.id })
+        const approved = await as("pc", request(app).post(`/tickets/${res.body.data.id as string}/approve-assignment`))
+        expect(approved.status).toBe(200)
+        expect(approved.body.data.awaitingHeadApproval).toBe(false)
+    })
+
+    it("refuses a mismatched department even from the PC", async () => {
+        await raise("pc", { assigneeId: people.workerB!.id, departmentId: departmentIds.c }, 400)
     })
 
     it("asks no one when a head raises it inside their own department", async () => {

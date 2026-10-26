@@ -1,5 +1,5 @@
-const MAX_EDGE = 1600;
-const QUALITY = 0.82;
+const MAX_EDGE = 2400;
+const QUALITY = 0.88;
 const SKIP_BELOW_BYTES = 400 * 1024;
 
 const isStillImage = (file: File) =>

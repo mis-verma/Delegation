@@ -110,6 +110,8 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
             <EvidenceThumb
               key={img.id}
               image={img}
+              siblings={images}
+              large={!(interactive && !item.isDone)}
               onDelete={interactive && !item.isDone ? deleteImage.mutate : undefined}
               deleting={deleteImage.isPending}
             />

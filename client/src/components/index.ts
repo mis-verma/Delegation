@@ -9,6 +9,7 @@ export { Input }           from './input';
 export { Textarea }        from './textarea';
 export { Switch }          from './switch';
 export { ImageLightbox }   from './imageLightbox';
+export { ThumbImage, withWidth } from './thumbImage';
 export { ModernHeroTitle } from './animate';
 export { Breadcrumbs }     from './breadcrumbs';
 export { ActivityTimeline, ActivityFeed, FullChangeLog } from './activityTimeline';

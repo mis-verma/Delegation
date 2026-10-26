@@ -119,6 +119,11 @@ export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTi
                     </span>
                   )}
                 </span>
+                {item.conditionalReasonValue && (
+                  <span className="t-meta font-display text-text-secondary leading-snug line-clamp-3 break-words">
+                    <span className="font-semibold text-text-muted">Reason: </span>{item.conditionalReasonValue}
+                  </span>
+                )}
                 {(onSendBackItem || canRaiseTicket || item.reviewTicketId) && (
                   <span className="flex flex-wrap items-center gap-1.5 pt-1.5">
                     {onSendBackItem && !item.isNotApplicable && (

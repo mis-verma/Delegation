@@ -1,7 +1,9 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, CornerUpLeft, Layers, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, CornerUpLeft, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NoticeBanner } from '../../../components';
+import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
+import { itemFlags, photoBreakdown } from './reviewFlags';
+import { hasItemReason, orderedItemReasons, toggleItemReason } from './sendBackNote';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
 import { ChecklistInstanceItemNumberEntryCard } from './ChecklistInstanceItemNumberEntryCard';
@@ -21,6 +23,8 @@ import { RaiseTicketAction } from './RaiseTicketAction';
 import { WaiveAction } from './WaiveAction';
 import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
+
+const QUESTION_NOTE_MAX = 200;
 
 type ItemCardContext = { instanceId: string; canWork: boolean; isLocked: boolean; currentUserId?: string };
 
@@ -100,6 +104,10 @@ export const DetailItemRow = memo(({
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
   const waived = waiveNotice(item);
+  const flags = itemFlags(item);
+  const photos = photoBreakdown(item);
+  const showPhotoRule = item.requiredImageCount > 0 && !item.isNotApplicable && (!canEdit || item.isDone);
+  const suggestedReasons = [...(flags.notLive ? ['Not live'] : []), ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []), ...(flags.bad ? ['Answer not matching'] : [])];
   return (
     <>
       {showHeader && (
@@ -134,15 +142,34 @@ export const DetailItemRow = memo(({
           </div>
         )}
         {selecting && picked && onNoteChange && (
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
+            {orderedItemReasons(suggestedReasons).map((option) => (
+              <ToggleChip key={option} on={hasItemReason(note, option)} onClick={() => onNoteChange(item.id, toggleItemReason(note, option, QUESTION_NOTE_MAX))}>
+                {option}
+              </ToggleChip>
+            ))}
+          </div>
+        )}
+        {selecting && picked && onNoteChange && (
           <input
             type="text"
             value={note}
-            maxLength={200}
+            maxLength={QUESTION_NOTE_MAX}
             onChange={(e) => onNoteChange(item.id, e.target.value)}
             placeholder="Note for this question (optional)"
             aria-label={`Note for: ${item.label}`}
             className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
           />
+        )}
+        {showPhotoRule && (
+          <p className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 t-meta font-display font-medium', flags.missingPhotos ? 'text-danger' : 'text-text-muted')}>
+            <Camera className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Needs {item.requiredImageCount} {item.requiresLivePhoto ? 'live ' : ''}{item.requiredImageCount === 1 ? 'photo' : 'photos'}.
+              {' '}Has {photos.live} live{photos.gallery > 0 ? `, ${photos.gallery} from gallery` : ''}.
+            </span>
+            {flags.notLive && <IconChip icon={Camera} tone="bg-warning" label="Not live" title="This question needs live camera photos, but some were picked from the gallery" />}
+          </p>
         )}
         {reason && (
           <NoticeBanner tone="warning" icon={AlertTriangle} className="items-center p-2.5 px-3.5 font-medium">

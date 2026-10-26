@@ -1,8 +1,7 @@
 import { CheckCircle2, Circle, AlertTriangle, ImageOff, Flag } from 'lucide-react';
 import { Skeleton } from '../../components';
 import { summarizeChecklists, type PreviewItem, type PreviewChecklist } from './checklistSummary';
-
-const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
+import { PhotoThumbs } from './PhotoThumbs';
 
 const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewItem) => void }) => {
   const missingRequiredPhotos = item.requiredImageCount > 0 && item.images.length < item.requiredImageCount;
@@ -38,22 +37,7 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
         )}
       </div>
 
-      {item.images.length > 0 && (
-        <div className="flex items-center gap-1.5 pl-6 flex-wrap">
-          {item.images.map((img) => (
-            <a
-              key={img.id}
-              href={`${UPLOADS_BASE}${img.url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block size-12 rounded-md overflow-hidden border border-border/60 shrink-0 hover:border-primary-400 transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img src={`${UPLOADS_BASE}${img.url}`} alt="" className="size-full object-cover" />
-            </a>
-          ))}
-        </div>
-      )}
+      {item.images.length > 0 && <PhotoThumbs files={item.images} className="pl-6" />}
     </li>
   );
 };

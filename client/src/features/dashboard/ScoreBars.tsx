@@ -1,4 +1,4 @@
-import { memo, useId, useMemo, type CSSProperties, type ReactElement } from 'react';
+import { memo, useId, useMemo, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
@@ -71,6 +71,8 @@ interface ScoreBarsProps {
   previous?: Scores | undefined;
   onOpenModule?: (module: ModuleKey) => void;
   emptyText?: string;
+  emptyHint?: string;
+  emptyAction?: ReactNode;
 }
 
 const delta = (now: number | null, before: number | null) => (now === null || before === null ? null : now - before);
@@ -143,7 +145,7 @@ const X_AXIS_HEIGHT = 30;
 const Y_AXIS_WIDTH = 44;
 const BAR_GAP = 6;
 
-export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous, onOpenModule, emptyText = 'Nothing due yet' }: ScoreBarsProps) => {
+export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous, onOpenModule, emptyText = 'Nothing due yet', emptyHint, emptyAction }: ScoreBarsProps) => {
   const isMobile = useIsMobile();
   const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
@@ -177,7 +179,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
     <div className="flex flex-col gap-3">
       {!allEmpty && <SeriesLegend series={series} labels={SERIES_LABEL} />}
 
-      <div className={`relative ${allEmpty ? 'flex min-h-24 lg:min-h-64 items-center' : 'h-56 sm:h-64'} w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
+      <div className={`relative ${allEmpty ? 'flex min-h-24 lg:min-h-64 items-center' : 'h-56 sm:h-64'} w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role={allEmpty ? undefined : 'img'} aria-label={allEmpty ? undefined : summary || 'Loading scores'}>
         {loading && !scores ? (
           <div
             className="absolute inset-0 flex"
@@ -193,7 +195,11 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
             ))}
           </div>
         ) : allEmpty ? (
-          <div className="h-24 w-full rounded-xl bg-surface-hover/50 lg:h-64" />
+          <div role="status" className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-border/60 bg-surface-hover/50 px-4 py-6 text-center lg:min-h-64">
+            <p className="t-card font-display font-bold text-text">{emptyText}</p>
+            {emptyHint && <p className="max-w-md t-meta font-medium text-text-muted">{emptyHint}</p>}
+            {emptyAction}
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: CHART_TOP, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '16%'} barGap={BAR_GAP}>

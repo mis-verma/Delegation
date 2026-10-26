@@ -43,16 +43,23 @@ export const activeDepartmentHeadIds = async (departmentId: string | null, exclu
 export const resolveGateDepartment = async (
   departmentId: string | null,
   assigneeId: string | null,
-  actor: Actor,
+  strict = true,
 ): Promise<string | null> => {
   if (!assigneeId) return departmentId
   const [person] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, assigneeId)).limit(1)
   const personDepartmentId = person?.departmentId ?? null
   if (!departmentId) return personDepartmentId
-  if (personDepartmentId && personDepartmentId !== departmentId && !isAdminOrPc(actor.role)) {
+  if (strict && personDepartmentId && personDepartmentId !== departmentId) {
     throw AppError.badRequest("That person is not in the selected department. Pick the department they belong to so its head can approve.")
   }
   return departmentId
+}
+
+export const ticketNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId">, actor: Actor): Promise<boolean> => {
+  if (!ticket.departmentId) return false
+  if (isDepartmentHead(actor, ticket)) return false
+  const heads = await activeDepartmentHeadIds(ticket.departmentId, [actor.sub])
+  return heads.length > 0
 }
 
 export const assignmentNeedsHeadApproval = async (ticket: Pick<StageTicket, "departmentId">, actor: Actor): Promise<boolean> => {

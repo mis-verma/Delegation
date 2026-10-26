@@ -1,5 +1,5 @@
 import { Paperclip, Loader2, X, Download } from 'lucide-react';
-import { useConfirm } from '../../components';
+import { ThumbImage, useConfirm } from '../../components';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { useUploadTaskAttachmentsMutation, useDeleteTaskAttachmentMutation } from './hook';
 import { AttachFilesToolbar } from './AttachFilesToolbar';
@@ -59,7 +59,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
                   className="size-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   aria-label={`Open photo ${a.originalFilename ?? ''}`.trim()}
                 >
-                  <img src={url} alt={a.originalFilename ?? 'Delegation photo'} loading="lazy" className="size-full object-cover" />
+                  <ThumbImage src={url} alt={a.originalFilename ?? 'Delegation photo'} className="size-full object-cover" />
                 </button>
                 {canRemove && (
                   <button

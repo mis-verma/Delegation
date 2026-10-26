@@ -125,7 +125,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   };
 
   const waitingOnFollowUp = pendingAnswer !== null && !readyToSave;
-  const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto));
+  const savedReason = pendingAnswer === null && item.isDone ? item.conditionalReasonValue : null;
+  const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto)) || !!savedReason;
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
   const flagged = item.isDone && isFlaggedAnswer(item);
 
@@ -202,7 +203,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             {saving && <li><IconChip icon={false} label="Saving" /></li>}
           </ul>
 
-          {needsReason && (
+          {(needsReason || !!savedReason) && (
             pendingAnswer ? (
               <Textarea
                 id={reasonId}
@@ -215,7 +216,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
                 className="min-h-0 px-3 py-2 rounded-lg"
               />
             ) : (
-              <p className="t-meta font-display italic text-text">"{item.conditionalReasonValue}"</p>
+              <p className="t-meta font-display italic text-text"><span className="not-italic font-semibold text-text-muted">Reason: </span>"{item.conditionalReasonValue}"</p>
             )
           )}
 
@@ -224,7 +225,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               {images.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {images.map((img) => (
-                    <EvidenceThumb key={img.id} image={img} onDelete={pendingAnswer ? deleteImage.mutate : undefined} deleting={deleteImage.isPending} />
+                    <EvidenceThumb key={img.id} image={img} siblings={images} large={!pendingAnswer} onDelete={pendingAnswer ? deleteImage.mutate : undefined} deleting={deleteImage.isPending} />
                   ))}
                 </div>
               )}

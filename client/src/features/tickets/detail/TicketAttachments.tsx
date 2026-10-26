@@ -4,6 +4,7 @@ import { needsDesktopCamera } from '../../checklist/instance/cameraSupport';
 import { useLiveOnlyAttachments } from '../../../lib/useLiveOnlyAttachments';
 import { Camera, ImagePlus, Loader2, Plus, X } from 'lucide-react';
 import { useConfirm } from '@/components/confirmDialog';
+import { ThumbImage } from '@/components/thumbImage';
 import { useUploadTicketAttachmentsMutation, useDeleteTicketAttachmentMutation } from '../hook';
 import { UPLOADS_BASE, DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from './detailConstants';
 import type { TicketAttachment } from '../../../api/ticket';
@@ -87,7 +88,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
                   className="size-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   aria-label={`Open photo ${a.originalFilename ?? ''}`.trim()}
                 >
-                  <img src={url} alt={a.originalFilename ?? 'Ticket photo'} loading="lazy" className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
+                  <ThumbImage src={url} alt={a.originalFilename ?? 'Ticket photo'} className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
                 </button>
                 {a.captureMethod === 'LIVE' && (
                   <span className="pointer-events-none absolute bottom-1 left-1 flex size-5 items-center justify-center rounded-md bg-black/55 text-white" title="Taken with the camera">

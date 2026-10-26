@@ -19,7 +19,7 @@ import { emitTicketEvent } from "../../sockets/ticketEvent.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
-import { assignmentNeedsHeadApproval, canApproveAssignment, isDepartmentHead, resolveGateDepartment } from "./ticketApproval.js"
+import { canApproveAssignment, isDepartmentHead, resolveGateDepartment, ticketNeedsHeadApproval } from "./ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/roles.js"
 import { type TicketRow, NOT_DELETED, deriveTatDueAt, overdueAtHandOver } from "./ticketShared.js"
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
@@ -123,13 +123,14 @@ export const ticketService = {
     return ticket;
   },
 
-  async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void> }) {
+  async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void>; skipHeadGate?: boolean }) {
     assertCanSetReviewers(input.reviewerIds, user)
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
-    const departmentId = await resolveGateDepartment(input.departmentId ?? null, input.assigneeId ?? null, user)
-    const needsHead = await assignmentNeedsHeadApproval({ departmentId }, user)
+    const gated = !hooks?.skipHeadGate
+    const departmentId = await resolveGateDepartment(input.departmentId ?? null, input.assigneeId ?? null, gated)
+    const needsHead = gated && await ticketNeedsHeadApproval({ departmentId }, user)
     await db.transaction(async (tx) => {
       await tx.insert(tickets).values({
         id,
@@ -262,13 +263,13 @@ export const ticketService = {
     const nextAssigneeId = input.assigneeId !== undefined ? input.assigneeId : before.assigneeId
     const followsAssignee = input.assigneeId !== undefined && input.departmentId === undefined && !!nextAssigneeId
     const requestedDepartmentId = followsAssignee ? null : patch.departmentId !== undefined ? patch.departmentId : before.departmentId
-    const resolvedDepartmentId = touchesPlacement ? await resolveGateDepartment(requestedDepartmentId, nextAssigneeId, user) : requestedDepartmentId
+    const resolvedDepartmentId = touchesPlacement ? await resolveGateDepartment(requestedDepartmentId, nextAssigneeId) : requestedDepartmentId
     const nextDepartmentId = resolvedDepartmentId ?? before.departmentId
     if (touchesPlacement && nextDepartmentId !== before.departmentId) patch.departmentId = nextDepartmentId
     const reassigned = (input.assigneeId !== undefined && input.assigneeId !== before.assigneeId) || (input.departmentId !== undefined && input.departmentId !== before.departmentId)
     let nowAwaitingHead = false
     if (reassigned && ["OPEN", "IN_PROGRESS", "ON_HOLD"].includes(before.status) && !before.declinedAt) {
-      nowAwaitingHead = await assignmentNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
+      nowAwaitingHead = await ticketNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
       patch.awaitingHeadApproval = nowAwaitingHead
       patch.headReminderSentAt = null
       patch.headEscalatedAt = null

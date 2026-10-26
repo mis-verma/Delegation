@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
-import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, ShieldCheck, Timer } from 'lucide-react';
-import { IconChip } from '../../../components';
+import { AlertTriangle, Ban, Camera, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, ShieldCheck, Timer } from 'lucide-react';
+import { IconChip, ToggleChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { answerVerdict, runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
@@ -8,7 +8,8 @@ import { EvidenceThumb } from './EvidenceThumb';
 import { WaiveAction } from './WaiveAction';
 import { RaiseTicketAction } from './RaiseTicketAction';
 import { useChecklistItemHistoryQuery } from '../hook';
-import { generalPhotoCount, itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
+import { itemFlags, needsLookRank, photoBreakdown, type ItemFlags } from './reviewFlags';
+import { hasItemReason, orderedItemReasons, toggleItemReason } from './sendBackNote';
 import { answerText } from './answerText';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
 
@@ -54,7 +55,7 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
                 )}
                 {sub.images.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {sub.images.map((img) => <EvidenceThumb key={img.id} image={img} fallbackAlt={`Evidence for ${personName(sub)}`} />)}
+                    {sub.images.map((img) => <EvidenceThumb key={img.id} image={img} siblings={sub.images} large fallbackAlt={`Evidence for ${personName(sub)}`} />)}
                   </div>
                 )}
               </li>
@@ -153,7 +154,8 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
               )}
               {flags.fixed && <IconChip icon={CheckCheck} tone="bg-success" label="Fixed after send-back" />}
               {flags.waived && <IconChip icon={ShieldCheck} tone="bg-primary-600" label="Waived" title={item.waiveReason ?? 'Excused by a reviewer'} />}
-              {flags.missingPhotos && <IconChip icon={AlertTriangle} tone="bg-danger" label={`Photos ${generalPhotoCount(item)}/${item.requiredImageCount}`} />}
+              {flags.missingPhotos && <IconChip icon={AlertTriangle} tone="bg-danger" label={`Photos ${photoBreakdown(item).qualifying}/${item.requiredImageCount}`} />}
+              {flags.notLive && <IconChip icon={Camera} tone="bg-warning" label="Not live" title="This question needs live camera photos, but some were picked from the gallery" />}
             </div>
           </div>
 
@@ -165,6 +167,11 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
           )}
           <p className="t-meta font-display text-text-muted">{meta}</p>
 
+          {item.conditionalReasonValue && (
+            <p className="t-meta font-display text-text whitespace-pre-wrap break-words rounded-lg border border-border/60 bg-surface-hover/40 px-2.5 py-1.5">
+              <span className="font-semibold text-text-muted">Reason given: </span>{item.conditionalReasonValue}
+            </p>
+          )}
           {item.remarks && (
             <p className="t-meta font-display text-text-secondary whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
               {item.isNotApplicable ? 'Reason' : 'Remark'}: {item.remarks}
@@ -180,9 +187,18 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
               You sent it back with: {previousNote}
             </p>
           )}
+          {item.requiredImageCount > 0 && !item.isNotApplicable && (
+            <p className={cn('flex flex-wrap items-center gap-x-1.5 t-meta font-display font-medium', flags.missingPhotos ? 'text-danger' : 'text-text-muted')}>
+              <Camera className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Needs {item.requiredImageCount} {item.requiresLivePhoto ? 'live ' : ''}{item.requiredImageCount === 1 ? 'photo' : 'photos'}.
+                {' '}Has {photoBreakdown(item).live} live{photoBreakdown(item).gallery > 0 ? `, ${photoBreakdown(item).gallery} from gallery` : ''}.
+              </span>
+            </p>
+          )}
           {item.images.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {item.images.map(img => <EvidenceThumb key={img.id} image={img} fallbackAlt={`Evidence for ${item.label}`} />)}
+              {item.images.map(img => <EvidenceThumb key={img.id} image={img} siblings={item.images} large fallbackAlt={`Evidence for ${item.label}`} />)}
             </div>
           )}
           {item.itemType === 'AUDIT' && <AuditPeople item={item} />}
@@ -229,6 +245,15 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flag
         )}
       </div>
 
+      {selected && onNoteChange && (
+        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
+          {orderedItemReasons([...(flags.notLive ? ['Not live'] : []), ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []), ...(flags.bad ? ['Answer not matching'] : [])]).map((reason) => (
+            <ToggleChip key={reason} on={hasItemReason(note, reason)} disabled={disabled} onClick={() => onNoteChange(item.id, toggleItemReason(note, reason, QUESTION_NOTE_MAX))}>
+              {reason}
+            </ToggleChip>
+          ))}
+        </div>
+      )}
       {selected && onNoteChange && (
         <input
           type="text"

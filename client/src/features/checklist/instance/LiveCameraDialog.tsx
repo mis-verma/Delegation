@@ -31,7 +31,7 @@ export const LiveCameraDialog = ({ open, onClose, onCapture }: LiveCameraDialogP
     if (!open) return undefined;
     let cancelled = false;
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false })
       .then((stream) => {
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
@@ -70,7 +70,7 @@ export const LiveCameraDialog = ({ open, onClose, onCapture }: LiveCameraDialogP
         onClose();
       },
       'image/jpeg',
-      0.9,
+      0.94,
     );
   };
 

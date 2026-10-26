@@ -179,7 +179,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const canExportReport = orgWide || isHod;
   const canExport = scoreRules.canExport;
 
-  const [scope, setScope] = useState<ScoreScope>(() => (initialScope === 'org' && !orgWide ? 'person' : initialScope));
+  const [scope, setScope] = useState<ScoreScope>(() => {
+    if (initialScope === 'org' && !orgWide) return 'person';
+    if (initialScope === 'person' && isHod && !pageWindow) return 'department';
+    return initialScope;
+  });
   const prefsId = `${user?.id ?? 'anon'}${initialScope === 'org' ? '-admin' : ''}`;
   const initialPrefs = useMemo(() => loadPrefs(prefsId), [prefsId]);
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
@@ -214,7 +218,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     return () => observer.disconnect();
   }, []);
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
-  const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
+  const openRanked = (id: string) => {
+    if (isHod && scope === 'department') setScope('person');
+    else if (scope === 'org') setScope('department');
+    setPicked(id);
+    setMoreOpen(false);
+  };
   const activeView: ScoreView = glance || simple ? 'bars' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
@@ -600,7 +609,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 metric={metric}
                 previous={previous}
                 onOpenModule={openDrill}
-                emptyText={glance ? 'Nothing due yet this month' : 'Nothing was due in this window'}
+                emptyText={glance ? 'Nothing due yet this month' : pageWindow ? 'Nothing was due in this window' : `Nothing was due ${period === 'day' && offset === 0 ? 'today' : range.label}`}
+                emptyHint={glance || pageWindow ? undefined : isHod ? 'Nothing from your team came due in this window. A longer period shows more.' : 'Nothing came due in this window. A longer period shows more.'}
+                emptyAction={!glance && !pageWindow && period === 'day' ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('week'); setOffset(0); }}>This week</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('month'); setOffset(0); }}>This month</Button>
+                  </div>
+                ) : undefined}
               />
             ) : (
               <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
@@ -644,7 +660,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             <ListOrdered className="size-4 text-text-light" aria-hidden="true" />
             Ranking
           </h3>
-          <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={openRanked} />
+          <ScoreRanking metric={metric} scope={isHod && scope === 'department' ? 'person' : scope} from={range.from} to={range.to} onOpen={openRanked} />
         </section>
       )}
       {drillPopup}

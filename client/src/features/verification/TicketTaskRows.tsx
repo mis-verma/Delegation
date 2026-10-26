@@ -1,10 +1,10 @@
 import { memo, useState, type ReactNode } from 'react';
 import { TicketForm } from '../tickets/TicketForm';
-import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, Film, UserRound } from 'lucide-react';
+import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, UserRound } from 'lucide-react';
 import { Button, IconChip, PriorityChip, DepartmentChip } from '../../components';
 import { SendBackForm } from '../checklist/instance/ReviewActions';
 import { cn } from '@/lib/utils';
-import { UPLOADS_BASE } from '../../lib/uploadsBase';
+import { PhotoThumbs } from './PhotoThumbs';
 import { useTaskQuery } from '../tasks/hook';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
@@ -46,34 +46,9 @@ const waitingLook = (sinceMs: number, now: number) => {
   return { tone: 'bg-text-muted', text: undefined, suffix: '' };
 };
 
-const MAX_THUMBS = 3;
+const MAX_THUMBS = 4;
 
-const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
-  if (files.length === 0) return null;
-  const shown = files.slice(0, MAX_THUMBS);
-  const extra = files.length - shown.length;
-  return (
-    <div className="flex items-center gap-2 flex-wrap" aria-label={`${files.length} ${files.length === 1 ? 'file' : 'files'} attached`}>
-      {shown.map((file) => {
-        const src = `${UPLOADS_BASE}${file.url}`;
-        const isImage = file.mimeType.startsWith('image/');
-        return (
-          <a
-            key={file.id}
-            href={src}
-            target="_blank"
-            rel="noreferrer"
-            title={file.name ?? 'Open attachment'}
-            className="flex items-center justify-center size-14 rounded-lg overflow-hidden border border-border/70 bg-surface-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            {isImage ? <img src={src} alt={file.name ?? 'Attachment'} loading="lazy" className="size-full object-cover" /> : <Film size={20} className="text-text-muted" aria-hidden />}
-          </a>
-        );
-      })}
-      {extra > 0 && <span className="t-meta font-display font-semibold text-text-muted tabular-nums">+{extra} more</span>}
-    </div>
-  );
-};
+const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => (files.length === 0 ? null : <PhotoThumbs files={files} label="Attachment" max={MAX_THUMBS} />);
 
 interface QueueRowProps {
   raiseTicketFrom?: string;

@@ -57,6 +57,7 @@ import helmet from "helmet"
 import compression from "compression"
 import type { Store } from "express-rate-limit"
 import { verifyUploadSignature, signUploadPathsDeep } from "./utils/signedUpload.js"
+import { serveImageVariant } from "./utils/imageVariants.js"
 
 const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
 
@@ -105,7 +106,7 @@ class App {
                 return
             }
             next()
-        }, express.static(path.resolve('uploads')))
+        }, serveImageVariant, express.static(path.resolve('uploads')))
 
         this.app.use((_req: Request, res: Response, next) => {
             const originalJson = res.json.bind(res)

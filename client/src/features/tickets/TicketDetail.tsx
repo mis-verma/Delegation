@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
   useStoresQuery,
@@ -113,6 +114,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     : raisedByUser ? `${raisedByUser.firstName} ${raisedByUser.lastName ?? ''}`.trim() : null;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const previewGallery = useMemo(() => {
+    const urls = ticket.attachments.filter((a) => a.mimeType.startsWith('image/')).map((a) => `${UPLOADS_BASE}${a.url}`);
+    return previewImage && urls.includes(previewImage) ? urls : undefined;
+  }, [ticket.attachments, previewImage]);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
@@ -521,7 +526,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           )
         )}
 
-        <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
+        <ImageLightbox src={previewImage} images={previewGallery} onChange={setPreviewImage} onClose={() => setPreviewImage(null)} />
 
         <TicketActivitySheet ticketId={ticket.id} open={activityOpen} onOpenChange={setActivityOpen} />
 

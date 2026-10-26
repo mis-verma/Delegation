@@ -285,7 +285,7 @@ export const ticketBulkImportService = {
                     tatHours: row.tatHours,
                     tagIds: row.tagIds,
                 }
-                await ticketService.create(input, actor)
+                await ticketService.create(input, actor, { skipHeadGate: true })
                 created++
             } catch (err) {
                 failed.push({ rowIndex: row.rowIndex, message: err instanceof AppError ? err.message : "Failed to create this ticket." })

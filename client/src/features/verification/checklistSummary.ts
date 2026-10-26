@@ -1,6 +1,8 @@
 export interface PreviewImage {
   id: string;
   url: string;
+  mimeType?: string;
+  captureMethod?: 'LIVE' | 'GALLERY';
 }
 
 export interface PreviewItem {

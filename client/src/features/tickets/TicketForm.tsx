@@ -339,9 +339,8 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   );
 
   const targetDepartmentId = departmentId || (selectedCategory ? (typeof selectedCategory.departmentId === 'object' ? selectedCategory.departmentId.id : String(selectedCategory.departmentId)) : '');
-  const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
   const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && user.departmentId === targetDepartmentId;
-  const needsHeadOk = !!targetDepartmentId && !isLeadership && !isTargetHead;
+  const needsHeadOk = !!targetDepartmentId && !isTargetHead;
   const targetDepartmentName = departments?.find((d) => d.id === targetDepartmentId)?.name;
 
   const dueError = errors.dueDate?.message ?? errors.dueTime?.message ?? errors.startDate?.message;

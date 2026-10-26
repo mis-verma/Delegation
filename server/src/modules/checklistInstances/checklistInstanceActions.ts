@@ -317,6 +317,7 @@ export const raiseTicket = async (id: string, itemId: string, input: RaiseCheckl
         departmentId: person.departmentId ?? undefined,
         tatHours: input.tatHours,
     }, user, {
+        skipHeadGate: true,
         inTransaction: async (tx, ticketId) => {
             const [linked] = await tx.update(checklistInstanceItems).set({
                 reviewTicketId: ticketId,
