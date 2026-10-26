@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { toDayParam } from '../../../api/checklistInstances';
 import type { ExplorerView } from '../../../api/scores';
+import { useAuth } from '../../../context/AuthContext';
 import { useOrgToday } from '../../checklist/useOrgToday';
 import { capWindowAtToday, windowLabel } from '../../scores/useScoreWindow';
 import { useScoreExplorer } from '../../scores/useScoreExplorer';
+import { teamScoreView } from '../../scores/teamScoreView';
 
 export const useOverviewScoreWindow = (windowFrom?: string, windowTo?: string) => {
   const today = useOrgToday();
@@ -20,8 +22,10 @@ interface OverviewScoresOptions {
   enabled?: boolean;
 }
 
-export const useOverviewScores = (windowFrom?: string, windowTo?: string, { view = 'department', storeId, enabled = true }: OverviewScoresOptions = {}) => {
+export const useOverviewScores = (windowFrom?: string, windowTo?: string, { view, storeId, enabled = true }: OverviewScoresOptions = {}) => {
+  const { user } = useAuth();
   const win = useOverviewScoreWindow(windowFrom, windowTo);
-  const query = useScoreExplorer(win ? { from: win.from, to: win.to, view, ...(storeId ? { storeId } : {}) } : null, enabled);
+  const resolvedView = view ?? teamScoreView(user?.role);
+  const query = useScoreExplorer(win ? { from: win.from, to: win.to, view: resolvedView, ...(storeId ? { storeId } : {}) } : null, enabled);
   return { ...query, win, total: query.data?.total ?? null };
 };

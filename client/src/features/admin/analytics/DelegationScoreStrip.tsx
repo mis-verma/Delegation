@@ -3,9 +3,10 @@ import { useId } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertTriangle, Clock, ListChecks, Percent } from 'lucide-react';
 import { InlineError } from '../../../components';
+import { useAuth } from '../../../context/AuthContext';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
-import { delegationDrillHref } from '../../dashboard/scoreDrill';
+import { delegationDrillHref, type DrillSubject } from '../../dashboard/scoreDrill';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { SectionHeader } from '../../scores/SectionHeader';
 import { StatTile } from './AnalyticsSummaryStrip';
@@ -19,9 +20,11 @@ interface DelegationScoreStripProps {
   isOrgWideRole: boolean;
 }
 
-export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) => {
+export const DelegationScoreStrip = ({ from, to, isOrgWideRole }: DelegationScoreStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const subject: DrillSubject | null = isOrgWideRole ? { kind: 'org' } : user?.departmentId ? { kind: 'department', id: user.departmentId } : null;
   const scores = useOverviewScores(from, to);
   const totals = scores.total?.delegation ?? null;
   const dayFrom = scores.win?.from;
@@ -97,7 +100,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
               caption="Due in the period, not done. Waiting for approval is left out"
               lowerIsBetter
               valueTone={loading ? undefined : countTone(totals?.overdue ?? 0)}
-              onClick={dayFrom && dayTo ? () => navigate(delegationDrillHref({ kind: 'org' }, dayFrom, dayTo, 'notDone')) : undefined}
+              onClick={dayFrom && dayTo && subject ? () => navigate(delegationDrillHref(subject, dayFrom, dayTo, 'notDone')) : undefined}
             />
           </div>
         </div>

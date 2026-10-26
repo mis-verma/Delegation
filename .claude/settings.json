@@ -4,6 +4,7 @@
     "commands-ci-deployment@buildwithclaude": true,
     "genshijin@claude-community": true,
     "perxel-blocks@claude-community": true,
-    "caveman@claude-community": false
+    "caveman@claude-community": false,
+    "agents-design-experience@buildwithclaude": true
   }
 }

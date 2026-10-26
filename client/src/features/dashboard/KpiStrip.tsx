@@ -9,6 +9,10 @@ import { CountUp } from '../../components/countUp';
 import { IconChip, RadialGauge } from '../../components';
 import { useQuery } from '@tanstack/react-query';
 import type { Scores } from '../../api/scores';
+import { useAuth } from '../../context/AuthContext';
+import { useScoreExplorer } from '../scores/useScoreExplorer';
+import { explorerRowToScores } from '../scores/explorerAdapters';
+import { canUseScoreExplorer, teamScoreView } from '../scores/teamScoreView';
 import { windowFor } from './scorePeriods';
 import { scoreQuery } from './scoreQueries';
 import { moduleOverall } from './scoreMetrics';
@@ -166,15 +170,24 @@ const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue
 
 const SCORE_MODULE: Record<Exclude<ModuleKey, 'todo'>, ScoreModule> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist' };
 
-const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { value: number | null; label: string } => {
-  if (key === 'todo') return { value: view.total ? roundPct(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done' };
-  if (!s) return { value: null, label: 'Score' };
-  return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score' };
+interface GaugeScore {
+  value: number | null;
+  label: string;
+  owner: 'Team' | 'Your';
+}
+
+const scoreFor = (key: ModuleKey, personal: Scores | undefined, team: Scores | undefined, teamExpected: boolean, view: ModuleView): GaugeScore => {
+  if (key === 'todo') return { value: view.total ? roundPct(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done', owner: 'Your' };
+  const isTeam = view.scope === 'team' && teamExpected;
+  const owner = isTeam ? 'Team' : 'Your';
+  const s = isTeam ? team : personal;
+  if (!s) return { value: null, label: 'Score', owner };
+  return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score', owner };
 };
 
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 50 ? 'var(--color-primary-600)' : 'var(--color-danger)');
 
-const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string }; scopeTag?: string; index: number }) => {
+const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number }) => {
   const Icon = view.icon;
   if (view.isPending) {
     return (
@@ -254,11 +267,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
               <div role="img" aria-label={score.label === 'Done' ? 'No to-dos yet' : 'No score yet'} className="h-full min-h-24 rounded-xl bg-surface-hover/50" />
             ) : (
             <div className="flex flex-col items-center justify-center border-l border-border/60">
-              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
               <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
-                {score.label === 'Done' ? 'To-dos done' : 'Your score today'}
+                {score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`}
                 {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
               </span>
             </div>
@@ -274,11 +287,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
                 <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
               </button>
               {score.value !== null && (
-                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'}: ${formatPct(score.value)}`}>
-                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`}: ${formatPct(score.value)}`}>
+                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                     <span className="t-meta font-display font-extrabold tabular-nums text-text">{formatPct(score.value)}</span>
                   </RadialGauge>
-                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Your score'}</span>
+                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : `${score.owner} score`}</span>
                 </div>
               )}
             </div>
@@ -359,7 +372,14 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
   const orgToday = useOrgToday();
   const day = windowFor('day', 0, orgToday);
   const asked = capWindowAtToday(day.from, day.to, orgToday);
+  const { user } = useAuth();
   const todayScores = useQuery(scoreQuery('person', undefined, asked.from, asked.to));
+  const teamExpected = !simple && canUseScoreExplorer(user?.role);
+  const teamExplorer = useScoreExplorer(teamExpected ? { from: asked.from, to: asked.to, view: teamScoreView(user?.role) } : null);
+  const teamScores = useMemo(
+    () => (teamExplorer.data ? explorerRowToScores(teamExplorer.data.total, teamExplorer.data.scope.orgWide ? 'org' : 'department', { from: asked.from, to: asked.to }) : undefined),
+    [teamExplorer.data, asked.from, asked.to],
+  );
 
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
@@ -432,7 +452,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
             key={view.key}
             index={index}
             view={view}
-            score={scoreFor(view.key, todayScores.data, view)}
+            score={scoreFor(view.key, todayScores.data, teamScores, teamExpected, view)}
             scopeTag={simple ? undefined : SCOPE_TAG[view.scope]}
             onOpen={(kind) => setOpenDrill({ key: view.key, kind })}
           />

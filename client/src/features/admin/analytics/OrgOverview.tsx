@@ -61,10 +61,14 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
     );
   }
   if (role === 'SENIOR' && (!storeId || !departmentId)) {
-    const missing = !storeId && !departmentId ? 'store or department' : !storeId ? 'store' : 'department';
+    const text = !storeId && !departmentId
+      ? 'No store or department is assigned to your account, so there are no numbers to show yet. Ask an admin to set one.'
+      : !storeId
+        ? 'No store is assigned to your account, so the ticket and delegation charts are empty. Scores and checklists still show your department. Ask an admin to set a store.'
+        : 'No department is assigned to your account, so scores and checklists are empty. Ticket and delegation charts still show your store. Ask an admin to set a department.';
     return (
       <NoticeBanner tone="warning" icon={AlertTriangle}>
-        No {missing} is assigned to your account, so there are no numbers to show yet. Ask an admin to set one.
+        {text}
       </NoticeBanner>
     );
   }
@@ -73,7 +77,7 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
     <NoticeBanner tone="info" icon={Info}>
       {role === 'MANAGER'
         ? `You are seeing numbers for the ${department?.name} department only.`
-        : `You are seeing tickets and delegations for ${store?.name ?? 'your store'}, and checklists for the ${department?.name ?? 'your'} department.`}
+        : `Scores and checklists are for the ${department?.name ?? 'your'} department. Ticket and delegation charts are for ${store?.name ?? 'your store'}.`}
     </NoticeBanner>
   );
 });
