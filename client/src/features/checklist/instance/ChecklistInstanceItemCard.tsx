@@ -142,7 +142,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
                   onFiles={files => handleFiles(files, 'GALLERY')}
                 />
               )}
-              {uploadImages.isPending && <UploadingHint />}
+              {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
             </div>
 
             <ItemActionButton

@@ -144,6 +144,11 @@ export const checklistInstanceController = {
         res.json({ success: true, data: instance })
     }),
 
+    itemPrevious: asyncHandler(async (req: Request, res: Response) => {
+        const data = await checklistInstanceService.itemPrevious(routeParam(req, "id"), routeParam(req, "itemId"), req.user!)
+        res.json({ success: true, data })
+    }),
+
     itemHistory: asyncHandler(async (req: Request, res: Response) => {
         const data = await checklistInstanceService.itemHistory(routeParam(req, "id"), req.user!)
         res.json({ success: true, data })

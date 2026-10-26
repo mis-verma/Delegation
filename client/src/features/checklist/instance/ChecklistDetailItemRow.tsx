@@ -1,8 +1,10 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, Camera, CornerUpLeft, Layers, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, Copy, CornerUpLeft, History, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { itemFlags, photoBreakdown } from './reviewFlags';
+import { PreviousAnswerPanel } from './PreviousAnswerPanel';
+import { PhotoThumbs } from '../../verification/PhotoThumbs';
 import { hasItemReason, orderedItemReasons, toggleItemReason } from './sendBackNote';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
@@ -107,7 +109,13 @@ export const DetailItemRow = memo(({
   const flags = itemFlags(item);
   const photos = photoBreakdown(item);
   const showPhotoRule = item.requiredImageCount > 0 && !item.isNotApplicable && (!canEdit || item.isDone);
-  const suggestedReasons = [...(flags.notLive ? ['Not live'] : []), ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []), ...(flags.bad ? ['Answer not matching'] : [])];
+  const suggestedReasons = [
+    ...(flags.notLive ? ['Not live'] : []),
+    ...(flags.reusedPhoto ? ['Old photo'] : []),
+    ...(flags.oldPhoto ? ['Old photo'] : []),
+    ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []),
+    ...(flags.bad ? ['Answer not matching'] : []),
+  ];
   return (
     <>
       {showHeader && (
@@ -161,6 +169,15 @@ export const DetailItemRow = memo(({
             className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
           />
         )}
+        {item.referenceImageUrl && !item.isNotApplicable && (
+          <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5">
+            <PhotoThumbs files={[{ id: `reference-${item.id}`, url: item.referenceImageUrl, mimeType: 'image/jpeg', name: 'Example photo' }]} label="Example photo" />
+            <p className="t-meta font-display font-medium text-text-secondary">
+              <span className="block font-semibold text-text">Example photo</span>
+              What a good photo of this looks like.
+            </p>
+          </div>
+        )}
         {showPhotoRule && (
           <p className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 t-meta font-display font-medium', flags.missingPhotos ? 'text-danger' : 'text-text-muted')}>
             <Camera className="size-3.5 shrink-0" aria-hidden="true" />
@@ -171,6 +188,18 @@ export const DetailItemRow = memo(({
             {flags.notLive && <IconChip icon={Camera} tone="bg-warning" label="Not live" title="This question needs live camera photos, but some were picked from the gallery" />}
           </p>
         )}
+        {(flags.reusedPhoto || flags.oldPhoto) && !item.isNotApplicable && (
+          <p className="flex flex-wrap items-center gap-2 t-meta font-display font-medium text-danger">
+            <IconChip
+              icon={flags.reusedPhoto ? Copy : History}
+              tone={flags.reusedPhoto ? 'bg-danger' : 'bg-warning'}
+              label={flags.reusedPhoto ? 'Photo reused' : 'Old photo'}
+              title={flags.reusedPhoto ? 'This photo looks the same as one uploaded earlier for another question' : 'This photo was taken before this checklist opened'}
+            />
+            <span className="text-text-secondary">{flags.reusedPhoto ? 'Looks the same as a photo from an earlier question. Check it is for this one.' : 'Taken before this checklist opened. Check it shows today.'}</span>
+          </p>
+        )}
+        {selecting && !!item.definitionItemId && <PreviousAnswerPanel instanceId={instanceId} itemId={item.id} />}
         {reason && (
           <NoticeBanner tone="warning" icon={AlertTriangle} className="items-center p-2.5 px-3.5 font-medium">
             {reason}

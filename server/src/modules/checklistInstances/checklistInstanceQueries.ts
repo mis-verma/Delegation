@@ -4,6 +4,7 @@ import {
     checklistInstanceAssignees,
 
     checklistInstanceItems,
+    checklistInstanceImages,
 
     users,
 
@@ -12,7 +13,7 @@ import {
     auditLogs,
 
 } from "../../db/schema/index.js"
-import { eq, and, inArray, desc, asc, sql, gte, lt, type SQL } from "drizzle-orm"
+import { eq, and, inArray, desc, asc, sql, gte, lt, ne, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { cached, cacheKey, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
@@ -165,6 +166,67 @@ export const itemHistory = async (id: string, user: AccessTokenPayload) => {
         source: row.source,
         summary: describeItemChange(row.action, row.before, row.after),
     }))
+}
+
+export const itemPrevious = async (id: string, itemId: string, user: AccessTokenPayload) => {
+    const instance = await getPopulatedInstanceById(id)
+    if (!instance) throw AppError.notFound("Checklist instance not found")
+    await assertCanView(instance, user)
+    const oversees = isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER" || isHod(user) || instance.reviewerIds.includes(user.sub)
+    if (!oversees) throw AppError.forbidden()
+
+    const current = instance.items.find((item) => item.id === itemId)
+    if (!current) throw AppError.notFound("That question isn't on this checklist.")
+    if (!current.definitionItemId) return null
+
+    const [previous] = await db
+        .select({
+            itemId: checklistInstanceItems.id,
+            runId: checklistInstances.id,
+            periodStart: checklistInstances.periodStart,
+        })
+        .from(checklistInstanceItems)
+        .innerJoin(checklistInstances, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+        .where(and(
+            eq(checklistInstanceItems.definitionItemId, current.definitionItemId),
+            eq(checklistInstances.definitionId, instance.definitionId),
+            eq(checklistInstances.storeId, instance.storeId),
+            ne(checklistInstances.id, instance.id),
+            lt(checklistInstances.periodStart, instance.periodStart),
+            eq(checklistInstanceItems.isDone, true),
+        ))
+        .orderBy(desc(checklistInstances.periodStart))
+        .limit(1)
+    if (!previous) return null
+
+    const [row] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, previous.itemId)).limit(1)
+    if (!row) return null
+    const images = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.checklistInstanceItemId, row.id))
+    const [who] = row.completedBy ? await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, row.completedBy)).limit(1) : []
+
+    return {
+        runId: previous.runId,
+        periodStart: previous.periodStart,
+        itemType: row.itemType,
+        booleanAnswer: row.booleanAnswer,
+        textValue: row.textValue,
+        numericValue: row.numericValue,
+        conditionalReasonValue: row.conditionalReasonValue,
+        remarks: row.remarks,
+        isNotApplicable: row.isNotApplicable,
+        sendBackCount: row.sendBackCount,
+        completedAt: row.completedAt,
+        completedByName: who ? `${who.firstName}${who.lastName ? ` ${who.lastName}` : ""}` : null,
+        images: images.map((img) => ({
+            id: img.id,
+            url: img.url,
+            mimeType: img.mimeType,
+            originalFilename: img.originalFilename,
+            captureMethod: img.captureMethod,
+            purpose: img.purpose,
+            createdAt: img.createdAt,
+        })),
+    }
 }
 
 export const getById = async (id: string, user: AccessTokenPayload) => {

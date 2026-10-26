@@ -15,6 +15,7 @@ interface ApprovalTicket {
   assigneeIds?: string[];
   approvalStage?: ApprovalStage | null;
   reviewers?: { id: string }[];
+  completionPendingDepartmentIds?: string[];
 }
 
 export const stageOf = (ticket: Pick<ApprovalTicket, 'approvalStage'>): ApprovalStage => ticket.approvalStage ?? 'PC';
@@ -26,7 +27,13 @@ export const canApproveTicket = (user: Approver | null | undefined, ticket: Appr
   if (!user) return false;
   if (user.role === 'ADMIN') return true;
   if (ticket.assigneeId === user.id || ticket.assigneeIds?.includes(user.id)) return false;
-  if (stageOf(ticket) === 'HOD') return isDepartmentHead(user, ticket) && ticket.userId !== user.id;
+  if (stageOf(ticket) === 'HOD') {
+    if (ticket.completionPendingDepartmentIds?.length) {
+      const mine = user.role === 'MANAGER' || user.role === 'SENIOR' ? user.departmentId : null;
+      return !!mine && ticket.userId !== user.id && ticket.completionPendingDepartmentIds.includes(mine);
+    }
+    return isDepartmentHead(user, ticket) && ticket.userId !== user.id;
+  }
   if (user.role === 'PC') return true;
   return !!ticket.reviewers?.some((r) => r.id === user.id);
 };
@@ -46,6 +53,7 @@ export const taskApprovalSubject = (task: {
   additionalAssigneeIds?: string[];
   approvalStage?: ApprovalStage | null;
   reviewers?: { id: string }[];
+  departmentApprovals?: { departmentId: string; completion: 'none' | 'pending' | 'approved' }[];
 }): ApprovalTicket => ({
   departmentId: task.departmentId ?? null,
   userId: task.userId,
@@ -53,4 +61,5 @@ export const taskApprovalSubject = (task: {
   assigneeIds: [...(task.assigneeId ? [task.assigneeId] : []), ...(task.additionalAssigneeIds ?? [])],
   approvalStage: task.approvalStage ?? null,
   reviewers: task.reviewers,
+  completionPendingDepartmentIds: (task.departmentApprovals ?? []).filter((a) => a.completion === 'pending').map((a) => a.departmentId),
 });

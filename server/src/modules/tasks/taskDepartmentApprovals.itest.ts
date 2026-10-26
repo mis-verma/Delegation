@@ -5,7 +5,7 @@ import { createId } from "@paralleldrive/cuid2"
 import { eq, inArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { auditLogs, departments, notifications, refreshTokens, users, type Role } from "../../db/schema/core.js"
-import { tasks, taskDepartmentApprovals, taskStatusUpdates } from "../../db/schema/task.js"
+import { tasks, taskDepartmentApprovals, taskStatusUpdates, taskComments } from "../../db/schema/task.js"
 import { hashPassword } from "../../utils/password.js"
 import { bootApp, PASSWORD } from "../../test/integrationHarness.js"
 
@@ -65,6 +65,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
     if (createdTaskIds.length) {
+        await db.delete(taskComments).where(inArray(taskComments.taskId, createdTaskIds))
         await db.delete(taskStatusUpdates).where(inArray(taskStatusUpdates.taskId, createdTaskIds))
         await db.delete(tasks).where(inArray(tasks.id, createdTaskIds))
     }
@@ -147,10 +148,14 @@ describe("delegation across departments", () => {
         expect((await rowsFor(task.id)).every((r) => r.status === "approved")).toBe(true)
     })
 
-    it("does not ask anyone when the PC hands it out", async () => {
+    it("asks every head even when the PC hands it out", async () => {
         const task = await createTask("pc", { departmentId: departmentIds.a, assigneeId: people.workerA!.id, additionalAssigneeIds: [people.workerB!.id] })
-        expect(task.awaitingHeadApproval).toBe(false)
-        expect(task.departmentApprovals).toHaveLength(0)
+        expect(task.awaitingHeadApproval).toBe(true)
+        expect(task.departmentApprovals.map((r) => r.departmentId).sort()).toEqual([departmentIds.a, departmentIds.b].sort())
+        const approvedA = await as("headA", request(app).post(`/tasks/${task.id}/approve-assignment`))
+        expect(approvedA.body.data.awaitingHeadApproval).toBe(true)
+        const approvedB = await as("headB", request(app).post(`/tasks/${task.id}/approve-assignment`))
+        expect(approvedB.body.data.awaitingHeadApproval).toBe(false)
     })
 
     it("lets any involved head decline, and reopening approves only that head's part", async () => {
@@ -196,5 +201,91 @@ describe("delegation across departments", () => {
         expect(res.status).toBe(200)
         expect(res.body.data.awaitingHeadApproval).toBe(false)
         expect(await rowsFor(task.id)).toHaveLength(0)
+    })
+})
+
+describe("completion across departments", () => {
+    const liveAndSubmitted = async () => {
+        const task = await createTask("headA", {
+            departmentId: departmentIds.a,
+            assigneeId: people.workerA!.id,
+            additionalAssigneeIds: [people.workerB!.id, people.workerC!.id],
+        })
+        expect((await as("pc", request(app).post(`/tasks/${task.id}/approve-assignment`))).status).toBe(200)
+        const started = await as("workerA", request(app).patch(`/tasks/${task.id}`)).send({ status: "in_progress", statusRemark: "starting" })
+        expect(started.status).toBe(200)
+        const submitted = await as("workerA", request(app).patch(`/tasks/${task.id}`)).send({ status: "pending_approval" })
+        expect(submitted.status).toBe(200)
+        return { id: task.id, submitted: submitted.body.data }
+    }
+    const verify = (key: string, id: string, body: Record<string, unknown>) => as(key, request(app).patch(`/tasks/${id}/verify`)).send(body)
+    const pendingIds = async (key: string) => ((await as(key, request(app).get("/tasks/pending-approval"))).body.data as { id: string }[]).map((r) => r.id)
+
+    it("asks the head of every involved department before the PC", async () => {
+        const { id, submitted } = await liveAndSubmitted()
+        expect(submitted.approvalStage).toBe("HOD")
+        const pending = (submitted.departmentApprovals as { departmentId: string; completion: string }[]).filter((r) => r.completion === "pending").map((r) => r.departmentId).sort()
+        expect(pending).toEqual([departmentIds.b, departmentIds.c].sort())
+        expect(await pendingIds("headB")).toContain(id)
+        expect(await pendingIds("headC")).toContain(id)
+        expect(await pendingIds("headA")).not.toContain(id)
+    })
+
+    it("hands over to the PC only after the last head approves", async () => {
+        const { id } = await liveAndSubmitted()
+        expect((await verify("headA", id, { action: "APPROVE" })).status).toBe(403)
+
+        const first = await verify("headB", id, { action: "APPROVE" })
+        expect(first.status).toBe(200)
+        expect(first.body.data.status).toBe("pending_approval")
+        expect(first.body.data.approvalStage).toBe("HOD")
+        expect(await pendingIds("headB")).not.toContain(id)
+        expect(await pendingIds("headC")).toContain(id)
+        expect((await verify("headB", id, { action: "APPROVE" })).status).toBe(403)
+        expect((await verify("pc", id, { action: "APPROVE" })).status).toBe(403)
+
+        const last = await verify("headC", id, { action: "APPROVE" })
+        expect(last.status).toBe(200)
+        expect(last.body.data.approvalStage).toBe("PC")
+        expect(await pendingIds("pc")).toContain(id)
+
+        const done = await verify("pc", id, { action: "APPROVE" })
+        expect(done.status).toBe(200)
+        expect(done.body.data.status).toBe("done")
+    })
+
+    it("sends it back to work when any head rejects, and asks everyone again next time", async () => {
+        const { id } = await liveAndSubmitted()
+        expect((await verify("headB", id, { action: "REJECT" })).status).toBe(400)
+        const rejected = await verify("headB", id, { action: "REJECT", note: "Photos missing" })
+        expect(rejected.status).toBe(200)
+        expect(rejected.body.data.status).toBe("in_progress")
+        const rows = await rowsFor(id)
+        expect(rows.every((r) => r.completionStatus === "none")).toBe(true)
+
+        const again = await as("workerA", request(app).patch(`/tasks/${id}`)).send({ status: "pending_approval" })
+        expect(again.status).toBe(200)
+        expect(again.body.data.departmentApprovals.filter((r: { completion: string }) => r.completion === "pending")).toHaveLength(2)
+    })
+
+    it("keeps the PC out until the heads are done", async () => {
+        const { id } = await liveAndSubmitted()
+        expect((await verify("pc", id, { action: "APPROVE" })).status).toBe(403)
+    })
+})
+
+describe("following a delegation from another department", () => {
+    it("lets an involved head read the activity and comment, but not an outsider", async () => {
+        const task = await createTask("headA", { departmentId: departmentIds.a, assigneeId: people.workerA!.id, additionalAssigneeIds: [people.workerB!.id] })
+
+        const seen = await as("headB", request(app).get("/activity").query({ entityType: "Task", entityId: task.id }))
+        expect(seen.status).toBe(200)
+        const commented = await as("headB", request(app).post(`/tasks/${task.id}/comments`)).send({ body: "We can take this on Monday" })
+        expect(commented.status).toBe(201)
+
+        const outsider = await as("headC", request(app).get("/activity").query({ entityType: "Task", entityId: task.id }))
+        expect(outsider.status).toBe(403)
+        const blocked = await as("headC", request(app).post(`/tasks/${task.id}/comments`)).send({ body: "Hello" })
+        expect(blocked.status).toBeGreaterThanOrEqual(400)
     })
 })

@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { complianceToneClass, formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
 import { DetailItemRow } from '../checklist/instance/ChecklistDetailItemRow';
 import { ComplianceMeter } from './ComplianceMeter';
+import { PersonContext } from './PersonContext';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
 import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
 import type { ReviewDraft } from './useReviewDraft';
@@ -107,6 +108,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
       </div>
 
       <ComplianceMeter risk={risk} className="rounded-lg border border-border/60 bg-surface-hover/30 p-3" />
+
+      <PersonContext items={items} />
 
       <p className="t-meta font-display text-text-muted leading-relaxed">
         Same view as the filled checklist. Tick a question to send only that one back, or raise a ticket on it.

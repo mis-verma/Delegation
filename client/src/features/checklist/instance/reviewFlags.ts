@@ -5,6 +5,8 @@ export interface ItemFlags {
   bad: boolean;
   missingPhotos: boolean;
   notLive: boolean;
+  reusedPhoto: boolean;
+  oldPhoto: boolean;
   sentBack: boolean;
   waived: boolean;
   critical: boolean;
@@ -35,19 +37,23 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
   const photos = photoBreakdown(item);
   const missingPhotos = !item.isNotApplicable && item.requiredImageCount > 0 && photos.qualifying < item.requiredImageCount;
   const notLive = missingPhotos && item.requiresLivePhoto && photos.gallery > 0;
+  const reusedPhoto = !item.isNotApplicable && (item.images ?? []).some((img) => img.reusedFromEarlier === true);
+  const oldPhoto = !item.isNotApplicable && !reusedPhoto && (item.images ?? []).some((img) => img.takenBeforeRun === true);
   const critical = item.isCritical === true;
   return {
     bad,
     missingPhotos,
     notLive,
+    reusedPhoto,
+    oldPhoto,
     sentBack,
     waived,
     critical,
     criticalFailed: critical && verdict === 'bad',
     fixed: sentBack && item.isDone && !item.reviewTicketId,
-    needsLook: bad || missingPhotos || sentBack,
+    needsLook: bad || missingPhotos || sentBack || reusedPhoto || oldPhoto,
   };
 };
 
 export const needsLookRank = (flags: ItemFlags): number =>
-  flags.criticalFailed ? 0 : flags.bad ? 1 : flags.missingPhotos ? 2 : 3;
+  flags.criticalFailed ? 0 : flags.bad ? 1 : flags.reusedPhoto ? 2 : flags.missingPhotos ? 3 : 4;

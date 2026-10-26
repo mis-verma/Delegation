@@ -237,7 +237,15 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
             ? or(isNull(tasks.approvalStage), eq(tasks.approvalStage, "PC"))
             : and(
                 eq(tasks.approvalStage, "HOD"),
-                user.departmentId ? eq(tasks.departmentId, user.departmentId) : sql`1 = 0`,
+                user.departmentId
+                    ? or(
+                        sql`EXISTS (SELECT 1 FROM TaskDepartmentApproval a WHERE a.taskId = ${tasks.id} AND a.departmentId = ${user.departmentId} AND a.completionStatus = 'pending')`,
+                        and(
+                            eq(tasks.departmentId, user.departmentId),
+                            sql`NOT EXISTS (SELECT 1 FROM TaskDepartmentApproval a WHERE a.taskId = ${tasks.id} AND a.completionStatus <> 'none')`,
+                        ),
+                    )
+                    : sql`1 = 0`,
                 or(isNull(tasks.assigneeId), ne(tasks.assigneeId, user.sub)),
                 ne(tasks.userId, user.sub),
             );

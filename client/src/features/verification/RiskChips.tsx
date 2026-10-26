@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlertTriangle, CheckCircle2, CornerUpLeft, Flag, Gauge, ImageOff, Ticket } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, CornerUpLeft, Flag, Gauge, History, ImageOff, Ticket } from 'lucide-react';
 import { IconChip } from '../../components';
 import { cn } from '@/lib/utils';
 import type { ChecklistRisk } from './verificationModel';
@@ -35,6 +35,22 @@ export const RiskChips = memo(function RiskChips({ risk, className, hideComplian
           tone="bg-danger"
           label={plural(risk.missingPhotos, 'missing photo', 'missing photos')}
           title="Questions that need photos and have fewer than required"
+        />
+      )}
+      {risk.reusedPhotos > 0 && (
+        <IconChip
+          icon={Copy}
+          tone="bg-danger"
+          label={plural(risk.reusedPhotos, 'reused photo', 'reused photos')}
+          title="Photos that look the same as ones uploaded earlier for another question"
+        />
+      )}
+      {risk.oldPhotos > 0 && (
+        <IconChip
+          icon={History}
+          tone="bg-warning"
+          label={plural(risk.oldPhotos, 'old photo', 'old photos')}
+          title="Photos that were taken before this checklist opened"
         />
       )}
       {risk.sentBackTimes > 0 && (

@@ -127,6 +127,7 @@ export const checklistInstanceItems = mysqlTable(
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
+    referenceImageUrl: varchar('referenceImageUrl', { length: 2048 }),
     isCritical: boolean('isCritical').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),
@@ -233,6 +234,9 @@ export const checklistInstanceImages = mysqlTable(
     mimeType: varchar('mimeType', { length: 191 }).notNull(),
     captureMethod: mysqlEnum('captureMethod', CAPTURE_METHODS).notNull(),
     purpose: mysqlEnum('purpose', INSTANCE_IMAGE_PURPOSES).notNull().default('GENERAL'),
+    contentHash: varchar('contentHash', { length: 32 }),
+    similarToId: varchar('similarToId', { length: 191 }),
+    takenAt: datetime('takenAt', { mode: 'date' }),
     checklistInstanceItemId: varchar('checklistInstanceItemId', { length: 191 }).notNull(),
     uploadedBy: varchar('uploadedBy', { length: 191 }).notNull().references(() => users.id),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -240,6 +244,7 @@ export const checklistInstanceImages = mysqlTable(
   },
   (table) => [
     index('ChecklistInstanceImage_checklistInstanceItemId_idx').on(table.checklistInstanceItemId),
+    index('ChecklistInstanceImage_contentHash_idx').on(table.contentHash),
     foreignKey({
       columns: [table.checklistInstanceItemId],
       foreignColumns: [checklistInstanceItems.id],

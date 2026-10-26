@@ -1,5 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
+import { apiFetch, apiUpload, type SummaryScope, type PendingApprovalPreview } from './http';
+import { enqueueUpload } from '../lib/uploadQueue';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
 import type { Tag } from './tags';
@@ -27,7 +28,16 @@ export type TaskStatusUpdate = {
 };
 
 export type TaskPerson = { id: string; email: string; firstName: string; lastName?: string | null; role: string };
-export type TaskDepartmentApproval = { departmentId: string; status: 'pending' | 'approved'; decidedAt: string | null; approver: { id: string; firstName: string; lastName?: string | null } | null };
+type TaskApprovalPerson = { id: string; firstName: string; lastName?: string | null };
+export type TaskDepartmentApproval = {
+  departmentId: string;
+  status: 'pending' | 'approved';
+  decidedAt: string | null;
+  approver: TaskApprovalPerson | null;
+  completion: 'none' | 'pending' | 'approved';
+  completionAt: string | null;
+  completionApprover: TaskApprovalPerson | null;
+};
 
 export type Task = {
     id:           string;
@@ -325,10 +335,7 @@ export const taskApi = {
     uploadAttachments: async (taskId: string, files: File[]) => {
         const formData = new FormData();
         (await shrinkImages(files)).forEach(f => formData.append('files', f));
-        return apiFetch<ApiResponse<TaskAttachment[]>>(`/tasks/${taskId}/attachments`, {
-            method: 'POST',
-            body:   formData,
-        });
+        return enqueueUpload(() => apiUpload<ApiResponse<TaskAttachment[]>>(`/tasks/${taskId}/attachments`, formData));
     },
 
     deleteAttachment: (id: string) =>

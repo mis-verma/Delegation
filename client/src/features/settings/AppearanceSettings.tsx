@@ -78,7 +78,7 @@ export const AppearanceSettings = () => {
         title="Vibration"
         hint={supported
           ? 'Short buzz on your phone when you save, finish or something fails. Android phones only.'
-          : "This phone or browser can't vibrate, so this is switched off. iPhones don't support it in the browser."}
+          : "This phone or browser can't vibrate, so this is switched off. iPhones don't support it in the browser, but the KaryaOS app for iPhone does."}
       >
         <div className="flex items-center justify-between gap-4">
           <label htmlFor="vibration-switch" className="t-card font-display font-semibold text-text">

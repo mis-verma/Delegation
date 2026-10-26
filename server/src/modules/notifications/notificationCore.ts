@@ -36,6 +36,7 @@ export type VerifiableEntity = {
   _id: string;
   title: string;
   departmentId?: string | null;
+  departmentIds?: string[];
   storeId?: string | null;
   userId?: string | null;
   assigneeId?: string | null;

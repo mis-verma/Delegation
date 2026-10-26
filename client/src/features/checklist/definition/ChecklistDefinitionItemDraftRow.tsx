@@ -17,6 +17,7 @@ export type ItemDraft = {
   requiredImageCount: string;
   maxImageCount: string;
   requiresLivePhoto: boolean;
+  referenceImageUrl: string;
   isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
@@ -49,6 +50,7 @@ export const emptyItemDraft = (): ItemDraft => ({
   requiredImageCount: '0',
   maxImageCount: '',
   requiresLivePhoto: false,
+  referenceImageUrl: '',
   isCritical: false,
   itemType: 'STANDARD',
   auditUserIds: [],

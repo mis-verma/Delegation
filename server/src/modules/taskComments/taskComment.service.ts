@@ -10,6 +10,7 @@ import { notificationService, notifySafely } from "../notifications/notification
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskCommentInput } from "./taskComment.validation.js"
 import { isDepartmentHead } from "../tickets/ticketApproval.js"
+import { isInvolvedHead } from "../tasks/taskDepartmentApprovals.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 
 const assertCanComment = async (user: AccessTokenPayload, task: typeof tasks.$inferSelect) => {
@@ -24,6 +25,7 @@ const assertCanComment = async (user: AccessTokenPayload, task: typeof tasks.$in
 
     const headSeesAll = user.role === "MANAGER" || task.status === "pending_approval" || task.awaitingHeadApproval || task.declinedAt !== null;
     if (headSeesAll && isDepartmentHead(user, task)) return;
+    if (headSeesAll && await isInvolvedHead(task.id, user)) return;
 
     const [reviewer] = await db.select({ id: taskReviewers.id }).from(taskReviewers)
         .where(and(eq(taskReviewers.taskId, task.id), eq(taskReviewers.userId, user.sub))).limit(1);

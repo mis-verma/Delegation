@@ -419,7 +419,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
                   <AuditCaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
                 )}
               </div>
-              {uploadImages.isPending && <UploadingHint />}
+              {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
             </div>
           )}
         </div>

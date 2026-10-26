@@ -23,6 +23,8 @@ const LOGO_UPLOAD_DIR = path.resolve("uploads", "logos")
 
 const TASK_COMMENT_ATTACHMENT_UPLOAD_DIR = path.resolve("uploads", "task-comment-attachments")
 
+const CHECKLIST_REFERENCE_UPLOAD_DIR = path.resolve("uploads", "checklist-references")
+
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 }
@@ -49,6 +51,9 @@ if (!fs.existsSync(AVATAR_UPLOAD_DIR)) {
 }
 if (!fs.existsSync(LOGO_UPLOAD_DIR)) {
     fs.mkdirSync(LOGO_UPLOAD_DIR, { recursive: true })
+}
+if (!fs.existsSync(CHECKLIST_REFERENCE_UPLOAD_DIR)) {
+    fs.mkdirSync(CHECKLIST_REFERENCE_UPLOAD_DIR, { recursive: true })
 }
 
 const SAFE_MIME_EXTENSIONS: Record<string, string> = {
@@ -137,6 +142,14 @@ const logoStorage = multer.diskStorage({
     },
 })
 
+const checklistReferenceStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, CHECKLIST_REFERENCE_UPLOAD_DIR),
+    filename: (_req, file, cb) => {
+        const randomName = crypto.randomBytes(16).toString("hex");
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
+    },
+})
+
 const taskCommentAttachmentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
@@ -192,6 +205,11 @@ export const checklistInstanceImageUpload = (req : Request , res : Response , ne
 export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
     return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+}
+
+export const checklistReferenceUpload = (req : Request , res : Response , next : NextFunction) => {
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(checklistReferenceStorage).single("image")(req, res, next)
 }
 
 export const avatarUpload = (req : Request , res : Response , next : NextFunction) => {

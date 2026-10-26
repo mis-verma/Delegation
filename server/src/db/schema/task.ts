@@ -116,6 +116,7 @@ export const taskAdditionalAssignees = mysqlTable(
 );
 
 export const TASK_DEPARTMENT_APPROVAL_STATUSES = ['pending', 'approved'] as const;
+export const TASK_COMPLETION_APPROVAL_STATUSES = ['none', 'pending', 'approved'] as const;
 
 export const taskDepartmentApprovals = mysqlTable(
   'TaskDepartmentApproval',
@@ -126,6 +127,9 @@ export const taskDepartmentApprovals = mysqlTable(
     status: mysqlEnum('status', TASK_DEPARTMENT_APPROVAL_STATUSES).notNull().default('pending'),
     decidedBy: varchar('decidedBy', { length: 191 }).references(() => users.id),
     decidedAt: datetime('decidedAt', { mode: 'date' }),
+    completionStatus: mysqlEnum('completionStatus', TASK_COMPLETION_APPROVAL_STATUSES).notNull().default('none'),
+    completionBy: varchar('completionBy', { length: 191 }).references(() => users.id),
+    completionAt: datetime('completionAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [

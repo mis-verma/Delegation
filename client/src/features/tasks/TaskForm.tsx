@@ -163,10 +163,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   };
   const peopleInDepartment = (id: string) => assigneeIds.filter((p) => userDepartmentOf(p) === id).length;
 
-  const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
   const headOfDepartment = (user?.role === 'MANAGER' || user?.role === 'SENIOR') ? user.departmentId ?? null : null;
   const involvedDepartmentIds = [...new Set([departmentId, ...assigneeIds.map(userDepartmentOf)].filter((id): id is string => !!id))];
-  const approvalDepartmentIds = isLeadership ? [] : involvedDepartmentIds.filter((id) => id !== headOfDepartment);
+  const approvalDepartmentIds = involvedDepartmentIds.filter((id) => id !== headOfDepartment);
   const needsHeadOk = approvalDepartmentIds.length > 0 && !saveAsDraft;
   const approvalDepartmentNames = approvalDepartmentIds.map((id) => departments?.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
   const approvalNamesLabel = approvalDepartmentNames.length > 1

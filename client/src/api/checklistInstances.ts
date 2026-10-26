@@ -1,5 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, type PendingApprovalPreview } from './http';
+import { apiFetch, type PendingApprovalPreview, type UploadProgress } from './http';
+import { uploadKeepingCopy } from '../lib/persistentUpload';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { ApiResponse, ChecklistRecurrence, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
@@ -20,6 +21,9 @@ export type ChecklistInstanceImage = {
   checklistInstanceItemId: string;
   uploadedBy:              string;
   createdAt:               string;
+  takenAt?:                string | null;
+  reusedFromEarlier?:      boolean;
+  takenBeforeRun?:         boolean;
 };
 
 export type ChecklistInstanceItemSubmissionImage = {
@@ -68,6 +72,8 @@ export type ChecklistInstanceItem = {
   isDone:             boolean;
   completedAt:        string | null;
   completedBy:        string | null;
+  definitionItemId?:  string | null;
+  referenceImageUrl?: string | null;
   completedByName:    string | null;
   requiredImageCount: number;
   maxImageCount:      number | null;
@@ -542,15 +548,17 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/reopen-approval`, { method: 'PATCH' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
-  uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod, purpose: ChecklistImagePurpose = 'GENERAL') => {
-    const formData = new FormData();
-    (await shrinkImages(files)).forEach(f => formData.append('images', f));
-    formData.append('captureMethod', captureMethod);
-    formData.append('purpose', purpose);
-    return apiFetch<ApiResponse<ChecklistInstanceImage[]>>(`/checklist-instance-items/${itemId}/images`, {
-      method: 'POST',
-      body: formData,
-    });
+  uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod, purpose: ChecklistImagePurpose = 'GENERAL', onProgress?: UploadProgress) => {
+    const shrunk = await shrinkImages(files);
+    return uploadKeepingCopy<ApiResponse<ChecklistInstanceImage[]>>(files, {
+      path: `/checklist-instance-items/${itemId}/images`,
+      files: shrunk.map((f) => ({ field: 'images', blob: f, name: f.name, type: f.type, lastModified: f.lastModified })),
+      fields: [
+        ...shrunk.map((f): [string, string] => ['takenAt', new Date(f.lastModified).toISOString()]),
+        ['captureMethod', captureMethod],
+        ['purpose', purpose],
+      ],
+    }, onProgress);
   },
 
   deleteImage: (id: string) =>
@@ -596,7 +604,25 @@ export type ChecklistItemHistoryEvent = {
   summary: string;
 };
 
+export type ChecklistItemPrevious = {
+  runId: string;
+  periodStart: string;
+  itemType: string;
+  booleanAnswer: 'YES' | 'NO' | null;
+  textValue: string | null;
+  numericValue: number | null;
+  conditionalReasonValue: string | null;
+  remarks: string | null;
+  isNotApplicable: boolean;
+  sendBackCount: number;
+  completedAt: string | null;
+  completedByName: string | null;
+  images: { id: string; url: string; mimeType: string; originalFilename: string | null; captureMethod: CaptureMethod; purpose: ChecklistImagePurpose; createdAt: string }[];
+};
+
 export const checklistItemHistoryApi = {
   get: (instanceId: string) =>
     apiFetch<ApiResponse<ChecklistItemHistoryEvent[]>>(`/checklist-instances/${instanceId}/item-history`),
+  previous: (instanceId: string, itemId: string) =>
+    apiFetch<ApiResponse<ChecklistItemPrevious | null>>(`/checklist-instances/${instanceId}/items/${itemId}/previous`),
 };

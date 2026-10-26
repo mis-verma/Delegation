@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
 export type HapticKind = 'tap' | 'success' | 'warning' | 'error';
 
@@ -15,8 +17,23 @@ const STORAGE_KEY = 'tm-haptics';
 const CHANGE_EVENT = 'tm-haptics-change';
 const THROTTLE_MS = 300;
 
+const isNativeApp = (): boolean => {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+};
+
 export const hapticsSupported = (): boolean =>
-  typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  isNativeApp() || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function');
+
+const playNative = (kind: HapticKind): Promise<void> => {
+  if (kind === 'tap') return Haptics.impact({ style: ImpactStyle.Light });
+  if (kind === 'success') return Haptics.notification({ type: NotificationType.Success });
+  if (kind === 'warning') return Haptics.notification({ type: NotificationType.Warning });
+  return Haptics.notification({ type: NotificationType.Error });
+};
 
 const readEnabled = (): boolean => {
   try {
@@ -54,7 +71,8 @@ let lastKind: HapticKind = 'tap';
 export const haptic = (kind: HapticKind): void => {
   try {
     if (!hapticsSupported() || !readEnabled()) return;
-    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    const native = isNativeApp();
+    if (!native && !window.matchMedia('(pointer: coarse)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const now = Date.now();
@@ -62,6 +80,10 @@ export const haptic = (kind: HapticKind): void => {
 
     lastAt = now;
     lastKind = kind;
+    if (native) {
+      playNative(kind).catch(() => undefined);
+      return;
+    }
     navigator.vibrate(PATTERNS[kind]);
   } catch {
   }

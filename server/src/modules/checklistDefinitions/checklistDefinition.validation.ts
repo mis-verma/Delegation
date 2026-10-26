@@ -30,6 +30,12 @@ const accessoriesByTypeSchema = z
 const CHOICE_RULE_TYPES: string[] = ["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN"]
 const RANGE_RULE_TYPES: string[] = ["NUMBER_ENTRY", "RATING"]
 
+const REFERENCE_IMAGE_PATH = /^\/uploads\/checklist-references\/[a-f0-9]{32}\.(jpg|png|webp|gif)$/i
+
+const referenceImageUrl = z.string().max(2048).nullable().optional()
+    .transform((v) => (v ? v.split("?")[0]! : v))
+    .refine((v) => !v || REFERENCE_IMAGE_PATH.test(v), { message: "That example photo was not uploaded here." })
+
 const definitionItemShape = z.object({
     id: z.string().min(1).max(191).optional(),
     label: z.string().trim().min(1).max(191),
@@ -38,6 +44,7 @@ const definitionItemShape = z.object({
     requiredImageCount: z.number().int().min(0).optional(),
     maxImageCount: z.number().int().min(0).nullable().optional(),
     requiresLivePhoto: z.boolean().optional(),
+    referenceImageUrl,
     isCritical: z.boolean().optional(),
     itemType: z.enum(CHECKLIST_ITEM_TYPES).optional(),
     auditUserIds: dedupedIdArray.optional(),

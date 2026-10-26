@@ -1,12 +1,13 @@
 import { Router } from "express"
 import { checklistDefinitionController } from "./checklistDefinition.controller.js"
 import { checklistBulkImportController } from "./checklistBulkImport.controller.js"
-import { checklistBulkImportUpload } from "../../config/upload.js"
+import { checklistBulkImportUpload, checklistReferenceUpload } from "../../config/upload.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 
 export const checklistDefinitionRouter = Router()
 checklistDefinitionRouter.use(authenticate)
 checklistDefinitionRouter.use(requireRole("ADMIN", "PC"))
+checklistDefinitionRouter.post("/reference-image", checklistReferenceUpload, checklistDefinitionController.uploadReferenceImage)
 checklistDefinitionRouter.get("/", checklistDefinitionController.list)
 checklistDefinitionRouter.get("/scoring-gaps", checklistDefinitionController.scoringGaps)
 checklistDefinitionRouter.get("/:id", checklistDefinitionController.getOne)

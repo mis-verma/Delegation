@@ -164,6 +164,7 @@ export const checklistDefinitionItems = mysqlTable(
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
+    referenceImageUrl: varchar('referenceImageUrl', { length: 2048 }),
     isCritical: boolean('isCritical').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),

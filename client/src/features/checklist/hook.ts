@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
@@ -419,14 +420,24 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   return mutation;
 };
 
-export const useUploadChecklistInstanceImagesMutation = (instanceId: string) =>
-  useEntityMutation({
-    mutationFn: ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) =>
-      checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose).then(r => r.data),
+export const useUploadChecklistInstanceImagesMutation = (instanceId: string) => {
+  const [progress, setProgress] = useState<number | null>(null);
+  const mutation = useEntityMutation({
+    mutationFn: async ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) => {
+      setProgress(0);
+      try {
+        return (await checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose, setProgress)).data;
+      } finally {
+        setProgress(null);
+      }
+    },
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
     errorFallback: "Couldn't upload the photos. Try again.",
+    retryable: true,
   });
+  return { ...mutation, progress };
+};
 
 export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
   useEntityMutation({
@@ -486,14 +497,24 @@ export const useUpdateChecklistInstanceItemSubmissionRemarksMutation =(instanceI
     errorFallback: "Couldn't save the remarks. Try again.",
   });
 
-export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceId: string) =>
-  useEntityMutation({
-    mutationFn: ({ submissionId, files, captureMethod }: { submissionId: string; files: File[]; captureMethod: CaptureMethod }) =>
-      checklistInstanceItemSubmissionApi.uploadImages(submissionId, files, captureMethod).then(r => r.data),
+export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceId: string) => {
+  const [progress, setProgress] = useState<number | null>(null);
+  const mutation = useEntityMutation({
+    mutationFn: async ({ submissionId, files, captureMethod }: { submissionId: string; files: File[]; captureMethod: CaptureMethod }) => {
+      setProgress(0);
+      try {
+        return (await checklistInstanceItemSubmissionApi.uploadImages(submissionId, files, captureMethod, setProgress)).data;
+      } finally {
+        setProgress(null);
+      }
+    },
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
     errorFallback: "Couldn't upload the photos. Try again.",
+    retryable: true,
   });
+  return { ...mutation, progress };
+};
 
 export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId: string) =>
   useEntityMutation({
@@ -591,6 +612,17 @@ export const useReopenApprovalMutation = () =>
 
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
 export { useChecklistTemplatesQuery } from '../admin/hook';
+
+export const useChecklistItemPreviousQuery = (instanceId: string, itemId: string, enabled: boolean) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'item-previous', instanceId, itemId],
+    queryFn: () => checklistItemHistoryApi.previous(instanceId, itemId).then((r) => r.data),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+    staleTime: 5 * 60_000,
+  });
+};
 
 export const useChecklistItemHistoryQuery = (instanceId: string, enabled: boolean) => {
   const { token } = useAuth();

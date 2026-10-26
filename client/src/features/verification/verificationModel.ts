@@ -1,5 +1,5 @@
 import { runScores } from '../checklist/checklistCompliance';
-import { itemFlags } from '../checklist/instance/reviewFlags';
+import { itemFlags, photoBreakdown } from '../checklist/instance/reviewFlags';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 
 export const UNASSIGNED = '__unassigned__';
@@ -31,6 +31,8 @@ export interface ChecklistRisk {
   compliance: number | null;
   badAnswers: number;
   missingPhotos: number;
+  reusedPhotos: number;
+  oldPhotos: number;
   sentBackTimes: number;
   ticketsRaised: number;
   criticalFailed: number;
@@ -49,6 +51,8 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
   const scores = runScores(instance.items);
   let badAnswers = 0;
   let missingPhotos = 0;
+  let reusedPhotos = 0;
+  let oldPhotos = 0;
   let sentBackTimes = 0;
   let ticketsRaised = 0;
   let photosNeeded = 0;
@@ -58,23 +62,27 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     const flags = itemFlags(item);
     if (flags.bad) badAnswers += 1;
     if (flags.missingPhotos) missingPhotos += 1;
+    if (flags.reusedPhoto) reusedPhotos += 1;
+    if (flags.oldPhoto) oldPhotos += 1;
     if (flags.needsLook) needsLookCount += 1;
     const raised = item.reviewTicketId ? 1 : 0;
     ticketsRaised += raised;
     sentBackTimes += Math.max(0, item.sendBackCount - raised);
     if (!item.isNotApplicable && item.requiredImageCount > 0) {
       photosNeeded += 1;
-      if (item.images.length >= item.requiredImageCount) photosHave += 1;
+      if (photoBreakdown(item).qualifying >= item.requiredImageCount) photosHave += 1;
     }
   }
   const criticalFailed = scores.criticalFailed;
-  const needsAttention = badAnswers > 0 || missingPhotos > 0 || sentBackTimes > 0 || ticketsRaised > 0 || criticalFailed > 0;
+  const needsAttention = badAnswers > 0 || missingPhotos > 0 || reusedPhotos > 0 || oldPhotos > 0 || sentBackTimes > 0 || ticketsRaised > 0 || criticalFailed > 0;
   const compliant = scores.compliance === null || scores.compliance === 100;
   return {
     completion: scores.completion,
     compliance: scores.compliance,
     badAnswers,
     missingPhotos,
+    reusedPhotos,
+    oldPhotos,
     sentBackTimes,
     ticketsRaised,
     criticalFailed,

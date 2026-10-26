@@ -21,11 +21,12 @@ export const notifyPendingVerification = async (entity: VerifiableEntity, kind: 
   const waitText = waitingHours ? `has been waiting ${waitingHours} hours for your approval` : null;
   const idFieldOf = () => (kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() });
   if (stage === 'HOD') {
-    const heads = entity.departmentId
+    const headDepartments = entity.departmentIds?.length ? entity.departmentIds : entity.departmentId ? [entity.departmentId.toString()] : [];
+    const heads = headDepartments.length
       ? await db
           .select({ id: users.id })
           .from(users)
-          .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, entity.departmentId.toString()), eq(users.isActive, true)))
+          .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), inArray(users.departmentId, headDepartments), eq(users.isActive, true)))
       : [];
     const people = new Set([entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter((id): id is string => Boolean(id)));
     const headIds = heads.map((h) => h.id).filter((id) => !people.has(id));
@@ -132,6 +133,18 @@ export const notifyStageHandOff = async (entity: VerifiableEntity, kind: 'TICKET
     title: 'Department head approved',
     message: `"${entity.title}" was approved by the department head. It is now with PC for the final approval.`,
     ...idField,
+  });
+}
+
+export const notifyCompletionPartlyApproved = async (entity: VerifiableEntity, remaining: number, actorId: string) => {
+  const recipientIds = [entity.assigneeId, entity.userId, ...(entity.additionalAssigneeIds ?? [])].filter((id): id is string => Boolean(id)).filter((id) => id !== actorId);
+  const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
+  const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : 'A department head';
+  return notifyMany(recipientIds, {
+    type: 'TASK_HOD_APPROVED',
+    title: 'One department head approved',
+    message: `${approverName} approved "${entity.title}". Waiting for ${remaining} more department head${remaining === 1 ? '' : 's'} before it goes to PC.`,
+    taskId: entity._id.toString(),
   });
 }
 

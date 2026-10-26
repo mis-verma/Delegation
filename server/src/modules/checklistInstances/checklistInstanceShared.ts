@@ -76,6 +76,28 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
         imagesByItem.set(img.checklistInstanceItemId, list)
     }
 
+    const hashes = [...new Set(images.map((img) => img.contentHash).filter((h): h is string => !!h))]
+    const sameHash = hashes.length
+        ? await db.select({ id: checklistInstanceImages.id, hash: checklistInstanceImages.contentHash, itemId: checklistInstanceImages.checklistInstanceItemId, createdAt: checklistInstanceImages.createdAt })
+            .from(checklistInstanceImages).where(inArray(checklistInstanceImages.contentHash, hashes))
+        : []
+    const sameHashByHash = new Map<string, typeof sameHash>()
+    for (const row of sameHash) {
+        const list = sameHashByHash.get(row.hash!) ?? []
+        list.push(row)
+        sameHashByHash.set(row.hash!, list)
+    }
+    const runCreatedAt = new Map(instanceRows.map((i) => [i.id, i.createdAt]))
+    const runOfItem = new Map<string, string>()
+    for (const i of items) runOfItem.set(i.id, i.instanceId)
+    const annotateImage = (img: (typeof images)[number]) => {
+        const earlier = !!img.contentHash && (sameHashByHash.get(img.contentHash) ?? []).some((o) =>
+            o.id !== img.id && o.itemId !== img.checklistInstanceItemId
+            && (o.createdAt.getTime() < img.createdAt.getTime() || (o.createdAt.getTime() === img.createdAt.getTime() && o.id < img.id)))
+        const runStart = runCreatedAt.get(runOfItem.get(img.checklistInstanceItemId) ?? "")
+        return { ...img, reusedFromEarlier: earlier || !!img.similarToId, takenBeforeRun: !!img.takenAt && !!runStart && img.takenAt.getTime() < runStart.getTime() }
+    }
+
     const submissions = itemIds.length ? await db.select().from(checklistInstanceItemSubmissions).where(inArray(checklistInstanceItemSubmissions.itemId, itemIds)) : []
     const submissionIds = submissions.map((s) => s.id)
 
@@ -148,7 +170,7 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
     const itemViews = items.map((item) => ({
             ...stripSecretItemFields(item),
             completedByName: item.completedBy ? (nameById.get(item.completedBy) ?? null) : null,
-            images: imagesByItem.get(item.id) ?? [],
+            images: (imagesByItem.get(item.id) ?? []).map(annotateImage),
             submissions: submissionsByItem.get(item.id) ?? [],
             ...(item.itemType === "AUDIT" ? { dressTypeOptions: dressTypeOptionsFor(item.definitionItemId) } : {}),
         }))

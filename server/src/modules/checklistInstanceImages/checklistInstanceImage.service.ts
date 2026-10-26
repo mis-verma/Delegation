@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { checklistInstanceItems, checklistInstances, checklistInstanceImages, checklistInstanceAssignees } from "../../db/schema/index.js";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
@@ -10,6 +10,19 @@ import { assertInstanceEditable } from "../checklistInstances/checklistInstance.
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js";
 import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
+import { perceptualHash } from "../../utils/imageHash.js"
+import { findEarlierSimilar } from "./imageSimilarity.js"
+
+const RETRY_WINDOW_MS = 10 * 60_000
+
+const MAX_FUTURE_MS = 5 * 60_000
+
+const parseTakenAt = (raw: string | undefined): Date | null => {
+    if (!raw) return null
+    const at = new Date(raw)
+    if (Number.isNaN(at.getTime()) || at.getTime() > Date.now() + MAX_FUTURE_MS) return null
+    return at
+}
 
 const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: string }) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1);
@@ -25,7 +38,7 @@ const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: str
 };
 
 export const checklistInstanceImageService = {
-    async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", purpose: "GENERAL" | "CONDITIONAL_YES" | "CONDITIONAL_NO", user: AccessTokenPayload) {
+    async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", purpose: "GENERAL" | "CONDITIONAL_YES" | "CONDITIONAL_NO", user: AccessTokenPayload, takenAt: string[] = []) {
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         await assertCanUpload(user, item);
@@ -75,7 +88,29 @@ export const checklistInstanceImageService = {
             }
         }
 
-        const rows = files.map((file) => ({
+        const fileHashes = await Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? perceptualHash(file.path) : Promise.resolve(null))));
+
+        const knownHashes = fileHashes.filter((h): h is string => !!h);
+        const alreadySaved = knownHashes.length
+            ? await db.select().from(checklistInstanceImages).where(and(
+                eq(checklistInstanceImages.checklistInstanceItemId, item.id),
+                eq(checklistInstanceImages.uploadedBy, user.sub),
+                eq(checklistInstanceImages.purpose, purpose),
+                inArray(checklistInstanceImages.contentHash, knownHashes),
+                gt(checklistInstanceImages.createdAt, new Date(Date.now() - RETRY_WINDOW_MS)),
+            ))
+            : [];
+        const savedHashes = new Set(alreadySaved.map((img) => img.contentHash));
+        const fresh = files.map((file, index) => ({ file, hash: fileHashes[index] ?? null, takenAt: takenAt[index] }))
+            .filter((entry) => {
+                const repeated = !!entry.hash && savedHashes.has(entry.hash);
+                if (repeated) fs.unlink(entry.file.path, () => {});
+                return !repeated;
+            });
+        if (fresh.length === 0) return alreadySaved;
+
+        const similar = await Promise.all(fresh.map((entry) => (entry.hash ? findEarlierSimilar(entry.hash, item.id) : Promise.resolve(null))));
+        const rows = fresh.map(({ file, hash, takenAt: taken }, index) => ({
             id: createId(),
             url: `/uploads/checklist-instances/${path.basename(file.path)}`,
             originalFilename: file.originalname,
@@ -83,6 +118,9 @@ export const checklistInstanceImageService = {
             sizeBytes: file.size,
             captureMethod,
             purpose,
+            contentHash: hash,
+            similarToId: similar[index] ?? null,
+            takenAt: parseTakenAt(taken),
             checklistInstanceItemId: item.id,
             uploadedBy: user.sub,
         }));

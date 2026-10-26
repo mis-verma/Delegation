@@ -1,8 +1,8 @@
 import { db } from "../../config/db.js"
 import { taskDepartmentApprovals, taskAdditionalAssignees } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { and, eq, inArray } from "drizzle-orm"
-import { assignmentNeedsHeadApproval } from "../tickets/ticketApproval.js"
+import { and, eq, inArray, ne } from "drizzle-orm"
+import { activeDepartmentHeadIds, ticketNeedsHeadApproval } from "../tickets/ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { peopleByIds } from "./taskRelations.js"
 
@@ -28,7 +28,7 @@ export const additionalAssigneeIdsOf = async (taskId: string): Promise<string[]>
 export const departmentsNeedingApproval = async (departmentIds: string[], actor: Actor): Promise<string[]> => {
     const checks = await Promise.all(departmentIds.map(async (departmentId) => ({
         departmentId,
-        needed: await assignmentNeedsHeadApproval({ departmentId }, actor),
+        needed: await ticketNeedsHeadApproval({ departmentId }, actor),
     })))
     return checks.filter((c) => c.needed).map((c) => c.departmentId)
 }
@@ -121,19 +121,108 @@ export const countPending = async (tx: Tx, taskId: string): Promise<number> =>
     (await tx.select({ id: taskDepartmentApprovals.id }).from(taskDepartmentApprovals)
         .where(and(eq(taskDepartmentApprovals.taskId, taskId), eq(taskDepartmentApprovals.status, "pending")))).length
 
+export const completionPendingDepartments = (rows: ApprovalRow[]): string[] =>
+    rows.filter((r) => r.completionStatus === "pending").map((r) => r.departmentId)
+
+export const departmentsNeedingCompletion = async (
+    involvedDepartmentIds: string[],
+    excludedPeopleIds: (string | null | undefined)[],
+): Promise<string[]> => {
+    const checks = await Promise.all(involvedDepartmentIds.map(async (departmentId) => ({
+        departmentId,
+        heads: (await activeDepartmentHeadIds(departmentId, excludedPeopleIds)).length,
+    })))
+    return checks.filter((c) => c.heads > 0).map((c) => c.departmentId)
+}
+
+export const startCompletion = async (tx: Tx, taskId: string, departmentIds: string[]) => {
+    const existing = await tx.select().from(taskDepartmentApprovals).where(eq(taskDepartmentApprovals.taskId, taskId))
+    const known = new Set(existing.map((r) => r.departmentId))
+    await tx.update(taskDepartmentApprovals)
+        .set({ completionStatus: "none", completionBy: null, completionAt: null })
+        .where(eq(taskDepartmentApprovals.taskId, taskId))
+    if (departmentIds.length) {
+        await tx.update(taskDepartmentApprovals)
+            .set({ completionStatus: "pending" })
+            .where(and(eq(taskDepartmentApprovals.taskId, taskId), inArray(taskDepartmentApprovals.departmentId, departmentIds)))
+    }
+    const missing = departmentIds.filter((d) => !known.has(d))
+    if (missing.length) {
+        await tx.insert(taskDepartmentApprovals).values(missing.map((departmentId) => ({
+            taskId,
+            departmentId,
+            status: "approved" as const,
+            completionStatus: "pending" as const,
+        })))
+    }
+}
+
+export const clearCompletion = async (tx: Tx, taskId: string) => {
+    await tx.update(taskDepartmentApprovals)
+        .set({ completionStatus: "none", completionBy: null, completionAt: null })
+        .where(and(eq(taskDepartmentApprovals.taskId, taskId), ne(taskDepartmentApprovals.completionStatus, "none")))
+}
+
+export const approveCompletion = async (tx: Tx, taskId: string, departmentId: string, userId: string): Promise<number> => {
+    const [result] = await tx.update(taskDepartmentApprovals)
+        .set({ completionStatus: "approved", completionBy: userId, completionAt: new Date() })
+        .where(and(
+            eq(taskDepartmentApprovals.taskId, taskId),
+            eq(taskDepartmentApprovals.departmentId, departmentId),
+            eq(taskDepartmentApprovals.completionStatus, "pending"),
+        ))
+    return result.affectedRows
+}
+
+export const countCompletionPending = async (tx: Tx, taskId: string): Promise<number> =>
+    (await tx.select({ id: taskDepartmentApprovals.id }).from(taskDepartmentApprovals)
+        .where(and(eq(taskDepartmentApprovals.taskId, taskId), eq(taskDepartmentApprovals.completionStatus, "pending")))).length
+
+export const isInvolvedHead = async (taskId: string, user: Actor): Promise<boolean> => {
+    const mine = headDepartmentOf(user)
+    if (!mine) return false
+    const [row] = await db.select({ id: taskDepartmentApprovals.id }).from(taskDepartmentApprovals)
+        .where(and(eq(taskDepartmentApprovals.taskId, taskId), eq(taskDepartmentApprovals.departmentId, mine)))
+        .limit(1)
+    return !!row
+}
+
+export const canApproveCompletion = (
+    task: { userId: string },
+    rows: ApprovalRow[],
+    user: Actor,
+): boolean => {
+    const mine = headDepartmentOf(user)
+    return !!mine && task.userId !== user.sub && completionPendingDepartments(rows).includes(mine)
+}
+
 export const approvalsByTask = async (taskIds: string[]) => {
-    const byTask = new Map<string, { departmentId: string; status: "pending" | "approved"; decidedAt: Date | null; approver: { id: string; firstName: string; lastName: string | null } | null }[]>()
+    const byTask = new Map<string, {
+        departmentId: string
+        status: "pending" | "approved"
+        decidedAt: Date | null
+        approver: { id: string; firstName: string; lastName: string | null } | null
+        completion: "none" | "pending" | "approved"
+        completionAt: Date | null
+        completionApprover: { id: string; firstName: string; lastName: string | null } | null
+    }[]>()
     if (!taskIds.length) return byTask
     const rows = await db.select().from(taskDepartmentApprovals).where(inArray(taskDepartmentApprovals.taskId, taskIds))
-    const people = await peopleByIds([...new Set(rows.map((r) => r.decidedBy).filter((id): id is string => !!id))])
+    const people = await peopleByIds([...new Set(rows.flatMap((r) => [r.decidedBy, r.completionBy]).filter((id): id is string => !!id))])
+    const brief = (id: string | null) => {
+        const p = id ? people.get(id) : undefined
+        return p ? { id: p.id, firstName: p.firstName, lastName: p.lastName } : null
+    }
     for (const row of rows) {
-        const approver = row.decidedBy ? people.get(row.decidedBy) : undefined
         const list = byTask.get(row.taskId) ?? []
         list.push({
             departmentId: row.departmentId,
             status: row.status,
             decidedAt: row.decidedAt,
-            approver: approver ? { id: approver.id, firstName: approver.firstName, lastName: approver.lastName } : null,
+            approver: brief(row.decidedBy),
+            completion: row.completionStatus,
+            completionAt: row.completionAt,
+            completionApprover: brief(row.completionBy),
         })
         byTask.set(row.taskId, list)
     }

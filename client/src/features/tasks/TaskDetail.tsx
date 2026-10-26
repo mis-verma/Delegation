@@ -7,7 +7,9 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ActivitySheet } from '../../components/activitySheet';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
-import { useDepartmentsQuery } from '../tickets/hook';
+import { assignableUsersQueryOptions, useDepartmentsQuery } from '../tickets/hook';
+import { useQueries } from '@tanstack/react-query';
+import { ExtraDepartmentsField } from './ExtraDepartmentsField';
 import { TaskVerifyActions } from './TaskVerifyActions';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
@@ -514,9 +516,24 @@ const TaskEditLayout = ({
 }: TaskEditLayoutProps) => {
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
   const selectedIds = taskAssigneeIds(task);
+  const [extraDepartmentIds, setExtraDepartmentIds] = useState<string[]>(() =>
+    (task.departmentApprovals ?? []).map((a) => a.departmentId).filter((id) => id !== task.departmentId),
+  );
+  const extraPeople = useQueries({
+    queries: extraDepartmentIds.map((id) => ({ ...assignableUsersQueryOptions(id), enabled: canAssign && canReassign })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
+  });
+  const peoplePool = useMemo(() => [...new Map([...(allUsers ?? []), ...extraPeople].map((u) => [u.id, u])).values()], [allUsers, extraPeople]);
+  const scopeDepartmentIds = [task.departmentId, ...extraDepartmentIds].filter((id): id is string => !!id);
   const pickerUsers = task.departmentId
-    ? allUsers?.filter((u) => u.departmentId === task.departmentId || selectedIds.includes(u.id))
-    : allUsers;
+    ? peoplePool.filter((u) => (!!u.departmentId && scopeDepartmentIds.includes(u.departmentId)) || selectedIds.includes(u.id))
+    : peoplePool;
+  const peopleInDepartment = (departmentId: string) => selectedIds.filter((id) => peoplePool.find((u) => u.id === id)?.departmentId === departmentId).length;
+  const removeExtraDepartment = (departmentId: string) => {
+    setExtraDepartmentIds((ids) => ids.filter((d) => d !== departmentId));
+    const keep = selectedIds.filter((id) => peoplePool.find((u) => u.id === id)?.departmentId !== departmentId);
+    if (keep.length !== selectedIds.length) onUpdate({ assigneeId: keep[0] ?? null, additionalAssigneeIds: keep.slice(1) });
+  };
 
   const nameOf = (id: string | null | undefined) => {
     const person = id ? allUsers?.find((u) => u.id === id) : undefined;
@@ -551,6 +568,17 @@ const TaskEditLayout = ({
               isLoading={isLoadingUsers}
               disabled={!canAssign}
             />
+            {canAssign && canReassign && !!task.departmentId && (
+              <ExtraDepartmentsField
+                departments={departments}
+                isLoading={isLoadingDepts}
+                primaryId={task.departmentId}
+                extraIds={extraDepartmentIds}
+                peopleCount={peopleInDepartment}
+                onAdd={(id) => setExtraDepartmentIds((ids) => (ids.includes(id) ? ids : [...ids, id]))}
+                onRemove={removeExtraDepartment}
+              />
+            )}
           </TicketPropertyRow>
 
           <TicketPropertyRow wide label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>

@@ -50,9 +50,17 @@ export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: Capt
   );
 };
 
-export const UploadingHint = () => (
-  <span role="status" className="inline-flex items-center gap-1.5 t-meta text-text-muted">
-    <Loader size="sm" variant="slate" />
-    Uploading…
-  </span>
-);
+export const UploadingHint = ({ progress }: { progress?: number | null }) => {
+  const percent = progress == null ? null : Math.min(100, Math.round(progress * 100));
+  return (
+    <span role="status" className="inline-flex items-center gap-2 t-meta text-text-muted">
+      <Loader size="sm" variant="slate" />
+      <span className="tabular-nums">{percent === null || percent === 0 ? 'Uploading…' : percent >= 100 ? 'Saving…' : `Uploading ${percent}%`}</span>
+      {percent !== null && (
+        <span className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+          <span className="block h-full rounded-full bg-primary-500 transition-[width] duration-150" style={{ width: `${percent}%` }} />
+        </span>
+      )}
+    </span>
+  );
+};

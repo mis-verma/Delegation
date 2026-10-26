@@ -235,7 +235,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
                   {!item.requiresLivePhoto && (
                     <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={(files) => handleFiles(files, 'GALLERY')} />
                   )}
-                  {uploadImages.isPending && <UploadingHint />}
+                  {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
                 </div>
               )}
             </div>

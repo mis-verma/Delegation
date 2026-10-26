@@ -7,6 +7,7 @@ import { ADMIN_AREA_ROLES, OWNER_HOME, homeFor, ownerMayVisit, type Role } from 
 import { Dashboard } from './features/dashboard';
 import { PublicLayout } from './components/layout';
 import { useTicketSocket } from './features/tickets/useTicketSocket';
+import { useResumeUploads } from './lib/useResumeUploads';
 import { useKeyboardFlag } from './lib/useKeyboardFlag';
 import { useTaskSocket } from './features/tasks/useTaskSocket';
 import { useChecklistSocket } from './features/checklist/useChecklistSocket';
@@ -352,6 +353,7 @@ const router = createBrowserRouter([
 export default function App() {
   useKeyboardFlag();
   useTicketSocket();
+  useResumeUploads();
   useTaskSocket();
   useChecklistSocket();
   useNotificationSocket();

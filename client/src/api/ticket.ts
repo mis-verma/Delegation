@@ -1,5 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
+import { apiFetch, apiUpload, type SummaryScope, type PendingApprovalPreview } from './http';
+import { enqueueUpload } from '../lib/uploadQueue';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { Tag } from './tags';
 
@@ -382,10 +383,7 @@ export const ticketApi = {
   uploadAttachments: async (ticketId: string, files: File[]) => {
     const formData = new FormData();
     (await shrinkImages(files)).forEach(f => formData.append('images', f));
-    return apiFetch<ApiResponse<TicketAttachment[]>>(`/tickets/${ticketId}/attachments`, {
-      method: 'POST',
-      body:   formData,
-    });
+    return enqueueUpload(() => apiUpload<ApiResponse<TicketAttachment[]>>(`/tickets/${ticketId}/attachments`, formData));
   },
 
   deleteAttachment: (id: string) =>

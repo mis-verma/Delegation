@@ -4,8 +4,16 @@ import { createChecklistDefinitionSchema, updateChecklistDefinitionSchema, setCh
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import type { ChecklistRecurrence } from "./checklistDefinition.service.js"
 import { routeParam } from "../../utils/routeParam.js"
+import { AppError } from "../../utils/AppError.js"
+import path from "node:path"
 
 export const checklistDefinitionController = {
+    uploadReferenceImage: asyncHandler(async (req: Request, res: Response) => {
+        const file = req.file
+        if (!file || !file.mimetype.startsWith("image/")) throw AppError.badRequest("Pick a photo to use as the example.")
+        res.status(201).json({ success: true, data: { url: `/uploads/checklist-references/${path.basename(file.path)}` } })
+    }),
+
     list: asyncHandler(async (req: Request, res: Response) => {
         const { storeId, recurrence, isActive, draft } = req.query
         const { page, limit } = listChecklistDefinitionsQuerySchema.parse(req.query)

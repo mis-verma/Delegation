@@ -1,5 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch } from './http';
+import { apiFetch, apiUpload, type UploadProgress } from './http';
+import { enqueueUpload } from '../lib/uploadQueue';
 import type { ApiResponse } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
 import type {
@@ -37,14 +38,11 @@ export const checklistInstanceItemSubmissionApi = {
       body: JSON.stringify({ remarks }),
     }),
 
-  uploadImages: async (submissionId: string, files: File[], captureMethod: CaptureMethod) => {
+  uploadImages: async (submissionId: string, files: File[], captureMethod: CaptureMethod, onProgress?: UploadProgress) => {
     const formData = new FormData();
     (await shrinkImages(files)).forEach(f => formData.append('images', f));
     formData.append('captureMethod', captureMethod);
-    return apiFetch<ApiResponse<ChecklistInstanceItemSubmissionImage[]>>(`/checklist-instance-item-submissions/${submissionId}/images`, {
-      method: 'POST',
-      body: formData,
-    });
+    return enqueueUpload(() => apiUpload<ApiResponse<ChecklistInstanceItemSubmissionImage[]>>(`/checklist-instance-item-submissions/${submissionId}/images`, formData, onProgress));
   },
 
   deleteImage: (id: string) =>

@@ -1,5 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { haptic } from '../../lib/haptics';
+import { clearKept, readKept, writeKept } from '../../lib/keptForm';
+import { useAuth } from '../../context/AuthContext';
 import { ListTodo, Check, Circle, CalendarDays, Lock, Flag, Trash2, CircleCheck } from 'lucide-react';
 import { Button, Modal, DateRangePicker, type DateRangeValue } from '../../components';
 import { QuickDueOptions } from '../tickets/form/QuickDueOptions';
@@ -19,11 +22,20 @@ const SECTION_LABEL = 'flex items-center gap-1.5 t-meta font-display font-semibo
 const PILL_ON = 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300';
 const PILL_OFF = 'border-border/60 bg-surface text-text-secondary hover:border-border-hover';
 
+interface KeptTodo {
+  text?: string;
+  priority?: TodoPriority;
+  dueDate?: string | null;
+}
+
 export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   const isEdit = !!todo;
-  const [text, setText] = useState(todo?.text ?? '');
-  const [dueDate, setDueDate] = useState<Date | null>(todo?.dueDate ? new Date(todo.dueDate) : null);
-  const [priority, setPriority] = useState<TodoPriority>(todo?.priority ?? 'medium');
+  const { user } = useAuth();
+  const keptKey = `todo:${user?.id ?? 'anon'}`;
+  const [kept] = useState(() => (todo ? null : readKept<KeptTodo>(keptKey)));
+  const [text, setText] = useState(todo?.text ?? kept?.text ?? '');
+  const [dueDate, setDueDate] = useState<Date | null>(todo?.dueDate ? new Date(todo.dueDate) : kept?.dueDate ? new Date(kept.dueDate) : null);
+  const [priority, setPriority] = useState<TodoPriority>(todo?.priority ?? kept?.priority ?? 'medium');
   const [completed, setCompleted] = useState(todo?.completed ?? false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +43,35 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   const updateMut = useUpdateTodoMutation();
   const deleteMut = useDeleteTodoMutation();
   const isBusy = createMut.isPending || updateMut.isPending;
+
+  const finish = () => {
+    clearKept(keptKey);
+    onClose();
+  };
+
+  useEffect(() => {
+    if (isEdit) return undefined;
+    const timer = setTimeout(() => {
+      if (text.trim()) writeKept(keptKey, { text, priority, dueDate: dueDate ? dueDate.toISOString() : null });
+      else clearKept(keptKey);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [isEdit, keptKey, text, priority, dueDate]);
+
+  useEffect(() => {
+    if (!kept?.text) return;
+    toast.info('Brought back what you were typing.', {
+      action: {
+        label: 'Start over',
+        onClick: () => {
+          clearKept(keptKey);
+          setText('');
+          setDueDate(null);
+          setPriority('medium');
+        },
+      },
+    });
+  }, [kept, keptKey]);
 
   const savedDue = todo?.dueDate ? new Date(todo.dueDate).toISOString() : null;
   const isDirty = todo
@@ -40,7 +81,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   const handleDelete = () => {
     if (!todo) return;
     deleteMut.mutate(todo.id);
-    onClose();
+    finish();
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -54,12 +95,12 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
     if (todo) {
       updateMut.mutate(
         { id: todo.id, payload: { text: trimmed, priority, completed, dueDate: dueDate ? dueDate.toISOString() : null } },
-        { onSuccess: onClose },
+        { onSuccess: finish },
       );
     } else {
       createMut.mutate(
         { text: trimmed, priority, dueDate: dueDate ? dueDate.toISOString() : undefined },
-        { onSuccess: () => { haptic('success'); onClose(); } },
+        { onSuccess: () => { haptic('success'); finish(); } },
       );
     }
   };
@@ -69,7 +110,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={finish}
       size="md"
       icon={<ListTodo className="w-5 h-5" />}
       title={isEdit ? 'Edit to-do' : 'New to-do'}
@@ -86,7 +127,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
               Delete
             </Button>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="hidden sm:inline-flex font-display">
+          <Button type="button" variant="outline" size="sm" onClick={finish} disabled={isBusy} className="hidden sm:inline-flex font-display">
             Cancel
           </Button>
           <Button type="submit" form="todo-form" variant="primary" size="sm" isLoading={isBusy} className="max-sm:flex-1 max-sm:h-11 font-display">

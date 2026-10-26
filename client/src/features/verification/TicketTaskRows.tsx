@@ -48,6 +48,8 @@ const waitingLook = (sinceMs: number, now: number) => {
 
 const MAX_THUMBS = 4;
 
+const headsStillWaiting = (task: Task): number => (task.departmentApprovals ?? []).filter((a) => a.completion === 'pending').length;
+
 const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => (files.length === 0 ? null : <PhotoThumbs files={files} label="Attachment" max={MAX_THUMBS} />);
 
 interface QueueRowProps {
@@ -295,7 +297,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
           <>
             <PriorityChip meta={PRIORITY_MAP[task.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
-            {task.departmentId && <IconChip icon={ShieldCheck} tone={task.approvalStage === 'HOD' ? 'bg-warning' : 'bg-primary-600'} label={task.approvalStage === 'HOD' ? 'Head approves first' : task.hodApprovedAt ? 'Head approved, final check' : 'Final approval'} />}
+            {task.departmentId && <IconChip icon={ShieldCheck} tone={task.approvalStage === 'HOD' ? 'bg-warning' : 'bg-primary-600'} label={task.approvalStage === 'HOD' ? (headsStillWaiting(task) > 1 ? `${headsStillWaiting(task)} heads approve first` : 'Head approves first') : task.hodApprovedAt ? 'Head approved, final check' : 'Final approval'} />}
             <IconChip icon={Clock} tone={look.tone} label={`Waiting ${formatWaiting(since, now)}${look.suffix}`} labelClassName={look.text} />
           </>
         }
@@ -309,7 +311,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(task.id, task.title)}
-        approveLabel={task.approvalStage === 'HOD' && task.departmentId ? 'Approve, send to PC' : 'Approve'}
+        approveLabel={task.approvalStage === 'HOD' && task.departmentId ? (headsStillWaiting(task) > 1 ? 'Approve for my department' : 'Approve, send to PC') : 'Approve'}
         onSendBack={(note) => onSendBack(task.id, task.title, note)}
       />
       {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}

@@ -1,6 +1,7 @@
 import { Camera, Check, ImageUp, Video, X } from 'lucide-react';
 import { Button, IconChip, ToggleChip } from '../../../../components';
 import { CountStepper } from './CountStepper';
+import { ReferencePhotoField } from './ReferencePhotoField';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 
 interface PhotoRulesPanelProps {
@@ -88,6 +89,8 @@ export const PhotoRulesPanel = ({ draft, onChange, noun, removable = false }: Ph
         <SectionLabel>Source</SectionLabel>
         <PhotoSourceChips live={live} onChange={(next) => onChange({ requiresLivePhoto: next })} noun={noun} />
       </div>
+
+      {!isVideo && <ReferencePhotoField url={draft.referenceImageUrl} onChange={(next) => onChange({ referenceImageUrl: next })} />}
 
       <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
         <span className="t-meta font-display font-semibold text-text-secondary">What staff will see</span>

@@ -263,6 +263,12 @@ const staleWorkNudges = async (now: Date) => {
 
 const taskApprovalChasers = async (now: Date) => {
   const pending = await db.select().from(tasks).where(and(isNull(tasks.deletedAt), eq(tasks.status, 'pending_approval'))).limit(BATCH);
+  const completionRows = pending.length
+    ? await db.select({ taskId: taskDepartmentApprovals.taskId, departmentId: taskDepartmentApprovals.departmentId }).from(taskDepartmentApprovals)
+      .where(and(inArray(taskDepartmentApprovals.taskId, pending.map((t) => t.id)), eq(taskDepartmentApprovals.completionStatus, 'pending')))
+    : [];
+  const completionByTask = new Map<string, string[]>();
+  for (const row of completionRows) completionByTask.set(row.taskId, [...(completionByTask.get(row.taskId) ?? []), row.departmentId]);
   for (const t of pending) {
     const hours = (now.getTime() - waitingSince(t)) / HOUR_MS;
     if (hours >= ESCALATE_HOURS && !t.approvalEscalatedAt) {
@@ -270,7 +276,7 @@ const taskApprovalChasers = async (now: Date) => {
       await db.update(tasks).set({ approvalEscalatedAt: now, approvalReminderSentAt: t.approvalReminderSentAt ?? now }).where(eq(tasks.id, t.id));
     } else if (hours >= REMINDER_HOURS && !t.approvalReminderSentAt) {
       await notificationService.notifyPendingVerification(
-        { _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId, assigneeId: t.assigneeId, reviewerIds: [] },
+        { _id: t.id, title: t.title, departmentId: t.departmentId, departmentIds: completionByTask.get(t.id), userId: t.userId, assigneeId: t.assigneeId, reviewerIds: [] },
         'TASK', t.approvalStage ?? 'PC', Math.floor(hours),
       );
       await db.update(tasks).set({ approvalReminderSentAt: now }).where(eq(tasks.id, t.id));

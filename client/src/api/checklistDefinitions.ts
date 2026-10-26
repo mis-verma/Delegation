@@ -1,4 +1,5 @@
 import { apiFetch } from './http';
+import { shrinkImages } from '../lib/compressImage';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
 export type ChecklistRecurrence = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
@@ -27,6 +28,7 @@ export type ChecklistDefinitionItem = {
   requiredImageCount: number;
   maxImageCount: number | null;
   requiresLivePhoto: boolean;
+  referenceImageUrl?: string | null;
   isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
@@ -92,6 +94,7 @@ export type CreateChecklistDefinitionItemPayload = {
   requiredImageCount?: number;
   maxImageCount?: number;
   requiresLivePhoto?: boolean;
+  referenceImageUrl?: string | null;
   isCritical?: boolean;
   itemType?: ChecklistItemType;
   auditUserIds?: string[];
@@ -197,6 +200,13 @@ export type ChecklistScoringGap = {
 };
 
 export const checklistDefinitionApi = {
+  uploadReferenceImage: async (file: File) => {
+    const formData = new FormData();
+    const [shrunk] = await shrinkImages([file]);
+    formData.append('image', shrunk ?? file);
+    return apiFetch<ApiResponse<{ url: string }>>('/checklist-definitions/reference-image', { method: 'POST', body: formData }).then((r) => r.data.url);
+  },
+
   getScoringGaps: () => apiFetch<ApiResponse<ChecklistScoringGap[]>>('/checklist-definitions/scoring-gaps'),
 
   getAll: (params: ListChecklistDefinitionsParams = {}) =>

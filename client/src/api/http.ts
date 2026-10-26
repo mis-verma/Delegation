@@ -107,6 +107,60 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
   return data as T;
 };
 
+export type UploadProgress = (fraction: number) => void;
+
+type XhrResult = { status: number; data: { message?: string } | null; retryAfterMs?: number };
+
+const parseBody = (text: string): XhrResult['data'] => {
+  try {
+    return JSON.parse(text) as XhrResult['data'];
+  } catch {
+    return null;
+  }
+};
+
+const xhrPost = (path: string, body: FormData, token: string | null, previewId: string | null, onProgress?: UploadProgress): Promise<XhrResult> =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE}${path}`);
+    xhr.withCredentials = true;
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (previewId) xhr.setRequestHeader('X-View-As', previewId);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const data = parseBody(xhr.responseText);
+      const seconds = Number(xhr.getResponseHeader('Retry-After'));
+      resolve({ status: xhr.status, data, retryAfterMs: Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined });
+    };
+    const failed = () => reject(new ApiError("Couldn't reach the server. Check your connection and try again.", 0));
+    xhr.onerror = failed;
+    xhr.ontimeout = failed;
+    xhr.send(body);
+  });
+
+export const apiUpload = async <T>(path: string, body: FormData, onProgress?: UploadProgress): Promise<T> => {
+  const previewId = viewAsStore.get();
+  if (previewId) {
+    throw new ApiError('You are previewing someone else’s account, so nothing can be changed. Exit the preview first.', 403);
+  }
+  const token = tokenStore.get();
+  let res = await xhrPost(path, body, token, null, onProgress);
+  if (res.status === 401 && token) {
+    const newToken = await refreshAccessToken(token);
+    if (!newToken) {
+      forceLogout();
+      throw new ApiError('Your session has ended. Please sign in again.', 401);
+    }
+    res = await xhrPost(path, body, newToken, null, onProgress);
+  }
+  if (res.status < 200 || res.status >= 300) {
+    throw new ApiError(res.data?.message ?? 'Something went wrong. Please try again.', res.status, res.retryAfterMs);
+  }
+  return res.data as T;
+};
+
 export type SummaryScope = 'mine' | 'visible';
 
 export type PendingApprovalPreview<T> = { rows: T[]; total: number };

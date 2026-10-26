@@ -4,6 +4,11 @@ import type { Task } from '../../api/task';
 
 const name = (p: { firstName: string; lastName: string | null } | null | undefined) => (p ? `${p.firstName}${p.lastName ? ` ${p.lastName}` : ''}` : null);
 
+const headProgress = (task: Task) => {
+  const rows = (task.departmentApprovals ?? []).filter((a) => a.completion !== 'none');
+  return rows.length > 1 ? { done: rows.filter((a) => a.completion === 'approved').length, total: rows.length } : null;
+};
+
 export const TaskApprovalTrail = ({ task }: { task: Task }) => (
   <ApprovalTrail
     pending={task.status === 'pending_approval'}
@@ -12,6 +17,7 @@ export const TaskApprovalTrail = ({ task }: { task: Task }) => (
     submittedAt={task.submittedAt}
     hodApprovedAt={task.hodApprovedAt}
     hodName={name(task.hodApprover)}
+    hodProgress={headProgress(task)}
     finalAt={task.verifiedAt}
     finalName={name(task.verifier)}
   />

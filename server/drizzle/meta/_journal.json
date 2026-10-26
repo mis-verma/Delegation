@@ -568,6 +568,34 @@
       "when": 1792810000000,
       "tag": "0080_task_department_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "5",
+      "when": 1792820000000,
+      "tag": "0081_task_completion_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "5",
+      "when": 1792830000000,
+      "tag": "0082_checklist_image_fingerprints",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "5",
+      "when": 1792840000000,
+      "tag": "0083_checklist_reference_photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "5",
+      "when": 1792850000000,
+      "tag": "0084_checklist_image_similar",
+      "breakpoints": true
     }
   ]
 }

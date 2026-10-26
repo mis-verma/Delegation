@@ -13,6 +13,8 @@ export interface EvidenceImage {
   mimeType:         string;
   captureMethod:    CaptureMethod;
   createdAt:        string;
+  reusedFromEarlier?: boolean;
+  takenBeforeRun?:    boolean;
 }
 
 interface EvidenceThumbProps {
@@ -71,6 +73,11 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
       >
         {image.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
       </span>
+      {(image.reusedFromEarlier || image.takenBeforeRun) && (
+        <span className="pointer-events-none absolute -top-1 -right-1 px-1.5 rounded-full bg-danger t-meta font-display font-semibold text-white" title={image.reusedFromEarlier ? 'This photo looks the same as one uploaded earlier for another question' : 'This photo was taken before this checklist opened'}>
+          {image.reusedFromEarlier ? 'Reused' : 'Old'}
+        </span>
+      )}
       <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 t-meta font-display font-medium text-white whitespace-nowrap tabular-nums">
         {formatTimeOnly(image.createdAt)}
       </span>

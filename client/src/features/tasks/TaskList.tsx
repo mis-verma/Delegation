@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateButton } from '../../components/createButton';
+import { TaskTeamStrip } from './TaskTeamStrip';
 import { useSearchParams } from "react-router";
 import { readKept, writeKept } from "../../lib/keptForm";
 import { toast } from "sonner";
@@ -568,6 +569,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               onClear={() => setQuickFilter(null)}
               isLoading={isPending}
             />
+
+            {!userId && (user?.role === 'MANAGER' || user?.role === 'SENIOR') && (
+              <TaskTeamStrip
+                pickedId={filters.assigneeIds.length === 1 ? filters.assigneeIds[0] ?? null : null}
+                onPick={(id) => updateFilters({ assigneeIds: id ? [id] : [] })}
+              />
+            )}
           </>
         )}
 

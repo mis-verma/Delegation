@@ -11,6 +11,7 @@ export interface ApprovalTrailProps {
   submittedAt?: string | null;
   hodApprovedAt?: string | null;
   hodName?: string | null;
+  hodProgress?: { done: number; total: number } | null;
   finalAt?: string | null;
   finalName?: string | null;
   hideHead?: boolean;
@@ -44,7 +45,7 @@ const buildAllSteps = (p: ApprovalTrailProps): Step[] => {
       state: hodDone ? 'done' : hodSkipped ? 'skipped' : p.pending && p.stage === 'HOD' ? 'current' : 'waiting',
       detail: hodDone
         ? [p.hodName, shortWhen(p.hodApprovedAt)].filter(Boolean).join(', ')
-        : hodSkipped ? 'Skipped' : p.pending && p.stage === 'HOD' ? 'Reviewing now' : 'Next',
+        : hodSkipped ? 'Skipped' : p.pending && p.stage === 'HOD' ? (p.hodProgress && p.hodProgress.total > 1 ? `${p.hodProgress.done} of ${p.hodProgress.total} heads approved` : 'Reviewing now') : 'Next',
     },
     {
       key: 'pc',

@@ -5,6 +5,7 @@ import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateTaskInput } from "./task.validation.js"
 import { canApproveAtStage, type ApprovalStage } from "../tickets/ticketApproval.js"
+import { approvalRowsOf, canApproveCompletion, completionPendingDepartments } from "./taskDepartmentApprovals.js"
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 
 export const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
@@ -66,6 +67,13 @@ export const assertCanVerify = async (
         }
     }
     const stage: ApprovalStage = task.approvalStage ?? "PC";
+    if (stage === "HOD" && user.role !== "ADMIN") {
+        const rows = await approvalRowsOf(task.id);
+        if (completionPendingDepartments(rows).length > 0) {
+            if (canApproveCompletion(task, rows, user)) return;
+            throw AppError.forbidden("This delegation is waiting for the heads of the departments involved. Your department has already approved it, or it is not yours to approve.");
+        }
+    }
     const [reviewer] = stage === "PC"
         ? await db.select({ id: taskReviewers.id })
             .from(taskReviewers)

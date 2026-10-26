@@ -6,6 +6,7 @@ import { ticketStatusUpdates, tickets } from "../../db/schema/ticket.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
 import { isAdminOrPc } from "../../utils/roles.js"
+import { isInvolvedHead } from "../tasks/taskDepartmentApprovals.js"
 
 export type ActivityEntity = "Task" | "Ticket"
 
@@ -124,6 +125,7 @@ export const activityService = {
                 .limit(1)
             allowed = !!extra
         }
+        if (!allowed && entityType === "Task" && isHod(viewer.role)) allowed = await isInvolvedHead(entityId, viewer)
         if (!allowed) throw AppError.forbidden()
 
         const [auditRows, remarkRows] = await Promise.all([

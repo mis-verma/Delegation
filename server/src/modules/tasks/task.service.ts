@@ -10,10 +10,11 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { ConfirmSmartTaskInput, CreateTaskInput, ListTasksQuery, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
 import { bucketCondition, optionConditions, scopeConditions, taskListCounts, taskListOrder } from "./taskListQuery.js"
 import { resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
-import { activeDepartmentHeadIds, assignmentNeedsHeadApproval, type ApprovalStage } from "../tickets/ticketApproval.js"
+import { ticketNeedsHeadApproval, type ApprovalStage } from "../tickets/ticketApproval.js"
 import {
-    additionalAssigneeIdsOf, applyApprovalPlan, approvalBlockers, approvalRowsOf, approvalsByTask, approvalsOf, canApproveNow, canDecideOnAssignment,
-    countPending, departmentsNeedingApproval, headDepartmentOf, involvedDepartmentIds, markApproved, pendingDepartmentsFor, planApprovalRows, type ApprovalPlan,
+    additionalAssigneeIdsOf, applyApprovalPlan, approvalBlockers, approvalRowsOf, approvalsByTask, approvalsOf, approveCompletion, canApproveNow, canDecideOnAssignment,
+    clearCompletion, completionPendingDepartments, countCompletionPending, countPending, departmentsNeedingApproval, departmentsNeedingCompletion, headDepartmentOf,
+    involvedDepartmentIds, markApproved, pendingDepartmentsFor, planApprovalRows, startCompletion, type ApprovalPlan,
 } from "./taskDepartmentApprovals.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
@@ -184,7 +185,7 @@ export const taskService = {
     async createFromSmartInput(input: ConfirmSmartTaskInput, user: AccessTokenPayload) {
         const id = createId();
         const departmentId = input.departmentId ?? (await departmentOfUser(input.assigneeId));
-        const needsHead = input.category === "delegated_task" && await assignmentNeedsHeadApproval({ departmentId }, user);
+        const needsHead = input.category === "delegated_task" && await ticketNeedsHeadApproval({ departmentId }, user);
         await db.insert(tasks).values({
             id,
             title: input.title,
@@ -464,16 +465,20 @@ export const taskService = {
             update.overdueNotifiedAt = null;
             update.overdueEscalatedAt = null;
         }
+        let completionDepartments: string[] | null = null;
+        let clearCompletionRows = false;
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             update.submittedAt = new Date();
             const workers = additionalAssigneeIds !== undefined
                 ? additionalAssigneeIds
                 : (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
-            const headIds = await activeDepartmentHeadIds(
-                (rest.departmentId !== undefined ? rest.departmentId : existing.departmentId) ?? null,
-                [rest.assigneeId !== undefined ? rest.assigneeId : existing.assigneeId, existing.userId, ...workers],
+            const submitAssigneeId = (rest.assigneeId !== undefined ? rest.assigneeId : existing.assigneeId) ?? null;
+            const involvedForCompletion = await involvedDepartmentIds(
+                { departmentId: (rest.departmentId !== undefined ? rest.departmentId : existing.departmentId) ?? null, assigneeId: submitAssigneeId },
+                workers,
             );
-            update.approvalStage = headIds.length > 0 ? "HOD" : "PC";
+            completionDepartments = await departmentsNeedingCompletion(involvedForCompletion, [submitAssigneeId, existing.userId, ...workers]);
+            update.approvalStage = completionDepartments.length > 0 ? "HOD" : "PC";
             update.hodApprovedBy = null;
             update.hodApprovedAt = null;
             update.approvalReminderSentAt = null;
@@ -482,6 +487,7 @@ export const taskService = {
             update.approvalStage = null;
             update.hodApprovedBy = null;
             update.hodApprovedAt = null;
+            clearCompletionRows = true;
         }
         if (beforeStatus === "done" && input.status !== undefined && input.status !== "done") {
             update.verifiedBy = null;
@@ -545,6 +551,8 @@ export const taskService = {
             await replaceAdditionalAssignees(tx, id, additionalAssigneeIds);
             if (approvalPlan) await applyApprovalPlan(tx, id, approvalPlan);
             if (headAutoApproved) await markApproved(tx, id, user, null);
+            if (completionDepartments) await startCompletion(tx, id, completionDepartments);
+            if (clearCompletionRows) await clearCompletion(tx, id);
             if (tagIds !== undefined) await syncTaskTags(tx, id, tagIds);
             if (reviewerIds !== undefined) await syncTaskReviewers(tx, id, reviewerIds);
             if (isStatusChange) {
@@ -593,6 +601,7 @@ export const taskService = {
                 _id: task.id,
                 title: task.title,
                 departmentId: task.departmentId ?? undefined,
+                departmentIds: completionDepartments ?? undefined,
                 assigneeId: task.assigneeId ?? undefined,
                 additionalAssigneeIds: currentAdditionalIds,
                 reviewerIds,
@@ -684,46 +693,69 @@ export const taskService = {
 
         const fromStatus = task.status;
         const stage: ApprovalStage = task.approvalStage ?? "PC";
-        const stageHandOff = input.action === "APPROVE" && stage === "HOD" && user.role !== "ADMIN";
-        const update: Record<string, unknown> = { updatedAt: new Date(), verificationNote: input.note ?? null };
-        if (stageHandOff) {
-            update.approvalStage = "PC";
-            update.hodApprovedBy = user.sub;
-            update.hodApprovedAt = new Date();
-            update.approvalReminderSentAt = null;
-            update.approvalEscalatedAt = null;
-        } else if (input.action === "APPROVE") {
-            update.status = "done";
-            update.verifiedBy = user.sub;
-            update.verifiedAt = new Date();
-            update.approvalStage = null;
-        } else {
-            update.status = "in_progress";
-            update.approvalStage = null;
-            update.hodApprovedBy = null;
-            update.hodApprovedAt = null;
-        }
+        const completionPending = completionPendingDepartments(await approvalRowsOf(id));
+        const myDepartment = headDepartmentOf(user);
+        const headStep = input.action === "APPROVE" && stage === "HOD" && user.role !== "ADMIN";
+        const perDepartment = headStep && completionPending.length > 0 && !!myDepartment;
+        const outcome = { stageHandOff: false, stillWaiting: 0 };
         await db.transaction(async (tx) => {
+            if (perDepartment && await approveCompletion(tx, id, myDepartment!, user.sub) === 0) {
+                throw AppError.conflict("Someone approved this a moment ago. Open it again.")
+            }
+            outcome.stillWaiting = perDepartment ? await countCompletionPending(tx, id) : 0;
+            outcome.stageHandOff = headStep && outcome.stillWaiting === 0;
+            const update: Record<string, unknown> = { updatedAt: new Date(), verificationNote: input.note ?? null };
+            if (outcome.stageHandOff) {
+                update.approvalStage = "PC";
+                update.hodApprovedBy = user.sub;
+                update.hodApprovedAt = new Date();
+                update.approvalReminderSentAt = null;
+                update.approvalEscalatedAt = null;
+            } else if (headStep) {
+                update.approvalReminderSentAt = null;
+            } else if (input.action === "APPROVE") {
+                update.status = "done";
+                update.verifiedBy = user.sub;
+                update.verifiedAt = new Date();
+                update.approvalStage = null;
+            } else {
+                update.status = "in_progress";
+                update.approvalStage = null;
+                update.hodApprovedBy = null;
+                update.hodApprovedAt = null;
+                await clearCompletion(tx, id);
+            }
             const [result] = await tx.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
             if (result.affectedRows === 0) {
                 throw AppError.badRequest("This delegation isn't pending approval.")
             }
 
+            const handOffRemark = completionPending.length > 1 ? "Approved by the last department head, sent to PC." : "Approved by the department head, sent to PC.";
+            const waitingRemark = `Approved by the department head. Waiting for ${outcome.stillWaiting} more department head${outcome.stillWaiting === 1 ? "" : "s"}.`;
             await tx.insert(taskStatusUpdates).values({
                 taskId: id,
                 changedBy: user.sub,
                 fromStatus,
                 toStatus: (update.status ?? fromStatus) as typeof TASK_STATUSES[number],
-                remark: input.note?.trim() || (stageHandOff ? "Approved by the department head, sent to PC." : input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
+                remark: input.note?.trim() || (outcome.stageHandOff ? handOffRemark : headStep ? waitingRemark : input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
             });
         });
+        const { stageHandOff, stillWaiting } = outcome;
 
         const [updated] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
         const additionalAssigneeIds = (await db.select({ userId: taskAdditionalAssignees.userId })
             .from(taskAdditionalAssignees)
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
 
-        if (stageHandOff) {
+        if (stillWaiting > 0) {
+            await notifySafely(() => notificationService.notifyCompletionPartlyApproved({
+                _id: updated!.id,
+                title: updated!.title,
+                userId: updated!.userId,
+                assigneeId: updated!.assigneeId ?? undefined,
+                additionalAssigneeIds,
+            }, stillWaiting, user.sub));
+        } else if (stageHandOff) {
             await notifySafely(() => notificationService.notifyStageHandOff({
                 _id: updated!.id,
                 title: updated!.title,
@@ -762,7 +794,7 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: id, action: "VERIFY", actorId: user.sub, after: updated });
         await dropTaskSummaries();
 
-        return { ...updated!, ...(await approverNames(updated!)), statusUpdates: await loadStatusUpdates(id) };
+        return { ...updated!, ...(await approverNames(updated!)), departmentApprovals: await approvalsOf(id), statusUpdates: await loadStatusUpdates(id) };
     },
 
     async approveAssignment(id: string, user: AccessTokenPayload) {
