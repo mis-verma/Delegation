@@ -10,7 +10,7 @@ import { handleQueryRetry } from '../../lib/queryHelpers';
 
 const PUSH_KEY = ['notifications', 'push-status'] as const;
 const DISMISS_KEY = 'tm-alerts-prompt-dismissed-at';
-const DISMISS_DAYS = 7;
+const DISMISS_DAYS = 2;
 
 const recentlyDismissed = () => {
   try {

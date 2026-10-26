@@ -14,8 +14,8 @@ export const useResumeUploads = () => {
     const run = async () => {
       const finished = await resumePendingUploads();
       if (cancelled || finished === 0) return;
-      toast.success(finished === 1 ? 'A saved photo upload finished.' : `${finished} saved photo uploads finished.`);
-      void queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      toast.success(finished === 1 ? 'A saved upload finished.' : `${finished} saved uploads finished.`);
+      for (const key of ['checklist-instances', 'tickets', 'tasks']) void queryClient.invalidateQueries({ queryKey: [key] });
     };
     void run();
     window.addEventListener('online', run);

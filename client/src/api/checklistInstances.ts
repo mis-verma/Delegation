@@ -1,6 +1,7 @@
 import { shrinkImages } from '../lib/compressImage';
 import { apiFetch, type PendingApprovalPreview, type UploadProgress } from './http';
-import { uploadKeepingCopy } from '../lib/persistentUpload';
+import { fileParts, uploadKeepingCopy } from '../lib/persistentUpload';
+import { captureTimeOf } from '../lib/captureTime';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { ApiResponse, ChecklistRecurrence, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
@@ -549,12 +550,13 @@ export const checklistInstanceApi = {
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod, purpose: ChecklistImagePurpose = 'GENERAL', onProgress?: UploadProgress) => {
+    const taken = await Promise.all(files.map(captureTimeOf));
     const shrunk = await shrinkImages(files);
     return uploadKeepingCopy<ApiResponse<ChecklistInstanceImage[]>>(files, {
       path: `/checklist-instance-items/${itemId}/images`,
-      files: shrunk.map((f) => ({ field: 'images', blob: f, name: f.name, type: f.type, lastModified: f.lastModified })),
+      files: fileParts(shrunk, 'images'),
       fields: [
-        ...shrunk.map((f): [string, string] => ['takenAt', new Date(f.lastModified).toISOString()]),
+        ...taken.map((at): [string, string] => ['takenAt', at.toISOString()]),
         ['captureMethod', captureMethod],
         ['purpose', purpose],
       ],

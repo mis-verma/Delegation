@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
@@ -65,6 +65,44 @@ export const Dashboard = () => {
     () => (isHome ? invalidateDashboardQueries(queryClient) : queryClient.invalidateQueries()),
     [isHome, queryClient],
   );
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
+  const pathname = location.pathname;
+
+  const page = useMemo(() => (
+    <main className="flex-1 min-w-0 relative">
+      <PullToRefresh onRefresh={handleRefresh} scrollKey={pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="min-h-full flex flex-col">
+          <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(13rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
+            <MaintenanceNotice settingsPath="/admin/settings" />
+            {maintenanceMatch && isAdmin && (
+              <div
+                role="status"
+                className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl border border-warning/30 bg-warning/10 t-meta font-display font-medium text-text-secondary"
+              >
+                <Construction size={15} className="text-warning shrink-0" />
+                <span>
+                  This page is under maintenance for everyone else. You can see it because you&rsquo;re an admin.
+                </span>
+              </div>
+            )}
+            <Suspense fallback={<RouteFallback />}>
+              <div
+                ref={pageRef}
+                key={pathname}
+                className={`flex-1 flex flex-col h-full animate-in fade-in ${enterClass} duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none`}
+              >
+                {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(pathname)} /> : <Outlet />}
+              </div>
+            </Suspense>
+          </div>
+          <div className="hidden md:block">
+            <Footer />
+          </div>
+        </div>
+      </PullToRefresh>
+    </main>
+  ), [handleRefresh, pathname, isHome, maintenanceMatch, isAdmin, enterClass, pageUnderMaintenance]);
 
   return (
     <div
@@ -72,52 +110,17 @@ export const Dashboard = () => {
       style={{ background: 'var(--color-background)' }}
     >
       <ViewAsBanner />
-      <Header onToggleSidebar={() => setSidebarOpen(v => !v)} />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className={`flex flex-1 min-h-0 relative ${mobileDrawerOpen ? 'z-50' : 'z-0'}`}>
         <Sidebar
           isOpen={sidebarOpen}
           user={user}
           logout={logout}
-          onNavigate={() => setSidebarOpen(false)}
-          onToggleCollapse={() => setSidebarOpen((v) => !v)}
+          onNavigate={closeSidebar}
+          onToggleCollapse={toggleSidebar}
         />
-
-        
-        <main className="flex-1 min-w-0 relative">
-          <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
-            <div className="min-h-full flex flex-col">
-            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(13rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
-              <MaintenanceNotice settingsPath="/admin/settings" />
-              {maintenanceMatch && isAdmin && (
-                <div
-                  role="status"
-                  className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl border border-warning/30 bg-warning/10 t-meta font-display font-medium text-text-secondary"
-                >
-                  <Construction size={15} className="text-warning shrink-0" />
-                  <span>
-                    This page is under maintenance for everyone else. You can see it because you&rsquo;re an admin.
-                  </span>
-                </div>
-              )}
-             
-              <Suspense fallback={<RouteFallback />}>
-                <div
-                  ref={pageRef}
-                  key={location.pathname}
-                  className={`flex-1 flex flex-col h-full animate-in fade-in ${enterClass} duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none`}
-                >
-                  {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(location.pathname)} /> : <Outlet />}
-                </div>
-              </Suspense>
-            </div>
-            <div className="hidden md:block">
-              <Footer />
-            </div>
-            </div>
-          </PullToRefresh>
-        </main>
+        {page}
       </div>
       <BottomNav />
     </div>

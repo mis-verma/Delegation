@@ -1,6 +1,6 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, apiUpload, type SummaryScope, type PendingApprovalPreview } from './http';
-import { enqueueUpload } from '../lib/uploadQueue';
+import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
+import { fileParts, uploadKeepingCopy } from '../lib/persistentUpload';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
 import type { Tag } from './tags';
@@ -333,9 +333,8 @@ export const taskApi = {
     },
 
     uploadAttachments: async (taskId: string, files: File[]) => {
-        const formData = new FormData();
-        (await shrinkImages(files)).forEach(f => formData.append('files', f));
-        return enqueueUpload(() => apiUpload<ApiResponse<TaskAttachment[]>>(`/tasks/${taskId}/attachments`, formData));
+        const shrunk = await shrinkImages(files);
+        return uploadKeepingCopy<ApiResponse<TaskAttachment[]>>(files, { path: `/tasks/${taskId}/attachments`, files: fileParts(shrunk, 'files'), fields: [] });
     },
 
     deleteAttachment: (id: string) =>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePendingVerificationChecklistInstancesQuery } from '../../features/checklist/hook';
 import { NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -95,7 +95,9 @@ const isChildActive = (child: NavChild, location: { pathname: string; search: st
     ? `${location.pathname}${location.search}` === child.to
     : location.pathname === child.to;
 
-const RailTip = ({ label, show, children }: { label: string; show: boolean; children: ReactNode }) => (
+const RailTip = ({ label, show, children }: { label: string; show: boolean; children: ReactNode }) => !show ? (
+  <div className="flex flex-1 min-w-0">{children}</div>
+) : (
   <Tooltip delayDuration={0}>
     <TooltipTrigger asChild>
       <div className="flex flex-1 min-w-0">{children}</div>
@@ -121,7 +123,7 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: SidebarProps) => {
+const SidebarImpl = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
   const prefetchRoute = usePrefetchRoute();
   const isMobile = useIsMobile();
@@ -195,7 +197,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       el.removeEventListener('scroll', checkOverflow);
       resizeObserver.disconnect();
     };
-  }, [expandedKeys, isOpen]);
+  }, [expandedKeys, isOpen, isMobile]);
 
   useEffect(() => {
     const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -593,21 +595,24 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         }`}
       />
 
-      <aside
-        inert={!isOpen}
-        onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
-        onTouchEnd={(e) => {
-          if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
-          swipeStartX.current = null;
-        }}
-        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
-          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none pointer-events-none'
-        }`}
-      >
-        {renderContent(true)}
-      </aside>
+      {isMobile && (
+        <aside
+          inert={!isOpen}
+          onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
+            swipeStartX.current = null;
+          }}
+          className={`fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
+            isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+          }`}
+        >
+          {renderContent(true)}
+        </aside>
+      )}
 
-      <div className="hidden md:block relative shrink-0 h-full z-20 p-3">
+      {!isMobile && (
+      <div className="relative shrink-0 h-full z-20 p-3">
         <aside
           className={`flex flex-col h-full rounded-2xl border border-border overflow-hidden py-5 bg-surface transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
             isOpen ? 'w-(--sidebar-width-expanded) px-4' : 'w-(--sidebar-width-collapsed) px-3'
@@ -628,6 +633,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           </button>
         )}
       </div>
+      )}
     </>
   );
 };
+
+export const Sidebar = memo(SidebarImpl);

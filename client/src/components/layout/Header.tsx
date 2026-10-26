@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { NavLink, useLocation, useNavigate } from 'react-router';
@@ -37,7 +37,7 @@ const titleCase = (value: string) =>
 
 const CLOCK_REFRESH_MS = 30_000;
 
-export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
+const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -195,3 +195,5 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     </header>
   );
 };
+
+export const Header = memo(HeaderImpl);

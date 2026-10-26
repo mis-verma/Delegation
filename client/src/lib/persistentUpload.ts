@@ -1,6 +1,9 @@
 import { ApiError, apiUpload, type UploadProgress } from '../api/http';
 import { enqueueUpload } from './uploadQueue';
-import { listPending, putPending, removePending, type PendingUpload } from './uploadStore';
+import { listPending, putPending, removePending, type PendingFile, type PendingUpload } from './uploadStore';
+
+export const fileParts = (files: File[], field: string): PendingFile[] =>
+  files.map((file) => ({ field, blob: file, name: file.name, type: file.type, lastModified: file.lastModified }));
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
