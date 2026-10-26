@@ -2,7 +2,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { tasks, taskAdditionalAssignees, taskAttachments } from "../../db/schema/index.js";
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull, gt } from "drizzle-orm";
+import { repeatWindowStart, splitRepeatedUploads } from "../../utils/repeatedUploads.js";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
@@ -39,7 +40,14 @@ export const taskAttachmentService = {
             throw AppError.badRequest("No valid files were received (check file type and size)");
         }
 
-        const rows = files.map((file) => ({
+        const { fresh, already } = splitRepeatedUploads(files, await db.select().from(taskAttachments).where(and(
+            eq(taskAttachments.taskId, task.id),
+            eq(taskAttachments.uploadedBy, user.sub),
+            gt(taskAttachments.createdAt, repeatWindowStart()),
+        )));
+        if (fresh.length === 0) return already;
+
+        const rows = fresh.map((file) => ({
             id: createId(),
             url: `/uploads/task-attachments/${path.basename(file.path)}`,
             originalFilename: file.originalname,
@@ -51,7 +59,8 @@ export const taskAttachmentService = {
 
         await db.insert(taskAttachments).values(rows);
 
-        return db.select().from(taskAttachments).where(inArray(taskAttachments.id, rows.map((r) => r.id)));
+        const inserted = await db.select().from(taskAttachments).where(inArray(taskAttachments.id, rows.map((r) => r.id)));
+        return [...already, ...inserted];
     },
 
     async remove(attachmentId: string, user: AccessTokenPayload) {

@@ -21,6 +21,7 @@ import { startRiskWatch } from "./src/jobs/riskWatch.job.js";
 import { startRequestStatsFlush } from "./src/modules/health/requestStats.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
 import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
+import { startImageVariantCleanup } from "./src/jobs/imageVariantCleanup.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
 import { startOverdueSnapshot } from "./src/jobs/overdueSnapshot.job.js";
@@ -68,6 +69,7 @@ class ServerBootstrap {
       startRiskWatch();
       startAuthTokenPurge();
       startScoreDataCheck();
+      startImageVariantCleanup();
       void presenceService.clearStale();
       startNotificationRetention();
       startOverdueSnapshot();

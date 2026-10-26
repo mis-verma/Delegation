@@ -2,7 +2,8 @@ import path from "node:path"
 import fs from "node:fs"
 import { db } from "../../config/db.js"
 import { checklistInstanceItemSubmissions, checklistInstanceItemSubmissionImages, checklistInstanceItems } from "../../db/schema/index.js"
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, gt, inArray } from "drizzle-orm"
+import { repeatWindowStart, splitRepeatedUploads } from "../../utils/repeatedUploads.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertCanAccess, assertSubmissionRunEditable } from "../checklistInstanceItemSubmissions/checklistInstanceItemSubmission.service.js"
@@ -53,7 +54,14 @@ export const checklistInstanceItemSubmissionImageService = {
             }
         }
 
-        const rows = files.map((file) => ({
+        const { fresh, already } = splitRepeatedUploads(files, await db.select().from(checklistInstanceItemSubmissionImages).where(and(
+            eq(checklistInstanceItemSubmissionImages.submissionId, submission.id),
+            eq(checklistInstanceItemSubmissionImages.uploadedBy, user.sub),
+            gt(checklistInstanceItemSubmissionImages.createdAt, repeatWindowStart()),
+        )))
+        if (fresh.length === 0) return already
+
+        const rows = fresh.map((file) => ({
             id: createId(),
             url: `/uploads/${UPLOAD_DIR}/${path.basename(file.path)}`,
             originalFilename: file.originalname,
@@ -64,7 +72,8 @@ export const checklistInstanceItemSubmissionImageService = {
             uploadedBy: user.sub,
         }))
         await db.insert(checklistInstanceItemSubmissionImages).values(rows)
-        return db.select().from(checklistInstanceItemSubmissionImages).where(inArray(checklistInstanceItemSubmissionImages.id, rows.map((r) => r.id)))
+        const inserted = await db.select().from(checklistInstanceItemSubmissionImages).where(inArray(checklistInstanceItemSubmissionImages.id, rows.map((r) => r.id)))
+        return [...already, ...inserted]
     },
 
     async remove(imageId: string, user: AccessTokenPayload) {

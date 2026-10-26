@@ -3,7 +3,8 @@ import fs from "node:fs";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "../../config/db.js";
 import { tickets, ticketAttachments } from "../../db/schema/index.js";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, gt } from "drizzle-orm";
+import { repeatWindowStart, splitRepeatedUploads } from "../../utils/repeatedUploads.js";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanMutate } from "../tickets/ticket.service.js";
@@ -28,7 +29,14 @@ export const ticketAttachmentService = {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
         }
 
-        const rows = files.map((file) => ({
+        const { fresh, already } = splitRepeatedUploads(files, await db.select().from(ticketAttachments).where(and(
+            eq(ticketAttachments.ticketId, ticket.id),
+            eq(ticketAttachments.uploadedBy, user.sub),
+            gt(ticketAttachments.createdAt, repeatWindowStart()),
+        )));
+        if (fresh.length === 0) return already;
+
+        const rows = fresh.map((file) => ({
             id: createId(),
             url: `/uploads/ticket-attachments/${path.basename(file.path)}`,
             originalFilename: file.originalname,
@@ -38,7 +46,8 @@ export const ticketAttachmentService = {
             uploadedBy: user.sub,
         }));
         await db.insert(ticketAttachments).values(rows);
-        return db.select().from(ticketAttachments).where(inArray(ticketAttachments.id, rows.map((r) => r.id)));
+        const inserted = await db.select().from(ticketAttachments).where(inArray(ticketAttachments.id, rows.map((r) => r.id)));
+        return [...already, ...inserted];
     },
 
     async remove(attachmentId: string, user: AccessTokenPayload) {

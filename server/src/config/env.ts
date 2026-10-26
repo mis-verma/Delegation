@@ -20,6 +20,7 @@ const envSchema = z.object({
     CLUSTER_WORKERS: z.coerce.number().optional(),
 
     CHECKLIST_TIMEZONE_OFFSET_MINUTES: z.coerce.number().default(330),
+    PHOTO_SIMILAR_DISTANCE: z.coerce.number().int().min(0).max(16).default(4),
     CHECKLIST_DRAFT_REMINDER_HOURS: z.coerce.number().min(0).default(3),
 
     JWT_ACCESS_SECRET: z.string().min(10),

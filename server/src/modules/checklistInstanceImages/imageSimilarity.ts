@@ -1,8 +1,8 @@
 import { and, asc, gt, isNotNull, ne, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
+import { env } from "../../config/env.js"
 import { checklistInstanceImages } from "../../db/schema/index.js"
 
-export const SIMILAR_MAX_DISTANCE = 4
 const WINDOW_DAYS = 90
 const DAY_MS = 86_400_000
 
@@ -18,7 +18,7 @@ export const findEarlierSimilar = async (hash: string, itemId: string): Promise<
             isNotNull(checklistInstanceImages.contentHash),
             ne(checklistInstanceImages.checklistInstanceItemId, itemId),
             gt(checklistInstanceImages.createdAt, since),
-            sql`${hashDistanceSql(sql`${checklistInstanceImages.contentHash}`, hash)} <= ${SIMILAR_MAX_DISTANCE}`,
+            sql`${hashDistanceSql(sql`${checklistInstanceImages.contentHash}`, hash)} <= ${env.PHOTO_SIMILAR_DISTANCE}`,
         ))
         .orderBy(asc(checklistInstanceImages.createdAt))
         .limit(1)

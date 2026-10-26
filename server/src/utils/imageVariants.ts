@@ -10,6 +10,8 @@ const WIDTHS = [160, 320, 640, 1280] as const
 const SOURCE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"])
 const JPEG_QUALITY = 80
 const CACHE_SECONDS = 86_400
+const STALE_AFTER_DAYS = 30
+const DAY_MS = 86_400_000
 
 const inFlight = new Map<string, Promise<string | null>>()
 
@@ -40,7 +42,11 @@ const build = async (source: string, width: number): Promise<string | null> => {
     if (!stat?.isFile()) return null
     const key = crypto.createHash("sha1").update(`${source}:${stat.mtimeMs}:${stat.size}`).digest("hex")
     const target = path.join(VARIANTS_ROOT, String(width), `${key}.jpg`)
-    if (await exists(target)) return target
+    if (await exists(target)) {
+        const now = new Date()
+        fs.utimes(target, now, now).catch(() => undefined)
+        return target
+    }
     await fs.mkdir(path.dirname(target), { recursive: true })
     const temp = `${target}.${process.pid}.tmp`
     await sharp(source, { failOn: "none" })
@@ -63,6 +69,25 @@ export const imageVariantPath = (urlPath: string, rawWidth: unknown): Promise<st
     const job = build(source, width).finally(() => inFlight.delete(flightKey))
     inFlight.set(flightKey, job)
     return job
+}
+
+export const purgeStaleVariants = async (maxAgeDays = STALE_AFTER_DAYS): Promise<number> => {
+    const cutoff = Date.now() - maxAgeDays * DAY_MS
+    let removed = 0
+    const widths = await fs.readdir(VARIANTS_ROOT).catch(() => [] as string[])
+    for (const width of widths) {
+        const folder = path.join(VARIANTS_ROOT, width)
+        const names = await fs.readdir(folder).catch(() => [] as string[])
+        for (const name of names) {
+            const file = path.join(folder, name)
+            const stat = await fs.stat(file).catch(() => null)
+            if (stat?.isFile() && stat.mtimeMs < cutoff) {
+                await fs.rm(file, { force: true })
+                removed += 1
+            }
+        }
+    }
+    return removed
 }
 
 export const serveImageVariant = (req: Request, res: Response, next: NextFunction) => {
