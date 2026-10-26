@@ -329,10 +329,10 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
           ? (selectedCategory.assigneeIds.length === 0 ? 'The department head will pick who works on it.' : 'Nothing else to choose.')
           : selectedCategory.assigneeIds.length === 0
             ? (assignmentMode === 'AUTO'
-              ? 'Nobody is set for this category yet, so the department head will be asked to pick someone. Switch to Choose myself to pick now.'
+              ? 'Nobody is set for this category yet, so the department head will be asked to pick someone. Switch to Manual to pick now.'
               : 'Nobody is set for this category yet. Pick who should handle it below.')
             : assignmentMode === 'AUTO'
-              ? 'Nothing else to choose. Switch to Choose myself for a different person.'
+              ? 'Nothing else to choose. Switch to Manual for a different person.'
               : 'Filled in for you. You can change the person or the due time.'}
       </p>
     </div>
