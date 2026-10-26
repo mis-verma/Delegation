@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, Building, CalendarDays, Gauge, ListOrdered, RotateCcw, Store, Trophy, ChartColumn, ChartLine, ChevronLeft, ChevronRight, CircleGauge, User, Users, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, Building, CalendarDays, Gauge, ListOrdered, RotateCcw, Store, Trophy, ChartColumn, ChevronLeft, ChevronRight, CircleGauge, User, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, CountUp, ExportMenu, IconChip, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { rateWord } from '../checklist/checklistDisplay';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
@@ -16,6 +16,7 @@ import { ScoreField, ScoreFilterShell } from './ScoreFilterShell';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreNumbers } from './ScoreNumbers';
+import { ScoreBars } from './ScoreBars';
 import { LazyWhenVisible } from './LazyWhenVisible';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { ScoreHero } from './ScoreHero';
@@ -49,10 +50,10 @@ const METRIC_HINT: Record<ScoreMetric, string> = {
   compliance: 'How much of it was done right, or on time.',
   ontime: 'Of the work finished, how much was in time.',
 };
-type ScoreView = 'bars' | 'dials' | 'trend';
-const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
-const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Numbers', dials: 'Dials', trend: 'Days' };
-const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine };
+type ScoreView = 'numbers' | 'bars' | 'dials' | 'trend';
+const VIEWS: readonly ScoreView[] = ['numbers', 'bars', 'dials', 'trend'];
+const VIEW_LABEL: Record<ScoreView, string> = { numbers: 'Numbers', bars: 'Bars', dials: 'Dials', trend: 'Days' };
+const VIEW_ICON: Record<ScoreView, LucideIcon> = { numbers: ListOrdered, bars: ChartColumn, dials: CircleGauge, trend: CalendarDays };
 
 interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
 const PREFS_KEY = 'tm-scores-prefs';
@@ -64,7 +65,7 @@ const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
     return {};
   }
 };
-const isView = (v: unknown): v is ScoreView => v === 'bars' || v === 'dials' || v === 'trend';
+const isView = (v: unknown): v is ScoreView => v === 'numbers' || v === 'bars' || v === 'dials' || v === 'trend';
 const isPeriod = (v: unknown): v is ScorePeriod => typeof v === 'string' && (PERIODS as readonly string[]).includes(v);
 const PICK_PLACEHOLDER: Record<ScoreScope, string> = { org: '', person: 'Me', department: 'Pick a department', store: 'Pick a store' };
 
@@ -191,7 +192,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
-  const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
+  const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'numbers'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
   const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
   const isPhone = useIsMobile();
@@ -223,7 +224,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     setPicked(id);
     setMoreOpen(false);
   };
-  const activeView: ScoreView = glance || simple ? 'bars' : view;
+  const activeView: ScoreView = glance || simple ? 'numbers' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
@@ -422,6 +423,17 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     );
   }
 
+  const emptyProps = {
+    emptyText: glance ? 'Nothing due yet this month' : pageWindow ? 'Nothing was due in this window' : `Nothing was due ${period === 'day' && offset === 0 ? 'today' : range.label}`,
+    emptyHint: glance || pageWindow ? undefined : isHod ? 'Nothing from your team came due in this window. A longer period shows more.' : 'Nothing came due in this window. A longer period shows more.',
+    emptyAction: !glance && !pageWindow && period === 'day' ? (
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('week'); setOffset(0); }}>This week</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('month'); setOffset(0); }}>This month</Button>
+      </div>
+    ) : undefined,
+  };
+
   const scopeLabels = orgWide ? SCOPE_LABEL : HOD_SCOPE_LABEL;
   const subjectName = scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope];
   const filterSummary = [range.label, metric === 'overview' ? 'Overall score' : METRIC_LABEL[metric], subjectName];
@@ -561,7 +573,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
           <ScoreField label="Measure" icon={Gauge} hint={METRIC_HINT[metric]}>
             <ScoreChoice label="Measure" value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} />
-            {(activeView === 'bars' || activeView === 'dials') && (
+            {(activeView === 'numbers' || activeView === 'bars' || activeView === 'dials') && (
               <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2">
                 <span className="min-w-0">
                   <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
@@ -588,14 +600,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             {query.isPlaceholderData && (
               <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
             )}
-            {activeView !== 'bars' && metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
+            {activeView !== 'numbers' && metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
               <ScoreHero
                 facts={heroFacts(data)}
                 loading={loading}
                 changePts={compare || glance ? heroChange : null}
               />
             )}
-            {activeView === 'bars' ? (
+            {activeView === 'numbers' ? (
               <ScoreNumbers
                 scores={data}
                 loading={loading}
@@ -604,14 +616,16 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 overall={metric === 'overview' ? { value: heroNow, change: compare || glance ? heroChange : null } : undefined}
                 trend={{ scope, id: targetId }}
                 onOpenModule={openDrill}
-                emptyText={glance ? 'Nothing due yet this month' : pageWindow ? 'Nothing was due in this window' : `Nothing was due ${period === 'day' && offset === 0 ? 'today' : range.label}`}
-                emptyHint={glance || pageWindow ? undefined : isHod ? 'Nothing from your team came due in this window. A longer period shows more.' : 'Nothing came due in this window. A longer period shows more.'}
-                emptyAction={!glance && !pageWindow && period === 'day' ? (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('week'); setOffset(0); }}>This week</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setPeriod('month'); setOffset(0); }}>This month</Button>
-                  </div>
-                ) : undefined}
+                {...emptyProps}
+              />
+            ) : activeView === 'bars' ? (
+              <ScoreBars
+                scores={data}
+                loading={loading}
+                metric={metric}
+                previous={previous}
+                onOpenModule={openDrill}
+                {...emptyProps}
               />
             ) : (
               <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">

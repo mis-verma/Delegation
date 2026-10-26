@@ -1,6 +1,7 @@
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 import { ClipboardCheck, ClipboardList, ListTodo, Plus, TicketCheck, X, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '../../ui/sheet';
+import { Button } from '../../button';
 import { useNow } from '../../../lib/useNow';
 import { QuickTodos } from './QuickTodos';
 import { QuickTasks } from './QuickTasks';
@@ -23,9 +24,6 @@ const MODULES: Record<QuickModule, ModuleLook> = {
   '/checklists': { title: 'Checklists', icon: ClipboardCheck, openLabel: 'Open all checklists', create: null },
 };
 
-const FOOTER_LINK =
-  'inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border px-4 t-card font-display font-bold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] motion-reduce:active:scale-100';
-
 interface QuickSheetProps {
   open: boolean;
   module: QuickModule;
@@ -35,6 +33,11 @@ interface QuickSheetProps {
 
 const QuickSheet = ({ open, module, summary, onClose }: QuickSheetProps) => {
   const now = useNow();
+  const navigate = useNavigate();
+  const go = (to: string) => {
+    onClose();
+    void navigate(to, { viewTransition: true });
+  };
   const look = MODULES[module];
   const Icon = look.icon;
   const panel = { now, onClose };
@@ -72,24 +75,14 @@ const QuickSheet = ({ open, module, summary, onClose }: QuickSheetProps) => {
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border/60 px-3 pt-3">
           {look.create && (
-            <Link
-              to={look.create.to}
-              viewTransition
-              onClick={onClose}
-              className={`${FOOTER_LINK} border-border bg-surface text-text hover:border-border-hover hover:bg-surface-hover`}
-            >
+            <Button type="button" variant="outline" size="lg" className="flex-1" onClick={() => go(look.create!.to)}>
               <Plus className="size-4" strokeWidth={2.5} aria-hidden="true" />
               {look.create.label}
-            </Link>
+            </Button>
           )}
-          <Link
-            to={module}
-            viewTransition
-            onClick={onClose}
-            className={`${FOOTER_LINK} border-primary-600 bg-primary-600 text-white hover:bg-primary-700`}
-          >
+          <Button type="button" size="lg" className="flex-1" onClick={() => go(module)}>
             {look.openLabel}
-          </Link>
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

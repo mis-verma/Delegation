@@ -1,9 +1,10 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { ArrowRight, ChevronDown, Crown } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components';
+import { IconChip } from '../../components/iconChip';
 import { exceptionApi } from '../../api/exceptions';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import { handleQueryRetry } from '../../lib/queryHelpers';
@@ -41,7 +42,7 @@ const Fold = ({ title, count, children }: { title: string; count?: number; child
         className={cn(PANEL_CLASS, 'flex min-h-12 w-full cursor-pointer items-center gap-2 px-4 text-left outline-none transition-colors duration-150 hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40')}
       >
         <span className="t-section font-display font-bold tracking-tight text-text">{title}</span>
-        {count ? <span className="rounded-full bg-danger/10 px-2 py-0.5 t-meta font-display font-bold tabular-nums text-danger">{count}</span> : null}
+        {count ? <IconChip icon={AlertTriangle} tone="bg-danger" label={count} labelClassName="tabular-nums" /> : null}
         <ChevronDown aria-hidden="true" className={cn('ml-auto size-4 shrink-0 text-text-muted transition-transform duration-150', open && 'rotate-180')} />
       </button>
       {open && <div id={panelId}>{children}</div>}

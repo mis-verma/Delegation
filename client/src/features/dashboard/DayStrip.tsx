@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreScope, type ScoreTrend, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
+import { IconChip } from '../../components/iconChip';
+import { LegendChip } from '../../components/legendChip';
 import { InlineError } from '../../components/inlineError';
+import { Gauge, TrendingDown, Trophy } from 'lucide-react';
 import { bandWord, FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { formatPct, roundPct } from '../../lib/percent';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
@@ -82,17 +85,17 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta text-text-muted">
-        {average !== null && <span>Average <span className="font-display font-bold tabular-nums text-text">{formatPct(average)}</span></span>}
-        {best && <span>Best {unit} <span className="font-display font-bold text-text">{best.bucket.label}</span> {formatPct(best.score)}</span>}
-        {worst && <span>Lowest <span className="font-display font-bold text-text">{worst.bucket.label}</span> {formatPct(worst.score)}</span>}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {average !== null && <IconChip icon={Gauge} tone="bg-primary-600" label={`Average ${formatPct(average)}`} labelClassName="tabular-nums" />}
+        {best && <IconChip icon={Trophy} tone="bg-success" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
+        {worst && <IconChip icon={TrendingDown} tone="bg-danger" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
       </div>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta text-text-muted" aria-hidden="true">
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-success" />{GOOD_FROM}+ good</span>
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-warning" />{FAIR_FROM} to {GOOD_FROM - 1} fair</span>
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-danger" />under {FAIR_FROM} low</span>
-        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-surface-hover ring-1 ring-border" />nothing due</span>
-      </p>
+      <div className="flex flex-wrap items-center gap-1.5" aria-hidden="true">
+        <LegendChip color="var(--color-success)" label={`${GOOD_FROM}+ good`} />
+        <LegendChip color="var(--color-warning)" label={`${FAIR_FROM} to ${GOOD_FROM - 1} fair`} />
+        <LegendChip color="var(--color-danger)" label={`Under ${FAIR_FROM} low`} />
+        <LegendChip color="var(--color-border-hover)" label="Nothing due" />
+      </div>
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../skeleton';
+import { Button } from '../../button';
 import { InlineError } from '../../inlineError';
 import { QUICK_MAX } from './quickShared';
 
@@ -57,19 +58,27 @@ interface QuickActionProps {
   busy?: boolean;
 }
 
-const ACTION_CLASS =
-  'inline-flex h-10 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-xl bg-primary-600 px-4 t-meta font-display font-bold text-white outline-none transition-[transform,background-color] duration-150 hover:bg-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-95 disabled:opacity-60 motion-reduce:active:scale-100 cursor-pointer';
-
-export const QuickAction = ({ label, onClick, to, onOpen, busy = false }: QuickActionProps) =>
-  to ? (
-    <Link to={to} viewTransition onClick={onOpen} className={ACTION_CLASS}>
+export const QuickAction = ({ label, onClick, to, onOpen, busy = false }: QuickActionProps) => {
+  const navigate = useNavigate();
+  return (
+    <Button
+      type="button"
+      size="sm"
+      isLoading={busy}
+      className="shrink-0"
+      onClick={() => {
+        if (to) {
+          onOpen?.();
+          void navigate(to, { viewTransition: true });
+        } else {
+          onClick?.();
+        }
+      }}
+    >
       {label}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} disabled={busy} className={ACTION_CLASS}>
-      {label}
-    </button>
+    </Button>
   );
+};
 
 interface QuickListProps {
   pending: boolean;

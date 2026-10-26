@@ -14,7 +14,9 @@ import { orgDayWindow } from '../dashboard/scoreDrill';
 import { useTeamApprovals } from './useAttention';
 import { PersonAttentionSheet } from './PersonAttentionSheet';
 import { pctText, scoreBar, scoreTone } from './attentionDisplay';
-import { FAIR_FROM, GOOD_FROM, bandWord } from '../../lib/scoreBands';
+import { FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
+import { ToneChip } from '../dashboard/ToneChip';
+import { toneOf } from '../dashboard/scoreTone';
 
 type Period = 'day' | 'week' | 'month';
 const PERIODS: { key: Period; label: string }[] = [
@@ -188,13 +190,8 @@ export const MyTeamCard = () => {
                         ) : (
                           <span className={cn('t-stat font-display font-bold tabular-nums leading-none', scoreTone(p.overall))}>{pctText(p.overall)}</span>
                         )}
-                        {(p.overall !== null && p.overall !== undefined) || approved !== null ? (
-                          <span className="t-meta font-medium tabular-nums text-text-muted">
-                            {p.overall !== null && p.overall !== undefined ? bandWord(p.overall) : null}
-                            {p.overall !== null && p.overall !== undefined && approved !== null ? ' · ' : null}
-                            {approved !== null ? `${pctText(approved)} approved` : null}
-                          </span>
-                        ) : null}
+                        {p.overall !== null && p.overall !== undefined && <ToneChip tone={toneOf(p.overall)} />}
+                        {approved !== null && <span className="t-meta font-medium tabular-nums text-text-muted">{pctText(approved)} approved</span>}
                       </span>
                       <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />
                     </button>

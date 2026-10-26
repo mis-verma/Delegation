@@ -12,13 +12,14 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { CATEGORY_ICON, CATEGORY_TILE } from './categoryLook';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { moduleOverall, numbersFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { IconChip } from '../../components/iconChip';
 import { TONE_WORD, toneOf } from './scoreTone';
+import { ToneChip } from './ToneChip';
 
 const MODULES: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
 const TREND_DAYS = 7;
 
 const valueText = (tone: ReturnType<typeof toneOf>) => (tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-danger' : 'text-text');
-const wordText = (tone: ReturnType<typeof toneOf>) => (tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-danger' : 'text-text-muted');
 
 interface Cell {
   key: ModuleKey;
@@ -102,10 +103,13 @@ interface ScoreNumbersProps {
 
 const ChangeText = ({ change }: { change: number | null }) =>
   change !== null && change !== 0 ? (
-    <span className={cn('inline-flex items-center gap-0.5 t-meta font-display font-semibold tabular-nums', change > 0 ? 'text-success' : 'text-danger')} title="Compared with the last period">
-      {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-      {Math.abs(change)} pts
-    </span>
+    <IconChip
+      icon={change > 0 ? ArrowUp : ArrowDown}
+      tone={change > 0 ? 'bg-success' : 'bg-danger'}
+      label={`${Math.abs(change)} pts`}
+      labelClassName={cn('tabular-nums', change > 0 ? 'text-success' : 'text-danger')}
+      title="Compared with the last period"
+    />
   ) : null;
 
 export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overview', overall, trend, onOpenModule, emptyText = 'Nothing due yet', emptyHint, emptyAction }: ScoreNumbersProps) => {
@@ -166,11 +170,11 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
             {overallRounded === null ? (
               <span className="t-meta font-display text-text-light">Nothing due</span>
             ) : (
-              <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className={cn('t-figure font-display font-extrabold tabular-nums leading-none', valueText(overallTone))}>
                   <CountUp value={overallRounded} decimals={1} fromZero format={(n) => `${n}%`} />
                 </span>
-                <span className={cn('t-meta font-display font-semibold', wordText(overallTone))}>{TONE_WORD[overallTone]}</span>
+                <ToneChip tone={overallTone} />
                 <ChangeText change={overall.change} />
               </span>
             )}
@@ -191,9 +195,9 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="t-card font-display font-bold text-text">{MODULE_LABEL[cell.key]}</span>
                 {cell.hasData && rounded !== null ? (
-                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', valueText(tone))}>{formatPct(rounded)}</span>
-                    <span className={cn('t-meta font-display font-semibold', wordText(tone))}>{TONE_WORD[tone]}</span>
+                    <ToneChip tone={tone} />
                     <ChangeText change={cell.change} />
                   </span>
                 ) : (

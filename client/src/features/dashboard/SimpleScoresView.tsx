@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
+import { IconChip } from '../../components/iconChip';
 import { cn } from '@/lib/utils';
 import { InlineError } from '../../components/inlineError';
 import { CountUp } from '../../components/countUp';
@@ -36,7 +37,7 @@ const FIX_TEXT: Record<ModuleKey, (n: number) => string> = {
 const FixLine = ({ data, onOpen }: { data: Scores; onOpen: (key: ModuleKey) => void }) => {
   const items = MODULES.map(({ key }) => ({ key, count: moduleCounts(data, key).notDone })).filter((i) => i.count > 0);
   if (items.length === 0) {
-    return <p className="t-meta font-display font-semibold text-success">Everything that came due is done.</p>;
+    return <IconChip className="w-fit" icon={CheckCircle2} tone="bg-success" label="Everything that came due is done" labelClassName="text-success" />;
   }
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -46,9 +47,9 @@ const FixLine = ({ data, onOpen }: { data: Scores; onOpen: (key: ModuleKey) => v
           key={key}
           type="button"
           onClick={() => onOpen(key)}
-          className="inline-flex min-h-9 items-center rounded-full border border-danger/30 bg-danger/10 px-3 t-meta font-display font-bold tabular-nums text-danger outline-none transition-colors duration-150 hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40 active:scale-[0.98] pointer-coarse:min-h-11"
+          className="inline-flex min-h-9 cursor-pointer items-center rounded-full outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-danger/40 active:scale-[0.98] pointer-coarse:min-h-11"
         >
-          {FIX_TEXT[key](count)}
+          <IconChip icon={MODULES.find((m) => m.key === key)?.icon} tone="bg-danger" label={FIX_TEXT[key](count)} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
         </button>
       ))}
     </div>

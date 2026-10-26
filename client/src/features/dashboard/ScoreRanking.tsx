@@ -11,6 +11,8 @@ import type { RateTone } from './dashboardDisplay';
 import { ScorePct } from '../scores/ScorePct';
 import { NumCell, SortHead } from '../scores/scoreTableParts';
 import { Skeleton } from '../../components/skeleton';
+import { Button } from '../../components/button';
+import { IconChip } from '../../components/iconChip';
 import { InlineError } from '../../components/inlineError';
 import { ExportMenu } from '../../components/exportMenu';
 import { exportTitle, type TableRows } from '../../lib/exportTable';
@@ -187,16 +189,18 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     return (
       <>
         {remindable && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={remind.isPending}
             onClick={(e) => { e.stopPropagation(); remind.mutate([c.row.id]); }}
             aria-label={`Remind ${c.row.name}`}
-            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-surface px-2 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 pointer-coarse:min-h-11"
+            className="shrink-0"
           >
             <BellRing className="size-3.5" aria-hidden="true" />
             Remind
-          </button>
+          </Button>
         )}
         {isPeople && (
           <button
@@ -226,12 +230,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         <span className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="line-clamp-1 t-card font-display font-bold text-text">{c.row.name}</span>
-            {top && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-500/10 px-1.5 py-0.5 t-meta font-display font-bold text-primary-700 dark:text-primary-300">
-                <Trophy className="size-3" aria-hidden="true" />
-                Top
-              </span>
-            )}
+            {top && <IconChip className="shrink-0" icon={Trophy} tone="bg-primary-600" label="Top" />}
           </span>
           {isPeople && c.row.department && <span className="line-clamp-1 t-meta text-text-muted">{c.row.department}</span>}
         </span>
