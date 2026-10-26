@@ -288,6 +288,8 @@ const ticketArrayDefaults = withArrayDefaults({
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 
 export const ticketApi = {
+  awaitingHead: () =>
+    apiFetch<PaginatedResponse<Ticket>>(`/tickets?awaitingHead=true&limit=100&page=1`).then((r) => r.data.map(normalizeTicket)),
   getAll: (page = 1, limit = 20, status?: TicketStatus, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField?: 'createdAt' | 'closedAt', sla?: TicketSlaFilter) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.set('status', status);

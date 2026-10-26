@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { ArrowLeft, ChevronRight, SearchX } from 'lucide-react';
+import { ArrowLeft, ChevronRight, SearchX, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../components';
 import { Button } from '../../components';
@@ -45,7 +45,7 @@ export const ScoresPage = () => {
   const trail = useMemo(() => parseTrail(params.get('trail')), [params]);
   const parent = trail[trail.length - 1] ?? null;
   const allowedViews = viewsFor(parent?.kind ?? null, orgWide);
-  const defaultView: ExplorerView = 'department';
+  const defaultView: ExplorerView = orgWide ? 'department' : 'person';
   const requestedView = parseView(params.get('view'));
   const view: ExplorerView = requestedView && allowedViews.includes(requestedView) ? requestedView : allowedViews.includes(defaultView) ? defaultView : allowedViews[0];
 
@@ -79,6 +79,7 @@ export const ScoresPage = () => {
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const shownView = data?.view ?? view;
   const modules = useMemo(() => (shownView === 'checklist' ? (['checklist'] as const) : modulesForFilter(module)), [shownView, module]);
@@ -142,7 +143,7 @@ export const ScoresPage = () => {
   });
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-4">
       <h1 className="sr-only">Scores</h1>
 
       <AnalyticsControlBar
@@ -156,19 +157,28 @@ export const ScoresPage = () => {
         onRefresh={() => void refresh()}
       />
 
-      <ScoresFilterBar
-        stores={orgWide && parent?.kind !== 'store' ? storeOptions : undefined}
-        departments={orgWide && !data?.scope.departmentLocked && view !== 'store' && !parent ? departmentOptions : undefined}
-        storeId={storeId}
-        departmentId={departmentId}
-        module={module}
-        recurrence={recurrence}
-        departmentLockedNote={!!data?.scope.departmentLocked}
-        allDepartments={!!data?.scope.allDepartments}
-        onChange={changeFilters}
-        onClear={clearFilters}
-        filtered={filtered}
-      />
+      {orgWide || filtersOpen || filtered ? (
+        <ScoresFilterBar
+          stores={orgWide && parent?.kind !== 'store' ? storeOptions : undefined}
+          departments={orgWide && !data?.scope.departmentLocked && view !== 'store' && !parent ? departmentOptions : undefined}
+          storeId={storeId}
+          departmentId={departmentId}
+          module={module}
+          recurrence={recurrence}
+          departmentLockedNote={!!data?.scope.departmentLocked}
+          allDepartments={!!data?.scope.allDepartments}
+          onChange={changeFilters}
+          onClear={clearFilters}
+          filtered={filtered}
+        />
+      ) : (
+        <div className="flex">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setFiltersOpen(true)} className="pointer-coarse:min-h-11">
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            Filters
+          </Button>
+        </div>
+      )}
 
       {query.isError && !data ? (
         <InlineError message="Could not load the scores." onRetry={() => void query.refetch()} />

@@ -35,6 +35,7 @@ export const paginatioinSchema = z.object({
     status : z.enum(TICKET_STATUSES).optional(),
     assigneeId : objectId.optional(),
     overdue : z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
+    awaitingHead : z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
     dateField : z.enum(["createdAt", "closedAt", "tatDueAt"]).optional().default("createdAt"),

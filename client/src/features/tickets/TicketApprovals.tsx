@@ -10,7 +10,7 @@ import { useDeferredDecisions } from '../verification/useDeferredDecisions';
 import { useNow } from '../verification/useChecklistQueue';
 import { useRefreshAfterDecision } from '../verification/useRefreshAfterDecision';
 import { formatWaiting } from '../verification/verificationModel';
-import { useDepartmentsQuery, useTicketsBoardQuery } from './hook';
+import { useDepartmentsQuery, useTicketsAwaitingHeadQuery } from './hook';
 import { HeadRequestRow } from './approvals/HeadRequestRow';
 import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
 import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
@@ -25,7 +25,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const { user } = useAuth();
   const now = useNow();
   const tasksQuery = usePendingTasksQuery('pending_approval');
-  const boardQuery = useTicketsBoardQuery();
+  const boardQuery = useTicketsAwaitingHeadQuery();
   const { data: departments } = useDepartmentsQuery();
   const allTasksQuery = useTasksQuery();
   const { data: people } = useAssignableUsersQuery();

@@ -9,7 +9,7 @@ import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { useDepartmentsQuery, useTicketsBoardQuery } from '../tickets/hook';
+import { useDepartmentsQuery, useTicketsAwaitingHeadQuery } from '../tickets/hook';
 import { HeadRequestRow } from '../tickets/approvals/HeadRequestRow';
 import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
 import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
@@ -34,7 +34,7 @@ export const TicketRequestsCard = () => {
   const isAdmin = user?.role === 'ADMIN';
   const isHod = user?.role === 'MANAGER' || user?.role === 'SENIOR';
   const allowed = isAdmin || isHod;
-  const board = useTicketsBoardQuery(allowed);
+  const board = useTicketsAwaitingHeadQuery(allowed);
   const tasksQuery = useTasksQuery(undefined, allowed);
   const { data: departments } = useDepartmentsQuery(allowed);
   const { data: people } = useAssignableUsersQuery();
@@ -77,7 +77,7 @@ export const TicketRequestsCard = () => {
   if (pending) {
     return (
       <section aria-label="Loading requests" role="status" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-        <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
+        <div className="flex items-center gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
           <Skeleton className="size-9 shrink-0 rounded-lg" />
           <Skeleton className="h-5 w-40" />
         </div>
@@ -99,7 +99,7 @@ export const TicketRequestsCard = () => {
 
   return (
     <section aria-labelledby="ticket-requests-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden ${everything > 0 ? 'border-warning/30' : ''}`}>
-      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
           <div className={cardIconTile('warning')}>
             <ShieldQuestion className="size-4" strokeWidth={2.25} aria-hidden="true" />

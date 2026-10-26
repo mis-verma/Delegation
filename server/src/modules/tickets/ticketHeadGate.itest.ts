@@ -189,6 +189,17 @@ describe("ticket raised to a department user", () => {
         expect((await as("seniorB", request(app).get(`/tickets/${other.body.data.id}`))).status).toBe(403)
     })
 
+    it("lists only the tickets still waiting for the head when asked", async () => {
+        const waiting = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        const approved = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        await as("headB", request(app).post(`/tickets/${approved.body.data.id}/approve-assignment`))
+        const res = await as("headB", request(app).get("/tickets?awaitingHead=true&limit=100"))
+        expect(res.status).toBe(200)
+        const ids = (res.body.data as { id: string }[]).map((t) => t.id)
+        expect(ids).toContain(waiting.body.data.id)
+        expect(ids).not.toContain(approved.body.data.id)
+    })
+
     it("leaves declined tickets out of the summary counts", async () => {
         const before = await as("headB", request(app).get("/tickets/summary?scope=visible"))
         const res = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })

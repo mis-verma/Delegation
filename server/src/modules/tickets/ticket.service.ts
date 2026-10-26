@@ -8,7 +8,7 @@ import {
   ticketAttachments,
 
 } from "../../db/schema/index.js"
-import { eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, type SQL } from "drizzle-orm"
+import { eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -57,6 +57,7 @@ export const ticketService = {
       conditions.push(eq(tickets.assigneeId, assigneeId))
     }
     if (overdue !== undefined) conditions.push(eq(tickets.isOverdue, overdue))
+    if (query.awaitingHead) conditions.push(eq(tickets.awaitingHeadApproval, true), isNull(tickets.declinedAt))
     const dateColumn = dateField === "closedAt" ? tickets.closedAt : dateField === "tatDueAt" ? tickets.tatDueAt : tickets.createdAt
     if (from) conditions.push(gte(dateColumn, new Date(from)))
     if (to) conditions.push(lte(dateColumn, new Date(to)))

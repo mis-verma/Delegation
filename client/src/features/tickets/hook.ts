@@ -211,6 +211,17 @@ export const useTicketsBoardQuery = (enabled = true, assigneeId?: string) => {
   });
 };
 
+export const useTicketsAwaitingHeadQuery = (enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['tickets', 'awaiting-head'] as const,
+    queryFn: () => ticketApi.awaitingHead(),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+    staleTime: 30_000,
+  });
+};
+
 export const useApproveAssignmentMutation = () =>
   useEntityMutation({
     mutationFn: ({ id }: { id: string }) => ticketApi.approveAssignment(id).then(r => r.data),

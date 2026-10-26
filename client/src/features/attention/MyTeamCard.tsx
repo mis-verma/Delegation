@@ -98,7 +98,7 @@ export const MyTeamCard = () => {
 
   return (
     <section aria-labelledby="my-team-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-5 sm:py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5 sm:px-5 sm:py-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className={cardIconTile('primary')}>
             <Users className="size-4" strokeWidth={2.25} aria-hidden="true" />
@@ -121,7 +121,7 @@ export const MyTeamCard = () => {
         </div>
       ) : (
         <>
-          {showTiles && <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-4 sm:px-5 sm:pt-4">
+          {showTiles && <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-4 sm:px-5 sm:pt-3">
             <Tile label="Team score" value={total?.overall} loading={loading} caption={total ? `${people.length} people` : undefined} />
             <Tile label="Checklists filled" value={total?.checklist.completionPct} loading={loading} caption={total?.checklist.due ? `${total.checklist.done} of ${total.checklist.due} due` : 'Nothing due yet'} />
             <Tile label="Compliance" value={total?.checklist.compliancePct} loading={loading} caption="Good answers" />
@@ -134,7 +134,7 @@ export const MyTeamCard = () => {
           </div>}
 
           {!noScores && (
-            <div className="flex flex-wrap items-center justify-between gap-x-2 px-4 pt-4 pb-1 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 px-4 pt-3 pb-1 sm:px-5">
               <h3 className="t-card font-display font-bold text-text">Lowest scores at the top</h3>
               <span className="t-meta font-medium text-text-muted">{`Rank 1 is the best. ${GOOD_FROM} and up is good, ${FAIR_FROM} to ${GOOD_FROM - 1} fair. Tap a name to see their day.`}</span>
             </div>
@@ -143,7 +143,7 @@ export const MyTeamCard = () => {
           {loading ? (
             <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading team">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-5">
+                <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-5">
                   <Skeleton className="size-8 rounded-full" />
                   <div className="flex flex-1 flex-col gap-1.5">
                     <Skeleton className="h-4 w-1/3" />
@@ -167,7 +167,7 @@ export const MyTeamCard = () => {
                     <button
                       type="button"
                       onClick={() => setOpenPerson(p.id)}
-                      className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover sm:px-5 cursor-pointer"
+                      className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover sm:px-5 cursor-pointer"
                     >
                       <Avatar name={p.name} size="sm" />
                       <span className="flex min-w-0 flex-1 flex-col gap-1">

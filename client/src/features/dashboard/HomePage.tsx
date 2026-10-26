@@ -18,6 +18,7 @@ import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { MyScoresCard } from './MyScoresCard';
 import { DashboardCardFrame } from './DashboardCardFrame';
+import { LazyWhenVisible } from './LazyWhenVisible';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
 import { DashboardMobileCustomize } from './DashboardMobileCustomize';
 import { dashboardViewFor } from './dashboardView';
@@ -30,6 +31,8 @@ import type { ChecklistInstance } from '../../api/checklistInstances';
 import type { Ticket } from '../../api/ticket';
 
 const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
+
+const LAZY_CARDS: ReadonlySet<DashboardCardId> = new Set(['exceptions', 'myTeam', 'myScores']);
 
 const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['todayStrip']);
 
@@ -142,7 +145,7 @@ export const HomePage = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3">
       {visibleCardOrder.map((id) => (
         <DashboardCardFrame key={id} size={cardSizes[id]}>
-          {renderCard(id)}
+          {LAZY_CARDS.has(id) ? <LazyWhenVisible>{renderCard(id)}</LazyWhenVisible> : renderCard(id)}
         </DashboardCardFrame>
       ))}
     </div>

@@ -271,7 +271,7 @@ export const FocusNowCard = ({ ownWorkOnly = false, tasks, tickets, checklists, 
               <Link
                 viewTransition
                 to={item.href}
-                className="group flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 outline-none transition-colors active:bg-surface-hover focus-visible:bg-surface-hover"
+                className="group flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-4 outline-none transition-colors active:bg-surface-hover focus-visible:bg-surface-hover"
               >
                 <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', CATEGORY_TILE[item.category])}>
                   <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
