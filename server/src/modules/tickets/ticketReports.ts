@@ -11,7 +11,7 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
-import { NOT_DELETED, round1 } from "./ticketShared.js"
+import { NOT_DELETED, NOT_GATED, round1 } from "./ticketShared.js"
 import { visibilityFilter } from "./ticketAccess.js"
 
 export type OwnerStatsRow = {
@@ -74,7 +74,7 @@ export const ownerStatsByColumn = async (
   const closedDueIn = sql`(tickets.status = 'CLOSED' AND tickets.closedAt IS NOT NULL AND tickets.tatDueAt IS NOT NULL AND ${inWindow("tickets.tatDueAt")})`
   const hasWindow = Boolean(window.from || window.to)
 
-  const conditions: SQL[] = [sql`tickets.deletedAt IS NULL`, sql`tickets.declinedAt IS NULL`, ...scopeConditions]
+  const conditions: SQL[] = [sql`tickets.deletedAt IS NULL`, sql`tickets.declinedAt IS NULL`, sql`tickets.awaitingHeadApproval = 0`, ...scopeConditions]
   if (hasWindow) conditions.push(sql`(${createdIn} OR ${closedIn} OR ${closedDueIn})`)
   const where = sql`WHERE ${sql.join(conditions, sql` AND `)}`
   const groupBy = grouped ? sql`GROUP BY ownerId` : sql``
@@ -236,7 +236,7 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
     const scopeCondition = scope === "visible"
       ? await visibilityFilter(user)
       : or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))
-    const where = and(NOT_DELETED, scopeCondition)
+    const where = and(NOT_DELETED, NOT_GATED, scopeCondition)
 
     const [row] = await db.select({
       total: sql<number>`COUNT(*)`,

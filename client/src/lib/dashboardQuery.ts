@@ -10,7 +10,7 @@ export type DashboardQueryOptions = {
   refetchOnWindowFocus?: boolean;
 };
 
-export const DASHBOARD_QUERY_ROOTS: readonly string[] = ['tasks', 'tickets', 'todos', 'checklist-instances', 'events', 'dashboard'];
+export const DASHBOARD_QUERY_ROOTS: readonly string[] = ['tasks', 'tickets', 'todos', 'checklist-instances', 'events', 'dashboard', 'exceptions', 'scores'];
 
 export const invalidateDashboardQueries = (queryClient: QueryClient) =>
   queryClient.invalidateQueries({

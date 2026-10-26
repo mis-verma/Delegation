@@ -21,7 +21,7 @@ import type { Task } from '../../api/task';
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
 
-export const TicketApprovals = () => {
+export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) => {
   const { user } = useAuth();
   const now = useNow();
   const tasksQuery = usePendingTasksQuery('pending_approval');
@@ -71,11 +71,13 @@ export const TicketApprovals = () => {
 
   return (
     <div className="flex w-full flex-col gap-5">
-      <PageHeader
-        icon={ShieldCheck}
-        title="Team approvals"
-        subtitle="New ticket and delegation requests for your department, plus delegations your team finished. Decide on requests before anyone starts. Finished tickets go straight to PC."
-      />
+      {!embedded && (
+        <PageHeader
+          icon={ShieldCheck}
+          title="Team approvals"
+          subtitle="New ticket and delegation requests for your department, plus delegations your team finished. Decide on requests before anyone starts. Finished tickets go straight to PC."
+        />
+      )}
 
       <ul className="flex flex-wrap gap-2" aria-label="Summary">
         <li><IconChip icon={UserCheck} tone="bg-primary-600" label={`${waitingTotal} waiting for you`} labelClassName="tabular-nums" /></li>

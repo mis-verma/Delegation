@@ -5,7 +5,6 @@ import { resolveLogoUrl } from "../../lib/uploadsBase";
 
 const LINKS = [
   { to: '/tasks', label: 'Delegation' },
-  { to: '/projects', label: 'Projects' },
   { to: '/calendar', label: 'Calendar' },
   { to: '/settings', label: 'Settings' },
 ];

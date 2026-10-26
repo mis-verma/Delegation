@@ -36,7 +36,7 @@ const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ d
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const OwnerPage = lazy(() => import('./features/owner').then(m => ({ default: m.OwnerPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
-const TicketApprovals = lazy(() => import('./features/tickets/TicketApprovals').then(m => ({ default: m.TicketApprovals })));
+const TeamApprovalsPage = lazy(() => import('./features/tickets/TeamApprovalsPage').then(m => ({ default: m.TeamApprovalsPage })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
@@ -102,6 +102,12 @@ const AdminOnlyRoute = createRoleGuard('ADMIN');
 
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
+
+const ChecklistApprovalsRoute = () => {
+  const { user } = useAuth();
+  if (user && (user.role === 'MANAGER' || user.role === 'SENIOR')) return <Navigate to="/tickets/approvals?tab=checklists" replace />;
+  return <ChecklistApprovals />;
+};
 
 const AdminOverviewRoute = () => {
   const { user } = useAuth();
@@ -248,7 +254,7 @@ const router = createBrowserRouter([
           { path: '/checklists', element: <MyChecklists /> },
           { path: '/checklists/:instanceId', element: <ChecklistInstanceDetail /> },
           { path: '/dashboard', element: <Navigate to="/" replace /> },
-          { path: '/checklists/approvals', element: <ChecklistApprovals /> },
+          { path: '/checklists/approvals', element: <ChecklistApprovalsRoute /> },
           {
             element: <HistoryRoute />,
             children: [
@@ -283,7 +289,7 @@ const router = createBrowserRouter([
           {
             element: <TicketApprovalsRoute />,
             children: [
-              { path: '/tickets/approvals', element: <TicketApprovals /> },
+              { path: '/tickets/approvals', element: <TeamApprovalsPage /> },
             ],
           },
         ],

@@ -33,6 +33,8 @@ const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
 
 const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['todayStrip']);
 
+const TEAM_TICKET_LIMIT = 250;
+const OWN_TICKET_LIMIT = 100;
 const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];
 const NO_RUNS: ChecklistInstance[] = [];
@@ -60,7 +62,8 @@ export const HomePage = () => {
   } = useDashboardLayout(dashboardView);
 
   const summaries = useDashboardSummaries();
-  const ticketsQuery = useTicketsQuery(1, 100, undefined, true, DASHBOARD_QUERY_OPTIONS);
+  const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
+  const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
   const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
@@ -70,7 +73,9 @@ export const HomePage = () => {
   const todosData = todosQuery.data;
   const focusChecklists = focusRunsQuery.data ?? NO_RUNS;
   const todos = useMemo(() => todosData ?? [], [todosData]);
-  const focusQueries = [ticketsQuery, tasksQuery, todosQuery, focusRunsQuery];
+  const focusQueries = frontLine
+    ? [ticketsQuery, tasksQuery, todosQuery, focusRunsQuery]
+    : [ticketsQuery, ownTicketsQuery, tasksQuery, todosQuery, focusRunsQuery];
   const focusPending = focusQueries.some((q) => q.isPending);
   const focusFailed = focusQueries.some((q) => q.isError);
   const retryFocus = () => {
@@ -84,7 +89,11 @@ export const HomePage = () => {
     () => visibleTasks.filter((t) => t.assigneeId === userId || t.additionalAssigneeIds?.includes(userId ?? '')),
     [visibleTasks, userId],
   );
-  const myAssignedTickets = useMemo(() => visibleTickets.filter((t) => t.assigneeId === userId), [visibleTickets, userId]);
+  const ownTicketPage = ownTicketsQuery.data;
+  const myAssignedTickets = useMemo(
+    () => (frontLine ? visibleTickets.filter((t) => t.assigneeId === userId) : (ownTicketPage?.data ?? NO_TICKETS)),
+    [frontLine, visibleTickets, ownTicketPage, userId],
+  );
 
   const renderCard = (id: DashboardCardId): ReactNode => {
     switch (id) {

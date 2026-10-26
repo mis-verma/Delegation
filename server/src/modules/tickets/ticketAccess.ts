@@ -4,7 +4,7 @@ import {
   ticketReviewers,
 
 } from "../../db/schema/index.js"
-import { eq, and, or, inArray } from "drizzle-orm"
+import { eq, and, or, inArray, isNotNull } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { canApproveAtStage, type ApprovalStage } from "./ticketApproval.js"
@@ -23,7 +23,14 @@ export const visibilityFilter = async (user: AccessTokenPayload) => {
     if (user.storeId) or_conditions.push(eq(tickets.storeId, user.storeId))
     base = or(...or_conditions)
   } else if (user.role === "SENIOR") {
-    base = user.storeId ? eq(tickets.storeId, user.storeId) : eq(tickets.userId, user.sub)
+    const seniorConditions = [user.storeId ? eq(tickets.storeId, user.storeId) : eq(tickets.userId, user.sub)]
+    if (user.departmentId) {
+      seniorConditions.push(and(
+        eq(tickets.departmentId, user.departmentId),
+        or(eq(tickets.awaitingHeadApproval, true), isNotNull(tickets.declinedAt)),
+      )!)
+    }
+    base = or(...seniorConditions)
   } else if (isOwnScopeRole(user.role)) {
     base = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
   } else {

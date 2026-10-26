@@ -75,6 +75,8 @@ const DRILL_SUBTITLE = (view: ModuleView, kind: DrillKind): string =>
 const EMPTY_TITLE: Record<DrillKind, string> = { pending: 'Nothing pending', completed: 'Nothing finished yet', newToday: 'Nothing new today', overdue: 'Nothing overdue' };
 const EMPTY_REASON: Record<DrillKind, string> = { pending: 'are open right now', completed: 'have been finished yet', newToday: 'were added today', overdue: 'are past their deadline' };
 
+const isLiveWork = (x: { awaitingHeadApproval?: boolean; declinedAt?: string | null }) => !x.awaitingHeadApproval && !x.declinedAt;
+
 const startOfToday =(now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 const ticketRow = (t: Ticket, now: number): DrilldownRow => {
@@ -252,11 +254,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
               <div role="img" aria-label={score.label === 'Done' ? 'No to-dos yet' : 'No score yet'} className="h-full min-h-24 rounded-xl bg-surface-hover/50" />
             ) : (
             <div className="flex flex-col items-center justify-center border-l border-border/60">
-              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
               <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
-                {score.label === 'Done' ? 'To-dos done' : 'Score today'}
+                {score.label === 'Done' ? 'To-dos done' : 'Your score today'}
                 {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
               </span>
             </div>
@@ -272,11 +274,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
                 <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
               </button>
               {score.value !== null && (
-                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score today'}: ${formatPct(score.value)}`}>
-                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'}: ${formatPct(score.value)}`}>
+                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Your score today'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                     <span className="t-meta font-display font-extrabold tabular-nums text-text">{formatPct(score.value)}</span>
                   </RadialGauge>
-                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Today'}</span>
+                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Your score'}</span>
                 </div>
               )}
             </div>
@@ -374,7 +376,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Task) => isNew(x.createdAt),
         overdue: (x: Task) => isTaskOverdue(x, now),
       }[kind];
-      rows = taskList.filter((x) => x.category === 'delegation').filter(pick).map((x) => taskDrilldownRow(x, now));
+      rows = taskList.filter((x) => x.category === 'delegation' && isLiveWork(x)).filter(pick).map((x) => taskDrilldownRow(x, now));
     } else if (key === 'tickets') {
       const pick = {
         pending: (x: Ticket) => !isTicketHandedIn(x),
@@ -382,7 +384,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Ticket) => isNew(x.createdAt),
         overdue: (x: Ticket) => !isTicketHandedIn(x) && isTicketLate(x),
       }[kind];
-      rows = ticketList.filter(pick).map((x) => ticketRow(x, now));
+      rows = ticketList.filter(isLiveWork).filter(pick).map((x) => ticketRow(x, now));
     } else if (key === 'checklist') {
       const live = (x: ChecklistInstance) => isChecklistLive(x, now);
       const pick = {

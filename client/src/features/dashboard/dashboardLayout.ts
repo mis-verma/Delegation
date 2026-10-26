@@ -54,6 +54,8 @@ export const ADMIN_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['complian
 
 export const HOD_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['myTeam']);
 
+export const HOD_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['needsApproval', 'myScores']);
+
 export const REQUEST_REVIEWER_CARDS: ReadonlySet<DashboardCardId> = new Set(['ticketRequests']);
 
 export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {

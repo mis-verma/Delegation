@@ -6,6 +6,7 @@ import {
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
   HOD_ONLY_CARDS,
+  HOD_HIDDEN_CARDS,
   REQUEST_REVIEWER_CARDS,
   LAYOUT_VERSION,
   NEW_IN_V3,
@@ -74,7 +75,7 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
   const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo<DashboardCardId[]>(
-    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id)) && (view.reviewsTicketRequests || !REQUEST_REVIEWER_CARDS.has(id))),
+    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id)) && !(view.isHod && HOD_HIDDEN_CARDS.has(id)) && (view.reviewsTicketRequests || !REQUEST_REVIEWER_CARDS.has(id))),
     [view.order, isOrgWideRole, view.isHod, view.reviewsTicketRequests],
   );
 

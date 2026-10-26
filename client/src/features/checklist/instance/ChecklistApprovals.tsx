@@ -17,7 +17,7 @@ const NO_INSTANCES: ChecklistInstance[] = [];
 
 const OLDEST_FIRST: ChecklistFilters = { q: '', store: null, dept: null, person: null, age: 'any', attention: false, sort: 'oldest' };
 
-export const ChecklistApprovals = () => {
+export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean }) => {
   const now = useNow();
   const query = useChecklistQueueQuery();
   const instances = useMemo(() => query.data?.pages.flatMap((p) => p.data) ?? NO_INSTANCES, [query.data]);
@@ -69,7 +69,11 @@ export const ChecklistApprovals = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      <PageHeader icon={ShieldCheck} title="Team Checklist Approvals" subtitle={subtitle} />
+      {embedded ? (
+        <p className="t-meta font-medium text-text-muted">{subtitle}</p>
+      ) : (
+        <PageHeader icon={ShieldCheck} title="Checklist approvals" subtitle={subtitle} />
+      )}
 
       <ChecklistList
         rows={rows}

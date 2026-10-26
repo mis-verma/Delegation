@@ -18,7 +18,7 @@ const NEXT: Partial<Record<Ticket['status'], { label: string; to: RestrictedStat
 
 export const QuickTickets = ({ now, onClose }: PanelProps) => {
   const { user } = useAuth();
-  const query = useTicketsQuery(1, 100, undefined, true, DASHBOARD_QUERY_OPTIONS);
+  const query = useTicketsQuery(1, 100, user?.id, !!user?.id, DASHBOARD_QUERY_OPTIONS);
   const { requestMove, statusRemarkDialog } = useTicketStatusMove();
   const mine = useMemo(
     () =>

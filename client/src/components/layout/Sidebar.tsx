@@ -17,7 +17,6 @@ import {
   ClipboardList,
   Megaphone,
   CalendarDays,
-  FolderKanban,
   Settings,
   LogOut,
   TicketCheck,
@@ -62,7 +61,6 @@ const TASK_ADMIN_CHILDREN: NavChild[] = [
   { to: '/tasks/archived', label: 'Archived' },
 ];
 
-const CHECKLIST_APPROVALS_CHILD: NavChild = { to: '/checklists/approvals', label: 'Team Approvals' };
 const REVIEW_QUEUE_CHILD: NavChild = { to: '/checklists/approvals', label: 'To review' };
 const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'History' };
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
@@ -74,7 +72,6 @@ const NAV: NavItem[] = [
   { to: '/todo', icon: ListTodo, label: 'To-Do', tint: 'success' },
   { to: '/events', icon: Megaphone, label: 'Events', tint: 'warning' },
   { to: '/checklists', icon: ClipboardCheck, label: 'Checklists', tint: 'primary' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects', tint: 'info' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', tint: 'coral' },
 ];
 
@@ -210,7 +207,7 @@ const SidebarImpl = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: Sid
         ...item,
         ...(isAdmin || isPC ? { quickCreateTo: '/admin/scheduled-checklists/builder' } : {}),
         ...(isAdmin || isPC || isManager || isSenior
-          ? { children: [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD, ...(isManager || isSenior ? [CHECKLIST_APPROVALS_CHILD] : [])] }
+          ? { children: isManager || isSenior ? [CHECKLIST_HISTORY_CHILD] : [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD] }
           : hasReviewsWaiting ? { children: [REVIEW_QUEUE_CHILD] } : {}),
       };
     }

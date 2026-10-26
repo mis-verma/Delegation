@@ -16,7 +16,7 @@ import { CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
-interface ApprovalRow {
+export interface ApprovalRow {
   id: string;
   category: ApprovalCategory;
   title: string;
@@ -28,7 +28,7 @@ interface ApprovalRow {
 const PREVIEW_LIMIT = 6;
 const MOBILE_PREVIEW_LIMIT = 3;
 
-const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
+export const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
   const Icon = CATEGORY_ICON[row.category];
   return (
     <Link

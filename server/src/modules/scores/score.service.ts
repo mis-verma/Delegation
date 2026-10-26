@@ -342,7 +342,7 @@ export const scoreService = {
                 .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
                 .where(taskWhere),
             db
-                .select({ ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
+                .select({ id: tickets.id, ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
                 .from(tickets)
                 .where(ticketWhere),
         ])
@@ -367,7 +367,7 @@ export const scoreService = {
                         .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
                         .where(and(personTaskWhere, inArray(taskAdditionalAssignees.userId, ids))),
                     db
-                        .select({ ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
+                        .select({ id: tickets.id, ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
                         .from(tickets)
                         .where(and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), storeTicketFilter, inArray(tickets.assigneeId, ids))),
                 ])
@@ -436,7 +436,11 @@ export const scoreService = {
             depts.push(rowFor(ctx, NO_DEPARTMENT_ROW_ID, "No department", "No department", undefined, c, ticketRows.filter((t) => !t.departmentId), deptTasks.filter((t) => !t.departmentId)))
         }
 
-        const total = rowFor(ctx, "total", onlyDepartment ? deptName.get(onlyDepartment) ?? "Your department" : "Whole organisation", "", undefined, checklist?.totals, ticketRows, deptTasks)
+        const teamView = !orgWide && !!onlyDepartment
+        const distinctById = <T extends { id: string }>(rows: readonly T[]): T[] => [...new Map(rows.map((r) => [r.id, r])).values()]
+        const totalTickets = teamView ? distinctById([...personTicketRows, ...unassignedTickets]) : ticketRows
+        const totalTasks = teamView ? distinctById([...personTasks, ...unassignedTasks]) : deptTasks
+        const total = rowFor(ctx, "total", onlyDepartment ? deptName.get(onlyDepartment) ?? "Your department" : "Whole organisation", "", undefined, checklist?.totals, totalTickets, totalTasks)
 
         const sharedRunsByPerson = new Map((checklist?.people ?? []).map((p) => [p.userId, p.sharedRuns]))
         const sharedRunsByDepartment = new Map((checklist?.departments ?? []).map((d) => [d.departmentId ?? NO_DEPARTMENT_ROW_ID, d.sharedRuns]))

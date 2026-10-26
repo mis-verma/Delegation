@@ -29,7 +29,7 @@ export const useApprovalSources = () => {
     reviewsAllWork,
     isHod,
     reportsErrors,
-    queueHref: reviewsAllWork ? '/verify' : isHod ? ((tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) > 0 ? '/tickets/approvals' : '/checklists/approvals') : null,
+    queueHref: reviewsAllWork ? '/verify' : isHod ? ((tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) > 0 ? '/tickets/approvals' : '/tickets/approvals?tab=checklists') : null,
     tasks,
     tickets,
     checklists,

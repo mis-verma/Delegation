@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { AlarmClockOff, BellRing, CheckCheck, ChevronRight, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
+import { AlarmClockOff, BellRing, CheckCheck, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { DueChip } from '../../components/dueChip';
@@ -15,6 +15,12 @@ import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { isTicketHandedIn } from '../../lib/handedIn';
+import { haptic } from '../../lib/haptics';
+import { QuickAction } from '../../components/layout/quickSheet/QuickRow';
+import { useTaskStatusMove } from '../tasks/useTaskStatusMove';
+import { useTicketStatusMove } from '../tickets/useTicketStatusMove';
+import { useUpdateTodoMutation } from '../todo/hook';
+import type { RestrictedStatus } from '../../api/ticket';
 
 type Reason = 'sentBack' | 'overdue' | 'submit' | 'dueToday';
 
@@ -26,7 +32,23 @@ interface FocusItem {
   at: number;
   detail: string | null;
   href: string;
+  task?: Task;
+  ticket?: Ticket;
+  todo?: Todo;
+  checklist?: { label: string };
 }
+
+const TASK_NEXT: Partial<Record<Task['status'], { label: string; to: Task['status'] }>> = {
+  todo: { label: 'Start', to: 'in_progress' },
+  in_progress: { label: 'Complete', to: 'pending_approval' },
+  on_hold: { label: 'Resume', to: 'in_progress' },
+};
+
+const TICKET_NEXT: Partial<Record<Ticket['status'], { label: string; to: RestrictedStatus }>> = {
+  OPEN: { label: 'Start', to: 'IN_PROGRESS' },
+  IN_PROGRESS: { label: 'Complete', to: 'PENDING_APPROVAL' },
+  ON_HOLD: { label: 'Resume', to: 'IN_PROGRESS' },
+};
 
 const ORDER: Record<Reason, number> = { sentBack: 0, overdue: 1, submit: 2, dueToday: 3 };
 const SHOW = 6;
@@ -77,6 +99,9 @@ const FocusSkeleton = () => (
 );
 
 export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+  const taskMove = useTaskStatusMove();
+  const ticketMove = useTicketStatusMove();
+  const todoUpdate = useUpdateTodoMutation();
   const items = useMemo(() => {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
@@ -88,35 +113,35 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
       const done = c.items.length > 0 && c.items.every((i) => i.isDone);
       const deadline = instanceDeadline(c);
       if (c.verificationStatus === 'REJECTED') {
-        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}`, checklist: { label: 'Fix' } });
       } else if (done && c.verificationStatus === 'NOT_SUBMITTED') {
-        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}`, checklist: { label: 'Submit' } });
       } else if (!done && isInstanceOverdue(c, done)) {
-        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'overdue', at: deadline, detail: null, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'overdue', at: deadline, detail: null, href: `/checklists/${c.id}`, checklist: { label: 'Fill' } });
       } else if (!done && deadline <= end) {
-        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'dueToday', at: deadline, detail: null, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, category: 'checklist', title: c.title, reason: 'dueToday', at: deadline, detail: null, href: `/checklists/${c.id}`, checklist: { label: 'Fill' } });
       }
     }
 
     for (const t of tasks) {
       if (t.status === 'done' || t.status === 'draft' || t.status === 'pending_approval' || t.awaitingHeadApproval || !t.dueDate) continue;
       const due = new Date(t.dueDate).getTime();
-      if (isTaskOverdue(t, now)) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'overdue', at: due, detail: null, href: `/tasks?open=${t.id}` });
-      else if (due <= end) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'dueToday', at: due, detail: null, href: `/tasks?open=${t.id}` });
+      if (isTaskOverdue(t, now)) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'overdue', at: due, detail: null, href: `/tasks?open=${t.id}`, task: t });
+      else if (due <= end) out.push({ key: `t-${t.id}`, category: 'delegation', title: t.title, reason: 'dueToday', at: due, detail: null, href: `/tasks?open=${t.id}`, task: t });
     }
 
     for (const k of tickets) {
       if (isTicketHandedIn(k) || k.awaitingHeadApproval || k.declinedAt) continue;
       const due = k.tatDueAt ? new Date(k.tatDueAt).getTime() : null;
-      if (isTicketLate(k)) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'overdue', at: due ?? 0, detail: due ? null : 'Past its time', href: `/tickets?open=${k.id}` });
-      else if (due !== null && due <= end) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'dueToday', at: due, detail: null, href: `/tickets?open=${k.id}` });
+      if (isTicketLate(k)) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'overdue', at: due ?? 0, detail: due ? null : 'Past its time', href: `/tickets?open=${k.id}`, ticket: k });
+      else if (due !== null && due <= end) out.push({ key: `k-${k.id}`, category: 'ticket', title: k.title, reason: 'dueToday', at: due, detail: null, href: `/tickets?open=${k.id}`, ticket: k });
     }
 
     for (const d of todos) {
       if (d.completed || !d.dueDate) continue;
       const due = new Date(d.dueDate).getTime();
-      if (due < now) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'overdue', at: due, detail: null, href: '/todo' });
-      else if (due <= end) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'dueToday', at: due, detail: null, href: '/todo' });
+      if (due < now) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'overdue', at: due, detail: null, href: '/todo', todo: d });
+      else if (due <= end) out.push({ key: `d-${d.id}`, category: 'todo', title: d.text, reason: 'dueToday', at: due, detail: null, href: '/todo', todo: d });
     }
 
     return out.sort((a, b) => ORDER[a.reason] - ORDER[b.reason] || a.at - b.at);
@@ -143,6 +168,24 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
     </button>
   );
   const shown = items.slice(0, SHOW);
+  const actionFor = (item: FocusItem) => {
+    if (item.checklist) return <QuickAction label={item.checklist.label} to={item.href} />;
+    if (item.todo) {
+      const todo = item.todo;
+      return <QuickAction label="Done" onClick={() => { haptic('tap'); todoUpdate.mutate({ id: todo.id, payload: { completed: true } }); }} />;
+    }
+    if (item.task) {
+      const task = item.task;
+      const next = TASK_NEXT[task.status];
+      return next ? <QuickAction label={next.label} onClick={() => { haptic('tap'); taskMove.requestMove(task, next.to); }} /> : null;
+    }
+    if (item.ticket) {
+      const ticket = item.ticket;
+      const next = TICKET_NEXT[ticket.status];
+      return next ? <QuickAction label={next.label} onClick={() => { haptic('tap'); ticketMove.requestMove(ticket, next.to); }} /> : null;
+    }
+    return null;
+  };
   const error = isError && (
     <div className="px-4 pb-3">
       <InlineError message="Some of your work didn't load, so this list may be missing items." onRetry={onRetry} />
@@ -221,12 +264,12 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
           const Icon = CATEGORY_ICON[item.category];
           const hot = item.reason === 'sentBack' || item.reason === 'overdue';
           return (
-            <li key={item.key} className="relative">
+            <li key={item.key} className="relative flex items-center gap-2 pr-3 transition-colors hover:bg-surface-hover/50">
               {hot && <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-danger" aria-hidden="true" />}
               <Link
                 viewTransition
                 to={item.href}
-                className="group flex min-h-16 items-center gap-3 px-4 py-2.5 outline-none transition-colors hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
+                className="group flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 outline-none transition-colors active:bg-surface-hover focus-visible:bg-surface-hover"
               >
                 <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', CATEGORY_TILE[item.category])}>
                   <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
@@ -241,12 +284,14 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
                   </span>
                   {item.detail && <span className="line-clamp-2 t-meta text-text-muted">{item.detail}</span>}
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Link>
+              {actionFor(item)}
             </li>
           );
         })}
       </ul>
+      {taskMove.statusRemarkDialog}
+      {ticketMove.statusRemarkDialog}
       {items.length > SHOW && (
         <p className="border-t border-border/60 px-4 py-2.5 t-meta text-text-muted">
           And {items.length - SHOW} more. Finish these first, the next ones move up.

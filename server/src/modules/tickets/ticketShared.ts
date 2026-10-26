@@ -3,12 +3,14 @@ import {
   tickets,
   users,
 } from "../../db/schema/index.js"
-import { isNull } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { type DbTransaction } from "../audit/audit.service.js"
 
 export type TicketRow = typeof tickets.$inferSelect
 
 export const NOT_DELETED = isNull(tickets.deletedAt)
+
+export const NOT_GATED = and(eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt))
 
 export const deriveTatDueAt = (tatHours: number | null, fromDate: Date): Date | null =>
   tatHours ? new Date(fromDate.getTime() + tatHours * 60 * 60 * 1000) : null

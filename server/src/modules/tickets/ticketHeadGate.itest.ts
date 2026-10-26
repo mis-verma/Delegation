@@ -21,6 +21,7 @@ const SPEC: { key: string; role: Role; department: "a" | "b" | "c" | null }[] = 
     { key: "headA", role: "MANAGER", department: "a" },
     { key: "headB", role: "MANAGER", department: "b" },
     { key: "headC", role: "MANAGER", department: "c" },
+    { key: "seniorB", role: "SENIOR", department: "b" },
     { key: "workerA", role: "USER", department: "a" },
     { key: "workerB", role: "USER", department: "b" },
     { key: "workerC", role: "USER", department: "c" },
@@ -178,5 +179,23 @@ describe("ticket raised to a department user", () => {
         const [row] = await db.select().from(tickets).where(eq(tickets.id, res.body.data.id as string))
         expect(row!.awaitingHeadApproval).toBe(true)
         expect(row!.departmentId).toBe(departmentIds.b)
+    })
+
+    it("shows a senior the requests raised for their department, but not its other tickets", async () => {
+        const gated = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        const other = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        await as("headB", request(app).post(`/tickets/${other.body.data.id}/approve-assignment`))
+        expect((await as("seniorB", request(app).get(`/tickets/${gated.body.data.id}`))).status).toBe(200)
+        expect((await as("seniorB", request(app).get(`/tickets/${other.body.data.id}`))).status).toBe(403)
+    })
+
+    it("leaves declined tickets out of the summary counts", async () => {
+        const before = await as("headB", request(app).get("/tickets/summary?scope=visible"))
+        const res = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        const declined = await as("headB", request(app).post(`/tickets/${res.body.data.id}/decline`)).send({ reason: "Not our work" })
+        expect(declined.status).toBe(200)
+        const after = await as("headB", request(app).get("/tickets/summary?scope=visible"))
+        expect(after.body.data.total).toBe(before.body.data.total)
+        expect(after.body.data.completed).toBe(before.body.data.completed)
     })
 })
