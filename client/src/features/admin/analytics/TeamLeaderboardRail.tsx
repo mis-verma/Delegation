@@ -56,14 +56,14 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
   const dayTo = query.win?.to;
   const seeAllHref = `/admin/scores?${new URLSearchParams({ view: 'person', ...(dayFrom && dayTo ? { from: dayFrom, to: dayTo } : {}) }).toString()}`;
 
-  const leaderboard: LeaderRow[] = useMemo(() => {
+  const { leaderboard, fewItems } = useMemo(() => {
     const rows: LeaderRow[] = [];
     for (const row of query.data?.rows ?? []) {
       const p = explorerRowToReportRow(row);
       if (p.left || p.id === UNASSIGNED_ROW_ID) continue;
       const due = totalDue(p);
       const score = overallOf(p);
-      if (due < MIN_RANK_VOLUME || score === null) continue;
+      if (due <= 0 || score === null) continue;
       rows.push({
         id: p.id,
         name: p.name,
@@ -75,7 +75,9 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
         delegation: moduleOverall(p, 'delegation'),
       });
     }
-    return rows.sort((a, b) => b.score - a.score || b.due - a.due || a.name.localeCompare(b.name)).slice(0, LEADERBOARD_SIZE);
+    const sorted = rows.sort((a, b) => b.score - a.score || b.due - a.due || a.name.localeCompare(b.name));
+    const ranked = sorted.filter((r) => r.due >= MIN_RANK_VOLUME).slice(0, LEADERBOARD_SIZE);
+    return { leaderboard: ranked, fewItems: ranked.length === 0 ? sorted.slice(0, LEADERBOARD_SIZE) : [] };
   }, [query.data]);
 
   const exportRows = (): TableRows => [
@@ -116,12 +118,21 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
         <div className="flex flex-col gap-2" role="status" aria-label="Loading the leaderboard">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
         </div>
+      ) : leaderboard.length === 0 && fewItems.length > 0 ? (
+        <div className="flex flex-1 flex-col gap-2">
+          <p className="t-meta text-text-muted">{`Not ranked yet. Each person has fewer than ${MIN_RANK_VOLUME} items due in this period.`}</p>
+          <div className="flex flex-col gap-1">
+            {fewItems.map((row, index) => (
+              <LeaderboardRow key={row.id} row={row} index={index} href={scorecardRowHref('person', row.id, dayFrom ?? '', dayTo ?? '')} />
+            ))}
+          </div>
+        </div>
       ) : leaderboard.length === 0 ? (
         <EmptyState
           size="compact"
           icon={Trophy}
-          title="No one is ranked yet"
-          description={`People need at least ${MIN_RANK_VOLUME} checklists, tickets or delegations due in the period.`}
+          title="Nothing was due in this period"
+          description="People show here once a checklist, ticket or delegation of theirs comes due."
         />
       ) : (
         <div className="flex flex-1 flex-col gap-1">

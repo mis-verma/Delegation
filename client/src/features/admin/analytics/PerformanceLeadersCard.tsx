@@ -73,6 +73,8 @@ interface DimensionColumnProps {
   icon: typeof Building2;
   title: string;
   rows: RankedRow[];
+  untagged: RankedRow[];
+  noun: string;
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
@@ -80,11 +82,12 @@ interface DimensionColumnProps {
   className?: string;
 }
 
-const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry, hrefFor, className = '' }: DimensionColumnProps) => {
+const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, isError, onRetry, hrefFor, className = '' }: DimensionColumnProps) => {
   const headingId = useId();
-  const { top, low, hasEligible } = useMemo(() => {
+  const { top, low, hasEligible, preview } = useMemo(() => {
     const { sorted, topId, lowId } = rankRows(rows);
     return {
+      preview: rows.filter((r) => r.overall != null).sort((a, b) => (a.overall as number) - (b.overall as number) || a.name.localeCompare(b.name)).slice(0, 3),
       top: sorted.find((r) => r.id === topId) ?? null,
       low: sorted.find((r) => r.id === lowId) ?? null,
       hasEligible: rows.some((r) => r.overall != null && r.volume >= MIN_RANK_VOLUME),
@@ -111,7 +114,28 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry,
               <LeaderEntry icon={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? AlertTriangle : Trophy} tone={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? 'danger' : 'success'} label="Only one ranked" row={top ?? low} emptyText="" hrefFor={hrefFor} />
             </div>
           ) : !top && !low && !hasEligible ? (
-            <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @md:col-span-2">Not enough data yet</p>
+            preview.length > 0 ? (
+              <div className="flex flex-col gap-2 @md:col-span-2">
+                <p className="t-meta text-text-muted">{`Not ranked yet. Each has fewer than ${MIN_RANK_VOLUME} items in this period. Lowest first.`}</p>
+                <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
+                  {preview.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <Link viewTransition to={hrefFor(r.id)} className="min-w-0 truncate t-card font-display font-semibold text-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40">{r.name}</Link>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <IconChip icon={false} label={`${r.volume} items`} labelClassName="tabular-nums" />
+                        <span className="t-card font-display font-bold tabular-nums text-text">{formatPercent(r.overall)}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @md:col-span-2">
+                {untagged.length > 0 && untagged[0].volume > 0
+                  ? `${untagged[0].volume} items this period are not linked to any ${noun}, so there is nothing to compare. Link people and checklists to a ${noun} to see them here.`
+                  : 'Nothing was due in this period'}
+              </p>
+            )
           ) : (
             <>
               <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" hrefFor={hrefFor} />
@@ -137,7 +161,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
   const dayFrom = scoreWindow?.from;
   const dayTo = scoreWindow?.to;
   const {
-    departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError,
+    departmentRows, storeRows, departmentUntagged, storeUntagged, departmentsPending, storesPending, departmentsError, storesError,
     retryDepartments, retryStores, updating,
   } = useOwnerRankings(from, to);
 
@@ -187,6 +211,8 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
           icon={Building2}
           title="Departments"
           rows={departmentRows}
+          untagged={departmentUntagged}
+          noun="department"
           isPending={departmentsPending}
           isError={departmentsError}
           onRetry={retryDepartments}
@@ -196,6 +222,8 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
           icon={Store}
           title="Stores"
           rows={storeRows}
+          untagged={storeUntagged}
+          noun="store"
           isPending={storesPending}
           isError={storesError}
           onRetry={retryStores}

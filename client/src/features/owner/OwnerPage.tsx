@@ -56,7 +56,7 @@ const Fold = ({ title, count, children }: { title: string; count?: number; child
 export const OwnerPage = () => {
   const navigate = useNavigate();
   const today = useOrgToday();
-  const [period, setPeriod] = useState<ScorePeriod>('week');
+  const [period, setPeriod] = useState<ScorePeriod>('month');
 
   const current = useMemo(() => {
     const raw = windowFor(period, 0, today);

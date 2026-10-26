@@ -67,6 +67,14 @@ export const useOwnerRankings = (from?: string, to?: string) => {
     () => (departmentQuery.data?.rows ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', deptTat.get(r.id) ?? null)),
     [departmentQuery.data, deptTat],
   );
+  const departmentUntagged: RankedRow[] = useMemo(
+    () => (departmentQuery.data?.rows ?? []).filter((r) => r.id === NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', null)),
+    [departmentQuery.data],
+  );
+  const storeUntagged: RankedRow[] = useMemo(
+    () => (storeQuery.data?.rows ?? []).filter((r) => r.id === NO_STORE_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', null)),
+    [storeQuery.data],
+  );
   const storeRows: RankedRow[] = useMemo(
     () => (storeQuery.data?.rows ?? []).filter((r) => r.id !== NO_STORE_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', storeTat.get(r.id) ?? null)),
     [storeQuery.data, storeTat],
@@ -78,6 +86,8 @@ export const useOwnerRankings = (from?: string, to?: string) => {
   return {
     departmentRows,
     storeRows,
+    departmentUntagged,
+    storeUntagged,
     total: departmentQuery.total,
     window: departmentQuery.win,
     updating: departmentQuery.updating || storeQuery.updating,

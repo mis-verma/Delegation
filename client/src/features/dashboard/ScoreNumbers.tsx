@@ -101,8 +101,9 @@ interface ScoreNumbersProps {
   emptyAction?: ReactNode;
 }
 
-const ChangeText = ({ change }: { change: number | null }) =>
-  change !== null && change !== 0 ? (
+const ChangeText = ({ change: raw }: { change: number | null }) => {
+  const change = raw === null ? null : Math.round(raw * 10) / 10;
+  return change !== null && change !== 0 ? (
     <IconChip
       icon={change > 0 ? ArrowUp : ArrowDown}
       tone={change > 0 ? 'bg-success' : 'bg-danger'}
@@ -111,6 +112,7 @@ const ChangeText = ({ change }: { change: number | null }) =>
       title="Compared with the last period"
     />
   ) : null;
+};
 
 export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overview', overall, trend, onOpenModule, emptyText = 'Nothing due yet', emptyHint, emptyAction }: ScoreNumbersProps) => {
   const today = useOrgToday();
@@ -165,7 +167,7 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
       {headline && <p className="t-card font-display font-semibold text-text">{headline}</p>}
       <ul className={`stat-rise ${gridClass}`} aria-label="Scores by module">
         {overall && (
-          <li className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-3">
+          <li className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2.5 sm:py-3">
             <span className="t-meta font-display font-semibold text-text-muted">{overall.label ?? SCORE_LABEL.overall}</span>
             {overallRounded === null ? (
               <span className="t-meta font-display text-text-light">Nothing due</span>
@@ -204,12 +206,12 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
                   <span className="t-meta font-display text-text-light">Nothing due</span>
                 )}
                 {cell.hasData && dots.length > 0 && <TrendDots values={dots} />}
-                {cell.hasData && cell.detail && <span className="t-meta text-text-muted">{cell.detail}</span>}
+                {cell.hasData && cell.detail && <span className="hidden t-meta text-text-muted sm:block">{cell.detail}</span>}
               </span>
               {interactive && <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />}
             </>
           );
-          const cls = 'flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left';
+          const cls = 'flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left sm:py-3';
           return (
             <li key={cell.key}>
               {interactive ? (
