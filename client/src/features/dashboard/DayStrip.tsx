@@ -1,17 +1,20 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Gauge, TrendingDown, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreScope, type ScoreTrend, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
 import { IconChip } from '../../components/iconChip';
 import { LegendChip } from '../../components/legendChip';
 import { InlineError } from '../../components/inlineError';
-import { Gauge, TrendingDown, Trophy } from 'lucide-react';
 import { bandWord, FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { formatPct, roundPct } from '../../lib/percent';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 
 const MODULE_KEYS = ['checklist', 'ticket', 'delegation'] as const;
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+const PANEL = 'flex flex-col gap-3 rounded-xl border border-primary-500/20 bg-linear-to-br from-primary-500/15 via-primary-500/6 to-transparent p-3 sm:p-4';
 
 const bucketScore = (b: TrendBucket): number | null => {
   if (typeof b.overall === 'number') return b.overall;
@@ -25,13 +28,44 @@ const bucketScore = (b: TrendBucket): number | null => {
   return parts.length ? parts.reduce((x, y) => x + y, 0) / parts.length : null;
 };
 
-const cellTone = (v: number | null) =>
-  v === null ? 'bg-surface-hover text-text-light' : v >= GOOD_FROM ? 'bg-success text-white' : v >= FAIR_FROM ? 'bg-warning text-white' : 'bg-danger text-white';
+const tileTone = (v: number | null) =>
+  v === null
+    ? 'border-border/60 bg-surface/70 text-text-light'
+    : v >= GOOD_FROM
+      ? 'border-success/40 bg-success/20 text-text'
+      : v >= FAIR_FROM
+        ? 'border-warning/50 bg-warning/20 text-text'
+        : 'border-danger bg-danger text-white';
 
-const cellText = (b: TrendBucket) => {
-  const last = b.label.trim().split(/\s+/);
-  const digits = last.find((part) => /^\d{1,2}$/.test(part));
-  return digits ?? b.label.slice(0, 3);
+const dateParts = (day: string) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  return { date: d.getUTCDate(), weekday: (d.getUTCDay() + 6) % 7 };
+};
+
+interface Cell {
+  bucket: TrendBucket;
+  score: number | null;
+}
+
+const Tile = ({ cell, big }: { cell: Cell; big?: boolean }) => {
+  const { bucket, score } = cell;
+  const text = score === null ? 'nothing due' : `${formatPct(score)}, ${bandWord(score)}`;
+  const label = big ? bucket.label : String(dateParts(bucket.from).date);
+  return (
+    <span
+      role="listitem"
+      title={`${bucket.label}: ${text}`}
+      aria-label={`${bucket.label}: ${text}`}
+      className={cn(
+        'flex min-w-0 flex-col items-center justify-center rounded-lg border tabular-nums',
+        big ? 'min-h-14 min-w-16 flex-1 px-2 py-1.5' : 'aspect-square',
+        tileTone(score),
+      )}
+    >
+      <span className="t-card font-display font-bold leading-none">{label}</span>
+      {score !== null && <span className="t-meta font-display font-semibold leading-none opacity-90">{Math.round(score)}%</span>}
+    </span>
+  );
 };
 
 interface DayStripProps {
@@ -48,48 +82,58 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
     queryFn: () => scoreApi.trend({ scope, id, period, from, to }),
     ...SCORE_QUERY_OPTIONS,
   });
-  const cells = useMemo(() => (data?.buckets ?? []).map((b) => ({ bucket: b, score: bucketScore(b) })), [data]);
+  const cells = useMemo<Cell[]>(() => (data?.buckets ?? []).map((b) => ({ bucket: b, score: bucketScore(b) })), [data]);
   const scored = cells.filter((c): c is { bucket: TrendBucket; score: number } => c.score !== null);
   const average = scored.length ? roundPct(scored.reduce((t, c) => t + c.score, 0) / scored.length) : null;
   const best = scored.length ? scored.reduce((a, b) => (b.score > a.score ? b : a)) : null;
   const worst = scored.length > 1 ? scored.reduce((a, b) => (b.score < a.score ? b : a)) : null;
   const unit = period === 'day' ? 'day' : period === 'week' ? 'week' : 'period';
+  const asCalendar = period === 'day' && cells.length > 0;
+  const lead = asCalendar ? dateParts(cells[0].bucket.from).weekday : 0;
 
   if (isPending) {
     return (
-      <div className="flex flex-wrap gap-1.5" role="status" aria-label="Loading the days">
-        {Array.from({ length: 14 }, (_, i) => <Skeleton key={i} className="size-8 rounded-md" />)}
+      <div className={PANEL} role="status" aria-label="Loading the days">
+        <div className="grid grid-cols-7 gap-1.5">
+          {Array.from({ length: 14 }, (_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+        </div>
       </div>
     );
   }
   if (isError) return <InlineError message="Couldn't load the days." onRetry={() => void refetch()} />;
   if (cells.length === 0 || scored.length === 0) {
-    return <p className="t-meta text-text-muted">Nothing came due in this window, so there is nothing to colour yet.</p>;
+    return (
+      <div className={PANEL}>
+        <p className="t-card font-display font-semibold text-text">Nothing came due in this window</p>
+        <p className="t-meta text-text-muted">Days are coloured once something comes due.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap gap-1.5" role="list" aria-label={`Score by ${unit}`}>
-        {cells.map(({ bucket, score }) => {
-          const text = score === null ? 'nothing due' : `${formatPct(score)}, ${bandWord(score)}`;
-          return (
-            <span
-              key={`${bucket.from}-${bucket.to}`}
-              role="listitem"
-              title={`${bucket.label}: ${text}`}
-              aria-label={`${bucket.label}: ${text}`}
-              className={cn('flex size-8 shrink-0 items-center justify-center rounded-md t-meta font-display font-bold tabular-nums', cellTone(score))}
-            >
-              {cellText(bucket)}
-            </span>
-          );
-        })}
-      </div>
+    <div className={PANEL}>
       <div className="flex flex-wrap items-center gap-1.5">
         {average !== null && <IconChip icon={Gauge} tone="bg-primary-600" label={`Average ${formatPct(average)}`} labelClassName="tabular-nums" />}
         {best && <IconChip icon={Trophy} tone="bg-success" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
         {worst && <IconChip icon={TrendingDown} tone="bg-danger" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
       </div>
+
+      {asCalendar ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-7 gap-1.5 text-center" aria-hidden="true">
+            {WEEKDAYS.map((d) => <span key={d} className="t-meta font-display font-semibold text-text-muted">{d}</span>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5" role="list" aria-label="Score by day">
+            {Array.from({ length: lead }, (_, i) => <span key={`pad-${i}`} aria-hidden="true" />)}
+            {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} />)}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5" role="list" aria-label={`Score by ${unit}`}>
+          {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} big />)}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-1.5" aria-hidden="true">
         <LegendChip color="var(--color-success)" label={`${GOOD_FROM}+ good`} />
         <LegendChip color="var(--color-warning)" label={`${FAIR_FROM} to ${GOOD_FROM - 1} fair`} />

@@ -1,8 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { installTapHaptics } from './lib/haptics';
-import '@fontsource/carlito/400.css';
-import '@fontsource/carlito/700.css';
+import '@fontsource/lato/400.css';
+import '@fontsource/lato/700.css';
+import '@fontsource/lato/900.css';
 import '@fontsource-variable/league-spartan/index.css';
 import '@fontsource-variable/noto-sans-devanagari/index.css';
 import './index.css';

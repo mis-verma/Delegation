@@ -127,7 +127,7 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
   });
 
   const cols = overall ? 'sm:grid-cols-4' : 'sm:grid-cols-3';
-  const gridClass = `grid grid-cols-1 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 sm:divide-x sm:divide-y-0 ${cols}`;
+  const gridClass = `grid grid-cols-1 divide-y divide-border/60 overflow-hidden rounded-xl border border-primary-500/20 bg-linear-to-br from-primary-500/12 via-primary-500/5 to-transparent sm:divide-x sm:divide-y-0 ${cols}`;
 
   if (loading && !scores) {
     return (

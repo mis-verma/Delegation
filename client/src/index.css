@@ -35,7 +35,7 @@
   --color-coral-700: #4f3499;
 
   --color-success: #10b981;
-  --color-warning: #e0620d;
+  --color-warning: #dc2626;
   --color-danger: #ef4444;
   --color-info: #3f6fe0;
   --color-status-todo: #94a3b8;
@@ -57,8 +57,8 @@
   --color-white: #ffffff;
   --color-success-strong: #047857;
 
-  --font-sans: "Calibri", "Carlito", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Calibri", "Carlito", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 17.5rem;
@@ -227,7 +227,7 @@ body {
   --glass-border: rgba(36, 48, 80, 0.7);
  
   --color-success: #4caf80;
-  --color-warning: #f19a55;
+  --color-warning: #f06b6b;
   --color-danger: #d17272;
   --color-info: #7aa2e8;
   

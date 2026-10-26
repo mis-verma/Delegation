@@ -25,7 +25,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/league-spartan": "^5.3.0",
     "@fontsource-variable/noto-sans-devanagari": "^5.3.0",
-    "@fontsource/carlito": "^5.3.0",
+    "@fontsource/lato": "^5.3.0",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-dropdown-menu": "^2.1.20",
