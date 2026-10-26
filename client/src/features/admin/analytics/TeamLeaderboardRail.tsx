@@ -16,6 +16,7 @@ import { formatPercent } from './analyticsDisplay';
 import { MIN_RANK_VOLUME } from './useOwnerRankings';
 import { useOverviewScores } from './useOverviewScores';
 import { UpdatingNote } from './UpdatingNote';
+import { GOOD_FROM, FAIR_FROM } from '../../../lib/scoreBands';
 
 const LEADERBOARD_SIZE = 5;
 
@@ -42,7 +43,7 @@ const LeaderboardRow = memo(({ row, index, href }: { row: LeaderRow; index: numb
     aria-label={`${row.name}, ${formatPercent(row.score)}. Open on the Scorecard`}
     className="block rounded-lg border border-transparent px-1.5 transition-colors duration-150 ease-out hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
-    <PersonRow index={index} name={row.name} subtitle={row.subtitle} metric={formatPercent(row.score)} progress={row.score} metricTone={row.score >= 80 ? 'success' : row.score < 50 ? 'danger' : 'default'} />
+    <PersonRow index={index} name={row.name} subtitle={row.subtitle} metric={formatPercent(row.score)} progress={row.score} metricTone={row.score >= GOOD_FROM ? 'success' : row.score < FAIR_FROM ? 'danger' : 'default'} />
   </Link>
 ));
 LeaderboardRow.displayName = 'LeaderboardRow';

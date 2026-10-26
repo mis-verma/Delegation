@@ -17,9 +17,10 @@ import { scoresHref } from '../admin/directory/orgScoreData';
 import { useNow, usePersonAttention, useRemindMutation } from './useAttention';
 import { LevelAvatar, WeekDots } from './AttentionParts';
 import { LEVEL_LOOK, RUN_LOOK, agoLabel, deadlineLabel, levelOfDetail, pctText, remindedRecently, scoreBar, scoreTone, whatsAppLink } from './attentionDisplay';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 const gaugeColor = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'var(--color-border-hover)' : v >= 85 ? 'var(--color-success)' : v >= 60 ? 'var(--color-warning)' : 'var(--color-danger)';
+  v === null || v === undefined ? 'var(--color-border-hover)' : v >= GOOD_FROM ? 'var(--color-success)' : v >= FAIR_FROM ? 'var(--color-warning)' : 'var(--color-danger)';
 
 const reasonsOf = (d: PersonAttentionDetail) => {
   const count = (n: number, one: string, many: string) => (n > 0 ? `${n} ${n === 1 ? one : many}` : null);

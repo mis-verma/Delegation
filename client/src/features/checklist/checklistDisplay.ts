@@ -3,6 +3,7 @@ import type { ChecklistRecurrence } from '../../api/checklistDefinitions';
 import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../api/checklistInstances';
 import type { StatusChipStatus } from '../../components/statusChip';
 import { runScores } from './checklistCompliance';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 export const RECURRENCE_LABEL: Record<ChecklistRecurrence, string> = {
   DAILY: 'Daily',
@@ -72,17 +73,17 @@ const verificationChipFor = (status: ChecklistVerificationStatus, isComplete: bo
   return { ...VERIFICATION_CHIP[status], label: VERIFICATION_STATUS_LABEL[status] };
 };
 
-export const rateWord = (rate: number | null | undefined) => (rate === null || rate === undefined ? 'No data' : rate >= 80 ? 'Good' : rate >= 50 ? 'Fair' : 'Low');
+export const rateWord = (rate: number | null | undefined) => (rate === null || rate === undefined ? 'No data' : rate >= GOOD_FROM ? 'Good' : rate >= FAIR_FROM ? 'Fair' : 'Low');
 
 export const rateToneClass = (rate: number) => {
-  if (rate >= 80) return 'text-success';
-  if (rate >= 50) return 'text-warning';
+  if (rate >= GOOD_FROM) return 'text-success';
+  if (rate >= FAIR_FROM) return 'text-warning';
   return 'text-danger';
 };
 
 export const rateBarClass = (rate: number) => {
-  if (rate >= 80) return 'bg-success';
-  if (rate >= 50) return 'bg-warning';
+  if (rate >= GOOD_FROM) return 'bg-success';
+  if (rate >= FAIR_FROM) return 'bg-warning';
   return 'bg-danger';
 };
 
@@ -99,8 +100,8 @@ export const inverseRateBarClass = (rate: number) => {
 };
 
 export const smallRateToneClass = (rate: number) => {
-  if (rate >= 80) return 'text-success';
-  if (rate >= 50) return 'text-text-secondary';
+  if (rate >= GOOD_FROM) return 'text-success';
+  if (rate >= FAIR_FROM) return 'text-text-secondary';
   return 'text-danger';
 };
 

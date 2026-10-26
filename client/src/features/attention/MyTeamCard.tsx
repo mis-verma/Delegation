@@ -14,6 +14,7 @@ import { orgDayWindow } from '../dashboard/scoreDrill';
 import { useTeamApprovals } from './useAttention';
 import { PersonAttentionSheet } from './PersonAttentionSheet';
 import { pctText, scoreBar, scoreTone } from './attentionDisplay';
+import { FAIR_FROM, GOOD_FROM, bandWord } from '../../lib/scoreBands';
 
 type Period = 'day' | 'week' | 'month';
 const PERIODS: { key: Period; label: string }[] = [
@@ -134,8 +135,8 @@ export const MyTeamCard = () => {
 
           {!noScores && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 px-4 pt-4 pb-1 sm:px-5">
-              <h3 className="t-card font-display font-bold text-text">Lowest first</h3>
-              <span className="t-meta font-medium text-text-muted">Tap a name for their live view</span>
+              <h3 className="t-card font-display font-bold text-text">Lowest scores at the top</h3>
+              <span className="t-meta font-medium text-text-muted">{`Rank 1 is the best. ${GOOD_FROM} and up is good, ${FAIR_FROM} to ${GOOD_FROM - 1} fair. Tap a name to see their day.`}</span>
             </div>
           )}
 
@@ -172,7 +173,7 @@ export const MyTeamCard = () => {
                       <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="line-clamp-1 t-card font-display font-semibold text-text">{p.name}</span>
-                          {rank && <span className="shrink-0 t-meta font-semibold tabular-nums text-text-muted">#{rank}</span>}
+                          {rank && <span className="shrink-0 t-meta font-semibold tabular-nums text-text-muted">{rank} of {rankOf.size}</span>}
                         </span>
                         <span className="flex flex-wrap gap-x-3 gap-y-0.5">
                           {p.checklist.due > 0 && <Metric label="Filled" value={p.checklist.completionPct} />}
@@ -182,8 +183,18 @@ export const MyTeamCard = () => {
                         </span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-0.5">
-                        <span className={cn('t-stat font-display font-bold tabular-nums leading-none', scoreTone(p.overall))}>{pctText(p.overall)}</span>
-                        {approved !== null && <span className="t-meta font-medium text-text-muted">Approved {pctText(approved)}</span>}
+                        {p.overall === null || p.overall === undefined ? (
+                          <span className="t-meta font-semibold text-text-muted">Nothing due</span>
+                        ) : (
+                          <span className={cn('t-stat font-display font-bold tabular-nums leading-none', scoreTone(p.overall))}>{pctText(p.overall)}</span>
+                        )}
+                        {(p.overall !== null && p.overall !== undefined) || approved !== null ? (
+                          <span className="t-meta font-medium tabular-nums text-text-muted">
+                            {p.overall !== null && p.overall !== undefined ? bandWord(p.overall) : null}
+                            {p.overall !== null && p.overall !== undefined && approved !== null ? ' · ' : null}
+                            {approved !== null ? `${pctText(approved)} approved` : null}
+                          </span>
+                        ) : null}
                       </span>
                       <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />
                     </button>

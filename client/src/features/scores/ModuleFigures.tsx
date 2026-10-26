@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { SCORE_LABEL, SCORE_LABEL_SHORT, complianceLabel, complianceLabelShort, type ScoreModule } from '../../lib/scoreLabels';
 import { HowCalculated } from './HowCalculated';
 import { ScorePct } from './ScorePct';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 interface ModuleFiguresProps {
   module: ScoreModule;
@@ -10,7 +11,7 @@ interface ModuleFiguresProps {
   onTime: number | null;
 }
 
-const barTone = (value: number | null) => (value === null ? 'bg-border-hover' : value >= 80 ? 'bg-success' : value >= 50 ? 'bg-warning' : 'bg-danger');
+const barTone = (value: number | null) => (value === null ? 'bg-border-hover' : value >= GOOD_FROM ? 'bg-success' : value >= FAIR_FROM ? 'bg-warning' : 'bg-danger');
 
 export const ModuleFigures = ({ module, completion, compliance, onTime }: ModuleFiguresProps) => {
   const items = [

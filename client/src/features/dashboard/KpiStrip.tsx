@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useScoreExplorer } from '../scores/useScoreExplorer';
 import { explorerRowToScores } from '../scores/explorerAdapters';
 import { canUseScoreExplorer, teamScoreView } from '../scores/teamScoreView';
+import { FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { windowFor } from './scorePeriods';
 import { scoreQuery } from './scoreQueries';
 import { moduleOverall } from './scoreMetrics';
@@ -185,7 +186,7 @@ const scoreFor = (key: ModuleKey, personal: Scores | undefined, team: Scores | u
   return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score', owner };
 };
 
-const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 50 ? 'var(--color-primary-600)' : 'var(--color-danger)');
+const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= GOOD_FROM ? 'var(--color-success)' : v >= FAIR_FROM ? 'var(--color-warning)' : 'var(--color-danger)');
 
 const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number }) => {
   const Icon = view.icon;
@@ -331,7 +332,8 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
   );
 };
 
-const SCOPE_TAG: Record<ModuleView['scope'], string> = { team: 'Team', mine: 'Yours' };
+const SCOPE_TAG: Record<ModuleView['scope'], string> = { team: 'Your team', mine: 'Only you' };
+const ORG_SCOPE_TAG = 'Everyone';
 
 export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList, simple = false }: KpiStripProps) => {
   const now = useNow();
@@ -375,6 +377,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
   const { user } = useAuth();
   const todayScores = useQuery(scoreQuery('person', undefined, asked.from, asked.to));
   const teamExpected = !simple && canUseScoreExplorer(user?.role);
+  const orgWideViewer = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'OWNER';
   const teamExplorer = useScoreExplorer(teamExpected ? { from: asked.from, to: asked.to, view: teamScoreView(user?.role) } : null);
   const teamScores = useMemo(
     () => (teamExplorer.data ? explorerRowToScores(teamExplorer.data.total, teamExplorer.data.scope.orgWide ? 'org' : 'department', { from: asked.from, to: asked.to }) : undefined),
@@ -453,7 +456,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
             index={index}
             view={view}
             score={scoreFor(view.key, todayScores.data, teamScores, teamExpected, view)}
-            scopeTag={simple ? undefined : SCOPE_TAG[view.scope]}
+            scopeTag={simple ? undefined : view.scope === 'team' && orgWideViewer ? ORG_SCOPE_TAG : SCOPE_TAG[view.scope]}
             onOpen={(kind) => setOpenDrill({ key: view.key, kind })}
           />
         ))}

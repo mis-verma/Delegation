@@ -3,6 +3,7 @@ import type { Task } from '../../api/task';
 import { PANEL_CLASS } from '../../components/entityCard';
 import type { DrilldownRow } from './DrilldownModal';
 import { isTaskHandedIn } from '../../lib/handedIn';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 export const DASHBOARD_CARD_CLASS = `${PANEL_CLASS} h-full`;
 
@@ -214,7 +215,7 @@ const RATE_VOLUME_FLOOR = 5;
 
 export const rateTone = (percent: number, total: number): RateTone => {
   if (total < RATE_VOLUME_FLOOR) return 'neutral';
-  if (percent >= 80) return 'success';
-  if (percent >= 50) return 'warning';
+  if (percent >= GOOD_FROM) return 'success';
+  if (percent >= FAIR_FROM) return 'warning';
   return 'danger';
 };

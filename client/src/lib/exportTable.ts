@@ -1,4 +1,5 @@
 import { roundPct } from './percent';
+import { GOOD_FROM, FAIR_FROM } from './scoreBands';
 
 export type CellValue = string | number | null | undefined;
 export type TableRows = readonly (readonly CellValue[])[];
@@ -77,7 +78,7 @@ const classifyRows = (rows: TableRows, titleRows: number): RowKind[] => {
   return kinds;
 };
 
-const percentStyle = (value: number): number => (value >= 80 ? STYLE.pctGood : value >= 50 ? STYLE.pctFair : STYLE.pctLow);
+const percentStyle = (value: number): number => (value >= GOOD_FROM ? STYLE.pctGood : value >= FAIR_FROM ? STYLE.pctFair : STYLE.pctLow);
 
 const displayLength = (value: CellValue, kind: RowKind): number => {
   if (!filled(value)) return 0;

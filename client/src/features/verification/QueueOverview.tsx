@@ -5,6 +5,7 @@ import { Skeleton } from '../../components';
 import { RadialGauge } from '../../components/radialGauge/RadialGauge';
 import { complianceToneClass } from '../checklist/checklistDisplay';
 import { DAY_MS, formatWaiting, type ChecklistRow } from './verificationModel';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 interface QueueOverviewProps {
   loading: boolean;
@@ -64,7 +65,7 @@ const Tile = ({ icon: Icon, tile, label, value, caption, onClick, pressed, disab
   );
 };
 
-const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
+const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= GOOD_FROM ? 'var(--color-success)' : v >= FAIR_FROM ? 'var(--color-warning)' : 'var(--color-danger)');
 
 export const QueueOverview = memo(function QueueOverview({
   loading, rows, waitingTotal, oldestWaiting, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow,

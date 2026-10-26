@@ -15,6 +15,7 @@ import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL as MODULE_NAME } from '../../lib/scoreLabels';
 import { SeriesLegend } from './SeriesLegend';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 const MODULE_KEYS: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
 const MODULE_LABEL: Record<ModuleKey, string> = MODULE_NAME;
@@ -61,8 +62,8 @@ const pointValue = (p: Point, series: SeriesKey[]): number | null => {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 };
 
-const toneText = (v: number) => (v >= 80 ? 'text-success' : v >= 50 ? 'text-warning' : 'text-danger');
-const toneBg = (v: number) => (v >= 80 ? 'bg-success' : v >= 50 ? 'bg-warning' : 'bg-danger');
+const toneText = (v: number) => (v >= GOOD_FROM ? 'text-success' : v >= FAIR_FROM ? 'text-warning' : 'text-danger');
+const toneBg = (v: number) => (v >= GOOD_FROM ? 'bg-success' : v >= FAIR_FROM ? 'bg-warning' : 'bg-danger');
 
 interface ScoreTrendProps {
   metric?: ScoreMetric;

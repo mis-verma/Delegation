@@ -5,6 +5,7 @@ import {
   CalendarX2, CheckCircle2, CircleDashed, ClipboardX, Clock3, Hourglass, Repeat, Send, TicketX, Timer, Undo2, type LucideIcon,
 } from 'lucide-react';
 import type { AttentionLevel, DayState, PersonAttentionDetail, PersonStatus, RunState } from '../../api/exceptions';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 export type AttentionChip = { key: string; icon: LucideIcon; label: string; tone: string; text?: string };
 
@@ -92,7 +93,7 @@ export const whatsAppLink = (phone: string, text: string) => {
 export const pctText = (v: number | null | undefined) => (v === null || v === undefined ? '–' : `${Math.round(v)}%`);
 
 export const scoreTone = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'text-text-muted' : v >= 85 ? 'text-success' : v >= 60 ? 'text-warning' : 'text-danger';
+  v === null || v === undefined ? 'text-text-muted' : v >= GOOD_FROM ? 'text-success' : v >= FAIR_FROM ? 'text-warning' : 'text-danger';
 
 export const scoreBar = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'bg-border' : v >= 85 ? 'bg-success' : v >= 60 ? 'bg-warning' : 'bg-danger';
+  v === null || v === undefined ? 'bg-border' : v >= GOOD_FROM ? 'bg-success' : v >= FAIR_FROM ? 'bg-warning' : 'bg-danger';

@@ -61,6 +61,7 @@ const TILE_SUCCESS = 'bg-linear-to-br from-success to-success/70';
 const TILE_PRIMARY = 'bg-linear-to-br from-primary-500 to-primary-600';
 
 interface FocusNowCardProps {
+  ownWorkOnly?: boolean;
   tasks: Task[];
   tickets: Ticket[];
   checklists: ChecklistInstance[];
@@ -98,7 +99,7 @@ const FocusSkeleton = () => (
   </section>
 );
 
-export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+export const FocusNowCard = ({ ownWorkOnly = false, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
@@ -248,6 +249,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
             </p>
             {updated}
           </div>
+          {ownWorkOnly && <p className="t-meta text-text-muted">Only your own work. Your team is in the cards below.</p>}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {lateCount > 0 && <IconChip icon={AlarmClockOff} tone="bg-danger" label={`${lateCount} late`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
             {sentBackCount > 0 && <IconChip icon={Undo2} tone="bg-danger" label={`${sentBackCount} sent back`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}

@@ -2,6 +2,7 @@ import { trendFrom, type Trend } from '../../dashboard';
 import { ORG_TZ_OFFSET_MS } from '../../checklist/checklistDisplay';
 import type { TatReportRow } from '../../../api/ticket';
 import { formatPct, roundPct } from '../../../lib/percent';
+import { GOOD_FROM, FAIR_FROM } from '../../../lib/scoreBands';
 
 export const ANALYTICS_LOCALE = 'en-IN';
 
@@ -181,7 +182,7 @@ export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGrou
 export type ValueTone = 'success' | 'warning' | 'danger';
 
 export const pctTone = (value: number | null | undefined): ValueTone | undefined =>
-  value == null || !Number.isFinite(value) ? undefined : value >= 80 ? 'success' : value >= 50 ? 'warning' : 'danger';
+  value == null || !Number.isFinite(value) ? undefined : value >= GOOD_FROM ? 'success' : value >= FAIR_FROM ? 'warning' : 'danger';
 
 export const countTone = (count: number | null | undefined): ValueTone | undefined => (count == null ? undefined : count > 0 ? 'danger' : 'success');
 

@@ -5,6 +5,7 @@ import type { ExplorerRow } from '../../api/scores';
 import { MODULE_LABEL, type ScoreModule } from '../../lib/scoreLabels';
 import { CARD_PAD } from './controlStyles';
 import { ScorePct } from './ScorePct';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 interface DepartmentStandingProps {
   rows: readonly ExplorerRow[];
@@ -14,7 +15,7 @@ interface DepartmentStandingProps {
   modules: readonly ScoreModule[];
 }
 
-const barTone = (value: number) => (value >= 80 ? 'bg-success' : value >= 50 ? 'bg-warning' : 'bg-danger');
+const barTone = (value: number) => (value >= GOOD_FROM ? 'bg-success' : value >= FAIR_FROM ? 'bg-warning' : 'bg-danger');
 
 const ModuleBar = ({ module, mine, org }: { module: ScoreModule; mine: ExplorerRow; org: ExplorerRow }) => {
   const own = mine[module];

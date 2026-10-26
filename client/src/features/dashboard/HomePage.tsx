@@ -168,6 +168,7 @@ export const HomePage = () => {
       {!isCustomizing && <EnableAlertsBanner />}
       {!isCustomizing && (
         <FocusNowCard
+          ownWorkOnly={!frontLine}
           tasks={assignedTasks}
           tickets={myAssignedTickets}
           checklists={focusChecklists}
