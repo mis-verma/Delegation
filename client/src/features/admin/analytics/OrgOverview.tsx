@@ -167,7 +167,7 @@ export const OrgOverview = () => {
 
   return (
     <ExportRegistryProvider>
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-3">
       <h1 className="sr-only">Overview and analytics</h1>
       <ScopeNotice
         role={user?.role}

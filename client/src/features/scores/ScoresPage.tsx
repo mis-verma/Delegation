@@ -143,7 +143,7 @@ export const ScoresPage = () => {
   });
 
   return (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-3">
       <h1 className="sr-only">Scores</h1>
 
       <AnalyticsControlBar

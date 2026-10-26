@@ -75,7 +75,7 @@ export const OwnerPage = () => {
   const scoresHref = (view: string) => `/admin/scores?${new URLSearchParams({ view, from: current.from, to: current.to }).toString()}`;
 
   return (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-3">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white">
@@ -125,7 +125,7 @@ export const OwnerPage = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
         <Fold title="Needs attention" count={attention.data?.length}>
           <ExceptionsCard />
         </Fold>
