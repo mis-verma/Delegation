@@ -78,11 +78,11 @@
     "@types/nodemailer": "^6.4.17",
     "@types/supertest": "^6.0.2",
     "@types/web-push": "^3.6.4",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.18.1",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "uuid": "^11.1.1"
