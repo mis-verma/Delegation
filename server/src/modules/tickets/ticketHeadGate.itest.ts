@@ -200,6 +200,36 @@ describe("ticket raised to a department user", () => {
         expect(ids).not.toContain(approved.body.data.id)
     })
 
+    it("counts a ticket as mine only for the person it is assigned to", async () => {
+        const mineTotal = async (key: string) => (await as(key, request(app).get("/tickets/summary?scope=mine"))).body.data.total as number
+        const headBefore = await mineTotal("headA")
+        const workerBefore = await mineTotal("workerA")
+        await raise("headA", { assigneeId: people.workerA!.id, departmentId: departmentIds.a })
+        expect(await mineTotal("headA")).toBe(headBefore)
+        expect(await mineTotal("workerA")).toBe(workerBefore + 1)
+    })
+
+    it("counts only the head's own department in the team summary", async () => {
+        const teamTotal = async (key: string) => (await as(key, request(app).get("/tickets/summary?scope=visible"))).body.data.total as number
+        const before = await teamTotal("headB")
+        await raise("headA", { assigneeId: people.workerA!.id, departmentId: departmentIds.a })
+        expect(await teamTotal("headB")).toBe(before)
+        await raise("headB", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        expect(await teamTotal("headB")).toBe(before + 1)
+    })
+
+    it("lists overdue tickets for the head's department only, and skips ones still waiting for a head", async () => {
+        const own = await raise("headA", { assigneeId: people.workerA!.id, departmentId: departmentIds.a })
+        const waiting = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        await db.update(tickets).set({ isOverdue: true, tatDueAt: new Date(Date.now() - 3_600_000) }).where(inArray(tickets.id, [own.body.data.id, waiting.body.data.id]))
+        const idsFor = async (key: string) => ((await as(key, request(app).get("/exceptions"))).body.data as { id: string }[]).map((i) => i.id)
+        const forA = await idsFor("headA")
+        const forB = await idsFor("headB")
+        expect(forA).toContain(`ticket:${own.body.data.id}`)
+        expect(forB).not.toContain(`ticket:${own.body.data.id}`)
+        expect(forB).not.toContain(`ticket:${waiting.body.data.id}`)
+    })
+
     it("leaves declined tickets out of the summary counts", async () => {
         const before = await as("headB", request(app).get("/tickets/summary?scope=visible"))
         const res = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })

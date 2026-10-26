@@ -161,6 +161,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       config.invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
       if (invalidatesAnalytics(config.invalidateKeys)) {
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         invalidateScoreCaches(queryClient);
         queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       }

@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { peopleApi } from '../../api/exceptions';
 import { handleQueryRetry, useEntityMutation } from '../../lib/queryHelpers';
 
-const OVERSIGHT = new Set(['ADMIN', 'PC', 'MANAGER', 'SENIOR']);
+const OVERSIGHT = new Set(['ADMIN', 'PC', 'OWNER', 'MANAGER', 'SENIOR']);
 const LIVE_MS = 60_000;
 
 export const ATTENTION_KEYS = {

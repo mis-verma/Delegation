@@ -112,7 +112,7 @@ export const HomePage = () => {
         return (
           <DashboardOverview
             summaries={summaries.kpi}
-            taskList={visibleTasks}
+            taskList={frontLine ? assignedTasks : visibleTasks}
             ticketList={visibleTickets}
             todoList={todos}
             checklistList={focusChecklists}

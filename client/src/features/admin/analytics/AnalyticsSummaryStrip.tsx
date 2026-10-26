@@ -277,7 +277,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             label="Overdue tickets"
             value={overdue.isError ? UNAVAILABLE_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
             isLoading={overdue.isPending}
-            caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
+            caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Right now: open tickets past their deadline'}
             trend={overdueTicketsTrend}
             lowerIsBetter
             valueTone={overdue.isPending || overdue.isError ? undefined : countTone(overdueCount ?? 0)}
@@ -289,7 +289,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             label="Overdue delegations"
             value={overdueDelegations.isError ? UNAVAILABLE_VALUE : overdueDelegations.isPending ? LOADING_VALUE : (overdueDelegationCount ?? 0)}
             isLoading={overdueDelegations.isPending}
-            caption={overdueDelegations.isPending || overdueDelegations.isError ? statCaption({ isPending: overdueDelegations.isPending, isError: overdueDelegations.isError, hasData: false, noDataText: '' }) : 'Past their due date, not done'}
+            caption={overdueDelegations.isPending || overdueDelegations.isError ? statCaption({ isPending: overdueDelegations.isPending, isError: overdueDelegations.isError, hasData: false, noDataText: '' }) : 'Right now: past their due date, not done'}
             trend={overdueDelegationsTrend}
             lowerIsBetter
             valueTone={overdueDelegations.isPending || overdueDelegations.isError ? undefined : countTone(overdueDelegationCount ?? 0)}

@@ -16,7 +16,7 @@ const EMPTY: NavBadge = { due: 0, overdue: 0 };
 export const badgeSummary = ({ due, overdue }: NavBadge) => {
   const parts: string[] = [];
   if (overdue > 0) parts.push(`${overdue} overdue`);
-  if (due > 0) parts.push(`${due} pending`);
+  if (due > 0) parts.push(`${due} not yet due`);
   return parts.join(', ');
 };
 

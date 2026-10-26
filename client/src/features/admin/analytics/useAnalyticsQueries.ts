@@ -12,7 +12,7 @@ import type { GroupBy } from './GroupByControl';
 
 export type ReportGroupBy = GroupBy | 'none';
 
-const ORG_REPORT_ROLES: Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
+const ORG_REPORT_ROLES: Role[] = ['ADMIN', 'PC', 'OWNER', 'MANAGER', 'SENIOR'];
 const canViewOrgReports = (role?: Role) => !!role && ORG_REPORT_ROLES.includes(role);
 
 export const ANALYTICS_QUERY_KEY = ['analytics'] as const;

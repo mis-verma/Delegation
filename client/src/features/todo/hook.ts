@@ -10,6 +10,11 @@ const TODO_KEY = {
     all: ["todos"] as const,
 };
 
+const refreshTodos = (queryClient: QueryClient) => {
+    void queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+    void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+};
+
 const beginOptimistic = async (queryClient: QueryClient, patch: (todos: Todo[]) => Todo[]) => {
     await queryClient.cancelQueries({ queryKey: TODO_KEY.all });
     const previous = queryClient.getQueryData<Todo[]>(TODO_KEY.all);
@@ -46,7 +51,7 @@ export const useCreateTodoMutation = () => {
     return useMutation({
         mutationFn: (payload: CreateTodoPayload) => todoApi.create(payload).then(r => r.data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+            refreshTodos(queryClient);
             toast.success("To-do added");
             haptic("success");
         },
@@ -70,7 +75,7 @@ export const useUpdateTodoMutation = () => {
             notifyError(err, "Couldn't update the to-do. Try again.", { retry: () => mutation.mutate(vars) });
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+            refreshTodos(queryClient);
         },
     });
     return mutation;
@@ -91,7 +96,7 @@ const restoreTodo = async (queryClient: QueryClient, todo: Todo) => {
     } catch (err) {
         notifyError(err, "Couldn't restore the to-do. Try again.");
     } finally {
-        queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+        refreshTodos(queryClient);
     }
 };
 
@@ -102,7 +107,7 @@ const restoreTodos = async (queryClient: QueryClient, removed: Todo[]) => {
     } catch (err) {
         notifyError(err, "Couldn't restore the to-dos. Try again.");
     } finally {
-        queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+        refreshTodos(queryClient);
     }
 };
 
@@ -127,7 +132,7 @@ export const useClearCompletedMutation = () => {
             notifyError(err, "Couldn't clear the completed to-dos. Try again.", { retry: () => mutation.mutate(ids) });
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+            refreshTodos(queryClient);
         },
     });
     return mutation;
@@ -153,7 +158,7 @@ export const useDeleteTodoMutation = () => {
             notifyError(err, "Couldn't remove the to-do. Try again.", { retry: () => mutation.mutate(id) });
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
+            refreshTodos(queryClient);
         },
     });
     return mutation;

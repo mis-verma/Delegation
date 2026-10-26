@@ -32,19 +32,15 @@ const useSource = <T,>(query: QueryLike<T>): SummarySource<T> => {
   return useMemo(() => ({ data, isPending, isError, onRetry: () => void refetch() }), [data, isPending, isError, refetch]);
 };
 
-const READY_TO_SUBMIT_WINDOW_DAYS = 14;
-const DAY_MS = 86_400_000;
-
 export const useDashboardSummaries = () => {
   const { user, token } = useAuth();
   const isOwnScopeRole = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const kpiScope: SummaryScope = isOwnScopeRole ? 'mine' : 'visible';
   const todayBound = todayPeriodBoundIso();
-  const readyFrom = new Date(new Date(todayBound).getTime() - READY_TO_SUBMIT_WINDOW_DAYS * DAY_MS).toISOString();
 
   const query = useQuery({
-    queryKey: ['dashboard', 'summaries', kpiScope, todayBound, readyFrom] as const,
-    queryFn: () => dashboardApi.summaries({ scope: kpiScope, today: todayBound, readyFrom }),
+    queryKey: ['dashboard', 'summaries', kpiScope, todayBound] as const,
+    queryFn: () => dashboardApi.summaries({ scope: kpiScope, today: todayBound }),
     enabled: !!token,
     retry: handleQueryRetry,
     ...DASHBOARD_QUERY_OPTIONS,
@@ -56,25 +52,16 @@ export const useDashboardSummaries = () => {
   const kpiTasksSource = useSource<TaskSummary>({ ...query, data: d?.tasksKpi });
   const kpiTicketsSource = useSource<TicketSummary>({ ...query, data: d?.ticketsKpi });
   const todosSource = useSource<TodoSummary>({ ...query, data: d?.todos });
-  const checklistSource = useSource<ChecklistInstanceSummary>({ ...query, data: d?.checklist });
   const checklistTodaySource = useSource<ChecklistInstanceSummary>({ ...query, data: d?.checklistToday });
-  const myTasksSource = useSource<TaskSummary>({ ...query, data: d?.tasksMine });
-  const myTicketsSource = useSource<TicketSummary>({ ...query, data: d?.ticketsMine });
-  const readySource = useSource<ChecklistInstanceSummary>({ ...query, data: d?.checklistReady });
 
   const kpi = useMemo(
-    () => ({ tasks: kpiTasksSource, tickets: kpiTicketsSource, todos: todosSource, checklist: checklistSource, checklistToday: checklistTodaySource }),
-    [kpiTasksSource, kpiTicketsSource, todosSource, checklistSource, checklistTodaySource],
-  );
-  const mine = useMemo(
-    () => ({ tasks: myTasksSource, tickets: myTicketsSource, todos: todosSource, checklist: checklistSource, readyToSubmit: readySource }),
-    [myTasksSource, myTicketsSource, todosSource, checklistSource, readySource],
+    () => ({ tasks: kpiTasksSource, tickets: kpiTicketsSource, todos: todosSource, checklistToday: checklistTodaySource }),
+    [kpiTasksSource, kpiTicketsSource, todosSource, checklistTodaySource],
   );
 
   return {
     isOwnScopeRole,
     kpi,
-    mine,
     updatedAt,
   };
 };

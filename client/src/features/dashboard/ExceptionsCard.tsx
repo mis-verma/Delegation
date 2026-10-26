@@ -35,15 +35,13 @@ const KIND_LABEL: Record<ExceptionKind, string> = {
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
 
-const ExceptionRow = memo(({ item, now }: { item: ExceptionItem; now: number }) => {
+const ROW_CLASS = 'flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
+
+const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: number; linked: boolean }) => {
   const Icon = KIND_ICON[item.kind];
   const high = item.severity === 'high';
-  return (
-    <Link
-      to={item.link}
-      viewTransition
-      className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
-    >
+  const body = (
+    <>
       <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0 text-white', high ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70')}>
         <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
       </span>
@@ -64,8 +62,15 @@ const ExceptionRow = memo(({ item, now }: { item: ExceptionItem; now: number }) 
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
         </p>
       </div>
-      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
+      {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />}
+    </>
+  );
+  return linked ? (
+    <Link to={item.link} viewTransition className={cn(ROW_CLASS, 'hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover')}>
+      {body}
     </Link>
+  ) : (
+    <div className={ROW_CLASS}>{body}</div>
   );
 });
 ExceptionRow.displayName = 'ExceptionRow';
@@ -138,7 +143,7 @@ export const ExceptionsCard = () => {
         </div>
       ) : items.length === 0 ? null : (
         <div className="flex flex-col divide-y divide-border/60">
-          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} />)}
+          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={user?.role !== 'OWNER'} />)}
         </div>
       )}
 

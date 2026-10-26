@@ -4,12 +4,12 @@ import {
   ticketStatusUpdates,
   users,
 } from "../../db/schema/index.js"
-import { eq, and, or, inArray, asc, sql, type SQL } from "drizzle-orm"
+import { eq, and, or, inArray, asc, sql, isNull, ne, type SQL } from "drizzle-orm"
 import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
-import { isAdminOrPc } from "../../utils/roles.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
 import { NOT_DELETED, NOT_GATED, round1 } from "./ticketShared.js"
 import { visibilityFilter } from "./ticketAccess.js"
@@ -234,8 +234,10 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
   const version = await versionTag(TICKET_SUMMARY_VERSION)
   return cached(cacheKey(TICKET_SUMMARY_PREFIX, `v${version}`, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
     const scopeCondition = scope === "visible"
-      ? await visibilityFilter(user)
-      : or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))
+      ? isDepartmentHeadRole(user.role)
+        ? user.departmentId ? eq(tickets.departmentId, user.departmentId) : sql`1 = 0`
+        : await visibilityFilter(user)
+      : eq(tickets.assigneeId, user.sub)
     const where = and(NOT_DELETED, NOT_GATED, scopeCondition)
 
     const [row] = await db.select({
@@ -261,7 +263,11 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
 
 export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Promise<{ data: TicketPendingApprovalRow[]; meta: { total: number } }> => {
   const POOL = 40
-  const stageScope = isAdminOrPc(user.role) ? undefined : sql`1 = 0`
+  const stageScope = user.role === "PC"
+    ? or(isNull(tickets.assigneeId), ne(tickets.assigneeId, user.sub))
+    : isAdminOrPc(user.role)
+      ? undefined
+      : sql`1 = 0`
   const pendingWhere = and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED, stageScope)
   const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tickets).where(pendingWhere)
   const total = Number(countRow?.total ?? 0)

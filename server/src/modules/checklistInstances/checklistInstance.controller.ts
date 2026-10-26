@@ -125,7 +125,7 @@ export const checklistInstanceController = {
             from,
             to,
             userId: scopedToSelf || (!isOrgWide && !useDepartment) ? req.user!.sub : undefined,
-            hideEnded: !isOrgWide,
+            hideEnded: scopedToSelf || !isOrgWide,
             includeDeleted: isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true"),
         })
         res.json({ success: true, data })

@@ -230,7 +230,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
         </span>
         <span className="min-w-0 flex-1">
           <h3 className="line-clamp-2 break-words leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
-          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ''}</span>}
+          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ' · all time'}</span>}
         </span>
         <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
           <span className="hidden sm:inline group-hover:underline">View all</span>
@@ -338,13 +338,12 @@ const ORG_SCOPE_TAG = 'Everyone';
 export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList, simple = false }: KpiStripProps) => {
   const now = useNow();
   const [openDrill, setOpenDrill] = useState<{ key: ModuleKey; kind: DrillKind } | null>(null);
-  const { tasks, tickets, todos, checklist, checklistToday } = summaries;
+  const { tasks, tickets, todos, checklistToday } = summaries;
 
   const views = useMemo<ModuleView[]>(() => {
     const t = tasks.data;
     const k = tickets.data;
     const d = todos.data;
-    const c = checklist.data;
     const ct = checklistToday.data;
     return [
       {
@@ -359,9 +358,9 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       },
       {
         key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', todayCounts: true, scope: 'mine',
-        isPending: checklist.isPending || checklistToday.isPending, isError: checklist.isError || checklistToday.isError,
-        onRetry: () => { if (checklist.isError) checklist.onRetry(); if (checklistToday.isError) checklistToday.onRetry(); },
-        total: ct?.total ?? null, pending: c?.pending ?? null, completed: ct?.completed ?? null, newToday: c?.newToday ?? null, overdue: c?.overdue ?? 0,
+        isPending: checklistToday.isPending, isError: checklistToday.isError,
+        onRetry: checklistToday.onRetry,
+        total: ct?.total ?? null, pending: ct?.pending ?? null, completed: ct?.completed ?? null, newToday: ct?.newToday ?? null, overdue: ct?.overdue ?? 0,
       },
       {
         key: 'todo', icon: ListTodo, title: 'To-do', noun: 'to-dos', href: '/todo', todayCounts: false, scope: 'mine',
@@ -369,7 +368,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         total: d?.total ?? null, pending: d?.pending ?? null, completed: d?.completed ?? null, newToday: d?.newToday ?? null, overdue: d?.overdue ?? 0,
       },
     ];
-  }, [tasks, tickets, todos, checklist, checklistToday]);
+  }, [tasks, tickets, todos, checklistToday]);
 
   const orgToday = useOrgToday();
   const day = windowFor('day', 0, orgToday);

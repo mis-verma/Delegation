@@ -10,7 +10,8 @@ import {
 } from "../checklistInstances/checklistInstance.service.js"
 import { runClosingSql } from "../checklistInstances/checklistMissedRun.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import { isAdminOrPc } from "../../utils/roles.js"
+import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { NOT_GATED } from "../tickets/ticketShared.js"
 
 const STALE_TICKET_HOURS = 4
 const PER_KIND_LIMIT = 20
@@ -42,7 +43,9 @@ export const exceptionService = {
         const now = Date.now()
         const items: ExceptionItem[] = []
 
-        const ticketScope = await visibilityFilter(user)
+        const ticketScope = isDepartmentHeadRole(user.role)
+            ? user.departmentId ? eq(tickets.departmentId, user.departmentId) : sql`1 = 0`
+            : await visibilityFilter(user)
         const ticketRows = await db
             .select({
                 id: tickets.id,
@@ -58,6 +61,7 @@ export const exceptionService = {
             .leftJoin(stores, eq(stores.id, tickets.storeId))
             .where(and(
                 isNull(tickets.deletedAt),
+                NOT_GATED,
                 inArray(tickets.status, ["OPEN", "IN_PROGRESS"]),
                 ticketScope,
                 sql`(${tickets.isOverdue} = 1 OR (${tickets.priority} IN ('HIGH','CRITICAL') AND ${tickets.createdAt} <= ${new Date(now - STALE_TICKET_HOURS * HOUR_MS)}))`,

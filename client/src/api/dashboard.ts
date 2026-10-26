@@ -9,15 +9,11 @@ type ApiResponse<T> = { success: boolean; data: T };
 export interface DashboardSummariesData {
   tasksKpi: TaskSummary;
   ticketsKpi: TicketSummary;
-  tasksMine: TaskSummary;
-  ticketsMine: TicketSummary;
   todos: TodoSummary;
-  checklist: ChecklistInstanceSummary;
   checklistToday: ChecklistInstanceSummary;
-  checklistReady: ChecklistInstanceSummary;
 }
 
 export const dashboardApi = {
-  summaries: (params: { scope: SummaryScope; today: string; readyFrom: string }) =>
+  summaries: (params: { scope: SummaryScope; today: string }) =>
     apiFetch<ApiResponse<DashboardSummariesData>>(`/dashboard/summaries?${new URLSearchParams(params).toString()}`).then((r) => r.data),
 };

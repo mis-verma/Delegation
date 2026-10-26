@@ -9,6 +9,7 @@ import { reportApi, type ApprovalKind } from '../../../api/reports';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 import { SectionHeader } from '../../scores/SectionHeader';
+import { orgDayWindow } from '../../dashboard/scoreDrill';
 import { StatTile } from './AnalyticsSummaryStrip';
 import { ANALYTICS_QUERY_KEY } from './useAnalyticsQueries';
 import { formatDuration } from './analyticsDisplay';
@@ -29,10 +30,21 @@ const breakdown = (pick: (kind: ApprovalKind) => number, none: string) => {
   return parts.length ? parts.join(', ') : none;
 };
 
-const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
+const isDay = (value?: string): value is string => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const toWindow = (from?: string, to?: string) => {
+  if (isDay(from) && isDay(to)) {
+    const { start, end } = orgDayWindow(from, to);
+    return { from: start, to: end };
+  }
+  return { from, to };
+};
+
+const ApprovalWaitingStripBase = ({ from: rawFrom, to: rawTo }: ApprovalWaitingStripProps) => {
+  const { from, to } = toWindow(rawFrom, rawTo);
   const headingId = useId();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   const query = useQuery({
     queryKey: [...ANALYTICS_QUERY_KEY, 'approval-tat', from ?? null, to ?? null],
@@ -46,7 +58,7 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
   const data = query.data;
   const loading = query.isPending;
   const failed = query.isError && !data;
-  const open = () => navigate('/verify');
+  const open = user?.role === 'OWNER' ? undefined : () => navigate('/verify');
 
   const exportRows = (): TableRows => {
     if (!data) return [['Figure', 'Value']];

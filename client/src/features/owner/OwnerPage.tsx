@@ -1,9 +1,12 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { AlertTriangle, ArrowRight, ChevronDown, Crown } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, Crown, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components';
+import { Button } from '../../components/button';
+import { useAnalyticsRefresh } from '../admin/analytics/useAnalyticsQueries';
+import { useAttentionPeople } from '../attention/useAttention';
 import { IconChip } from '../../components/iconChip';
 import { exceptionApi } from '../../api/exceptions';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
@@ -71,6 +74,13 @@ export const OwnerPage = () => {
   const priorOverall = heroFacts(prior.data).overall;
   const change = nowOverall !== null && priorOverall !== null ? nowOverall - priorOverall : null;
   const loading = !now.data && now.isPending;
+  const queryClient = useQueryClient();
+  const { isRefreshing, refresh } = useAnalyticsRefresh();
+  const refreshAll = () => {
+    void refresh();
+    void queryClient.invalidateQueries({ queryKey: ['exceptions'] });
+  };
+  const people = useAttentionPeople();
   const attention = useQuery({ queryKey: ['exceptions'] as const, queryFn: exceptionApi.list, retry: handleQueryRetry, ...DASHBOARD_QUERY_OPTIONS });
   const scoresHref = (view: string) => `/admin/scores?${new URLSearchParams({ view, from: current.from, to: current.to }).toString()}`;
 
@@ -86,7 +96,8 @@ export const OwnerPage = () => {
             <p className="t-meta text-text-muted">The whole company on one screen. {current.label}.</p>
           </div>
         </div>
-        <div role="group" aria-label="Period" className="inline-flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1 sm:w-auto">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div role="group" aria-label="Period" className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1 sm:flex-none">
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -101,6 +112,11 @@ export const OwnerPage = () => {
               {p.label}
             </button>
           ))}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={refreshAll} disabled={isRefreshing} aria-label="Refresh the numbers" className="shrink-0">
+          <RotateCw className={cn("size-3.5", isRefreshing && "motion-safe:animate-spin")} aria-hidden="true" />
+          <span className="hidden sm:inline">{isRefreshing ? "Updating" : "Refresh"}</span>
+        </Button>
         </div>
       </header>
 
@@ -127,7 +143,7 @@ export const OwnerPage = () => {
       </section>
 
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
-        <Fold title="Needs attention" count={attention.data?.length}>
+        <Fold title="Needs attention" count={(attention.data?.length ?? 0) + (people.data?.length ?? 0)}>
           <ExceptionsCard />
         </Fold>
         <Fold title="Waiting for approval">

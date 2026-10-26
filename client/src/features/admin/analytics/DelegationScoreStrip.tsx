@@ -94,10 +94,10 @@ export const DelegationScoreStrip = ({ from, to, isOrgWideRole }: DelegationScor
             <StatTile
               icon={AlertTriangle}
               iconTint="text-warning"
-              label="Past due, not done"
+              label="Past due in this period"
               value={text(totals?.overdue ?? 0)}
               isLoading={loading}
-              caption="Due in the period, not done. Waiting for approval is left out"
+              caption="Came due in this period and not done. Waiting for approval is left out"
               lowerIsBetter
               valueTone={loading ? undefined : countTone(totals?.overdue ?? 0)}
               onClick={dayFrom && dayTo && subject ? () => navigate(delegationDrillHref(subject, dayFrom, dayTo, 'notDone')) : undefined}
