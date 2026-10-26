@@ -9,7 +9,6 @@ import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { ScoreNumbers } from '../dashboard/ScoreNumbers';
-import { ScoreHero } from '../dashboard/ScoreHero';
 import { ExceptionsCard } from '../dashboard/ExceptionsCard';
 import { heroFacts } from '../dashboard/heroFacts';
 import { windowFor, type ScorePeriod } from '../dashboard/scorePeriods';
@@ -104,12 +103,13 @@ export const OwnerPage = () => {
         </div>
       </header>
 
-      <section aria-label="Company score" className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
-        <ScoreHero facts={heroFacts(now.data)} loading={loading} changePts={change} title="Company score" />
+      <section aria-label="Company score">
         <ScoreNumbers
           scores={now.data}
           loading={loading}
           previous={prior.data}
+          overall={{ value: nowOverall, change, label: 'Company score' }}
+          trend={{ scope: 'org' }}
           onOpenModule={() => void navigate(scoresHref('module'), { viewTransition: true })}
           emptyText="Nothing was due in this window"
         />

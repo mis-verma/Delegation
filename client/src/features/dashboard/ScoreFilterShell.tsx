@@ -25,20 +25,19 @@ interface ScoreFilterShellProps {
   title: string;
   summary: readonly string[];
   open: boolean;
-  wide: boolean;
   onToggle: () => void;
   ready: boolean;
   children: ReactNode;
 }
 
-export const ScoreFilterShell = ({ title, summary, open, wide, onToggle, ready, children }: ScoreFilterShellProps) => (
+export const ScoreFilterShell = ({ title, summary, open, onToggle, ready, children }: ScoreFilterShellProps) => (
   <div className="rounded-xl border border-border/60 bg-surface-hover/30">
     <button
       type="button"
       onClick={onToggle}
       aria-expanded={open}
       aria-controls="scores-filters"
-      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:hidden"
+      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface text-text-secondary">
@@ -58,15 +57,15 @@ export const ScoreFilterShell = ({ title, summary, open, wide, onToggle, ready, 
 
     <div
       id="scores-filters"
-      inert={!open && !wide}
+      inert={!open}
       className={cn(
-        'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none @4xl:grid-rows-[1fr] @4xl:opacity-100',
+        'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
         open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
       )}
     >
       <div className="min-h-0 overflow-hidden">
-        {ready && (
-          <div className="grid grid-cols-1 gap-4 border-t border-border/60 p-3 @xl:grid-cols-2 @4xl:grid-cols-3 @4xl:border-t-0 @4xl:p-4">
+        {(ready && open) && (
+          <div className="grid grid-cols-1 gap-4 border-t border-border/60 p-3 @xl:grid-cols-2 @4xl:grid-cols-3 @4xl:p-4">
             {children}
           </div>
         )}

@@ -17,6 +17,7 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreNumbers } from './ScoreNumbers';
 import { LazyWhenVisible } from './LazyWhenVisible';
+import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { ScoreHero } from './ScoreHero';
 import { ToneChip } from './ToneChip';
 import { TONE_BAR } from './scoreTone';
@@ -210,18 +211,15 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [moreOpen, setMoreOpen] = useState(false);
   const [everOpened, setEverOpened] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
-  const [isWide, setIsWide] = useState(false);
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setIsWide(entry.contentRect.width >= 896));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const rankingScope: ScoreScope = isHod && scope === 'department' ? 'person' : scope;
   const openRanked = (id: string) => {
-    if (isHod && scope === 'department') setScope('person');
-    else if (scope === 'org') setScope('department');
+    if (rankingScope === 'person') {
+      setSheetId(id);
+      return;
+    }
+    if (scope === 'org') setScope('department');
     setPicked(id);
     setMoreOpen(false);
   };
@@ -424,11 +422,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     );
   }
 
-  const roleLine = orgWide
-    ? 'Company, departments, stores and people. Pick who to look at, and when.'
-    : isHod
-      ? 'You and your department. Pick a person from your team, and when.'
-      : 'What came due, how much got done, and how much was done right or on time';
   const scopeLabels = orgWide ? SCOPE_LABEL : HOD_SCOPE_LABEL;
   const subjectName = scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope];
   const filterSummary = [range.label, metric === 'overview' ? 'Overall score' : METRIC_LABEL[metric], subjectName];
@@ -461,7 +454,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 </HintPopover>
               </div>
               {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
-              <p className="hidden t-meta font-medium text-text-muted sm:block">{roleLine}</p>
             </div>
           </div>
           {glance && canExport && exportMenu}
@@ -534,9 +526,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           title={orgWide ? 'Who, when and which measure' : isHod ? 'Who, when and which measure' : 'When and which measure'}
           summary={filterSummary}
           open={moreOpen}
-          wide={isWide}
           onToggle={toggleMore}
-          ready={everOpened || isWide}
+          ready={everOpened}
         >
           <ScoreField label="Who" icon={Users} hint={whoHint}>
             {scopes.length > 1 && (
@@ -597,7 +588,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             {query.isPlaceholderData && (
               <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
             )}
-            {metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
+            {activeView !== 'bars' && metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
               <ScoreHero
                 facts={heroFacts(data)}
                 loading={loading}
@@ -610,6 +601,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 loading={loading}
                 metric={metric}
                 previous={previous}
+                overall={metric === 'overview' ? { value: heroNow, change: compare || glance ? heroChange : null } : undefined}
+                trend={{ scope, id: targetId }}
                 onOpenModule={openDrill}
                 emptyText={glance ? 'Nothing due yet this month' : pageWindow ? 'Nothing was due in this window' : `Nothing was due ${period === 'day' && offset === 0 ? 'today' : range.label}`}
                 emptyHint={glance || pageWindow ? undefined : isHod ? 'Nothing from your team came due in this window. A longer period shows more.' : 'Nothing came due in this window. A longer period shows more.'}
@@ -663,11 +656,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             Ranking
           </h3>
           <LazyWhenVisible minHeight="12rem">
-            <ScoreRanking metric={metric} scope={isHod && scope === 'department' ? 'person' : scope} from={range.from} to={range.to} onOpen={openRanked} />
+            <ScoreRanking metric={metric} scope={rankingScope} from={range.from} to={range.to} onOpen={openRanked} canRemind={orgWide || isHod} />
           </LazyWhenVisible>
         </section>
       )}
       {drillPopup}
+      <PersonAttentionSheet userId={sheetId} onClose={() => setSheetId(null)} />
     </section>
   );
 };

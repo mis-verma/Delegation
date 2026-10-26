@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, BellRing, ChevronRight, Search, Star, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NO_DEPARTMENT_ROW_ID, UNASSIGNED_ROW_ID, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { useScoreReport, useStoreScoreReport } from './scoreQueries';
 import { acrossModules, overallOf } from './scoreMetrics';
-import { roundPct } from '../../lib/percent';
+import { formatPct, roundPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
 import { SEARCH_INPUT_CLASS } from '../scores/controlStyles';
 import type { RateTone } from './dashboardDisplay';
@@ -18,6 +18,9 @@ import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import type { ScoreMetric } from './scoreMetrics';
 import { toneOf } from './scoreTone';
+import { FAIR_FROM } from '../../lib/scoreBands';
+import { useRemindMutation } from '../attention/useAttention';
+import { useWatchedPeople } from './useWatchedPeople';
 
 type Metric = 'overview' | 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
@@ -70,17 +73,22 @@ const compute = (row: ScoreReportRow): Computed => {
 const Pct = ({ value }: { value: number | null }) => <ScorePct value={value} strong />;
 
 const HEAT: Record<RateTone, string> = {
-  success: 'bg-success/12',
+  success: '',
   warning: 'bg-warning/15',
   danger: 'bg-danger/12',
   neutral: '',
 };
 
-const HeatPct = ({ value }: { value: number | null }) => (
-  <span className={cn('inline-flex min-w-16 items-center justify-end rounded-md px-2 py-1 font-display', HEAT[toneOf(value)])}>
-    <Pct value={value} />
-  </span>
-);
+const HEAT_TEXT: Record<RateTone, string> = { success: 'text-text', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-light' };
+
+const HeatPct = ({ value }: { value: number | null }) => {
+  const tone = toneOf(value);
+  return (
+    <span className={cn('inline-flex min-w-16 items-center justify-end rounded-md px-2 py-1 font-display font-bold tabular-nums', HEAT[tone], HEAT_TEXT[tone])}>
+      {value === null ? '-' : formatPct(value)}
+    </span>
+  );
+};
 
 interface ScoreRankingProps {
   compact?: boolean;
@@ -89,15 +97,20 @@ interface ScoreRankingProps {
   from: string;
   to: string;
   onOpen: (id: string) => void;
+  canRemind?: boolean;
 }
 
-export const ScoreRanking = ({ compact = false, metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
+const EDGE_ROWS = 5;
+
+export const ScoreRanking = ({ compact = false, metric: controlled, scope, from, to, onOpen, canRemind = false }: ScoreRankingProps) => {
   const [localMetric, setMetric] = useState<Metric>('completion');
   const metric: Metric = controlled ?? localMetric;
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const { watched, toggle: toggleWatch } = useWatchedPeople();
+  const remind = useRemindMutation();
 
   const isStore = scope === 'store';
   const peopleReport = useScoreReport(from, to, !isStore);
@@ -150,8 +163,93 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     ...(showModules ? activeModules.map((m) => ({ key: m as SortKey, label: MODULE_LABEL[m] })) : []),
   ];
   const searching = query.trim().length > 0;
-  const shown = showAll || searching ? rows : rows.slice(0, PREVIEW_ROWS);
-  const hiddenCount = rows.length - shown.length;
+  const isPeople = scope === 'person';
+  const ordered = useMemo(
+    () => (isPeople && watched.size ? [...rows.filter((c) => watched.has(c.row.id)), ...rows.filter((c) => !watched.has(c.row.id))] : rows),
+    [rows, watched, isPeople],
+  );
+  const scoredRows = rows.filter((c) => c[metric].overall !== null);
+  const previewMode = !searching && !showAll && scoredRows.length > PREVIEW_ROWS;
+  const edge = Math.min(EDGE_ROWS, Math.floor(scoredRows.length / 2));
+  const byScore = [...scoredRows].sort((a, b) => (a[metric].overall as number) - (b[metric].overall as number));
+  const unwatched = (list: Computed[]) => (isPeople ? list.filter((c) => !watched.has(c.row.id)) : list);
+  const lowestRows = unwatched(byScore.slice(0, edge));
+  const highestRows = unwatched(byScore.slice(byScore.length - edge).reverse());
+  const watchRows = isPeople ? rows.filter((c) => watched.has(c.row.id)) : [];
+  const topId = highestRows[0]?.row.id;
+  const shown = showAll || searching ? ordered : ordered.slice(0, PREVIEW_ROWS);
+  const hiddenCount = previewMode ? 0 : ordered.length - shown.length;
+
+  const lineActions = (c: Computed) => {
+    const value = c[metric].overall;
+    const remindable = canRemind && isPeople && value !== null && value < FAIR_FROM;
+    const on = watched.has(c.row.id);
+    return (
+      <>
+        {remindable && (
+          <button
+            type="button"
+            disabled={remind.isPending}
+            onClick={(e) => { e.stopPropagation(); remind.mutate([c.row.id]); }}
+            aria-label={`Remind ${c.row.name}`}
+            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-surface px-2 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 pointer-coarse:min-h-11"
+          >
+            <BellRing className="size-3.5" aria-hidden="true" />
+            Remind
+          </button>
+        )}
+        {isPeople && (
+          <button
+            type="button"
+            aria-pressed={on}
+            aria-label={on ? `Stop watching ${c.row.name}` : `Watch ${c.row.name}`}
+            onClick={(e) => { e.stopPropagation(); toggleWatch(c.row.id); }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-text-light outline-none transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:size-11"
+          >
+            <Star className={cn('size-4', on && 'fill-primary-500 text-primary-600')} aria-hidden="true" />
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const renderLine = (c: Computed, top = false) => (
+    <li key={c.row.id} className="flex items-center gap-1 pr-2">
+      <button
+        type="button"
+        onClick={() => onOpen(c.row.id)}
+        className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left outline-none transition-colors hover:bg-surface-hover/50 focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+      >
+        {isPeople && (
+          <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(c.row.name))}>{getInitials(c.row.name)}</span>
+        )}
+        <span className="flex min-w-0 flex-col">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="line-clamp-1 t-card font-display font-bold text-text">{c.row.name}</span>
+            {top && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-500/10 px-1.5 py-0.5 t-meta font-display font-bold text-primary-700 dark:text-primary-300">
+                <Trophy className="size-3" aria-hidden="true" />
+                Top
+              </span>
+            )}
+          </span>
+          {isPeople && c.row.department && <span className="line-clamp-1 t-meta text-text-muted">{c.row.department}</span>}
+        </span>
+      </button>
+      {lineActions(c)}
+      <HeatPct value={c[metric].overall} />
+    </li>
+  );
+
+  const renderGroup = (title: string, list: Computed[], withTop = false) =>
+    list.length === 0 ? null : (
+      <section aria-label={title} className="flex min-w-0 flex-col gap-1">
+        <h4 className="t-meta font-display font-bold text-text-muted">{title}</h4>
+        <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
+          {list.map((c) => renderLine(c, withTop && c.row.id === topId))}
+        </ul>
+      </section>
+    );
   const showMore = hiddenCount > 0 && (
     <button
       type="button"
@@ -223,7 +321,24 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
 
       {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center t-card font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
-      <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
+      {previewMode && (
+        <div className="flex flex-col gap-3">
+          {renderGroup('Watching', watchRows)}
+          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
+            {renderGroup('Needs help', lowestRows)}
+            <div className="hidden @3xl:block">{renderGroup('Doing well', highestRows, true)}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+          >
+            Show all {rows.length}
+          </button>
+        </div>
+      )}
+
+      <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden', previewMode && 'hidden')}>
         {shown.map((c) => {
           const value = c[metric].overall;
           return (
@@ -259,7 +374,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         })}
       </ul>
 
-      <div className={cn('hidden overflow-x-auto rounded-lg border border-border', !compact && 'sm:block')}>
+      <div className={cn('hidden overflow-x-auto rounded-lg border border-border', !compact && !previewMode && 'sm:block')}>
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{METRIC_LABEL[metric]} by {scope}</caption>
           <thead>
@@ -294,13 +409,27 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                     <HeatPct value={c[metric][h.key as Exclude<SortKey, 'name'>]} />
                   </NumCell>
                 ))}
-                <td className="pr-3"><ChevronRight className="size-4 text-text-light" aria-hidden="true" /></td>
+                <td className="pr-3">
+                  <span className="flex items-center justify-end gap-1">
+                    {lineActions(c)}
+                    <ChevronRight className="size-4 text-text-light" aria-hidden="true" />
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {showMore}
+      {showAll && !searching && scoredRows.length > PREVIEW_ROWS && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+        >
+          Show fewer
+        </button>
+      )}
 
       <p className="hidden t-meta font-medium text-text-muted sm:block">
         {metric === 'overview' ? 'Overall score: completion and compliance counted equally.' : 'Big figure: all three together.'}
