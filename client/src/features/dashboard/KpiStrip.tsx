@@ -8,14 +8,16 @@ import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
 import { IconChip, RadialGauge } from '../../components';
 import { useQuery } from '@tanstack/react-query';
-import type { Scores } from '../../api/scores';
+import { scoreApi, type ScoreScope, type ScoreTrend, type Scores } from '../../api/scores';
 import { useAuth } from '../../context/AuthContext';
 import { useScoreExplorer } from '../scores/useScoreExplorer';
 import { explorerRowToScores } from '../scores/explorerAdapters';
 import { canUseScoreExplorer, teamScoreView } from '../scores/teamScoreView';
-import { FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { windowFor } from './scorePeriods';
-import { scoreQuery } from './scoreQueries';
+import { shiftDay } from '../admin/analytics/analyticsDisplay';
+import { SCORE_QUERY_OPTIONS, scoreQuery } from './scoreQueries';
+import { HeatDots } from './HeatDots';
+import { TONE_COLOR, toneOf } from './scoreTone';
 import { moduleOverall } from './scoreMetrics';
 import { capWindowAtToday } from '../scores/useScoreWindow';
 import { HowCalculated } from '../scores/HowCalculated';
@@ -120,8 +122,8 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 };
 
 const MINI_TONE = {
-  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-primary-600 dark:text-primary-300' },
-  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-primary-600 dark:text-primary-300' },
+  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-vivid-green-text' },
+  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-vivid-blue-text' },
   neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
 } as const;
 
@@ -146,14 +148,14 @@ const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { lab
 };
 
 const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }> = {
-  delegation: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
-  tickets: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
-  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
-  todo: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-primary-300' },
+  delegation: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  tickets: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  todo: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
 };
 
 const OnTrack = ({ className }: { className?: string }) => (
-  <IconChip icon={CheckCircle2} tone="bg-primary-600" label="On track" labelClassName="text-primary-700 dark:text-primary-300" className={cn('shrink-0 border-primary-500/30 bg-primary-500/10', className)} />
+  <IconChip icon={CheckCircle2} tone="bg-vivid-green" label="On track" labelClassName="text-vivid-green-text" className={cn('shrink-0 border-vivid-green/40 bg-vivid-green/10', className)} />
 );
 
 const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue: number; open: number; openClass: string }) => {
@@ -162,8 +164,8 @@ const ProgressBar = ({ done, overdue, open, openClass }: { done: number; overdue
   const pct = (n: number) => `${(n / span) * 100}%`;
   return (
     <div role="img" aria-label={`${done} done, ${open - late} open, ${late} overdue`} className="flex h-1.5 w-full overflow-hidden rounded-full bg-border/50">
-      <span className="bar-grow h-full bg-primary-600" style={{ width: pct(done) }} />
-      <span className="bar-grow h-full bg-danger" style={{ width: pct(late) }} />
+      <span className="bar-grow h-full bg-vivid-green" style={{ width: pct(done) }} />
+      <span className="bar-grow h-full bg-vivid-red" style={{ width: pct(late) }} />
       <span className={cn('bar-grow h-full', openClass)} style={{ width: pct(open - late) }} />
     </div>
   );
@@ -186,9 +188,14 @@ const scoreFor = (key: ModuleKey, personal: Scores | undefined, team: Scores | u
   return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score', owner };
 };
 
-const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= GOOD_FROM ? 'var(--color-success)' : v >= FAIR_FROM ? 'var(--color-warning)' : 'var(--color-danger)');
+const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : TONE_COLOR[toneOf(v)]);
 
-const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number }) => {
+interface Spark {
+  values: (number | null)[];
+  labels: string[];
+}
+
+const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number; spark?: Spark }) => {
   const Icon = view.icon;
   if (view.isPending) {
     return (
@@ -218,7 +225,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
       style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
       className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
     >
-      <span className="absolute inset-x-0 top-0 h-1 bg-primary-500/70" aria-hidden="true" />
+      <span className="absolute inset-x-0 top-0 h-1 bg-vivid-blue" aria-hidden="true" />
       <Link
         viewTransition
         to={view.href}
@@ -258,7 +265,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
               </button>
               {view.overdue > 0 ? (
                 <button type="button" onClick={() => onOpen('overdue')} className="rounded-full outline-none transition-transform active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-danger/40">
-                  <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
+                  <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
                 </button>
               ) : (
                 <OnTrack />
@@ -298,7 +305,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
             </div>
             {view.overdue > 0 ? (
               <button type="button" onClick={() => onOpen('overdue')} className="flex min-h-9 w-fit items-center rounded-full outline-none active:scale-[0.97] pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-danger/40">
-                <IconChip icon={AlertTriangle} tone="bg-danger" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />
+                <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
               </button>
             ) : (
               <div className="flex min-h-9 items-center pointer-coarse:min-h-11">
@@ -306,6 +313,13 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index }: { view: ModuleView
               </div>
             )}
           </div>
+
+          {spark && spark.values.some((v) => v !== null) && (
+            <div className="flex flex-col gap-1">
+              <span className="t-meta font-medium text-text-muted">Last 7 days</span>
+              <HeatDots values={spark.values} labels={spark.labels} />
+            </div>
+          )}
 
           <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
 
@@ -383,6 +397,28 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     [teamExplorer.data, asked.from, asked.to],
   );
 
+  const trendFrom = shiftDay(asked.to, -6);
+  const personalTrend = useQuery<ScoreTrend>({
+    queryKey: ['scores', 'trend', 'person', 'me', 'day', trendFrom, asked.to],
+    queryFn: () => scoreApi.trend({ scope: 'person', period: 'day', from: trendFrom, to: asked.to }),
+    enabled: !!user,
+    ...SCORE_QUERY_OPTIONS,
+  });
+  const teamTarget: { scope: ScoreScope; id?: string } | null = !teamExpected ? null : orgWideViewer ? { scope: 'org' } : user?.departmentId ? { scope: 'department', id: user.departmentId } : null;
+  const teamTrend = useQuery<ScoreTrend>({
+    queryKey: ['scores', 'trend', teamTarget?.scope ?? 'org', teamTarget?.id ?? 'me', 'day', trendFrom, asked.to],
+    queryFn: () => scoreApi.trend({ scope: teamTarget?.scope ?? 'org', id: teamTarget?.id, period: 'day', from: trendFrom, to: asked.to }),
+    enabled: !!teamTarget,
+    ...SCORE_QUERY_OPTIONS,
+  });
+  const sparkOf = (key: ModuleKey): Spark | undefined => {
+    if (key === 'todo') return undefined;
+    const source = (key === 'delegation' || key === 'tickets') && teamTarget ? teamTrend.data : personalTrend.data;
+    if (!source) return undefined;
+    const module = SCORE_MODULE[key];
+    return { values: source.buckets.map((b) => (b[module].due > 0 ? b[module].score : null)), labels: source.buckets.map((b) => b.label) };
+  };
+
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
     const { key, kind } = openDrill;
@@ -455,6 +491,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
             index={index}
             view={view}
             score={scoreFor(view.key, todayScores.data, teamScores, teamExpected, view)}
+            spark={sparkOf(view.key)}
             scopeTag={simple ? undefined : view.scope === 'team' && orgWideViewer ? ORG_SCOPE_TAG : SCOPE_TAG[view.scope]}
             onOpen={(kind) => setOpenDrill({ key: view.key, kind })}
           />

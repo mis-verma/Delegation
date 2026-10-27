@@ -17,6 +17,8 @@ import { OvertimeNotice } from './OvertimeNotice';
 import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { MyScoresCard } from './MyScoresCard';
+import { TeamWeekHeat } from './TeamWeekHeat';
+import { StreakGoalCard } from './StreakGoalCard';
 import { DashboardCardFrame } from './DashboardCardFrame';
 import { LazyWhenVisible } from './LazyWhenVisible';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
@@ -33,7 +35,7 @@ import type { Ticket } from '../../api/ticket';
 
 const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
 
-const LAZY_CARDS: ReadonlySet<DashboardCardId> = new Set(['exceptions', 'myTeam', 'myScores']);
+const LAZY_CARDS: ReadonlySet<DashboardCardId> = new Set(['exceptions', 'myTeam', 'myScores', 'teamHeat', 'streak']);
 
 const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['todayStrip']);
 
@@ -123,6 +125,10 @@ export const HomePage = () => {
         );
       case 'myScores':
         return <MyScoresCard />;
+      case 'teamHeat':
+        return <TeamWeekHeat />;
+      case 'streak':
+        return <StreakGoalCard />;
       default:
         return null;
     }
@@ -175,6 +181,7 @@ export const HomePage = () => {
         <FocusNowCard
           ownWorkOnly={!frontLine}
           reviewCount={reviewCount}
+          todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
           tasks={assignedTasks}
           tickets={myAssignedTickets}
           checklists={focusChecklists}

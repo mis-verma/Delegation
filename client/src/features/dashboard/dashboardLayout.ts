@@ -6,6 +6,8 @@ export type DashboardCardId =
   | 'myTeam'
   | 'kpiStrip'
   | 'myScores'
+  | 'teamHeat'
+  | 'streak'
   | 'quickActions'
   | 'activityOverview'
   | 'compliance'
@@ -17,7 +19,7 @@ export type DashboardCardId =
 
 export type DashboardCardSize = 'small' | 'big';
 
-export const LAYOUT_VERSION = 13;
+export const LAYOUT_VERSION = 15;
 
 export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
@@ -31,7 +33,7 @@ export const LEGACY_V12_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'myScores',
 ];
 
-export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+export const LEGACY_V13_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
   'kpiStrip',
   'exceptions',
@@ -41,8 +43,32 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'myScores',
 ];
 
+export const LEGACY_V14_DEFAULT_ORDER: readonly DashboardCardId[] = [
+  'todayStrip',
+  'kpiStrip',
+  'teamHeat',
+  'exceptions',
+  'needsApproval',
+  'ticketRequests',
+  'myTeam',
+  'myScores',
+];
+
+export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+  'todayStrip',
+  'kpiStrip',
+  'streak',
+  'teamHeat',
+  'exceptions',
+  'needsApproval',
+  'ticketRequests',
+  'myTeam',
+  'myScores',
+];
+
 export const FRONT_LINE_CARD_ORDER: readonly DashboardCardId[] = [
   'kpiStrip',
+  'streak',
   'myScores',
   'needsApproval',
 ];
@@ -62,6 +88,8 @@ export const LEGACY_V1_ADMIN_ONLY: ReadonlySet<string> = new Set(['compliance', 
 
 export const ADMIN_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['compliance', 'compareDashboard']);
 
+export const TEAM_VIEW_CARDS: ReadonlySet<DashboardCardId> = new Set(['teamHeat']);
+
 export const HOD_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['myTeam']);
 
 export const HOD_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['needsApproval', 'myScores']);
@@ -76,6 +104,8 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   myTeam: 'big',
   kpiStrip: 'big',
   myScores: 'big',
+  teamHeat: 'big',
+  streak: 'small',
   quickActions: 'small',
   activityOverview: 'small',
   compliance: 'small',
@@ -94,6 +124,8 @@ export const CARD_LABEL: Record<DashboardCardId, string> = {
   myTeam: 'My team',
   kpiStrip: 'Key numbers',
   myScores: 'Scores',
+  teamHeat: 'Team this week',
+  streak: 'Checklist streak',
   quickActions: 'Quick actions',
   activityOverview: 'Activity overview',
   compliance: 'Compliance',

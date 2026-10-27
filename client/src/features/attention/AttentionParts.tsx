@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { Avatar, IconChip, Skeleton } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
 import type { DayCell, PersonStatus } from '../../api/exceptions';
-import { DAY_LOOK, LEVEL_LOOK, attentionChips, dayMonthOf, weekdayOf } from './attentionDisplay';
+import { DAY_LOOK, LEVEL_LOOK, agoLabel, attentionChips, dayMonthOf, weekdayOf } from './attentionDisplay';
+import { useNow } from './useAttention';
 
 const MAX_CHIPS = 3;
 
@@ -41,6 +42,7 @@ interface AttentionPersonRowProps {
 }
 
 export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, selected = false, onToggle, onRemind, reminding = false, reminded = false }: AttentionPersonRowProps) => {
+  const now = useNow();
   const chips = attentionChips(person);
   const shown = chips.slice(0, MAX_CHIPS);
   const extra = chips.length - shown.length;
@@ -70,7 +72,7 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2">
             <span className="line-clamp-1 t-card font-display font-semibold text-text">{person.name}</span>
-            {person.lastRemindedAt && <span className="shrink-0 t-meta font-medium text-text-muted">Reminded</span>}
+            {person.lastRemindedAt && <span className="shrink-0 t-meta font-medium text-text-muted">Reminded {agoLabel(person.lastRemindedAt, now)}</span>}
           </span>
           {meta && <span className="line-clamp-1 t-meta font-medium text-text-muted">{meta}</span>}
           <span className="flex flex-wrap gap-1.5">

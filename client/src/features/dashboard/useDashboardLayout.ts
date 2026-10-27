@@ -11,6 +11,9 @@ import {
   LAYOUT_VERSION,
   NEW_IN_V3,
   LEGACY_V12_DEFAULT_ORDER,
+  LEGACY_V13_DEFAULT_ORDER,
+  LEGACY_V14_DEFAULT_ORDER,
+  TEAM_VIEW_CARDS,
   LEGACY_V1_DEFAULT_ORDER,
   LEGACY_V1_ADMIN_ONLY,
   type DashboardCardId,
@@ -76,7 +79,7 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
   const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo<DashboardCardId[]>(
-    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id)) && !(view.isHod && HOD_HIDDEN_CARDS.has(id)) && (view.reviewsTicketRequests || !REQUEST_REVIEWER_CARDS.has(id))),
+    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id)) && !(view.isHod && HOD_HIDDEN_CARDS.has(id)) && (view.reviewsTicketRequests || !REQUEST_REVIEWER_CARDS.has(id)) && (isOrgWideRole || view.isHod || !TEAM_VIEW_CARDS.has(id))),
     [view.order, isOrgWideRole, view.isHod, view.reviewsTicketRequests],
   );
 
@@ -108,8 +111,11 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
       next = rest;
     }
     if (stored.version < LAYOUT_VERSION) {
-      const previousDefault = LEGACY_V12_DEFAULT_ORDER.filter((id) => visibleCards.includes(id));
-      if (next.length === previousDefault.length && next.every((id, i) => id === previousDefault[i])) return [...visibleCards];
+      const sameAs = (old: readonly DashboardCardId[]) => {
+        const expected = old.filter((id) => visibleCards.includes(id));
+        return next.length === expected.length && next.every((id, i) => id === expected[i]);
+      };
+      if (sameAs(LEGACY_V12_DEFAULT_ORDER) || sameAs(LEGACY_V13_DEFAULT_ORDER) || sameAs(LEGACY_V14_DEFAULT_ORDER)) return [...visibleCards];
     }
     return next;
   });

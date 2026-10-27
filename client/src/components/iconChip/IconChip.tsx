@@ -8,6 +8,10 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const SOFT_LOOK: { match: RegExp; box: string; text: string }[] = [
+  { match: /bg-vivid-red/, box: 'border-vivid-red/40 bg-vivid-red/10', text: 'text-vivid-red-text' },
+  { match: /bg-vivid-sky/, box: 'border-vivid-sky/40 bg-vivid-sky/10', text: 'text-vivid-sky-text' },
+  { match: /bg-vivid-green/, box: 'border-vivid-green/40 bg-vivid-green/10', text: 'text-vivid-green-text' },
+  { match: /bg-vivid-blue/, box: 'border-vivid-blue/40 bg-vivid-blue/10', text: 'text-vivid-blue-text' },
   { match: /bg-danger/, box: 'border-danger/30 bg-danger/10', text: 'text-danger' },
   { match: /bg-warning/, box: 'border-warning/30 bg-warning/10', text: 'text-warning' },
   { match: /bg-success/, box: 'border-success/30 bg-success/10', text: 'text-success' },

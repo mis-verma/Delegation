@@ -6,20 +6,21 @@ import { scoreApi, type ScoreScope, type ScoreTrend, type TrendBucket, type Scor
 import { CountUp } from '../../components/countUp';
 import { Skeleton } from '../../components/skeleton';
 import { formatPct, roundPct } from '../../lib/percent';
-import { FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
+import { GOOD_FROM } from '../../lib/scoreBands';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { CATEGORY_ICON, CATEGORY_TILE } from './categoryLook';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { moduleOverall, numbersFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { IconChip } from '../../components/iconChip';
-import { TONE_WORD, toneOf } from './scoreTone';
+import { TONE_TEXT, TONE_WORD, toneOf } from './scoreTone';
+import { HeatDots } from './HeatDots';
 import { ToneChip } from './ToneChip';
 
 const MODULES: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
 const TREND_DAYS = 7;
 
-const valueText = (tone: ReturnType<typeof toneOf>) => (tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-danger' : 'text-text');
+const valueText = (tone: ReturnType<typeof toneOf>) => (tone === 'neutral' ? 'text-text' : TONE_TEXT[tone]);
 
 interface Cell {
   key: ModuleKey;
@@ -73,14 +74,6 @@ const dotValue = (b: TrendBucket, key: ModuleKey, metric: ScoreMetric): number |
   const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
   return parts.length ? parts.reduce((x, y) => x + y, 0) / parts.length : null;
 };
-
-const dotTone = (v: number | null) => (v === null ? 'bg-border' : v >= GOOD_FROM ? 'bg-success/40' : v >= FAIR_FROM ? 'bg-warning' : 'bg-danger');
-
-const TrendDots = ({ values }: { values: (number | null)[] }) => (
-  <span className="flex items-center gap-0.5" aria-hidden="true">
-    {values.map((v, i) => <span key={i} className={cn('size-2 rounded-[2px]', dotTone(v))} />)}
-  </span>
-);
 
 interface OverallInput {
   value: number | null;
@@ -205,7 +198,7 @@ export const ScoreNumbers = memo(({ scores, previous, loading, metric = 'overvie
                 ) : (
                   <span className="t-meta font-display text-text-light">Nothing due</span>
                 )}
-                {cell.hasData && dots.length > 0 && <TrendDots values={dots} />}
+                {cell.hasData && dots.length > 0 && <HeatDots values={dots} labels={buckets.map((x) => x.label)} />}
                 {cell.hasData && cell.detail && <span className="hidden t-meta text-text-muted sm:block">{cell.detail}</span>}
               </span>
               {interactive && <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />}

@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { AlarmClockOff, BellRing, CheckCheck, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { DueChip } from '../../components/dueChip';
 import { IconChip } from '../../components/iconChip';
+import { RadialGauge } from '../../components';
+import { TONE_COLOR, toneOf } from './scoreTone';
 import { CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
@@ -56,13 +58,14 @@ const SHOW = 6;
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 
 const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
-const TILE_DANGER = 'bg-linear-to-br from-danger to-danger/70';
-const TILE_SUCCESS = 'bg-linear-to-br from-success to-success/70';
-const TILE_PRIMARY = 'bg-linear-to-br from-primary-500 to-primary-600';
+const TILE_DANGER = 'bg-linear-to-br from-vivid-red to-vivid-red/70';
+const TILE_SUCCESS = 'bg-linear-to-br from-vivid-green to-vivid-green/70';
+const TILE_PRIMARY = 'bg-linear-to-br from-vivid-blue to-vivid-blue/70';
 
 interface FocusNowCardProps {
   ownWorkOnly?: boolean;
   reviewCount?: number;
+  todayChecklist?: { total: number; completed: number } | null;
   tasks: Task[];
   tickets: Ticket[];
   checklists: ChecklistInstance[];
@@ -100,7 +103,7 @@ const FocusSkeleton = () => (
   </section>
 );
 
-export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = null, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
@@ -152,6 +155,23 @@ export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tick
   if (isPending) return <FocusSkeleton />;
 
   const count = (reason: Reason) => items.filter((i) => i.reason === reason).length;
+  const otherDue = items.filter((i) => i.category !== 'checklist').length;
+  const planned = (todayChecklist?.total ?? 0) + otherDue;
+  const percent = todayChecklist && planned > 0 ? Math.round(((todayChecklist.completed ?? 0) / planned) * 100) : null;
+  const nextUp = items.filter((i) => i.reason === 'dueToday' && i.at > now).sort((a, b) => a.at - b.at)[0];
+  const ring = (fallback: ReactNode) =>
+    percent === null ? fallback : (
+      <RadialGauge
+        percent={percent}
+        size={64}
+        variant="circle"
+        ariaLabel={`Today: ${percent} percent done`}
+        gradientFrom={TONE_COLOR[toneOf(percent)]}
+        gradientTo={TONE_COLOR[toneOf(percent)]}
+      >
+        <span className="t-meta font-display font-extrabold tabular-nums text-text">{percent}%</span>
+      </RadialGauge>
+    );
   const lateCount = count('overdue');
   const sentBackCount = count('sentBack');
   const submitCount = count('submit');
@@ -217,9 +237,11 @@ export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tick
     const teamNeedsLook = ownWorkOnly && reviewCount > 0;
     return (
       <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3.5 px-4 py-3.5 border-success/30 bg-linear-to-r from-success/12 via-success/5 to-transparent')}>
-        <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
-          <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
-        </span>
+        {ring(
+          <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
+            <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
+          </span>,
+        )}
         <div className="min-w-0 flex-1">
           <h2 id="focus-now-heading" className="t-section font-display font-bold tracking-tight text-text">
             {ownWorkOnly ? 'Your own work is on track' : "You're on track"}
@@ -241,9 +263,11 @@ export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tick
   return (
     <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className={cn(TILE_CLASS, urgent > 0 ? TILE_DANGER : TILE_PRIMARY)}>
-          <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
-        </span>
+        {ring(
+          <span className={cn(TILE_CLASS, urgent > 0 ? TILE_DANGER : TILE_PRIMARY)}>
+            <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
+          </span>,
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
@@ -262,11 +286,18 @@ export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tick
               Only your own work.{reviewCount > 0 ? ` ${reviewCount} more ${reviewCount === 1 ? 'item needs' : 'items need'} your review in the cards below.` : ' Your team is in the cards below.'}
             </p>
           )}
+          {nextUp && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 t-meta font-medium text-text-secondary">
+              <span className="font-display font-semibold">Next up</span>
+              <span className="line-clamp-1 min-w-0 max-w-full">{nextUp.title}</span>
+              <DueChip at={nextUp.at} now={now} />
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {lateCount > 0 && <IconChip icon={AlarmClockOff} tone="bg-danger" label={`${lateCount} late`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
-            {sentBackCount > 0 && <IconChip icon={Undo2} tone="bg-danger" label={`${sentBackCount} sent back`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
-            {submitCount > 0 && <IconChip icon={Send} tone="bg-warning" label={`${submitCount} to submit`} labelClassName="tabular-nums text-warning" className="border-warning/30 bg-warning/10" />}
-            {todayCount > 0 && <IconChip icon={Clock3} tone="bg-primary-600" label={`${todayCount} due today`} labelClassName="tabular-nums text-primary-700 dark:text-primary-300" className="border-primary-500/25 bg-primary-500/10" />}
+            {lateCount > 0 && <IconChip icon={AlarmClockOff} tone="bg-vivid-red" label={`${lateCount} late`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
+            {sentBackCount > 0 && <IconChip icon={Undo2} tone="bg-vivid-red" label={`${sentBackCount} sent back`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
+            {submitCount > 0 && <IconChip icon={Send} tone="bg-vivid-sky" label={`${submitCount} to submit`} labelClassName="tabular-nums text-vivid-sky-text" className="border-vivid-sky/40 bg-vivid-sky/10" />}
+            {todayCount > 0 && <IconChip icon={Clock3} tone="bg-vivid-blue" label={`${todayCount} due today`} labelClassName="tabular-nums text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />}
           </div>
         </div>
         {refresh}

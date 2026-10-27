@@ -12,37 +12,37 @@ export type AttentionChip = { key: string; icon: LucideIcon; label: string; tone
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export const LEVEL_LOOK: Record<AttentionLevel, { ring: string; dot: string; text: string; label: string; soft: string }> = {
-  red: { ring: 'ring-danger', dot: 'bg-danger', text: 'text-danger', label: 'Needs you now', soft: 'bg-danger/10 dark:bg-danger/15' },
-  orange: { ring: 'ring-warning', dot: 'bg-warning', text: 'text-warning', label: 'Falling behind', soft: 'bg-warning/10 dark:bg-warning/15' },
+  red: { ring: 'ring-vivid-red', dot: 'bg-vivid-red', text: 'text-vivid-red-text', label: 'Needs you now', soft: 'bg-vivid-red/10 dark:bg-vivid-red/15' },
+  orange: { ring: 'ring-vivid-sky', dot: 'bg-vivid-sky', text: 'text-vivid-sky-text', label: 'Falling behind', soft: 'bg-vivid-sky/10 dark:bg-vivid-sky/15' },
 };
 
 export const attentionChips = (p: PersonStatus): AttentionChip[] => {
   const chips: AttentionChip[] = [];
-  if (p.missedRuns > 0) chips.push({ key: 'missed', icon: ClipboardX, label: `${plural(p.missedRuns, 'checklist')} not filled`, tone: 'bg-danger', text: 'text-danger' });
-  if (p.closingSoon > 0) chips.push({ key: 'soon', icon: Timer, label: p.closingSoon === 1 ? 'Closes within the hour' : `${p.closingSoon} close within the hour`, tone: 'bg-danger', text: 'text-danger' });
-  if (p.overdueTickets > 0) chips.push({ key: 'tickets', icon: TicketX, label: `${plural(p.overdueTickets, 'ticket')} overdue`, tone: 'bg-danger', text: 'text-danger' });
-  if (p.overdueDelegations > 0) chips.push({ key: 'delegations', icon: CalendarX2, label: `${plural(p.overdueDelegations, 'delegation')} overdue`, tone: 'bg-danger', text: 'text-danger' });
-  if (p.notStartedRuns > 0) chips.push({ key: 'notStarted', icon: CircleDashed, label: `${p.notStartedRuns} not started`, tone: 'bg-warning', text: 'text-warning' });
-  if (p.toSubmitRuns > 0) chips.push({ key: 'submit', icon: Send, label: `${p.toSubmitRuns} to submit`, tone: 'bg-warning', text: 'text-warning' });
-  if (p.sentBackRuns > 0) chips.push({ key: 'sentBack', icon: Undo2, label: `${p.sentBackRuns} sent back`, tone: 'bg-warning', text: 'text-warning' });
-  if (p.missedStreak >= 2) chips.push({ key: 'streak', icon: Repeat, label: `Missed ${p.missedStreak} days running`, tone: 'bg-coral-500' });
+  if (p.missedRuns > 0) chips.push({ key: 'missed', icon: ClipboardX, label: `${plural(p.missedRuns, 'checklist')} not filled`, tone: 'bg-vivid-red', text: 'text-vivid-red-text' });
+  if (p.closingSoon > 0) chips.push({ key: 'soon', icon: Timer, label: p.closingSoon === 1 ? 'Closes within the hour' : `${p.closingSoon} close within the hour`, tone: 'bg-vivid-red', text: 'text-vivid-red-text' });
+  if (p.overdueTickets > 0) chips.push({ key: 'tickets', icon: TicketX, label: `${plural(p.overdueTickets, 'ticket')} overdue`, tone: 'bg-vivid-red', text: 'text-vivid-red-text' });
+  if (p.overdueDelegations > 0) chips.push({ key: 'delegations', icon: CalendarX2, label: `${plural(p.overdueDelegations, 'delegation')} overdue`, tone: 'bg-vivid-red', text: 'text-vivid-red-text' });
+  if (p.notStartedRuns > 0) chips.push({ key: 'notStarted', icon: CircleDashed, label: `${p.notStartedRuns} not started`, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' });
+  if (p.toSubmitRuns > 0) chips.push({ key: 'submit', icon: Send, label: `${p.toSubmitRuns} to submit`, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' });
+  if (p.sentBackRuns > 0) chips.push({ key: 'sentBack', icon: Undo2, label: `${p.sentBackRuns} sent back`, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' });
+  if (p.missedStreak >= 2) chips.push({ key: 'streak', icon: Repeat, label: `Missed ${p.missedStreak} days running`, tone: 'bg-vivid-blue', text: 'text-vivid-blue-text' });
   return chips;
 };
 
 export const RUN_LOOK: Record<RunState, { label: string; icon: LucideIcon; tone: string; text?: string }> = {
-  missed: { label: 'Not filled', icon: ClipboardX, tone: 'bg-danger', text: 'text-danger' },
-  sent_back: { label: 'Sent back', icon: Undo2, tone: 'bg-warning', text: 'text-warning' },
-  not_started: { label: 'Not started', icon: CircleDashed, tone: 'bg-warning', text: 'text-warning' },
+  missed: { label: 'Not filled', icon: ClipboardX, tone: 'bg-vivid-red', text: 'text-vivid-red-text' },
+  sent_back: { label: 'Sent back', icon: Undo2, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' },
+  not_started: { label: 'Not started', icon: CircleDashed, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' },
   in_progress: { label: 'In progress', icon: Hourglass, tone: 'bg-primary-600 dark:bg-primary-400' },
-  to_submit: { label: 'Not submitted', icon: Send, tone: 'bg-warning', text: 'text-warning' },
+  to_submit: { label: 'Not submitted', icon: Send, tone: 'bg-vivid-sky', text: 'text-vivid-sky-text' },
   upcoming: { label: 'Opens later', icon: Clock3, tone: 'bg-text-muted' },
-  submitted: { label: 'Submitted', icon: CheckCircle2, tone: 'bg-success', text: 'text-success' },
+  submitted: { label: 'Submitted', icon: CheckCircle2, tone: 'bg-vivid-green', text: 'text-vivid-green-text' },
 };
 
 export const DAY_LOOK: Record<DayState, { cell: string; label: string; glyph: LucideIcon | null }> = {
-  done: { cell: 'bg-success text-white', label: 'All filled', glyph: Check },
-  partial: { cell: 'bg-warning text-white', label: 'Some not filled', glyph: Minus },
-  missed: { cell: 'bg-danger text-white', label: 'Not filled', glyph: X },
+  done: { cell: 'bg-vivid-green text-white', label: 'All filled', glyph: Check },
+  partial: { cell: 'bg-vivid-sky text-white', label: 'Some not filled', glyph: Minus },
+  missed: { cell: 'bg-vivid-red text-white', label: 'Not filled', glyph: X },
   open: { cell: 'bg-primary-500/25 ring-1 ring-inset ring-primary-500/50', label: 'Still open', glyph: null },
   none: { cell: 'bg-border/60', label: 'Nothing due', glyph: null },
 };
@@ -93,7 +93,7 @@ export const whatsAppLink = (phone: string, text: string) => {
 export const pctText = (v: number | null | undefined) => (v === null || v === undefined ? '–' : `${Math.round(v)}%`);
 
 export const scoreTone = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'text-text-muted' : v >= GOOD_FROM ? 'text-success' : v >= FAIR_FROM ? 'text-warning' : 'text-danger';
+  v === null || v === undefined ? 'text-text-muted' : v >= GOOD_FROM ? 'text-vivid-green-text' : v >= FAIR_FROM ? 'text-vivid-sky-text' : 'text-vivid-red-text';
 
 export const scoreBar = (v: number | null | undefined) =>
-  v === null || v === undefined ? 'bg-border' : v >= GOOD_FROM ? 'bg-success' : v >= FAIR_FROM ? 'bg-warning' : 'bg-danger';
+  v === null || v === undefined ? 'bg-border' : v >= GOOD_FROM ? 'bg-vivid-green' : v >= FAIR_FROM ? 'bg-vivid-sky' : 'bg-vivid-red';

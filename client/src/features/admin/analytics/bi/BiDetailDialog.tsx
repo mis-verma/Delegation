@@ -28,6 +28,7 @@ interface BiDetailDialogProps {
   onClose: () => void;
   onDrill: (row: Pick<ExplorerRow, 'id' | 'name' | 'kind'>, view: ExplorerView) => void;
   onZoom: (bucket: MatrixBucket) => void;
+  allowZoom?: boolean;
 }
 
 const PERIOD_LABEL_SR: Record<MatrixPeriod, string> = { day: 'day by day', week: 'week by week', month: 'month by month' };
@@ -39,7 +40,7 @@ interface BodyProps extends Omit<BiDetailDialogProps, 'detail'> {
   detail: BiDetail;
 }
 
-const Body = ({ detail, win, matrixParams, onClose, onZoom }: BodyProps) => {
+const Body = ({ detail, win, matrixParams, onClose, onZoom, allowZoom = true }: BodyProps) => {
   const { row, bucketIndex } = detail;
   const query = useBiMatrix(matrixParams);
   const matrix = query.data;
@@ -152,7 +153,7 @@ const Body = ({ detail, win, matrixParams, onClose, onZoom }: BodyProps) => {
                         ];
                       })}
                       <td className="border-b border-l border-border/40 px-1 py-0.5 text-center">
-                        {matrix.buckets.length > 1 && (
+                        {allowZoom && matrix.buckets.length > 1 && (
                           <button
                             type="button"
                             onClick={() => {
@@ -179,7 +180,7 @@ const Body = ({ detail, win, matrixParams, onClose, onZoom }: BodyProps) => {
   );
 };
 
-export const BiDetailDialog = ({ detail, win, matrixParams, onClose, onDrill, onZoom }: BiDetailDialogProps) => {
+export const BiDetailDialog = ({ detail, win, matrixParams, onClose, onDrill, onZoom, allowZoom = true }: BiDetailDialogProps) => {
   const query = useBiMatrix(detail ? matrixParams : null);
   const matrix = query.data;
 
@@ -256,7 +257,7 @@ export const BiDetailDialog = ({ detail, win, matrixParams, onClose, onDrill, on
         </div>
       )}
     >
-      {detail && <Body detail={detail} win={win} matrixParams={matrixParams} onClose={onClose} onDrill={onDrill} onZoom={onZoom} />}
+      {detail && <Body detail={detail} win={win} matrixParams={matrixParams} onClose={onClose} onDrill={onDrill} onZoom={onZoom} allowZoom={allowZoom} />}
     </Modal>
   );
 };
