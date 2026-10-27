@@ -183,7 +183,7 @@ export const OrgOverview = () => {
   const leadersBlock = (
     <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
       <div className="@container">
-        <div className="grid grid-cols-1 items-start gap-3 @3xl:grid-cols-2">
+        <div className="grid grid-cols-1 items-stretch gap-3 @3xl:grid-cols-2">
           <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
           <TeamLeaderboardRail from={windowFrom} to={windowTo} />
         </div>

@@ -54,23 +54,23 @@ const LeaderboardRow = memo(({ row, index, href }: { row: LeaderRow; index: numb
       viewTransition
       to={href}
       aria-label={`${row.name}, ${formatPercent(row.score)}. Open on the Scorecard`}
-      className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 outline-none transition-colors duration-150 ease-out hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:gap-4 sm:p-4"
+      className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 outline-none transition-colors duration-150 ease-out hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:gap-4"
     >
       <span
         aria-label={`Rank ${index + 1}`}
-        className={cn('flex size-9 shrink-0 items-center justify-center rounded-full t-card font-display font-extrabold tabular-nums', RANK_SOLID[index] ?? 'bg-surface-hover text-text-secondary')}
+        className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-card font-display font-extrabold tabular-nums', RANK_SOLID[index] ?? 'bg-surface-hover text-text-secondary')}
       >
         {index + 1}
       </span>
-      <span aria-hidden="true" className={cn('flex size-12 shrink-0 items-center justify-center rounded-full t-card font-display font-bold text-white', avatarColorClass(row.name))}>
+      <span aria-hidden="true" className={cn('flex size-10 shrink-0 items-center justify-center rounded-full t-card font-display font-bold text-white', avatarColorClass(row.name))}>
         {getInitials(row.name)}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-2">
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="flex min-w-0 items-baseline justify-between gap-3">
           <span className="min-w-0 line-clamp-1 t-section font-display font-bold text-text">{row.name}</span>
           <span className={cn('shrink-0 t-stat font-display font-extrabold tabular-nums', TONE_TEXT[tone])}>{formatPercent(row.score)}</span>
         </span>
-        <span className="h-3 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+        <span className="h-2 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
           <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none', TONE_BAR[tone])} style={{ width: `${Math.max(2, Math.min(100, row.score))}%` }} />
         </span>
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted">

@@ -20,6 +20,7 @@ import { twMerge } from 'tailwind-merge';
 
 import { useAuth } from "../../context/AuthContext";
 import { BottomNav } from "../../components/layout";
+import { BrandLogo } from "../../components/brandLogo";
 import { RouteFallback } from "../../components/skeleton";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { PageHeaderTitleContext } from "../../components/pageHeader/pageHeaderContext";
@@ -437,9 +438,14 @@ export const AdminLayout = () => {
             sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
-          <p className="t-meta font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
-            Navigation
-          </p>
+          <NavLink
+            to="/"
+            viewTransition
+            title="KaryaOS home"
+            className="flex min-h-11 items-center px-2 pb-4 mb-3 border-b border-border rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+          >
+            <BrandLogo className="size-9" textClassName="text-xl" tagline />
+          </NavLink>
 
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
             {renderNav(true)}
@@ -475,12 +481,17 @@ export const AdminLayout = () => {
             sidebarOpen ? "w-64 px-4" : "w-[84px] px-3"
           )}
         >
-          <p className={cn(
-            "t-meta font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
-            !sidebarOpen && "opacity-0 h-0 !p-0 !m-0 !border-0 overflow-hidden"
-          )}>
-            Navigation
-          </p>
+          <NavLink
+            to="/"
+            viewTransition
+            title="KaryaOS home"
+            className={cn(
+              "flex min-h-11 items-center px-2 pb-4 mb-3 border-b border-border rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50",
+              !sidebarOpen && "justify-center px-0"
+            )}
+          >
+            <BrandLogo className="size-9" textClassName="text-xl" tagline={sidebarOpen} showWordmark={sidebarOpen} />
+          </NavLink>
 
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
             {renderNav(false)}
@@ -526,7 +537,7 @@ export const AdminLayout = () => {
         </aside>
 
         <main inert={mobileDrawerOpen} className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-background">
-          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:p-4 lg:px-6 lg:py-5 pb-44 md:pb-6">
+          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:px-0 sm:py-4 lg:py-5 pb-44 md:pb-6">
 
             {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 

@@ -112,7 +112,7 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
           <Skeleton className="h-24 rounded-lg" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
+        <div className="grid flex-1 grid-cols-1 gap-3 @xl:grid-cols-2">
           {(top && low && top.id === low.id) || (!top && low) ? (
             <div className="@xl:col-span-2">
               <LeaderEntry icon={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? AlertTriangle : Trophy} tone={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? 'danger' : 'success'} label="Only one ranked" row={top ?? low} emptyText="" hrefFor={hrefFor} />
@@ -184,7 +184,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
   };
 
   return (
-    <section aria-labelledby={headingId} className={`${PANEL_CLASS} @container flex flex-col gap-4 ${CARD_PAD}`}>
+    <section aria-labelledby={headingId} className={`${PANEL_CLASS} @container flex h-full flex-col gap-4 ${CARD_PAD}`}>
       <SectionHeader
         id={headingId}
         level="card"
@@ -210,7 +210,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
         }
       />
 
-      <div className="flex flex-col gap-4 @2xl:flex-row @2xl:gap-6 @2xl:divide-x @2xl:divide-border">
+      <div className="flex flex-1 flex-col gap-4 @2xl:flex-row @2xl:gap-6 @2xl:divide-x @2xl:divide-border">
         <DimensionColumn
           icon={Building2}
           title="Departments"
