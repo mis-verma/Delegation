@@ -11,6 +11,7 @@ interface ChecklistReviewersFieldProps {
   totalSelected?: number;
   onChange: (ids: string[]) => void;
   isNew?: boolean;
+  hideTitle?: boolean;
   className?: string;
 }
 
@@ -20,6 +21,7 @@ export const ChecklistReviewersField = ({
   onChange,
   totalSelected,
   isNew = false,
+  hideTitle = false,
   className = '',
 }: ChecklistReviewersFieldProps) => {
   const { data: allDepartments = [] } = useDepartmentsQuery();
@@ -32,7 +34,7 @@ export const ChecklistReviewersField = ({
   return (
     <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
       <div className="flex items-center justify-between gap-2">
-        <span id={labelId} className={LABEL_CLASS}>
+        <span id={labelId} className={hideTitle ? 'sr-only' : LABEL_CLASS}>
           <ShieldCheck size={14} className="text-text-muted shrink-0" />
           <span>Reviewers <span className="text-text-muted/70 font-medium">(Optional)</span></span>
         </span>

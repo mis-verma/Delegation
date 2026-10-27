@@ -16,11 +16,11 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Copy, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
+import { GripVertical, Trash2, Copy, Plus, Pencil, Check, Layers, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
-import { Button, IconChip, Input } from '../../../../components';
+import { Button, Dropdown, IconChip, Input, type DropdownAction } from '../../../../components';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import {
   UNGROUPED, MAX_CHECKLIST_ITEMS, MAX_SECTION_NAME_LENGTH, type SectionId,
@@ -115,8 +115,6 @@ const SortableItemRowImpl = ({
 
 const SortableItemRow = memo(SortableItemRowImpl);
 
-const SECTION_ACTION = 'size-8 px-0 pointer-coarse:size-11 text-text-light hover:text-text-secondary';
-
 const SectionContainer = ({
   id,
   title,
@@ -163,85 +161,132 @@ const SectionContainer = ({
     if (trimmedDraft !== title) onRename?.(trimmedDraft);
   };
 
+  const menuItems: DropdownAction[] = [
+    ...(onMoveUp ? [{ label: 'Move up', icon: ChevronUp, onClick: onMoveUp }] : []),
+    ...(onMoveDown ? [{ label: 'Move down', icon: ChevronDown, onClick: onMoveDown }] : []),
+    { label: 'Rename', icon: Pencil, onClick: () => setRenaming(true) },
+    { label: 'Delete section', icon: Trash2, onClick: onDelete, variant: 'destructive', separatorBefore: true },
+  ];
+
   return (
     <div
       data-section-name={title}
-      className={`flex flex-col gap-3 rounded-2xl scroll-mt-24 transition-colors duration-150 ${isOver ? 'bg-primary-500/5 outline-2 outline-primary-400/40 outline-offset-4' : ''}`}
+      className={cn(
+        'flex flex-col scroll-mt-24 rounded-2xl transition-colors duration-150',
+        bare ? 'gap-3' : 'overflow-hidden border bg-surface',
+        !bare && (isActive ? 'border-primary-500/50' : 'border-border/60'),
+        isOver && 'bg-primary-500/5 outline-2 outline-primary-400/40 outline-offset-4',
+      )}
     >
-      {!bare && <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pb-1 border-b border-border/60">
-        <div className="flex items-center gap-2 min-w-0">
-          {renaming ? (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-1">
-                <Input
-                  autoFocus
-                  label="Section name"
-                  labelClassName="sr-only"
-                  containerClassName="w-40"
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename();
-                    if (e.key === 'Escape') { setDraftName(title); setRenaming(false); }
-                  }}
-                  aria-invalid={isDuplicate}
-                  className={cn(
-                    'h-11 sm:h-8 rounded-md px-2 text-base sm:text-xs font-display font-bold',
-                    isDuplicate ? 'border-danger focus:border-danger' : 'border-primary-400',
-                  )}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={commitRename}
-                  disabled={!canCommitRename}
-                  className="size-8 px-0 pointer-coarse:size-11 text-success hover:text-success hover:bg-success/10"
-                  aria-label="Save section name"
-                >
-                  <Check size={14} />
-                </Button>
-              </div>
-              {isDuplicate && <span className="t-meta font-display text-danger">You already have a section with that name</span>}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={onSelect}
-              className="flex items-center gap-1.5 min-h-11 sm:min-h-0 py-1 text-sm font-display font-semibold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-              title="Add new questions to this section"
-            >
-              <Layers size={14} className={isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-light'} />
-              <span className="truncate">{title}</span>
-            </button>
+      {!bare && (
+        <div
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-3 py-2.5 sm:px-4',
+            isActive ? 'border-primary-500/30 bg-linear-to-r from-primary-500/[0.09] to-transparent' : 'border-border/60 bg-surface-hover/40',
           )}
-          <span className="t-meta font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
-          {isActive && !renaming && (
-            <IconChip icon={Plus} tone="bg-primary-600" label="New questions go here" className="shrink-0" />
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+              <Layers size={16} strokeWidth={2.25} />
+            </span>
+            {renaming ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                  <Input
+                    autoFocus
+                    label="Section name"
+                    labelClassName="sr-only"
+                    containerClassName="w-40"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename();
+                      if (e.key === 'Escape') { setDraftName(title); setRenaming(false); }
+                    }}
+                    aria-invalid={isDuplicate}
+                    className={cn(
+                      'h-11 sm:h-8 rounded-md px-2 text-base sm:text-xs font-display font-bold',
+                      isDuplicate ? 'border-danger focus:border-danger' : 'border-primary-400',
+                    )}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={commitRename}
+                    disabled={!canCommitRename}
+                    className="size-8 px-0 pointer-coarse:size-11 text-success hover:text-success hover:bg-success/10"
+                    aria-label="Save section name"
+                  >
+                    <Check size={14} />
+                  </Button>
+                </div>
+                {isDuplicate && <span className="t-meta font-display text-danger">You already have a section with that name</span>}
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-col">
+                <button
+                  type="button"
+                  onClick={onSelect}
+                  className="flex min-h-11 sm:min-h-0 items-center rounded-md t-card font-display font-bold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                  title="Add new questions to this section"
+                >
+                  <span className="truncate">{title}</span>
+                </button>
+                <span className="hidden sm:block t-meta font-display text-text-muted tabular-nums">
+                  {items.length} {items.length === 1 ? 'question' : 'questions'}
+                </span>
+              </div>
+            )}
+            {!renaming && (
+              <span className="shrink-0 rounded-full border border-border/60 bg-surface px-2 py-0.5 t-meta font-display font-semibold tabular-nums text-text-secondary sm:hidden">
+                {items.length}
+              </span>
+            )}
+            {isActive && !renaming && (
+              <IconChip icon={Plus} tone="bg-primary-600" label="New questions go here" iconOnlyOnMobile className="shrink-0" />
+            )}
+          </div>
+
+          {onRename && !renaming && (
+            <div className="flex shrink-0 items-center gap-2">
+              {!isActive && (
+                <Button variant="ghost" size="sm" onClick={onSelect} className="text-primary-700 dark:text-primary-300 pointer-coarse:min-h-11" aria-label={`Add questions to ${title}`}>
+                  <Plus size={14} />
+                  <span className="hidden sm:inline">Add here</span>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDuplicate}
+                className="pointer-coarse:min-h-11"
+                aria-label={`Copy ${title} section with its questions`}
+                title="Copy this section and all its questions"
+              >
+                <Copy size={14} />
+                <span className="sm:hidden">Copy</span>
+                <span className="hidden sm:inline">Copy section</span>
+              </Button>
+              <Dropdown
+                align="end"
+                title={`${title} section`}
+                items={menuItems}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={`More options for ${title}`}
+                    className="flex size-9 pointer-coarse:size-11 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+                }
+              />
+            </div>
           )}
         </div>
+      )}
 
-        {onRename && !renaming && (
-          <div className="flex items-center gap-1 pointer-coarse:gap-2 shrink-0">
-            <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={!onMoveUp} className={SECTION_ACTION} aria-label={`Move ${title} section up`}>
-              <ChevronUp size={14} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={!onMoveDown} className={SECTION_ACTION} aria-label={`Move ${title} section down`}>
-              <ChevronDown size={14} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setRenaming(true)} className={SECTION_ACTION} aria-label={`Rename ${title}`}>
-              <Pencil size={13} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onDuplicate} className={SECTION_ACTION} aria-label={`Duplicate ${title} section`} title="Duplicate section and its questions">
-              <Copy size={13} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onDelete} className={cn(SECTION_ACTION, 'hover:text-danger hover:bg-danger/10')} aria-label={`Delete ${title} section`}>
-              <X size={14} />
-            </Button>
-          </div>
-        )}
-      </div>}
-
-      <div className="flex flex-col gap-2.5 min-h-[3.25rem]">
+      <div className={cn('flex flex-col gap-2.5 min-h-[3.25rem]', !bare && 'p-3 sm:p-4')}>
         <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
           {items.length === 0 ? (
             <div

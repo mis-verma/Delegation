@@ -3,6 +3,7 @@ import { AddChip, Input, Textarea } from '../../../../components';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
 import { CHECKLIST_ICON_MAP, CHECKLIST_ICON_KEYS } from '../checklistIconMap';
 import { onRadioKeyDown } from '../builder/radioGroupKeys';
+import { BuilderSection } from '../builder/BuilderSection';
 import type { ChecklistIcon } from '../../../../api/checklistDefinitions';
 
 interface ChecklistDetailsFieldsProps {
@@ -37,7 +38,8 @@ export const ChecklistDetailsFields = ({
   const PreviewIcon = CHECKLIST_ICON_MAP[icon];
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
+        <BuilderSection icon={Type} title="Name and description" hint="What your team will see on their checklist list.">
         <div className="flex flex-col gap-2">
           <Input
             id="checklist-name"
@@ -81,12 +83,10 @@ export const ChecklistDetailsFields = ({
           onChange={(e) => onDescriptionChange(e.target.value)}
           className={QUIET_FIELD_CLASS}
         />
+        </BuilderSection>
 
+        <BuilderSection icon={Palette} title="Icon" hint="Shows on the checklist card and in the app.">
         <div className="flex flex-col gap-2">
-          <span className={DETAIL_HEADING_CLASS}>
-            <Palette size={14} className="text-text-light" />
-            Icon
-          </span>
           <div role="radiogroup" aria-label="Checklist icon" className="grid grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))] gap-2">
             {CHECKLIST_ICON_KEYS.map((key, index) => {
               const Icon = CHECKLIST_ICON_MAP[key];
@@ -114,17 +114,21 @@ export const ChecklistDetailsFields = ({
             })}
           </div>
         </div>
+        </BuilderSection>
       </div>
 
       <aside aria-label="Preview" className="flex flex-col gap-2 lg:sticky lg:top-4 lg:self-start">
         <span className="t-meta font-display font-semibold text-text-secondary">How it will look</span>
-        <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-4">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
-            <PreviewIcon size={22} strokeWidth={2.25} />
-          </span>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="t-card font-display font-bold leading-snug text-text line-clamp-2">{name.trim() || 'Your checklist name'}</p>
-            <p className="t-meta font-display text-text-muted line-clamp-2">{description.trim() || 'Your description shows here.'}</p>
+        <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface">
+          <div className="flex h-16 items-end bg-linear-to-br from-primary-500/20 via-primary-500/10 to-transparent px-4" aria-hidden="true" />
+          <div className="-mt-7 flex flex-col gap-3 px-4 pb-4">
+            <span className="flex size-14 items-center justify-center rounded-2xl border-4 border-surface bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+              <PreviewIcon size={24} strokeWidth={2.25} />
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="t-card font-display font-bold leading-snug text-text line-clamp-2">{name.trim() || 'Your checklist name'}</p>
+              <p className="t-meta font-display text-text-muted line-clamp-2">{description.trim() || 'Your description shows here.'}</p>
+            </div>
           </div>
         </div>
       </aside>

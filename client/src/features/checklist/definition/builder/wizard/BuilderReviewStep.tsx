@@ -71,14 +71,19 @@ const ReviewCard = ({ label, icon: Icon, valid, onEdit, aside, children }: {
   aside?: ReactNode;
   children: ReactNode;
 }) => (
-  <section aria-label={label} className={cn('flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-3.5 sm:p-4', valid ? 'border-border/60' : 'border-warning/50 bg-warning/5')}>
-    <header className="flex flex-wrap items-center justify-between gap-2">
-      <span className="flex min-w-0 items-center gap-2.5">
+  <section aria-label={label} className={cn('flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-surface', valid ? 'border-border/60' : 'border-warning/50')}>
+    <header
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-2 border-b px-3.5 py-3 sm:px-4',
+        valid ? 'border-border/60 bg-linear-to-r from-primary-500/[0.08] via-primary-500/[0.03] to-transparent' : 'border-warning/30 bg-warning/8',
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-3">
         <span
-          className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', valid ? 'bg-linear-to-br from-primary-500 to-primary-700' : 'bg-warning')}
+          className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', valid ? 'bg-linear-to-br from-primary-500 to-primary-700' : 'bg-warning')}
           aria-hidden="true"
         >
-          <Icon size={15} strokeWidth={2.25} />
+          <Icon size={18} strokeWidth={2.25} />
         </span>
         <h3 className="t-card font-display font-bold text-text">{label}</h3>
         {aside}
@@ -97,7 +102,7 @@ const ReviewCard = ({ label, icon: Icon, valid, onEdit, aside, children }: {
         </Button>
       </span>
     </header>
-    <div className="flex flex-col gap-3">{children}</div>
+    <div className="flex flex-col gap-3 p-3.5 sm:p-4">{children}</div>
   </section>
 );
 
@@ -217,6 +222,25 @@ export const BuilderReviewStep = ({
             );
           })}
         </ol>
+
+        <ul aria-label="At a glance" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: 'Questions', value: named.length, icon: ListChecks },
+            { label: 'Stores', value: storeIds.length, icon: Store },
+            { label: 'People', value: keptAssignees.length, icon: Users },
+            { label: 'Reviewers', value: activeReviewers.length, icon: ShieldCheck },
+          ].map((tile) => (
+            <li key={tile.label} className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300" aria-hidden="true">
+                <tile.icon size={17} strokeWidth={2.25} />
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="t-stat font-display font-extrabold leading-none tabular-nums text-text">{tile.value}</span>
+                <span className="t-meta font-display font-medium text-text-muted">{tile.label}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
 
         {effects.length > 0 && (
           <div className="flex flex-col gap-2 border-t border-border/60 pt-3">

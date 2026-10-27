@@ -1,10 +1,14 @@
 import { canOfferLateWindow, hasScheduleTimeMismatch, isOvernightWindow, lateWindowProblem } from './scheduleWindow';
+import { earlySentence, repeatSentence, startDateHint, windowSentence } from './scheduleSummary';
 import { useMemo, type ReactNode } from 'react';
-import { Store, Repeat, CalendarDays, CalendarRange, CalendarClock, Target, Sun, Clock, AlertCircle, Moon, Check, Sunrise, Sunset, Hourglass, type LucideIcon } from 'lucide-react';
+import {
+  Store, Repeat, CalendarDays, CalendarRange, CalendarClock, CalendarCheck, Target, Sun, Clock, AlertCircle, Moon, Check, Sunrise, Sunset, Hourglass, Eye, type LucideIcon,
+} from 'lucide-react';
 import { Button, DatePicker, InlineError, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays } from '../../../../components';
+import { cn } from '@/lib/utils';
 import { useStoresQuery } from '../../hook';
 import { WindowTimeline } from './WindowTimeline';
-import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../../../tasks/taskFormFieldStyles';
+import { BuilderField as Field, BuilderSection as Section } from './BuilderSection';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -17,12 +21,12 @@ const RECURRENCE_OPTIONS: {
   description: string;
   icon: LucideIcon;
 }[] = [
-  { value: 'DAILY', label: 'Daily', description: 'Repeats every day', icon: Sun },
-  { value: 'WEEKLY', label: 'Weekly', description: 'Repeats once a week', icon: CalendarRange },
-  { value: 'MONTHLY', label: 'Monthly', description: 'Repeats monthly', icon: CalendarDays },
-  { value: 'QUARTERLY', label: 'Quarterly', description: 'Repeats every 3 months', icon: CalendarClock },
-  { value: 'YEARLY', label: 'Yearly', description: 'Repeats once a year', icon: Repeat },
-  { value: 'ONE_TIME', label: 'One-time', description: 'Single occurrence', icon: Target },
+  { value: 'DAILY', label: 'Daily', description: 'Every day, or the days you pick', icon: Sun },
+  { value: 'WEEKLY', label: 'Weekly', description: 'Same weekday every week', icon: CalendarRange },
+  { value: 'MONTHLY', label: 'Monthly', description: 'Same date every month', icon: CalendarDays },
+  { value: 'QUARTERLY', label: 'Quarterly', description: 'Every 3 months', icon: CalendarClock },
+  { value: 'YEARLY', label: 'Yearly', description: 'Once a year', icon: Repeat },
+  { value: 'ONE_TIME', label: 'One-time', description: 'A single run', icon: Target },
 ];
 
 const QUICK_WINDOWS: { label: string; opens: string; closes: string; late: string; icon: LucideIcon }[] = [
@@ -51,19 +55,11 @@ interface BuilderSchedulePanelProps {
   className?: string;
 }
 
-const Section = ({ icon: Icon, title, aside, children }: { icon: typeof Store; title: string; aside?: ReactNode; children: ReactNode }) => (
-  <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3.5 sm:p-4">
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-2.5">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
-          <Icon size={15} strokeWidth={2.25} />
-        </span>
-        <span className={DETAIL_HEADING_CLASS}>{title}</span>
-      </span>
-      {aside}
-    </div>
-    {children}
-  </section>
+const Note = ({ tone, icon: Icon, children }: { tone: 'muted' | 'danger'; icon?: LucideIcon; children: ReactNode }) => (
+  <p className={cn('flex items-start gap-1.5 t-meta font-display', tone === 'danger' ? 'font-medium text-danger' : 'text-text-muted')}>
+    {Icon && <Icon size={13} className="mt-0.5 shrink-0" aria-hidden="true" />}
+    <span className="min-w-0">{children}</span>
+  </p>
 );
 
 const startOfToday = () => {
@@ -104,22 +100,25 @@ export const BuilderSchedulePanel = ({
   const isOvernight = isOvernightWindow(opensTime, cutoffTime);
   const offerLate = canOfferLateWindow(recurrence, opensTime, cutoffTime);
   const lateProblem = lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime);
+  const isOneTime = recurrence === 'ONE_TIME';
+  const early = earlySentence(recurrence);
 
   const toggleStore = (id: string) =>
     onStoreIdsChange(storeIds.includes(id) ? storeIds.filter((s) => s !== id) : [...storeIds, id]);
   const allSelected = activeStores.length > 0 && activeStores.every((s) => storeIds.includes(s.id));
 
   return (
-    <div className={`flex flex-col gap-6 ${className}`}>
+    <div className={`flex flex-col gap-4 sm:gap-5 ${className}`}>
       <Section
         icon={Store}
         title="Stores"
+        hint="Every store you pick gets its own run of this checklist."
         aside={activeStores.length > 1 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onStoreIdsChange(allSelected ? [] : activeStores.map((s) => s.id))}
-            className="text-primary-700 dark:text-primary-300"
+            className="shrink-0 text-primary-700 dark:text-primary-300 pointer-coarse:min-h-11"
           >
             {allSelected ? 'Clear all' : 'Select all'}
           </Button>
@@ -148,115 +147,157 @@ export const BuilderSchedulePanel = ({
           </div>
         )}
         {storeIds.length === 0 && !storesPending && !storesError && activeStores.length > 0 && (
-          <p className="t-meta font-display text-text-muted">Pick at least one store.</p>
+          <Note tone="muted">Pick at least one store.</Note>
         )}
       </Section>
 
-      <Section icon={Repeat} title="Repeats">
-        <div role="group" aria-label="How often it repeats" className="flex flex-wrap gap-2">
-          {RECURRENCE_OPTIONS.map((opt) => (
-            <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)}>
-              {recurrence === opt.value ? <Check size={14} strokeWidth={2.75} /> : <opt.icon size={14} className="text-text-light" />}
-              {opt.label}
-              <span className="sr-only">: {opt.description}</span>
-            </ToggleChip>
-          ))}
+      <Section icon={Repeat} title="Repeats" hint="How often a new run is created.">
+        <div role="radiogroup" aria-label="How often it repeats" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {RECURRENCE_OPTIONS.map((opt) => {
+            const on = recurrence === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onRecurrenceChange(opt.value)}
+                className={cn(
+                  'relative flex min-h-24 cursor-pointer flex-col items-start gap-2.5 rounded-xl border p-3 text-left outline-none transition-colors duration-150 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                  on ? 'border-primary-500/60 bg-primary-500/8' : 'border-border/60 bg-surface hover:border-border-hover',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex size-9 items-center justify-center rounded-xl',
+                    on ? 'bg-linear-to-br from-primary-500 to-primary-700 text-white' : 'bg-surface-hover text-text-secondary',
+                  )}
+                  aria-hidden="true"
+                >
+                  <opt.icon size={17} strokeWidth={2.25} />
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="t-card font-display font-bold text-text">{opt.label}</span>
+                  <span className="t-meta text-text-muted">{opt.description}</span>
+                </span>
+                {on && (
+                  <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-primary-600 text-white" aria-hidden="true">
+                    <Check size={12} strokeWidth={3.5} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </Section>
 
       {recurrence === 'DAILY' && (
-        <Section icon={CalendarDays} title="Runs on" aside={<span className="t-meta font-display text-text-muted">{formatWeekdays(activeWeekdays)}</span>}>
+        <Section
+          icon={CalendarDays}
+          title="Runs on"
+          hint="Leave a weekday off and no checklist is created that day."
+          aside={<span className="shrink-0 rounded-full border border-border/60 bg-surface px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">{formatWeekdays(activeWeekdays)}</span>}
+        >
           <WeekdayPicker value={activeWeekdays} onChange={onActiveWeekdaysChange} minSelected={1} aria-label="Days this checklist runs" />
           <p className="hidden sm:block t-meta font-display text-text-muted">
-            No checklist on the days left off. People’s own week-off days are skipped too.
+            People’s own week-off days are skipped too.
           </p>
         </Section>
       )}
 
-      <Section icon={Clock} title={recurrence === 'ONE_TIME' ? 'When' : 'Starts & open hours'}>
-        <div role="group" aria-label="Quick time windows" className="flex flex-wrap gap-1.5">
-          {QUICK_WINDOWS.map((w) => {
-            const on = opensTime === w.opens && cutoffTime === w.closes && (w.late === '' ? lateUntilTime === '' || !offerLate : lateUntilTime === w.late);
-            return (
-              <ToggleChip
-                key={w.label}
-                on={on}
-                onClick={() => { onOpensTimeChange(w.opens); onCutoffTimeChange(w.closes); onLateUntilTimeChange(recurrence === 'ONE_TIME' ? '' : w.late); }}
-              >
-                {on ? <Check size={14} strokeWidth={2.75} /> : <w.icon size={14} className="text-text-light" />}
-                {w.label}
-              </ToggleChip>
-            );
-          })}
+      <Section icon={Clock} title={isOneTime ? 'When' : 'Starts & open hours'} hint="Pick a start date, then set when staff can fill it in.">
+        <div className="flex flex-col gap-2">
+          <span className="t-meta font-display font-semibold text-text-secondary">Quick windows</span>
+          <div role="group" aria-label="Quick time windows" className="flex flex-wrap gap-1.5">
+            {QUICK_WINDOWS.map((w) => {
+              const wantedLate = recurrence === 'DAILY' ? w.late : '';
+              const on = opensTime === w.opens && cutoffTime === w.closes && (lateUntilTime === wantedLate || (wantedLate === '' && !offerLate));
+              return (
+                <ToggleChip
+                  key={w.label}
+                  on={on}
+                  onClick={() => { onOpensTimeChange(w.opens); onCutoffTimeChange(w.closes); onLateUntilTimeChange(wantedLate); }}
+                >
+                  {on ? <Check size={14} strokeWidth={2.75} /> : <w.icon size={14} className="text-text-light" />}
+                  {w.label}
+                </ToggleChip>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div title={recurrence === 'ONE_TIME' ? 'Due date' : 'Starts on'}>
+
+        <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2', offerLate ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+          <Field label={isOneTime ? 'Due date' : 'Start date'} hint={startDateHint(recurrence, startDate)}>
             <DatePicker
               value={parseDateStr(startDate)}
               onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
-              minDate={recurrence === 'ONE_TIME' ? startOfToday() : undefined}
-              placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
-              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm ${startDate ? 'pr-10' : ''}`}
+              minDate={isOneTime ? startOfToday() : undefined}
+              placeholder={isOneTime ? 'Pick the due date' : 'Pick a start date'}
+              className="w-full"
+              triggerClassName="w-full"
             />
-          </div>
-          <TimePicker
-            popover
-            prefix="Opens"
-            value={opensTime}
-            onChange={onOpensTimeChange}
-            placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
-          />
-          <TimePicker
-            popover
-            prefix="Closes"
-            value={cutoffTime}
-            onChange={onCutoffTimeChange}
-            placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
-          />
+          </Field>
+          <Field label="Opens">
+            <TimePicker popover value={opensTime} onChange={onOpensTimeChange} placeholder="Any time" />
+          </Field>
+          <Field label="Closes">
+            <TimePicker popover value={cutoffTime} onChange={onCutoffTimeChange} placeholder="Any time" />
+          </Field>
           {offerLate && (
-            <TimePicker
-              popover
-              prefix="Late until"
-              value={lateUntilTime}
-              onChange={onLateUntilTimeChange}
-              placeholder="none"
-              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
-            />
+            <Field label="Late until">
+              <TimePicker popover value={lateUntilTime} onChange={onLateUntilTimeChange} placeholder="None" />
+            </Field>
           )}
         </div>
+
         {!hasTimeMismatch && <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={offerLate ? lateUntilTime : ''} />}
         {offerLate && !lateUntilTime && (
-          <p className="t-meta font-display text-text-muted">
+          <Note tone="muted" icon={Hourglass}>
             Optional: staff who miss the closing time can still fill it in until the late time. It counts as filled late.
-          </p>
+          </Note>
         )}
         {offerLate && lateUntilTime && !lateProblem && (
-          <p className="flex items-center gap-1.5 t-meta font-display text-text-secondary">
-            <Hourglass size={13} className="shrink-0 text-danger" />
+          <Note tone="muted" icon={Hourglass}>
             After {cutoffTime} staff see a red reminder and can fill it in until {lateUntilTime}. It counts as filled late.
-          </p>
+          </Note>
         )}
-        {lateProblem && (
-          <p className="flex items-center gap-1.5 t-meta font-display font-medium text-danger">
-            <AlertCircle size={13} className="shrink-0" />
-            {lateProblem}
-          </p>
-        )}
-        {!startDate && <p className="t-meta font-display text-text-muted">Pick a start date to continue.</p>}
+        {lateProblem && <Note tone="danger" icon={AlertCircle}>{lateProblem}</Note>}
+        {!startDate && <Note tone="muted">Pick a start date to continue.</Note>}
         {hasTimeMismatch ? (
-          <p className="flex items-center gap-1.5 t-meta font-display font-medium text-danger">
-            <AlertCircle size={13} className="shrink-0" />
-            Opening and closing can’t be the same time.
-          </p>
+          <Note tone="danger" icon={AlertCircle}>Opening and closing can’t be the same time.</Note>
         ) : isOvernight ? (
-          <p className="flex items-center gap-1.5 t-meta font-display text-text-secondary">
-            <Moon size={13} className="shrink-0 text-text-light" />
-            Overnight: closes at {cutoffTime} the next morning.
-          </p>
+          <Note tone="muted" icon={Moon}>Overnight: closes at {cutoffTime} the next morning.</Note>
         ) : null}
       </Section>
+
+      <section aria-label="Schedule summary" className="rounded-2xl border border-primary-500/25 bg-linear-to-br from-primary-500/[0.08] to-primary-500/[0.02] p-4 sm:p-5">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+            <CalendarCheck size={18} strokeWidth={2.25} />
+          </span>
+          <span className="t-card font-display font-bold text-text">How it will run</span>
+        </div>
+        <ul className="mt-3 flex flex-col gap-2">
+          <li className="flex items-start gap-2 t-card font-display font-semibold text-text">
+            <Repeat size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
+            {repeatSentence(recurrence, startDate, formatWeekdays(activeWeekdays))}
+          </li>
+          <li className="flex items-start gap-2 t-card font-display font-medium text-text-secondary">
+            <Clock size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
+            {windowSentence(opensTime, cutoffTime, isOvernight)}
+          </li>
+          <li className="flex items-start gap-2 t-card font-display font-medium text-text-secondary">
+            <Store size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
+            {storeIds.length === 0 ? 'No store picked yet' : `${storeIds.length} ${storeIds.length === 1 ? 'store' : 'stores'}, one run each`}
+          </li>
+          {early && (
+            <li className="flex items-start gap-2 t-card font-display font-medium text-text-secondary">
+              <Eye size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
+              {early}
+            </li>
+          )}
+        </ul>
+      </section>
     </div>
   );
 };

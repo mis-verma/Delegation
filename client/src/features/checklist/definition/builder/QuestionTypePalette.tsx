@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { PlusCircle, type LucideIcon } from 'lucide-react';
 import { AddQuestionModal } from './AddQuestionModal';
 import { QUESTION_TYPES, QUESTION_GROUPS, GROUP_TILE, type QuestionTypeEntry } from './questionTypes';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
@@ -20,9 +20,14 @@ export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, st
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="t-card font-display font-semibold text-text">Add a question</h2>
-        <span className="t-meta font-display text-text-muted">Tap a type</span>
+      <div className="flex items-center gap-3 rounded-xl bg-linear-to-r from-primary-500/[0.09] to-transparent p-2.5">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+          <PlusCircle size={18} strokeWidth={2.25} />
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <h2 className="t-card font-display font-bold text-text">Add a question</h2>
+          <span className="t-meta font-display text-text-muted">Tap a type to add it</span>
+        </div>
       </div>
 
       {QUESTION_GROUPS.map((group) => (

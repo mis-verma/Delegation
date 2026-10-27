@@ -1,5 +1,7 @@
 import { ChecklistReviewersField } from '../form/ChecklistReviewersField';
+import { ShieldCheck } from 'lucide-react';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
+import { BuilderSection } from './BuilderSection';
 import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
 
 interface BuilderReviewersPanelProps {
@@ -20,12 +22,15 @@ export const BuilderReviewersPanel = ({ storeIds, reviewerIds, onReviewerIdsChan
           onRemove={() => onReviewerIdsChange(active)}
         />
       )}
+      <BuilderSection icon={ShieldCheck} title="Who reviews each run" hint="Optional. They approve or send back a filled-in run.">
       <ChecklistReviewersField
+        hideTitle
         storeIds={storeIds}
         selected={reviewerIds}
         onChange={onReviewerIdsChange}
         isNew={isNew}
       />
+      </BuilderSection>
     </div>
   );
 };

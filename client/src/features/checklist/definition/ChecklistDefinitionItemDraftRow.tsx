@@ -7,7 +7,7 @@ import { QuestionSummaryChips } from './builder/QuestionSummaryChips';
 import { ItemTypeConfigFields } from './builder/ItemTypeConfigFields';
 import { draftProblem, patchForTypeSwitch } from '../questionTypes/model';
 import { QuestionTypeMenu } from './builder/QuestionTypeMenu';
-import { GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/questionTypes';
+import { GROUP_ACCENT, GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/questionTypes';
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 
 export type ItemDraft = {
@@ -118,11 +118,12 @@ const ChecklistDefinitionItemDraftRowImpl = ({
       aria-label={`Question ${index + 1}`}
       className={cn(
         PANEL_CLASS,
-        'group/q flex flex-col transition-colors duration-150',
+        'group/q relative flex flex-col overflow-hidden transition-colors duration-150',
         problem ? 'border-danger/40' : 'hover:border-border-hover focus-within:border-primary-400/70',
         className,
       )}
     >
+      <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-1', problem ? 'bg-danger' : GROUP_ACCENT[type.group])} />
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-x-1 gap-y-2 sm:gap-x-3 p-2.5 sm:p-4 sm:pr-2">
         <div className="col-start-1 row-start-1 flex items-center">{leading}</div>
         <span className="col-start-2 row-start-1 self-center sm:hidden t-meta font-display font-medium text-text-muted tabular-nums" aria-hidden="true">

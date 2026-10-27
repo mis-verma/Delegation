@@ -9,6 +9,7 @@ import { UserBulkPicker } from '../../UserBulkPicker';
 import { SelectedPeopleChips } from '../form/SelectedPeopleChips';
 import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from '../form/formConstants';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
+import { BuilderSection } from './BuilderSection';
 import { onRadioKeyDown } from './radioGroupKeys';
 import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
 import type { ChecklistResponseMode } from '../../../../api/checklistDefinitions';
@@ -79,15 +80,12 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
       )}
       {hidden.length > 0 && <HiddenPeopleNotice message={hiddenMessage} onRemove={() => onAssigneeIdsChange(shown)} />}
 
-      <section aria-labelledby="assign-people-heading" className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3.5 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="assign-people-heading" className="flex items-center gap-2.5 t-card font-display font-bold text-text">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
-              <Users size={15} strokeWidth={2.25} />
-            </span>
-            Who fills it in
-          </h3>
-          <span className="flex items-center gap-2">
+      <BuilderSection
+        icon={Users}
+        title="Who fills it in"
+        hint="Pick the people who complete each run."
+        aside={
+          <span className="flex shrink-0 items-center gap-2">
             {peopleTotal > 0 && <IconChip icon={Check} tone="bg-primary-600" label={`${peopleTotal} assigned`} labelClassName="tabular-nums" />}
             {peopleTotal > 0 && (
               <Button variant="ghost" size="sm" onClick={() => onAssigneeIdsChange(hidden)} className="text-danger hover:bg-danger/10 hover:text-danger">
@@ -96,7 +94,8 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
               </Button>
             )}
           </span>
-        </div>
+        }
+      >
 
         {storeUsers.isPending && peopleTotal > 0 ? (
           <div className="flex flex-wrap gap-1.5" aria-busy="true">
@@ -121,16 +120,9 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
             </div>
           }
         />
-      </section>
+      </BuilderSection>
 
-      <fieldset className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3.5 sm:p-4">
-        <legend className="sr-only">How many copies</legend>
-        <h3 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
-            <Copy size={15} strokeWidth={2.25} />
-          </span>
-          How many copies
-        </h3>
+      <BuilderSection icon={Copy} title="How many copies" hint="Choose who shares a copy and who gets their own.">
         <div role="radiogroup" aria-label="How many copies" className="grid gap-2.5 sm:grid-cols-3">
           {MODES.map((m, index) => {
             const on = responseMode === m.value;
@@ -179,7 +171,7 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
             </ul>
           )}
         </div>
-      </fieldset>
+      </BuilderSection>
     </div>
   );
 };

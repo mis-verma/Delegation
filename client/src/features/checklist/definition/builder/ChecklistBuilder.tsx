@@ -662,7 +662,7 @@ export const ChecklistBuilder = () => {
     switch (step) {
       case 0:
         return (
-          <BuilderStepFrame stepIndex={step} title="Basics" description="Give this checklist a name your team will recognize.">
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Basics" description="Give this checklist a name your team will recognize.">
             <div className="flex flex-col gap-5">
               <ChecklistDetailsFields
                 name={name}
@@ -677,7 +677,7 @@ export const ChecklistBuilder = () => {
         );
       case 1:
         return (
-          <BuilderStepFrame stepIndex={step} title="Schedule" description="Choose which stores run this checklist and how often.">
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Schedule" description="Choose which stores run this checklist and how often.">
             <BuilderSchedulePanel
               storeIds={storeIds}
               onStoreIdsChange={handleStoreIdsChange}
@@ -698,7 +698,7 @@ export const ChecklistBuilder = () => {
         );
       case 2:
         return (
-          <BuilderStepFrame stepIndex={step} title="Questions" description="Add the questions your team needs to answer or complete, in order.">
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Questions" description="Add the questions your team needs to answer or complete, in order.">
             <div className="flex flex-col gap-6">
               <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
               <div className="grid grid-cols-1 xl:grid-cols-[19rem_1fr] gap-5 xl:gap-6 items-start">
@@ -735,7 +735,7 @@ export const ChecklistBuilder = () => {
         );
       case 3:
         return (
-          <BuilderStepFrame stepIndex={step} title="Reviewers" description="Pick who reviews a filled-in run and approves or sends it back, usually the department head or a PC.">
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Reviewers" description="Pick who reviews a filled-in run and approves or sends it back, usually the department head or a PC.">
             <BuilderReviewersPanel
               storeIds={storeIds}
               reviewerIds={reviewerIds}
@@ -747,7 +747,7 @@ export const ChecklistBuilder = () => {
         );
       case 4:
         return (
-          <BuilderStepFrame stepIndex={step} title="Assign" description="Pick who fills it in. Their account not ready yet? Leave it empty and save as a draft. Add them later and it goes live.">
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Assign" description="Pick who fills it in. Their account not ready yet? Leave it empty and save as a draft. Add them later and it goes live.">
             <BuilderAssignPanel
               storeIds={storeIds}
               assigneeIds={assigneeIds}
@@ -760,7 +760,7 @@ export const ChecklistBuilder = () => {
         );
       default:
         return (
-          <BuilderStepFrame stepIndex={step} title={isEditing ? 'Review & Save changes' : 'Review & Create'}
+          <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title={isEditing ? 'Review & Save changes' : 'Review & Create'}
             description={isEditing ? 'Double-check everything below, then save your changes.' : 'Double-check everything below, then create the checklist.'}>
             <BuilderReviewStep
               name={name}
@@ -878,6 +878,12 @@ export const ChecklistBuilder = () => {
                 )}
               </div>
             )}
+            {step < STEPS.length - 1 && !isStepValid(step) && (
+              <p role="status" className="order-first flex w-full items-start gap-2 rounded-xl border border-warning/30 bg-warning/8 px-3 py-2 t-meta font-display font-medium text-warning">
+                <AlertCircle size={14} className="mt-px shrink-0" aria-hidden />
+                <span className="min-w-0">{blockReasonFor(step)}</span>
+              </p>
+            )}
             {step > 0 ? (
               <Button
                 type="button"
@@ -892,7 +898,7 @@ export const ChecklistBuilder = () => {
             ) : <span />}
 
             {step < STEPS.length - 1 && (
-              <div className="flex flex-wrap items-end justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {!isEditing && (
                   <Button
                     type="button"
@@ -923,13 +929,6 @@ export const ChecklistBuilder = () => {
                     <span>{isDirty ? 'Save' : 'Saved'}</span>
                   </Button>
                 )}
-              <div className="flex flex-col items-end gap-1.5">
-                {!isStepValid(step) && (
-                  <p className="t-meta font-display text-warning flex items-start gap-1 text-right">
-                    <AlertCircle size={12} className="shrink-0 mt-px" />
-                    {blockReasonFor(step)}
-                  </p>
-                )}
                 <Button
                   type="button"
                   variant="primary"
@@ -941,7 +940,6 @@ export const ChecklistBuilder = () => {
                   <span>Next</span>
                   <ChevronRight size={15} />
                 </Button>
-              </div>
               </div>
             )}
             {step === STEPS.length - 1 && !isEditing && (

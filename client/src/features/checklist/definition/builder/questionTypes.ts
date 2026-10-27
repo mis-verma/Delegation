@@ -42,6 +42,12 @@ export const QUESTION_GROUPS: { id: QuestionGroup; label: string }[] = [
   { id: 'verify', label: 'Verification' },
 ];
 
+export const GROUP_ACCENT: Record<QuestionGroup, string> = {
+  basic: 'bg-primary-500',
+  media: 'bg-warning',
+  verify: 'bg-success',
+};
+
 export const GROUP_TILE: Record<QuestionGroup, string> = {
   basic: 'bg-primary-500/10 text-primary-700 dark:bg-primary-400/15 dark:text-primary-200',
   media: 'bg-warning/15 text-warning',
