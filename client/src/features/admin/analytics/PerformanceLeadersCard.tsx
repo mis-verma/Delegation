@@ -3,6 +3,8 @@ import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
 import { Button, IconChip, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { cn } from '@/lib/utils';
+import { ScoreRing } from './bi/ScoreRing';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useOverviewScoreWindow } from './useOverviewScores';
 import { scorecardRowHref } from '../../dashboard/scoreDrill';
@@ -31,32 +33,34 @@ interface LeaderEntryProps {
   hrefFor: (id: string) => string;
 }
 
-const FIGURE_TONE = { success: 'text-success', danger: 'text-danger' } as const;
-const BAR_TONE = { success: 'bg-success', danger: 'bg-danger' } as const;
+const SOLID = { success: 'bg-vivid-green', danger: 'bg-vivid-red' } as const;
+const EDGE = { success: 'border-vivid-green/40', danger: 'border-vivid-red/40' } as const;
 
 const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: LeaderEntryProps) => {
   const value = row?.overall ?? null;
-  const content = (
+  const badge = (
+    <span className={cn('inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 t-meta font-display font-bold text-white', SOLID[tone])}>
+      <Icon size={13} strokeWidth={2.5} aria-hidden="true" />
+      {label}
+    </span>
+  );
+  const content = row ? (
     <>
-      <span className="flex items-center gap-2">
-        <IconChip icon={Icon} tone={tone === 'success' ? 'bg-success' : 'bg-danger'} label={label} soft />
-        <span className="flex-1" />
-        {row && <span className={`t-card font-display font-bold tabular-nums ${FIGURE_TONE[tone]}`}>{formatPercent(value)}</span>}
+      <ScoreRing value={value} size={84} stroke={9} label={row.name} />
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+        {badge}
+        <span className="block line-clamp-2 t-section font-display font-bold leading-snug text-text">{row.name}</span>
+        <span className="block t-meta font-medium text-text-muted tabular-nums">{row.volume} items counted</span>
       </span>
-      {row ? (
-        <>
-          <span className="block t-card font-display font-semibold leading-snug text-text line-clamp-2">{row.name}</span>
-          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-            <span className={`block h-full rounded-full ${BAR_TONE[tone]}`} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
-          </span>
-        </>
-      ) : (
-        <span className="block t-meta text-text-muted">{emptyText}</span>
-      )}
     </>
+  ) : (
+    <span className="flex min-w-0 flex-col items-start gap-2">
+      {badge}
+      <span className="block t-meta font-medium text-text-muted">{emptyText}</span>
+    </span>
   );
 
-  const base = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-3';
+  const base = cn('flex min-w-0 items-center gap-4 rounded-xl border bg-surface p-4', row ? EDGE[tone] : 'border-border');
   if (!row) return <div className={base}>{content}</div>;
   return (
     <Link
@@ -97,25 +101,25 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
   return (
     <div role="group" aria-labelledby={headingId} className={`flex min-w-0 flex-1 flex-col gap-3 ${className}`}>
       <div className="flex items-center gap-1.5">
-        <Icon size={16} className="text-text-muted" aria-hidden="true" />
-        <h3 id={headingId} className="t-card font-display font-bold text-text">{title}</h3>
+        <Icon size={18} className="text-vivid-blue-text" aria-hidden="true" />
+        <h3 id={headingId} className="t-section font-display font-bold text-text">{title}</h3>
       </div>
       {isError ? (
         <InlineError message="Could not load this ranking." onRetry={onRetry} />
       ) : isPending ? (
-        <div className="grid grid-cols-1 gap-3 @md:grid-cols-2" role="status" aria-label="Loading the ranking">
+        <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2" role="status" aria-label="Loading the ranking">
           <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
           {(top && low && top.id === low.id) || (!top && low) ? (
-            <div className="@md:col-span-2">
+            <div className="@xl:col-span-2">
               <LeaderEntry icon={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? AlertTriangle : Trophy} tone={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? 'danger' : 'success'} label="Only one ranked" row={top ?? low} emptyText="" hrefFor={hrefFor} />
             </div>
           ) : !top && !low && !hasEligible ? (
             preview.length > 0 ? (
-              <div className="flex flex-col gap-2 @md:col-span-2">
+              <div className="flex flex-col gap-2 @xl:col-span-2">
                 <p className="t-meta text-text-muted">{`Not ranked yet. Each has fewer than ${MIN_RANK_VOLUME} items in this period. Lowest first.`}</p>
                 <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
                   {preview.map((r) => (
@@ -130,7 +134,7 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
                 </ul>
               </div>
             ) : (
-              <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @md:col-span-2">
+              <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @xl:col-span-2">
                 {untagged.length > 0 && untagged[0].volume > 0
                   ? `${untagged[0].volume} items this period are not linked to any ${noun}, so there is nothing to compare. Link people and checklists to a ${noun} to see them here.`
                   : 'Nothing was due in this period'}

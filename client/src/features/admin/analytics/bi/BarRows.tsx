@@ -5,7 +5,7 @@ import type { ExplorerRow } from '../../../../api/scores';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { getInitials } from '../../../../lib/getInitials';
 import { avatarColorClass } from '../../../../lib/avatarColors';
-import { TONE_BAR, TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_BAR, TONE_TEXT, toneOf } from './vivid';
 import { drillTargets, type DrillTarget } from '../../../scores/scoresDisplay';
 import { deltaOf, rowDue, rowValue, type BiMeasure, type BiModule } from './biMetrics';
 import { DeltaChip } from './DeltaChip';

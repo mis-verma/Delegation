@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useDepartmentsQuery, useStoresQuery } from '../../../tickets/hook';
 import { useScoreExplorer } from '../../../scores/useScoreExplorer';
@@ -16,9 +16,10 @@ interface BiOverviewProps {
   windowFrom?: string;
   windowTo?: string;
   orgWide: boolean;
+  highlights?: ReactNode;
 }
 
-export const BiOverview = ({ windowFrom, windowTo, orgWide }: BiOverviewProps) => {
+export const BiOverview = ({ windowFrom, windowTo, orgWide, highlights }: BiOverviewProps) => {
   const route = useBiRoute(orgWide);
   const prefs = useBiPrefs();
   const win = useOverviewScoreWindow(windowFrom, windowTo);
@@ -60,6 +61,7 @@ export const BiOverview = ({ windowFrom, windowTo, orgWide }: BiOverviewProps) =
   return (
     <div className="flex flex-col gap-3">
       <ModuleCarousel total={query.data?.total} selected={route.module} onSelect={route.setModule} updating={query.updating} />
+      {highlights}
       {win && (
         <BiPanel
           route={route}

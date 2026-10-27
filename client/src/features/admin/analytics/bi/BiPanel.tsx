@@ -22,7 +22,7 @@ import { effectivePeriod, periodAllowed, previousWindow, type BiPeriodChoice } f
 import { RingGrid } from './RingGrid';
 import { Segmented } from './Segmented';
 import { formatPct, roundPct } from '../../../../lib/percent';
-import { toneOf, TONE_TEXT } from '../../../dashboard/scoreTone';
+import { toneOf, TONE_TEXT } from './vivid';
 import type { BiChart, BiPrefsApi, BiTopN } from './useBiPrefs';
 import type { BiRoute } from './useBiRoute';
 

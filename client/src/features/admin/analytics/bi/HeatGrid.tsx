@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import type { MatrixCell, MatrixResponse } from '../../../../api/scores';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { FAIR_FROM, GOOD_FROM } from '../../../../lib/scoreBands';
-import { TONE_COLOR, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_COLOR, toneOf } from './vivid';
 import { bucketShortLabel, bucketTitle, PERIOD_NOUN } from './biTimeUtils';
 import { cellDue, cellValue, measureLabel, moduleTitle, type BiMeasure, type BiModule, type DetailRow } from './biMetrics';
 

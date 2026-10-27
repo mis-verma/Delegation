@@ -7,7 +7,7 @@ import { exportPct, exportTitle, type TableRows } from '../../../../lib/exportTa
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, SCORE_LABEL_SHORT, complianceLabel, complianceLabelShort } from '../../../../lib/scoreLabels';
 import { CATEGORY_ICON, CATEGORY_TILE } from '../../../dashboard/categoryLook';
-import { TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_TEXT, toneOf } from './vivid';
 import { drillTargets } from '../../../scores/scoresDisplay';
 import { bucketTitle } from './biTimeUtils';
 import type { DetailRow } from './biMetrics';

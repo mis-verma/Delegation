@@ -57,6 +57,15 @@
   --color-white: #ffffff;
   --color-success-strong: #047857;
 
+  --color-vivid-red: #e5231f;
+  --color-vivid-red-text: #c81e1e;
+  --color-vivid-green: #12b24b;
+  --color-vivid-green-text: #0b7a33;
+  --color-vivid-blue: #1f5fe0;
+  --color-vivid-blue-text: #1a4fc4;
+  --color-vivid-sky: #0ea5e9;
+  --color-vivid-sky-text: #0369a1;
+
   --font-sans: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
   --font-display: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
@@ -230,6 +239,14 @@ body {
   --color-warning: #f06b6b;
   --color-danger: #d17272;
   --color-info: #7aa2e8;
+  --color-vivid-red: #ff4d4d;
+  --color-vivid-red-text: #ff8a8a;
+  --color-vivid-green: #22d35f;
+  --color-vivid-green-text: #4ade80;
+  --color-vivid-blue: #5b8cff;
+  --color-vivid-blue-text: #8ab0ff;
+  --color-vivid-sky: #38bdf8;
+  --color-vivid-sky-text: #7dd3fc;
   
   --color-activity-checklist: var(--color-primary-400);
   --color-activity-delegation: #a48bf0;

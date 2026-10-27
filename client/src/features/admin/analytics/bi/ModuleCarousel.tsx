@@ -5,8 +5,8 @@ import type { ExplorerRow } from '../../../../api/scores';
 import { Skeleton } from '../../../../components';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { CATEGORY_ICON, CATEGORY_TILE } from '../../../dashboard/categoryLook';
-import { ToneChip } from '../../../dashboard/ToneChip';
-import { TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
+import { VividChip } from './VividChip';
+import { TONE_TEXT, toneOf } from './vivid';
 import { MODULE_LABEL } from '../../../../lib/scoreLabels';
 import { BI_MODULES, moduleTitle, rowValue, type BiModule } from './biMetrics';
 import { ConcentricRings, ScoreRing } from './ScoreRing';
@@ -111,7 +111,7 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false }: 
                     <span className={cn('t-figure font-display font-extrabold tabular-nums leading-none', TONE_TEXT[tone])}>
                       {rounded === null ? 'N/A' : formatPct(rounded)}
                     </span>
-                    <ToneChip tone={tone} />
+                    <VividChip tone={tone} />
                   </span>
                   <span className="t-meta font-medium text-text-muted">{detail}</span>
                 </span>

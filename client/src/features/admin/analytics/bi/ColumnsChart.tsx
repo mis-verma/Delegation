@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer,
 import type { MatrixBucket, MatrixResponse } from '../../../../api/scores';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { GOOD_FROM } from '../../../../lib/scoreBands';
-import { TONE_COLOR, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_COLOR, toneOf } from './vivid';
 import { bucketShortLabel, bucketTitle, PERIOD_NOUN } from './biTimeUtils';
 import { cellDue, cellValue, measureLabel, moduleTitle, type BiMeasure, type BiModule } from './biMetrics';
 

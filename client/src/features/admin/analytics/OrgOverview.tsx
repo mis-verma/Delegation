@@ -179,6 +179,18 @@ export const OrgOverview = () => {
   const { refetch: refetchCounts } = countsQuery;
   const retrySnapshot = useCallback(() => void refetchCounts(), [refetchCounts]);
 
+  const orgStrip = <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />;
+  const leadersBlock = (
+    <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
+      <div className="@container">
+        <div className="grid grid-cols-1 items-start gap-3 @3xl:grid-cols-2">
+          <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
+          <TeamLeaderboardRail from={windowFrom} to={windowTo} />
+        </div>
+      </div>
+    </PhoneCollapse>
+  );
+
   return (
     <ExportRegistryProvider>
     <div className="flex w-full flex-col gap-3">
@@ -213,13 +225,15 @@ export const OrgOverview = () => {
         </Button>
       </div>
 
+      {!classic && orgWide && orgStrip}
+
       {classic ? (
         <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection}
           isOrgWideRole={orgWide}
           links={orgWide ? linkButtons : undefined}
         />
       ) : (
-        <BiOverview windowFrom={windowFrom} windowTo={windowTo} orgWide={orgWide} />
+        <BiOverview windowFrom={windowFrom} windowTo={windowTo} orgWide={orgWide} highlights={orgWide ? leadersBlock : undefined} />
       )}
 
       {orgWide && (
@@ -230,22 +244,13 @@ export const OrgOverview = () => {
 
       {classic && orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} hideRanking />}
 
-      {orgWide && (
-        <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
-          <div className="@container">
-            <div className="grid grid-cols-1 items-start gap-3 @3xl:grid-cols-2">
-              <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
-              <TeamLeaderboardRail from={windowFrom} to={windowTo} />
-            </div>
-          </div>
-        </PhoneCollapse>
-      )}
+      {classic && orgWide && leadersBlock}
 
       {classic && <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />}
 
-      {orgWide && (
+      {classic && orgWide && (
         <PhoneCollapse title="Your organisation" hint="Stores, departments and people">
-          <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />
+          {orgStrip}
         </PhoneCollapse>
       )}
 

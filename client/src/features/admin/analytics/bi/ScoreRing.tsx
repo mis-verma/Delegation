@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { formatPct, roundPct } from '../../../../lib/percent';
-import { TONE_COLOR, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_COLOR, toneOf } from './vivid';
 
 const TWO_PI = 2 * Math.PI;
 
