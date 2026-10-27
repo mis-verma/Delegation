@@ -7,7 +7,7 @@ import { SelectDropdown } from '../../../components/dropdown';
 import { CARD_PAD, FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useOrgToday } from '../../checklist/useOrgToday';
-import { ANALYTICS_LOCALE, defaultWindowLabel, parseDateParam, toDateParam } from './analyticsDisplay';
+import { ANALYTICS_LOCALE, defaultWindow, defaultWindowLabel, parseDateParam, toDateParam } from './analyticsDisplay';
 
 export type GroupBy = 'day' | 'week' | 'month' | 'year';
 
@@ -108,12 +108,15 @@ interface AnalyticsControlBarProps extends Omit<GroupByControlProps, 'hideRange'
   onRefresh: () => void;
   actions?: ReactNode;
   hideGroupBy?: boolean;
+  hideLongView?: boolean;
   sticky?: boolean;
 }
 
 const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_LOCALE, { hour: 'numeric', minute: '2-digit' });
 
-export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions, hideGroupBy = false, sticky = true }: AnalyticsControlBarProps) => {
+const CUSTOM_TRIGGER = 'h-11 sm:h-11.5 w-auto gap-1.5 pl-2.5 rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap';
+
+export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions, hideGroupBy = false, hideLongView = false, sticky = true }: AnalyticsControlBarProps) => {
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
   const orgToday = useOrgToday();
   const now = useMemo(() => parseDateParam(orgToday) ?? new Date(), [orgToday]);
@@ -121,8 +124,14 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
   const preset = activePreset(range, now);
   const hasRange = Boolean(range.from && range.to);
   const isCustom = hasRange && preset === null;
-  const periodValue: PeriodTab = preset ?? (hasRange ? 'custom' : 'all');
   const showCustomPicker = isCustom || pickingCustom;
+
+  const longLabel = hideGroupBy ? 'Last 12 weeks' : defaultWindowLabel(groupBy);
+  const longViewRepeatsPreset = longLabel === PERIOD_TAB_LABEL.last30;
+  const tabs = hideLongView || longViewRepeatsPreset ? PERIOD_TABS.filter((key) => key !== 'all') : PERIOD_TABS;
+  const periodValue: PeriodTab = preset ?? (hasRange ? 'custom' : longViewRepeatsPreset && !hideLongView ? 'last30' : 'all');
+  const labels = { ...PERIOD_TAB_LABEL, all: longLabel };
+
   const choosePeriod = (key: PeriodTab) => {
     if (key === 'custom') {
       setPickingCustom(true);
@@ -131,11 +140,13 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
     setPickingCustom(false);
     onRangeChange(key === 'all' ? { from: null, to: null } : presetRange(key, now));
   };
-  const longLabel = hideGroupBy ? 'Last 12 weeks' : defaultWindowLabel(groupBy);
-  const labels = { ...PERIOD_TAB_LABEL, all: longLabel };
-  const rangeText = hasRange && range.from && range.to
-    ? `${range.from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short' })} to ${range.to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`
-    : longLabel;
+
+  const shownWindow = useMemo(() => {
+    if (range.from && range.to) return { from: range.from, to: range.to };
+    const fallback = defaultWindow(hideGroupBy ? 'week' : groupBy, now);
+    return { from: new Date(fallback.from), to: new Date(fallback.to) };
+  }, [range.from, range.to, hideGroupBy, groupBy, now]);
+  const rangeText = `${shownWindow.from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short' })} to ${shownWindow.to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const yearNote = !hasRange && !hideGroupBy && groupBy === 'year'
     ? 'Charts cover the last 12 years. Scores, rankings and leaders cover the last 12 months.'
     : null;
@@ -148,7 +159,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
     <div className={cn(PANEL_CLASS, 'z-20 flex flex-col gap-3', sticky && 'lg:sticky lg:top-0', CARD_PAD)}>
       <div className="flex flex-col gap-3 sm:hidden">
         <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3'}>
-          <SelectDropdown label="Period" aria-label="Period" triggerClassName="rounded-lg font-display" value={showCustomPicker ? 'custom' : periodValue} onChange={choosePeriod} options={[...PERIOD_TABS, 'custom' as const].map((key) => ({ value: key, label: labels[key] }))} />
+          <SelectDropdown label="Period" aria-label="Period" triggerClassName="rounded-lg font-display" value={showCustomPicker ? 'custom' : periodValue} onChange={choosePeriod} options={[...tabs, 'custom' as const].map((key) => ({ value: key, label: labels[key] }))} />
           {!hideGroupBy && (
             <SelectDropdown label="Show by" aria-label="Show by" triggerClassName="rounded-lg font-display" value={groupBy} onChange={onGroupByChange} options={GROUP_BY_OPTIONS.map((o) => ({ value: o.value, label: `By ${o.label.toLowerCase()}` }))} />
           )}
@@ -156,18 +167,23 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
         {showCustomPicker && customPicker('w-full', 'min-h-11 w-full')}
       </div>
 
-      <div className="hidden flex-col gap-3 sm:flex lg:flex-row lg:items-end lg:justify-between">
+      <div className="hidden flex-wrap items-end justify-between gap-x-6 gap-y-3 sm:flex">
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>Period</span>
           <div className="flex flex-wrap items-center gap-2">
-            <PeriodTabControl value={periodValue} options={PERIOD_TABS} labels={labels} onChange={choosePeriod} />
+            <PeriodTabControl value={periodValue} options={tabs} labels={labels} onChange={choosePeriod} />
             {customPicker(
               'w-auto shrink-0',
-              `h-11 sm:h-9 w-auto gap-1.5 pl-2.5 ${hasRange ? 'pr-10' : 'pr-3'} rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'}`,
+              cn(CUSTOM_TRIGGER, hasRange ? 'pr-10' : 'pr-3', isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'),
             )}
           </div>
         </div>
-
+        {!hideGroupBy && (
+          <div className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>Show by</span>
+            <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3">
@@ -176,12 +192,6 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           <span className="line-clamp-2">{rangeText}</span>
         </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {!hideGroupBy && (
-            <div className="hidden sm:flex items-center gap-2 sm:mr-2">
-              <span className="t-meta font-display font-semibold text-text-secondary">Show by</span>
-              <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
-            </div>
-          )}
           <span aria-live="polite" className="hidden min-w-24 text-right sm:inline t-meta text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>

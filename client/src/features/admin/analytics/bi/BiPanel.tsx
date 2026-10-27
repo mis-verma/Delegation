@@ -13,7 +13,8 @@ import { VIEW_LABEL, exportRowsFor, rankById, serializeTrail, sharingLine } from
 import { scoreExplorerQuery, type useScoreExplorer } from '../../../scores/useScoreExplorer';
 import { windowLabel } from '../../../scores/useScoreWindow';
 import { BarRows } from './BarRows';
-import { BI_MEASURES, BI_MODULES, blockValue, measureLabel, moduleTitle, rowValue, sortBiRows } from './biMetrics';
+import { BI_MEASURES, BI_MODULES, blockValue, detailFromRow, measureLabel, moduleTitle, rowValue, sortBiRows } from './biMetrics';
+import { BiDetailDialog, type BiDetail } from './BiDetailDialog';
 import { BiFilters } from './BiFilters';
 import { biLevelParams } from './biParams';
 import { BiTime } from './BiTime';
@@ -80,9 +81,8 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
     };
   }, [full, fullButtonId]);
 
-  const scope = `${view}|${parent?.id ?? ''}|${module}`;
-  const [sel, setSel] = useState<{ scope: string; key: string | null }>({ scope: '', key: null });
-  const selectedKey = sel.scope === scope ? sel.key : null;
+  const [detail, setDetail] = useState<BiDetail | null>(null);
+  const openRow = (row: ExplorerRow) => setDetail({ row: detailFromRow(row), bucketIndex: null });
 
   const sorted = useMemo(() => {
     if (!data) return [];
@@ -208,9 +208,9 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
   ) : (
     <div className={cn('flex flex-col gap-2', query.updating && 'opacity-70 transition-opacity')} aria-busy={query.updating}>
       {chart === 'rings' ? (
-        <RingGrid rows={visible} module={module} measure={measure} selectedKey={selectedKey} onSelect={(key) => setSel({ scope, key })} onDrill={drill} onIntent={prefetch} previous={previous} />
+        <RingGrid rows={visible} module={module} measure={measure} onOpen={openRow} onIntent={prefetch} previous={previous} />
       ) : (
-        <BarRows rows={visible} module={module} measure={measure} selectedKey={selectedKey} onSelect={(key) => setSel({ scope, key })} onDrill={drill} onIntent={prefetch} previous={previous} />
+        <BarRows rows={visible} module={module} measure={measure} onOpen={openRow} onIntent={prefetch} previous={previous} />
       )}
       {hiddenCount > 0 && (chart === 'bars' || chart === 'rings') && (
         <Button type="button" variant="outline" size="sm" onClick={() => prefs.setTopN(0)} className="self-center pointer-coarse:min-h-11">
@@ -238,7 +238,7 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
       lowestFirst={prefs.lowestFirst}
       totalLabel={totalLabel}
       onZoom={onZoom}
-      onDrill={drill}
+      onOpen={(row, bucketIndex) => setDetail({ row, bucketIndex })}
     />
   );
 
@@ -269,7 +269,7 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
-          <p className="t-meta font-medium text-text-muted">{moduleTitle(module)} · {measureLabel(measure, module)} · {win.label}</p>
+          <p className="t-meta font-medium text-text-muted">{moduleTitle(module)} · {measureLabel(measure, module)}{full ? ` · ${win.label}` : ''}</p>
         </div>
         <div className="flex items-center gap-1">
           <ExportMenu
@@ -380,6 +380,14 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
           </div>
         )}
       </div>
+      <BiDetailDialog
+        detail={detail}
+        win={win}
+        matrixParams={matrixParams}
+        onClose={() => setDetail(null)}
+        onDrill={drill}
+        onZoom={onZoom}
+      />
     </section>
   );
 };

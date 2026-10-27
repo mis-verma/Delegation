@@ -1,4 +1,4 @@
-import type { ExplorerBlock, ExplorerModule, ExplorerRow, MatrixCell } from '../../../../api/scores';
+import type { ExplorerBlock, ExplorerModule, ExplorerRow, ExplorerRowKind, MatrixBlockCell, MatrixCell } from '../../../../api/scores';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../../../lib/scoreLabels';
 
 export type BiModule = ExplorerModule | 'all';
@@ -59,3 +59,29 @@ export const sortBiRows =(rows: readonly ExplorerRow[], module: BiModule, measur
     const diff = lowestFirst ? x - y : y - x;
     return diff || rowDue(b, module) - rowDue(a, module) || a.name.localeCompare(b.name);
   });
+
+export interface DetailRow {
+  id: string;
+  name: string;
+  kind: ExplorerRowKind;
+  departmentName?: string;
+  whole: MatrixCell;
+}
+
+const blockCell = (b: ExplorerBlock): MatrixBlockCell => ({
+  due: b.due,
+  done: b.done,
+  late: b.late,
+  score: b.score,
+  completion: b.completion,
+  compliance: b.compliance,
+  onTime: b.onTimeOfFinishedPct,
+});
+
+export const detailFromRow = (r: ExplorerRow): DetailRow => ({
+  id: r.id,
+  name: r.name,
+  kind: r.kind,
+  ...(r.departmentName ? { departmentName: r.departmentName } : {}),
+  whole: { totalDue: r.totalDue, overall: r.overall, checklist: blockCell(r.checklist), ticket: blockCell(r.ticket), delegation: blockCell(r.delegation) },
+});

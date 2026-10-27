@@ -5,7 +5,6 @@ import { formatPct, roundPct } from '../../../../lib/percent';
 import { getInitials } from '../../../../lib/getInitials';
 import { avatarColorClass } from '../../../../lib/avatarColors';
 import { drillTargets, type DrillTarget } from '../../../scores/scoresDisplay';
-import { Tray } from './BarRows';
 import { deltaOf, rowDue, rowValue, type BiMeasure, type BiModule } from './biMetrics';
 import { DeltaChip } from './DeltaChip';
 import { ScoreRing } from './ScoreRing';
@@ -16,16 +15,13 @@ interface RingGridProps {
   rows: ExplorerRow[];
   module: BiModule;
   measure: BiMeasure;
-  selectedKey: string | null;
-  onSelect: (key: string | null) => void;
-  onDrill: (row: ExplorerRow, view: DrillTarget['view']) => void;
+  onOpen: (row: ExplorerRow) => void;
   onIntent?: (row: ExplorerRow, view: DrillTarget['view']) => void;
   previous?: ReadonlyMap<string, number | null>;
 }
 
-export const RingGrid = ({ rows, module, measure, selectedKey, onSelect, onDrill, onIntent, previous }: RingGridProps) => {
+export const RingGrid = ({ rows, module, measure, onOpen, onIntent, previous }: RingGridProps) => {
   const listRef = useRef<HTMLUListElement>(null);
-  const selected = rows.find((r) => rowKey(r) === selectedKey) ?? null;
 
   const move = (e: KeyboardEvent<HTMLUListElement>) => {
     const keys = ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'];
@@ -47,7 +43,6 @@ export const RingGrid = ({ rows, module, measure, selectedKey, onSelect, onDrill
           const key = rowKey(row);
           const value = rowValue(row, module, measure);
           const targets = drillTargets(row);
-          const open = selectedKey === key;
           const delta = deltaOf(value, previous ? previous.get(row.id) ?? null : null);
           const isPerson = row.kind === 'person' || row.kind === 'unassigned';
           const due = rowDue(row, module);
@@ -56,15 +51,15 @@ export const RingGrid = ({ rows, module, measure, selectedKey, onSelect, onDrill
               <button
                 type="button"
                 data-ring
-                aria-pressed={open}
-                aria-label={`${row.name}: ${roundPct(value) === null ? 'nothing due' : formatPct(value)}. ${open && targets.length > 0 ? `Press again to ${targets[0].label.toLowerCase()}.` : 'Show details.'}`}
-                onClick={() => (open && targets.length > 0 ? onDrill(row, targets[0].view) : onSelect(open ? null : key))}
+                aria-haspopup="dialog"
+                aria-label={`${row.name}: ${roundPct(value) === null ? 'nothing due' : formatPct(value)}. Open the details.`}
+                onClick={() => onOpen(row)}
                 onPointerEnter={() => targets[0] && onIntent?.(row, targets[0].view)}
                 onFocus={() => targets[0] && onIntent?.(row, targets[0].view)}
                 className={cn(
                   'flex min-h-40 w-full flex-col items-center justify-start gap-2 rounded-xl border bg-surface px-2 py-3 text-center outline-none transition-colors duration-150 cursor-pointer active:scale-[0.985]',
                   'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                  open ? 'border-primary-500/60 ring-2 ring-primary-500/20' : 'border-border/60 hover:border-border-hover',
+                  'border-border/60 hover:border-border-hover',
                 )}
               >
                 <ScoreRing value={value} size={76} stroke={8} label={row.name} />
@@ -81,12 +76,6 @@ export const RingGrid = ({ rows, module, measure, selectedKey, onSelect, onDrill
           );
         })}
       </ul>
-      {selected && (
-        <div className="overflow-hidden rounded-xl border border-primary-500/40">
-          <p className="px-3 pt-3 t-card font-display font-bold text-text sm:px-4">{selected.name}</p>
-          <Tray row={selected} module={module} targets={drillTargets(selected)} onDrill={onDrill} />
-        </div>
-      )}
     </div>
   );
 };

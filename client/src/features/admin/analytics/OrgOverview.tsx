@@ -199,6 +199,8 @@ export const OrgOverview = () => {
         onRangeChange={handleRange}
         updatedAt={updatedAt}
         isRefreshing={isRefreshing}
+        hideGroupBy={!classic}
+        hideLongView={!classic}
         sticky={false}
         actions={<OverviewExportMenu />}
         onRefresh={() => void refresh()}

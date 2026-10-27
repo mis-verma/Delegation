@@ -18,7 +18,7 @@ interface BiPrefs {
   compare: boolean;
 }
 
-const DEFAULTS: BiPrefs = { measure: 'score', topN: 10, lowestFirst: true, chart: 'bars', period: 'auto', compare: false };
+const DEFAULTS: BiPrefs = { measure: 'score', topN: 10, lowestFirst: true, chart: 'heat', period: 'auto', compare: false };
 
 const read = (key: string): BiPrefs => {
   try {
@@ -40,7 +40,7 @@ const read = (key: string): BiPrefs => {
 
 export const useBiPrefs = () => {
   const { user } = useAuth();
-  const key = `tm-bi-prefs-${user?.id ?? 'anon'}`;
+  const key = `tm-bi-prefs-v2-${user?.id ?? 'anon'}`;
   const [prefs, setPrefs] = useState<BiPrefs>(() => read(key));
 
   const update = useCallback((patch: Partial<BiPrefs>) => {

@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
-import type { ExplorerRow, ExplorerView, MatrixBucket, MatrixParams } from '../../../../api/scores';
+import type { MatrixBucket, MatrixParams } from '../../../../api/scores';
 import { InlineError, Skeleton } from '../../../../components';
 import { BiTrend } from './BiTrend';
 import { HeatGrid } from './HeatGrid';
 import { PERIOD_NOUN } from './biTimeUtils';
-import type { BiMeasure, BiModule } from './biMetrics';
+import type { BiMeasure, BiModule, DetailRow } from './biMetrics';
 import { useBiMatrix } from './useBiMatrix';
 import type { BiChart } from './useBiPrefs';
 
@@ -21,10 +21,10 @@ interface BiTimeProps {
   lowestFirst: boolean;
   totalLabel: string;
   onZoom: (bucket: MatrixBucket) => void;
-  onDrill: (row: Pick<ExplorerRow, 'id' | 'name' | 'kind'>, view: ExplorerView) => void;
+  onOpen: (row: DetailRow, bucketIndex: number | null) => void;
 }
 
-export const BiTime = ({ chart, params, module, measure, lowestFirst, totalLabel, onZoom, onDrill }: BiTimeProps) => {
+export const BiTime = ({ chart, params, module, measure, lowestFirst, totalLabel, onZoom, onOpen }: BiTimeProps) => {
   const query = useBiMatrix(params);
   const matrix = query.data;
   const heading = matrix ? `${TITLE[chart]}, ${PERIOD_NOUN[matrix.period]} by ${PERIOD_NOUN[matrix.period]}` : TITLE[chart];
@@ -39,7 +39,7 @@ export const BiTime = ({ chart, params, module, measure, lowestFirst, totalLabel
       ) : (
         <div className={cn(query.updating && 'opacity-70 transition-opacity')} aria-busy={query.updating}>
           {chart === 'heat' ? (
-            <HeatGrid matrix={matrix} module={module} measure={measure} lowestFirst={lowestFirst} totalLabel={totalLabel} onZoom={onZoom} onDrill={onDrill} />
+            <HeatGrid matrix={matrix} module={module} measure={measure} lowestFirst={lowestFirst} totalLabel={totalLabel} onOpen={onOpen} />
           ) : chart === 'columns' ? (
             <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
               <ColumnsChart matrix={matrix} module={module} measure={measure} onZoom={onZoom} />
