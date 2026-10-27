@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { SheetGrabHandle } from '@/components/sheetGrabHandle';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, BellRing, CalendarClock, CheckCheck, ClipboardList, MessageCircle, Repeat, Ticket, X, type LucideIcon } from 'lucide-react';
@@ -94,6 +95,7 @@ interface PersonAttentionSheetProps {
 
 export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetProps) => {
   const isMobile = useIsMobile();
+  const contentRef = useRef<HTMLDivElement>(null);
   const now = useNow();
   const today = useOrgToday();
   const monthFrom = `${today.slice(0, 8)}01`;
@@ -137,6 +139,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
   return (
     <Sheet open={!!userId} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
+        ref={contentRef}
         side={isMobile ? 'bottom' : 'right'}
         showCloseButton={false}
         className={cn(
@@ -147,7 +150,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
         <SheetTitle className="sr-only">{d?.name ?? 'Person'}</SheetTitle>
         <SheetDescription className="sr-only">Live view of today's checklists, scores and open work.</SheetDescription>
 
-        {isMobile && <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-border" />}
+        {isMobile && <SheetGrabHandle targetRef={contentRef} onClose={onClose} />}
 
         <header className="flex items-start gap-3 border-b border-border/60 px-4 pt-3 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
           {d ? (

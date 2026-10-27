@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { useNavigate } from 'react-router';
+import { SheetGrabHandle } from '@/components/sheetGrabHandle';
 import { ClipboardCheck, ClipboardList, ListTodo, Plus, TicketCheck, X, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '../../ui/sheet';
 import { Button } from '../../button';
@@ -32,6 +34,7 @@ interface QuickSheetProps {
 }
 
 const QuickSheet = ({ open, module, summary, onClose }: QuickSheetProps) => {
+  const contentRef = useRef<HTMLDivElement>(null);
   const now = useNow();
   const navigate = useNavigate();
   const go = (to: string) => {
@@ -45,11 +48,12 @@ const QuickSheet = ({ open, module, summary, onClose }: QuickSheetProps) => {
   return (
     <Sheet open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <SheetContent
+        ref={contentRef}
         side="bottom"
         showCloseButton={false}
         className="max-h-[88dvh] gap-0 rounded-t-2xl p-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-none"
       >
-        <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-border" />
+        <SheetGrabHandle targetRef={contentRef} onClose={onClose} />
         <div className="flex shrink-0 items-center gap-3 px-4 pt-3 pb-3">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
             <Icon className="size-5" strokeWidth={2.25} />

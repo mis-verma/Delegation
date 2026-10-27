@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { SheetGrabHandle } from '@/components/sheetGrabHandle';
 import { BellRing, CheckCheck, ListChecks, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../../components/ui/sheet';
@@ -20,6 +21,7 @@ interface AttentionAllSheetProps {
 
 export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: AttentionAllSheetProps) => {
   const isMobile = useIsMobile();
+  const contentRef = useRef<HTMLDivElement>(null);
   const remind = useRemindMutation();
   const now = useNow();
   const [query, setQuery] = useState('');
@@ -77,11 +79,12 @@ export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: Atten
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <SheetContent
+        ref={contentRef}
         side={isMobile ? 'bottom' : 'right'}
         showCloseButton={false}
         className={cn('p-0 flex flex-col overflow-hidden font-sans shadow-none gap-0', isMobile ? 'max-h-[92dvh] rounded-t-2xl' : 'w-full sm:max-w-[520px] h-full')}
       >
-        {isMobile && <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-border" />}
+        {isMobile && <SheetGrabHandle targetRef={contentRef} onClose={onClose} />}
         <header className="flex flex-col gap-3 border-b border-border/60 px-4 pt-3 pb-3 sm:px-6 sm:pt-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

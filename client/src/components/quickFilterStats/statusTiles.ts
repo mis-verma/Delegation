@@ -2,11 +2,11 @@ import { Layers, Clock, CalendarClock, CheckCircle2, AlertTriangle, type LucideI
 import type { QuickFilterTile } from './QuickFilterStats';
 
 export const TONE = {
-  neutral: { bgTint: 'bg-primary-500/15', accentBar: 'bg-primary-600', accentBorder: 'border-primary-500/40', ring: 'border-primary-500/30', iconTint: 'text-primary-600 dark:text-primary-400' },
-  todo: { bgTint: 'bg-status-todo/15', accentBar: 'bg-status-todo', accentBorder: 'border-status-todo/40', ring: 'border-status-todo/30', iconTint: 'text-status-todo' },
-  warning: { bgTint: 'bg-warning/15', accentBar: 'bg-warning', accentBorder: 'border-warning/40', ring: 'border-warning/30', iconTint: 'text-warning' },
-  success: { bgTint: 'bg-success/15', accentBar: 'bg-success', accentBorder: 'border-success/40', ring: 'border-success/30', iconTint: 'text-success' },
-  danger: { bgTint: 'bg-danger/15', accentBar: 'bg-danger', accentBorder: 'border-danger/40', ring: 'border-danger/30', iconTint: 'text-danger' },
+  neutral: { bgTint: 'bg-vivid-blue/12', accentBar: 'bg-vivid-blue', accentBorder: 'border-vivid-blue/70', ring: 'border-vivid-blue/40', iconTint: 'text-vivid-blue-text' },
+  todo: { bgTint: 'bg-vivid-sky/12', accentBar: 'bg-vivid-sky', accentBorder: 'border-vivid-sky/70', ring: 'border-vivid-sky/40', iconTint: 'text-vivid-sky-text' },
+  warning: { bgTint: 'bg-vivid-blue/12', accentBar: 'bg-vivid-blue', accentBorder: 'border-vivid-blue/70', ring: 'border-vivid-blue/40', iconTint: 'text-vivid-blue-text' },
+  success: { bgTint: 'bg-vivid-green/12', accentBar: 'bg-vivid-green', accentBorder: 'border-vivid-green/70', ring: 'border-vivid-green/40', iconTint: 'text-vivid-green-text' },
+  danger: { bgTint: 'bg-vivid-red/12', accentBar: 'bg-vivid-red', accentBorder: 'border-vivid-red/70', ring: 'border-vivid-red/40', iconTint: 'text-vivid-red-text' },
 } as const;
 
 export type StatusTileKey = 'all' | 'pending' | 'due' | 'completed' | 'delayed' | 'overdue';

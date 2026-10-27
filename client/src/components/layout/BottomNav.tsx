@@ -1,3 +1,4 @@
+import { SheetGrabHandle } from '@/components/sheetGrabHandle';
 import { Suspense, lazy, useRef, useState, type MouseEvent } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
@@ -70,6 +71,7 @@ export const BottomNav = () => {
   const isOwner = user?.role === 'OWNER';
   const items = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
   const [quickOpen, setQuickOpen] = useState(false);
+  const createSheetRef = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState<{ module: QuickModule; summary: string; open: boolean } | null>(null);
   const pressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
@@ -178,8 +180,8 @@ export const BottomNav = () => {
       </Suspense>
     )}
     <Sheet open={quickOpen} onOpenChange={setQuickOpen}>
-      <SheetContent side="bottom" showCloseButton={false} className="gap-0 rounded-t-2xl p-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-none">
-        <span aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-border" />
+      <SheetContent ref={createSheetRef} side="bottom" showCloseButton={false} className="gap-0 rounded-t-2xl p-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-none">
+        <SheetGrabHandle targetRef={createSheetRef} onClose={() => setQuickOpen(false)} />
         <SheetTitle className="px-4 pt-3 pb-1 t-section font-display font-bold text-text">Create</SheetTitle>
         <SheetDescription className="sr-only">Start something new</SheetDescription>
         <ul className="flex flex-col gap-1 px-2 pt-1">

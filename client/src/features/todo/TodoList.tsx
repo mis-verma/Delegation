@@ -28,9 +28,9 @@ interface TodoListProps {
 }
 
 const RING_CLASS: Record<TodoPriority, string> = {
-  high: 'border-danger',
-  medium: 'border-warning',
-  low: 'border-text-muted',
+  high: 'border-vivid-red',
+  medium: 'border-vivid-sky',
+  low: 'border-vivid-blue',
 };
 
 const UNDO_MS = 6000;
@@ -108,7 +108,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
           todo.completed
             ? 'border-border/40 dark:border-white/[0.04] bg-surface/60 hover:border-border-hover'
             : overdue
-              ? 'border-danger/40 bg-surface hover:border-danger/70'
+              ? 'border-vivid-red/50 bg-surface hover:border-vivid-red'
               : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50',
         )}
         style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
@@ -123,7 +123,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
           <span
             className={cn(
               'flex items-center justify-center size-6 rounded-full border-2 transition-all duration-200 ease-in-out active:scale-90',
-              todo.completed ? 'bg-success border-success text-white' : `${RING_CLASS[todo.priority]} text-transparent hover:text-text-muted`,
+              todo.completed ? 'bg-vivid-green border-vivid-green text-white' : `${RING_CLASS[todo.priority]} text-transparent hover:text-text-muted`,
             )}
           >
             <Check key={todo.completed ? 'done' : 'undone'} size={13} strokeWidth={3.25} className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none" />
@@ -270,7 +270,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
   return (
     <div className="flex flex-col gap-6">
       {showPending && (
-        <TodoSection label="Pending" dotClassName="bg-primary-600" count={pending.length}>
+        <TodoSection label="Pending" dotClassName="bg-vivid-blue" count={pending.length}>
           {caughtUp ? (
             <CaughtUp />
           ) : sort === 'due' ? (
@@ -284,7 +284,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
       {showCompleted && (
         <TodoSection
           label="Completed"
-          dotClassName="bg-success"
+          dotClassName="bg-vivid-green"
           count={completed.length}
           open={completedExpanded}
           onToggle={collapsible ? () => setCompletedOpen(!completedExpanded) : undefined}
@@ -306,8 +306,8 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
 };
 
 const CaughtUp = () => (
-  <div role="status" className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-4">
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-success to-success-strong text-white" aria-hidden="true">
+  <div role="status" className="flex items-center gap-3 rounded-xl border border-vivid-green/40 bg-vivid-green/10 px-4 py-4">
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-vivid-green to-vivid-green/70 text-on-vivid" aria-hidden="true">
       <CheckCheck className="size-5" strokeWidth={2.5} />
     </span>
     <div className="min-w-0">
@@ -322,7 +322,7 @@ const TodoGroups = ({ groups, renderRow }: { groups: TodoGroup[]; renderRow: (to
     {groups.map((group) => (
       <div key={group.key} role="group" aria-label={group.label} className="flex flex-col gap-2">
         <div className="flex items-center gap-2 px-0.5 pt-1">
-          <h4 className={cn('t-meta font-display font-semibold', group.key === 'overdue' ? 'text-danger' : 'text-text-secondary')}>{group.label}</h4>
+          <h4 className={cn('t-meta font-display font-semibold', group.key === 'overdue' ? 'text-vivid-red-text' : 'text-text-secondary')}>{group.label}</h4>
           <span className="t-meta font-semibold text-text-muted tabular-nums">{group.todos.length}</span>
           <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
         </div>
