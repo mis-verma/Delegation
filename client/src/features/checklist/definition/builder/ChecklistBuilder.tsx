@@ -121,7 +121,6 @@ const STEPS = [
 
 const STEP_BLOCK_REASON: Record<number, string> = {
   0: 'Give this checklist a name to continue.',
-  1: "Pick a store and a start date. Opening and closing can't be the same time, and a late window must end after closing.",
 };
 
 type BuilderSnapshot = {
@@ -515,9 +514,24 @@ export const ChecklistBuilder = () => {
   );
   const canSubmit = sectionValidity.every(Boolean) && (people.isReady || !isEditing);
   const isStepValid = (index: number) => (index < sectionValidity.length ? sectionValidity[index] : true);
+  const scheduleBlockReason = () => {
+    const problems = [
+      storeIds.length === 0 ? 'Pick at least one store' : null,
+      startDate ? null : recurrence === 'ONE_TIME' ? 'Pick a due date' : 'Pick a start date',
+      hasScheduleTimeMismatch(opensTime, cutoffTime) ? "Opening and closing can't be the same time" : null,
+      lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime),
+    ];
+    return `${problems.filter((p): p is string => !!p).map((p) => p.replace(/\.$/, '')).join('. ')}.`;
+  };
   const blockReasonFor = (index: number) => {
+    if (index === 1) return scheduleBlockReason();
     if (index === 2) return itemProblem?.message ?? '';
     return STEP_BLOCK_REASON[index] ?? '';
+  };
+
+  const handleRecurrenceChange = (next: ChecklistRecurrence) => {
+    setRecurrence(next);
+    if (next !== 'DAILY' && next !== 'ONE_TIME') setLateUntilTime('');
   };
 
   const handleNext = () => {
@@ -668,7 +682,7 @@ export const ChecklistBuilder = () => {
               storeIds={storeIds}
               onStoreIdsChange={handleStoreIdsChange}
               recurrence={recurrence}
-              onRecurrenceChange={setRecurrence}
+              onRecurrenceChange={handleRecurrenceChange}
               startDate={startDate}
               onStartDateChange={setStartDate}
               opensTime={opensTime}
