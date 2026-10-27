@@ -19,7 +19,7 @@ export type DashboardCardId =
 
 export type DashboardCardSize = 'small' | 'big';
 
-export const LAYOUT_VERSION = 15;
+export const LAYOUT_VERSION = 16;
 
 export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
@@ -105,7 +105,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   kpiStrip: 'big',
   myScores: 'big',
   teamHeat: 'big',
-  streak: 'small',
+  streak: 'big',
   quickActions: 'small',
   activityOverview: 'small',
   compliance: 'small',

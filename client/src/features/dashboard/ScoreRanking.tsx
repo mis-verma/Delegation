@@ -76,12 +76,12 @@ const Pct = ({ value }: { value: number | null }) => <ScorePct value={value} str
 
 const HEAT: Record<RateTone, string> = {
   success: '',
-  warning: 'bg-warning/15',
-  danger: 'bg-danger/12',
+  warning: 'bg-vivid-sky/15',
+  danger: 'bg-vivid-red/12',
   neutral: '',
 };
 
-const HEAT_TEXT: Record<RateTone, string> = { success: 'text-text', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-light' };
+const HEAT_TEXT: Record<RateTone, string> = { success: 'text-vivid-green-text', warning: 'text-vivid-sky-text', danger: 'text-vivid-red-text', neutral: 'text-text-muted' };
 
 const HeatPct = ({ value }: { value: number | null }) => {
   const tone = toneOf(value);

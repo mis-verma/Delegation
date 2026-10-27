@@ -10,11 +10,12 @@ import { InlineError } from '../../components/inlineError';
 import { bandWord, FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { formatPct, roundPct } from '../../lib/percent';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
+import { TONE_COLOR } from './scoreTone';
 
 const MODULE_KEYS = ['checklist', 'ticket', 'delegation'] as const;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
-const PANEL = 'flex flex-col gap-3 rounded-xl border border-primary-500/20 bg-linear-to-br from-primary-500/15 via-primary-500/6 to-transparent p-3 sm:p-4';
+const PANEL = 'flex flex-col gap-3 rounded-xl border border-vivid-blue/25 bg-linear-to-br from-vivid-blue/10 via-vivid-blue/5 to-transparent p-3 sm:p-4';
 
 const bucketScore = (b: TrendBucket): number | null => {
   if (typeof b.overall === 'number') return b.overall;
@@ -30,12 +31,12 @@ const bucketScore = (b: TrendBucket): number | null => {
 
 const tileTone = (v: number | null) =>
   v === null
-    ? 'border-border/60 bg-surface/70 text-text-light'
+    ? 'border-border/60 bg-surface/70 text-text-muted'
     : v >= GOOD_FROM
-      ? 'border-success/40 bg-success/20 text-text'
+      ? 'border-vivid-green bg-vivid-green text-on-vivid'
       : v >= FAIR_FROM
-        ? 'border-warning/50 bg-warning/20 text-text'
-        : 'border-danger bg-danger text-white';
+        ? 'border-vivid-sky bg-vivid-sky text-on-vivid'
+        : 'border-vivid-red bg-vivid-red text-white dark:text-on-vivid';
 
 const dateParts = (day: string) => {
   const d = new Date(`${day}T00:00:00Z`);
@@ -113,9 +114,9 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
   return (
     <div className={PANEL}>
       <div className="flex flex-wrap items-center gap-1.5">
-        {average !== null && <IconChip icon={Gauge} tone="bg-primary-600" label={`Average ${formatPct(average)}`} labelClassName="tabular-nums" />}
-        {best && <IconChip icon={Trophy} tone="bg-success" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
-        {worst && <IconChip icon={TrendingDown} tone="bg-danger" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
+        {average !== null && <IconChip icon={Gauge} tone="bg-vivid-blue" label={`Average ${formatPct(average)}`} labelClassName="tabular-nums" />}
+        {best && <IconChip icon={Trophy} tone="bg-vivid-green" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
+        {worst && <IconChip icon={TrendingDown} tone="bg-vivid-red" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
       </div>
 
       {asCalendar ? (
@@ -135,9 +136,9 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
       )}
 
       <div className="flex flex-wrap items-center gap-1.5" aria-hidden="true">
-        <LegendChip color="var(--color-success)" label={`${GOOD_FROM}+ good`} />
-        <LegendChip color="var(--color-warning)" label={`${FAIR_FROM} to ${GOOD_FROM - 1} fair`} />
-        <LegendChip color="var(--color-danger)" label={`Under ${FAIR_FROM} low`} />
+        <LegendChip color={TONE_COLOR.success} label={`${GOOD_FROM}+ good`} />
+        <LegendChip color={TONE_COLOR.warning} label={`${FAIR_FROM} to ${GOOD_FROM - 1} fair`} />
+        <LegendChip color={TONE_COLOR.danger} label={`Under ${FAIR_FROM} low`} />
         <LegendChip color="var(--color-border-hover)" label="Nothing due" />
       </div>
     </div>

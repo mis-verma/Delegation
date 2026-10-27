@@ -65,11 +65,11 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto overscroll-x-contain rounded-xl border border-border/60">
-        <table onKeyDown={move} className="border-separate border-spacing-0">
+        <table onKeyDown={move} className="w-full border-separate border-spacing-0">
           <caption className="sr-only">{moduleTitle(module)} {measureLabel(measure, module).toLowerCase()} by {noun}, one row per name. Pick a name or a box to open its details.</caption>
           <thead>
             <tr>
-              <th scope="col" className="sticky left-0 z-10 min-w-32 max-w-40 border-b border-border/60 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-muted sm:min-w-44 sm:max-w-56">Name</th>
+              <th scope="col" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/60 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-muted sm:w-52 sm:min-w-44">Name</th>
               {buckets.map((b, i) => (
                 <th key={i} scope="col" title={bucketTitle(period, b)} className="border-b border-border/60 px-0.5 py-2 text-center t-meta font-display font-semibold text-text-muted">
                   {bucketShortLabel(period, b)}
@@ -80,7 +80,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <th scope="row" className="sticky left-0 z-10 min-w-32 max-w-40 border-b border-border/40 bg-surface px-1 py-0.5 text-left sm:min-w-44 sm:max-w-56">
+                <th scope="row" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/40 bg-surface px-1 py-0.5 text-left sm:w-52 sm:min-w-44">
                   <button
                     type="button"
                     aria-haspopup="dialog"
@@ -104,7 +104,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                         onClick={() => onOpen(row, c)}
                         style={value === null ? undefined : { background: heatBackground(value) }}
                         className={cn(
-                          'flex size-9 items-center justify-center rounded-md t-meta font-display font-bold tabular-nums outline-none cursor-pointer sm:size-10 pointer-coarse:size-11',
+                          'flex h-9 w-full min-w-8 items-center justify-center rounded-md t-meta font-display font-bold tabular-nums outline-none cursor-pointer sm:h-10 lg:h-11 pointer-coarse:h-11',
                           'focus-visible:ring-2 focus-visible:ring-primary-500/60',
                           value === null ? 'bg-surface-hover/50 text-text-muted' : 'text-text',
                         )}

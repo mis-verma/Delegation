@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils';
 export type StatusVariant = 'success' | 'warning' | 'critical' | 'neutral';
 
 const STATUS_LOOK: Record<StatusVariant, { tone: string; text: string; box: string }> = {
-  success: { tone: 'bg-success', text: 'text-success', box: 'border-success/30 bg-success/10' },
-  warning: { tone: 'bg-warning', text: 'text-warning', box: 'border-warning/30 bg-warning/10' },
-  critical: { tone: 'bg-danger', text: 'text-danger', box: 'border-danger/30 bg-danger/10' },
+  success: { tone: 'bg-vivid-green', text: 'text-vivid-green-text', box: 'border-vivid-green/40 bg-vivid-green/10' },
+  warning: { tone: 'bg-vivid-sky', text: 'text-vivid-sky-text', box: 'border-vivid-sky/40 bg-vivid-sky/10' },
+  critical: { tone: 'bg-vivid-red', text: 'text-vivid-red-text', box: 'border-vivid-red/40 bg-vivid-red/10' },
   neutral: { tone: 'bg-text-muted', text: 'text-text-secondary', box: 'border-border bg-surface-hover/60' },
 };
 

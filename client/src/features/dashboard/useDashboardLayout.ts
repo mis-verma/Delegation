@@ -63,6 +63,7 @@ const sizesFrom = (stored: LoadedLayout | null): Record<DashboardCardId, Dashboa
   if (stored && stored.version < 10) { delete saved.needsApproval; delete saved.exceptions; }
   if (stored && stored.version < 9) delete saved.myScores;
   if (stored && stored.version < 6) delete saved.kpiStrip;
+  if (stored && stored.version < 16) delete saved.streak;
   return { ...DEFAULT_CARD_SIZES, ...saved };
 };
 
