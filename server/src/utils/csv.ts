@@ -1,5 +1,5 @@
 import type { Response } from "express";
-export type CsvColumn = { key: string; label: string };
+export type CsvColumn = { key: string; label: string; width?: number; align?: "left" | "right" };
 
 const escapeCsvValue = (value: unknown): string => {
     if (value === null || value === undefined) return "";
@@ -10,7 +10,7 @@ const escapeCsvValue = (value: unknown): string => {
 
 export const streamCsv = async (
     res: Response,
-    rows: AsyncIterable<Record<string, unknown>>,
+    rows: AsyncIterable<Record<string, unknown>> | Iterable<Record<string, unknown>>,
     columns: CsvColumn[],
 ): Promise<void> => {
     res.write("﻿");

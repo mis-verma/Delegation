@@ -12,3 +12,4 @@ reportRouter.get("/overdue-snapshot", reportController.overdueSnapshot);
 reportRouter.get("/tickets/export", reportController.exportTickets);
 reportRouter.get("/tasks/export", reportController.exportTasks);
 reportRouter.get("/checklists/export", reportController.exportChecklists);
+reportRouter.get("/department/export", reportController.exportDepartmentReport);

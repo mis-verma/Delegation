@@ -3,7 +3,7 @@ import { tickets } from "../../db/schema/ticket.js";
 import { tasks, taskAdditionalAssignees } from "../../db/schema/task.js";
 import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from "../../db/schema/checklistInstance.js";
 import { users, departments, stores } from "../../db/schema/core.js";
-import { and, gte, lte, eq, or, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
+import { and, gte, lte, eq, ne, or, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import type { CsvColumn } from "../../utils/csv.js";
 
@@ -27,41 +27,41 @@ const isoOrEmpty = (value: unknown) => (value ? new Date(value as string | Date)
 
 export const TICKET_COLUMNS: CsvColumn[] = [
     { key: "id", label: "Ticket ID" },
-    { key: "title", label: "Title" },
-    { key: "status", label: "Status" },
-    { key: "priority", label: "Priority" },
-    { key: "department", label: "Department" },
-    { key: "assignee", label: "Assignee" },
-    { key: "raisedBy", label: "Raised By" },
-    { key: "createdAt", label: "Created At" },
-    { key: "closedAt", label: "Closed At" },
-    { key: "tatHours", label: "TAT (hrs)" },
-    { key: "isOverdue", label: "Overdue" },
+    { key: "title", label: "Title", width: 38 },
+    { key: "status", label: "Status", width: 20 },
+    { key: "priority", label: "Priority", width: 12 },
+    { key: "department", label: "Department", width: 22 },
+    { key: "assignee", label: "Assignee", width: 22 },
+    { key: "raisedBy", label: "Raised By", width: 22 },
+    { key: "createdAt", label: "Created At", width: 25 },
+    { key: "closedAt", label: "Closed At", width: 25 },
+    { key: "tatHours", label: "TAT (hrs)", width: 12, align: "right" },
+    { key: "isOverdue", label: "Overdue", width: 12 },
 ];
 
 export const TASK_COLUMNS: CsvColumn[] = [
     { key: "id", label: "Delegation ID" },
-    { key: "title", label: "Title" },
-    { key: "status", label: "Status" },
-    { key: "priority", label: "Priority" },
-    { key: "department", label: "Department" },
-    { key: "assignee", label: "Assignee" },
-    { key: "raisedBy", label: "Raised By" },
-    { key: "dueDate", label: "Due Date" },
-    { key: "createdAt", label: "Created At" },
+    { key: "title", label: "Title", width: 44 },
+    { key: "status", label: "Status", width: 20 },
+    { key: "priority", label: "Priority", width: 12 },
+    { key: "department", label: "Department", width: 22 },
+    { key: "assignee", label: "Assignee", width: 26 },
+    { key: "raisedBy", label: "Raised By", width: 22 },
+    { key: "dueDate", label: "Due Date", width: 25 },
+    { key: "createdAt", label: "Created At", width: 25 },
 ];
 
 export const CHECKLIST_COLUMNS: CsvColumn[] = [
     { key: "id", label: "Instance ID" },
-    { key: "title", label: "Checklist" },
-    { key: "recurrence", label: "Recurrence" },
-    { key: "store", label: "Store" },
-    { key: "assignees", label: "Assignees" },
-    { key: "periodStart", label: "Period Start" },
-    { key: "periodEnd", label: "Period End" },
-    { key: "itemsDone", label: "Items Done" },
-    { key: "itemsTotal", label: "Items Total" },
-    { key: "isCompleted", label: "Completed" },
+    { key: "title", label: "Checklist", width: 36 },
+    { key: "recurrence", label: "Recurrence", width: 14 },
+    { key: "store", label: "Store", width: 20 },
+    { key: "assignees", label: "Assignees", width: 30 },
+    { key: "periodStart", label: "Period Start", width: 25 },
+    { key: "periodEnd", label: "Period End", width: 25 },
+    { key: "itemsDone", label: "Items Done", width: 12, align: "right" },
+    { key: "itemsTotal", label: "Items Total", width: 12, align: "right" },
+    { key: "isCompleted", label: "Completed", width: 12 },
 ];
 
 export const REPORT_COLUMNS: Record<ReportModule, CsvColumn[]> = {
@@ -91,13 +91,54 @@ type ChecklistReportRow = {
     periodStart: Date; periodEnd: Date; storeName: string | null;
 };
 
+export const ticketWhere = (from?: string, to?: string, extra?: TaskExportFilters) =>
+    and(
+        isNull(tickets.deletedAt),
+        from ? gte(tickets.createdAt, new Date(from)) : undefined,
+        to ? lte(tickets.createdAt, new Date(to)) : undefined,
+        extra?.departmentId ? eq(tickets.departmentId, extra.departmentId) : undefined,
+        extra?.storeId ? eq(tickets.storeId, extra.storeId) : undefined,
+        extra?.status ? eq(tickets.status, extra.status.toUpperCase() as (typeof tickets.status.enumValues)[number]) : undefined,
+        extra?.priority?.length ? inArray(tickets.priority, extra.priority.map((p) => p.toUpperCase()) as (typeof tickets.priority.enumValues)[number][]) : undefined,
+        extra?.assigneeIds?.length ? inArray(tickets.assigneeId, extra.assigneeIds) : undefined,
+    );
+
+export const taskWhere = (from?: string, to?: string, extra?: TaskExportFilters) => {
+    const conditions = [
+        isNull(tasks.deletedAt),
+        ne(tasks.status, "draft"),
+        from ? gte(tasks.createdAt, new Date(from)) : undefined,
+        to ? lte(tasks.createdAt, new Date(to)) : undefined,
+    ];
+
+    if (extra?.category === "issue") {
+        conditions.push(eq(tasks.category, "issue"));
+    } else if (extra?.category === "delegation") {
+        conditions.push(eq(tasks.category, "delegation"), isNotNull(tasks.aiMeta));
+    } else if (extra?.category === "task") {
+        conditions.push(eq(tasks.category, "delegation"), isNull(tasks.aiMeta));
+    }
+    if (extra?.status) conditions.push(eq(tasks.status, extra.status as (typeof tasks.status.enumValues)[number]));
+    if (extra?.priority?.length) conditions.push(inArray(tasks.priority, extra.priority as (typeof tasks.priority.enumValues)[number][]));
+    if (extra?.departmentId) conditions.push(eq(tasks.departmentId, extra.departmentId));
+
+    if (extra?.assigneeIds?.length) {
+        conditions.push(or(
+            inArray(tasks.assigneeId, extra.assigneeIds),
+            inArray(
+                tasks.id,
+                db.select({ taskId: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees)
+                    .where(inArray(taskAdditionalAssignees.userId, extra.assigneeIds)),
+            ),
+        )!);
+    }
+
+    return and(...conditions);
+};
+
 export const reportService = {
-    async *ticketRows(from?: string, to?: string, _extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
-        const where = and(
-            isNull(tickets.deletedAt),
-            from ? gte(tickets.createdAt, new Date(from)) : undefined,
-            to ? lte(tickets.createdAt, new Date(to)) : undefined,
-        );
+    async *ticketRows(from?: string, to?: string, extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
+        const where = ticketWhere(from, to, extra);
 
         let cursor: { createdAt: Date; id: string } | null = null;
         for (; ;) {
@@ -156,35 +197,7 @@ export const reportService = {
     },
 
     async *taskRows(from?: string, to?: string, extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
-        const conditions = [
-            isNull(tasks.deletedAt),
-            from ? gte(tasks.createdAt, new Date(from)) : undefined,
-            to ? lte(tasks.createdAt, new Date(to)) : undefined,
-        ];
-
-        if (extra?.category === "issue") {
-            conditions.push(eq(tasks.category, "issue"));
-        } else if (extra?.category === "delegation") {
-            conditions.push(eq(tasks.category, "delegation"), isNotNull(tasks.aiMeta));
-        } else if (extra?.category === "task") {
-            conditions.push(eq(tasks.category, "delegation"), isNull(tasks.aiMeta));
-        }
-        if (extra?.status) conditions.push(eq(tasks.status, extra.status as (typeof tasks.status.enumValues)[number]));
-        if (extra?.priority?.length) conditions.push(inArray(tasks.priority, extra.priority as (typeof tasks.priority.enumValues)[number][]));
-        if (extra?.departmentId) conditions.push(eq(tasks.departmentId, extra.departmentId));
-
-        if (extra?.assigneeIds?.length) {
-            conditions.push(or(
-                inArray(tasks.assigneeId, extra.assigneeIds),
-                inArray(
-                    tasks.id,
-                    db.select({ taskId: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees)
-                        .where(inArray(taskAdditionalAssignees.userId, extra.assigneeIds)),
-                ),
-            )!);
-        }
-
-        const where = and(...conditions);
+        const where = taskWhere(from, to, extra);
 
         let cursor: { createdAt: Date; id: string } | null = null;
         for (; ;) {

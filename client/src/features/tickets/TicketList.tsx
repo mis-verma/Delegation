@@ -349,7 +349,7 @@ export const TicketList = () => {
         <ExportDialog
           reportModule="tickets"
           title="Export tickets"
-          description="Every ticket created in the chosen period, with its status, priority, department, assignee and due time."
+          description="Download tickets by department: a summary, a week or month breakdown, and every ticket in the period."
           onClose={() => setShowExport(false)}
         />
       )}

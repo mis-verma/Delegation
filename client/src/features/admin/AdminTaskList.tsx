@@ -73,7 +73,7 @@ export const AdminTaskList = () => {
           <ExportDialog
             reportModule="tasks"
             title="Export delegations"
-            description="Every delegation created in the selected period, with its status, priority, department and assignee."
+            description="Download delegations by department: a summary, a week or month breakdown, and every delegation in the period."
             onClose={() => setShowExport(false)}
           />
         )}

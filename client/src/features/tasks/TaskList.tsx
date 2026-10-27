@@ -776,7 +776,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         <ExportDialog
           reportModule="tasks"
           title="Export Delegations"
-          description="Every delegation created in the selected period, with status, priority, department and assignee."
+          description="Download delegations by department: a summary, a week or month breakdown, and every delegation in the period."
           onClose={() => setShowExport(false)}
         />
       )}

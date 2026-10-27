@@ -67,8 +67,8 @@
   --color-vivid-sky-text: #0369a1;
   --color-on-vivid: #07140d;
 
-  --font-sans: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Lato", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 17.5rem;
@@ -398,7 +398,7 @@ body {
 @utility t-card { font-size: calc(clamp(0.875rem, 0.84rem + 0.22vw, 1rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
 @utility t-meta { font-size: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale, 1))); line-height: 1.4; }
 @utility t-stat { font-size: calc(clamp(1.125rem, 1rem + 0.45vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }
-@utility t-figure { font-size: calc(clamp(1.25rem, 1.05rem + 1vw, 2rem) * var(--type-scale, 1)); line-height: 1.1; }
+@utility t-figure { font-size: calc(clamp(1.25rem, 1.05rem + 1vw, 2rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }
 
 @utility gap-inherit {
   gap: inherit;

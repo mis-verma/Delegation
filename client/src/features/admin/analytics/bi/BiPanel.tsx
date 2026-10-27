@@ -20,7 +20,7 @@ import { biLevelParams } from './biParams';
 import { BiTime } from './BiTime';
 import { effectivePeriod, periodAllowed, previousWindow, type BiPeriodChoice } from './biTimeUtils';
 import { RingGrid } from './RingGrid';
-import { Segmented } from './Segmented';
+import { Segmented } from '../../../../components/segmented';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { toneOf, TONE_TEXT } from './vivid';
 import type { BiChart, BiPrefsApi, BiTopN } from './useBiPrefs';
