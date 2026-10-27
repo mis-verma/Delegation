@@ -225,6 +225,12 @@ export const OrgOverview = () => {
         </Button>
       </div>
 
+      {orgWide && (
+        <PhoneCollapse title="Waiting for approval" defaultOpen>
+          <ApprovalWaitingStrip from={windowFrom} to={windowTo} />
+        </PhoneCollapse>
+      )}
+
       {!classic && orgWide && orgStrip}
 
       {classic ? (
@@ -234,12 +240,6 @@ export const OrgOverview = () => {
         />
       ) : (
         <BiOverview windowFrom={windowFrom} windowTo={windowTo} orgWide={orgWide} highlights={orgWide ? leadersBlock : undefined} />
-      )}
-
-      {orgWide && (
-        <PhoneCollapse title="Waiting for approval" defaultOpen>
-          <ApprovalWaitingStrip from={windowFrom} to={windowTo} />
-        </PhoneCollapse>
       )}
 
       {classic && orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} hideRanking />}
