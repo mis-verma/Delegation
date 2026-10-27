@@ -12,11 +12,11 @@ interface TodoViewTabsProps {
 const TABS: { view: TodoView; label: string; filter: TodoQuickFilterKey | null }[] = [
   { view: 'all', label: 'All', filter: null },
   { view: 'pending', label: 'Pending', filter: 'pending' },
-  { view: 'completed', label: 'Completed', filter: 'completed' },
+  { view: 'completed', label: 'Done', filter: 'completed' },
 ];
 
 export const TodoViewTabs = ({ counts, filter, onSelect }: TodoViewTabsProps) => (
-  <div role="group" aria-label="Show to-dos" className="inline-flex items-center gap-1 rounded-xl border border-border/60 bg-surface-hover/50 p-1">
+  <div role="group" aria-label="Show to-dos" className="grid w-full grid-cols-3 items-center gap-1 rounded-xl border border-border/60 bg-surface-hover/50 p-1 sm:inline-flex sm:w-auto">
     {TABS.map(({ view, label, filter: target }) => {
       const active = filter === target;
       return (
@@ -26,7 +26,7 @@ export const TodoViewTabs = ({ counts, filter, onSelect }: TodoViewTabsProps) =>
           aria-pressed={active}
           onClick={() => onSelect(target)}
           className={cn(
-            'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 cursor-pointer pointer-coarse:min-h-11',
+            'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 cursor-pointer sm:min-h-9',
             'focus-visible:ring-2 focus-visible:ring-primary-500/40',
             active ? 'bg-surface text-text ring-1 ring-border' : 'text-text-muted hover:text-text',
           )}

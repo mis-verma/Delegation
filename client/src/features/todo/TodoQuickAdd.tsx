@@ -37,6 +37,7 @@ export const TodoQuickAdd = () => {
       className="flex flex-col gap-2 sm:flex-row sm:items-center"
       aria-label="Add a to-do"
     >
+      <div className="flex min-w-0 items-center gap-2 sm:flex-1">
       <label
         htmlFor="todo-quick-add"
         className={cn(
@@ -63,6 +64,18 @@ export const TodoQuickAdd = () => {
           </span>
         )}
       </label>
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          isLoading={createMut.isPending}
+          disabled={!trimmed}
+          aria-label="Add the to-do"
+          className="h-12 shrink-0 rounded-xl px-4 font-display sm:hidden"
+        >
+          Add
+        </Button>
+      </div>
 
       <div className={cn('flex items-center gap-2', !touched && 'max-sm:hidden')}>
         <TodoDueMenu value={dueDate} onChange={setDueDate}>
@@ -95,7 +108,7 @@ export const TodoQuickAdd = () => {
           size="sm"
           isLoading={createMut.isPending}
           disabled={!trimmed}
-          className="ml-auto h-9 shrink-0 rounded-lg px-4 font-display pointer-coarse:h-11 sm:ml-0"
+          className="ml-auto h-9 shrink-0 rounded-lg px-4 font-display pointer-coarse:h-11 max-sm:hidden sm:ml-0"
         >
           Add
         </Button>

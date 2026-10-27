@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Flag, ArrowUpDown, Search, X } from 'lucide-react';
+import { Flag, ArrowUpDown, Plus, Search, X } from 'lucide-react';
+import { Fab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -17,6 +18,7 @@ import { TodoQuickAdd } from './TodoQuickAdd';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
 import { SEARCH_INPUT_CLASS } from '../scores/controlStyles';
+import { cn } from '@/lib/utils';
 import type { Todo, TodoPriority } from '../../api/todos';
 
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
@@ -79,26 +81,30 @@ export const TodoPage = () => {
       <h1 className="sr-only">To-Do</h1>
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
 
-      <TodoQuickStats
-        counts={quickCounts}
-        total={todos.length}
-        active={quickFilter}
-        onToggle={toggleQuickFilter}
-        onClear={() => setQuickFilter(null)}
-        isLoading={isPending}
-      />
+      <Fab actions={[{ key: 'add', label: 'Add to-do', icon: Plus, onClick: () => setShowForm(true) }]} />
+
+      <div className="max-sm:hidden">
+        <TodoQuickStats
+          counts={quickCounts}
+          total={todos.length}
+          active={quickFilter}
+          onToggle={toggleQuickFilter}
+          onClear={() => setQuickFilter(null)}
+          isLoading={isPending}
+        />
+      </div>
 
       <TodoQuickAdd />
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <TodoViewTabs
           counts={{ all: todos.length, pending: quickCounts.pending, completed: quickCounts.completed }}
           filter={quickFilter}
           onSelect={setQuickFilter}
         />
 
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 max-sm:basis-full">
-          <label className="relative block min-w-0 flex-1 sm:max-w-64">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:justify-end">
+          <label className="relative block min-w-0 flex-1 sm:max-w-64 sm:flex-none sm:basis-64">
             <span className="sr-only">Search your to-dos</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" aria-hidden="true" />
             <input
@@ -145,6 +151,26 @@ export const TodoPage = () => {
 
           <CreatedRangePicker createdRange={dueRange} label="Due date" className="hidden sm:inline-flex shrink-0" />
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 sm:hidden" role="group" aria-label="Quick filters">
+        {([['due', 'Due soon', quickCounts.due], ['delayed', 'Late', quickCounts.delayed]] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={quickFilter === key}
+            onClick={() => toggleQuickFilter(key)}
+            className={cn(
+              'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40',
+              quickFilter === key
+                ? key === 'delayed' ? 'border-vivid-red/50 bg-vivid-red/10 text-vivid-red-text' : 'border-vivid-blue/50 bg-vivid-blue/10 text-vivid-blue-text'
+                : 'border-border/60 bg-surface text-text-secondary',
+            )}
+          >
+            {label}
+            <span className={cn('tabular-nums', count === 0 ? 'text-text-muted' : key === 'delayed' ? 'text-vivid-red-text' : 'text-text')}>{count}</span>
+          </button>
+        ))}
       </div>
 
       {dueRange.range && (
