@@ -150,7 +150,7 @@ export const HomePage = () => {
   const refresh = useCallback(() => void invalidateDashboardQueries(queryClient), [queryClient]);
 
   const staticGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3 lg:gap-4">
       {visibleCardOrder.map((id) => (
         <DashboardCardFrame key={id} size={cardSizes[id]}>
           {LAZY_CARDS.has(id) ? <LazyWhenVisible>{renderCard(id)}</LazyWhenVisible> : renderCard(id)}

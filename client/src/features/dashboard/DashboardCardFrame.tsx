@@ -29,7 +29,7 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
     <button
       type="button"
       {...handleProps}
-      className="shrink-0 flex items-center justify-center size-11 -my-2 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="shrink-0 flex items-center justify-center size-11 -my-2 rounded-xl border border-transparent text-text-muted hover:border-border hover:bg-surface hover:text-text transition-colors cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       aria-label={`Drag to reorder ${label}`}
     >
       <GripVertical size={15} />
@@ -42,7 +42,7 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
         aria-pressed={size === 'small'}
         title="Small"
         className={`flex items-center justify-center size-8 rounded-md transition-colors cursor-pointer ${
-          size === 'small' ? 'bg-primary-600 text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
+          size === 'small' ? 'bg-vivid-blue text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
         }`}
       >
         <Square size={12} strokeWidth={2.25} />
@@ -53,7 +53,7 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
         aria-pressed={size === 'big'}
         title="Big"
         className={`flex items-center justify-center size-8 rounded-md transition-colors cursor-pointer ${
-          size === 'big' ? 'bg-primary-600 text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
+          size === 'big' ? 'bg-vivid-blue text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
         }`}
       >
         <RectangleHorizontal size={14} strokeWidth={2.25} />

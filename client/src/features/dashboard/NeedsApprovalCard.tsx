@@ -1,8 +1,9 @@
 import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, ChevronRight, ChevronDown, CheckCheck, User } from 'lucide-react';
-import { IconChip } from '../../components/iconChip';
+import { ShieldAlert, ChevronRight, ChevronDown, CheckCheck } from 'lucide-react';
+import { getInitials } from '../../lib/getInitials';
+import { avatarColorClass } from '../../lib/avatarColors';
 import { WaitChip } from '../../components/dueChip';
 import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
@@ -11,8 +12,8 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, cardIconTile } from './dashboardDisplay';
-import { CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
+import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
+import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
@@ -34,25 +35,27 @@ export const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number 
     <Link
       to={row.link}
       viewTransition
-      className="group flex items-center gap-3 min-h-14 px-4 sm:px-5 py-2.5 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
+      className="group relative flex items-center gap-3 min-h-[4.25rem] px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/60 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0 text-white', CATEGORY_TILE[row.category])}>
-        <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
+      <span aria-hidden="true" className={cn('absolute inset-y-3 left-0 w-1 rounded-r-full opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100', CATEGORY_ACCENT[row.category])} />
+      <span className={cn('flex items-center justify-center size-11 rounded-xl shrink-0 text-white', CATEGORY_TILE[row.category])}>
+        <Icon className="size-5" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div className="flex flex-1 min-w-0 flex-col gap-1.5">
-        <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
+        <p className="line-clamp-2 text-sm font-display font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', CATEGORY_PILL[row.category])}>{ACTIVITY_CATEGORY_LABEL[row.category]}</span>
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-bold', CATEGORY_PILL[row.category])}>{ACTIVITY_CATEGORY_LABEL[row.category]}</span>
           <WaitChip since={row.waitingSince} now={now} />
           {row.meta && (
-            <span className="inline-flex min-w-0 items-center gap-1 t-meta font-medium text-text-muted">
-              <User className="size-3 shrink-0" aria-hidden="true" />
+            <span className="inline-flex min-w-0 items-center gap-1.5 t-meta font-medium text-text-secondary">
+              <span aria-hidden="true" className={cn('flex size-5 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold leading-none text-white', avatarColorClass(row.meta))}>{getInitials(row.meta).slice(0, 1)}</span>
               <span className="truncate">{row.meta}</span>
             </span>
           )}
         </div>
       </div>
-      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      <span className="hidden shrink-0 items-center rounded-full border border-border bg-surface px-3 py-1 t-meta font-display font-bold text-text-secondary transition-colors group-hover:border-vivid-blue/50 group-hover:text-vivid-blue-text lg:inline-flex">Review</span>
+      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 lg:hidden" aria-hidden="true" />
     </Link>
   );
 });
@@ -105,8 +108,8 @@ export const NeedsApprovalCard = () => {
     <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={cardIconTile('primary')}>
-            <ShieldAlert className="size-4" strokeWidth={2.25} aria-hidden="true" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-vivid-blue text-white">
+            <ShieldAlert className="size-5" strokeWidth={2.25} aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <h2 id="needs-approval-heading" className="t-section font-display font-bold text-text tracking-tight">
@@ -119,13 +122,13 @@ export const NeedsApprovalCard = () => {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!hasError && total > 0 && (
-            <IconChip icon={ShieldAlert} tone="bg-primary-600" label={total} labelClassName="tabular-nums" />
+            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-vivid-blue px-2.5 t-card font-display font-extrabold tabular-nums text-white" aria-label={`${total} waiting`}>{total}</span>
           )}
           {queueHref && !nothingToShow && (
             <Link
               viewTransition
               to={queueHref}
-              className="inline-flex items-center gap-0.5 min-h-11 sm:min-h-9 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex items-center gap-0.5 h-11 sm:h-9 px-3.5 rounded-full border border-vivid-blue/40 bg-vivid-blue/8 text-sm font-display font-bold text-vivid-blue-text transition-colors hover:bg-vivid-blue/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             >
               Review all
               <ChevronRight size={16} strokeWidth={2.25} aria-hidden="true" />
@@ -162,21 +165,19 @@ export const NeedsApprovalCard = () => {
         !nothingToShow && (
           <>
             {(['ticket', 'delegation', 'checklist'] as const).filter((c) => categoryTotals[c] > 0).length > 1 && (
-            <div className="hidden sm:flex flex-wrap gap-2 px-5 pt-4 pb-1">
+            <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1 sm:px-5 sm:pt-4">
               {(['ticket', 'delegation', 'checklist'] as const)
                 .filter((c) => categoryTotals[c] > 0)
                 .map((c) => (
-                  <IconChip
-                    key={c}
-                    icon={CATEGORY_ICON[c]}
-                    label={`${categoryTotals[c]} ${ACTIVITY_CATEGORY_LABEL[c].toLowerCase()}${categoryTotals[c] === 1 ? '' : 's'}`}
-                    tone={ACTIVITY_CATEGORY_DOT_CLASS[c]}
-                  />
+                  <span key={c} className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 t-meta font-display font-bold', CATEGORY_PILL[c])}>
+                    <span className="tabular-nums">{categoryTotals[c]}</span>
+                    {ACTIVITY_CATEGORY_LABEL[c].toLowerCase()}{categoryTotals[c] === 1 ? '' : 's'}
+                  </span>
                 ))}
             </div>
             )}
 
-            <div className={cn('flex flex-col divide-y divide-border/60', expanded && 'max-h-[28rem] overflow-y-auto overscroll-contain')}>
+            <div className={cn('flex flex-col divide-y divide-border/60', expanded && 'max-h-[46rem] overflow-y-auto overscroll-contain')}>
               {visible.map((row) => <ApprovalLink key={`${row.category}-${row.id}`} row={row} now={now} />)}
             </div>
           </>
@@ -189,7 +190,7 @@ export const NeedsApprovalCard = () => {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-vivid-blue-text outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
         >
           {expanded ? 'Show fewer' : `Show all ${rows.length}`}
           <ChevronDown className={cn('size-3.5 transition-transform duration-200', expanded && 'rotate-180')} aria-hidden="true" />
@@ -200,7 +201,7 @@ export const NeedsApprovalCard = () => {
           <Link
             to={queueHref}
             viewTransition
-            className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover"
+            className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-vivid-blue-text outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover"
           >
             Open the queue for {notLoaded} more
             <ChevronRight className="size-3.5" aria-hidden="true" />

@@ -9,15 +9,22 @@ export const CATEGORY_ICON: Record<ActivityCategory, LucideIcon> = {
 };
 
 export const CATEGORY_TILE: Record<ActivityCategory, string> = {
-  checklist: 'bg-linear-to-br from-primary-500 to-primary-600',
-  delegation: 'bg-linear-to-br from-primary-500 to-primary-600',
-  ticket: 'bg-linear-to-br from-primary-500 to-primary-600',
-  todo: 'bg-linear-to-br from-primary-500 to-primary-600',
+  checklist: 'bg-linear-to-br from-vivid-blue to-vivid-blue/70',
+  delegation: 'bg-linear-to-br from-vivid-green to-vivid-green/70',
+  ticket: 'bg-linear-to-br from-vivid-sky to-vivid-sky/70',
+  todo: 'bg-linear-to-br from-text-muted to-text-secondary',
 };
 
 export const CATEGORY_PILL: Record<ActivityCategory, string> = {
-  checklist: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
-  delegation: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
-  ticket: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
-  todo: 'bg-primary-500/10 text-primary-700 dark:text-primary-300',
+  checklist: 'bg-vivid-blue/12 text-vivid-blue-text',
+  delegation: 'bg-vivid-green/12 text-vivid-green-text',
+  ticket: 'bg-vivid-sky/12 text-vivid-sky-text',
+  todo: 'bg-surface-hover text-text-secondary',
+};
+
+export const CATEGORY_ACCENT: Record<ActivityCategory, string> = {
+  checklist: 'bg-vivid-blue',
+  delegation: 'bg-vivid-green',
+  ticket: 'bg-vivid-sky',
+  todo: 'bg-text-muted',
 };

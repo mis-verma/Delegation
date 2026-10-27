@@ -73,7 +73,7 @@ const DashboardSortableGrid = ({ order, sizes, renderCard, onMove, onSizeChange,
       onDragCancel={() => setActiveDragId(null)}
     >
       <SortableContext items={order} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3 pb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3 pb-8 lg:gap-4">
           {order.map((id) => (
             <SortableFrame key={id} id={id} size={sizes[id]} onSizeChange={(size) => onSizeChange(id, size)} onHide={() => onHide(id)}>
               {renderCard(id)}
