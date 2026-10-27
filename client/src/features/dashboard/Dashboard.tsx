@@ -3,7 +3,7 @@ import { Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { Construction } from 'lucide-react';
-import { Header, Footer, Sidebar, BottomNav } from '../../components/layout';
+import { Header, Sidebar, BottomNav } from '../../components/layout';
 import { ViewAsBanner } from '../viewAs/ViewAsBanner';
 import { RouteFallback } from '../../components/skeleton';
 import { PullToRefresh } from '../../components/pullToRefresh';
@@ -15,7 +15,7 @@ import { directionBetween, type NavDirection } from '../../lib/appNav';
 import { useEdgeSwipeBack } from '../../lib/useEdgeSwipeBack';
 
 export const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -96,9 +96,6 @@ export const Dashboard = () => {
               </div>
             </Suspense>
           </div>
-          <div className="hidden md:block">
-            <Footer />
-          </div>
         </div>
       </PullToRefresh>
     </main>
@@ -116,7 +113,6 @@ export const Dashboard = () => {
         <Sidebar
           isOpen={sidebarOpen}
           user={user}
-          logout={logout}
           onNavigate={closeSidebar}
           onToggleCollapse={toggleSidebar}
         />

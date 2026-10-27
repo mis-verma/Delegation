@@ -11,6 +11,7 @@ import { TaskChecklistKpiSection } from './TaskChecklistKpiSection';
 import { TicketKpiSection } from './TicketKpiSection';
 import { ChecklistInstanceKpiSection } from './ChecklistInstanceKpiSection';
 import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
+import { BiOverview } from './bi/BiOverview';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { PhoneCollapse } from './PhoneCollapse';
@@ -136,7 +137,8 @@ export const OrgOverview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const orgWide = isOrgWide(user?.role);
-  const { patch, groupBy, range, from, to, windowFrom, windowTo, handleGroupBy, handleRange } = useAnalyticsWindow();
+  const { params, patch, groupBy, range, from, to, windowFrom, windowTo, handleGroupBy, handleRange } = useAnalyticsWindow();
+  const classic = params.get('classic') === '1';
 
   const jumpToSection = useCallback(
     (target: SectionValue) => {
@@ -156,6 +158,18 @@ export const OrgOverview = () => {
     [scoreWindow],
   );
   const openRankings = useCallback(() => navigate(scoresHref('department')), [navigate, scoresHref]);
+  const linkButtons = orgWide ? (
+    <>
+      <Button variant="ghost" size="sm" onClick={openRankings} className="pointer-coarse:min-h-11">
+        Scores
+        <ArrowRight size={14} aria-hidden="true" />
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')} className="pointer-coarse:min-h-11">
+        <FileDown size={14} aria-hidden="true" />
+        Reports
+      </Button>
+    </>
+  ) : null;
 
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
@@ -190,23 +204,21 @@ export const OrgOverview = () => {
         onRefresh={() => void refresh()}
       />
 
-      <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection}
-        isOrgWideRole={orgWide}
-        links={
-          orgWide ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={openRankings}>
-                Scores
-                <ArrowRight size={14} aria-hidden="true" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')}>
-                <FileDown size={14} aria-hidden="true" />
-                Reports
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        {!classic && linkButtons}
+        <Button variant="ghost" size="sm" onClick={() => patch({ classic: classic ? null : '1' })} className="pointer-coarse:min-h-11">
+          {classic ? 'Charts view' : 'Classic view'}
+        </Button>
+      </div>
+
+      {classic ? (
+        <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection}
+          isOrgWideRole={orgWide}
+          links={orgWide ? linkButtons : undefined}
+        />
+      ) : (
+        <BiOverview windowFrom={windowFrom} windowTo={windowTo} orgWide={orgWide} />
+      )}
 
       {orgWide && (
         <PhoneCollapse title="Waiting for approval" defaultOpen>
@@ -214,7 +226,7 @@ export const OrgOverview = () => {
         </PhoneCollapse>
       )}
 
-      {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} hideRanking />}
+      {classic && orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} hideRanking />}
 
       {orgWide && (
         <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
@@ -227,7 +239,7 @@ export const OrgOverview = () => {
         </PhoneCollapse>
       )}
 
-      <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
+      {classic && <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />}
 
       {orgWide && (
         <PhoneCollapse title="Your organisation" hint="Stores, departments and people">

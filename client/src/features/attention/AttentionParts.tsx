@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { BellRing, Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, IconChip, Skeleton } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
@@ -35,9 +35,12 @@ interface AttentionPersonRowProps {
   selectable?: boolean;
   selected?: boolean;
   onToggle?: (userId: string) => void;
+  onRemind?: (userId: string) => void;
+  reminding?: boolean;
+  reminded?: boolean;
 }
 
-export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, selected = false, onToggle }: AttentionPersonRowProps) => {
+export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, selected = false, onToggle, onRemind, reminding = false, reminded = false }: AttentionPersonRowProps) => {
   const chips = attentionChips(person);
   const shown = chips.slice(0, MAX_CHIPS);
   const extra = chips.length - shown.length;
@@ -77,6 +80,18 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
         </span>
         <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />
       </button>
+      {onRemind && (
+        <button
+          type="button"
+          onClick={() => onRemind(person.userId)}
+          disabled={reminding || reminded}
+          aria-label={reminded ? `${person.name} was reminded in the last 30 minutes` : `Send a reminder to ${person.name}`}
+          title={reminded ? 'Reminded in the last 30 minutes' : 'Send a reminder'}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full text-text-secondary outline-none transition-colors duration-150 cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {reminded ? <Check className="size-4" aria-hidden /> : <BellRing className="size-4" aria-hidden />}
+        </button>
+      )}
     </div>
   );
 });

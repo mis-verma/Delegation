@@ -81,6 +81,8 @@ export { PageHeader } from './pageHeader';
 export { StateChip } from './stateChip';
 export { CountBadge } from './countBadge';
 export { DueChip, WaitChip } from './dueChip';
+export { StatusBadge } from './statusBadge';
+export type { StatusVariant } from './statusBadge';
 export { SavedViewsMenu, useSavedViews, type SavedView } from './savedViews';
 export { PeriodStepper } from './periodStepper';
 export { ToggleChip, AddChip } from './toggleChip';

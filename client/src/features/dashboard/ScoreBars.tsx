@@ -175,7 +175,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
         <thead><tr><th scope="col">Module</th><th scope="col">Completion</th><th scope="col">Compliance</th><th scope="col">On time</th></tr></thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.name}><th scope="row">{r.name}</th><td>{r.completion ?? 'No data'}</td><td>{r.compliance ?? 'No data'}</td><td>{r.ontime ?? 'No data'}</td></tr>
+            <tr key={r.name}><th scope="row">{r.name}</th><td>{r.completion ?? 'Nothing due'}</td><td>{r.compliance ?? 'Nothing due'}</td><td>{r.ontime ?? 'Nothing due'}</td></tr>
           ))}
         </tbody>
       </table>

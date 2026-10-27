@@ -18,7 +18,6 @@ import {
   Megaphone,
   CalendarDays,
   Settings,
-  LogOut,
   TicketCheck,
   ShieldCheck,
   ClipboardCheck,
@@ -115,12 +114,11 @@ const RailTip = ({ label, show, children }: { label: string; show: boolean; chil
 interface SidebarProps {
   isOpen: boolean;
   user: { id: string; name: string; email: string; role?: string } | null;
-  logout: () => void;
   onNavigate?: () => void;
   onToggleCollapse?: () => void;
 }
 
-const SidebarImpl = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: SidebarProps) => {
+const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
   const prefetchRoute = usePrefetchRoute();
   const isMobile = useIsMobile();
@@ -148,13 +146,6 @@ const SidebarImpl = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: Sid
       return next;
     });
   };
-
-  const initials = (user?.name ?? 'U')
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
   const { data: taskSummary } = useTaskSummaryQuery();
   const { data: ticketSummary } = useTicketSummaryQuery();
@@ -537,48 +528,6 @@ const SidebarImpl = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: Sid
         {renderNavItem(SETTINGS_ITEM, isDrawer)}
       </div>
 
-      <div className="shrink-0 pt-3 mt-1">
-        <div
-          className={[
-            'flex items-center p-2 rounded-xl border border-transparent transition-all duration-300',
-            (isDrawer || isOpen) ? 'bg-surface-hover border-border' : 'md:justify-center hover:bg-surface-hover/50',
-          ].join(' ')}
-        >
-          <div
-            className="relative size-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-inset ring-white/15 flex items-center justify-center text-white t-meta font-bold shrink-0"
-            title={user?.name}
-          >
-            {initials}
-            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
-          </div>
-
-          <div
-            className={[
-              'flex items-center gap-2 min-w-0 overflow-hidden transition-all duration-300 ease-in-out',
-              (isDrawer || isOpen) ? 'max-w-[12rem] opacity-100 ml-3' : 'max-w-0 opacity-0 ml-0',
-            ].join(' ')}
-          >
-            <div className="flex-1 min-w-0 py-0.5">
-              <p className="text-sm font-bold text-text truncate leading-tight">
-                {user?.name}
-              </p>
-              <p className="t-meta font-medium text-text-muted truncate leading-tight mt-0.5">
-                {user?.email}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={logout}
-              title="Log out"
-              className="size-8 pointer-coarse:size-11 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer shrink-0 ml-1"
-              aria-label="Log out"
-            >
-              <LogOut size={16} strokeWidth={2} />
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 

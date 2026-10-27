@@ -1,20 +1,10 @@
 import { useMemo } from 'react';
-
-const DUE_HOUR = 18;
+import { buildQuickDueOptions } from './buildQuickDueOptions';
 
 const sameMoment = (a: Date | null, b: Date) => !!a && a.getTime() === b.getTime();
 
-const buildOptions = () => {
-  const now = new Date();
-  const at = (addDays: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + addDays, DUE_HOUR, 0);
-  const options: { label: string; date: Date }[] = [];
-  if (at(0).getTime() > now.getTime() + 30 * 60_000) options.push({ label: 'Today', date: at(0) });
-  options.push({ label: 'Tomorrow', date: at(1) }, { label: 'In 3 days', date: at(3) }, { label: 'Next week', date: at(7) });
-  return options;
-};
-
 export const QuickDueOptions = ({ value, onPick }: { value: Date | null; onPick: (date: Date) => void }) => {
-  const options = useMemo(() => buildOptions(), []);
+  const options = useMemo(() => buildQuickDueOptions(), []);
 
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Quick due dates">

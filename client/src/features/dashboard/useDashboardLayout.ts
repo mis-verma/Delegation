@@ -10,6 +10,7 @@ import {
   REQUEST_REVIEWER_CARDS,
   LAYOUT_VERSION,
   NEW_IN_V3,
+  LEGACY_V12_DEFAULT_ORDER,
   LEGACY_V1_DEFAULT_ORDER,
   LEGACY_V1_ADMIN_ONLY,
   type DashboardCardId,
@@ -99,12 +100,18 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
       const front = NEW_IN_V3.filter((id) => visibleCards.includes(id));
       return [...front, ...reconcile(stored.order.filter((id) => !NEW_IN_V3.includes(id)))];
     }
-    const reconciled = reconcile(stored.order);
-    if (stored.version >= 12 || !visibleCards.includes('ticketRequests')) return reconciled;
-    const rest: DashboardCardId[] = reconciled.filter((id) => id !== 'ticketRequests');
-    const at = rest.indexOf('needsApproval');
-    rest.splice(at === -1 ? 0 : at, 0, 'ticketRequests');
-    return rest;
+    let next = reconcile(stored.order);
+    if (stored.version < 12 && visibleCards.includes('ticketRequests')) {
+      const rest: DashboardCardId[] = next.filter((id) => id !== 'ticketRequests');
+      const at = rest.indexOf('needsApproval');
+      rest.splice(at === -1 ? 0 : at, 0, 'ticketRequests');
+      next = rest;
+    }
+    if (stored.version < LAYOUT_VERSION) {
+      const previousDefault = LEGACY_V12_DEFAULT_ORDER.filter((id) => visibleCards.includes(id));
+      if (next.length === previousDefault.length && next.every((id, i) => id === previousDefault[i])) return [...visibleCards];
+    }
+    return next;
   });
   const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => sizesFrom(loadStoredLayout(storageKey)));
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);

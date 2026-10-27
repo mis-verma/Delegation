@@ -14,3 +14,13 @@ export const relativeDayLabel = (date: Date, now: Date = new Date()) => {
 
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
+
+export const dueLabel = (iso: string | Date) => {
+  const d = new Date(iso);
+  return `${relativeDayLabel(d)}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+};
+
+export const addedLabel = (iso: string) => {
+  const day = relativeDayLabel(new Date(iso));
+  return day === 'Today' || day === 'Yesterday' ? `Added ${day.toLowerCase()}` : `Added ${day}`;
+};

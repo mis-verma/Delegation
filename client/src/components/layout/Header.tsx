@@ -142,9 +142,7 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
             <span className="t-card font-display font-bold text-text truncate">
               {pageLabel ?? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''}`}
             </span>
-            <span className="t-meta font-medium text-text-muted truncate">
-              {pageLabel ? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''} · ${currentDate}` : currentDate}
-            </span>
+            <span className="t-meta font-medium text-text-muted truncate">{currentDate}</span>
           </div>
         </div>
 

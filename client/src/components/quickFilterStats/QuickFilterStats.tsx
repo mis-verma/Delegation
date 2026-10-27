@@ -52,6 +52,27 @@ const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, m
 
 const LATE = new Set<string>(['delayed', 'overdue']);
 
+const RING_RADIUS = 8;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+const ProgressRing = ({ percent, className }: { percent: number; className: string }) => (
+  <svg viewBox="0 0 20 20" className={cn('size-5 shrink-0 -rotate-90', className)} aria-hidden="true">
+    <circle cx="10" cy="10" r={RING_RADIUS} fill="none" strokeWidth="2.5" className="stroke-border" />
+    <circle
+      cx="10"
+      cy="10"
+      r={RING_RADIUS}
+      fill="none"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      stroke="currentColor"
+      strokeDasharray={RING_LENGTH}
+      strokeDashoffset={RING_LENGTH * (1 - percent / 100)}
+      className="transition-[stroke-dashoffset] duration-500 ease-out"
+    />
+  </svg>
+);
+
 export function QuickFilterStats<K extends string>({
   tiles,
   counts,
@@ -78,29 +99,33 @@ export function QuickFilterStats<K extends string>({
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
         const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
+        const isQuiet = count === 0 && !isActive;
+        const percent = total ? Math.round((count / total) * 100) : 0;
         const purpose = key === 'all'
           ? `Show all ${itemLabel}`
           : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
+        const spoken = `${label}: ${count}${hasTotal && !isTotalTile ? ` of ${total}` : ''}. ${purpose}`;
         return (
           <button
             key={key}
             type="button"
             onClick={handleClick}
             aria-pressed={isActive}
-            aria-label={purpose}
+            aria-label={spoken}
             title={purpose}
             className={cn(
               'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border px-0.5 py-2 text-center font-display outline-none',
-              'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
+              'sm:min-h-24 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              'bg-surface', isActive ? cn(accentBorder, 'ring-2 ring-primary-500/20') : 'border-border hover:border-border-hover',
+              isQuiet ? 'bg-surface-hover/40' : 'bg-surface',
+              isActive ? cn(accentBorder, 'ring-2 ring-primary-500/20') : 'border-border hover:border-border-hover',
             )}
           >
             <span className="min-w-0 max-w-full">
               <span className={cn(
                 'block t-stat font-extrabold sm:font-bold leading-none max-sm:tracking-tighter max-sm:break-all',
-                isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
+                isActive ? cn(iconTint, 'sm:text-text') : isQuiet ? 'text-text-muted' : LATE.has(key) ? 'text-danger' : 'text-text',
               )}>
                 <CountUp value={count} />
               </span>
@@ -108,15 +133,13 @@ export function QuickFilterStats<K extends string>({
                 {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
               </span>
               {hasTotal && !isTotalTile && (
-                <span className="hidden sm:flex mt-2 items-center gap-2" aria-hidden="true">
-                  <span className="h-1 w-14 overflow-hidden rounded-full bg-surface-hover">
-                    <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', accentBar)} style={{ width: `${total ? Math.round((count / total) * 100) : 0}%` }} />
-                  </span>
-                  <span className="t-meta font-medium text-text-light tabular-nums">{total ? Math.round((count / total) * 100) : 0}%</span>
+                <span className="hidden sm:flex mt-2 items-center gap-1.5" aria-hidden="true">
+                  <ProgressRing percent={percent} className={isQuiet ? 'text-text-muted' : iconTint} />
+                  <span className="t-meta font-medium text-text-muted tabular-nums">{percent}%</span>
                 </span>
               )}
             </span>
-            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', cn(accentBar, 'text-white'))}>
+            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isQuiet ? 'bg-surface-hover text-text-muted' : cn(accentBar, 'text-white'))}>
               <Icon className="size-[1.125rem]" strokeWidth={2.25} />
             </span>
           </button>

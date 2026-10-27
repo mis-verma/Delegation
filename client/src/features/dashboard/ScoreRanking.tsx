@@ -136,7 +136,8 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
       if (x === null) return 1;
       if (y === null) return -1;
       const diff = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
-      return ascending ? diff : -diff;
+      if (diff !== 0) return ascending ? diff : -diff;
+      return b.due - a.due || a.row.name.localeCompare(b.row.name);
     });
   }, [reportData, peopleReport.data, isStore, scope, metric, sortKey, ascending, query]);
 
@@ -173,12 +174,17 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
   const scoredRows = rows.filter((c) => c[metric].overall !== null);
   const previewMode = !searching && !showAll && scoredRows.length > PREVIEW_ROWS;
   const edge = Math.min(EDGE_ROWS, Math.floor(scoredRows.length / 2));
-  const byScore = [...scoredRows].sort((a, b) => (a[metric].overall as number) - (b[metric].overall as number));
+  const bestFirst = [...scoredRows].sort(
+    (a, b) => (b[metric].overall as number) - (a[metric].overall as number) || b.due - a.due || a.row.name.localeCompare(b.row.name),
+  );
   const unwatched = (list: Computed[]) => (isPeople ? list.filter((c) => !watched.has(c.row.id)) : list);
-  const lowestRows = unwatched(byScore.slice(0, edge));
-  const highestRows = unwatched(byScore.slice(byScore.length - edge).reverse());
+  const lowestRows = unwatched(bestFirst.slice(bestFirst.length - edge).reverse());
+  const highestRows = unwatched(bestFirst.slice(0, edge));
   const watchRows = isPeople ? rows.filter((c) => watched.has(c.row.id)) : [];
-  const topId = highestRows[0]?.row.id;
+  const topValue = highestRows[0]?.[metric].overall ?? null;
+  const topRows = topValue === null ? [] : highestRows.filter((c) => c[metric].overall === topValue);
+  const topIds = new Set(topRows.map((c) => c.row.id));
+  const topTied = topRows.length > 1;
   const shown = showAll || searching ? ordered : ordered.slice(0, PREVIEW_ROWS);
   const hiddenCount = previewMode ? 0 : ordered.length - shown.length;
 
@@ -230,7 +236,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         <span className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="line-clamp-1 t-card font-display font-bold text-text">{c.row.name}</span>
-            {top && <IconChip className="shrink-0" icon={Trophy} tone="bg-primary-600" label="Top" />}
+            {top && <IconChip className="shrink-0" icon={Trophy} tone="bg-primary-600" label={topTied ? 'Top, tied' : 'Top'} />}
           </span>
           {isPeople && c.row.department && <span className="line-clamp-1 t-meta text-text-muted">{c.row.department}</span>}
         </span>
@@ -245,8 +251,11 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
       <section aria-label={title} className="flex min-w-0 flex-col gap-1">
         <h4 className="t-meta font-display font-bold text-text-muted">{title}</h4>
         <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
-          {list.map((c) => renderLine(c, withTop && c.row.id === topId))}
+          {list.map((c) => renderLine(c, withTop && topIds.has(c.row.id)))}
         </ul>
+        {withTop && topTied && (
+          <p className="t-meta font-medium text-text-muted">{topRows.length} tied at {formatPct(topValue ?? 0)}. Ties are listed by items due, then name.</p>
+        )}
       </section>
     );
   const showMore = hiddenCount > 0 && (

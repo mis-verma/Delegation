@@ -62,6 +62,7 @@ const TILE_PRIMARY = 'bg-linear-to-br from-primary-500 to-primary-600';
 
 interface FocusNowCardProps {
   ownWorkOnly?: boolean;
+  reviewCount?: number;
   tasks: Task[];
   tickets: Ticket[];
   checklists: ChecklistInstance[];
@@ -99,7 +100,7 @@ const FocusSkeleton = () => (
   </section>
 );
 
-export const FocusNowCard = ({ ownWorkOnly = false, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
@@ -213,15 +214,22 @@ export const FocusNowCard = ({ ownWorkOnly = false, tasks, tickets, checklists, 
         </section>
       );
     }
+    const teamNeedsLook = ownWorkOnly && reviewCount > 0;
     return (
       <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3.5 px-4 py-3.5 border-success/30 bg-linear-to-r from-success/12 via-success/5 to-transparent')}>
         <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
           <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="focus-now-heading" className="t-section font-display font-bold tracking-tight text-text">You're on track</h2>
+          <h2 id="focus-now-heading" className="t-section font-display font-bold tracking-tight text-text">
+            {ownWorkOnly ? 'Your own work is on track' : "You're on track"}
+          </h2>
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <p className="t-meta text-text-muted">Nothing is overdue or due today.<span className="hidden sm:inline"> Nice work.</span></p>
+            <p className="t-meta font-medium text-text-secondary">
+              {teamNeedsLook
+                ? `Nothing of yours is overdue or due today. ${reviewCount} ${reviewCount === 1 ? 'item from your team needs' : 'items from your team need'} a look below.`
+                : 'Nothing is overdue or due today.'}
+            </p>
             {updated}
           </div>
         </div>
@@ -249,7 +257,11 @@ export const FocusNowCard = ({ ownWorkOnly = false, tasks, tickets, checklists, 
             </p>
             {updated}
           </div>
-          {ownWorkOnly && <p className="t-meta text-text-muted">Only your own work. Your team is in the cards below.</p>}
+          {ownWorkOnly && (
+            <p className="t-meta text-text-muted">
+              Only your own work.{reviewCount > 0 ? ` ${reviewCount} more ${reviewCount === 1 ? 'item needs' : 'items need'} your review in the cards below.` : ' Your team is in the cards below.'}
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {lateCount > 0 && <IconChip icon={AlarmClockOff} tone="bg-danger" label={`${lateCount} late`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}
             {sentBackCount > 0 && <IconChip icon={Undo2} tone="bg-danger" label={`${sentBackCount} sent back`} labelClassName="tabular-nums text-danger" className="border-danger/30 bg-danger/10" />}

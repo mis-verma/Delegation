@@ -52,8 +52,8 @@
   --color-border-hover: #ccd6ea;
   --color-text: #0c1428; 
   --color-text-secondary: #394a6b;
-  --color-text-muted: #64748b;
-  --color-text-light: #94a3b8;
+  --color-text-muted: #4f5e78;
+  --color-text-light: #5f6e85;
   --color-white: #ffffff;
   --color-success-strong: #047857;
 
@@ -221,8 +221,8 @@ body {
   --color-border-hover: #354466;
   --color-text: #edf1f8;
   --color-text-secondary: #b5c0d6;
-  --color-text-muted: #8893ab;
-  --color-text-light: #5f6b84;
+  --color-text-muted: #9aa5bb;
+  --color-text-light: #8794ad;
   --glass-bg: rgba(13, 18, 34, 0.72);
   --glass-border: rgba(36, 48, 80, 0.7);
  
@@ -237,6 +237,14 @@ body {
   --color-series-compliance: #3cc0b2;
   --color-activity-todo: #9aa7bd;
   color-scheme: dark;
+}
+
+:root:not([data-theme="dark"]) .text-success {
+  color: var(--color-success-strong);
+}
+
+:root:not([data-theme="dark"]) .text-danger {
+  color: #c62828;
 }
 
 ::selection {

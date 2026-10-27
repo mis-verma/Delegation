@@ -1,7 +1,7 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ShieldAlert, ChevronRight, CheckCheck, User } from 'lucide-react';
+import { ShieldAlert, ChevronRight, ChevronDown, CheckCheck, User } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
 import { WaitChip } from '../../components/dueChip';
 import { Skeleton } from '../../components/skeleton';
@@ -62,6 +62,7 @@ export const NeedsApprovalCard = () => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
   const now = useNow();
+  const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
@@ -80,8 +81,10 @@ export const NeedsApprovalCard = () => {
 
   if (!reviewsAllWork && !hasError && (isPending || total === 0)) return null;
 
-  const visible = rows.slice(0, isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT);
-  const remaining = total - visible.length;
+  const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
+  const visible = expanded ? rows : rows.slice(0, previewLimit);
+  const canExpand = rows.length > previewLimit;
+  const notLoaded = Math.max(0, total - rows.length);
 
   const categoryTotals: Record<ApprovalCategory, number> = {
     ticket: reviewsAllWork || isHod ? (tickets.data?.total ?? 0) : 0,
@@ -173,14 +176,40 @@ export const NeedsApprovalCard = () => {
             </div>
             )}
 
-            <div className="flex flex-col divide-y divide-border/60">
+            <div className={cn('flex flex-col divide-y divide-border/60', expanded && 'max-h-[28rem] overflow-y-auto overscroll-contain')}>
               {visible.map((row) => <ApprovalLink key={`${row.category}-${row.id}`} row={row} now={now} />)}
             </div>
           </>
         )
       )}
 
-      {remaining > 0 && <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">{remaining} more waiting</p>}
+      <div className="mt-auto flex flex-col">
+      {canExpand && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+        >
+          {expanded ? 'Show fewer' : `Show all ${rows.length}`}
+          <ChevronDown className={cn('size-3.5 transition-transform duration-200', expanded && 'rotate-180')} aria-hidden="true" />
+        </button>
+      )}
+      {notLoaded > 0 && (
+        queueHref ? (
+          <Link
+            to={queueHref}
+            viewTransition
+            className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover"
+          >
+            Open the queue for {notLoaded} more
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        ) : (
+          <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">{notLoaded} more waiting</p>
+        )
+      )}
+      </div>
     </section>
   );
 };

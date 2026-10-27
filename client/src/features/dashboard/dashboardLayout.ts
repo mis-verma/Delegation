@@ -17,17 +17,27 @@ export type DashboardCardId =
 
 export type DashboardCardSize = 'small' | 'big';
 
-export const LAYOUT_VERSION = 12;
+export const LAYOUT_VERSION = 13;
 
 export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
-export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+export const LEGACY_V12_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
   'ticketRequests',
   'needsApproval',
   'exceptions',
   'myTeam',
   'kpiStrip',
+  'myScores',
+];
+
+export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+  'todayStrip',
+  'kpiStrip',
+  'exceptions',
+  'needsApproval',
+  'ticketRequests',
+  'myTeam',
   'myScores',
 ];
 

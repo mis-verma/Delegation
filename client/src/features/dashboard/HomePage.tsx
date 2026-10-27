@@ -25,6 +25,7 @@ import { dashboardViewFor } from './dashboardView';
 import { MyTeamCard } from '../attention/MyTeamCard';
 import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
+import { useTeamReviewCount } from './useExceptionsQuery';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
@@ -65,6 +66,7 @@ export const HomePage = () => {
   } = useDashboardLayout(dashboardView);
 
   const summaries = useDashboardSummaries();
+  const reviewCount = useTeamReviewCount(!frontLine, !dashboardView.isHod);
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
@@ -172,6 +174,7 @@ export const HomePage = () => {
       {!isCustomizing && (
         <FocusNowCard
           ownWorkOnly={!frontLine}
+          reviewCount={reviewCount}
           tasks={assignedTasks}
           tickets={myAssignedTickets}
           checklists={focusChecklists}
