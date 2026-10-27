@@ -26,7 +26,7 @@ import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
 import { BuilderSchedulePanel } from './BuilderSchedulePanel';
-import { canOfferLateWindow, hasScheduleTimeMismatch, lateWindowProblem } from './scheduleWindow';
+import { canOfferLateWindow, hasScheduleTimeMismatch, isTimedRecurrence, lateWindowProblem } from './scheduleWindow';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
@@ -489,9 +489,10 @@ export const ChecklistBuilder = () => {
   };
 
   const basicsValid = !!name.trim();
+  const timed = isTimedRecurrence(recurrence);
   const lateWindowOn = canOfferLateWindow(recurrence, opensTime, cutoffTime) && !!lateUntilTime;
-  const scheduleValid = storeIds.length > 0 && !!startDate && !hasScheduleTimeMismatch(opensTime, cutoffTime)
-    && lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) === null;
+  const scheduleValid = storeIds.length > 0 && !!startDate
+    && (!timed || (!hasScheduleTimeMismatch(opensTime, cutoffTime) && lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) === null));
   const itemProblem = firstItemProblem(itemDrafts, storePersonIds);
   const itemsValid = itemProblem === null;
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
@@ -518,8 +519,8 @@ export const ChecklistBuilder = () => {
     const problems = [
       storeIds.length === 0 ? 'Pick at least one store' : null,
       startDate ? null : recurrence === 'ONE_TIME' ? 'Pick a due date' : 'Pick a start date',
-      hasScheduleTimeMismatch(opensTime, cutoffTime) ? "Opening and closing can't be the same time" : null,
-      lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime),
+      timed && hasScheduleTimeMismatch(opensTime, cutoffTime) ? "Opening and closing can't be the same time" : null,
+      timed ? lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) : null,
     ];
     return `${problems.filter((p): p is string => !!p).map((p) => p.replace(/\.$/, '')).join('. ')}.`;
   };
@@ -531,7 +532,11 @@ export const ChecklistBuilder = () => {
 
   const handleRecurrenceChange = (next: ChecklistRecurrence) => {
     setRecurrence(next);
-    if (next !== 'DAILY' && next !== 'ONE_TIME') setLateUntilTime('');
+    if (!isTimedRecurrence(next)) {
+      setOpensTime('');
+      setCutoffTime('');
+      setLateUntilTime('');
+    }
   };
 
   const handleNext = () => {
@@ -597,8 +602,8 @@ export const ChecklistBuilder = () => {
       storeIds,
       recurrence,
       startDate: new Date(startDate).toISOString(),
-      opensTime: opensTime || undefined,
-      cutoffTime: cutoffTime || undefined,
+      opensTime: timed ? opensTime || undefined : undefined,
+      cutoffTime: timed ? cutoffTime || undefined : undefined,
       lateUntilTime: lateWindowOn ? lateUntilTime : undefined,
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       responseMode,
@@ -768,8 +773,8 @@ export const ChecklistBuilder = () => {
               storeIds={storeIds}
               recurrence={recurrence}
               startDate={startDate}
-              opensTime={opensTime}
-              cutoffTime={cutoffTime}
+              opensTime={timed ? opensTime : ''}
+              cutoffTime={timed ? cutoffTime : ''}
               lateUntilTime={lateWindowOn ? lateUntilTime : ''}
               activeWeekdays={activeWeekdays}
               responseMode={responseMode}

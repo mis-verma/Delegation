@@ -6,6 +6,8 @@ export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): 
 export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
 
+export const isTimedRecurrence = (recurrence: ChecklistRecurrence): boolean => recurrence === 'DAILY' || recurrence === 'ONE_TIME';
+
 export const canOfferLateWindow = (recurrence: ChecklistRecurrence, opensTime: string, cutoffTime: string): boolean =>
   (recurrence === 'DAILY' || recurrence === 'ONE_TIME') && !!cutoffTime && !isOvernightWindow(opensTime, cutoffTime);
 
