@@ -162,7 +162,61 @@ export interface ExplorerParams {
   parentId?: string;
 }
 
-export type ConsistencyStatus = 'pass' | 'fail' | 'flag';
+export type MatrixPeriod = 'day' | 'week' | 'month';
+
+export interface MatrixBlockCell {
+  due: number;
+  done: number;
+  late: number;
+  score: number | null;
+  completion: number | null;
+  compliance: number | null;
+  onTime: number | null;
+}
+
+export interface MatrixCell {
+  totalDue: number;
+  overall: number | null;
+  checklist: MatrixBlockCell;
+  ticket: MatrixBlockCell;
+  delegation: MatrixBlockCell;
+}
+
+export interface MatrixRow {
+  id: string;
+  name: string;
+  kind: ExplorerRowKind;
+  departmentName?: string;
+  left?: boolean;
+  whole: MatrixCell;
+  cells: (MatrixCell | null)[];
+}
+
+export interface MatrixBucket { from: string; to: string }
+
+export interface MatrixResponse {
+  window: { from: string; to: string; capped: boolean };
+  period: MatrixPeriod;
+  buckets: MatrixBucket[];
+  view: ExplorerView;
+  parent: ExplorerParent | null;
+  scope: ExplorerResponse['scope'];
+  total: { whole: MatrixCell; cells: MatrixCell[] };
+  rows: MatrixRow[];
+  truncated: boolean;
+}
+
+export interface MatrixParams {
+  from: string;
+  to: string;
+  view: Exclude<ExplorerView, 'module'>;
+  period: MatrixPeriod;
+  storeId?: string;
+  departmentId?: string;
+  parentId?: string;
+}
+
+export type ConsistencyStatus ='pass' | 'fail' | 'flag';
 export interface ConsistencyCheck {
   id: string;
   label: string;
@@ -200,6 +254,13 @@ export const scoreApi = {
     if (params.recurrence && params.recurrence !== 'all') query.set('recurrence', params.recurrence);
     if (params.parentId) query.set('parentId', params.parentId);
     return apiFetch<{ success: boolean; data: ExplorerResponse }>(`/scores/explorer?${query.toString()}`).then((r) => r.data);
+  },
+  matrix: (params: MatrixParams) => {
+    const query = new URLSearchParams({ from: params.from, to: params.to, view: params.view, period: params.period });
+    if (params.storeId) query.set('storeId', params.storeId);
+    if (params.departmentId) query.set('departmentId', params.departmentId);
+    if (params.parentId) query.set('parentId', params.parentId);
+    return apiFetch<{ success: boolean; data: MatrixResponse }>(`/scores/matrix?${query.toString()}`).then((r) => r.data);
   },
   dataCheck: (params: { from: string; to: string }) => {
     const query = new URLSearchParams({ from: params.from, to: params.to });

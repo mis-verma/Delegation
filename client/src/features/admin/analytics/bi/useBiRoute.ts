@@ -34,7 +34,7 @@ export const useBiRoute = (orgWide: boolean) => {
     patch({ trail: serializeTrail(next), view: nextView ?? null });
   }, [patch]);
 
-  const drill = useCallback((row: ExplorerRow, nextView: ExplorerView) => {
+  const drill = useCallback((row: Pick<ExplorerRow, 'id' | 'name' | 'kind'>, nextView: ExplorerView) => {
     const item = asTrailItem(row);
     if (item) setTrail([...trail, item], nextView);
   }, [setTrail, trail]);

@@ -1,4 +1,4 @@
-import type { ExplorerBlock, ExplorerModule, ExplorerRow } from '../../../../api/scores';
+import type { ExplorerBlock, ExplorerModule, ExplorerRow, MatrixCell } from '../../../../api/scores';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../../../lib/scoreLabels';
 
 export type BiModule = ExplorerModule | 'all';
@@ -31,9 +31,25 @@ export const rowValue = (row: ExplorerRow, module: BiModule, measure: BiMeasure)
   return blockValue(row[module], measure);
 };
 
-export const rowDue = (row: ExplorerRow, module: BiModule): number => (module === 'all' ? row.totalDue : row[module].due);
+export const cellValue = (cell: MatrixCell | null, module: BiModule, measure: BiMeasure): number | null => {
+  if (!cell) return null;
+  if (module === 'all') return cell.totalDue === 0 ? null : cell.overall;
+  const b = cell[module];
+  if (b.due === 0) return null;
+  if (measure === 'score') return b.score;
+  if (measure === 'completion') return b.completion;
+  if (measure === 'onTime') return b.onTime;
+  return b.compliance;
+};
 
-export const sortBiRows = (rows: readonly ExplorerRow[], module: BiModule, measure: BiMeasure, lowestFirst: boolean): ExplorerRow[] =>
+export const cellDue = (cell: MatrixCell | null, module: BiModule): number => (cell ? (module === 'all' ? cell.totalDue : cell[module].due) : 0);
+
+export const rowDue =(row: ExplorerRow, module: BiModule): number => (module === 'all' ? row.totalDue : row[module].due);
+
+export const deltaOf = (value: number | null, previous: number | null | undefined): number | null =>
+  value === null || previous == null ? null : Math.round((value - previous) * 10) / 10;
+
+export const sortBiRows =(rows: readonly ExplorerRow[], module: BiModule, measure: BiMeasure, lowestFirst: boolean): ExplorerRow[] =>
   [...rows].sort((a, b) => {
     const x = rowValue(a, module, measure);
     const y = rowValue(b, module, measure);

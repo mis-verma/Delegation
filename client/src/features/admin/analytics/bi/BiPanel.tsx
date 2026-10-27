@@ -1,22 +1,28 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowDownWideNarrow, ArrowLeft, ArrowUpNarrowWide, ChevronRight, ExternalLink, SearchX } from 'lucide-react';
+import {
+  AlignLeft, ArrowDownWideNarrow, ArrowLeft, ArrowUpNarrowWide, ChartColumn, ChevronRight, CircleGauge, ExternalLink, GitCompareArrows, Grid3x3, Maximize2, Minimize2, SearchX, ZoomOut,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ExplorerRow, ExplorerView } from '../../../../api/scores';
+import type { ExplorerRow, ExplorerView, MatrixParams } from '../../../../api/scores';
 import { Button, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../../components';
 import { exportTitle } from '../../../../lib/exportTable';
-import { formatPct, roundPct } from '../../../../lib/percent';
-import { toneOf, TONE_TEXT } from '../../../dashboard/scoreTone';
+import { LazyWhenVisible } from '../../../dashboard/LazyWhenVisible';
 import { VIEW_LABEL, exportRowsFor, rankById, serializeTrail, sharingLine } from '../../../scores/scoresDisplay';
 import { scoreExplorerQuery, type useScoreExplorer } from '../../../scores/useScoreExplorer';
+import { windowLabel } from '../../../scores/useScoreWindow';
 import { BarRows } from './BarRows';
 import { BI_MEASURES, BI_MODULES, blockValue, measureLabel, moduleTitle, rowValue, sortBiRows } from './biMetrics';
-import { Segmented } from './Segmented';
-import { biLevelParams } from './biParams';
 import { BiFilters } from './BiFilters';
-import { BiTrend, type BiTrendTarget } from './BiTrend';
-import type { useBiPrefs, BiTopN } from './useBiPrefs';
+import { biLevelParams } from './biParams';
+import { BiTime } from './BiTime';
+import { effectivePeriod, periodAllowed, previousWindow, type BiPeriodChoice } from './biTimeUtils';
+import { RingGrid } from './RingGrid';
+import { Segmented } from './Segmented';
+import { formatPct, roundPct } from '../../../../lib/percent';
+import { toneOf, TONE_TEXT } from '../../../dashboard/scoreTone';
+import type { BiChart, BiPrefsApi, BiTopN } from './useBiPrefs';
 import type { BiRoute } from './useBiRoute';
 
 const TOP_OPTIONS: readonly { value: `${BiTopN}`; label: string }[] = [
@@ -25,24 +31,54 @@ const TOP_OPTIONS: readonly { value: `${BiTopN}`; label: string }[] = [
   { value: '0', label: 'All' },
 ];
 
+const CHART_OPTIONS: readonly { value: BiChart; label: string; icon: ReactNode }[] = [
+  { value: 'bars', label: 'Bars', icon: <AlignLeft size={14} aria-hidden="true" /> },
+  { value: 'rings', label: 'Rings', icon: <CircleGauge size={14} aria-hidden="true" /> },
+  { value: 'columns', label: 'Columns', icon: <ChartColumn size={14} aria-hidden="true" /> },
+  { value: 'heat', label: 'Heatmap', icon: <Grid3x3 size={14} aria-hidden="true" /> },
+];
+
 interface BiPanelProps {
   route: BiRoute;
-  prefs: ReturnType<typeof useBiPrefs>;
+  prefs: BiPrefsApi;
   query: ReturnType<typeof useScoreExplorer>;
   win: { from: string; to: string; label: string };
   orgWide: boolean;
   storeOptions: { value: string; label: string }[];
   departmentOptions: { value: string; label: string }[];
+  previous?: ReadonlyMap<string, number | null>;
+  zoomed: boolean;
+  onZoom: (bucket: { from: string; to: string }) => void;
+  onResetZoom: () => void;
 }
 
-export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, departmentOptions }: BiPanelProps) => {
+export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, departmentOptions, previous, zoomed, onZoom, onResetZoom }: BiPanelProps) => {
   const { module, view, allowedViews, trail, parent, storeId, departmentId, ancestorStoreId, setView, setFilters, clearFilters, drill, goToCrumb, goBack, goRoot } = route;
   const headingId = useId();
+  const fullButtonId = `${headingId}-full`;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [full, setFull] = useState(false);
   const data = query.data;
   const measure = module === 'all' ? 'score' : prefs.measure;
   const shownView: ExplorerView = data?.view ?? view;
+  const chart = prefs.chart;
+  const listChart = chart === 'bars' || chart === 'rings' || chart === 'columns';
+
+  useEffect(() => {
+    if (!full) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFull(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.getElementById(fullButtonId)?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [full, fullButtonId]);
 
   const scope = `${view}|${parent?.id ?? ''}|${module}`;
   const [sel, setSel] = useState<{ scope: string; key: string | null }>({ scope: '', key: null });
@@ -68,20 +104,25 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
     )));
   };
 
-  const trendTarget: BiTrendTarget = parent
-    ? { scope: parent.kind, id: parent.id }
-    : departmentId
-      ? { scope: 'department', id: departmentId }
-      : storeId
-        ? { scope: 'store', id: storeId }
-        : data?.scope.departmentLocked && data.scope.departmentId
-          ? { scope: 'department', id: data.scope.departmentId }
-          : { scope: 'org' };
+  const period = effectivePeriod(prefs.period, win.from, win.to);
+  const matrixParams: MatrixParams | null = useMemo(() => {
+    if (!data) return null;
+    const level = biLevelParams(win, { storeId, departmentId }, { view: shownView, parent: parent ? { id: parent.id, kind: parent.kind } : null, ancestorStoreId });
+    return {
+      from: win.from,
+      to: win.to,
+      view: level.view === 'module' ? 'department' : level.view,
+      period,
+      storeId: level.storeId,
+      departmentId: level.departmentId,
+      parentId: level.parentId,
+    };
+  }, [data, win, storeId, departmentId, shownView, parent, ancestorStoreId, period]);
 
   const showStoreFilter = orgWide && parent?.kind !== 'store' && storeOptions.length > 0;
   const showDepartmentFilter = orgWide && !data?.scope.departmentLocked && shownView !== 'store' && !parent && departmentOptions.length > 0;
 
-  const scopesHref = `/admin/scores?${new URLSearchParams({
+  const scoresHref = `/admin/scores?${new URLSearchParams({
     from: win.from,
     to: win.to,
     view: shownView,
@@ -96,9 +137,19 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
   const title = `${VIEW_LABEL[shownView]}${parent ? ` in ${parent.name}` : ''}`;
   const showTiles = module !== 'all' && !!data;
   const sharing = data ? sharingLine(shownView, data.sharing) : null;
+  const totalLabel = parent ? parent.name : orgWide ? 'Whole organisation' : 'Your department';
+  const priorWindow = prefs.compare ? previousWindow(win.from, win.to) : null;
+
+  const periodOptions: { value: BiPeriodChoice; label: string; disabled?: boolean; hint?: string }[] = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'day', label: 'Day', disabled: !periodAllowed('day', win.from, win.to), hint: 'Pick 31 days or fewer to see day by day.' },
+    { value: 'week', label: 'Week', disabled: !periodAllowed('week', win.from, win.to), hint: 'Pick about 5 months or fewer to see week by week.' },
+    { value: 'month', label: 'Month' },
+  ];
 
   const controls = (
     <div className="flex flex-wrap items-center gap-2">
+      <Segmented label="Chart type" options={CHART_OPTIONS} value={chart} onChange={prefs.setChart} />
       {allowedViews.length > 1 && (
         <Segmented label="Group by" options={allowedViews.map((v) => ({ value: v, label: VIEW_LABEL[v] }))} value={shownView} onChange={setView} />
       )}
@@ -111,7 +162,10 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
           onChange={prefs.setMeasure}
         />
       )}
-      <Segmented label="How many to show" options={TOP_OPTIONS} value={`${prefs.topN}`} onChange={(v) => prefs.setTopN(Number(v) as BiTopN)} />
+      <Segmented label="Time step" options={periodOptions} value={prefs.period} onChange={prefs.setPeriod} />
+      {(chart === 'bars' || chart === 'rings') && (
+        <Segmented label="How many to show" options={TOP_OPTIONS} value={`${prefs.topN}`} onChange={(v) => prefs.setTopN(Number(v) as BiTopN)} />
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -123,13 +177,26 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
         {prefs.lowestFirst ? <ArrowUpNarrowWide size={14} aria-hidden="true" /> : <ArrowDownWideNarrow size={14} aria-hidden="true" />}
         {prefs.lowestFirst ? 'Lowest first' : 'Highest first'}
       </Button>
+      {(chart === 'bars' || chart === 'rings') && (
+        <Button
+          type="button"
+          variant={prefs.compare ? 'outline' : 'ghost'}
+          size="sm"
+          aria-pressed={prefs.compare}
+          onClick={() => prefs.setCompare(!prefs.compare)}
+          className="pointer-coarse:min-h-11"
+        >
+          <GitCompareArrows size={14} aria-hidden="true" />
+          Compare
+        </Button>
+      )}
     </div>
   );
 
-  const body = query.isError && !data ? (
+  const listBody = query.isError && !data ? (
     <InlineError message="Could not load the scores." onRetry={() => void query.refetch()} />
   ) : !data ? (
-    <div className="flex flex-col gap-2" role="status" aria-label="Loading the bars">
+    <div className="flex flex-col gap-2" role="status" aria-label="Loading the scores">
       {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
     </div>
   ) : scored.length === 0 ? (
@@ -140,19 +207,18 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
     />
   ) : (
     <div className={cn('flex flex-col gap-2', query.updating && 'opacity-70 transition-opacity')} aria-busy={query.updating}>
-      <BarRows
-        rows={visible}
-        module={module}
-        measure={measure}
-        selectedKey={selectedKey}
-        onSelect={(key) => setSel({ scope, key })}
-        onDrill={drill}
-        onIntent={prefetch}
-      />
-      {hiddenCount > 0 && (
+      {chart === 'rings' ? (
+        <RingGrid rows={visible} module={module} measure={measure} selectedKey={selectedKey} onSelect={(key) => setSel({ scope, key })} onDrill={drill} onIntent={prefetch} previous={previous} />
+      ) : (
+        <BarRows rows={visible} module={module} measure={measure} selectedKey={selectedKey} onSelect={(key) => setSel({ scope, key })} onDrill={drill} onIntent={prefetch} previous={previous} />
+      )}
+      {hiddenCount > 0 && (chart === 'bars' || chart === 'rings') && (
         <Button type="button" variant="outline" size="sm" onClick={() => prefs.setTopN(0)} className="self-center pointer-coarse:min-h-11">
           Show all {scored.length}
         </Button>
+      )}
+      {priorWindow && (
+        <p className="t-meta font-medium text-text-muted">Arrows and the small marker compare with {windowLabel(priorWindow.from, priorWindow.to)}.</p>
       )}
       {idleCount > 0 && (
         <p className="t-meta font-medium text-text-muted">
@@ -163,8 +229,43 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
     </div>
   );
 
+  const timeView = (kind: BiChart) => (
+    <BiTime
+      chart={kind}
+      params={matrixParams}
+      module={module}
+      measure={measure}
+      lowestFirst={prefs.lowestFirst}
+      totalLabel={totalLabel}
+      onZoom={onZoom}
+      onDrill={drill}
+    />
+  );
+
+  const body = chart === 'heat' ? (
+    timeView('heat')
+  ) : chart === 'columns' ? (
+    <div className="flex flex-col gap-4">
+      {timeView('columns')}
+      <section aria-label={`By ${VIEW_LABEL[shownView].toLowerCase()}`} className="flex flex-col gap-3 border-t border-border/60 pt-3">
+        <h3 className="t-card font-display font-bold text-text">{title}</h3>
+        {listBody}
+      </section>
+    </div>
+  ) : (
+    <div className="flex flex-col gap-4">
+      {listBody}
+      <LazyWhenVisible minHeight="16rem">{timeView(chart)}</LazyWhenVisible>
+    </div>
+  );
+
   return (
-    <section aria-labelledby={headingId} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4')}>
+    <section
+      aria-labelledby={headingId}
+      role={full ? 'dialog' : undefined}
+      aria-modal={full ? true : undefined}
+      className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4', full && 'fixed inset-0 z-50 overflow-y-auto rounded-none border-0 p-3 sm:p-6')}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
@@ -179,12 +280,34 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
             title={exportTitle({ what: `Overview by ${VIEW_LABEL[shownView].toLowerCase()}${parent ? `, ${parent.name}` : ''}`, from: win.from, to: win.to, period: win.label, filters: { Module: module === 'all' ? null : moduleTitle(module) } })}
             getRows={() => exportRowsFor(shownView, sorted, rankById(sorted), exportModules)}
           />
-          <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(scopesHref, { viewTransition: true })} className="pointer-coarse:min-h-11">
+          <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(scoresHref, { viewTransition: true })} className="pointer-coarse:min-h-11">
             Scores
             <ExternalLink size={14} aria-hidden="true" />
           </Button>
+          <Button
+            id={fullButtonId}
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setFull((v) => !v)}
+            aria-label={full ? 'Close the full screen view' : 'Open the full screen view'}
+            className="pointer-coarse:min-h-11"
+          >
+            {full ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+            <span className="max-sm:sr-only">{full ? 'Close' : 'Full screen'}</span>
+          </Button>
         </div>
       </div>
+
+      {zoomed && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-2">
+          <p className="t-meta font-display font-semibold text-text">Zoomed in to {win.label}.</p>
+          <Button type="button" size="sm" variant="outline" onClick={onResetZoom} className="pointer-coarse:min-h-11">
+            <ZoomOut size={14} aria-hidden="true" />
+            Show the whole period
+          </Button>
+        </div>
+      )}
 
       {trail.length > 0 && (
         <nav aria-label="Where you are" className="flex items-center gap-2">
@@ -227,11 +350,11 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
 
       {controls}
 
-      <div className={cn('grid gap-4', showTiles && 'xl:grid-cols-[minmax(0,1fr)_18rem]')}>
+      <div className={cn('grid gap-4', showTiles && listChart && 'xl:grid-cols-[minmax(0,1fr)_18rem]')}>
         <div className="min-w-0">{body}</div>
-        {module !== 'all' && data && (
+        {module !== 'all' && data && listChart && (
           <div className="hidden flex-col gap-2 xl:flex" role="group" aria-label={`${moduleTitle(module)}, choose a measure`}>
-            <h3 className="t-meta font-display font-bold text-text-muted">{parent ? parent.name : orgWide ? 'Whole organisation' : 'Your department'}</h3>
+            <h3 className="t-meta font-display font-bold text-text-muted">{totalLabel}</h3>
             {BI_MEASURES.map((m) => {
               const value = blockValue(data.total[module], m);
               const tone = toneOf(value);
@@ -257,8 +380,6 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
           </div>
         )}
       </div>
-
-      {data && scored.length > 0 && <BiTrend target={trendTarget} from={win.from} to={win.to} module={module} measure={measure} />}
     </section>
   );
 };

@@ -6,6 +6,8 @@ import { scoreService } from "./score.service.js"
 import { assertScoreConsistency } from "./scoreConsistency.js"
 import { EXPLORER_MODULES, EXPLORER_VIEWS } from "./scoreExplorer.js"
 import { scoreExplorerService } from "./scoreExplorer.service.js"
+import { MATRIX_PERIODS } from "./scoreMatrix.js"
+import { scoreMatrixService } from "./scoreMatrix.service.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 import { cachedScores } from "./scoreCache.js"
 
@@ -56,13 +58,32 @@ const explorerSchema = z
     })
     .refine(dayRange, "Pick at most one year, and From must be on or before To")
 
-const dataCheckSchema = z.object({ from: DATE, to: DATE }).refine(dayRange, "Pick at most one year, and From must be on or before To")
+const matrixSchema = z
+    .object({
+        from: DATE,
+        to: DATE,
+        view: z.preprocess(blankToUndefined, z.enum(["department", "store", "person", "checklist"]).default("department")),
+        period: z.enum(MATRIX_PERIODS),
+        storeId: optionalId,
+        departmentId: optionalId,
+        recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "ONCE", "all"]).default("all")),
+        parentId: optionalId,
+    })
+    .refine(dayRange, "Pick at most one year, and From must be on or before To")
+
+const dataCheckSchema =z.object({ from: DATE, to: DATE }).refine(dayRange, "Pick at most one year, and From must be on or before To")
 
 export const scoreController = {
     explorer: asyncHandler(async (req: Request, res: Response) => {
         const q = explorerSchema.parse(req.query)
         const recurrence = q.recurrence === "all" ? undefined : q.recurrence === "ONCE" ? "ONE_TIME" : q.recurrence
         const data = await cachedScores("explorer", req, () => scoreExplorerService.explorer(req.user!, { from: q.from, to: q.to, view: q.view, storeId: q.storeId, departmentId: q.departmentId, module: q.module, recurrence, parentId: q.parentId }))
+        res.json({ success: true, data })
+    }),
+    matrix: asyncHandler(async (req: Request, res: Response) => {
+        const q = matrixSchema.parse(req.query)
+        const recurrence = q.recurrence === "all" ? undefined : q.recurrence === "ONCE" ? "ONE_TIME" : q.recurrence
+        const data = await cachedScores("matrix", req, () => scoreMatrixService.matrix(req.user!, { from: q.from, to: q.to, view: q.view, period: q.period, storeId: q.storeId, departmentId: q.departmentId, recurrence, parentId: q.parentId }))
         res.json({ success: true, data })
     }),
     dataCheck: asyncHandler(async (req: Request, res: Response) => {

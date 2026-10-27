@@ -9,7 +9,8 @@ import { getInitials } from '../../../../lib/getInitials';
 import { avatarColorClass } from '../../../../lib/avatarColors';
 import { TONE_BAR, TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
 import { drillTargets, type DrillTarget } from '../../../scores/scoresDisplay';
-import { BI_MODULES, rowDue, rowValue, type BiMeasure, type BiModule } from './biMetrics';
+import { BI_MODULES, deltaOf, rowDue, rowValue, type BiMeasure, type BiModule } from './biMetrics';
+import { DeltaChip } from './DeltaChip';
 
 const rowKey = (row: ExplorerRow) => `${row.kind}:${row.id}`;
 
@@ -28,7 +29,7 @@ interface TrayProps {
   onDrill: (row: ExplorerRow, view: DrillTarget['view']) => void;
 }
 
-const Tray = ({ row, module, targets, onDrill }: TrayProps) => {
+export const Tray = ({ row, module, targets, onDrill }: TrayProps) => {
   const modules = module === 'all' ? BI_MODULES : [module];
   return (
     <div className="flex flex-col gap-3 border-t border-border/60 bg-surface-hover/40 px-3 py-3 sm:px-4">
@@ -78,9 +79,10 @@ interface BarRowsProps {
   onSelect: (key: string | null) => void;
   onDrill: (row: ExplorerRow, view: DrillTarget['view']) => void;
   onIntent?: (row: ExplorerRow, view: DrillTarget['view']) => void;
+  previous?: ReadonlyMap<string, number | null>;
 }
 
-export const BarRows = ({ rows, module, measure, selectedKey, onSelect, onDrill, onIntent }: BarRowsProps) => {
+export const BarRows = ({ rows, module, measure, selectedKey, onSelect, onDrill, onIntent, previous }: BarRowsProps) => {
   const listRef = useRef<HTMLUListElement>(null);
 
   const move = (e: KeyboardEvent<HTMLUListElement>) => {
@@ -101,6 +103,8 @@ export const BarRows = ({ rows, module, measure, selectedKey, onSelect, onDrill,
         const rounded = roundPct(value);
         const tone = toneOf(value);
         const targets = drillTargets(row);
+        const prior = previous ? previous.get(row.id) ?? null : null;
+        const delta = deltaOf(value, prior);
         const open = selectedKey === key;
         const isPerson = row.kind === 'person' || row.kind === 'unassigned';
         const onClick = () => {
@@ -128,15 +132,21 @@ export const BarRows = ({ rows, module, measure, selectedKey, onSelect, onDrill,
                     {row.name}
                     {row.left && <span className="ml-1.5 t-meta font-medium text-text-muted">(left)</span>}
                   </span>
-                  <span className={cn('shrink-0 t-card font-display font-extrabold tabular-nums', TONE_TEXT[tone])}>
-                    {rounded === null ? 'N/A' : formatPct(rounded)}
+                  <span className="flex shrink-0 items-center gap-2">
+                    <DeltaChip delta={delta} />
+                    <span className={cn('t-card font-display font-extrabold tabular-nums', TONE_TEXT[tone])}>
+                      {rounded === null ? 'N/A' : formatPct(rounded)}
+                    </span>
                   </span>
                 </span>
-                <span className="h-2.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+                <span className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
                   <span
                     className={cn('block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none', TONE_BAR[tone])}
                     style={{ width: rounded === null ? '0%' : `${Math.max(rounded, rounded > 0 ? 2 : 0)}%` }}
                   />
+                  {prior !== null && (
+                    <span className="absolute inset-y-0 w-0.5 bg-text/70" style={{ left: `${Math.min(99.5, Math.max(0, prior))}%` }} title={`Before: ${formatPct(prior)}`} />
+                  )}
                 </span>
                 <span className="line-clamp-1 t-meta font-medium text-text-muted">{subtitleOf(row, module)}</span>
               </span>

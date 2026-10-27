@@ -6,10 +6,18 @@ import { Skeleton } from '../../../../components';
 import { formatPct, roundPct } from '../../../../lib/percent';
 import { CATEGORY_ICON, CATEGORY_TILE } from '../../../dashboard/categoryLook';
 import { ToneChip } from '../../../dashboard/ToneChip';
-import { TONE_BAR, TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
+import { TONE_TEXT, toneOf } from '../../../dashboard/scoreTone';
+import { MODULE_LABEL } from '../../../../lib/scoreLabels';
 import { BI_MODULES, moduleTitle, rowValue, type BiModule } from './biMetrics';
+import { ConcentricRings, ScoreRing } from './ScoreRing';
 
 const KEYS: readonly BiModule[] = ['all', ...BI_MODULES];
+
+const RING_COLOR = {
+  checklist: 'var(--color-activity-checklist)',
+  ticket: 'var(--color-activity-ticket)',
+  delegation: 'var(--color-activity-delegation)',
+} as const;
 
 const CARD_BASE = 'snap-start shrink-0 basis-[78%] min-[480px]:basis-[46%] sm:basis-auto';
 
@@ -97,17 +105,24 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false }: 
                 </span>
                 <span className="t-card font-display font-bold text-text">{moduleTitle(key)}</span>
               </span>
-              <span className="flex flex-col gap-2">
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className={cn('t-figure font-display font-extrabold tabular-nums leading-none', TONE_TEXT[tone])}>
-                    {rounded === null ? 'N/A' : formatPct(rounded)}
+              <span className="flex items-end justify-between gap-2">
+                <span className="flex min-w-0 flex-col gap-2">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className={cn('t-figure font-display font-extrabold tabular-nums leading-none', TONE_TEXT[tone])}>
+                      {rounded === null ? 'N/A' : formatPct(rounded)}
+                    </span>
+                    <ToneChip tone={tone} />
                   </span>
-                  <ToneChip tone={tone} />
+                  <span className="t-meta font-medium text-text-muted">{detail}</span>
                 </span>
-                <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
-                  <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none', TONE_BAR[tone])} style={{ width: `${rounded ?? 0}%` }} />
-                </span>
-                <span className="t-meta font-medium text-text-muted">{detail}</span>
+                {isAll ? (
+                  <ConcentricRings
+                    size={56}
+                    values={BI_MODULES.map((m) => ({ key: m, label: MODULE_LABEL[m], value: rowValue(total, m, 'score'), color: RING_COLOR[m] }))}
+                  />
+                ) : (
+                  <ScoreRing value={value} size={52} stroke={6} showValue={false} label={moduleTitle(key)} />
+                )}
               </span>
             </button>
           );

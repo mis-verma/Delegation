@@ -60,7 +60,7 @@ export const viewsFor = (parentKind: TrailItem['kind'] | null, orgWide: boolean)
 
 export interface DrillTarget { view: ExplorerView; label: string }
 
-export const drillTargets = (row: ExplorerRow): DrillTarget[] => {
+export const drillTargets = (row: Pick<ExplorerRow, 'kind'>): DrillTarget[] => {
   if (row.kind === 'department') return [{ view: 'person', label: 'See people' }, { view: 'checklist', label: 'See checklists' }];
   if (row.kind === 'store') return [{ view: 'department', label: 'See departments' }, { view: 'checklist', label: 'See checklists' }];
   if (row.kind === 'person') return [{ view: 'checklist', label: 'See checklists' }, { view: 'module', label: 'See by module' }];
@@ -75,7 +75,7 @@ export const isHomeDepartment = (row: ExplorerRow, scope: ScoreScope | undefined
 export const isForeignDepartment = (row: ExplorerRow, scope: ScoreScope | undefined): boolean =>
   !!scope?.departmentLocked && row.kind === 'department' && row.id !== scope.departmentId;
 
-export const asTrailItem = (row: ExplorerRow): TrailItem | null =>
+export const asTrailItem = (row: Pick<ExplorerRow, 'id' | 'name' | 'kind'>): TrailItem | null =>
   row.kind === 'department' || row.kind === 'store' || row.kind === 'person' ? { id: row.id, kind: row.kind, name: row.name } : null;
 
 export const measureOf = (b: ExplorerBlock, measure: Measure): number | null => (measure === 'completion' ? b.completion : b.compliance);
