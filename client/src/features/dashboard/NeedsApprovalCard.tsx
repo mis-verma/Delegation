@@ -177,7 +177,7 @@ export const NeedsApprovalCard = () => {
             </div>
             )}
 
-            <div className={cn('flex flex-col divide-y divide-border/60', expanded && 'max-h-[46rem] overflow-y-auto overscroll-contain')}>
+            <div className="flex flex-col divide-y divide-border/60">
               {visible.map((row) => <ApprovalLink key={`${row.category}-${row.id}`} row={row} now={now} />)}
             </div>
           </>

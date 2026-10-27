@@ -133,7 +133,7 @@ export const ExceptionsCard = () => {
           <EmptyState size="compact" tone="success" icon={CheckCheck} title="All clear" description="Nothing is late or stuck, and everyone is on track." />
         </div>
       ) : items.length === 0 ? null : (
-        <div className={cn('flex flex-col divide-y divide-border/60', showAllAlerts && 'max-h-[24rem] overflow-y-auto overscroll-contain')}>
+        <div className="flex flex-col divide-y divide-border/60">
           {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={user?.role !== 'OWNER'} />)}
         </div>
       )}

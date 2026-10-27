@@ -21,20 +21,19 @@ interface CardCustomizeStripProps {
   size: DashboardCardSize;
   onSizeChange: (size: DashboardCardSize) => void;
   onHide: () => void;
-  handleProps: HTMLAttributes<HTMLButtonElement>;
+  handleProps: HTMLAttributes<HTMLElement>;
 }
 
 export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handleProps }: CardCustomizeStripProps) => (
   <div className="flex items-center gap-2 px-1">
-    <button
-      type="button"
+    <div
       {...handleProps}
-      className="shrink-0 flex items-center justify-center size-11 -my-2 rounded-xl border border-transparent text-text-muted hover:border-border hover:bg-surface hover:text-text transition-colors cursor-grab active:cursor-grabbing touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       aria-label={`Drag to reorder ${label}`}
+      className="flex min-h-11 min-w-0 flex-1 cursor-grab touch-none items-center gap-2 rounded-xl border border-transparent px-1 text-text-muted transition-colors hover:border-border hover:bg-surface hover:text-text active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <GripVertical size={15} />
-    </button>
-    <span className="t-meta font-display font-semibold text-text-secondary truncate flex-1 min-w-0">{label}</span>
+      <GripVertical size={16} aria-hidden="true" className="shrink-0" />
+      <span className="t-meta font-display font-semibold text-text-secondary truncate min-w-0">{label}</span>
+    </div>
     <div className="shrink-0 flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-surface" role="group" aria-label={`${label} size`}>
       <button
         type="button"

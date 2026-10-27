@@ -116,7 +116,7 @@ const Body = ({ detail, win, matrixParams, onClose, onZoom, allowZoom = true }: 
         ) : cells.length === 0 ? (
           <p className="t-meta font-medium text-text-muted">No breakdown is available for this row.</p>
         ) : (
-          <div className="max-h-72 overflow-auto overscroll-contain rounded-xl border border-border/60">
+          <div className="max-h-72 overflow-auto rounded-xl border border-border/60">
             <table className="w-full border-separate border-spacing-0 t-meta">
               <caption className="sr-only">{row.name}, {PERIOD_LABEL_SR[period]} figures</caption>
               <thead className="sticky top-0 z-10 bg-surface">
