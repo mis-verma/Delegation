@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
 const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];

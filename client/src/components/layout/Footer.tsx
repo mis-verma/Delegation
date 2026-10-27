@@ -36,7 +36,7 @@ export const Footer = () => {
             <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
           ) : (
             <span className="inline-flex group-hover:scale-105 transition-transform">
-              <BrandLogo className="size-6" textClassName="text-sm" />
+              <BrandLogo className="size-7" textClassName="text-base" tagline />
             </span>
           )}
         </NavLink>

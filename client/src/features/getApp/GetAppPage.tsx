@@ -9,7 +9,7 @@ export const GetAppPage = () => {
     <div className="flex min-h-svh w-full items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-md flex-col gap-5 rounded-2xl border border-border/60 bg-surface p-5 sm:p-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <BrandLogo className="size-9" textClassName="text-lg" />
+          <BrandLogo className="size-10" textClassName="text-xl" tagline />
           <div className="flex flex-col gap-1">
             <h1 className="t-section font-display font-bold text-text">Get the KaryaOS app</h1>
             <p className="t-meta text-text-muted">Your tickets, delegations and checklists on your phone, with alerts.</p>
