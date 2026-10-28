@@ -1,10 +1,25 @@
-import { Camera, Check, ImageUp, MapPin, Pencil, QrCode, Star, Video } from 'lucide-react';
+import { Camera, Check, ImageUp, MapPin, Pencil, QrCode, Star, Video, X } from 'lucide-react';
 import { Modal } from '../../../../components';
 import { cn } from '@/lib/utils';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 
 const FIELD = 'flex min-h-11 items-center rounded-xl border border-border bg-surface px-3 t-meta font-display text-text-muted';
-const ANSWER = 'flex min-h-12 flex-1 items-center justify-center rounded-xl border border-border t-card font-display font-semibold text-text';
+const ANSWER = 'flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border t-card font-display font-semibold';
+const ACTION_WORD: Record<string, string> = {
+  REQUIRE_PHOTO: 'photo',
+  ASK_REASON: 'reason',
+  CREATE_ISSUE: 'ticket',
+  NOTIFY_AREA_MANAGER: 'alert',
+};
+const followUpLine = (answer: string, actions: string[]) =>
+  actions.length === 0 ? null : (
+    <li key={answer} className="flex flex-wrap items-center gap-1.5 t-meta font-display text-text-secondary">
+      <span className="font-semibold text-text">If {answer}:</span>
+      {actions.map((a) => (
+        <span key={a} className="rounded-full bg-warning/12 px-2 py-0.5 font-semibold text-warning">{ACTION_WORD[a] ?? a}</span>
+      ))}
+    </li>
+  );
 
 const PhotoButtons = ({ draft, noun = 'photo' }: { draft: ItemDraft; noun?: 'photo' | 'video' }) => (
   <div className="flex flex-wrap gap-2">
@@ -36,11 +51,19 @@ const Body = ({ draft }: { draft: ItemDraft }) => {
     case 'YES_NO':
     case 'PASS_FAIL': {
       const [yes, no] = draft.itemType === 'YES_NO' ? ['Yes', 'No'] : ['Pass', 'Fail'];
-      const rules = [...draft.yesActions.map((a) => `${yes}: ${a}`), ...draft.noActions.map((a) => `${no}: ${a}`)];
+      const hasRules = draft.yesActions.length + draft.noActions.length > 0;
       return (
         <div className="flex flex-col gap-3">
-          <div className="flex gap-2"><span className={ANSWER}>{yes}</span><span className={ANSWER}>{no}</span></div>
-          {rules.length > 0 && <p className="t-meta font-display text-warning">{rules.length} follow-up {rules.length === 1 ? 'rule' : 'rules'} will ask for more.</p>}
+          <div className="flex gap-2">
+            <span className={cn(ANSWER, 'border-success/50 bg-success/10 text-success')}><Check size={15} strokeWidth={3} aria-hidden />{yes}</span>
+            <span className={cn(ANSWER, 'border-danger/50 bg-danger/10 text-danger')}><X size={15} strokeWidth={3} aria-hidden />{no}</span>
+          </div>
+          {hasRules && (
+            <ul className="flex flex-col gap-1.5 rounded-xl bg-surface-hover/60 p-2.5" aria-label="Follow-ups after the answer">
+              {followUpLine(yes, draft.yesActions)}
+              {followUpLine(no, draft.noActions)}
+            </ul>
+          )}
           {(draft.yesActions.includes('REQUIRE_PHOTO') || draft.noActions.includes('REQUIRE_PHOTO')) && <PhotoButtons draft={draft} />}
         </div>
       );

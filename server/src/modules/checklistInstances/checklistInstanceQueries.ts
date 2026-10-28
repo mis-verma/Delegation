@@ -240,7 +240,7 @@ export const listPendingVerification = async (user: AccessTokenPayload, page?: n
     const p = paginate(page, limit)
     const conditions: SQL[] = [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr]
 
-    const scope = pendingApprovalScope(user)
+    const scope = await pendingApprovalScope(user)
     if (scope) conditions.push(scope)
 
     const where = and(...conditions)
@@ -254,7 +254,7 @@ export const listPendingVerification = async (user: AccessTokenPayload, page?: n
 
 export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8): Promise<{ data: ChecklistPendingApprovalRow[]; meta: { total: number } }> => {
     const conditions: SQL[] = [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr]
-    const scope = pendingApprovalScope(user)
+    const scope = await pendingApprovalScope(user)
     if (scope) conditions.push(scope)
     const where = and(...conditions)
 

@@ -30,8 +30,8 @@ const STATE_LABEL: Record<StepState, string> = {
 };
 
 const TILE_TONE: Record<StepState, string> = {
-  current: 'bg-linear-to-br from-primary-500 to-primary-700 text-white ring-4 ring-primary-500/20',
-  done: 'bg-linear-to-br from-primary-500 to-primary-700 text-white',
+  current: 'bg-linear-to-br from-vivid-blue to-vivid-sky text-white ring-4 ring-vivid-blue/20',
+  done: 'bg-linear-to-br from-vivid-blue to-vivid-sky text-white',
   attention: 'bg-warning/15 text-warning border-2 border-warning/50',
   locked: 'bg-surface-hover text-text-light border border-border',
   upcoming: 'bg-surface text-text-secondary border border-border',
@@ -140,7 +140,7 @@ export const BuilderStepper = ({
                   <span
                     className={cn(
                       'flex size-5 items-center justify-center rounded-full',
-                      state === 'current' && 'bg-primary-600 text-white',
+                      state === 'current' && 'bg-vivid-blue text-white',
                       state === 'done' && 'bg-success text-white',
                       state === 'attention' && 'bg-warning text-white',
                       (state === 'locked' || state === 'upcoming') && 'bg-surface-hover text-text-light',
@@ -152,7 +152,7 @@ export const BuilderStepper = ({
                   <span
                     className={cn(
                       'h-1 w-full rounded-full transition-colors duration-200',
-                      state === 'current' && 'bg-primary-600',
+                      state === 'current' && 'bg-vivid-blue',
                       state === 'done' && 'bg-success',
                       state === 'attention' && 'bg-warning',
                       (state === 'locked' || state === 'upcoming') && 'bg-border',
@@ -183,7 +183,7 @@ export const BuilderStepper = ({
                   className={cn(
                     'group flex shrink-0 items-center gap-3 rounded-xl p-1.5 pr-3 text-left select-none outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50',
                     locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-surface-hover',
-                    state === 'current' && 'bg-primary-500/8',
+                    state === 'current' && 'bg-vivid-blue/8',
                   )}
                 >
                   <StepTile step={step} index={index} state={state} size="md" />
@@ -191,7 +191,7 @@ export const BuilderStepper = ({
                     <span
                       className={cn(
                         't-meta font-display whitespace-nowrap',
-                        state === 'current' && 'font-bold text-primary-700 dark:text-primary-300',
+                        state === 'current' && 'font-bold text-vivid-blue-text',
                         state === 'done' && 'font-semibold text-text',
                         state === 'attention' && 'font-semibold text-warning',
                         (state === 'locked' || state === 'upcoming') && 'font-medium text-text-muted',
@@ -217,7 +217,7 @@ export const BuilderStepper = ({
 
                 {!isLast && (
                   <span aria-hidden="true" className="mx-2 mt-[1.35rem] h-0.5 min-w-4 flex-1 overflow-hidden rounded-full bg-border">
-                    <span className={cn('block h-full bg-primary-600 transition-[width] duration-300', connectorFilled ? 'w-full' : 'w-0')} />
+                    <span className={cn('block h-full bg-linear-to-r from-vivid-blue to-vivid-sky transition-[width] duration-300', connectorFilled ? 'w-full' : 'w-0')} />
                   </span>
                 )}
               </li>

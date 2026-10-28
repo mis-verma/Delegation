@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Zap, Camera, MessageSquareText, TicketPlus, BellRing, Check, ArrowRight, X, Info, TriangleAlert, ShieldAlert, type LucideIcon } from 'lucide-react';
-import { AddChip, Button, IconChip, ToggleChip } from '../../../../components';
+import { Zap, Camera, MessageSquareText, TicketPlus, BellRing, Check, Plus, X, Info, TriangleAlert, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { Button, IconChip } from '../../../../components';
+import { cn } from '@/lib/utils';
 import { PhotoSourceChips } from './PhotoRulesPanel';
 import type { ChecklistConditionalAction } from '../../../../api/checklistDefinitions';
 
@@ -9,11 +10,11 @@ const TRIGGER_LABELS: Record<'YES_NO' | 'PASS_FAIL', { yes: string; no: string }
   PASS_FAIL: { yes: 'Pass', no: 'Fail' },
 };
 
-const ACTIONS: { value: ChecklistConditionalAction; label: string; staff: string; icon: LucideIcon; tone: string }[] = [
-  { value: 'REQUIRE_PHOTO', label: 'Needs a photo', staff: 'Photo', icon: Camera, tone: 'bg-primary-600' },
-  { value: 'ASK_REASON', label: 'Ask why', staff: 'Reason', icon: MessageSquareText, tone: 'bg-coral-500' },
-  { value: 'CREATE_ISSUE', label: 'Raise a ticket', staff: 'Ticket', icon: TicketPlus, tone: 'bg-warning' },
-  { value: 'NOTIFY_AREA_MANAGER', label: 'Alert area manager', staff: 'Alert', icon: BellRing, tone: 'bg-danger' },
+const ACTIONS: { value: ChecklistConditionalAction; label: string; hint: string; staff: string; icon: LucideIcon; tone: string }[] = [
+  { value: 'REQUIRE_PHOTO', label: 'Needs a photo', hint: 'Staff must attach a photo', staff: 'Photo', icon: Camera, tone: 'bg-primary-600' },
+  { value: 'ASK_REASON', label: 'Ask why', hint: 'Staff type a short reason', staff: 'Reason', icon: MessageSquareText, tone: 'bg-coral-500' },
+  { value: 'CREATE_ISSUE', label: 'Raise a ticket', hint: 'A ticket is created for you', staff: 'Ticket', icon: TicketPlus, tone: 'bg-warning' },
+  { value: 'NOTIFY_AREA_MANAGER', label: 'Alert area manager', hint: 'They are told straight away', staff: 'Alert', icon: BellRing, tone: 'bg-danger' },
 ];
 
 interface ConditionalLogicPanelProps {
@@ -27,57 +28,80 @@ interface ConditionalLogicPanelProps {
   className?: string;
 }
 
-const RuleRow = ({
+const followUps = (n: number) => (n === 0 ? 'Just saves the answer' : `${n} ${n === 1 ? 'follow-up' : 'follow-ups'}`);
+
+const AnswerCard = ({
   answer,
   tone,
   actions,
+  liveOnly,
   onChange,
 }: {
   answer: string;
   tone: 'good' | 'bad';
   actions: ChecklistConditionalAction[];
+  liveOnly: boolean;
   onChange: (actions: ChecklistConditionalAction[]) => void;
-}) => (
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-    <span className="flex shrink-0 items-center gap-1.5 sm:w-28">
-      <span className="t-meta font-display text-text-muted">If</span>
-      <IconChip icon={tone === 'good' ? Check : X} tone={tone === 'good' ? 'bg-success' : 'bg-danger'} label={answer} />
-      <ArrowRight size={13} className="text-text-light" aria-hidden="true" />
-    </span>
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label={`When the answer is ${answer}`}>
-      {ACTIONS.map(({ value, label, icon: Icon }) => {
-        const on = actions.includes(value);
-        return (
-          <ToggleChip
-            key={value}
-            on={on}
-            onClick={() => onChange(on ? actions.filter((a) => a !== value) : [...actions, value])}
-          >
-            {on ? <Check size={13} strokeWidth={2.75} /> : <Icon size={13} />}
-            {label}
-          </ToggleChip>
-        );
-      })}
-    </div>
-  </div>
-);
+}) => {
+  const good = tone === 'good';
+  const toggle = (value: ChecklistConditionalAction) => onChange(actions.includes(value) ? actions.filter((a) => a !== value) : [...actions, value]);
+  return (
+    <div className={cn('flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-surface', good ? 'border-success/40' : 'border-danger/40')}>
+      <div className={cn('flex items-center gap-3 border-b px-3 py-2.5', good ? 'border-success/25 bg-success/10' : 'border-danger/25 bg-danger/10')}>
+        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl text-white', good ? 'bg-success' : 'bg-danger')} aria-hidden="true">
+          {good ? <Check size={17} strokeWidth={3} /> : <X size={17} strokeWidth={3} />}
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="t-card font-display font-bold text-text">If the answer is {answer}</span>
+          <span className="t-meta font-display text-text-muted">{followUps(actions.length)}</span>
+        </span>
+      </div>
 
-const Outcome = ({ answer, tone, actions, liveOnly }: { answer: string; tone: 'good' | 'bad'; actions: ChecklistConditionalAction[]; liveOnly: boolean }) => (
-  <li className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2.5">
-    <span className={`flex h-9 items-center justify-center rounded-lg border t-card font-display font-semibold ${tone === 'good' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>
-      {answer}
-    </span>
-    {actions.length === 0 ? (
-      <span className="t-meta font-display text-text-muted">Just saves the answer.</span>
-    ) : (
-      <span className="flex flex-wrap gap-1">
-        {ACTIONS.filter((a) => actions.includes(a.value)).map((a) => (
-          <IconChip key={a.value} icon={a.icon} tone={a.tone} label={a.value === 'REQUIRE_PHOTO' && liveOnly ? 'Live photo' : a.staff} />
-        ))}
-      </span>
-    )}
-  </li>
-);
+      <div role="group" aria-label={`When the answer is ${answer}`} className="flex flex-col gap-1.5 p-2.5">
+        {ACTIONS.map((action) => {
+          const on = actions.includes(action.value);
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.value}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => toggle(action.value)}
+              className={cn(
+                'flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border px-2.5 py-1.5 text-left outline-none transition-colors duration-150 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                on ? (good ? 'border-success/50 bg-success/8' : 'border-danger/50 bg-danger/8') : 'border-border/60 bg-surface hover:border-border-hover',
+              )}
+            >
+              <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', on ? `${action.tone} text-white` : 'bg-surface-hover text-text-secondary')} aria-hidden="true">
+                <Icon size={15} strokeWidth={2.25} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="t-meta font-display font-semibold text-text">{action.label}</span>
+                <span className="t-meta text-text-muted">{action.hint}</span>
+              </span>
+              <span
+                className={cn('flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors', on ? 'border-primary-600 bg-primary-600 text-white' : 'border-border-hover')}
+                aria-hidden="true"
+              >
+                {on && <Check size={11} strokeWidth={3.5} />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {actions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 bg-surface-hover/40 px-3 py-2">
+          <span className="t-meta font-display font-semibold text-text-muted">Staff will see</span>
+          {ACTIONS.filter((a) => actions.includes(a.value)).map((a) => (
+            <IconChip key={a.value} icon={a.icon} tone={a.tone} label={a.value === 'REQUIRE_PHOTO' && liveOnly ? 'Live photo' : a.staff} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const ConditionalLogicPanel = ({
   itemType,
@@ -95,52 +119,70 @@ export const ConditionalLogicPanel = ({
 
   if (!open) {
     return (
-      <div className={`w-fit ${className}`}>
-        <AddChip onClick={() => setOpen(true)}>
-          Add a rule
-          <span className="hidden sm:inline font-normal text-text-muted">· e.g. if {labels.no}, ask why</span>
-        </AddChip>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border border-border/60 bg-surface px-3 py-2 text-left outline-none transition-colors duration-150 hover:border-primary-400 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+          className,
+        )}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning" aria-hidden="true">
+          <Zap size={17} strokeWidth={2.25} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="t-card font-display font-bold text-text">Add follow-up rules</span>
+          <span className="t-meta text-text-muted">For example, if {labels.no}, ask why or raise a ticket.</span>
+        </span>
+        <Plus size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
+      </button>
     );
   }
 
   const bothTrigger = yesActions.length > 0 && noActions.length > 0;
   const goodSideAlerts = yesActions.includes('CREATE_ISSUE') || yesActions.includes('NOTIFY_AREA_MANAGER');
   const flaggedLabel = yesActions.length > 0 && noActions.length === 0 ? labels.yes : noActions.length > 0 && yesActions.length === 0 ? labels.no : null;
+  const needsPhoto = yesActions.includes('REQUIRE_PHOTO') || noActions.includes('REQUIRE_PHOTO');
 
   return (
     <section
       aria-label="Rules for this question"
-      className={`flex flex-col gap-3 rounded-lg border border-border/60 bg-surface-hover/50 p-3 sm:p-3.5 ${className}`}
+      className={cn('flex flex-col gap-3 rounded-2xl border border-border/60 bg-linear-to-br from-primary-500/[0.05] to-transparent p-3 sm:p-4', className)}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2">
-          <IconChip icon={Zap} tone="bg-warning" label="Rules" />
-          {activeCount > 0 && <IconChip icon={Check} tone="bg-primary-600" label={`${activeCount} on`} labelClassName="tabular-nums" />}
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+            <Zap size={17} strokeWidth={2.25} />
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span className="t-card font-display font-bold text-text">Follow-up rules</span>
+            <span className="t-meta text-text-muted">Pick what happens after each answer.</span>
+          </span>
         </span>
-        {activeCount === 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="size-7 px-0 pointer-coarse:size-11 rounded-full" aria-label="Hide rules">
-            <X size={14} />
-          </Button>
-        )}
+        <span className="flex shrink-0 items-center gap-2">
+          {activeCount > 0 && <IconChip icon={Check} tone="bg-primary-600" label={`${activeCount} on`} labelClassName="tabular-nums" />}
+          {activeCount === 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="size-9 px-0 pointer-coarse:size-11 rounded-full" aria-label="Hide rules">
+              <X size={15} />
+            </Button>
+          )}
+        </span>
       </div>
-      <RuleRow answer={labels.yes} tone="good" actions={yesActions} onChange={onYesActionsChange} />
-      <RuleRow answer={labels.no} tone="bad" actions={noActions} onChange={onNoActionsChange} />
 
-      {onLiveOnlyChange && (yesActions.includes('REQUIRE_PHOTO') || noActions.includes('REQUIRE_PHOTO')) && (
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:gap-3">
-          <span className="t-meta font-display font-semibold text-text-secondary sm:w-28 sm:shrink-0">Photo source</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <AnswerCard answer={labels.yes} tone="good" actions={yesActions} liveOnly={liveOnly} onChange={onYesActionsChange} />
+        <AnswerCard answer={labels.no} tone="bad" actions={noActions} liveOnly={liveOnly} onChange={onNoActionsChange} />
+      </div>
+
+      {onLiveOnlyChange && needsPhoto && (
+        <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:gap-3">
+          <span className="flex items-center gap-2 t-meta font-display font-semibold text-text-secondary sm:w-28 sm:shrink-0">
+            <Camera size={14} className="text-text-light" aria-hidden="true" />
+            Photo source
+          </span>
           <PhotoSourceChips live={liveOnly} onChange={onLiveOnlyChange} />
         </div>
       )}
-
-      <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-        <span className="t-meta font-display font-semibold text-text-secondary">What staff will see</span>
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Outcome for each answer">
-          <Outcome answer={labels.yes} tone="good" actions={yesActions} liveOnly={liveOnly} />
-          <Outcome answer={labels.no} tone="bad" actions={noActions} liveOnly={liveOnly} />
-        </ul>
-      </div>
 
       <div className="flex flex-col gap-1.5">
         {flaggedLabel && (

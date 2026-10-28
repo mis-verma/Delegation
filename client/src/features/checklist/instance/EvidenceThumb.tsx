@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { ImageLightbox, ThumbImage } from '../../../components';
 import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { formatTimeOnly } from '../checklistDisplay';
+import { qualityFlagsOf, qualityLabel, qualityTitle } from '../photoQuality';
 import type { CaptureMethod } from '../../../api/ticket';
 
 export interface EvidenceImage {
@@ -15,6 +16,7 @@ export interface EvidenceImage {
   createdAt:        string;
   reusedFromEarlier?: boolean;
   takenBeforeRun?:    boolean;
+  qualityFlags?:      string | null;
 }
 
 interface EvidenceThumbProps {
@@ -37,6 +39,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
   );
   const isVideo = image.mimeType.startsWith('video/');
   const alt = image.originalFilename ?? fallbackAlt;
+  const weak = isVideo ? [] : qualityFlagsOf(image);
 
   return (
     <div className="relative">
@@ -76,6 +79,11 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
       {(image.reusedFromEarlier || image.takenBeforeRun) && (
         <span className="pointer-events-none absolute -top-1 -right-1 px-1.5 rounded-full bg-danger t-meta font-display font-semibold text-white" title={image.reusedFromEarlier ? 'This photo looks the same as one uploaded earlier for another question' : 'This photo was taken before this checklist opened'}>
           {image.reusedFromEarlier ? 'Reused' : 'Old'}
+        </span>
+      )}
+      {weak.length > 0 && (
+        <span className="pointer-events-none absolute bottom-3 left-1 px-1.5 rounded-full bg-warning t-meta font-display font-semibold text-white" title={qualityTitle(weak[0])}>
+          {qualityLabel(weak[0])}
         </span>
       )}
       <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 t-meta font-display font-medium text-white whitespace-nowrap tabular-nums">

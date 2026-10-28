@@ -1,3 +1,4 @@
+import { approvalCoverService } from '../approvalCover/approvalCover.service.js';
 import { db } from '../../config/db.js';
 import { notifications, users } from '../../db/schema/core.js';
 import { eq, and, inArray } from 'drizzle-orm';
@@ -61,8 +62,19 @@ export const formatWaiting = (hours: number) => {
   return `${h} hour${h === 1 ? '' : 's'}`;
 };
 
+const APPROVAL_TYPES: ReadonlySet<string> = new Set([
+  'CHECKLIST_PENDING_VERIFICATION',
+  'TICKET_AWAITING_HEAD',
+  'TICKET_AWAITING_HEAD_REMINDER',
+  'TICKET_AWAITING_HEAD_ESCALATION',
+  'TASK_AWAITING_HEAD',
+  'TASK_AWAITING_HEAD_REMINDER',
+  'TASK_AWAITING_HEAD_ESCALATION',
+]);
+
 export const notifyMany = async (recipientIds: string[], base: Omit<CreateNotificationInput, 'recipientId'>) => {
-  const uniqueIds = [...new Set(recipientIds)];
+  const audience = APPROVAL_TYPES.has(base.type) ? await approvalCoverService.expandWithDelegates(recipientIds) : recipientIds;
+  const uniqueIds = [...new Set(audience)];
   if (!uniqueIds.length) return [];
 
   const now = new Date();

@@ -33,6 +33,7 @@ export interface ChecklistRisk {
   missingPhotos: number;
   reusedPhotos: number;
   oldPhotos: number;
+  weakPhotos: number;
   sentBackTimes: number;
   ticketsRaised: number;
   criticalFailed: number;
@@ -53,6 +54,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
   let missingPhotos = 0;
   let reusedPhotos = 0;
   let oldPhotos = 0;
+  let weakPhotos = 0;
   let sentBackTimes = 0;
   let ticketsRaised = 0;
   let photosNeeded = 0;
@@ -64,6 +66,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     if (flags.missingPhotos) missingPhotos += 1;
     if (flags.reusedPhoto) reusedPhotos += 1;
     if (flags.oldPhoto) oldPhotos += 1;
+    if (flags.weakPhoto) weakPhotos += 1;
     if (flags.needsLook) needsLookCount += 1;
     const raised = item.reviewTicketId ? 1 : 0;
     ticketsRaised += raised;
@@ -74,7 +77,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     }
   }
   const criticalFailed = scores.criticalFailed;
-  const needsAttention = badAnswers > 0 || missingPhotos > 0 || reusedPhotos > 0 || oldPhotos > 0 || sentBackTimes > 0 || ticketsRaised > 0 || criticalFailed > 0;
+  const needsAttention = badAnswers > 0 || missingPhotos > 0 || reusedPhotos > 0 || oldPhotos > 0 || weakPhotos > 0 || sentBackTimes > 0 || ticketsRaised > 0 || criticalFailed > 0;
   const compliant = scores.compliance === null || scores.compliance === 100;
   return {
     completion: scores.completion,
@@ -83,6 +86,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     missingPhotos,
     reusedPhotos,
     oldPhotos,
+    weakPhotos,
     sentBackTimes,
     ticketsRaised,
     criticalFailed,

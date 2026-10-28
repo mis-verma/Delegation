@@ -66,7 +66,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   ];
 
   return (
-    <header className="relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09]">
+    <header className="relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-vivid-blue/[0.07] via-surface to-vivid-sky/[0.06] dark:from-vivid-blue/[0.12] dark:to-vivid-sky/[0.08]">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
@@ -139,7 +139,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${roleLabel(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-700 text-white font-display font-bold t-meta shrink-0 ring-2 ring-surface">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-vivid-blue to-vivid-sky text-white font-display font-bold t-meta shrink-0 ring-2 ring-surface">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>

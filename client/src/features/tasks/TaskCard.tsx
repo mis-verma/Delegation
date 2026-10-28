@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
 import { TaskVerifyActions } from "./TaskVerifyActions";
-import { useAuth } from "../../context/AuthContext";
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from "../../lib/ticketApproval";
+import { useApprovers } from "../checklist/useApprovalCover";
 import { PRIORITY_MAP } from "./taskDisplay";
 import { isOverdueTask, OVERDUE_EXEMPT_STATUSES } from "./taskFilters";
 import { isMoveBlocked } from "./taskStatusModel";
@@ -70,11 +70,11 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const isOverdue = isOverdueTask(task);
   const { doneItems, totalItems, progress } = getTaskChecklistProgress(task);
 
-  const { user } = useAuth();
-  const flow = taskFlowState(task, user);
+  const approvers = useApprovers();
+  const flow = taskFlowState(task, approvers);
   const showDoneBadge = fields.status && task.status === 'done' && !flow.declined;
   const showDeclinedBadge = fields.status && flow.declined;
-  const canApprove = canApproveTicket(user, taskApprovalSubject(task));
+  const canApprove = canApproveTicket(approvers, taskApprovalSubject(task));
   const showReviewBadge = fields.status && task.status === 'pending_approval' && !canApprove;
   const showVerifyActions = task.status === 'pending_approval' && canApprove;
 
@@ -329,7 +329,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           onClick={(e) => { if (showVerifyActions) e.stopPropagation(); }}
         >
           {showVerifyActions ? (
-            <TaskVerifyActions task={task} compact finalApproval={isFinalApproval(user, task)} />
+            <TaskVerifyActions task={task} compact finalApproval={isFinalApproval(approvers, task)} />
           ) : showDeclinedBadge ? (
             <StatusChip status="declined" label="Declined" />
           ) : showDoneBadge ? (

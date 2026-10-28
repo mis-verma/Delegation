@@ -6,6 +6,8 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateTaskInput } from "./task.validation.js"
 import { canApproveAtStage, type ApprovalStage } from "../tickets/ticketApproval.js"
 import { approvalRowsOf, canApproveCompletion, completionPendingDepartments } from "./taskDepartmentApprovals.js"
+import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
+import { borrowAuthority } from "../approvalCover/coverAuthority.js"
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 
 export const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
@@ -31,6 +33,20 @@ export const departmentApprovalInvolves = (departmentId: string) =>
     sql`${tasks.id} IN (SELECT taskId FROM TaskDepartmentApproval WHERE departmentId = ${departmentId})`;
 
 export const buildVisibilityCondition = async (user: AccessTokenPayload) => {
+    const own = await buildOwnVisibilityCondition(user);
+    if (own === undefined) return undefined;
+    const covers = await approvalCoverService.activeCoversFor(user.sub);
+    if (covers.length === 0) return own;
+    const parts = [own];
+    for (const cover of covers) {
+        const borrowed = await buildOwnVisibilityCondition(borrowAuthority(user, cover));
+        if (borrowed === undefined) return undefined;
+        parts.push(borrowed);
+    }
+    return or(...parts);
+};
+
+const buildOwnVisibilityCondition = async (user: AccessTokenPayload) => {
     if (isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER") return undefined;
 
     const additionalIds = await additionalAssigneeTaskIds(user.sub);

@@ -11,8 +11,24 @@ import { canApproveAtStage, type ApprovalStage } from "./ticketApproval.js"
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 import { type TicketRow } from "./ticketShared.js"
 import { reviewerTicketIds } from "./ticketRelations.js"
+import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
+import { borrowAuthority } from "../approvalCover/coverAuthority.js"
 
 export const visibilityFilter = async (user: AccessTokenPayload) => {
+  const own = await ownVisibilityFilter(user)
+  if (own === undefined) return undefined
+  const covers = await approvalCoverService.activeCoversFor(user.sub)
+  if (covers.length === 0) return own
+  const parts = [own]
+  for (const cover of covers) {
+    const borrowed = await ownVisibilityFilter(borrowAuthority(user, cover))
+    if (borrowed === undefined) return undefined
+    parts.push(borrowed)
+  }
+  return or(...parts)
+}
+
+const ownVisibilityFilter = async (user: AccessTokenPayload) => {
   if (isAdminOrPc(user.role) || user.role === "APPROVAL_MANAGER") return undefined
 
   let base: ReturnType<typeof or>

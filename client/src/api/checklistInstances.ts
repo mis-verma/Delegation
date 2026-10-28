@@ -25,6 +25,7 @@ export type ChecklistInstanceImage = {
   takenAt?:                string | null;
   reusedFromEarlier?:      boolean;
   takenBeforeRun?:         boolean;
+  qualityFlags?:           string | null;
 };
 
 export type ChecklistInstanceItemSubmissionImage = {

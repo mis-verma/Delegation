@@ -236,6 +236,7 @@ export const checklistInstanceImages = mysqlTable(
     purpose: mysqlEnum('purpose', INSTANCE_IMAGE_PURPOSES).notNull().default('GENERAL'),
     contentHash: varchar('contentHash', { length: 32 }),
     similarToId: varchar('similarToId', { length: 191 }),
+    qualityFlags: varchar('qualityFlags', { length: 64 }),
     takenAt: datetime('takenAt', { mode: 'date' }),
     checklistInstanceItemId: varchar('checklistInstanceItemId', { length: 191 }).notNull(),
     uploadedBy: varchar('uploadedBy', { length: 191 }).notNull().references(() => users.id),

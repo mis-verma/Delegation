@@ -1,3 +1,4 @@
+import { runWithCover, mergePendingApprovals } from "../approvalCover/coverAuthority.js"
 import type { Request , Response } from "express"
 import { taskService } from "./task.service.js"
 import { createTaskSchema , updateTaskSchema, verifyTaskSchema, declineTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
@@ -37,23 +38,23 @@ export const taskController = {
 
     verify : asyncHandler(async (req : Request , res : Response) => {
         const input = verifyTaskSchema.parse(req.body);
-        const task = await taskService.verify(routeParam(req, "id") , input , req.user!)
+        const task = await runWithCover(req.user!, (actor) => taskService.verify(routeParam(req, "id") , input , actor))
         res.json({ success : true, data : task });
     }),
 
     approveAssignment : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.approveAssignment(routeParam(req, "id") , req.user!)
+        const task = await runWithCover(req.user!, (actor) => taskService.approveAssignment(routeParam(req, "id") , actor))
         res.json({ success : true, data : task });
     }),
 
     decline : asyncHandler(async (req : Request , res : Response) => {
         const input = declineTaskSchema.parse(req.body);
-        const task = await taskService.decline(routeParam(req, "id") , input.reason , req.user!)
+        const task = await runWithCover(req.user!, (actor) => taskService.decline(routeParam(req, "id") , input.reason , actor))
         res.json({ success : true, data : task });
     }),
 
     reopenDeclined : asyncHandler(async (req : Request , res : Response) => {
-        const task = await taskService.reopenDeclined(routeParam(req, "id") , req.user!)
+        const task = await runWithCover(req.user!, (actor) => taskService.reopenDeclined(routeParam(req, "id") , actor))
         res.json({ success : true, data : task });
     }),
 
@@ -86,7 +87,7 @@ export const taskController = {
     }),
 
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
-        const { data, meta } = await taskService.pendingApproval(req.user!);
+        const { data, meta } = await mergePendingApprovals(req.user!, (actor, limit) => taskService.pendingApproval(actor, limit));
         res.json({ success : true, data, meta })
     }),
 

@@ -18,6 +18,8 @@ import {
     CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
 import { groupBy } from "../../utils/groupBy.js"
+import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
+import { CAN_VERIFY_BY_ROLE, coverCanVerify } from "./checklistVerifyRules.js"
 import { type ChecklistItem, type ItemValueInput } from "./checklistItemValidators.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
 import { eq, and, inArray, isNull, asc, sql, gte, lt, type SQL } from "drizzle-orm"
@@ -28,7 +30,6 @@ import { closedBeforeTodayExpr, missedInstanceIds, localNowSql, runDeadlineSql }
 import { hasRunDeadlinePassed, isRunEnded, runClosingMs, runPhase } from "./checklistRunEnd.js"
 import { bumpVersions } from "../../config/queryCache.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import type { Role } from "../../db/schema/core.js"
 import { env } from "../../config/env.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
@@ -320,6 +321,11 @@ export const assertCanView = async (instance: { assigneeIds: string[]; reviewerI
         const departmentIds = await getDepartmentIdsForUserIds(instance.assigneeIds)
         if (departmentIds.has(user.departmentId)) return
     }
+    const covers = await approvalCoverService.activeCoversFor(user.sub)
+    if (covers.length > 0) {
+        const departmentIds = await getDepartmentIdsForUserIds(instance.assigneeIds)
+        if (covers.some((cover) => coverCanVerify(cover, departmentIds, instance.reviewerIds))) return
+    }
     throw AppError.forbidden()
 }
 
@@ -420,23 +426,18 @@ export const syncVerificationStatus = async (instanceId: string) => {
     }
 }
 
-export const CAN_VERIFY_BY_ROLE: Partial<Record<Role, (assigneeDepartmentIds: Set<string>, user: AccessTokenPayload) => boolean>> = {
-    ADMIN: () => true,
-    PC: () => true,
-    MANAGER: (assigneeDepartmentIds, user) => !!user.departmentId && assigneeDepartmentIds.has(user.departmentId),
-    SENIOR: (assigneeDepartmentIds, user) => !!user.departmentId && assigneeDepartmentIds.has(user.departmentId),
-}
-
 export const assertNotOwnRun = (assigneeLinks: { userId: string }[], user: AccessTokenPayload) => {
     if (user.role !== "ADMIN" && assigneeLinks.some((l) => l.userId === user.sub)) {
         throw AppError.forbidden("You fill this checklist in yourself, so you can't review it. Ask another reviewer.")
     }
 }
 
-export const assertCanVerify = (assigneeDepartmentIds: Set<string>, reviewerIds: string[], user: AccessTokenPayload) => {
+export const assertCanVerify = async (assigneeDepartmentIds: Set<string>, reviewerIds: string[], user: AccessTokenPayload) => {
     if (reviewerIds.includes(user.sub)) return
-    const canVerify = CAN_VERIFY_BY_ROLE[user.role]?.(assigneeDepartmentIds, user) ?? false
-    if (!canVerify) throw AppError.forbidden()
+    if (CAN_VERIFY_BY_ROLE[user.role]?.(assigneeDepartmentIds, user)) return
+    const covers = await approvalCoverService.activeCoversFor(user.sub)
+    if (covers.some((cover) => coverCanVerify(cover, assigneeDepartmentIds, reviewerIds))) return
+    throw AppError.forbidden()
 }
 
 export const countsAgainstCompliance = (item: typeof checklistInstanceItems.$inferSelect): boolean => {
@@ -468,7 +469,7 @@ export const loadWaivable = async (id: string, itemId: string, user: AccessToken
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeIds = assigneeLinks.map((l) => l.userId)
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
-    assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+    await assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
     if (!["ADMIN", "PC", "MANAGER", "SENIOR"].includes(user.role)) throw AppError.forbidden("Only a department head, PC or Admin can waive a question.")
     if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You cannot waive a question on a checklist you fill in yourself.")
     const orgWide = isAdminOrPc(user.role)
@@ -570,13 +571,19 @@ export const instanceConditions = (filter: InstanceListFilter): SQL | undefined 
     return conditions.length ? and(...conditions) : undefined
 }
 
-export const pendingApprovalScope = (user: AccessTokenPayload): SQL | undefined => {
+export const pendingApprovalScope = async (user: AccessTokenPayload): Promise<SQL | undefined> => {
     if (isAdminOrPc(user.role)) return undefined
+    const covers = await approvalCoverService.activeCoversFor(user.sub)
+    if (covers.some((cover) => isAdminOrPc(cover.role))) return undefined
+    const reviewerIds = [user.sub, ...covers.map((cover) => cover.id)]
     const parts: SQL[] = [sql`EXISTS (
         SELECT 1 FROM ${checklistInstanceReviewers} r
-        WHERE r.instanceId = ${checklistInstances.id} AND r.userId = ${user.sub}
+        WHERE r.instanceId = ${checklistInstances.id} AND r.userId IN (${sql.join(reviewerIds.map((id) => sql`${id}`), sql`, `)})
     )`]
-    if (isHod(user) && user.departmentId) parts.push(instanceInDepartmentCondition(user.departmentId))
+    const departmentIds = new Set<string>()
+    if (isHod(user) && user.departmentId) departmentIds.add(user.departmentId)
+    for (const cover of covers) if (isHod(cover) && cover.departmentId) departmentIds.add(cover.departmentId)
+    for (const departmentId of departmentIds) parts.push(instanceInDepartmentCondition(departmentId))
     return sql`(${sql.join(parts, sql` OR `)})`
 }
 

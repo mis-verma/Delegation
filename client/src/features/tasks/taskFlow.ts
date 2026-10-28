@@ -1,7 +1,11 @@
 import type { Role } from '../../api/auth';
 import type { Task } from '../../api/task';
 
-type Viewer = { id: string; role: Role; departmentId?: string | null } | null | undefined;
+type Profile = { id: string; role: Role; departmentId?: string | null };
+type Viewer = Profile | null | undefined;
+type Viewers = Viewer | readonly Profile[];
+
+const profilesOf = (viewers: Viewers): readonly Profile[] => (!viewers ? [] : 'role' in viewers ? [viewers] : viewers);
 type FlowTask = Pick<Task, 'departmentId' | 'departmentApprovals'>;
 
 const headDepartmentOf = (user: Viewer): string | null =>
@@ -9,14 +13,18 @@ const headDepartmentOf = (user: Viewer): string | null =>
 
 const isLeadership = (user: Viewer): boolean => !!user && (user.role === 'ADMIN' || user.role === 'PC');
 
-export const canDecideOnTask = (task: FlowTask, user: Viewer): boolean => {
+export const canDecideOnTask = (task: FlowTask, viewers: Viewers): boolean => profilesOf(viewers).some((profile) => decideAs(task, profile));
+
+const decideAs = (task: FlowTask, user: Viewer): boolean => {
   if (isLeadership(user)) return true;
   const mine = headDepartmentOf(user);
   if (!mine) return false;
   return mine === task.departmentId || !!task.departmentApprovals?.some((a) => a.departmentId === mine);
 };
 
-export const canApproveTaskNow = (task: FlowTask, user: Viewer): boolean => {
+export const canApproveTaskNow = (task: FlowTask, viewers: Viewers): boolean => profilesOf(viewers).some((profile) => approveNowAs(task, profile));
+
+const approveNowAs = (task: FlowTask, user: Viewer): boolean => {
   if (isLeadership(user)) return true;
   const mine = headDepartmentOf(user);
   if (!mine) return false;
@@ -25,7 +33,7 @@ export const canApproveTaskNow = (task: FlowTask, user: Viewer): boolean => {
   return rows.some((a) => a.status === 'pending' && a.departmentId === mine);
 };
 
-export const taskFlowState = (task: Task, user: Viewer) => {
+export const taskFlowState = (task: Task, user: Viewers) => {
   const declined = !!task.declinedAt;
   const awaiting = !!task.awaitingHeadApproval && !declined;
   return {
@@ -36,7 +44,7 @@ export const taskFlowState = (task: Task, user: Viewer) => {
   };
 };
 
-export const awaitingRequests = (tasks: readonly Task[], user: Viewer, includeAll = false): Task[] =>
+export const awaitingRequests = (tasks: readonly Task[], user: Viewers, includeAll = false): Task[] =>
   tasks
     .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !t.deletedAt && !!user && (includeAll || canApproveTaskNow(t, user)))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

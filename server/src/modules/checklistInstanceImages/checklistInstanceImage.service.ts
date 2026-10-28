@@ -11,6 +11,7 @@ import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.j
 import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
 import { perceptualHash } from "../../utils/imageHash.js"
+import { assessImageQuality, serializeQualityFlags } from "../../utils/imageQuality.js"
 import { findEarlierSimilar } from "./imageSimilarity.js"
 
 const RETRY_WINDOW_MS = 10 * 60_000
@@ -88,7 +89,10 @@ export const checklistInstanceImageService = {
             }
         }
 
-        const fileHashes = await Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? perceptualHash(file.path) : Promise.resolve(null))));
+        const [fileHashes, fileQualities] = await Promise.all([
+            Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? perceptualHash(file.path) : Promise.resolve(null)))),
+            Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? assessImageQuality(file.path) : Promise.resolve(null)))),
+        ]);
 
         const knownHashes = fileHashes.filter((h): h is string => !!h);
         const alreadySaved = knownHashes.length
@@ -101,7 +105,7 @@ export const checklistInstanceImageService = {
             ))
             : [];
         const savedHashes = new Set(alreadySaved.map((img) => img.contentHash));
-        const fresh = files.map((file, index) => ({ file, hash: fileHashes[index] ?? null, takenAt: takenAt[index] }))
+        const fresh = files.map((file, index) => ({ file, hash: fileHashes[index] ?? null, quality: fileQualities[index] ?? null, takenAt: takenAt[index] }))
             .filter((entry) => {
                 const repeated = !!entry.hash && savedHashes.has(entry.hash);
                 if (repeated) fs.unlink(entry.file.path, () => {});
@@ -110,7 +114,7 @@ export const checklistInstanceImageService = {
         if (fresh.length === 0) return alreadySaved;
 
         const similar = await Promise.all(fresh.map((entry) => (entry.hash ? findEarlierSimilar(entry.hash, item.id) : Promise.resolve(null))));
-        const rows = fresh.map(({ file, hash, takenAt: taken }, index) => ({
+        const rows = fresh.map(({ file, hash, quality, takenAt: taken }, index) => ({
             id: createId(),
             url: `/uploads/checklist-instances/${path.basename(file.path)}`,
             originalFilename: file.originalname,
@@ -120,6 +124,7 @@ export const checklistInstanceImageService = {
             purpose,
             contentHash: hash,
             similarToId: similar[index] ?? null,
+            qualityFlags: serializeQualityFlags(quality),
             takenAt: parseTakenAt(taken),
             checklistInstanceItemId: item.id,
             uploadedBy: user.sub,

@@ -22,6 +22,7 @@ import { StreakGoalCard } from './StreakGoalCard';
 import { DashboardCardFrame } from './DashboardCardFrame';
 import { LazyWhenVisible } from './LazyWhenVisible';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
+import { CoverBanner } from './CoverBanner';
 import { DashboardMobileCustomize } from './DashboardMobileCustomize';
 import { dashboardViewFor } from './dashboardView';
 import { MyTeamCard } from '../attention/MyTeamCard';
@@ -175,6 +176,7 @@ export const HomePage = () => {
         touch={isMobile}
       />
 
+      {!isCustomizing && <CoverBanner />}
       {!isCustomizing && <OvertimeNotice today={orgToday} />}
       {!isCustomizing && <EnableAlertsBanner />}
       {!isCustomizing && (

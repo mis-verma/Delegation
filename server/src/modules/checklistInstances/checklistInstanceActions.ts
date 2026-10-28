@@ -230,7 +230,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
-    assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+    await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
 
     const wanted = [...new Set(input.itemIds)]
@@ -292,7 +292,7 @@ export const raiseTicket = async (id: string, itemId: string, input: RaiseCheckl
     const assigneeIds = assigneeLinks.map((l) => l.userId)
     const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeIds)
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
-    assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+    await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
 
     const [item] = await db.select().from(checklistInstanceItems)
@@ -381,7 +381,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
-    assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+    await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
 
     const now = new Date()

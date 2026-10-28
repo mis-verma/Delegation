@@ -14,6 +14,7 @@ import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, 
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
+import { weakPhotoMessage } from './photoQuality';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
@@ -426,13 +427,16 @@ export const useUploadChecklistInstanceImagesMutation = (instanceId: string) => 
     mutationFn: async ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) => {
       setProgress(0);
       try {
-        return (await checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose, setProgress)).data;
+        const images = (await checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose, setProgress)).data;
+        const weak = weakPhotoMessage(images);
+        if (weak) toast.warning(weak, { duration: 10000 });
+        return images;
       } finally {
         setProgress(null);
       }
     },
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
-    successMessage: 'Photos uploaded',
+    successMessage: (images) => (weakPhotoMessage(images) ? null : 'Photos uploaded'),
     errorFallback: "Couldn't upload the photos. Try again.",
     retryable: true,
   });

@@ -13,6 +13,7 @@ module.exports = {
       instances: 1,
       env: {
         NODE_ENV: 'production',
+        UV_THREADPOOL_SIZE: '8',
       },
       max_memory_restart: '500M',
       kill_timeout: 30000,

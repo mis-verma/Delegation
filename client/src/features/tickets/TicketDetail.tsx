@@ -52,6 +52,7 @@ import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
 import { RESTRICTED_STATUSES, type Ticket, type TicketAttachment, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
 import { canApproveTicket, isFinalApproval } from '../../lib/ticketApproval';
+import { useApprovers } from '../checklist/useApprovalCover';
 import { TicketApprovalTrail } from './detail/TicketApprovalTrail';
 import { ticketScore } from '../../lib/itemScore';
 import { ItemScoreCard } from '../../components/itemScoreCard/ItemScoreCard';
@@ -77,9 +78,11 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const ticket = fresh ?? initialTicket;
 
   const { user: currentUser } = useAuth();
+  const approvers = useApprovers();
   const role = currentUser?.role;
   const isAdmin = role === 'ADMIN' || role === 'PC';
   const isVerifier = isAdmin;
+  const coverLeadership = approvers.some((a) => a.role === 'ADMIN' || a.role === 'PC');
   const ownScope = !!role && OWN_SCOPE_ROLES.includes(role);
   const canChangeStatus = canChangeTicket(currentUser, ticket);
   const canEdit = canChangeStatus && ticket.status !== 'CLOSED';
@@ -192,7 +195,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setQuickStatusCaptureMethod(method);
   };
 
-  const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveTicket(currentUser, ticket);
+  const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveTicket(approvers, ticket);
   const awaitingHead = !!ticket.awaitingHeadApproval && !ticket.declinedAt;
   const workerCanMove = canChangeStatus
     && !awaitingHead
@@ -213,13 +216,13 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee?.firstName ?? null;
-  const isDepartmentHead = (role === 'MANAGER' || role === 'SENIOR') && !!currentUser?.departmentId && currentUser.departmentId === ticket.departmentId;
+  const isDepartmentHead = approvers.some((a) => (a.role === 'MANAGER' || a.role === 'SENIOR') && !!a.departmentId && a.departmentId === ticket.departmentId);
   const canDecline = !ticket.declinedAt
     && !awaitingHead
     && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
-    && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
-  const canApproveAssignment = awaitingHead && (isAdmin || isDepartmentHead);
-  const canReopenDeclined = !!ticket.declinedAt && (isAdmin || isDepartmentHead);
+    && (isAdmin || coverLeadership || (isDepartmentHead && ticket.userId !== currentUser?.id));
+  const canApproveAssignment = awaitingHead && (isAdmin || coverLeadership || isDepartmentHead);
+  const canReopenDeclined = !!ticket.declinedAt && (isAdmin || coverLeadership || isDepartmentHead);
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || canReopenDeclined;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 

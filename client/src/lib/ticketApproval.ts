@@ -23,7 +23,17 @@ export const stageOf = (ticket: Pick<ApprovalTicket, 'approvalStage'>): Approval
 export const isDepartmentHead = (user: Approver, ticket: Pick<ApprovalTicket, 'departmentId'>): boolean =>
   (user.role === 'MANAGER' || user.role === 'SENIOR') && !!user.departmentId && ticket.departmentId === user.departmentId;
 
-export const canApproveTicket = (user: Approver | null | undefined, ticket: ApprovalTicket): boolean => {
+type Approvers = Approver | readonly Approver[] | null | undefined;
+
+const approversOf = (users: Approvers): readonly Approver[] => (!users ? [] : 'role' in users ? [users] : users);
+
+export const isDepartmentHeadOf = (users: Approvers, ticket: Pick<ApprovalTicket, 'departmentId'>): boolean =>
+  approversOf(users).some((user) => isDepartmentHead(user, ticket));
+
+export const canApproveTicket = (users: Approvers, ticket: ApprovalTicket): boolean =>
+  approversOf(users).some((user) => canApproveAs(user, ticket));
+
+const canApproveAs = (user: Approver | null | undefined, ticket: ApprovalTicket): boolean => {
   if (!user) return false;
   if (user.role === 'ADMIN') return true;
   if (ticket.assigneeId === user.id || ticket.assigneeIds?.includes(user.id)) return false;
@@ -38,8 +48,8 @@ export const canApproveTicket = (user: Approver | null | undefined, ticket: Appr
   return !!ticket.reviewers?.some((r) => r.id === user.id);
 };
 
-export const isFinalApproval = (user: Approver | null | undefined, ticket: Pick<ApprovalTicket, 'approvalStage'>): boolean =>
-  stageOf(ticket) === 'PC' || user?.role === 'ADMIN';
+export const isFinalApproval = (users: Approvers, ticket: Pick<ApprovalTicket, 'approvalStage'>): boolean =>
+  stageOf(ticket) === 'PC' || approversOf(users).some((user) => user.role === 'ADMIN');
 
 export const STAGE_LABEL: Record<ApprovalStage, string> = {
   HOD: 'With the department head',

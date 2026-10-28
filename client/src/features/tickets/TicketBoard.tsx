@@ -29,6 +29,7 @@ import { STATUS_CONFIG } from './ticketDisplay';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '@/components/confirmDialog';
 import { canApproveTicket, isFinalApproval } from '../../lib/ticketApproval';
+import { useApprovers } from '../checklist/useApprovalCover';
 
 const collisionDetection: CollisionDetection = (args) => {
   const withinPointer = pointerWithin(args);
@@ -55,6 +56,7 @@ const dropAnimationConfig: DropAnimation = {
 
 export const TicketBoard = ({ tickets, departmentNames, onOpen }: TicketBoardProps) => {
   const { user } = useAuth();
+  const approvers = useApprovers();
   const confirm = useConfirm();
   const verifyMutation = useVerifyTicketMutation();
   const { requestMove, statusRemarkDialog } = useTicketStatusMove();
@@ -106,7 +108,7 @@ export const TicketBoard = ({ tickets, departmentNames, onOpen }: TicketBoardPro
         });
         return;
       }
-      const canApprove = canApproveTicket(user, ticket);
+      const canApprove = canApproveTicket(approvers, ticket);
       if (!canApprove) {
         toast.error("You can't approve this ticket.", {
           description: ticket.assigneeId === user?.id
@@ -118,11 +120,11 @@ export const TicketBoard = ({ tickets, departmentNames, onOpen }: TicketBoardPro
         return;
       }
       void confirm({
-        title: isFinalApproval(user, ticket) ? 'Approve and close this ticket?' : 'Approve and send to PC?',
-        description: isFinalApproval(user, ticket)
+        title: isFinalApproval(approvers, ticket) ? 'Approve and close this ticket?' : 'Approve and send to PC?',
+        description: isFinalApproval(approvers, ticket)
           ? `"${ticket.title}" will be closed as approved. Open the ticket first if you want to check the work or add a note.`
           : `"${ticket.title}" goes to PC for the final approval. It stays open until PC approves it.`,
-        confirmLabel: isFinalApproval(user, ticket) ? 'Approve and close' : 'Approve, send to PC',
+        confirmLabel: isFinalApproval(approvers, ticket) ? 'Approve and close' : 'Approve, send to PC',
         cancelLabel: 'Not yet',
       }).then((ok) => {
         if (ok) verifyMutation.mutate({ id: ticket.id, payload: { action: 'APPROVE' } });

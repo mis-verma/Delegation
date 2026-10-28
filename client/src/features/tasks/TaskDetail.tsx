@@ -33,6 +33,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from '../../lib/ticketApproval';
+import { useApprovers } from '../checklist/useApprovalCover';
 import { TaskApprovalTrail } from './TaskApprovalTrail';
 import { TaskHeadDecision } from './TaskHeadDecision';
 import { canAssignTask, canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
@@ -718,6 +719,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { data: fresh } = useTaskQuery(initialTask.id);
   const task = fresh ?? initialTask;
   const { user } = useAuth();
+  const approvers = useApprovers();
 
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
   const [editing, setEditing] = useState(false);
@@ -872,8 +874,8 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           <TaskFooter
             task={task}
             canMove={canMove}
-            canApprove={canApproveTicket(user, taskApprovalSubject(task))}
-            finalApproval={isFinalApproval(user, task)}
+            canApprove={canApproveTicket(approvers, taskApprovalSubject(task))}
+            finalApproval={isFinalApproval(approvers, task)}
             nextStatus={nextStatus}
             onAdvance={() => {
               if (task.status === 'draft') publish();

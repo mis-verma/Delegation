@@ -1,4 +1,5 @@
 import { answerVerdict } from '../checklistCompliance';
+import { hasWeakPhoto } from '../photoQuality';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 export interface ItemFlags {
@@ -7,6 +8,7 @@ export interface ItemFlags {
   notLive: boolean;
   reusedPhoto: boolean;
   oldPhoto: boolean;
+  weakPhoto: boolean;
   sentBack: boolean;
   waived: boolean;
   critical: boolean;
@@ -39,6 +41,7 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
   const notLive = missingPhotos && item.requiresLivePhoto && photos.gallery > 0;
   const reusedPhoto = !item.isNotApplicable && (item.images ?? []).some((img) => img.reusedFromEarlier === true);
   const oldPhoto = !item.isNotApplicable && !reusedPhoto && (item.images ?? []).some((img) => img.takenBeforeRun === true);
+  const weakPhoto = !item.isNotApplicable && !reusedPhoto && !oldPhoto && hasWeakPhoto(item.images);
   const critical = item.isCritical === true;
   return {
     bad,
@@ -46,12 +49,13 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
     notLive,
     reusedPhoto,
     oldPhoto,
+    weakPhoto,
     sentBack,
     waived,
     critical,
     criticalFailed: critical && verdict === 'bad',
     fixed: sentBack && item.isDone && !item.reviewTicketId,
-    needsLook: bad || missingPhotos || sentBack || reusedPhoto || oldPhoto,
+    needsLook: bad || missingPhotos || sentBack || reusedPhoto || oldPhoto || weakPhoto,
   };
 };
 

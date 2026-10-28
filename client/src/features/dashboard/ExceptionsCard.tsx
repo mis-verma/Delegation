@@ -33,15 +33,16 @@ const KIND_LABEL: Record<ExceptionKind, string> = {
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
 
-const ROW_CLASS = 'flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
+const ROW_CLASS = 'group relative flex items-center gap-3 min-h-[4.25rem] px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
 
 const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: number; linked: boolean }) => {
   const Icon = KIND_ICON[item.kind];
   const high = item.severity === 'high';
   const body = (
     <>
-      <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0 text-white', high ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70')}>
-        <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
+      <span aria-hidden="true" className={cn('absolute inset-y-3 left-0 w-1 rounded-r-full opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100', high ? 'bg-vivid-red' : 'bg-vivid-blue')} />
+      <span className={cn('flex items-center justify-center size-11 rounded-xl shrink-0 text-white', high ? 'bg-vivid-red' : 'bg-vivid-blue')}>
+        <Icon className="size-5" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div className="flex flex-1 min-w-0 flex-col gap-1.5">
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{item.title}</p>
@@ -54,7 +55,8 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
         </p>
       </div>
-      {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />}
+      {linked && <span className="hidden shrink-0 items-center rounded-full border border-border bg-surface px-3 py-1 t-meta font-display font-bold text-text-secondary transition-colors group-hover:border-vivid-blue/50 group-hover:text-vivid-blue-text lg:inline-flex">Open</span>}
+      {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 lg:hidden" aria-hidden="true" />}
     </>
   );
   return linked ? (

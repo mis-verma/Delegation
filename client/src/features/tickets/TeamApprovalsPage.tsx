@@ -6,6 +6,7 @@ import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import { TicketApprovals } from './TicketApprovals';
 
 const ChecklistApprovals = lazy(() => import('../checklist').then((m) => ({ default: m.ChecklistApprovals })));
+const ApprovalCoverCard = lazy(() => import('../checklist/ApprovalCoverCard').then((m) => ({ default: m.ApprovalCoverCard })));
 
 type ApprovalsTab = 'work' | 'checklists';
 
@@ -23,6 +24,9 @@ export const TeamApprovalsPage = () => {
   return (
     <div className="flex w-full flex-col gap-5">
       <PageHeader icon={ShieldCheck} title="Team approvals" subtitle="Decide on new requests, approve finished work and review checklists for your department." />
+      <Suspense fallback={null}>
+        <ApprovalCoverCard />
+      </Suspense>
       <PeriodTabControl value={tab} options={TABS} labels={LABELS} onChange={change} className="w-full sm:w-fit" fill />
       {tab === 'work' ? (
         <TicketApprovals embedded />

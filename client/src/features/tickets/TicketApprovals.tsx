@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { CheckCircle2, Clock, Inbox, ShieldCheck, UserCheck } from 'lucide-react';
 import { EmptyState, IconChip, InlineError, PageHeader, Skeleton } from '../../components';
-import { useAuth } from '../../context/AuthContext';
-import { canApproveTicket, isDepartmentHead, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
+import { canApproveTicket, isDepartmentHeadOf, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
+import { useApprovers } from '../checklist/useApprovalCover';
 import { approveTaskRun, rejectTaskRun } from '../verification/decisionRequests';
 import { TaskRow } from '../verification/TicketTaskRows';
 import { usePendingTasksQuery } from '../verification/usePendingTasksQuery';
@@ -22,7 +22,7 @@ const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
 
 export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) => {
-  const { user } = useAuth();
+  const approvers = useApprovers();
   const now = useNow();
   const tasksQuery = usePendingTasksQuery('pending_approval');
   const boardQuery = useTicketsAwaitingHeadQuery();
@@ -34,11 +34,11 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
 
   const requests = useMemo(
     () => (boardQuery.data ?? NO_TICKETS)
-      .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !!user && isDepartmentHead(user, t))
+      .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && isDepartmentHeadOf(approvers, t))
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-    [boardQuery.data, user],
+    [boardQuery.data, approvers],
   );
-  const delegationRequests = useMemo(() => awaitingRequests(allTasksQuery.data ?? NO_TASKS, user), [allTasksQuery.data, user]);
+  const delegationRequests = useMemo(() => awaitingRequests(allTasksQuery.data ?? NO_TASKS, approvers), [allTasksQuery.data, approvers]);
   const nameOf = (id: string | null | undefined) => {
     const person = id ? people?.find((p) => p.id === id) : undefined;
     return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
@@ -46,9 +46,9 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const allTasks = tasksQuery.data?.data ?? NO_TASKS;
   const myTasks = useMemo(
     () => allTasks
-      .filter((t) => stageOf(t) === 'HOD' && canApproveTicket(user, taskApprovalSubject(t)) && !heldIds.has(t.id))
+      .filter((t) => stageOf(t) === 'HOD' && canApproveTicket(approvers, taskApprovalSubject(t)) && !heldIds.has(t.id))
       .sort((a, b) => new Date(a.submittedAt ?? a.updatedAt).getTime() - new Date(b.submittedAt ?? b.updatedAt).getTime()),
-    [allTasks, user, heldIds],
+    [allTasks, approvers, heldIds],
   );
   const withPc = useMemo(
     () => allTasks.filter((t) => stageOf(t) === 'PC' && !!t.hodApprovedAt).length,

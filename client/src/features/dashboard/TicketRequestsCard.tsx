@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { ChevronRight, CheckCheck, Inbox, ShieldQuestion } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
-import { isDepartmentHead } from '../../lib/ticketApproval';
+import { isDepartmentHeadOf } from '../../lib/ticketApproval';
+import { useApprovers } from '../checklist/useApprovalCover';
 import { IconChip } from '../../components/iconChip';
 import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
@@ -30,6 +31,7 @@ type RequestItem = { kind: 'ticket'; at: number; ticket: Ticket } | { kind: 'tas
 
 export const TicketRequestsCard = () => {
   const { user } = useAuth();
+  const approvers = useApprovers();
   const now = useNow();
   const isAdmin = user?.role === 'ADMIN';
   const isHod = user?.role === 'MANAGER' || user?.role === 'SENIOR';
@@ -43,12 +45,12 @@ export const TicketRequestsCard = () => {
 
   const requests = useMemo<RequestItem[]>(() => {
     const tickets = (board.data ?? NO_TICKETS)
-      .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && !!user && (isAdmin || isDepartmentHead(user, t)))
+      .filter((t) => !!t.awaitingHeadApproval && !t.declinedAt && (isAdmin || isDepartmentHeadOf(approvers, t)))
       .map((ticket): RequestItem => ({ kind: 'ticket', at: new Date(ticket.createdAt).getTime(), ticket }));
-    const delegations = awaitingRequests(tasksQuery.data ?? NO_TASKS, user, isAdmin)
+    const delegations = awaitingRequests(tasksQuery.data ?? NO_TASKS, approvers, isAdmin)
       .map((task): RequestItem => ({ kind: 'task', at: new Date(task.createdAt).getTime(), task }));
     return [...tickets, ...delegations].sort((a, b) => a.at - b.at);
-  }, [board.data, tasksQuery.data, user, isAdmin]);
+  }, [board.data, tasksQuery.data, approvers, isAdmin]);
 
   const finished = useMemo<ApprovalRow[]>(() => {
     if (!showFinished) return NO_ROWS;

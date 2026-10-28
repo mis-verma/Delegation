@@ -108,7 +108,7 @@ type EntityMutationConfig<TVars, TResult> = {
   invalidateKeys: readonly (readonly unknown[])[];
   setDetailData?: (result: TResult, vars: TVars) => { key: readonly unknown[]; data: TResult } | void;
   removeKey?: (result: TResult, vars: TVars) => readonly unknown[] | void;
-  successMessage?: string | ((result: TResult, vars: TVars) => string) | null;
+  successMessage?: string | ((result: TResult, vars: TVars) => string | null) | null;
   successHaptic?: HapticKind;
   errorFallback: string;
   errorToast?: boolean;
@@ -170,8 +170,10 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
         const msg = typeof config.successMessage === 'function'
           ? config.successMessage(result, vars)
           : config.successMessage;
-        toast.success(msg);
-        haptic(config.successHaptic ?? 'success');
+        if (msg) {
+          toast.success(msg);
+          haptic(config.successHaptic ?? 'success');
+        }
       }
     },
     onError: (err, vars, context) => {

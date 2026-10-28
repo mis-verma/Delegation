@@ -5,6 +5,7 @@ import { AuditUniformLists } from './AuditUniformLists';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
+import { GoodAnswerPicker } from './GoodAnswerPicker';
 import { PhotoRulesPanel } from './PhotoRulesPanel';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { peopleCount, splitByVisible } from './useStorePeople';
@@ -287,13 +288,13 @@ const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
 
   if (itemType === 'YES_NO' || itemType === 'PASS_FAIL') {
     const [yes, no] = itemType === 'YES_NO' ? ['Yes', 'No'] : ['Pass', 'Fail'];
-    const pick = (v: 'YES' | 'NO') => onChange({ acceptableAnswers: accepted[0] === v ? [] : [v] });
     body = (
-      <div className="flex flex-wrap gap-2">
-        <ToggleChip tone="good" on={accepted.length === 0} onClick={() => onChange({ acceptableAnswers: [] })}>Not scored</ToggleChip>
-        <ToggleChip tone="good" on={accepted[0] === 'YES'} onClick={() => pick('YES')}>{yes} is good</ToggleChip>
-        <ToggleChip tone="good" on={accepted[0] === 'NO'} onClick={() => pick('NO')}>{no} is good</ToggleChip>
-      </div>
+      <GoodAnswerPicker
+        yes={yes}
+        no={no}
+        value={accepted[0] === 'YES' || accepted[0] === 'NO' ? accepted[0] : null}
+        onChange={(next) => onChange({ acceptableAnswers: next ? [next] : [] })}
+      />
     );
   } else if (itemType === 'MULTIPLE_CHOICE' || itemType === 'DROPDOWN') {
     if (draft.options.length < 2) return null;

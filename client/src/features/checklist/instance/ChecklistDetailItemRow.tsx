@@ -1,5 +1,5 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, Camera, Copy, CornerUpLeft, History, Layers, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { itemFlags, photoBreakdown } from './reviewFlags';
@@ -113,6 +113,7 @@ export const DetailItemRow = memo(({
     ...(flags.notLive ? ['Not live'] : []),
     ...(flags.reusedPhoto ? ['Old photo'] : []),
     ...(flags.oldPhoto ? ['Old photo'] : []),
+    ...(flags.weakPhoto ? ['Weak photo'] : []),
     ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []),
     ...(flags.bad ? ['Answer not matching'] : []),
   ];
@@ -197,6 +198,12 @@ export const DetailItemRow = memo(({
               title={flags.reusedPhoto ? 'This photo looks the same as one uploaded earlier for another question' : 'This photo was taken before this checklist opened'}
             />
             <span className="text-text-secondary">{flags.reusedPhoto ? 'Looks the same as a photo from an earlier question. Check it is for this one.' : 'Taken before this checklist opened. Check it shows today.'}</span>
+          </p>
+        )}
+        {flags.weakPhoto && (
+          <p className="flex flex-wrap items-center gap-2 t-meta font-display font-medium">
+            <IconChip icon={ImageOff} tone="bg-warning" label="Weak photo" title="A photo looks blurry, too dark or too bright" />
+            <span className="text-text-secondary">A photo may be hard to read. Open it and check, or send this question back for a clearer one.</span>
           </p>
         )}
         {selecting && !!item.definitionItemId && <PreviousAnswerPanel instanceId={instanceId} itemId={item.id} />}

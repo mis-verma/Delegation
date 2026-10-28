@@ -53,6 +53,14 @@ export const RiskChips = memo(function RiskChips({ risk, className, hideComplian
           title="Photos that were taken before this checklist opened"
         />
       )}
+      {risk.weakPhotos > 0 && (
+        <IconChip
+          icon={ImageOff}
+          tone="bg-warning"
+          label={plural(risk.weakPhotos, 'weak photo', 'weak photos')}
+          title="Photos that look blurry, too dark or too bright"
+        />
+      )}
       {risk.sentBackTimes > 0 && (
         <IconChip
           icon={CornerUpLeft}
