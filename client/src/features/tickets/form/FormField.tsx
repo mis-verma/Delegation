@@ -29,7 +29,7 @@ export const FormField = ({ label, icon, required, optional, hint, error, htmlFo
 );
 
 export const StepHeading = ({ step, title, subtitle }: { step: number; title: string; subtitle?: string }) => (
-  <div className="flex items-center gap-2.5">
+  <div className="flex items-center gap-2">
     <span className="flex items-center justify-center size-6 shrink-0 rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 t-meta font-display font-bold">
       {step}
     </span>

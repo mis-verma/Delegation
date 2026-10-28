@@ -186,7 +186,7 @@ export const TicketStatusHistory = ({ ticket, departmentName, onPreview }: Ticke
                 <Icon size={14} strokeWidth={2.5} />
               </span>
 
-              <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-2.5 ${step.pending ? 'border-dashed border-warning/40 bg-warning/5' : latest ? 'border-primary-500/30 bg-surface' : 'border-border/60 bg-surface-hover/30'}`}>
+              <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-2.5 ${step.pending ? 'border-warning/40 bg-warning/5' : latest ? 'border-primary-500/30 bg-surface' : 'border-border/60 bg-surface-hover/30'}`}>
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <span className="t-meta font-display font-semibold text-text-light tabular-nums">Step {i + 1}</span>

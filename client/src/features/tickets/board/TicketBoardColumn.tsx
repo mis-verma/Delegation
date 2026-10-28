@@ -38,7 +38,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="relative flex items-center justify-center size-2.5">
             <span className={`absolute inset-0 rounded-full blur-sm opacity-60 ${config.dot}`} />
             <span className={`relative size-2 rounded-full shrink-0 ${config.dot}`} aria-hidden="true" />

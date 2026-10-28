@@ -66,7 +66,7 @@ export const ChecklistItemRow = ({
           : 'bg-surface border-border hover:border-border-hover'
       }`}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2">
         <span
           className={`mt-px flex items-center justify-center size-5 rounded-md shrink-0 transition-colors ${
             item.isDone

@@ -25,9 +25,9 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
       wide && (tileOnly ? 'col-span-2' : 'max-lg:col-span-2'),
       first && 'max-lg:order-first',
       wideOnPhone && 'col-span-2 sm:col-span-1',
-      'min-w-0 items-center gap-2.5 rounded-xl bg-surface-hover/40 px-2.5 py-2',
+      'min-w-0 items-center gap-2 rounded-xl bg-surface-hover/40 px-2.5 py-2',
       stackOnPhone && 'max-sm:items-stretch',
-      !tileOnly && 'lg:items-start lg:gap-2.5 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-2.5 lg:first:pt-0 lg:last:pb-0',
+      !tileOnly && 'lg:items-start lg:gap-2 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-2.5 lg:first:pt-0 lg:last:pb-0',
     )}
   >
     {Icon && (

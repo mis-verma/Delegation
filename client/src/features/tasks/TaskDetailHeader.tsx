@@ -17,7 +17,7 @@ interface TaskDetailHeaderProps {
 
 const ICON_BUTTON =
   'relative flex items-center justify-center size-8 sm:size-9 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-1.5 sm:after:hidden';
-const MENU_ITEM = 'gap-2.5 min-h-11 sm:min-h-9 t-meta font-display font-semibold cursor-pointer';
+const MENU_ITEM = 'gap-2 min-h-11 sm:min-h-9 t-meta font-display font-semibold cursor-pointer';
 
 export const TaskDetailHeader = ({ task, raisedBy, onShowActivity, onEdit, editing = false, onDelete, isDeleting = false }: TaskDetailHeaderProps) => (
   <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2.5 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-1.5 lg:pl-8 lg:pr-6 text-left">

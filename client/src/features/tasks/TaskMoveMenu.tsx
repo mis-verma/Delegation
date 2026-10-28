@@ -41,7 +41,7 @@ export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
             key={status}
             disabled={isMoveBlocked(task.status, status)}
             onClick={() => onMove(task, status)}
-            className="gap-2.5 py-2 cursor-pointer"
+            className="gap-2 py-2 cursor-pointer"
           >
             {STATUS_ICON[status]}
             <span className="font-medium text-sm">{STATUS_LABEL[status]}</span>

@@ -26,7 +26,7 @@ const formatDate = (dateString: string) => {
 const ICON_BUTTON =
   'relative flex items-center justify-center size-8 sm:size-9 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] disabled:opacity-50 disabled:pointer-events-none after:absolute after:-inset-1.5 sm:after:hidden';
 
-const MENU_ITEM = 'gap-2.5 min-h-11 sm:min-h-9 t-meta font-display font-semibold cursor-pointer';
+const MENU_ITEM = 'gap-2 min-h-11 sm:min-h-9 t-meta font-display font-semibold cursor-pointer';
 
 export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, onShowActivity, onDelete, isDeleting = false }: TicketDetailHeaderProps) => {
   const [copied, setCopied] = useState(false);
@@ -105,7 +105,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
         </div>
       </div>
 
-      <SheetTitle className="text-lg sm:text-xl font-display font-bold text-text">
+      <SheetTitle className="t-title font-display font-bold text-text">
         <button
           type="button"
           onClick={() => setTitleOpen((o) => !o)}

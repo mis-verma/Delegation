@@ -590,14 +590,14 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               {filterChips.map(chip => (
                 <span
                   key={chip.key}
-                  className={`flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover`}
+                  className="flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 t-meta font-display font-medium rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20"
                 >
                   {chip.label}
                   <button
                     type="button"
                     onClick={chip.onClear}
                     aria-label={`Clear ${chip.label} filter`}
-                    className="flex items-center justify-center size-7 pointer-coarse:size-11 -my-1 pointer-coarse:-my-2.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                    className="relative flex items-center justify-center size-6 shrink-0 rounded-full after:absolute after:-inset-2.5 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-primary-500/15 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
                     <X size={13} />
                   </button>
@@ -608,7 +608,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 type="button"
                 onClick={saveFilters}
                 title="Save this filter combination as your default"
-                className="flex items-center gap-1.5 px-3 py-1.5 t-meta font-semibold rounded-lg text-text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="flex items-center gap-1.5 h-7 px-3 pointer-coarse:h-11 t-meta font-display font-semibold rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
                 <Save size={13} />
                 Save view
@@ -639,7 +639,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               onChange={scope.onChange}
             />
           )}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
+          <div className="flex items-center gap-2 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex" />
             {headerActions}
           </div>
@@ -649,7 +649,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       {isPending && (
         <ul className="sm:hidden flex flex-col gap-3" aria-hidden>
           {Array.from({ length: 5 }).map((_, i) => (
-            <li key={i} className="flex flex-col gap-2.5 p-3 rounded-2xl border border-border/60 bg-surface">
+            <li key={i} className="flex flex-col gap-2 p-3 rounded-2xl border border-border/60 bg-surface">
               <div className="flex items-start gap-2">
                 <Skeleton className="h-4 flex-1 rounded-md" />
                 <Skeleton className="size-7 rounded-full" />
@@ -667,10 +667,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       {isPending && (
           <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
               {Array.from({ length: 4 }).map((_, col) => (
-                  <div key={col} className="flex flex-col gap-4 p-3 bg-surface-hover/30 border border-border/50 rounded-xl">
+                  <div key={col} className="flex flex-col gap-3 p-3 bg-surface-hover/30 border border-border/60 rounded-2xl">
                       <Skeleton className="h-6 w-32 rounded-md mx-2 mt-2" />
                       {Array.from({ length: 3 }).map((_, i) => (
-                          <div key={i} className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface">
+                          <div key={i} className="flex flex-col gap-3 p-3.5 rounded-2xl border border-border/60 bg-surface">
                               <Skeleton className="h-5 w-3/4 rounded-md" />
                               <Skeleton className="h-4 w-1/2 rounded-md" />
                               <div className="flex justify-between items-center mt-2">

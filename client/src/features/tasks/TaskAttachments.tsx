@@ -83,7 +83,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
           {files.map((a) => {
             const Icon = attachmentIconFor(a.mimeType);
             return (
-              <li key={a.id} className="relative flex items-center gap-2.5 rounded-lg border border-border/70 bg-surface-hover/40 px-3 py-2">
+              <li key={a.id} className="relative flex items-center gap-2 rounded-lg border border-border/70 bg-surface-hover/40 px-3 py-2">
                 <Icon size={18} className="shrink-0 text-text-light" aria-hidden />
                 <div className="flex-1 min-w-0">
                   <p className="t-card font-display font-semibold text-text truncate" title={a.originalFilename ?? undefined}>

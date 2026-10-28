@@ -49,7 +49,6 @@ interface TaskCardProps {
   fields: CardFieldVisibility;
   isNewlyAssigned?: boolean;
   onMove?: (task: Task, toStatus: Task['status']) => void;
-  priorityRail?: boolean;
 }
 
 const MAX_VISIBLE_AVATARS = 3;
@@ -62,7 +61,7 @@ const daysLeftLabel = (dueDate: string) => {
   return `${days} day${days === 1 ? '' : 's'} left`;
 };
 
-export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove, priorityRail = false }: TaskCardProps) => {
+export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove }: TaskCardProps) => {
   const deleteMutation = useDeleteTaskMutation();
   const confirm = useConfirm();
   const priority = PRIORITY_MAP[task.priority];
@@ -101,14 +100,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       }}
       role="button"
       tabIndex={0}
-      className={`group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden [-webkit-tap-highlight-color:transparent] ${priorityRail ? 'pl-4' : ''}`}
+      className="group relative flex flex-col gap-2 sm:gap-2 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 transition-all duration-200 ease-in-out cursor-pointer select-none active:bg-surface-hover/50 outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
-      {priorityRail && (
-        <span
-          aria-hidden
-          className={`absolute left-0 top-0 bottom-0 w-1 ${priority.stripe}`}
-        />
-      )}
 
       {isNewlyAssigned && raisedByName && (
         <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 t-meta font-semibold text-info">
@@ -136,13 +129,13 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 rounded-xl" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={() => onOpen(task)} className="gap-2.5 py-2 cursor-pointer">
+            <DropdownMenuItem onClick={() => onOpen(task)} className="gap-2 py-2 cursor-pointer">
               <ExternalLink size={15} />
               <span className="font-medium text-sm">Open</span>
             </DropdownMenuItem>
             {onMove && (
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-2.5 py-2 cursor-pointer">
+                <DropdownMenuSubTrigger className="gap-2 py-2 cursor-pointer">
                   <MoveRight size={15} />
                   <span className="font-medium text-sm">Move to</span>
                 </DropdownMenuSubTrigger>
@@ -155,7 +148,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                         key={status}
                         disabled={blocked}
                         onClick={() => onMove(task, status)}
-                        className="gap-2.5 py-2 cursor-pointer"
+                        className="gap-2 py-2 cursor-pointer"
                       >
                         {STATUS_ICON[status]}
                         <span className="font-medium text-sm">{STATUS_LABEL[status]}</span>
@@ -179,7 +172,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                     });
                     if (ok) deleteMutation.mutate(task.id);
                   }}
-                  className="gap-2.5 py-2 cursor-pointer text-danger focus:text-danger focus:bg-danger/10"
+                  className="gap-2 py-2 cursor-pointer text-danger focus:text-danger focus:bg-danger/10"
                 >
                   {deleteMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                   <span className="font-medium text-sm">Delete</span>
@@ -195,7 +188,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           src={`${UPLOADS_BASE}${coverPhoto.url}`}
           alt=""
           loading="lazy"
-          className="w-full aspect-[5/2] rounded-md object-cover"
+          className="w-full aspect-[5/2] rounded-xl object-cover"
         />
       )}
 
@@ -251,7 +244,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {((fields.raisedBy && raisedByName) || showDueCell) && (
-        <div className={`grid gap-2 rounded-lg bg-surface-hover/50 px-2.5 py-2 ${((fields.raisedBy && raisedByName) && showDueCell) ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-2 ${((fields.raisedBy && raisedByName) && showDueCell) ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {fields.raisedBy && raisedByName && (
             <div className="min-w-0 flex flex-col gap-1">
               <span className="t-meta font-display font-medium text-text-muted">Raised by</span>
@@ -280,7 +273,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+      <div className="flex items-center justify-between gap-2 pt-2 sm:pt-2.5 border-t border-border/50 dark:border-white/[0.06]">
         {fields.assignee ? (
           assigneeNames.length > 0 ? (
             <div className="flex items-center gap-1.5 min-w-0">

@@ -139,7 +139,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
       } ${isOver ? 'border-primary-400 bg-primary-500/8' : 'border-border/70 bg-surface-hover/40'}`}
     >
       <div className="flex items-center justify-between gap-2 px-2 py-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {statusIcon && (
             <span aria-hidden="true" className="@max-[17rem]:hidden flex items-center justify-center size-7 rounded-lg bg-surface border border-border/70 text-text-secondary shrink-0">
               {statusIcon}
@@ -165,7 +165,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
         )}
       </div>
 
-      <div className="flex flex-col gap-2.5 flex-1 min-h-36">
+      <div className="flex flex-col gap-2 flex-1 min-h-36">
         {tasks.length === 0 ? (
           <EmptyState size="compact" icon={Inbox} title={isFiltered ? 'None match your filters' : 'No delegations here'} />
         ) : (

@@ -159,7 +159,7 @@ export const ProgressUpdatesPanel = ({ ticket, canPost, onPreview }: ProgressUpd
       )}
 
       {canPost && (
-        <div className="flex flex-col gap-2.5 border-t border-border/50 pt-3">
+        <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
           <label htmlFor={`progress-${ticket.id}`} className="t-meta font-display font-semibold text-text-secondary">What is the latest on this?</label>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick updates">
             {QUICK_UPDATES.map((q) => (

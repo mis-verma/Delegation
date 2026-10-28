@@ -51,7 +51,7 @@ export const ChecklistBlock = ({
         tabIndex={0}
         aria-expanded={open}
       >
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="p-1 rounded-md bg-surface border border-border text-text-muted group-hover:text-text-secondary group-hover:border-border-hover transition-colors shrink-0">
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
@@ -61,7 +61,7 @@ export const ChecklistBlock = ({
             }`}>
               {checklist.title}
             </h4>
-            <div className="flex items-center gap-2.5 max-w-[240px]">
+            <div className="flex items-center gap-2 max-w-[240px]">
               <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ease-out ${

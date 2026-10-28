@@ -200,19 +200,19 @@ const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAd
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60 rounded-xl">
         {onHold && (
-          <DropdownMenuItem onClick={onHold} className="gap-2.5 py-2 cursor-pointer">
+          <DropdownMenuItem onClick={onHold} className="gap-2 py-2 cursor-pointer">
             <PauseCircle size={15} className="text-warning" />
             <span className="font-medium text-sm">Put on hold</span>
           </DropdownMenuItem>
         )}
         {onBack && (
-          <DropdownMenuItem onClick={onBack} className="gap-2.5 py-2 cursor-pointer">
+          <DropdownMenuItem onClick={onBack} className="gap-2 py-2 cursor-pointer">
             <Undo2 size={15} />
             <span className="font-medium text-sm">{BACK_LABEL[task.status]}</span>
           </DropdownMenuItem>
         )}
         {onReopen && (
-          <DropdownMenuItem onClick={onReopen} className="gap-2.5 py-2 cursor-pointer">
+          <DropdownMenuItem onClick={onReopen} className="gap-2 py-2 cursor-pointer">
             <RotateCcw size={15} />
             <span className="font-medium text-sm">{BACK_LABEL.done}</span>
           </DropdownMenuItem>
@@ -349,7 +349,7 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
   const currentIndex = task.status === 'on_hold' ? STATUS_ORDER.indexOf(heldFrom) : STATUS_ORDER.indexOf(task.status);
 
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-2">
       <h3 className={DETAIL_SECTION_HEADING}>
         <span className={DETAIL_SECTION_TILE} aria-hidden="true"><Milestone size={14} strokeWidth={2.25} /></span>
         Progress

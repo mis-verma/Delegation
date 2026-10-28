@@ -19,8 +19,8 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, finalApprova
 
   return (
     <>
-      <div className="flex flex-col gap-2.5 rounded-xl border border-status-verify/25 bg-status-verify/5 p-2.5 sm:p-3">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex flex-col gap-2 rounded-xl border border-status-verify/25 bg-status-verify/5 p-2.5 sm:p-3">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-status-verify to-primary-700 text-white" aria-hidden="true">
             <ShieldCheck size={16} strokeWidth={2.25} />
           </span>

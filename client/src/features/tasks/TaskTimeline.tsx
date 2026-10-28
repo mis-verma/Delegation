@@ -218,7 +218,7 @@ const TaskTimelineComponent = ({
 
         {undated.length > 0 && (
           <section className="flex flex-col gap-2">
-            <header className="flex items-center gap-2.5">
+            <header className="flex items-center gap-2">
               <h3 className="t-card font-display font-semibold text-text">No due date</h3>
               <span className="t-meta font-semibold text-text-muted tabular-nums">{undated.length}</span>
               <span className="flex-1 h-px bg-border/50" />

@@ -70,7 +70,7 @@ const ItemRow = ({
           : 'bg-surface border-border hover:border-border-hover'
       }`}
     >
-      <div className="flex items-start gap-3 sm:gap-3.5">
+      <div className="flex items-start gap-3 sm:gap-3">
         <span
           className={`mt-0.5 flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-all ${
             item.isDone
@@ -282,7 +282,7 @@ const ChecklistBlock = ({
         tabIndex={0}
         aria-expanded={open}
       >
-        <div className="flex items-center gap-3 sm:gap-3.5 flex-1 min-w-0">
+        <div className="flex items-center gap-3 sm:gap-3 flex-1 min-w-0">
           <div className="p-1 rounded-md bg-surface border border-border text-text-muted group-hover:text-text-secondary group-hover:border-border-hover transition-colors shrink-0">
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
@@ -451,7 +451,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           )}
 
           {applyTemplate.isError && (
-            <div className="flex items-start gap-2.5 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
+            <div className="flex items-start gap-2 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
                 {errorMessage(applyTemplate.error, "Couldn't apply the template. Try again.")}
@@ -509,7 +509,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           </div>
 
           {addChecklist.isError && (
-            <div className="flex items-start gap-2.5 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
+            <div className="flex items-start gap-2 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
                 {errorMessage(addChecklist.error, "Couldn't add the checklist. Check the fields and try again.")}
@@ -517,7 +517,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
             </div>
           )}
 
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-4 border-t border-border/60">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-4 border-t border-border/60">
             <Button variant="outline" size="sm" onClick={resetForm}>
               Cancel
             </Button>

@@ -4,7 +4,7 @@ import { TICKET_GRID_CLASS } from './ticketLayout';
 type SkeletonView = 'list' | 'board' | 'table' | 'timeline';
 
 const CardSkeleton = ({ className }: { className?: string }) => (
-  <div className={`flex flex-col gap-2.5 p-3.5 rounded-2xl bg-surface border border-border/60 ${className ?? ''}`}>
+  <div className={`flex flex-col gap-2 p-3.5 rounded-2xl bg-surface border border-border/60 ${className ?? ''}`}>
     <div className="flex items-start gap-2">
       <div className="flex-1 flex flex-col gap-1 sm:gap-2">
         <Skeleton className="h-4 w-4/5 rounded-md" />

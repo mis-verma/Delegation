@@ -41,7 +41,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
       {trimmedText ? (
         <div className="flex flex-col gap-1">
           <p
-            className={`max-w-[72ch] text-[0.9375rem] font-medium text-text-muted leading-relaxed whitespace-pre-wrap break-words select-text ${
+            className={`max-w-[72ch] text-sm font-medium text-text-muted leading-relaxed whitespace-pre-wrap break-words select-text ${
               isLongText && !isExpanded ? 'line-clamp-6' : ''
             }`}
           >

@@ -67,7 +67,7 @@ const TaskListViewComponent = ({
                 onOpen(task);
               }
             }}
-            className="h-full flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer [-webkit-tap-highlight-color:transparent]"
+            className="h-full flex flex-col gap-2 sm:gap-2 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer [-webkit-tap-highlight-color:transparent]"
           >
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex items-start gap-2 min-w-0">

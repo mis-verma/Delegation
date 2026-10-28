@@ -50,7 +50,7 @@ export const TaskTeamStrip = ({ pickedId, onPick }: TaskTeamStripProps) => {
                 aria-pressed={picked}
                 onClick={() => onPick(picked ? null : person.id)}
                 className={cn(
-                  'flex min-h-14 min-w-44 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
+                  'flex min-h-14 min-w-44 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
                   picked ? 'border-primary-500/60 bg-primary-500/10' : 'border-border/60 bg-surface hover:border-border-hover',
                 )}
               >

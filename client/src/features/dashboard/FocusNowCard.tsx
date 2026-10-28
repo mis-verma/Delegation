@@ -240,7 +240,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
     }
     const teamNeedsLook = ownWorkOnly && reviewCount > 0;
     return (
-      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3.5 px-4 py-3.5 border-success/30 bg-linear-to-r from-success/12 via-success/5 to-transparent')}>
+      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3 px-4 py-3.5 border-success/30 bg-success/5')}>
         {ring(
           <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
             <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
@@ -286,15 +286,8 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
             {updated}
           </div>
           {ownWorkOnly && (
-            <p className="t-meta text-text-muted">
+            <p className="hidden t-meta text-text-muted sm:block">
               Only your own work.{reviewCount > 0 ? ` ${reviewCount} more ${reviewCount === 1 ? 'item needs' : 'items need'} your review in the cards below.` : ' Your team is in the cards below.'}
-            </p>
-          )}
-          {nextUp && (
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 t-meta font-medium text-text-secondary">
-              <span className="font-display font-semibold">Next up</span>
-              <span className="line-clamp-1 min-w-0 max-w-full">{nextUp.title}</span>
-              <DueChip at={nextUp.at} now={now} />
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -306,6 +299,13 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
         </div>
         {refresh}
       </div>
+      {nextUp && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/60 bg-surface-hover/40 px-4 py-2 t-meta font-medium text-text-secondary">
+          <span className="font-display font-semibold text-text">Next up</span>
+          <span className="line-clamp-1 min-w-0 flex-1">{nextUp.title}</span>
+          <DueChip at={nextUp.at} now={now} />
+        </div>
+      )}
       {error}
 
       <ul className="flex flex-col divide-y divide-border/60 border-t border-border/60">
@@ -313,8 +313,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
           const Icon = CATEGORY_ICON[item.category];
           const hot = item.reason === 'sentBack' || item.reason === 'overdue';
           return (
-            <li key={item.key} className="relative flex items-center gap-2 pr-3 transition-colors hover:bg-surface-hover/50">
-              {hot && <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-danger" aria-hidden="true" />}
+            <li key={item.key} className={cn('flex items-center gap-2 pr-3 transition-colors hover:bg-surface-hover/50', hot && 'bg-danger/5')}>
               <Link
                 viewTransition
                 to={item.href}
@@ -324,7 +323,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
                   <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <span className="line-clamp-2 leading-snug text-sm font-display font-medium sm:font-semibold text-text">{item.title}</span>
+                  <span className="line-clamp-2 leading-snug t-card font-display font-semibold text-text">{item.title}</span>
                   <span className="flex flex-wrap items-center gap-1.5">
                     <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', CATEGORY_PILL[item.category])}>{ACTIVITY_CATEGORY_LABEL[item.category]}</span>
                     {item.reason === 'sentBack' && <IconChip icon={Undo2} tone="bg-danger" label="Sent back" labelClassName="text-danger" className="shrink-0 border-danger/30 bg-danger/10" />}

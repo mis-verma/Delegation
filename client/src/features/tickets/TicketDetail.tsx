@@ -412,7 +412,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       <p className="t-card font-display font-bold text-danger">
                         Declined{ticket.decliner ? ` by ${ticket.decliner.firstName}` : ''}
                       </p>
-                      {ticket.declineReason && <p className="mt-0.5 text-[0.9375rem] font-medium text-text-secondary leading-relaxed break-words">{ticket.declineReason}</p>}
+                      {ticket.declineReason && <p className="mt-0.5 text-sm font-medium text-text-secondary leading-relaxed break-words">{ticket.declineReason}</p>}
                     </div>
                   </div>
                 )}
