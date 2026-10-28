@@ -350,6 +350,7 @@ export type ChecklistPendingApproval = {
   id: string;
   title: string;
   storeName: string | null;
+  submittedBy?: string | null;
   waitingSince: string;
 };
 

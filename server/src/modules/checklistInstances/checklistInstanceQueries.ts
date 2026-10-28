@@ -264,10 +264,13 @@ export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8
             id: checklistInstances.id,
             title: checklistInstances.title,
             storeName: stores.name,
+            submitterFirst: users.firstName,
+            submitterLast: users.lastName,
             updatedAt: checklistInstances.updatedAt,
         })
             .from(checklistInstances)
             .leftJoin(stores, eq(checklistInstances.storeId, stores.id))
+            .leftJoin(users, eq(checklistInstances.submittedBy, users.id))
             .where(where)
             .orderBy(asc(checklistInstances.updatedAt))
             .limit(limit),
@@ -278,6 +281,7 @@ export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8
             id: r.id,
             title: r.title,
             storeName: r.storeName ?? null,
+            submittedBy: r.submitterFirst ? `${r.submitterFirst}${r.submitterLast ? ` ${r.submitterLast}` : ""}` : null,
             waitingSince: r.updatedAt.toISOString(),
         })),
         meta: { total },

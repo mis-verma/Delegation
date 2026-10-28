@@ -1,4 +1,8 @@
 import { useMemo, type ReactNode } from 'react';
+import { Segmented } from '../../components';
+import { useAuth } from '../../context/AuthContext';
+import { TeamWorkPanel } from './TeamWorkPanel';
+import { useFocusView, type FocusView } from './useFocusView';
 import { Link } from 'react-router';
 import { AlarmClockOff, BellRing, CheckCheck, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -103,7 +107,7 @@ const FocusSkeleton = () => (
   </section>
 );
 
-export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = null, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = null, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
@@ -343,5 +347,23 @@ export const FocusNowCard = ({ ownWorkOnly = false, reviewCount = 0, todayCheckl
         </p>
       )}
     </section>
+  );
+};
+
+
+const VIEW_OPTIONS = [
+  { value: 'work', label: 'My work' },
+  { value: 'team', label: 'My team' },
+] as const;
+
+export const FocusNowCard = (props: FocusNowCardProps) => {
+  const { user } = useAuth();
+  const [view, setView] = useFocusView(user?.id);
+  if (!props.ownWorkOnly) return <FocusWorkCard {...props} />;
+  return (
+    <div className="flex flex-col gap-2">
+      <Segmented<FocusView> label="Show my work or my team" options={VIEW_OPTIONS} value={view} onChange={setView} className="w-full sm:w-fit [&>button]:flex-1 sm:[&>button]:flex-none" />
+      {view === 'team' ? <TeamWorkPanel /> : <FocusWorkCard {...props} />}
+    </div>
   );
 };
