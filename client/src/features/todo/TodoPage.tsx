@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Flag, ArrowUpDown, Plus, Search, X } from 'lucide-react';
-import { Fab } from '../../components';
+import { Flag, ArrowUpDown, Plus, Search, SquarePen, X } from 'lucide-react';
+import { Button, Fab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -91,8 +91,20 @@ export const TodoPage = () => {
         isLoading={isPending}
       />
 
-      <div className="max-sm:hidden">
-        <TodoQuickAdd />
+      <div className="flex items-start gap-2 max-sm:hidden">
+        <div className="min-w-0 flex-1">
+          <TodoQuickAdd />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowForm(true)}
+          className="h-12 shrink-0 gap-1.5 rounded-xl px-4 font-display max-md:hidden"
+          aria-label="Add a to-do with details"
+        >
+          <SquarePen size={16} aria-hidden="true" />
+          With details
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

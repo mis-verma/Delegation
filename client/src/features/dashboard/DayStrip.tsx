@@ -48,21 +48,27 @@ interface Cell {
   score: number | null;
 }
 
-const Tile = ({ cell, big }: { cell: Cell; big?: boolean }) => {
+type TileMode = 'row' | 'calendar' | 'bucket';
+
+const TILE_SIZE: Record<TileMode, string> = {
+  row: 'h-[4.5rem] flex-1 basis-0 gap-0.5 rounded-xl py-2 sm:h-20',
+  calendar: 'h-11 rounded-lg sm:h-12',
+  bucket: 'min-h-14 min-w-16 flex-1 rounded-lg px-2 py-1.5',
+};
+
+const Tile = ({ cell, mode }: { cell: Cell; mode: TileMode }) => {
   const { bucket, score } = cell;
+  const parts = dateParts(bucket.from);
   const text = score === null ? 'nothing due' : `${formatPct(score)}, ${bandWord(score)}`;
-  const label = big ? bucket.label : String(dateParts(bucket.from).date);
+  const label = mode === 'bucket' ? bucket.label : String(parts.date);
   return (
     <span
       role="listitem"
       title={`${bucket.label}: ${text}`}
       aria-label={`${bucket.label}: ${text}`}
-      className={cn(
-        'flex min-w-0 flex-col items-center justify-center rounded-lg border tabular-nums',
-        big ? 'min-h-14 min-w-16 flex-1 px-2 py-1.5' : 'aspect-square',
-        tileTone(score),
-      )}
+      className={cn('flex min-w-0 flex-col items-center justify-center border tabular-nums', TILE_SIZE[mode], tileTone(score))}
     >
+      {mode === 'row' && <span className="t-meta font-display font-semibold leading-none opacity-80">{WEEKDAYS[parts.weekday]}</span>}
       <span className="t-card font-display font-bold leading-none">{label}</span>
       {score !== null && <span className="t-meta font-display font-semibold leading-none opacity-90">{Math.round(score)}%</span>}
     </span>
@@ -89,8 +95,11 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
   const best = scored.length ? scored.reduce((a, b) => (b.score > a.score ? b : a)) : null;
   const worst = scored.length > 1 ? scored.reduce((a, b) => (b.score < a.score ? b : a)) : null;
   const unit = period === 'day' ? 'day' : period === 'week' ? 'week' : 'period';
-  const asCalendar = period === 'day' && cells.length > 0;
+  const asDays = period === 'day' && cells.length > 0;
+  const asRow = asDays && cells.length <= 7;
+  const asCalendar = asDays && !asRow;
   const lead = asCalendar ? dateParts(cells[0].bucket.from).weekday : 0;
+  const spread = scored.length > 1 && !!best && !!worst && best.score !== worst.score;
 
   if (isPending) {
     return (
@@ -115,23 +124,27 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
     <div className={PANEL}>
       <div className="flex flex-wrap items-center gap-1.5">
         {average !== null && <IconChip icon={Gauge} tone="bg-vivid-blue" label={`Average ${formatPct(average)}`} labelClassName="tabular-nums" />}
-        {best && <IconChip icon={Trophy} tone="bg-vivid-green" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
-        {worst && <IconChip icon={TrendingDown} tone="bg-vivid-red" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
+        {spread && best && <IconChip icon={Trophy} tone="bg-vivid-green" label={`Best ${unit}: ${best.bucket.label} ${formatPct(best.score)}`} labelClassName="tabular-nums" />}
+        {spread && worst && <IconChip icon={TrendingDown} tone="bg-vivid-red" label={`Lowest: ${worst.bucket.label} ${formatPct(worst.score)}`} labelClassName="tabular-nums" />}
       </div>
 
-      {asCalendar ? (
+      {asRow ? (
+        <div className="flex gap-1.5" role="list" aria-label="Score by day">
+          {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} mode="row" />)}
+        </div>
+      ) : asCalendar ? (
         <div className="flex flex-col gap-1.5">
           <div className="grid grid-cols-7 gap-1.5 text-center" aria-hidden="true">
             {WEEKDAYS.map((d) => <span key={d} className="t-meta font-display font-semibold text-text-muted">{d}</span>)}
           </div>
           <div className="grid grid-cols-7 gap-1.5" role="list" aria-label="Score by day">
             {Array.from({ length: lead }, (_, i) => <span key={`pad-${i}`} aria-hidden="true" />)}
-            {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} />)}
+            {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} mode="calendar" />)}
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap gap-1.5" role="list" aria-label={`Score by ${unit}`}>
-          {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} big />)}
+          {cells.map((cell) => <Tile key={`${cell.bucket.from}-${cell.bucket.to}`} cell={cell} mode="bucket" />)}
         </div>
       )}
 

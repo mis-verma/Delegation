@@ -134,10 +134,13 @@ export const SimpleScoresView = ({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <ScoreHero facts={facts} loading={loading} changePts={changePts} />
-          {data && <FixLine data={data} onOpen={onOpenModule} />}
+          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)] @3xl:items-start @3xl:gap-4">
+          <div className="flex min-w-0 flex-col gap-3">
+            <ScoreHero facts={facts} loading={loading} changePts={changePts} />
+            {data && <FixLine data={data} onOpen={onOpenModule} />}
+          </div>
 
-          <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-stretch @lg:gap-3">
+          <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-stretch @lg:gap-3 @3xl:grid-cols-1">
             {MODULES.map(({ key, icon: Icon, tile }, index) => {
               const n = data ? numbersFor(data, key) : null;
               const score = data ? moduleOverall(data, key) : null;
@@ -152,7 +155,7 @@ export const SimpleScoresView = ({
                   disabled={!data}
                   style={{ '--stat-delay': `${120 + index * 70}ms` } as CSSProperties}
                   aria-label={`${MODULE_LABEL[key]}: ${score === null ? 'nothing due' : `${formatPct(score)}, ${TONE_WORD[tone]}`}. Open the details`}
-                  className="stat-rise group flex w-full min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl border border-border/60 bg-surface p-3 text-left outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99] disabled:cursor-default @lg:p-3.5"
+                  className="stat-rise group flex h-full w-full min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl border border-border/60 bg-surface p-3 text-left outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99] disabled:cursor-default @lg:p-3.5"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br text-white', tile)} aria-hidden="true">
@@ -169,21 +172,24 @@ export const SimpleScoresView = ({
                         <CountUp value={rounded} decimals={1} fromZero format={(v) => `${v}%`} />
                       </span>
                     ) : (
-                      <span className="shrink-0 t-meta font-display font-semibold text-text-light">Nothing due</span>
+                      <span className="shrink-0 t-meta font-display font-semibold text-text-light">No score</span>
                     )}
                     <ChevronRight className="size-4 shrink-0 text-text-light transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
                   </div>
-                  {has && data && (() => {
+                  {has && data ? (() => {
                     const c = moduleCounts(data, key);
                     return (
                       <p className="t-meta font-medium tabular-nums text-text-muted">
                         {c.done} done{c.late > 0 ? `, ${c.late} late` : ''}{c.notDone > 0 ? `, ${c.notDone} ${COUNT_WORD[key]}` : ''}
                       </p>
                     );
-                  })()}
+                  })() : (
+                    <p className="t-meta font-medium text-text-muted">Nothing came due, so there is no score yet.</p>
+                  )}
                 </button>
               );
             })}
+          </div>
           </div>
 
           {dayStrip && (
