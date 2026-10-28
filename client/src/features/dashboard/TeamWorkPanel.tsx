@@ -4,7 +4,7 @@ import { CheckCheck, ChevronRight, ShieldAlert, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { InlineError } from '../../components/inlineError';
-import { WaitChip } from '../../components';
+import { WaitChip, IconChip } from '../../components';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/AttentionParts';
@@ -55,6 +55,7 @@ export const TeamWorkPanel = () => {
   const now = useNow();
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [showAllApprovals, setShowAllApprovals] = useState(false);
 
   const waiting = useMemo<Waiting[]>(
     () => groupWaiting([
@@ -80,6 +81,12 @@ export const TeamWorkPanel = () => {
           <h2 id="team-work-heading" className="t-section font-display font-bold text-text">Your team today</h2>
           <p className="hidden t-meta text-text-muted sm:block">Who has work waiting, and what waits for your approval.</p>
         </div>
+        {!people.isPending && !sources.isPending && (approvalTotal > 0 || peopleRows.length > 0) && (
+          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {approvalTotal > 0 && <IconChip icon={ShieldAlert} tone="bg-vivid-blue" label={`${approvalTotal} to approve`} labelClassName="tabular-nums text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />}
+            {peopleRows.length > 0 && <IconChip icon={Users} tone="bg-vivid-red" label={`${peopleRows.length} behind`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
+          </div>
+        )}
       </div>
 
       {sources.hasError && (
@@ -123,7 +130,7 @@ export const TeamWorkPanel = () => {
                 </Link>
               </div>
               <ul className="flex flex-col divide-y divide-border/60">
-                {waiting.slice(0, APPROVAL_PEOPLE_PREVIEW).map((entry) => (
+                {(showAllApprovals ? waiting : waiting.slice(0, APPROVAL_PEOPLE_PREVIEW)).map((entry) => (
                   <li key={entry.name}>
                     <Link
                       to={approvalsHref}
@@ -147,6 +154,17 @@ export const TeamWorkPanel = () => {
                   </li>
                 ))}
               </ul>
+              {waiting.length > APPROVAL_PEOPLE_PREVIEW && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllApprovals((open) => !open)}
+                  aria-expanded={showAllApprovals}
+                  className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 t-meta font-display font-semibold text-vivid-blue-text outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+                >
+                  {showAllApprovals ? 'Show fewer people' : `Show ${waiting.length - APPROVAL_PEOPLE_PREVIEW} more people`}
+                  <ChevronRight className={cn('size-3.5 transition-transform duration-200', showAllApprovals ? '-rotate-90' : 'rotate-90')} aria-hidden />
+                </button>
+              )}
               {approvalTotal > waiting.reduce((sum, w) => sum + Object.values(w.counts).reduce((a, b) => a + b, 0), 0) && (
                 <p className="px-4 pb-2.5 t-meta text-text-muted">The oldest of each type are shown. Open the queue to see all {approvalTotal}.</p>
               )}

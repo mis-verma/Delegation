@@ -1,10 +1,10 @@
-import { useMemo, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Segmented } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { TeamWorkPanel } from './TeamWorkPanel';
 import { useFocusView, type FocusView } from './useFocusView';
 import { Link } from 'react-router';
-import { AlarmClockOff, BellRing, CheckCheck, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
+import { AlarmClockOff, BellRing, CheckCheck, ChevronDown, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { DueChip } from '../../components/dueChip';
@@ -59,6 +59,9 @@ const TICKET_NEXT: Partial<Record<Ticket['status'], { label: string; to: Restric
 const ORDER: Record<Reason, number> = { sentBack: 0, overdue: 1, submit: 2, dueToday: 3 };
 const SHOW = 6;
 
+const REASON_LABEL: Record<Reason, string> = { sentBack: 'Sent back to you', overdue: 'Late', submit: 'Ready to submit', dueToday: 'Due today' };
+const REASON_TEXT: Record<Reason, string> = { sentBack: 'text-vivid-red-text', overdue: 'text-vivid-red-text', submit: 'text-vivid-sky-text', dueToday: 'text-vivid-blue-text' };
+
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 
 const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
@@ -111,6 +114,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
+  const [expanded, setExpanded] = useState(false);
   const items = useMemo(() => {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
@@ -193,7 +197,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
       <RotateCw className={cn('size-4', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
     </button>
   );
-  const shown = items.slice(0, SHOW);
+  const shown = expanded ? items : items.slice(0, SHOW);
   const actionFor = (item: FocusItem) => {
     if (item.checklist) return <QuickAction label={item.checklist.label} to={item.href} />;
     if (item.todo) {
@@ -309,11 +313,19 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
       {error}
 
       <ul className="flex flex-col divide-y divide-border/60 border-t border-border/60">
-        {shown.map((item) => {
+        {shown.map((item, index) => {
           const Icon = CATEGORY_ICON[item.category];
           const hot = item.reason === 'sentBack' || item.reason === 'overdue';
+          const startsGroup = index === 0 || shown[index - 1]!.reason !== item.reason;
           return (
-            <li key={item.key} className={cn('flex items-center gap-2 pr-3 transition-colors hover:bg-surface-hover/50', hot && 'bg-danger/5')}>
+            <Fragment key={item.key}>
+            {startsGroup && (
+              <li className="flex items-center gap-2 bg-surface-hover/40 px-4 py-1.5">
+                <h3 className={cn('t-meta font-display font-bold', REASON_TEXT[item.reason])}>{REASON_LABEL[item.reason]}</h3>
+                <span className="t-meta font-semibold tabular-nums text-text-muted">{count(item.reason)}</span>
+              </li>
+            )}
+            <li className={cn('flex items-center gap-2 pr-3 transition-colors hover:bg-surface-hover/50', hot && 'bg-danger/5')}>
               <Link
                 viewTransition
                 to={item.href}
@@ -326,8 +338,6 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
                   <span className="line-clamp-2 leading-snug t-card font-display font-semibold text-text">{item.title}</span>
                   <span className="flex flex-wrap items-center gap-1.5">
                     <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', CATEGORY_PILL[item.category])}>{ACTIVITY_CATEGORY_LABEL[item.category]}</span>
-                    {item.reason === 'sentBack' && <IconChip icon={Undo2} tone="bg-danger" label="Sent back" labelClassName="text-danger" className="shrink-0 border-danger/30 bg-danger/10" />}
-                    {item.reason === 'submit' && <IconChip icon={Send} tone="bg-warning" label="Ready to submit" labelClassName="text-warning" className="shrink-0 border-warning/30 bg-warning/10" />}
                     {item.at > 0 && <DueChip at={item.at} now={now} />}
                   </span>
                   {item.detail && <span className="line-clamp-2 t-meta text-text-muted">{item.detail}</span>}
@@ -335,15 +345,22 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
               </Link>
               {actionFor(item)}
             </li>
+            </Fragment>
           );
         })}
       </ul>
       {taskMove.statusRemarkDialog}
       {ticketMove.statusRemarkDialog}
       {items.length > SHOW && (
-        <p className="border-t border-border/60 px-4 py-2.5 t-meta text-text-muted">
-          And {items.length - SHOW} more. Finish these first, the next ones move up.
-        </p>
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 t-meta font-display font-semibold text-vivid-blue-text outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+        >
+          {expanded ? 'Show less' : `Show ${items.length - SHOW} more`}
+          <ChevronDown className={cn('size-3.5 transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
+        </button>
       )}
     </section>
   );
