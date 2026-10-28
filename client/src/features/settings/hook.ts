@@ -103,6 +103,30 @@ export const useCreateCategoryMutation = () => {
     })
 }
 
+export const useCreateManyCategoriesMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : async (payloads : CreateCategoryPayload[]) => {
+            const failed : string[] = [];
+            let created = 0;
+            for (const payload of payloads) {
+                try {
+                    await categoryApi.create(payload);
+                    created += 1;
+                } catch {
+                    failed.push(payload.name);
+                }
+            }
+            return { created, failed };
+        },
+        onSuccess : ({ created, failed }) => {
+            queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
+            if (created > 0) toast.success(`${created} ${created === 1 ? "category" : "categories"} added`);
+            if (failed.length > 0) toast.error(`Couldn't add: ${failed.join(", ")}`);
+        },
+    })
+}
+
 export const useUpdateCategoryMutation = () => {
     const queryClient = useQueryClient();
      return useMutation({
