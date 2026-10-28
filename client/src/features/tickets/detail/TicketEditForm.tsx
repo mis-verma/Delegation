@@ -35,7 +35,7 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
   const [initialDue] = useState(() => (ticket.tatDueAt ? new Date(ticket.tatDueAt) : null));
   const [initialStart] = useState(() => (ticket.startDate ? new Date(ticket.startDate) : null));
   const [due, setDue] = useState<Date | null>(initialDue);
-  const [start, setStart] = useState<Date | null>(initialStart);
+  const [start] = useState<Date | null>(initialStart);
   const [dueError, setDueError] = useState<string | undefined>(undefined);
 
   const errors = validate(title, description);
@@ -142,9 +142,6 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
             <DueDateField
               due={due}
               onDueChange={(d) => { setDue(d); setDueError(undefined); }}
-              canSetStart
-              start={start}
-              onStartChange={(d) => { setStart(d); setDueError(undefined); }}
               invalid={submitted && !!dueError}
             />
           </FormField>

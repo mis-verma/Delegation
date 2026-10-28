@@ -135,7 +135,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const tagIds = useWatch({ control, name: 'tagIds' });
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
-  const startDate = useWatch({ control, name: 'startDate' });
   const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly);
 
   const [justCreated, setJustCreated] = useState<Category | null>(null);
@@ -183,13 +182,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   };
 
   const due = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`) : null;
-  const start = startDate ? new Date(startDate.includes('T') ? startDate : `${startDate}T00:00`) : null;
   const setDue = (d: Date | null) => {
     const opts = { shouldValidate: validateOnChange, shouldDirty: true };
     setValue('dueDate', d ? toDateInput(d) : '', opts);
     setValue('dueTime', d ? toTimeInput(d) : '', opts);
   };
-  const setStart = (d: Date | null) => setValue('startDate', d ? `${toDateInput(d)}T${toTimeInput(d)}` : '', { shouldValidate: validateOnChange, shouldDirty: true });
 
   const onSubmit = async (data: TicketFields) => {
     if (submittingRef.current) return;
@@ -356,9 +353,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
         <DueDateField
           due={due}
           onDueChange={setDue}
-          canSetStart={!ownScopeOnly}
-          start={start}
-          onStartChange={setStart}
           invalid={!!dueError}
         />
       </FormField>

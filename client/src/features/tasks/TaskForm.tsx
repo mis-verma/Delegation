@@ -79,7 +79,6 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     from: kept?.from ? new Date(kept.from) : null,
     to: kept?.to ? new Date(kept.to) : defaultDueDate ?? null,
   });
-  const showStart = !ownScopeOnly;
   const [files, setFiles] = useState<File[]>([]);
   const [saveAsDraft, setSaveAsDraft] = useState(false);
   const [autoFocusTitle] = useState(() => !window.matchMedia('(pointer: coarse)').matches);
@@ -447,7 +446,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
             label="Due"
             icon={<CalendarDays size={14} className="text-text-light" />}
             optional
-            hint={showStart ? 'Pick the start and the end, each with a time. Or tap a quick due day.' : 'Pick a quick due day, or open the calendar.'}
+            hint="Pick a quick due day, or open the calendar."
           >
             <TaskQuickDue value={dateRange} onChange={setDateRange} />
             <DateRangePicker
@@ -455,9 +454,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               showTime
               value={dateRange}
               onChange={setDateRange}
-              dueOnly={!showStart}
+              dueOnly
               hidePresets
-              placeholder={showStart ? 'Choose start and end' : 'Choose a due day'}
+              placeholder="Choose a due day"
               minDate={new Date()}
             />
           </FormField>

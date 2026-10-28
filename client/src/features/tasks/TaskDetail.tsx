@@ -413,7 +413,7 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
   );
 };
 
-const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean; isViewOnly: boolean }) => {
+const TaskDueRow = ({ task, onUpdate, isViewOnly }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; isViewOnly: boolean }) => {
   const late = taskIsLate(task);
   return (
     <TicketPropertyRow
@@ -429,13 +429,13 @@ const TaskDueRow = ({ task, onUpdate, canSetStart, isViewOnly }: { task: Task; o
           </span>
         ) : <span className="t-meta text-text-light">No due date</span>
       ) : (
-        <TaskTimelineField task={task} onUpdate={onUpdate} canSetStart={canSetStart} />
+        <TaskTimelineField task={task} onUpdate={onUpdate} />
       )}
     </TicketPropertyRow>
   );
 };
 
-const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean }) => {
+const TaskTimelineField = ({ task, onUpdate }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
   const savedKey = `${task.startDate ?? ''}|${task.dueDate ?? ''}`;
@@ -454,7 +454,7 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
         hidePresets
         invalid={taskIsLate(task)}
         value={draft}
-        dueOnly={!canSetStart && !task.startDate}
+        dueOnly
         onChange={(range: DateRangeValue) => {
           setDraft(range);
           if (!range.from && !range.to) {
@@ -603,7 +603,7 @@ const TaskEditLayout = ({
             )}
           </TicketPropertyRow>
 
-          <TaskDueRow task={task} onUpdate={onUpdate} canSetStart={canReassign} isViewOnly={isViewOnly} />
+          <TaskDueRow task={task} onUpdate={onUpdate} isViewOnly={isViewOnly} />
         </dl>
 
         {!isViewOnly && !canReassign && (
