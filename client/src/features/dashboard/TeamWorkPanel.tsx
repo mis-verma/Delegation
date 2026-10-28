@@ -73,20 +73,20 @@ export const TeamWorkPanel = () => {
 
   return (
     <section aria-labelledby="team-work-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-vivid-blue to-vivid-sky text-white" aria-hidden="true">
+      <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
+        <span className="flex size-10 shrink-0 sm:size-11 items-center justify-center rounded-xl bg-linear-to-br from-vivid-blue to-vivid-sky text-white" aria-hidden="true">
           <Users className="size-5" strokeWidth={2.25} />
         </span>
         <div className="min-w-0">
           <h2 id="team-work-heading" className="t-section font-display font-bold text-text">Your team today</h2>
           <p className="hidden t-meta text-text-muted sm:block">Who has work waiting, and what waits for your approval.</p>
+          {!people.isPending && !sources.isPending && (approvalTotal > 0 || peopleRows.length > 0) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {approvalTotal > 0 && <IconChip icon={ShieldAlert} tone="bg-vivid-blue" label={`${approvalTotal} to approve`} labelClassName="tabular-nums text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />}
+              {peopleRows.length > 0 && <IconChip icon={Users} tone="bg-vivid-red" label={`${peopleRows.length} behind`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
+            </div>
+          )}
         </div>
-        {!people.isPending && !sources.isPending && (approvalTotal > 0 || peopleRows.length > 0) && (
-          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-            {approvalTotal > 0 && <IconChip icon={ShieldAlert} tone="bg-vivid-blue" label={`${approvalTotal} to approve`} labelClassName="tabular-nums text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />}
-            {peopleRows.length > 0 && <IconChip icon={Users} tone="bg-vivid-red" label={`${peopleRows.length} behind`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
-          </div>
-        )}
       </div>
 
       {sources.hasError && (

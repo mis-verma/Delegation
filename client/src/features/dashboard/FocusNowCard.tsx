@@ -22,6 +22,7 @@ import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { isTicketHandedIn } from '../../lib/handedIn';
 import { haptic } from '../../lib/haptics';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import { QuickAction } from '../../components/layout/quickSheet/QuickRow';
 import { useTaskStatusMove } from '../tasks/useTaskStatusMove';
 import { useTicketStatusMove } from '../tickets/useTicketStatusMove';
@@ -115,6 +116,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
   const [expanded, setExpanded] = useState(false);
+  const isMobile = useIsMobile();
   const items = useMemo(() => {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
@@ -171,7 +173,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
     percent === null ? fallback : (
       <RadialGauge
         percent={percent}
-        size={64}
+        size={isMobile ? 52 : 64}
         variant="circle"
         ariaLabel={`Today: ${percent} percent done`}
         gradientFrom={TONE_COLOR[toneOf(percent)]}
@@ -270,7 +272,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
 
   return (
     <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-start gap-3 px-3 py-3 sm:items-center sm:px-4">
         {ring(
           <span className={cn(TILE_CLASS, urgent > 0 ? TILE_DANGER : TILE_PRIMARY)}>
             <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
@@ -304,7 +306,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
         {refresh}
       </div>
       {nextUp && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/60 bg-surface-hover/40 px-4 py-2 t-meta font-medium text-text-secondary">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border/60 bg-surface-hover/40 px-3 py-2 sm:px-4 t-meta font-medium text-text-secondary">
           <span className="font-display font-semibold text-text">Next up</span>
           <span className="line-clamp-1 min-w-0 flex-1">{nextUp.title}</span>
           <DueChip at={nextUp.at} now={now} />
@@ -320,7 +322,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
           return (
             <Fragment key={item.key}>
             {startsGroup && (
-              <li className="flex items-center gap-2 bg-surface-hover/40 px-4 py-1.5">
+              <li className="flex items-center gap-2 bg-surface-hover/40 px-3 py-1.5 sm:px-4">
                 <h3 className={cn('t-meta font-display font-bold', REASON_TEXT[item.reason])}>{REASON_LABEL[item.reason]}</h3>
                 <span className="t-meta font-semibold tabular-nums text-text-muted">{count(item.reason)}</span>
               </li>
@@ -329,9 +331,9 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
               <Link
                 viewTransition
                 to={item.href}
-                className="group flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-4 outline-none transition-colors active:bg-surface-hover focus-visible:bg-surface-hover"
+                className="group flex min-h-14 min-w-0 flex-1 items-center gap-2 py-2 pl-3 outline-none sm:gap-3 sm:pl-4 transition-colors active:bg-surface-hover focus-visible:bg-surface-hover"
               >
-                <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', CATEGORY_TILE[item.category])}>
+                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl text-white sm:size-10', CATEGORY_TILE[item.category])}>
                   <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">
