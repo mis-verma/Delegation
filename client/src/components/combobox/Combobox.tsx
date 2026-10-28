@@ -236,7 +236,7 @@ export const Combobox = ({
               return (
                 <Fragment key={option.value || '__empty__'}>
                   {option.group && option.group !== shown[i - 1]?.group && (
-                    <li role="presentation" className="px-3 pt-2.5 pb-1 t-meta font-display font-bold text-text-muted">{option.group}</li>
+                    <li role="presentation" className={cn('px-3 pt-2 pb-0.5 t-meta font-display font-bold text-text-muted', i > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
                   )}
                 <li
                   id={optionId(option)}
@@ -254,7 +254,8 @@ export const Combobox = ({
                       : isHighlighted
                         ? 'bg-primary-500/8 text-text'
                         : 'text-text hover:bg-primary-500/8',
-                    !option.value && !isSelected && 'text-text-muted italic'
+                    !option.value && !isSelected && 'text-text-muted italic',
+                    option.group && 'py-1.5 pl-5'
                   )}
                 >
                   <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>

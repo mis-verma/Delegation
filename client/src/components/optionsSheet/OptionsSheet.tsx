@@ -136,11 +136,12 @@ interface OptionsSheetProps {
   canReset: boolean;
   onExport?: () => void;
   showLabel: string;
+  triggerLabel?: string;
   children: ReactNode;
 }
 
 export const OptionsSheet = ({
-  isOpen, setIsOpen, activeCount, subtitle, onReset, canReset, onExport, showLabel, children,
+  isOpen, setIsOpen, activeCount, subtitle, onReset, canReset, onExport, showLabel, triggerLabel, children,
 }: OptionsSheetProps) => {
   const { contentRef, isDragging, style: dragStyle, handleProps: dragHandleProps } = useDraggableDialog(isOpen, true);
 
@@ -151,18 +152,24 @@ export const OptionsSheet = ({
           <Button
             variant="secondary"
             size="sm"
-            title="Options"
-            aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
-            className={`group size-9 pointer-coarse:size-12 shrink-0 rounded-xl border p-0 transition-colors duration-150 ${activeCount > 0 ? 'border-primary-500/40 bg-primary-500/10 text-primary-700 hover:bg-primary-500/15 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:bg-surface hover:text-text'}`}
+            title={triggerLabel ?? 'Options'}
+            aria-label={activeCount > 0 ? `${triggerLabel ?? 'Options'}, ${activeCount} active` : (triggerLabel ?? 'Options')}
+            className={`group shrink-0 rounded-xl border transition-colors duration-150 ${triggerLabel ? 'h-9 pointer-coarse:h-11 gap-1.5 px-3 font-display font-semibold' : 'size-9 pointer-coarse:size-12 p-0'} ${activeCount > 0 ? 'border-primary-500/40 bg-primary-500/10 text-primary-700 hover:bg-primary-500/15 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:bg-surface hover:text-text'}`}
           >
-            <ListFilter size={18} strokeWidth={2.25} aria-hidden="true" />
+            <ListFilter size={triggerLabel ? 16 : 18} strokeWidth={2.25} aria-hidden="true" />
+            {triggerLabel}
+            {triggerLabel && activeCount > 0 && (
+              <span className="flex min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 t-meta font-bold tabular-nums text-white dark:bg-primary-400 dark:text-primary-950">{activeCount}</span>
+            )}
           </Button>
         </DialogTrigger>
-        <CountBadge
-          count={activeCount}
-          label={`${activeCount} ${activeCount === 1 ? 'option' : 'options'} on`}
-          className="pointer-events-none absolute right-0 top-0"
-        />
+        {!triggerLabel && (
+          <CountBadge
+            count={activeCount}
+            label={`${activeCount} ${activeCount === 1 ? 'option' : 'options'} on`}
+            className="pointer-events-none absolute right-0 top-0"
+          />
+        )}
       </span>
 
       <DialogContent

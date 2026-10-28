@@ -118,6 +118,7 @@ export const TaskOptionsDialog = ({
         canReset={activeCount > 0 || scopeValue !== 'all'}
         onExport={canExport ? onExport : undefined}
         showLabel={`Show ${resultCount} ${resultCount === 1 ? 'delegation' : 'delegations'}`}
+        triggerLabel="Filters"
       >
         {scope && (
           <div className="max-sm:hidden">

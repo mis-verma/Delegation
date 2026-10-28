@@ -80,6 +80,7 @@ export const TicketSettingsMenu = ({
       canReset={organizer.activeCount > 0 || organizer.scopeFilter !== 'ALL'}
       onExport={canExport ? onExport : undefined}
       showLabel={`Show ${resultCount} ${resultCount === 1 ? 'ticket' : 'tickets'}`}
+      triggerLabel="Filters"
     >
       <div className="max-sm:hidden">
       <OptionSection icon={Eye} label="Show">

@@ -117,7 +117,7 @@ export const OptionList = ({
             return (
               <Fragment key={option.value || '__empty__'}>
               {option.group && option.group !== shown[index - 1]?.group && (
-                <li role="presentation" className="px-3 pt-3 pb-1 t-meta font-display font-bold text-text-muted">{option.group}</li>
+                <li role="presentation" className={cn('px-3 pt-2 pb-0.5 t-meta font-display font-bold text-text-muted', index > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
               )}
               <li role="option" aria-selected={isSelected}>
                 <button
@@ -129,6 +129,7 @@ export const OptionList = ({
                       ? 'bg-surface-hover text-text font-semibold'
                       : 'text-text hover:bg-surface-hover active:bg-surface-hover',
                     !option.value && !isSelected && 'text-text-muted italic',
+                    option.group && 'min-h-11 py-1.5 pl-5',
                   )}
                 >
                   {option.lead}
