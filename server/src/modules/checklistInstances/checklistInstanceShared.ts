@@ -19,6 +19,7 @@ import {
 } from "../../db/schema/index.js"
 import { groupBy } from "../../utils/groupBy.js"
 import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
+import { UPCOMING_LEAD_DAYS } from "../../utils/period.js"
 import { CAN_VERIFY_BY_ROLE, coverCanVerify } from "./checklistVerifyRules.js"
 import { type ChecklistItem, type ItemValueInput } from "./checklistItemValidators.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
@@ -211,16 +212,18 @@ export const getPopulatedInstanceById = async (id: string) => {
     return hydrated
 }
 
-export const assertInstanceOpen = (instance: { opensTime: string | null; periodStart: Date }) => {
+export const assertInstanceOpen = (instance: { opensTime: string | null; periodStart: Date; recurrence?: string }) => {
+    const leadMs = instance.recurrence && instance.recurrence !== "DAILY" && instance.recurrence !== "ONE_TIME" ? UPCOMING_LEAD_DAYS * 86_400_000 : 0
     const [hours, minutes] = instance.opensTime ? clockParts(instance.opensTime) : [0, 0]
-    const opensAt = new Date(instance.periodStart)
+    const opensAt = new Date(instance.periodStart.getTime() - leadMs)
     opensAt.setUTCHours(hours, minutes, 0, 0)
     opensAt.setTime(opensAt.getTime() - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     if (Date.now() >= opensAt.getTime()) return
     const localNow = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
-    const opensOnLaterDay = instance.periodStart.getTime() > Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate())
+    const opensDay = instance.periodStart.getTime() - leadMs
+    const opensOnLaterDay = opensDay > Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate())
     if (opensOnLaterDay) {
-        const day = new Date(instance.periodStart).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+        const day = new Date(opensDay).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
         throw AppError.badRequest(`This checklist opens on ${day}. You can see it early, but it can only be filled from then.`)
     }
     throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime}. Come back then.`)

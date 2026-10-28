@@ -38,17 +38,18 @@ const steppedDayPeriod = (anchor: Date, today: Date, stepDays: number): Period |
     return { periodKey: formatDateKey(periodStart), periodStart, periodEnd: addDaysUTC(periodStart, stepDays) }
 }
 
-const steppedMonthPeriod = (anchor: Date, today: Date, stepMonths: number): Period | null => {
-    if (today < anchor) return null
-    const monthsElapsed = monthsBetweenUTC(anchor, today)
-    let periods = Math.floor(monthsElapsed / stepMonths)
-    let periodStart = addMonthsClamped(anchor, periods * stepMonths)
-    if (today < periodStart) {
-        periods -= 1
-        periodStart = addMonthsClamped(anchor, periods * stepMonths)
-    }
-    const periodEnd = addMonthsClamped(anchor, (periods + 1) * stepMonths)
-    return { periodKey: formatDateKey(periodStart), periodStart, periodEnd }
+const dayPeriod = (day: Date): Period => ({ periodKey: formatDateKey(day), periodStart: day, periodEnd: addDaysUTC(day, 1) })
+
+const MONTH_STEP: Partial<Record<ChecklistRecurrence, number>> = { MONTHLY: 1, QUARTERLY: 3, YEARLY: 12 }
+
+const occurrenceOn = (recurrence: ChecklistRecurrence, anchor: Date, day: Date): Period | null => {
+    if (day < anchor) return null
+    if (recurrence === "WEEKLY") return daysBetweenUTC(anchor, day) % 7 === 0 ? dayPeriod(day) : null
+    const step = MONTH_STEP[recurrence]
+    if (!step) return null
+    const months = monthsBetweenUTC(anchor, day)
+    if (months % step !== 0) return null
+    return addMonthsClamped(anchor, months).getTime() === day.getTime() ? dayPeriod(day) : null
 }
 
 const ONE_TIME_KEY = "ONE_TIME"
@@ -61,13 +62,10 @@ export const getCurrentPeriod = (recurrence: ChecklistRecurrence, startDate: Dat
         case "DAILY":
             return steppedDayPeriod(anchor, today, 1)
         case "WEEKLY":
-            return steppedDayPeriod(anchor, today, 7)
         case "MONTHLY":
-            return steppedMonthPeriod(anchor, today, 1)
         case "QUARTERLY":
-            return steppedMonthPeriod(anchor, today, 3)
         case "YEARLY":
-            return steppedMonthPeriod(anchor, today, 12)
+            return occurrenceOn(recurrence, anchor, today)
         case "ONE_TIME":
             if (today < anchor) return null
             return { periodKey: ONE_TIME_KEY, periodStart: anchor, periodEnd: addDaysUTC(anchor, 1) }
@@ -84,10 +82,11 @@ export const getUpcomingPeriod = (
     leadDays: number = UPCOMING_LEAD_DAYS,
 ): Period | null => {
     if (recurrence === "DAILY" || recurrence === "ONE_TIME") return null
+    const anchor = toDateOnlyUTC(startDate, offsetMinutes)
     const today = toDateOnlyUTC(now, offsetMinutes)
-    const current = getCurrentPeriod(recurrence, startDate, now, offsetMinutes)
-    const nextStart = current ? current.periodEnd : toDateOnlyUTC(startDate, offsetMinutes)
-    if (daysBetweenUTC(today, nextStart) > leadDays) return null
-    const next = getCurrentPeriod(recurrence, startDate, nextStart, offsetMinutes)
-    return next && next.periodKey !== current?.periodKey ? next : null
+    for (let ahead = 1; ahead <= leadDays; ahead++) {
+        const found = occurrenceOn(recurrence, anchor, addDaysUTC(today, ahead))
+        if (found) return found
+    }
+    return null
 }

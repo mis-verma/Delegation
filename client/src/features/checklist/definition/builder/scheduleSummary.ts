@@ -59,4 +59,4 @@ export const windowSentence = (opensTime: string, cutoffTime: string, overnight:
 export const earlySentence = (recurrence: ChecklistRecurrence): string | null =>
   recurrence === 'DAILY' || recurrence === 'ONE_TIME'
     ? null
-    : `Staff see each run ${EARLY_VIEW_DAYS} days early, and can fill it from the day it opens.`;
+    : `Staff see each run ${EARLY_VIEW_DAYS} days before the date and can fill it from then. It is due at the end of that day.`;

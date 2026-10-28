@@ -60,7 +60,11 @@ const noRunReason = (definition: ChecklistDefinition): string => {
   const weekday = orgWeekday();
   if (!definition.isActive && !definition.assigneeIds.length) return 'This checklist is a draft. Nobody is assigned yet. Add people and it goes live.';
   if (!definition.isActive) return 'This checklist is paused. Resume it with the status button at the top of this page to start creating runs.';
-  if (startKey > todayKey) return `It starts on ${formatDate(definition.startDate)}, and the first run is created that day.`;
+  if (startKey > todayKey) {
+    return definition.recurrence === 'DAILY' || definition.recurrence === 'ONE_TIME'
+      ? `It starts on ${formatDate(definition.startDate)}, and the first run is created that day.`
+      : `It starts on ${formatDate(definition.startDate)}. The first run shows to staff 3 days before that.`;
+  }
   if (!definition.assigneeIds.length) return 'Nobody is assigned yet. Edit it and pick who fills it in.';
   if (definition.recurrence === 'DAILY' && definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) {
     return `${DAY_NAMES[weekday]} isn't one of its working days (${formatWeekdays(definition.activeWeekdays)}). The next run is created on the next working day.`;

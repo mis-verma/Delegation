@@ -29,13 +29,6 @@ const RECURRENCE_OPTIONS: {
   { value: 'ONE_TIME', label: 'One-time', description: 'A single run', icon: Target },
 ];
 
-const PERIOD_WORD: Partial<Record<ChecklistRecurrence, string>> = {
-  WEEKLY: 'week',
-  MONTHLY: 'month',
-  QUARTERLY: 'quarter',
-  YEARLY: 'year',
-};
-
 const QUICK_WINDOWS: { label: string; opens: string; closes: string; late: string; icon: LucideIcon }[] = [
   { label: 'All day', opens: '', closes: '', late: '', icon: Sun },
   { label: 'Morning 9 AM to 1 PM', opens: '09:00', closes: '13:00', late: '', icon: Sunrise },
@@ -334,7 +327,7 @@ export const BuilderSchedulePanel = ({
 
         {!timed && (
           <Note tone="muted" icon={Info}>
-            A {recurrence.toLowerCase()} checklist stays open for the whole {PERIOD_WORD[recurrence] ?? 'period'}, so it has no opening hours and no late window. Hours are only for daily and one-time checklists.
+            A {recurrence.toLowerCase()} checklist shows to staff 3 days before its date and is due at the end of that day, so it has no opening hours and no late window. Hours are only for daily and one-time checklists.
           </Note>
         )}
         {timed && !hasTimeMismatch && <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={offerLate ? lateUntilTime : ''} />}
@@ -371,7 +364,7 @@ export const BuilderSchedulePanel = ({
           </li>
           <li className="flex items-start gap-2 t-card font-display font-medium text-text-secondary">
             <Clock size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
-            {timed ? windowSentence(opensTime, cutoffTime, isOvernight) : `Open for the whole ${PERIOD_WORD[recurrence] ?? 'period'}`}
+            {timed ? windowSentence(opensTime, cutoffTime, isOvernight) : 'Due at the end of the day'}
           </li>
           <li className="flex items-start gap-2 t-card font-display font-medium text-text-secondary">
             <Store size={15} className="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />

@@ -138,10 +138,15 @@ export const todayPeriodBoundIso = (): string => {
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())).toISOString();
 };
 
-const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
+const EARLY_VIEW_DAYS = 3;
+
+type OpeningInstance = Pick<InstanceWindow, 'periodStart' | 'opensTime'> & { recurrence?: ChecklistRecurrence };
+
+const instanceOpensAt = (instance: OpeningInstance): number | null => {
   const [hours, minutes] = instance.opensTime ? instance.opensTime.split(':').map(Number) : [0, 0];
   const start = new Date(instance.periodStart);
-  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS;
+  const early = instance.recurrence && instance.recurrence !== 'DAILY' && instance.recurrence !== 'ONE_TIME' ? EARLY_VIEW_DAYS * 86_400_000 : 0;
+  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS - early;
 };
 
 export const instanceDeadline = (instance: InstanceWindow): number => {
@@ -191,7 +196,7 @@ export const formatDeadlineTime = (instance: InstanceWindow): string | null => {
 export const isInstanceOverdue = (instance: InstanceWindow, isComplete: boolean, now: number = Date.now()) =>
   !isComplete && instanceDeadline(instance) < now;
 
-export const isInstanceNotYetOpen = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>) => {
+export const isInstanceNotYetOpen = (instance: OpeningInstance) => {
   const opensAt = instanceOpensAt(instance);
   return opensAt != null && Date.now() < opensAt;
 };
@@ -207,7 +212,7 @@ export const instanceStartOfOrgDay = (now: number = Date.now()): number => {
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ORG_TZ_OFFSET_MS;
 };
 
-export const instanceOpensOnLaterDay = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>, now: number = Date.now()): string | null => {
+export const instanceOpensOnLaterDay = (instance: OpeningInstance, now: number = Date.now()): string | null => {
   const opensAt = instanceOpensAt(instance);
   if (opensAt == null || opensAt <= now) return null;
   if (orgDayKey(opensAt) === orgDayKey(now)) return null;

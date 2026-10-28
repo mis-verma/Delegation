@@ -797,6 +797,41 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
     return removed
 }
 
+export const dropUntouchedLongRuns = async (apply: boolean, now: Date = new Date()): Promise<{ found: number; removed: number }> => {
+    const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
+    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
+        .where(and(
+            inArray(checklistInstances.recurrence, ["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]),
+            sql`DATEDIFF(${checklistInstances.periodEnd}, ${checklistInstances.periodStart}) > 1`,
+            gt(checklistInstances.periodEnd, localNow),
+        ))
+
+    let removed = 0
+    const affectedAssignees = new Set<string>()
+    for (const { id, storeId } of runs) {
+        try {
+            const gone = await db.transaction(async (tx) => {
+                const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
+                if (!run || await runHasProgress(tx, run)) return false
+                if (!apply) return true
+                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+                    .where(eq(checklistInstanceAssignees.instanceId, id))
+                await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
+                for (const l of links) affectedAssignees.add(l.userId)
+                return true
+            })
+            if (gone) {
+                removed++
+                if (apply) emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
+            }
+        } catch (err) {
+            console.error(`Removing old run ${id} failed:`, err)
+        }
+    }
+    if (apply && removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after cleaning old runs failed:", err))
+    return { found: runs.length, removed }
+}
+
 export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date()): Promise<number> => {
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
