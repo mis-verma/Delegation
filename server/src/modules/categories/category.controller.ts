@@ -4,6 +4,12 @@ import { createCategorySchema , updateCategorySchema } from "./category.validati
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { isOwnScopeRole } from "../../utils/roles.js";
 import { routeParam } from "../../utils/routeParam.js"
+import { categoryTatService, TAT_WINDOW_DAYS } from "./categoryTat.service.js"
+import { z } from "zod"
+
+const tatQuerySchema = z.object({
+    days: z.coerce.number().int().refine((value) => (TAT_WINDOW_DAYS as readonly number[]).includes(value), "Pick 30, 90, 180, 365 or 0 for all time").default(90),
+})
 
 const hideAssigneeEmails = <T extends { assignees: { email: string }[] }>(category: T, role: string): T =>
     isOwnScopeRole(role) ? { ...category, assignees: category.assignees.map((assignee) => ({ ...assignee, email: "" })) } : category;
@@ -13,6 +19,11 @@ export const categoryController = {
         const categories = await categoryService.list()
         res.json({ success : true, data : categories.map((category) => hideAssigneeEmails(category, req.user!.role))})
     }), 
+
+    tatReport : asyncHandler(async (req : Request, res : Response) => {
+        const { days } = tatQuerySchema.parse(req.query)
+        res.json({ success : true, data : await categoryTatService.report(days) })
+    }),
 
     getOne : asyncHandler(async(req : Request, res : Response) => {
         const category = await categoryService.getById(routeParam(req, "id"))

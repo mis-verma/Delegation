@@ -19,6 +19,37 @@ export type Category = {
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
+export type TatWindowDays = 30 | 90 | 180 | 365 | 0;
+
+export type TatSummary = {
+    count: number;
+    avg: number | null;
+    median: number | null;
+    p80: number | null;
+    p90: number | null;
+};
+
+export type CategoryTatRow = {
+    categoryId: string | null;
+    name: string;
+    departmentName: string | null;
+    configuredTatHours: number | null;
+    total: number;
+    closed: number;
+    rejected: number;
+    open: number;
+    response: TatSummary;
+    completion: TatSummary;
+    closure: TatSummary;
+    onHoldAvg: number | null;
+    slaMet: number;
+    slaBreached: number;
+    slaMetPct: number | null;
+    suggestedTatHours: number | null;
+};
+
+export type CategoryTatReport = { rows: CategoryTatRow[]; total: CategoryTatRow };
+
 export type CreateCategoryPayload = {
     name: string;
     departmentId: string;
@@ -54,6 +85,8 @@ export const categoryApi = {
         apiFetch<ApiResponse<CategoryRow>>("/categories", { method: "POST", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),
     update: (id: string, payload: UpdateCategoryPayload) =>
         apiFetch<ApiResponse<CategoryRow>>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),
+    tatReport: (days: TatWindowDays) =>
+        apiFetch<ApiResponse<CategoryTatReport>>(`/categories/tat-report?days=${days}`),
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}`, { method: "DELETE" })
 

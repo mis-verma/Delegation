@@ -7,6 +7,7 @@ export const categoryRouter = Router()
 categoryRouter.use(authenticate)
 
 categoryRouter.get("/", categoryController.list)
+categoryRouter.get("/tat-report", requireRole("ADMIN", "PC"), categoryController.tatReport)
 categoryRouter.get("/:id", categoryController.getOne)
 
 categoryRouter.post("/", requireRole("ADMIN", "PC"), categoryController.create)

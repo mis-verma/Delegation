@@ -2,6 +2,7 @@ import { useMemo, useState, lazy, Suspense } from "react";
 import { CreateButton } from '../../components/createButton';
 import { Plus, Tag, Building2, Users, Clock, Search, CircleOff, CirclePower } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
+import { useAuth } from "@/context/AuthContext";
 import {
   Input, Skeleton, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
@@ -14,11 +15,22 @@ const CategoryForm = lazy(() =>
   import("./CategoryForm").then(module => ({ default: module.CategoryForm }))
 );
 
+const CategoryTatPanel = lazy(() =>
+  import("./CategoryTatPanel").then(module => ({ default: module.CategoryTatPanel }))
+);
+
+type CategoryTab = "list" | "tat";
+const TAB_OPTIONS: readonly CategoryTab[] = ["list", "tat"];
+const TAB_LABELS: Record<CategoryTab, string> = { list: "Categories", tat: "Time report" };
+
 type StatusFilter = "all" | "active" | "inactive";
 const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
 
 export const CategoryList = () => {
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const canSeeReport = user?.role === "ADMIN" || user?.role === "PC";
+  const [tab, setTab] = useState<CategoryTab>("list");
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [query, setQuery] = useState("");
@@ -131,6 +143,16 @@ export const CategoryList = () => {
           {!isPending && categories.length > 0 && ` ${activeCount} of ${categories.length} ${categories.length === 1 ? "is" : "are"} active.`}
         </p>
       </div>
+      {canSeeReport && (
+        <PeriodTabControl value={tab} options={TAB_OPTIONS} labels={TAB_LABELS} onChange={setTab} />
+      )}
+
+      {tab === "tat" && canSeeReport ? (
+        <Suspense fallback={<Skeleton className="h-40 rounded-2xl" />}>
+          <CategoryTatPanel />
+        </Suspense>
+      ) : (
+        <>
       <div className="flex flex-wrap items-center gap-2">
         {categories.length > 0 && (
           <div className="flex-1 min-w-48 sm:max-w-xs">
@@ -157,6 +179,8 @@ export const CategoryList = () => {
       </div>
 
       {renderContent()}
+        </>
+      )}
 
       {activeModal && (
         <Suspense fallback={null}>

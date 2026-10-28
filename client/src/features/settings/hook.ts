@@ -1,6 +1,6 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload } from "@/api/categories";
+import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays } from "@/api/categories";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
@@ -79,6 +79,16 @@ export const useCategoriesQuery = (enabled: boolean = true) => {
         ...categoriesQueryOptions(),
         enabled : !!token && enabled,
     })
+};
+
+export const useCategoryTatQuery = (days: TatWindowDays, enabled: boolean = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey : [...CATEGORY_KEY.all, "tat", days] as const,
+        queryFn : () => categoryApi.tatReport(days).then(r => r.data),
+        enabled : !!token && enabled,
+        staleTime : 60_000,
+    });
 };
 
 export const useCreateCategoryMutation = () => {
