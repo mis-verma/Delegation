@@ -4,7 +4,7 @@ import { Tag, Users, Clock, Search, CircleOff, CirclePower, ListPlus, Plus } fro
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Input, Skeleton, EmptyState, InlineError, useConfirm,
+  Button, Input, Skeleton, SelectDropdown, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
@@ -36,7 +36,6 @@ const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
 
 const MAX_VISIBLE_AVATARS = 3;
 const NO_DEPARTMENT = "No department";
-const TILE_CLASS = "flex flex-col gap-1 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4";
 
 interface CategoryCardProps {
   category: Category;
@@ -136,6 +135,7 @@ export const CategoryList = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [departmentId, setDepartmentId] = useState("");
 
   const { data: categories = [], isPending, isError, refetch } = useCategoriesQuery();
   const { data: usageReport } = useCategoryTatQuery(90, canSeeReport);
@@ -149,9 +149,17 @@ export const CategoryList = () => {
     return categories.filter((c) => {
       if (status === "active" && !c.isActive) return false;
       if (status === "inactive" && c.isActive) return false;
+      if (departmentId && c.departmentId?.id !== departmentId) return false;
       return !needle || c.name.toLowerCase().includes(needle) || (c.departmentId?.name ?? "").toLowerCase().includes(needle);
     });
-  }, [categories, query, status]);
+  }, [categories, query, status, departmentId]);
+
+  const departmentOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of categories) if (c.departmentId?.id) seen.set(c.departmentId.id, c.departmentId.name);
+    const named = [...seen].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: "", label: "All departments" }, ...named];
+  }, [categories]);
 
   const groups = useMemo(() => {
     const byDepartment = new Map<string, { name: string; items: Category[] }>();
@@ -203,7 +211,7 @@ export const CategoryList = () => {
       );
     }
     if (shown.length === 0) {
-      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: () => { setQuery(""); setStatus("all"); } }} />;
+      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: () => { setQuery(""); setStatus("all"); setDepartmentId(""); } }} />;
     }
 
     return (
@@ -235,18 +243,24 @@ export const CategoryList = () => {
 
   const activeModal = showForm || editingCategory;
 
-  return (
-    <div className="flex flex-col gap-3 sm:gap-4 w-full">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="t-section font-display font-bold text-text">Ticket categories</h2>
-        <p className="hidden t-meta font-display text-text-muted sm:block">
-          Picking one on a ticket fills in the team, the people and the due time.
-        </p>
-      </div>
-
-      {canSeeReport && (
-        <PeriodTabControl value={tab} options={TAB_OPTIONS} labels={TAB_LABELS} onChange={setTab} />
+  const actions = (
+    <div className="flex items-center gap-2 sm:ml-auto">
+      {missingStarter > 0 && categories.length > 0 && tab === "list" && (
+        <Button variant="outline" size="sm" onClick={() => setShowStarter(true)} className="h-9 max-sm:h-11 font-display font-semibold">
+          <Plus size={15} aria-hidden />
+          Add usual ({missingStarter})
+        </Button>
       )}
+      {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} />}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3 w-full">
+      <div className="flex flex-wrap items-center gap-2">
+        {canSeeReport && <PeriodTabControl value={tab} options={TAB_OPTIONS} labels={TAB_LABELS} onChange={setTab} />}
+        {actions}
+      </div>
 
       {tab === "tat" && canSeeReport ? (
         <Suspense fallback={<Skeleton className="h-40 rounded-2xl" />}>
@@ -254,30 +268,9 @@ export const CategoryList = () => {
         </Suspense>
       ) : (
         <>
-          {!isPending && categories.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className={TILE_CLASS}>
-                <span className="t-meta font-display font-medium text-text-muted">Categories</span>
-                <span className="t-stat font-display font-bold tabular-nums text-text">{categories.length}</span>
-              </div>
-              <div className={TILE_CLASS}>
-                <span className="t-meta font-display font-medium text-text-muted">Active</span>
-                <span className="t-stat font-display font-bold tabular-nums text-vivid-green-text">{activeCount}</span>
-              </div>
-              <div className={TILE_CLASS}>
-                <span className="t-meta font-display font-medium text-text-muted">Head picks the person</span>
-                <span className="t-stat font-display font-bold tabular-nums text-text">{headPicksCount}</span>
-              </div>
-              <div className={TILE_CLASS}>
-                <span className="t-meta font-display font-medium text-text-muted">Default due time</span>
-                <span className="t-stat font-display font-bold tabular-nums text-text">{defaultDueCount}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            {categories.length > 0 && (
-              <div className="flex-1 min-w-48 sm:max-w-xs">
+          {categories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-44 sm:max-w-64">
                 <Input
                   id="category-search"
                   type="search"
@@ -288,25 +281,25 @@ export const CategoryList = () => {
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
-            )}
-            {categories.length > 0 && (
+              {departmentOptions.length > 2 && (
+                <div className="w-full sm:w-52">
+                  <SelectDropdown aria-label="Filter by department" value={departmentId} options={departmentOptions} onChange={setDepartmentId} />
+                </div>
+              )}
               <PeriodTabControl
                 value={status}
                 options={STATUS_OPTIONS}
                 labels={{ all: `All ${categories.length}`, active: `Active ${activeCount}`, inactive: `Inactive ${categories.length - activeCount}` }}
                 onChange={setStatus}
               />
-            )}
-            <div className="flex items-center gap-2 sm:ml-auto">
-              {missingStarter > 0 && categories.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setShowStarter(true)} className="h-9 max-sm:h-11 font-display font-semibold">
-                  <Plus size={15} aria-hidden />
-                  Add usual ({missingStarter})
-                </Button>
-              )}
-              <CreateButton label="New category" onClick={() => setShowForm(true)} />
             </div>
-          </div>
+          )}
+
+          {!isPending && categories.length > 0 && (
+            <p className="t-meta font-display text-text-muted tabular-nums">
+              {headPicksCount} {headPicksCount === 1 ? "category lets" : "categories let"} the head pick the person, {defaultDueCount} on the default due time.
+            </p>
+          )}
 
           {renderContent()}
         </>
