@@ -1,4 +1,5 @@
 import sharp from "sharp"
+import { withImageSlot } from "./imageWork.js"
 
 export type ImageQualityFlag = "BLURRY" | "DARK" | "BRIGHT"
 
@@ -62,12 +63,12 @@ export const measureQuality = (pixels: Uint8Array, width: number, height: number
 
 export const assessImageQuality = async (input: string | Buffer): Promise<ImageQuality | null> => {
     try {
-        const { data, info } = await sharp(input, { failOn: "none" })
+        const { data, info } = await withImageSlot(() => sharp(input, { failOn: "none" })
             .rotate()
             .resize({ width: ANALYSIS_EDGE, height: ANALYSIS_EDGE, fit: "inside", withoutEnlargement: true })
             .greyscale()
             .raw()
-            .toBuffer({ resolveWithObject: true })
+            .toBuffer({ resolveWithObject: true }))
         return measureQuality(data, info.width, info.height)
     } catch {
         return null

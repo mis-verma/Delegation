@@ -17,6 +17,7 @@ import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.j
 import { startDueReminders } from "./src/jobs/dueReminders.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startDataBackup } from "./src/jobs/dataBackup.job.js";
+import { runOneTimeLongRunCleanup } from "./src/jobs/oneTimeLongRunCleanup.js";
 import { startRiskWatch } from "./src/jobs/riskWatch.job.js";
 import { startRequestStatsFlush } from "./src/modules/health/requestStats.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
@@ -76,6 +77,9 @@ class ServerBootstrap {
       startNotificationDigest();
       startInboundMessageRetention();
       startPendingConversationRetention();
+      setTimeout(() => {
+        runOneTimeLongRunCleanup().catch((err) => console.error("One-time long-run cleanup failed:", err));
+      }, 90_000).unref();
     }
 
     if (cluster.isWorker) {

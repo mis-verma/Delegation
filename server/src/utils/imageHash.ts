@@ -1,4 +1,5 @@
 import sharp from "sharp"
+import { withImageSlot } from "./imageWork.js"
 
 const HASH_WIDTH = 9
 const HASH_HEIGHT = 8
@@ -15,12 +16,12 @@ export const hammingHex = (a: string, b: string): number => {
 
 export const perceptualHash = async (file: string): Promise<string | null> => {
     try {
-        const pixels = await sharp(file, { failOn: "none" })
+        const pixels = await withImageSlot(() => sharp(file, { failOn: "none" })
             .rotate()
             .resize(HASH_WIDTH, HASH_HEIGHT, { fit: "fill" })
             .greyscale()
             .raw()
-            .toBuffer()
+            .toBuffer())
         let bits = 0n
         let set = 0
         for (let y = 0; y < HASH_HEIGHT; y++) {

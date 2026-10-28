@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import type { NextFunction, Request, Response } from "express"
 import sharp from "sharp"
+import { withImageSlot } from "./imageWork.js"
 
 const UPLOADS_ROOT = path.resolve("uploads")
 const VARIANTS_ROOT = path.join(UPLOADS_ROOT, ".variants")
@@ -49,12 +50,12 @@ const build = async (source: string, width: number): Promise<string | null> => {
     }
     await fs.mkdir(path.dirname(target), { recursive: true })
     const temp = `${target}.${process.pid}.tmp`
-    await sharp(source, { failOn: "none" })
+    await withImageSlot(() => sharp(source, { failOn: "none" })
         .rotate()
         .flatten({ background: "#ffffff" })
         .resize({ width, withoutEnlargement: true })
         .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-        .toFile(temp)
+        .toFile(temp))
     await fs.rename(temp, target)
     return target
 }

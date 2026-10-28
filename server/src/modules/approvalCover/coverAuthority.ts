@@ -1,13 +1,9 @@
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
-import { approvalCoverService, type CoverApprover } from "./approvalCover.service.js"
+import { approvalCoverService } from "./approvalCover.service.js"
+import { borrowAuthority } from "./borrowAuthority.js"
 
-export const borrowAuthority = (user: AccessTokenPayload, cover: CoverApprover): AccessTokenPayload => ({
-    ...user,
-    role: cover.role === "ADMIN" ? "PC" : cover.role,
-    departmentId: cover.departmentId ?? undefined,
-    storeId: cover.storeId ?? undefined,
-})
+export { borrowAuthority }
 
 const isForbidden = (error: unknown): boolean => error instanceof AppError && error.statusCode === 403
 

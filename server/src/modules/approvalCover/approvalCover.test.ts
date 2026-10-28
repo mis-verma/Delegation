@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { MAX_COVER_DAYS, isCoverEligibleRole, validateCoverWindow } from "./approvalCoverRules.js"
 import { coverCanVerify } from "../checklistInstances/checklistVerifyRules.js"
+import { borrowAuthority } from "./borrowAuthority.js"
 
 const NOW = new Date("2026-10-28T10:00:00Z")
 const day = (n: number) => new Date(NOW.getTime() + n * 86_400_000)
@@ -60,8 +61,7 @@ describe("coverCanVerify", () => {
 })
 
 describe("borrowAuthority", () => {
-    it("keeps the real person but borrows role and department, and never lends Admin", async () => {
-        const { borrowAuthority } = await import("./coverAuthority.js")
+    it("keeps the real person but borrows role and department, and never lends Admin", () => {
         const me = { sub: "delegate-1", role: "SENIOR" as const, departmentId: "dept-a", storeId: "store-a" }
         const head = borrowAuthority(me, { id: "h1", role: "MANAGER", departmentId: "dept-b", storeId: null })
         expect(head).toMatchObject({ sub: "delegate-1", role: "MANAGER", departmentId: "dept-b" })
