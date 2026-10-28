@@ -359,6 +359,19 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     </div>
   );
 
+  const categoryOptions = useMemo(
+    () => (categories ?? [])
+      .filter(c => c.isActive || c.id === categoryId)
+      .map(c => ({
+        value: c.id,
+        label: c.name,
+        group: c.departmentId?.name || 'No department',
+        hint: c.tatHours ? `Due in ${c.tatHours % 24 === 0 ? `${c.tatHours / 24}d` : `${c.tatHours}h`}` : undefined,
+      }))
+      .sort((a, b) => (a.group === 'No department' ? 1 : b.group === 'No department' ? -1 : a.group.localeCompare(b.group)) || a.label.localeCompare(b.label)),
+    [categories, categoryId],
+  );
+
   const categoryField = (label: string, hint: string, required: boolean) => (
     <div data-field="categoryId">
       <FormField
@@ -374,7 +387,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
           onChange={selectCategory}
           placeholder="Search the list..."
           emptyOptionLabel={required ? 'Choose one' : 'No category'}
-          options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
+          options={categoryOptions}
           onCreateNew={isVerifier ? () => setCreating('category') : undefined}
           createNewLabel="New category"
           className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.categoryId ? 'border-danger/60' : ''}`}

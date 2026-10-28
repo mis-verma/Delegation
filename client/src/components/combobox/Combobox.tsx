@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronDown, Plus, Search, SearchX } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,6 +16,7 @@ export interface ComboboxOption {
   value: string;
   label: string;
   hint?: string;
+  group?: string;
 }
 
 const MAX_ROWS = 60;
@@ -79,7 +80,7 @@ export const Combobox = ({
 
   const trimmedQuery = query.trim();
   const filtered = useMemo(
-    () => (trimmedQuery ? allOptions.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
+    () => (trimmedQuery ? allOptions.filter((o) => `${o.label} ${o.hint ?? ''} ${o.group ?? ''}`.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
     [allOptions, trimmedQuery]
   );
   const shown = useMemo(() => {
@@ -119,7 +120,8 @@ export const Combobox = ({
 
   useEffect(() => {
     if (!open) return;
-    const row = listRef.current?.children[safeHighlightedIndex] as HTMLElement | undefined;
+    const active = shown[safeHighlightedIndex];
+    const row = active ? listRef.current?.querySelector<HTMLElement>(`[id="${optionId(active)}"]`) : null;
     row?.scrollIntoView({ block: 'nearest' });
   }, [open]);
 
@@ -232,8 +234,11 @@ export const Combobox = ({
               const isSelected = option.value === value;
               const isHighlighted = i === safeHighlightedIndex;
               return (
+                <Fragment key={option.value || '__empty__'}>
+                  {option.group && option.group !== shown[i - 1]?.group && (
+                    <li role="presentation" className="px-3 pt-2.5 pb-1 t-meta font-display font-bold text-text-muted">{option.group}</li>
+                  )}
                 <li
-                  key={option.value || '__empty__'}
                   id={optionId(option)}
                   role="option"
                   aria-selected={isSelected}
@@ -262,6 +267,7 @@ export const Combobox = ({
                     )}
                   </span>
                 </li>
+                </Fragment>
               );
             })
           )}

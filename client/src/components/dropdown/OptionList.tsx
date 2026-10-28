@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Check, Search, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,7 @@ export interface ListOption {
   value: string;
   label: string;
   hint?: string;
+  group?: string;
   lead?: ReactNode;
 }
 
@@ -74,7 +75,7 @@ export const OptionList = ({
   const needle = query.trim().toLowerCase();
 
   const filtered = useMemo(
-    () => (needle ? options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(needle)) : options),
+    () => (needle ? options.filter((o) => `${o.label} ${o.hint ?? ''} ${o.group ?? ''}`.toLowerCase().includes(needle)) : options),
     [options, needle],
   );
   const shown = filtered.length > MAX_ROWS ? filtered.slice(0, MAX_ROWS) : filtered;
@@ -111,10 +112,14 @@ export const OptionList = ({
             <span className="truncate">{needle ? `No matches for "${query.trim()}"` : emptyText}</span>
           </li>
         ) : (
-          shown.map((option) => {
+          shown.map((option, index) => {
             const isSelected = selected.includes(option.value);
             return (
-              <li key={option.value || '__empty__'} role="option" aria-selected={isSelected}>
+              <Fragment key={option.value || '__empty__'}>
+              {option.group && option.group !== shown[index - 1]?.group && (
+                <li role="presentation" className="px-3 pt-3 pb-1 t-meta font-display font-bold text-text-muted">{option.group}</li>
+              )}
+              <li role="option" aria-selected={isSelected}>
                 <button
                   type="button"
                   onClick={() => onToggle(option.value)}
@@ -148,6 +153,7 @@ export const OptionList = ({
                   )}
                 </button>
               </li>
+              </Fragment>
             );
           })
         )}
