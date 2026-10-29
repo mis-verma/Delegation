@@ -1,10 +1,10 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Clock, Search, CircleOff, CirclePower, ListPlus, Plus } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, EmptyState, InlineError, useConfirm,
+  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
@@ -38,6 +38,7 @@ const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
 const MAX_VISIBLE_AVATARS = 3;
 const MAX_VISIBLE_LABELS = 3;
 const NO_DEPARTMENT = "No department";
+const ROW_LABEL = "t-meta font-display font-medium text-text-muted";
 
 interface CategoryCardProps {
   category: Category;
@@ -57,16 +58,23 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
     <article className={`${ENTITY_CARD_CLASS} justify-start gap-3 ${!c.isActive ? "bg-surface-hover/30" : ""} ${busy ? "opacity-60 pointer-events-none" : ""}`}>
       <header className="flex items-start gap-3">
         <ColorIconTile icon={Tag} name={c.name} />
-        <button
-          type="button"
-          onClick={() => onEdit(c)}
-          className="min-w-0 flex-1 rounded-md text-left outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          aria-label={`Edit ${c.name}`}
-        >
-          <h4 className={`t-card font-display font-bold leading-snug line-clamp-2 break-words ${c.isActive ? "text-text" : "text-text-secondary"}`} title={c.name}>
-            {c.name}
-          </h4>
-        </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => onEdit(c)}
+            className="rounded-md text-left outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            aria-label={`Edit ${c.name}`}
+          >
+            <h4 className={`t-card font-display font-bold leading-snug line-clamp-2 break-words ${c.isActive ? "text-text" : "text-text-secondary"}`} title={c.name}>
+              {c.name}
+            </h4>
+          </button>
+          {!c.isActive && (
+            <span className="w-fit">
+              <CardChip icon={CircleOff} label="Inactive" />
+            </span>
+          )}
+        </div>
         <div className="-mr-2 -mt-1">
           <EntityCardActions
             onEdit={() => onEdit(c)}
@@ -79,54 +87,66 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <CardChip icon={Clock} tone={c.tatHours ? "primary" : "neutral"} label={c.tatHours ? `Due in ${formatTatHours(c.tatHours)}` : "Default due time"} title="Due within" />
-        {c.priority && <PriorityChip meta={PRIORITY_CONFIG[c.priority]} />}
-        {!c.isActive && <CardChip icon={CircleOff} label="Inactive" />}
-      </div>
+      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 border-t border-border/50 pt-3">
+        <dt className={ROW_LABEL}>Due</dt>
+        <dd className={c.tatHours ? "t-card font-display font-bold tabular-nums text-text" : "t-meta font-display font-semibold text-text-muted"}>
+          {c.tatHours ? `Within ${formatTatHours(c.tatHours)}` : "Default due time"}
+        </dd>
 
-      {c.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {c.tags.slice(0, MAX_VISIBLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
-          {c.tags.length > MAX_VISIBLE_LABELS && (
-            <span className="t-meta font-semibold tabular-nums text-text-muted" title={c.tags.slice(MAX_VISIBLE_LABELS).map((tag) => tag.name).join(", ")}>
-              +{c.tags.length - MAX_VISIBLE_LABELS}
+        <dt className={ROW_LABEL}>Priority</dt>
+        <dd className="min-w-0">
+          {c.priority ? <PriorityChip meta={PRIORITY_CONFIG[c.priority]} /> : <span className="t-meta font-display font-semibold text-text-muted">Not set</span>}
+        </dd>
+
+        <dt className={ROW_LABEL}>Goes to</dt>
+        <dd className="flex min-w-0 items-center gap-2">
+          {people.length > 0 ? (
+            <>
+              <span className="flex shrink-0 items-center -space-x-1.5">
+                {names.slice(0, MAX_VISIBLE_AVATARS).map((name, i) => (
+                  <span key={people[i]!.id} title={name} className={`flex size-7 items-center justify-center rounded-full ring-2 ring-surface text-white t-meta font-bold ${avatarColorClass(name)}`}>
+                    {getInitials(name)}
+                  </span>
+                ))}
+                {people.length > MAX_VISIBLE_AVATARS && (
+                  <span className="flex size-7 items-center justify-center rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary t-meta font-bold" title={names.slice(MAX_VISIBLE_AVATARS).join(", ")}>
+                    +{people.length - MAX_VISIBLE_AVATARS}
+                  </span>
+                )}
+              </span>
+              <span className="truncate t-meta font-display font-semibold text-text-secondary">
+                {names[0]}{people.length > 1 ? ` and ${people.length - 1} more` : ""}
+              </span>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-muted">
+              <Users className="size-3.5 shrink-0" aria-hidden />
+              Department head picks
             </span>
           )}
-        </div>
-      )}
+        </dd>
 
-      <div className="flex items-center gap-2 min-w-0">
-        {people.length > 0 ? (
-          <>
-            <span className="flex shrink-0 items-center -space-x-1.5">
-              {names.slice(0, MAX_VISIBLE_AVATARS).map((name, i) => (
-                <span key={people[i]!.id} title={name} className={`flex size-7 items-center justify-center rounded-full ring-2 ring-surface text-white t-meta font-bold ${avatarColorClass(name)}`}>
-                  {getInitials(name)}
-                </span>
-              ))}
-              {people.length > MAX_VISIBLE_AVATARS && (
-                <span className="flex size-7 items-center justify-center rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary t-meta font-bold" title={names.slice(MAX_VISIBLE_AVATARS).join(", ")}>
-                  +{people.length - MAX_VISIBLE_AVATARS}
+        <dt className={ROW_LABEL}>Labels</dt>
+        <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {c.tags.length > 0 ? (
+            <>
+              {c.tags.slice(0, MAX_VISIBLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
+              {c.tags.length > MAX_VISIBLE_LABELS && (
+                <span className="t-meta font-semibold tabular-nums text-text-muted" title={c.tags.slice(MAX_VISIBLE_LABELS).map((tag) => tag.name).join(", ")}>
+                  +{c.tags.length - MAX_VISIBLE_LABELS}
                 </span>
               )}
-            </span>
-            <span className="truncate t-meta font-display font-semibold text-text-secondary">
-              {names[0]}{people.length > 1 ? ` and ${people.length - 1} more` : ""}
-            </span>
-          </>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-muted">
-            <Users className="size-3.5" aria-hidden />
-            Department head picks the person
-          </span>
-        )}
-      </div>
+            </>
+          ) : (
+            <span className="t-meta font-display font-semibold text-text-muted">None</span>
+          )}
+        </dd>
+      </dl>
 
       {usage && usage.total > 0 && (
-        <div className="flex flex-col gap-1.5 border-t border-border/50 pt-3">
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-border/50 pt-3">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="t-meta font-display font-medium text-text-muted">Finished on time, last 90 days</span>
+            <span className="t-meta font-display font-medium text-text-muted">On time, last 90 days</span>
             <span className={`t-card font-display font-bold tabular-nums ${SLA_TEXT[tone]}`}>{usage.slaMetPct === null ? "–" : `${usage.slaMetPct}%`}</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
@@ -260,12 +280,12 @@ export const CategoryList = () => {
   const actions = (
     <div className="flex items-center gap-2 sm:ml-auto">
       {missingStarter > 0 && categories.length > 0 && tab === "list" && (
-        <Button variant="outline" size="sm" onClick={() => setShowStarter(true)} className="h-9 max-sm:h-11 font-display font-semibold">
+        <Button variant="outline" size="sm" onClick={() => setShowStarter(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
           <Plus size={15} aria-hidden />
           Add usual ({missingStarter})
         </Button>
       )}
-      {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} />}
+      {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />}
     </div>
   );
 
@@ -317,6 +337,16 @@ export const CategoryList = () => {
 
           {renderContent()}
         </>
+      )}
+
+      {tab === "list" && (
+        <Fab
+          sheetTitle="Create"
+          actions={[
+            { key: "new", label: "New category", description: "Set the team, people, priority and due time", icon: Plus, onClick: () => setShowForm(true) },
+            ...(missingStarter > 0 ? [{ key: "usual", label: "Add the usual categories", description: `${missingStarter} ready to add, pick the team for each`, icon: ListPlus, onClick: () => setShowStarter(true) }] : []),
+          ]}
+        />
       )}
 
       {activeModal && (
