@@ -81,11 +81,11 @@ export const useCategoriesQuery = (enabled: boolean = true) => {
     })
 };
 
-export const useCategoryTatQuery = (days: TatWindowDays, enabled: boolean = true) => {
+export const useCategoryTatQuery = (days: TatWindowDays, enabled: boolean = true, tagId?: string) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey : [...CATEGORY_KEY.all, "tat", days] as const,
-        queryFn : () => categoryApi.tatReport(days).then(r => r.data),
+        queryKey : [...CATEGORY_KEY.all, "tat", days, tagId ?? ""] as const,
+        queryFn : () => categoryApi.tatReport(days, tagId).then(r => r.data),
         enabled : !!token && enabled,
         staleTime : 60_000,
     });

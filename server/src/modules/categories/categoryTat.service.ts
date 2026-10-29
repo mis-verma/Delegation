@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, inArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { categories, departments } from "../../db/schema/core.js"
-import { tickets, ticketStatusUpdates } from "../../db/schema/ticket.js"
+import { tickets, ticketStatusUpdates, ticketTags } from "../../db/schema/ticket.js"
 import { NOT_DELETED } from "../tickets/ticketShared.js"
 import { buildCategoryTat, type CategoryTatReport, type TatTicket, type TatUpdate } from "./categoryTat.js"
 
@@ -11,7 +11,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const UPDATE_CHUNK = 500
 
 export const categoryTatService = {
-    async report(days: number): Promise<CategoryTatReport> {
+    async report(days: number, tagId?: string): Promise<CategoryTatReport> {
         const since = days > 0 ? new Date(Date.now() - days * DAY_MS) : null
 
         const categoryRows = await db
@@ -30,7 +30,11 @@ export const categoryTatService = {
                 tatDueAt: tickets.tatDueAt,
             })
             .from(tickets)
-            .where(and(NOT_DELETED, since ? gte(tickets.createdAt, since) : undefined))
+            .where(and(
+                NOT_DELETED,
+                since ? gte(tickets.createdAt, since) : undefined,
+                tagId ? inArray(tickets.id, db.select({ id: ticketTags.ticketId }).from(ticketTags).where(eq(ticketTags.tagId, tagId))) : undefined,
+            ))
 
         const updates: TatUpdate[] = []
         for (let start = 0; start < ticketRows.length; start += UPDATE_CHUNK) {

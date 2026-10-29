@@ -610,6 +610,13 @@
       "when": 1792870000000,
       "tag": "0086_approval_cover",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "5",
+      "when": 1792880000000,
+      "tag": "0087_category_labels",
+      "breakpoints": true
     }
   ]
 }

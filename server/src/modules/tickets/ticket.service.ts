@@ -25,6 +25,7 @@ import { type TicketRow, NOT_DELETED, deriveTatDueAt, overdueAtHandOver } from "
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
+import { categoryDefaults, mergeTagIds } from "../categories/categoryDefaults.js"
 export { visibilityFilter, assertCanMutate } from "./ticketAccess.js"
 export type { OwnerStatsRow, TicketPendingApprovalRow, TicketSummaryRow, TicketSummaryScope } from "./ticketReports.js"
 
@@ -127,6 +128,8 @@ export const ticketService = {
   async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void>; skipHeadGate?: boolean }) {
     assertCanSetReviewers(input.reviewerIds, user)
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
+    const defaults = await categoryDefaults(input.categoryId)
+    const tagIds = mergeTagIds(input.tagIds, defaults.tagIds)
     const id = createId()
     const now = new Date()
     const gated = !hooks?.skipHeadGate
@@ -137,7 +140,7 @@ export const ticketService = {
         id,
         title: input.title,
         description: input.description,
-        priority: input.priority,
+        priority: input.priority ?? defaults.priority ?? undefined,
         assignmentMode: input.assignmentMode,
         assigneeId: input.assigneeId ?? null,
         storeId: input.storeId ?? null,
@@ -151,7 +154,7 @@ export const ticketService = {
         userId: user.sub,
       })
 
-      if (input.tagIds?.length) await syncTicketTags(tx, id, input.tagIds)
+      if (tagIds.length) await syncTicketTags(tx, id, tagIds)
       if (input.reviewerIds?.length) await syncTicketReviewers(tx, id, input.reviewerIds)
       await hooks?.inTransaction?.(tx, id)
     })
@@ -163,7 +166,7 @@ export const ticketService = {
       entityId: id,
       action: "CREATE",
       actorId: user.sub,
-      after: { ...afterRow, tagIds: [...(input.tagIds ?? [])].sort(), reviewerIds: [...(input.reviewerIds ?? [])].sort() },
+      after: { ...afterRow, tagIds: [...tagIds].sort(), reviewerIds: [...(input.reviewerIds ?? [])].sort() },
     })
 
     const populated = await getPopulatedTicket(id)

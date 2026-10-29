@@ -4,13 +4,14 @@ import { Tag, Users, Clock, Search, CircleOff, CirclePower, ListPlus, Plus } fro
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Input, Skeleton, SelectDropdown, EmptyState, InlineError, useConfirm,
+  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
 import type { Category, CategoryTatRow } from "../../api/categories";
 import { CardChip } from "../admin/directory/orgScores";
 import { getInitials } from "../../lib/getInitials";
+import { PRIORITY_CONFIG } from "../tickets/ticketDisplay";
 import { avatarColorClass } from "../../lib/avatarColors";
 import { STARTER_CATEGORIES, normalizeCategoryName } from "./starterCategories";
 import { SLA_BAR, SLA_TEXT, formatTatHours, slaTone } from "./tatFormat";
@@ -35,6 +36,7 @@ type StatusFilter = "all" | "active" | "inactive";
 const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
 
 const MAX_VISIBLE_AVATARS = 3;
+const MAX_VISIBLE_LABELS = 3;
 const NO_DEPARTMENT = "No department";
 
 interface CategoryCardProps {
@@ -79,8 +81,20 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
 
       <div className="flex flex-wrap items-center gap-1.5">
         <CardChip icon={Clock} tone={c.tatHours ? "primary" : "neutral"} label={c.tatHours ? `Due in ${formatTatHours(c.tatHours)}` : "Default due time"} title="Due within" />
+        {c.priority && <PriorityChip meta={PRIORITY_CONFIG[c.priority]} />}
         {!c.isActive && <CardChip icon={CircleOff} label="Inactive" />}
       </div>
+
+      {c.tags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {c.tags.slice(0, MAX_VISIBLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
+          {c.tags.length > MAX_VISIBLE_LABELS && (
+            <span className="t-meta font-semibold tabular-nums text-text-muted" title={c.tags.slice(MAX_VISIBLE_LABELS).map((tag) => tag.name).join(", ")}>
+              +{c.tags.length - MAX_VISIBLE_LABELS}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 min-w-0">
         {people.length > 0 ? (

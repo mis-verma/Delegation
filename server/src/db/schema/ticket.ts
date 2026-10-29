@@ -97,6 +97,20 @@ export const ticketTags = mysqlTable(
   ],
 );
 
+export const categoryTags = mysqlTable(
+  'CategoryTag',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    categoryId: varchar('categoryId', { length: 191 }).notNull().references(() => categories.id, { onDelete: 'cascade' }),
+    tagId: varchar('tagId', { length: 191 }).notNull().references(() => tags.id, { onDelete: 'restrict' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('CategoryTag_categoryId_tagId_key').on(table.categoryId, table.tagId),
+    index('CategoryTag_tagId_idx').on(table.tagId),
+  ],
+);
+
 export const ticketReviewers = mysqlTable(
   'TicketReviewer',
   {

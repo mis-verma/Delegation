@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion } from 'lucide-react';
 
-import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner } from '../../components';
+import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip, TagChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
@@ -28,7 +28,7 @@ import { FormField, StepHeading } from './form/FormField';
 import { FormProgress } from './form/FormProgress';
 import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
 import { FIELD_TRIGGER_CLASS } from './form/formConstants';
-import { hoursUntil } from './ticketDisplay';
+import { hoursUntil, PRIORITY_CONFIG } from './ticketDisplay';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
 import { useAuth } from '../../context/AuthContext';
@@ -154,9 +154,18 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('assigneeId', '');
   }, [departmentId, categoryId, setValue]);
 
+  const autoLabelIds = useRef<string[]>([]);
+  const swapCategoryLabels = useCallback((next: string[]) => {
+    const kept = (getValues('tagIds') ?? []).filter(id => !autoLabelIds.current.includes(id));
+    autoLabelIds.current = next;
+    setValue('tagIds', [...new Set([...kept, ...next])], { shouldDirty: true });
+  }, [getValues, setValue]);
+
   const applyCategory = useCallback((category: Category) => {
     const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
     const opts = { shouldValidate: true, shouldDirty: true };
+    swapCategoryLabels((category.tags ?? []).map(t => t.id));
+    if (category.priority) setValue('priority', category.priority, opts);
     setValue('categoryId', category.id, opts);
     setValue('departmentId', deptId, opts);
     setValue('assigneeId', category.assigneeIds?.[0]?.id ?? '', opts);
@@ -165,16 +174,20 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       setValue('dueDate', toDateInput(due), opts);
       setValue('dueTime', toTimeInput(due), opts);
     }
-  }, [setValue]);
+  }, [setValue, swapCategoryLabels]);
 
   const selectCategory = (id: string) => {
     const category = categories?.find(c => c.id === id);
     if (category) applyCategory(category);
-    else setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
+    else {
+      swapCategoryLabels([]);
+      setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
+    }
   };
 
   const sendToDepartment = (yes: boolean) => {
     const opts = { shouldDirty: true };
+    swapCategoryLabels([]);
     setValue('assignmentMode', yes ? 'MANUAL' : 'AUTO', opts);
     setValue('categoryId', '', opts);
     setValue('departmentId', '', opts);
@@ -320,6 +333,8 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
           <IconChip icon={UserCheck} tone="bg-warning" label="Nobody set yet" />
         ))}
         <IconChip icon={Clock} tone="bg-text-muted" label={`Due in ${selectedCategory.tatHours ?? 24} hours`} />
+        {selectedCategory.priority && <PriorityChip meta={PRIORITY_CONFIG[selectedCategory.priority]} />}
+        {selectedCategory.tags.map(t => <TagChip key={t.id} tag={t} />)}
       </div>
       <p className="t-meta font-display text-text-muted">
         {ownScopeOnly
@@ -601,6 +616,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
               selectedIds={tagIds ?? []}
               onChange={v => setValue('tagIds', v, { shouldDirty: true })}
               canCreate={isVerifier}
+              lockedIds={selectedCategory?.tags.map(t => t.id)}
             />
           )}
         </div>

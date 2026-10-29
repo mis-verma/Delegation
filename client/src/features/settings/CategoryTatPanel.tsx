@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, ChartNoAxesColumn } from 'lucide-react';
-import { Button, EmptyState, InlineError, Skeleton, useConfirm, ExportMenu, ENTITY_CARD_CLASS } from '../../components';
+import { Button, EmptyState, InlineError, Skeleton, useConfirm, ExportMenu, SelectDropdown, ENTITY_CARD_CLASS } from '../../components';
+import { useTagsQuery } from '../tags/hook';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import { exportTitle } from '../../lib/exportTable';
 import type { CategoryTatRow, TatSummary, TatWindowDays } from '../../api/categories';
@@ -102,8 +103,11 @@ const PanelSkeleton = () => (
 export const CategoryTatPanel = () => {
   const confirm = useConfirm();
   const [windowKey, setWindowKey] = useState<WindowKey>('90');
+  const [tagId, setTagId] = useState('');
   const days = Number(windowKey) as TatWindowDays;
-  const { data, isPending, isError, refetch } = useCategoryTatQuery(days);
+  const { data: tags } = useTagsQuery();
+  const tagOptions = useMemo(() => [{ value: '', label: 'All labels' }, ...(tags ?? []).map((t) => ({ value: t.id, label: t.name }))], [tags]);
+  const { data, isPending, isError, refetch } = useCategoryTatQuery(days, true, tagId || undefined);
   const updateMut = useUpdateCategoryMutation();
 
   const rows = data?.rows ?? [];
@@ -128,6 +132,11 @@ export const CategoryTatPanel = () => {
     <div className="flex flex-col gap-3 sm:gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodTabControl value={windowKey} options={WINDOW_OPTIONS} labels={WINDOW_LABELS} onChange={setWindowKey} />
+        {tagOptions.length > 2 && (
+          <div className="w-full sm:w-48">
+            <SelectDropdown aria-label="Filter by label" value={tagId} options={tagOptions} onChange={setTagId} />
+          </div>
+        )}
         <ExportMenu
           className="sm:ml-auto"
           filename="ticket-category-tat"

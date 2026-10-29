@@ -9,6 +9,7 @@ import { z } from "zod"
 
 const tatQuerySchema = z.object({
     days: z.coerce.number().int().refine((value) => (TAT_WINDOW_DAYS as readonly number[]).includes(value), "Pick 30, 90, 180, 365 or 0 for all time").default(90),
+    tagId: z.string().min(1).optional(),
 })
 
 const hideAssigneeEmails = <T extends { assignees: { email: string }[] }>(category: T, role: string): T =>
@@ -21,8 +22,8 @@ export const categoryController = {
     }), 
 
     tatReport : asyncHandler(async (req : Request, res : Response) => {
-        const { days } = tatQuerySchema.parse(req.query)
-        res.json({ success : true, data : await categoryTatService.report(days) })
+        const { days, tagId } = tatQuerySchema.parse(req.query)
+        res.json({ success : true, data : await categoryTatService.report(days, tagId) })
     }),
 
     getOne : asyncHandler(async(req : Request, res : Response) => {

@@ -1,5 +1,8 @@
 import { db } from "../../config/db.js";
 import { categories, categoryAssignees, departments, users } from "../../db/schema/core.js";
+import { categoryTags } from "../../db/schema/ticket.js";
+import { tags } from "../../db/schema/task.js";
+import type { Executor } from "../tickets/ticketShared.js";
 import { eq, asc, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
@@ -12,6 +15,15 @@ const CACHE_TTL_SECONDS = 300;
 const dropCache = () => invalidate(CACHE_PREFIX);
 
 type CategoryRow = typeof categories.$inferSelect;
+
+const syncCategoryTags = async (executor: Executor, categoryId: string, tagIds: string[]) => {
+    await executor.delete(categoryTags).where(eq(categoryTags.categoryId, categoryId));
+    const unique = [...new Set(tagIds)];
+    if (!unique.length) return;
+    const existing = await executor.select({ id: tags.id }).from(tags).where(inArray(tags.id, unique));
+    if (!existing.length) return;
+    await executor.insert(categoryTags).values(existing.map((tag) => ({ categoryId, tagId: tag.id })));
+};
 
 const attachRelations = async (rows: CategoryRow[]) => {
     if (rows.length === 0) return [];
@@ -34,6 +46,18 @@ const attachRelations = async (rows: CategoryRow[]) => {
         .innerJoin(users, eq(categoryAssignees.userId, users.id))
         .where(inArray(categoryAssignees.categoryId, categoryIds));
 
+    const tagRows = await db.select({ categoryId: categoryTags.categoryId, id: tags.id, name: tags.name, color: tags.color })
+        .from(categoryTags)
+        .innerJoin(tags, eq(categoryTags.tagId, tags.id))
+        .where(inArray(categoryTags.categoryId, categoryIds))
+        .orderBy(asc(tags.name));
+    const tagsByCategory = new Map<string, { id: string; name: string; color: string | null }[]>();
+    for (const { categoryId, ...tag } of tagRows) {
+        const list = tagsByCategory.get(categoryId) ?? [];
+        list.push(tag);
+        tagsByCategory.set(categoryId, list);
+    }
+
     const assigneesByCategory = new Map<string, typeof assigneeRows>();
     for (const row of assigneeRows) {
         const { categoryId } = row;
@@ -49,6 +73,8 @@ const attachRelations = async (rows: CategoryRow[]) => {
             department: departmentById.get(row.departmentId) ?? null,
             assigneeIds: assignees.map((u) => u.id),
             assignees,
+            tags: tagsByCategory.get(row.id) ?? [],
+            tagIds: (tagsByCategory.get(row.id) ?? []).map((tag) => tag.id),
         };
     });
 };
@@ -84,6 +110,7 @@ export const categoryService = {
                 name: input.name,
                 departmentId: input.departmentId,
                 tatHours: input.tatHours ?? null,
+                priority: input.priority ?? null,
                 isActive: input.isActive ?? true,
             });
 
@@ -93,6 +120,8 @@ export const categoryService = {
                     uniqueAssigneeIds.map((userId) => ({ categoryId: id, userId })),
                 );
             }
+
+            if (input.tagIds?.length) await syncCategoryTags(tx, id, input.tagIds);
         });
 
         const created = await getByIdOrThrow(id);
@@ -104,7 +133,7 @@ export const categoryService = {
     async update(id: string, input: UpdateCategoryInput, actorId: string) {
         const before = await getByIdOrThrow(id);
 
-        const { assigneeIds, ...rest } = input;
+        const { assigneeIds, tagIds, ...rest } = input;
 
         await db.transaction(async (tx) => {
             await tx.update(categories).set({ ...rest, updatedAt: new Date() }).where(eq(categories.id, id));
@@ -118,6 +147,8 @@ export const categoryService = {
                     );
                 }
             }
+
+            if (tagIds !== undefined) await syncCategoryTags(tx, id, tagIds);
         });
 
         const after = await getByIdOrThrow(id);

@@ -180,6 +180,7 @@ export const categories = mysqlTable(
     isActive: boolean('isActive').notNull().default(true),
     departmentId: varchar('departmentId', { length: 191 }).notNull().references(() => departments.id),
     tatHours: float('tatHours'),
+    priority: mysqlEnum('priority', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

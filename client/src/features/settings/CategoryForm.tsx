@@ -1,8 +1,11 @@
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Tag, Building2, Users, Clock, Route, type LucideIcon } from 'lucide-react';
-import { Input, Button, UserMultiSelect, Modal, Combobox, DepartmentChip, IconChip } from '../../components';
+import { Tag, Building2, Users, Clock, Route, Flag, type LucideIcon } from 'lucide-react';
+import { Input, Button, UserMultiSelect, Modal, Combobox, DepartmentChip, IconChip, PriorityChip, TagChip } from '../../components';
+import { LabelsField } from '../tags/LabelsField';
+import { useTagsQuery } from '../tags/hook';
+import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { cn } from '@/lib/utils';
 import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery } from './hook';
 import type { Category } from '@/api/categories';
@@ -11,6 +14,8 @@ const categorySchema = z.object({
   name: z.string().trim().min(1, 'Give the category a name'),
   departmentId: z.string().min(1, 'Pick the department that handles it'),
   assigneeIds: z.array(z.string()).optional(),
+  priority: z.enum(['', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  tagIds: z.array(z.string()),
   tatHours: z
     .string()
     .optional()
@@ -18,6 +23,8 @@ const categorySchema = z.object({
 });
 
 type CategoryFields = z.infer<typeof categorySchema>;
+
+const PRIORITY_CHOICES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 
 const TAT_PRESETS = [
   { hours: '4', label: '4 hours' },
@@ -59,6 +66,7 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
   const mutation = isEditing ? updateMutation : createMutation;
 
   const { data: departments, isPending: isDepartmentsLoading } = useDepartmentsQuery();
+  const { data: tags } = useTagsQuery();
 
   const {
     register,
@@ -72,11 +80,14 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
       name: category?.name ?? '',
       departmentId: category?.departmentId?.id ?? '',
       assigneeIds: category?.assigneeIds?.map(u => u.id) ?? [],
+      priority: category?.priority ?? '',
+      tagIds: category?.tags?.map(t => t.id) ?? [],
       tatHours: category?.tatHours ? String(category.tatHours) : '',
     },
   });
 
-  const [departmentId, assigneeIds, tatHours, name] = useWatch({ control, name: ['departmentId', 'assigneeIds', 'tatHours', 'name'] });
+  const [departmentId, assigneeIds, tatHours, name, priority, tagIds] = useWatch({ control, name: ['departmentId', 'assigneeIds', 'tatHours', 'name', 'priority', 'tagIds'] });
+  const pickedTags = (tags ?? []).filter(t => (tagIds ?? []).includes(t.id));
   const departmentName = departments?.find(d => d.id === departmentId)?.name;
   const isPreset = !tatHours || TAT_PRESETS.some(p => p.hours === tatHours);
   const peopleCount = assigneeIds?.length ?? 0;
@@ -86,6 +97,8 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
       name: data.name.trim(),
       departmentId: data.departmentId,
       assigneeIds: data.assigneeIds ?? [],
+      priority: data.priority === '' ? null : data.priority,
+      tagIds: data.tagIds,
       tatHours: data.tatHours ? Number(data.tatHours) : null,
     };
 
@@ -156,6 +169,35 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
         </div>
 
         <div className="flex flex-col gap-2">
+          <FieldLabel icon={Flag} optional>Usual priority</FieldLabel>
+          <div role="radiogroup" aria-label="Usual priority" className="flex flex-wrap gap-1.5">
+            <button type="button" role="radio" aria-checked={!priority} onClick={() => setValue('priority', '', { shouldDirty: true })} className={cn(PILL, !priority ? PILL_ON : PILL_OFF)}>
+              Not set
+            </button>
+            {PRIORITY_CHOICES.map(p => {
+              const on = priority === p;
+              return (
+                <button key={p} type="button" role="radio" aria-checked={on} onClick={() => setValue('priority', p, { shouldDirty: true })} className={cn(PILL, on ? PILL_ON : PILL_OFF)}>
+                  {PRIORITY_CONFIG[p].label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="t-meta text-text-muted">Filled in on new tickets for this category. The person raising it can still change it.</span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Controller
+            control={control}
+            name="tagIds"
+            render={({ field }) => (
+              <LabelsField tags={tags ?? []} selectedIds={field.value ?? []} onChange={field.onChange} canCreate />
+            )}
+          />
+          <span className="t-meta text-text-muted">Added to every new ticket in this category. A label on a ticket cannot be removed later.</span>
+        </div>
+
+        <div className="flex flex-col gap-2">
           <FieldLabel icon={Clock}>Due within</FieldLabel>
           <div role="radiogroup" aria-label="Due within" className="flex flex-wrap gap-1.5">
             {TAT_PRESETS.map(p => {
@@ -191,6 +233,8 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             {departmentName ? <DepartmentChip name={departmentName} /> : <IconChip icon={Building2} tone="bg-text-muted" label="No department yet" />}
             <IconChip icon={Users} tone={peopleCount ? 'bg-success' : 'bg-warning'} label={peopleCount ? `${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}` : 'Head picks'} />
             <IconChip icon={Clock} tone="bg-text-muted" label={`Due in ${dueText(tatHours ?? '')}`} />
+            {priority && <PriorityChip meta={PRIORITY_CONFIG[priority]} />}
+            {pickedTags.map(t => <TagChip key={t.id} tag={t} />)}
           </div>
         </div>
 
