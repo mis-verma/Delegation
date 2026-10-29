@@ -11,7 +11,7 @@ const envSchema = z.object({
     DB_USER: z.string().default('root'),
     DB_PASSWORD: z.string().default(''),
     DB_NAME: z.string().default('taskmatrix'),
-    DB_CONNECTION_LIMIT: z.coerce.number().default(10),
+    DB_CONNECTION_LIMIT: z.coerce.number().default(20),
     TRUST_PROXY_HOPS: z.coerce.number().default(1),
     DB_TIMEZONE: z.string().optional(),
 

@@ -1,3 +1,4 @@
+import os from 'node:os'
 import mysql from 'mysql2/promise'
 import { drizzle } from 'drizzle-orm/mysql2'
 import { env } from './env.js'
@@ -22,6 +23,20 @@ export const connectDB = async () => {
 
     const connectedName = (() => { try { return decodeURIComponent(new URL(env.DATABASE_URL).pathname.replace(/^\//, '')) } catch { return env.DB_NAME } })()
     console.log(`MySQL connected : ${connectedName}`)
+    await reportPoolHeadroom()
+}
+
+const reportPoolHeadroom = async () => {
+    try {
+        const [rows] = await pool.query("SHOW VARIABLES LIKE 'max_connections'")
+        const allowed = Number((rows as { Value?: string }[])[0]?.Value)
+        if (!Number.isFinite(allowed) || allowed <= 0) return
+        const workers = env.CLUSTER_WORKERS ?? (env.NODE_ENV === 'production' ? os.cpus().length : 1)
+        const total = workers * env.DB_CONNECTION_LIMIT
+        console.log(`DB pool: ${env.DB_CONNECTION_LIMIT} per worker x ${workers} workers = ${total} of ${allowed} allowed by MySQL`)
+        if (total > allowed * 0.8) console.warn(`DB pool is too large for MySQL (${total} of ${allowed}). Lower DB_CONNECTION_LIMIT or raise max_connections.`)
+    } catch {
+    }
 }
 
 export const disconnectDB = async () => {

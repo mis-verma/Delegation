@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext"
 import { connectSocket, releaseSocket } from "../../lib/socket";
-import { createCoalescedInvalidator, createScoreCacheInvalidator } from "../../lib/coalescedInvalidate";
+import { createCoalescedInvalidator, createScoreCacheInvalidator, HEAVY_REFRESH, LIST_REFRESH } from "../../lib/coalescedInvalidate";
 
 export const useTicketSocket = () => {
     const { token } = useAuth()
@@ -12,8 +12,8 @@ export const useTicketSocket = () => {
         if (!token) return;
 
         const socket = connectSocket(token);
-        const tickets = createCoalescedInvalidator(queryClient, ["tickets"]);
-        const analytics = createCoalescedInvalidator(queryClient, ["analytics"]);
+        const tickets = createCoalescedInvalidator(queryClient, ["tickets"], LIST_REFRESH.waitMs, LIST_REFRESH.jitterMs);
+        const analytics = createCoalescedInvalidator(queryClient, ["analytics"], HEAVY_REFRESH.waitMs, HEAVY_REFRESH.jitterMs);
         const scores = createScoreCacheInvalidator(queryClient);
         const invalidateTickets = () => { tickets.schedule(); analytics.schedule(); scores.schedule(); };
         const events = [

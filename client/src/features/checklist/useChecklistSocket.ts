@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { connectSocket, releaseSocket } from '../../lib/socket';
-import { createCoalescedInvalidator, createScoreCacheInvalidator } from '../../lib/coalescedInvalidate';
+import { createCoalescedInvalidator, createScoreCacheInvalidator, HEAVY_REFRESH, LIST_REFRESH } from '../../lib/coalescedInvalidate';
 
 export const useChecklistSocket = () => {
   const { token } = useAuth();
@@ -12,9 +12,9 @@ export const useChecklistSocket = () => {
     if (!token) return;
 
     const socket = connectSocket(token);
-    const definitions = createCoalescedInvalidator(queryClient, ['checklist-definitions']);
-    const instances = createCoalescedInvalidator(queryClient, ['checklist-instances']);
-    const analytics = createCoalescedInvalidator(queryClient, ['analytics']);
+    const definitions = createCoalescedInvalidator(queryClient, ['checklist-definitions'], LIST_REFRESH.waitMs, LIST_REFRESH.jitterMs);
+    const instances = createCoalescedInvalidator(queryClient, ['checklist-instances'], LIST_REFRESH.waitMs, LIST_REFRESH.jitterMs);
+    const analytics = createCoalescedInvalidator(queryClient, ['analytics'], HEAVY_REFRESH.waitMs, HEAVY_REFRESH.jitterMs);
     const scores = createScoreCacheInvalidator(queryClient);
     const invalidateDefinitions = () => definitions.schedule();
     const invalidateInstances = () => { instances.schedule(); analytics.schedule(); scores.schedule(); };
