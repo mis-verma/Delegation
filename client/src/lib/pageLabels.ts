@@ -7,6 +7,7 @@ const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/events/, label: 'Events' },
   { pattern: /^\/checklists/, label: 'Checklists' },
   { pattern: /^\/projects/, label: 'Projects' },
+  { pattern: /^\/leave/, label: 'Leave' },
   { pattern: /^\/calendar/, label: 'Calendar' },
   { pattern: /^\/settings/, label: 'Settings' },
   { pattern: /^\/analytics/, label: 'Analytics' },

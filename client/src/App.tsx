@@ -36,6 +36,7 @@ const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ d
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const OwnerPage = lazy(() => import('./features/owner').then(m => ({ default: m.OwnerPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
+const LeavePage = lazy(() => import('./features/leave/LeavePage').then(m => ({ default: m.LeavePage })));
 const TeamApprovalsPage = lazy(() => import('./features/tickets/TeamApprovalsPage').then(m => ({ default: m.TeamApprovalsPage })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
@@ -102,6 +103,7 @@ const AdminOnlyRoute = createRoleGuard('ADMIN');
 
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
+const LeaveRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const ChecklistApprovalsRoute = () => {
   const { user } = useAuth();
@@ -290,6 +292,12 @@ const router = createBrowserRouter([
             element: <TicketApprovalsRoute />,
             children: [
               { path: '/tickets/approvals', element: <TeamApprovalsPage /> },
+            ],
+          },
+          {
+            element: <LeaveRoute />,
+            children: [
+              { path: '/leave', element: <LeavePage /> },
             ],
           },
         ],

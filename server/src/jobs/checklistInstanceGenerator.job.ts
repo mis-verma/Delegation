@@ -31,6 +31,7 @@ import { getCurrentPeriod, getUpcomingPeriod, type Period } from "../utils/perio
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
+import { leaveUserIdsOn } from "../modules/leave/leaveLookup.js"
 
 const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null, lateUntilTime: string | null) =>
     recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime, lateUntilTime } : { opensTime: null, cutoffTime: null, lateUntilTime: null }
@@ -392,8 +393,9 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
         if (e.scope === "DEPARTMENT") return !!p.departmentId && ids.includes(p.departmentId)
         return !!p.storeId && ids.includes(p.storeId)
     })
+    const onLeave = await leaveUserIdsOn(dateStr, people.map((p) => p.id))
     const workingIds = new Set(people
-        .filter((p) => p.isActive && ((dayOn && !offDaysOf(p).includes(weekday)) || coveredByExtra(p)))
+        .filter((p) => p.isActive && !onLeave.has(p.id) && ((dayOn && !offDaysOf(p).includes(weekday)) || coveredByExtra(p)))
         .map((p) => p.id))
     const working = definition.assigneeIds.filter((id) => workingIds.has(id))
     if (!working.length) return null
@@ -794,6 +796,45 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
         }
     }
     if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a holiday failed:", err))
+    return removed
+}
+
+export const dropRunsOfPeopleOnLeaveOn = async (dateStr: string, userIds: string[], apply = true): Promise<number> => {
+    if (!userIds.length) return 0
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
+    const candidates = await db.selectDistinct({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
+        .innerJoin(checklistInstanceAssignees, eq(checklistInstanceAssignees.instanceId, checklistInstances.id))
+        .where(and(
+            eq(checklistInstances.recurrence, "DAILY"),
+            eq(checklistInstances.periodStart, dayStart),
+            inArray(checklistInstanceAssignees.userId, userIds),
+        ))
+
+    const leaving = new Set(userIds)
+    let removed = 0
+    const affectedAssignees = new Set<string>()
+    for (const { id, storeId } of candidates) {
+        try {
+            const gone = await db.transaction(async (tx) => {
+                const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
+                if (!run || await runHasProgress(tx, run)) return false
+                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+                    .where(eq(checklistInstanceAssignees.instanceId, id))
+                if (links.some((l) => !leaving.has(l.userId))) return false
+                if (!apply) return true
+                await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
+                for (const l of links) affectedAssignees.add(l.userId)
+                return true
+            })
+            if (gone) {
+                removed++
+                if (apply) emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
+            }
+        } catch (err) {
+            console.error(`Removing leave run ${id} failed:`, err)
+        }
+    }
+    if (apply && removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after leave was added failed:", err))
     return removed
 }
 

@@ -406,3 +406,20 @@ export const notificationPreferences = mysqlTable('NotificationPreference', {
   lastDigestOn: varchar('lastDigestOn', { length: 10 }),
   updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
 });
+
+export const personLeaves = mysqlTable(
+  'PersonLeave',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    startDate: varchar('startDate', { length: 10 }).notNull(),
+    endDate: varchar('endDate', { length: 10 }).notNull(),
+    reason: varchar('reason', { length: 191 }),
+    createdBy: varchar('createdBy', { length: 191 }).notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index('PersonLeave_userId_idx').on(table.userId),
+    index('PersonLeave_dates_idx').on(table.startDate, table.endDate),
+  ],
+);

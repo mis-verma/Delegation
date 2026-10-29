@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Megaphone,
   CalendarDays,
+  CalendarOff,
   Settings,
   TicketCheck,
   ShieldCheck,
@@ -238,6 +239,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),
+    ...(isManager || isSenior || isAdmin || isPC ? [{ to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' }] : []),
     ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin', tint: 'danger' }] : []),
   ];
 

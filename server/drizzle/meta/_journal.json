@@ -624,6 +624,13 @@
       "when": 1792890000000,
       "tag": "0088_overdue_head_chase",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "5",
+      "when": 1792900000000,
+      "tag": "0089_person_leave",
+      "breakpoints": true
     }
   ]
 }
