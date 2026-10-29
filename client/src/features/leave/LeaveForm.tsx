@@ -7,6 +7,13 @@ import { cn } from '@/lib/utils';
 
 const REASONS = ['Sick', 'Personal', 'Family', 'Travel'] as const;
 const BACKDATE_DAYS = 14;
+
+const QUICK_RANGES = [
+  { label: 'Today', start: 0, length: 1 },
+  { label: 'Tomorrow', start: 1, length: 1 },
+  { label: 'Next 3 days', start: 0, length: 3 },
+  { label: 'Next 7 days', start: 0, length: 7 },
+] as const;
 const DAY_MS = 86_400_000;
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -41,6 +48,15 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
   const preview = useLeavePreviewQuery(ready ? { userId, startDate, endDate } : null);
   const days = ready ? Math.round((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / DAY_MS) + 1 : 0;
   const [minDate] = useState(() => new Date(Date.now() - BACKDATE_DAYS * DAY_MS));
+
+  const pickQuick = (start: number, length: number) => {
+    const first = new Date();
+    first.setHours(0, 0, 0, 0);
+    first.setDate(first.getDate() + start);
+    const last = new Date(first);
+    last.setDate(last.getDate() + length - 1);
+    setRange({ from: first, to: last });
+  };
 
   const submit = () => {
     if (!ready) return;
@@ -83,6 +99,11 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
 
         <div className="flex flex-col gap-1.5">
           <span className="t-meta font-display font-semibold text-text-secondary">Days off</span>
+          <div role="group" aria-label="Quick choices" className="flex flex-wrap gap-1.5">
+            {QUICK_RANGES.map((q) => (
+              <button key={q.label} type="button" onClick={() => pickQuick(q.start, q.length)} className={cn(PILL, PILL_OFF)}>{q.label}</button>
+            ))}
+          </div>
           <DateRangePicker value={range} onChange={setRange} hidePresets minDate={minDate} placeholder="Pick the first and last day" className="w-full" triggerClassName="w-full" />
           {ready && <span className="t-meta tabular-nums text-text-muted">{label(days, 'day', 'days')}</span>}
         </div>
