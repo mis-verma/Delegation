@@ -77,7 +77,7 @@ export const AddQuestionModal = ({
       title="New question"
       description={type.hint}
       icon={<Icon size={18} strokeWidth={2.25} />}
-      size="md"
+      size="lg"
       draggable
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 w-full">

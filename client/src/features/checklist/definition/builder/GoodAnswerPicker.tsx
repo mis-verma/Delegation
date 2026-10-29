@@ -19,7 +19,8 @@ export const GoodAnswerPicker = ({ yes, no, value, onChange }: GoodAnswerPickerP
   ];
 
   return (
-    <div role="radiogroup" aria-label="Which answer is good" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="@container">
+    <div role="radiogroup" aria-label="Which answer is good" className="grid grid-cols-1 gap-2 @lg:grid-cols-3">
       {options.map((option, index) => {
         const on = value === option.key;
         const Icon = option.icon;
@@ -53,6 +54,7 @@ export const GoodAnswerPicker = ({ yes, no, value, onChange }: GoodAnswerPickerP
           </button>
         );
       })}
+    </div>
     </div>
   );
 };

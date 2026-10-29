@@ -147,7 +147,7 @@ export const ConditionalLogicPanel = ({
   return (
     <section
       aria-label="Rules for this question"
-      className={cn('flex flex-col gap-3 rounded-2xl border border-border/60 bg-linear-to-br from-primary-500/[0.05] to-transparent p-3 sm:p-4', className)}
+      className={cn('@container flex flex-col gap-3 rounded-2xl border border-border/60 bg-linear-to-br from-primary-500/[0.05] to-transparent p-3 sm:p-4', className)}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-3">
@@ -169,14 +169,14 @@ export const ConditionalLogicPanel = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
         <AnswerCard answer={labels.yes} tone="good" actions={yesActions} liveOnly={liveOnly} onChange={onYesActionsChange} />
         <AnswerCard answer={labels.no} tone="bad" actions={noActions} liveOnly={liveOnly} onChange={onNoActionsChange} />
       </div>
 
       {onLiveOnlyChange && needsPhoto && (
-        <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:gap-3">
-          <span className="flex items-center gap-2 t-meta font-display font-semibold text-text-secondary sm:w-28 sm:shrink-0">
+        <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 @md:flex-row @md:items-center @md:gap-3">
+          <span className="flex items-center gap-2 t-meta font-display font-semibold text-text-secondary @md:w-28 @md:shrink-0">
             <Camera size={14} className="text-text-light" aria-hidden="true" />
             Photo source
           </span>
