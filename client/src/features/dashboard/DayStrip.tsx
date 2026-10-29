@@ -110,7 +110,7 @@ export const DayStrip = ({ scope, id, period, from, to }: DayStripProps) => {
       </div>
     );
   }
-  if (isError) return <InlineError message="Couldn't load the days." onRetry={() => void refetch()} />;
+  if (isError && !data) return <InlineError message="Couldn't load the days." onRetry={() => void refetch()} />;
   if (cells.length === 0 || scored.length === 0) {
     return (
       <div className={PANEL}>

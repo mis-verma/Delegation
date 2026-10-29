@@ -215,7 +215,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
       </div>
     );
   }
-  const failed = view.isError || view.pending == null;
+  const failed = view.pending == null;
   const idle = !failed && (view.total ?? 0) === 0 && (view.pending ?? 0) === 0 && (view.completed ?? 0) === 0 && (view.newToday ?? 0) === 0 && view.overdue === 0;
   const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
   const tone = MODULE_TONE[view.key];

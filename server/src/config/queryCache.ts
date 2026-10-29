@@ -38,7 +38,9 @@ const connect = async () => {
     if (!client.isReady) throw new Error("query cache reconnecting")
 }
 
-export const cached = async <T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> => {
+const inflight = new Map<string, Promise<unknown>>()
+
+const lookupOrCompute = async <T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> => {
     try {
         await withTimeout(connect(), CONNECT_WAIT_MS)
         const hit = await client!.get(key)
@@ -53,6 +55,14 @@ export const cached = async <T>(key: string, ttlSeconds: number, compute: () => 
     } catch {
     }
     return value
+}
+
+export const cached = <T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> => {
+    const running = inflight.get(key) as Promise<T> | undefined
+    if (running) return running
+    const work = lookupOrCompute(key, ttlSeconds, compute).finally(() => { inflight.delete(key) })
+    inflight.set(key, work)
+    return work
 }
 
 export const invalidate = async (prefix: string) => {

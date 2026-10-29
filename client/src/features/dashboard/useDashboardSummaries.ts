@@ -49,10 +49,11 @@ export const useDashboardSummaries = () => {
   const d = query.data;
   const updatedAt = query.dataUpdatedAt;
 
-  const kpiTasksSource = useSource<TaskSummary>({ ...query, data: d?.tasksKpi });
-  const kpiTicketsSource = useSource<TicketSummary>({ ...query, data: d?.ticketsKpi });
-  const todosSource = useSource<TodoSummary>({ ...query, data: d?.todos });
-  const checklistTodaySource = useSource<ChecklistInstanceSummary>({ ...query, data: d?.checklistToday });
+  const part = <T,>(value: T | undefined): QueryLike<T> => ({ ...query, data: value, isError: value === undefined && (query.isError || query.data !== undefined) });
+  const kpiTasksSource = useSource<TaskSummary>(part(d?.tasksKpi));
+  const kpiTicketsSource = useSource<TicketSummary>(part(d?.ticketsKpi));
+  const todosSource = useSource<TodoSummary>(part(d?.todos));
+  const checklistTodaySource = useSource<ChecklistInstanceSummary>(part(d?.checklistToday));
 
   const kpi = useMemo(
     () => ({ tasks: kpiTasksSource, tickets: kpiTicketsSource, todos: todosSource, checklistToday: checklistTodaySource }),

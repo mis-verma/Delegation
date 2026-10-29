@@ -7,10 +7,10 @@ import type { ChecklistInstanceSummary } from "./checklistInstances";
 type ApiResponse<T> = { success: boolean; data: T };
 
 export interface DashboardSummariesData {
-  tasksKpi: TaskSummary;
-  ticketsKpi: TicketSummary;
-  todos: TodoSummary;
-  checklistToday: ChecklistInstanceSummary;
+  tasksKpi?: TaskSummary;
+  ticketsKpi?: TicketSummary;
+  todos?: TodoSummary;
+  checklistToday?: ChecklistInstanceSummary;
 }
 
 export const dashboardApi = {

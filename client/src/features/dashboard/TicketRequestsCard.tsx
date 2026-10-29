@@ -72,7 +72,7 @@ export const TicketRequestsCard = () => {
 
   if (!allowed) return null;
   const pending = board.isPending || tasksQuery.isPending || (showFinished && sources.isPending);
-  const failed = board.isError || tasksQuery.isError || (showFinished && sources.hasError);
+  const failed = (board.isError && board.data === undefined) || (tasksQuery.isError && tasksQuery.data === undefined) || (showFinished && sources.hasError);
   const finishedTotal = showFinished ? sources.total : 0;
   const everything = requests.length + finishedTotal;
   if (isAdmin && !pending && !failed && requests.length === 0) return null;

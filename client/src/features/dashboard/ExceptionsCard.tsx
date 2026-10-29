@@ -126,7 +126,7 @@ export const ExceptionsCard = () => {
             </div>
           ))}
         </div>
-      ) : query.isError ? (
+      ) : query.isError && !query.data ? (
         <div className="px-4 py-3 sm:px-5">
           <InlineError message="Couldn't load alerts." onRetry={() => void query.refetch()} />
         </div>

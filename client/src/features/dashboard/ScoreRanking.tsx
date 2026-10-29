@@ -275,7 +275,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
       </div>
     );
   }
-  if (isError) {
+  if (isError && !reportData) {
     return <InlineError message="Couldn't load the ranking." onRetry={() => void refetch()} />;
   }
   if (rows.length === 0 && !query.trim()) {

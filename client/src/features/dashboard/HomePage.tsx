@@ -85,7 +85,7 @@ export const HomePage = () => {
     ? [ticketsQuery, tasksQuery, todosQuery, focusRunsQuery]
     : [ticketsQuery, ownTicketsQuery, tasksQuery, todosQuery, focusRunsQuery];
   const focusPending = focusQueries.some((q) => q.isPending);
-  const focusFailed = focusQueries.some((q) => q.isError);
+  const focusFailed = focusQueries.some((q) => q.isError && q.data === undefined);
   const retryFocus = () => {
     for (const q of focusQueries) if (q.isError) void q.refetch();
   };
