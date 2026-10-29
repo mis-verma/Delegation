@@ -46,6 +46,44 @@
 
 <body>
   <div id="root"></div>
+  <div id="boot-fallback" hidden style="position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:24px;background:#f5f7fb;color:#0b1020;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center">
+    <div style="max-width:360px">
+      <p data-title style="margin:0 0 8px;font-size:20px;font-weight:700"></p>
+      <p data-text style="margin:0 0 20px"></p>
+      <button type="button" data-reload style="min-height:44px;padding:0 24px;border:0;border-radius:12px;background:#2f4fb8;color:#fff;font:inherit;font-weight:600">Reload</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var box = document.getElementById('boot-fallback');
+      if (!box) return;
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) {
+        box.style.background = '#0b1020';
+        box.style.color = '#f5f7fb';
+      }
+      var messages = {
+        old: ['Your browser is too old', 'Karya needs a newer browser. On iPhone, update to iOS 16.4 or newer in Settings, General, Software Update. Or open this page in the latest Chrome.'],
+        stuck: ['Karya did not start', 'Reload the page. If it keeps happening, remove Karya from your home screen, then open the site in Safari and add it again.'],
+      };
+      function show(kind) {
+        box.querySelector('[data-title]').textContent = messages[kind][0];
+        box.querySelector('[data-text]').textContent = messages[kind][1];
+        box.querySelector('[data-reload]').onclick = function () { window.location.reload(); };
+        box.hidden = false;
+        box.style.display = 'flex';
+      }
+      var modern = typeof CSS !== 'undefined' && 'registerProperty' in CSS && CSS.supports && CSS.supports('color', 'color-mix(in srgb, red, blue)');
+      if (!modern) {
+        show('old');
+        return;
+      }
+      window.setTimeout(function () {
+        var root = document.getElementById('root');
+        if (root && root.childElementCount === 0) show('stuck');
+      }, 10000);
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

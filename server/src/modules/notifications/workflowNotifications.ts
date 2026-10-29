@@ -106,6 +106,31 @@ export const notifyOverdueEscalation = async (entity: { _id: string; title: stri
   });
 }
 
+export const notifyOverdueHeadChase = async (
+  entity: { _id: string; title: string; departmentIds: string[]; workerIds: string[] },
+  kind: 'TICKET' | 'TASK',
+  hoursLate: number,
+  personName: string | null,
+) => {
+  const heads = entity.departmentIds.length
+    ? await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), inArray(users.departmentId, entity.departmentIds), eq(users.isActive, true)))
+    : [];
+  const workers = new Set(entity.workerIds);
+  let recipientIds = heads.map((h) => h.id).filter((id) => !workers.has(id));
+  if (!recipientIds.length) recipientIds = (await activeVerifierIds()).filter((id) => !workers.has(id));
+  const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };
+  const who = personName ? `${personName} was reminded and has not finished it.` : 'It was already reminded and is not finished.';
+  return notifyMany(recipientIds, {
+    type: `${kind}_OVERDUE_HEAD`,
+    title: kind === 'TICKET' ? 'Ticket still late in your team' : 'Delegation still late in your team',
+    message: `"${entity.title}" is ${hoursLate} ${hoursLate === 1 ? 'hour' : 'hours'} late. ${who} Please check in.`,
+    ...idField,
+  });
+}
+
 export const notifyUnassignedReminder = async (entity: { _id: string; title: string; departmentId?: string | null }, kind: 'TICKET' | 'TASK') => {
   let recipientIds: string[] = [];
   if (entity.departmentId) {

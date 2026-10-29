@@ -66,6 +66,7 @@ export const tasks = mysqlTable(
     approvalReminderSentAt: datetime('approvalReminderSentAt', { mode: 'date' }),
     approvalEscalatedAt: datetime('approvalEscalatedAt', { mode: 'date' }),
     overdueEscalatedAt: datetime('overdueEscalatedAt', { mode: 'date' }),
+    overdueHeadNotifiedAt: datetime('overdueHeadNotifiedAt', { mode: 'date' }),
     unassignedNotifiedAt: datetime('unassignedNotifiedAt', { mode: 'date' }),
     headReminderSentAt: datetime('headReminderSentAt', { mode: 'date' }),
     headEscalatedAt: datetime('headEscalatedAt', { mode: 'date' }),

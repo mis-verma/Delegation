@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, BellRing, CheckCheck, ChevronDown, ChevronRight, ClipboardX, Repeat, TicketX, Users, type LucideIcon } from 'lucide-react';
+import { AlarmClockOff, AlertTriangle, BellRing, CheckCheck, ChevronDown, ChevronRight, ClipboardX, Repeat, TicketX, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/http';
@@ -21,12 +21,14 @@ import { cardIconTile } from './dashboardDisplay';
 const KIND_ICON: Record<ExceptionKind, LucideIcon> = {
   TICKET_OVERDUE: TicketX,
   TICKET_STALE: AlertTriangle,
+  TASK_OVERDUE: AlarmClockOff,
   CHECKLIST_MISSED: ClipboardX,
 };
 
 const KIND_LABEL: Record<ExceptionKind, string> = {
   TICKET_OVERDUE: 'Ticket late',
   TICKET_STALE: 'Ticket stuck',
+  TASK_OVERDUE: 'Delegation late',
   CHECKLIST_MISSED: 'Checklist missed',
 };
 
@@ -40,7 +42,6 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
   const high = item.severity === 'high';
   const body = (
     <>
-      <span aria-hidden="true" className={cn('absolute inset-y-3 left-0 w-1 rounded-r-full opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100', high ? 'bg-vivid-red' : 'bg-vivid-blue')} />
       <span className={cn('flex items-center justify-center size-11 rounded-xl shrink-0 text-white', high ? 'bg-vivid-red' : 'bg-vivid-blue')}>
         <Icon className="size-5" strokeWidth={2.25} aria-hidden="true" />
       </span>
@@ -48,12 +49,20 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{item.title}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge variant={high ? 'critical' : 'warning'} icon={Icon} label={KIND_LABEL[item.kind]} />
-          {item.kind === 'TICKET_OVERDUE' && <DueChip at={item.since} now={now} />}
+          {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} />}
           {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} />}
         </div>
         <p className="t-meta font-medium text-text-muted line-clamp-2">
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
         </p>
+        {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && (
+          <p className="t-meta font-display font-semibold text-text-secondary line-clamp-1">
+            {item.person ?? 'Nobody assigned'}
+            <span className="font-medium text-text-muted">
+              {item.remindedAt ? `, reminded ${agoLabel(item.remindedAt, now)}, still not done` : ', not reminded yet'}
+            </span>
+          </p>
+        )}
       </div>
       {linked && <span className="hidden shrink-0 items-center rounded-full border border-border bg-surface px-3 py-1 t-meta font-display font-bold text-text-secondary transition-colors group-hover:border-vivid-blue/50 group-hover:text-vivid-blue-text lg:inline-flex">Open</span>}
       {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 lg:hidden" aria-hidden="true" />}

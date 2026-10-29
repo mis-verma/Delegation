@@ -1,6 +1,6 @@
 import { apiFetch } from './http';
 
-export type ExceptionKind = 'TICKET_OVERDUE' | 'TICKET_STALE' | 'CHECKLIST_MISSED';
+export type ExceptionKind = 'TICKET_OVERDUE' | 'TICKET_STALE' | 'TASK_OVERDUE' | 'CHECKLIST_MISSED';
 
 export interface ExceptionItem {
   id: string;
@@ -11,6 +11,8 @@ export interface ExceptionItem {
   storeName: string | null;
   since: string;
   link: string;
+  person: string | null;
+  remindedAt: string | null;
 }
 
 export const exceptionApi = {

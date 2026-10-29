@@ -172,7 +172,7 @@ export const notifyTicketDueSoon = async (ticket: { _id: string; title: string; 
 
 export const notifyTicketOverdue = async (ticket: { _id: string; title: string; assigneeId?: string | null; departmentId?: string | null }) => {
   const recipientIds: string[] = ticket.assigneeId ? [ticket.assigneeId] : [];
-  if (ticket.departmentId) {
+  if (!ticket.assigneeId && ticket.departmentId) {
     const heads = await db
       .select({ id: users.id })
       .from(users)

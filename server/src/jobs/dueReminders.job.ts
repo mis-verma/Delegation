@@ -2,7 +2,7 @@ import { scheduleJob } from '../utils/jobTracker.js';
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, ne, notInArray, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { env } from '../config/env.js';
-import { tickets, tasks, taskAdditionalAssignees, taskDepartmentApprovals, checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from '../db/schema/index.js';
+import { users, tickets, tasks, taskAdditionalAssignees, taskDepartmentApprovals, checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from '../db/schema/index.js';
 import { notificationService } from '../modules/notifications/notification.service.js';
 import { settingsService } from '../modules/settings/settings.service.js';
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from '../modules/checklistInstances/checklistInstance.service.js';
@@ -284,6 +284,61 @@ const taskApprovalChasers = async (now: Date) => {
   }
 };
 
+const OVERDUE_HEAD_HOURS = 2;
+const OVERDUE_HEAD_FLOOR_HOURS = 72;
+
+const nameOf = (u: { firstName: string; lastName: string | null }) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ''}`;
+
+const overdueHeadChasers = async (now: Date) => {
+  const cutoff = new Date(now.getTime() - OVERDUE_HEAD_HOURS * HOUR_MS);
+  const floor = new Date(now.getTime() - OVERDUE_HEAD_FLOOR_HOURS * HOUR_MS);
+
+  const lateTickets = await db.select().from(tickets).where(and(
+    isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, false), eq(tickets.isOverdue, true),
+    isNotNull(tickets.overdueNotifiedAt), isNull(tickets.overdueHeadNotifiedAt), isNotNull(tickets.assigneeId),
+    notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']), lte(tickets.tatDueAt, cutoff), gt(tickets.tatDueAt, floor),
+  )).limit(BATCH);
+  if (lateTickets.length) {
+    const workers = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, departmentId: users.departmentId })
+      .from(users).where(inArray(users.id, lateTickets.map((t) => t.assigneeId as string)));
+    const byId = new Map(workers.map((w) => [w.id, w]));
+    const done = await sendEach(lateTickets, (t) => {
+      const worker = byId.get(t.assigneeId as string);
+      const departments = [t.departmentId, worker?.departmentId].filter((d): d is string => Boolean(d));
+      return notificationService.notifyOverdueHeadChase(
+        { _id: t.id, title: t.title, departmentIds: [...new Set(departments)], workerIds: [t.assigneeId as string] },
+        'TICKET', Math.max(1, Math.floor((now.getTime() - t.tatDueAt!.getTime()) / HOUR_MS)), worker ? nameOf(worker) : null,
+      );
+    });
+    if (done.length) await db.update(tickets).set({ overdueHeadNotifiedAt: now }).where(inArray(tickets.id, done));
+  }
+
+  const lateTasks = await db.select().from(tasks).where(and(
+    isNull(tasks.deletedAt), isNull(tasks.declinedAt), eq(tasks.awaitingHeadApproval, false),
+    isNotNull(tasks.overdueNotifiedAt), isNull(tasks.overdueHeadNotifiedAt), isNotNull(tasks.dueDate),
+    notInArray(tasks.status, ['done', 'draft', 'pending_approval']), lte(tasks.dueDate, cutoff), gt(tasks.dueDate, floor),
+  )).limit(BATCH);
+  if (lateTasks.length) {
+    const people = await assigneesOfTasks(lateTasks.map((t) => t.id), new Map(lateTasks.map((t) => [t.id, t.assigneeId])));
+    const everyone = [...new Set([...people.values()].flat())];
+    const workers = everyone.length
+      ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, departmentId: users.departmentId }).from(users).where(inArray(users.id, everyone))
+      : [];
+    const byId = new Map(workers.map((w) => [w.id, w]));
+    const done = await sendEach(lateTasks, (t) => {
+      const workerIds = people.get(t.id) ?? [];
+      const departments = [t.departmentId, ...workerIds.map((id) => byId.get(id)?.departmentId)].filter((d): d is string => Boolean(d));
+      const first = workerIds[0] ? byId.get(workerIds[0]) : undefined;
+      const label = first ? `${nameOf(first)}${workerIds.length > 1 ? ` and ${workerIds.length - 1} more` : ''}` : null;
+      return notificationService.notifyOverdueHeadChase(
+        { _id: t.id, title: t.title, departmentIds: [...new Set(departments)], workerIds },
+        'TASK', Math.max(1, Math.floor((now.getTime() - t.dueDate!.getTime()) / HOUR_MS)), label,
+      );
+    });
+    if (done.length) await db.update(tasks).set({ overdueHeadNotifiedAt: now }).where(inArray(tasks.id, done));
+  }
+};
+
 const overdueEscalations = async (now: Date) => {
   const cutoff = new Date(now.getTime() - REMINDER_HOURS * HOUR_MS);
   const floor = new Date(now.getTime() - 72 * HOUR_MS);
@@ -334,6 +389,7 @@ export const startDueReminders = () => {
       await safely('tickets overdue', () => ticketsOverdue(now), failures);
       await safely('delegations due soon', () => tasksDueSoon(now), failures);
       await safely('delegations overdue', () => tasksOverdue(now), failures);
+      await safely('overdue head reminders', () => overdueHeadChasers(now), failures);
       await safely('overdue escalations', () => overdueEscalations(now), failures);
       await safely('unassigned reminders', () => unassignedReminders(now), failures);
       await safely('ticket approvals', () => ticketApprovalChasers(now), failures);

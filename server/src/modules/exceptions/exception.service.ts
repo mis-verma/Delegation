@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm"
 import { db } from "../../config/db.js"
-import { checklistInstances, stores, tickets } from "../../db/schema/index.js"
+import { checklistInstances, stores, tasks, tickets, users } from "../../db/schema/index.js"
 import { visibilityFilter } from "../tickets/ticket.service.js"
 import {
     instanceInDepartmentCondition,
@@ -17,7 +17,7 @@ const STALE_TICKET_HOURS = 4
 const PER_KIND_LIMIT = 20
 const HOUR_MS = 3_600_000
 
-export type ExceptionKind = "TICKET_OVERDUE" | "TICKET_STALE" | "CHECKLIST_MISSED"
+export type ExceptionKind = "TICKET_OVERDUE" | "TICKET_STALE" | "TASK_OVERDUE" | "CHECKLIST_MISSED"
 export type ExceptionSeverity = "high" | "medium"
 
 export interface ExceptionItem {
@@ -29,7 +29,11 @@ export interface ExceptionItem {
     storeName: string | null
     since: string
     link: string
+    person: string | null
+    remindedAt: string | null
 }
+
+const personName = (first: string | null, last: string | null) => (first ? `${first}${last ? ` ${last}` : ""}` : null)
 
 const ago = (ms: number) => {
     const hours = Math.floor(ms / HOUR_MS)
@@ -56,9 +60,13 @@ export const exceptionService = {
                 tatDueAt: tickets.tatDueAt,
                 isOverdue: tickets.isOverdue,
                 storeName: stores.name,
+                remindedAt: tickets.overdueNotifiedAt,
+                personFirst: users.firstName,
+                personLast: users.lastName,
             })
             .from(tickets)
             .leftJoin(stores, eq(stores.id, tickets.storeId))
+            .leftJoin(users, eq(users.id, tickets.assigneeId))
             .where(and(
                 isNull(tickets.deletedAt),
                 NOT_GATED,
@@ -82,6 +90,50 @@ export const exceptionService = {
                 storeName: t.storeName,
                 since: (overdue && t.tatDueAt ? t.tatDueAt : t.createdAt).toISOString(),
                 link: `/tickets`,
+                person: personName(t.personFirst, t.personLast),
+                remindedAt: t.remindedAt ? t.remindedAt.toISOString() : null,
+            })
+        }
+
+        const taskScope = isAdminOrPc(user.role)
+            ? undefined
+            : user.departmentId ? eq(tasks.departmentId, user.departmentId) : sql`1 = 0`
+        const taskRows = await db
+            .select({
+                id: tasks.id,
+                title: tasks.title,
+                priority: tasks.priority,
+                dueDate: tasks.dueDate,
+                remindedAt: tasks.overdueNotifiedAt,
+                personFirst: users.firstName,
+                personLast: users.lastName,
+            })
+            .from(tasks)
+            .leftJoin(users, eq(users.id, tasks.assigneeId))
+            .where(and(
+                isNull(tasks.deletedAt),
+                isNull(tasks.declinedAt),
+                eq(tasks.awaitingHeadApproval, false),
+                notInArray(tasks.status, ["done", "draft", "pending_approval"]),
+                isNotNull(tasks.dueDate),
+                lte(tasks.dueDate, new Date(now)),
+                taskScope,
+            ))
+            .orderBy(tasks.dueDate)
+            .limit(PER_KIND_LIMIT)
+        for (const t of taskRows) {
+            const urgent = t.priority === "high"
+            items.push({
+                id: `task:${t.id}`,
+                kind: "TASK_OVERDUE",
+                severity: urgent ? "high" : "medium",
+                title: t.title,
+                detail: `Overdue by ${ago(now - t.dueDate!.getTime())}, ${String(t.priority).toLowerCase()} priority`,
+                storeName: null,
+                since: t.dueDate!.toISOString(),
+                link: `/tasks?open=${t.id}`,
+                person: personName(t.personFirst, t.personLast),
+                remindedAt: t.remindedAt ? t.remindedAt.toISOString() : null,
             })
         }
 
@@ -114,6 +166,8 @@ export const exceptionService = {
                     storeName: m.storeName,
                     since: new Date(now).toISOString(),
                     link: `/checklists`,
+                    person: null,
+                    remindedAt: null,
                 })
             }
         }
