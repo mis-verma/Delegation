@@ -13,7 +13,7 @@ const H = 28;
 const PAD = 3;
 
 export const Sparkline = memo(({ values, tone, label, className }: SparklineProps) => {
-  const id = useId();
+  const id = `spark-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const points = values
     .map((v, i) => ({ v, i }))
     .filter((p): p is { v: number; i: number } => p.v !== null);

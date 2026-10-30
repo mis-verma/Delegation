@@ -1,37 +1,28 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { Handshake, ShieldCheck, Ticket, ListTodo, Undo2 } from 'lucide-react';
 import { InlineError } from '../../components/inlineError';
-import { useAttentionPeople } from '../attention/useAttention';
+import { useActionPoints } from '../attention/useAttention';
 import { useApprovalSources } from './useApprovalSources';
 import { Stat } from './ApprovalStatsStrip';
+
+const NO_POINTS = { openTickets: 0, overdueTickets: 0, openDelegations: 0, overdueDelegations: 0, sentBackRuns: 0 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export const ActionPointsStrip = memo(() => {
   const { queueHref, tasks, tickets } = useApprovalSources();
-  const people = useAttentionPeople();
+  const points = useActionPoints();
 
-  const totals = useMemo(() => {
-    const t = { openTickets: 0, overdueTickets: 0, openDelegations: 0, overdueDelegations: 0, sentBack: 0 };
-    for (const p of people.data ?? []) {
-      t.openTickets += p.openTickets;
-      t.overdueTickets += p.overdueTickets;
-      t.openDelegations += p.openDelegations;
-      t.overdueDelegations += p.overdueDelegations;
-      t.sentBack += p.sentBackRuns;
-    }
-    return t;
-  }, [people.data]);
-
-  if (people.isError && !people.data) {
+  if (points.isError && !points.data) {
     return (
       <div className="px-4 py-3 sm:px-5 border-b border-border/40">
-        <InlineError message="Couldn't load the action points." onRetry={() => void people.refetch()} />
+        <InlineError message="Couldn't load the action points." onRetry={() => void points.refetch()} />
       </div>
     );
   }
 
-  const peopleLoading = people.isPending;
+  const pointsLoading = points.isPending;
+  const totals = points.data ?? NO_POINTS;
   const delegationApprovals = tasks.data?.total ?? 0;
   const ticketApprovals = tickets.data?.total ?? 0;
 
@@ -66,7 +57,7 @@ export const ActionPointsStrip = memo(() => {
           caption={totals.overdueTickets === 0 ? 'None overdue' : `${totals.overdueTickets} overdue`}
           accent={totals.overdueTickets > 0 ? 'red' : 'sky'}
           alert={totals.overdueTickets > 0}
-          loading={peopleLoading}
+          loading={pointsLoading}
           to="/tickets"
         />
         <Stat
@@ -77,18 +68,18 @@ export const ActionPointsStrip = memo(() => {
           caption={totals.overdueDelegations === 0 ? 'None overdue' : `${totals.overdueDelegations} overdue`}
           accent={totals.overdueDelegations > 0 ? 'red' : 'green'}
           alert={totals.overdueDelegations > 0}
-          loading={peopleLoading}
+          loading={pointsLoading}
           to="/tasks"
         />
         <Stat
           index={4}
           icon={Undo2}
           label="Checklists sent back"
-          value={totals.sentBack}
-          caption={totals.sentBack === 0 ? 'None to redo today' : `${plural(totals.sentBack, 'run', 'runs')} to redo today`}
-          accent={totals.sentBack > 0 ? 'red' : 'green'}
-          alert={totals.sentBack > 0}
-          loading={peopleLoading}
+          value={totals.sentBackRuns}
+          caption={totals.sentBackRuns === 0 ? 'None to redo today' : `${plural(totals.sentBackRuns, 'run', 'runs')} to redo today`}
+          accent={totals.sentBackRuns > 0 ? 'red' : 'green'}
+          alert={totals.sentBackRuns > 0}
+          loading={pointsLoading}
         />
       </div>
     </div>

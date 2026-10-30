@@ -12,6 +12,7 @@ export const ATTENTION_KEYS = {
   person: (id: string) => ['exceptions', 'person', id] as const,
   heatmap: (from: string, to: string, departmentId: string, storeId: string) => ['exceptions', 'heatmap', from, to, departmentId, storeId] as const,
   approvals: (from: string, to: string) => ['exceptions', 'approvals', from, to] as const,
+  actionPoints: ['exceptions', 'action-points'] as const,
   approvalDays: (from: string, to: string) => ['exceptions', 'approval-days', from, to] as const,
 };
 
@@ -68,6 +69,20 @@ export const useTeamApprovals = (fromIso: string, toIso: string) => {
     enabled,
     retry: handleQueryRetry,
     staleTime: 60_000,
+  });
+};
+
+export const useActionPoints = () => {
+  const enabled = useCanOversee();
+  return useQuery({
+    queryKey: ATTENTION_KEYS.actionPoints,
+    queryFn: peopleApi.actionPoints,
+    enabled,
+    retry: handleQueryRetry,
+    staleTime: 30_000,
+    refetchInterval: 2 * LIVE_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 };
 

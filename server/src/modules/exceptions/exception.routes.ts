@@ -5,12 +5,14 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { AppError } from '../../utils/AppError.js';
 import { exceptionService } from './exception.service.js';
 import { attentionService } from './attention.service.js';
+import { cached, cacheKey } from '../../config/queryCache.js';
 import { approvalTatService } from '../reports/approvalTat.service.js';
 import { isAdminOrPc } from "../../utils/roles.js"
 import { routeParam } from "../../utils/routeParam.js"
 
 export const exceptionRouter = Router();
 
+const APPROVAL_TTL_SECONDS = 30;
 const OVERSIGHT = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'] as const;
 const DAY = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Use a date like 2026-10-01');
 const optionalId = z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), z.string().min(1).max(191).optional());
@@ -49,7 +51,9 @@ exceptionRouter.get('/approvals', requireRole(...OVERSIGHT), asyncHandler(async 
   const user = req.user!;
   const orgWide = isAdminOrPc(user.role);
   if (!orgWide && !user.departmentId) throw AppError.forbidden();
-  res.json({ success: true, data: await approvalTatService.summary(new Date(from), new Date(to), Date.now(), orgWide ? undefined : user.departmentId) });
+  const departmentId = orgWide ? undefined : user.departmentId;
+  const data = await cached(cacheKey('exceptions', 'approvals', departmentId ?? 'org', from, to), APPROVAL_TTL_SECONDS, () => approvalTatService.summary(new Date(from), new Date(to), Date.now(), departmentId));
+  res.json({ success: true, data });
 }));
 const approvalDaysSchema = z
   .object({ from: DAY, to: DAY })
@@ -60,5 +64,10 @@ exceptionRouter.get('/approvals/daily', requireRole(...OVERSIGHT), asyncHandler(
   const user = req.user!;
   const orgWide = isAdminOrPc(user.role);
   if (!orgWide && !user.departmentId) throw AppError.forbidden();
-  res.json({ success: true, data: await approvalTatService.daily(from, to, Date.now(), orgWide ? undefined : user.departmentId) });
+  const departmentId = orgWide ? undefined : user.departmentId;
+  const data = await cached(cacheKey('exceptions', 'approval-days', departmentId ?? 'org', from, to), APPROVAL_TTL_SECONDS, () => approvalTatService.daily(from, to, Date.now(), departmentId));
+  res.json({ success: true, data });
+}));
+exceptionRouter.get('/action-points', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
+  res.json({ success: true, data: await attentionService.actionPoints(req.user!) });
 }));

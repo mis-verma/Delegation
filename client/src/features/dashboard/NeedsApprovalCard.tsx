@@ -13,6 +13,7 @@ import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { ApprovalStatsStrip } from './ApprovalStatsStrip';
 import { ActionPointsStrip } from './ActionPointsStrip';
+import { StatsBoundary } from './StatsBoundary';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
@@ -141,8 +142,12 @@ export const NeedsApprovalCard = () => {
         </div>
       </div>
 
-      {showsStats && <ApprovalStatsStrip />}
-      {showsStats && <ActionPointsStrip />}
+      {showsStats && (
+        <>
+          <StatsBoundary label="Approval figures"><ApprovalStatsStrip /></StatsBoundary>
+          <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
+        </>
+      )}
 
       {failedSources.length > 0 && (
         <div className="flex flex-col gap-2 px-4 py-3 sm:px-5">

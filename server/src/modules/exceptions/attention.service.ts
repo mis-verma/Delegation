@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
+import { cached, cacheKey } from "../../config/queryCache.js"
 import {
     checklistInstanceAssignees,
     checklistInstanceItems,
@@ -234,7 +235,54 @@ const reasonLine = (p: PersonAttention) =>
         p.overdueDelegations > 0 && `${p.overdueDelegations} delegation${p.overdueDelegations === 1 ? "" : "s"} overdue`,
     ].filter(Boolean).join(", ")
 
+export type ActionPoints = {
+    openTickets: number
+    overdueTickets: number
+    openDelegations: number
+    overdueDelegations: number
+    sentBackRuns: number
+}
+
+const NO_ACTION_POINTS: ActionPoints = { openTickets: 0, overdueTickets: 0, openDelegations: 0, overdueDelegations: 0, sentBackRuns: 0 }
+const ACTION_POINTS_TTL_SECONDS = 30
+
 export const attentionService = {
+    async actionPoints(viewer: AccessTokenPayload): Promise<ActionPoints> {
+        const scope = scopeOf(viewer)
+        if (!scope) return NO_ACTION_POINTS
+        const scopeKey = scope.orgWide ? "org" : scope.departmentId
+        return cached(cacheKey("exceptions", "action-points", scopeKey), ACTION_POINTS_TTL_SECONDS, async () => {
+            const now = Date.now()
+            const where = userScope(scope)
+            const dueBefore = new Date(now)
+            const [runs, [ticketRow], [primaryRow], [additionalRow]] = await Promise.all([
+                loadTodayRuns(where, now),
+                db
+                    .select({ open: sql<number>`COUNT(*)`, overdue: sql<number>`COALESCE(SUM(${tickets.isOverdue} = 1 AND ${tickets.status} IN ('OPEN', 'IN_PROGRESS')), 0)` })
+                    .from(tickets)
+                    .innerJoin(users, eq(users.id, tickets.assigneeId))
+                    .where(and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), inArray(tickets.status, [...ticketOpenStatuses]), where)),
+                db
+                    .select({ open: sql<number>`COUNT(*)`, overdue: sql<number>`COALESCE(SUM(${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${dueBefore}), 0)` })
+                    .from(tasks)
+                    .innerJoin(users, eq(users.id, tasks.assigneeId))
+                    .where(and(openDelegationSql, where)),
+                db
+                    .select({ open: sql<number>`COUNT(*)`, overdue: sql<number>`COALESCE(SUM(${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${dueBefore}), 0)` })
+                    .from(taskAdditionalAssignees)
+                    .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
+                    .innerJoin(users, eq(users.id, taskAdditionalAssignees.userId))
+                    .where(and(openDelegationSql, sql`(${tasks.assigneeId} IS NULL OR ${tasks.assigneeId} <> ${taskAdditionalAssignees.userId})`, where)),
+            ])
+            return {
+                openTickets: Number(ticketRow?.open ?? 0),
+                overdueTickets: Number(ticketRow?.overdue ?? 0),
+                openDelegations: Number(primaryRow?.open ?? 0) + Number(additionalRow?.open ?? 0),
+                overdueDelegations: Number(primaryRow?.overdue ?? 0) + Number(additionalRow?.overdue ?? 0),
+                sentBackRuns: runs.filter((r) => r.state === "sent_back").length,
+            }
+        })
+    },
     async people(viewer: AccessTokenPayload, filter: { departmentId?: string; storeId?: string } = {}): Promise<PersonAttention[]> {
         const scope = scopeOf(viewer, filter)
         if (!scope) return []
