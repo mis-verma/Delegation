@@ -147,7 +147,9 @@ const GROUP_RANK: Record<QueueGroup, number> = { critical: 0, attention: 1, read
 export const groupOf = (row: ChecklistRow): QueueGroup =>
   row.risk.criticalFailed > 0 ? 'critical' : row.risk.needsAttention ? 'attention' : 'ready';
 
+const resubmitted = (row: ChecklistRow) => ((row.instance.rejectionCount ?? 0) > 0 ? 0 : 1);
+
 export const sortChecklistRows = (rows: ChecklistRow[], sort: SortKey): ChecklistRow[] => {
   const compare = COMPARATORS[sort];
-  return [...rows].sort((a, b) => GROUP_RANK[groupOf(a)] - GROUP_RANK[groupOf(b)] || compare(a, b));
+  return [...rows].sort((a, b) => GROUP_RANK[groupOf(a)] - GROUP_RANK[groupOf(b)] || resubmitted(a) - resubmitted(b) || compare(a, b));
 };

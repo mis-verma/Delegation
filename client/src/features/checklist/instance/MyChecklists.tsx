@@ -276,7 +276,9 @@ export const MyChecklists = () => {
   const sendBack = useMemo(() => {
     const rejected = allInstances.filter((i) => i.verificationStatus === 'REJECTED');
     const locked = rejected.some((i) => !!i.sentBackAt && now - new Date(i.sentBackAt).getTime() >= SEND_BACK_GRACE_MS);
-    return { count: rejected.length, firstId: rejected[0]?.id ?? '', locked };
+    const fixTimes = rejected.map((i) => (i.sentBackFixBy ? new Date(i.sentBackFixBy).getTime() : null)).filter((t): t is number => t !== null && Number.isFinite(t));
+    const fixBy = fixTimes.length ? Math.min(...fixTimes) : null;
+    return { count: rejected.length, firstId: rejected[0]?.id ?? '', locked, fixBy };
   }, [allInstances, now]);
 
   const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
@@ -299,6 +301,7 @@ export const MyChecklists = () => {
             <span className="min-w-0 flex-1 t-card font-display font-semibold text-danger">
               {sendBack.count === 1 ? '1 checklist was sent back to you.' : `${sendBack.count} checklists were sent back to you.`}{' '}
               {sendBack.locked ? 'Fix it to unlock your other checklists.' : 'Fix it soon, or your other checklists will lock.'}
+              {sendBack.fixBy !== null && (now >= sendBack.fixBy ? ' The fix time has passed.' : ` Fix by ${new Date(sendBack.fixBy).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.`)}
             </span>
             <Link
               to={`/checklists/${sendBack.firstId}`}

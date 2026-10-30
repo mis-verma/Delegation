@@ -18,9 +18,15 @@ import {
   complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
+import { useDoneLast } from '../../../lib/useDoneLast';
+import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateWindowBanner } from './LateWindowBanner';
 import { useAuth } from '../../../context/AuthContext';
 
+
+const NO_ITEMS: ChecklistInstanceItem[] = [];
+
+const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
@@ -81,6 +87,8 @@ export const ChecklistInstanceDetail = () => {
     else navigate(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
   };
 
+  const { pending: pendingItems, done: answeredItems } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered);
+
   if (isPending) return <DetailSkeleton />;
 
   const isDeleted = error instanceof ApiError && error.status === 404;
@@ -131,11 +139,25 @@ export const ChecklistInstanceDetail = () => {
   const left = Math.max(0, total - done);
   const lastIndex = Math.max(0, instance.items.length - 1);
   const currentIndex = Math.min(oneIndex, lastIndex);
+  const reorder = canWork && !selecting && show === 'all';
+  const orderedItems = (() => {
+    if (!reorder) return instance.items;
+    if (!hasSections) return [...pendingItems, ...answeredItems];
+    const sectionOrder: string[] = [];
+    for (const i of instance.items) {
+      const key = i.section ?? '';
+      if (!sectionOrder.includes(key)) sectionOrder.push(key);
+    }
+    return sectionOrder.flatMap((key) => [
+      ...pendingItems.filter((i) => (i.section ?? '') === key),
+      ...answeredItems.filter((i) => (i.section ?? '') === key),
+    ]);
+  })();
   const shownItems = show === 'left'
     ? instance.items.filter((i) => !answered(i))
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
-      : instance.items;
+      : orderedItems;
   const sectionCounts = new Map<string, { done: number; total: number }>();
   for (const i of instance.items) {
     const key = i.section ?? '';

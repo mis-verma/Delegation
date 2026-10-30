@@ -52,6 +52,7 @@ export const uploadChecklistInstanceImageSchema = z.object({
 export const verifyChecklistInstanceSchema = z.object({
     action: z.enum(["APPROVE", "REJECT"]),
     note: z.string().optional(),
+    fixByHours: z.number().int().min(1).max(72).optional(),
 }).refine(v => v.action === "APPROVE" || !!v.note?.trim(), {
     message: "A note is required when rejecting.",
     path: ["note"],
@@ -60,6 +61,7 @@ export const verifyChecklistInstanceSchema = z.object({
 export const sendBackChecklistInstanceSchema = z.object({
     itemIds: z.array(z.string().min(1)).min(1, "Pick at least one question.").max(200),
     note: z.string().trim().min(1, "Say what needs fixing.").max(1000),
+    fixByHours: z.number().int().min(1).max(72).optional(),
 })
 
 export const raiseChecklistTicketSchema = z.object({

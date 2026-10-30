@@ -53,6 +53,13 @@ export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCo
   </div>
 );
 
+const FIX_BY_OPTIONS: { label: string; hours: number | null }[] = [
+  { label: 'No deadline', hours: null },
+  { label: '2 hours', hours: 2 },
+  { label: '4 hours', hours: 4 },
+  { label: '24 hours', hours: 24 },
+];
+
 interface SendBackFormProps {
   note: string;
   onNoteChange: (value: string) => void;
@@ -67,10 +74,11 @@ interface SendBackFormProps {
   autoFocus?: boolean;
   quickReasons?: boolean;
   helper?: string;
+  fixBy?: { value: number | null; onChange: (hours: number | null) => void };
 }
 
 export const SendBackForm = ({
-  note, onNoteChange, onCancel, onSubmit, canSubmit, isSending, busy, submitLabel, placeholder, maxLength, autoFocus, quickReasons = false, helper,
+  note, onNoteChange, onCancel, onSubmit, canSubmit, isSending, busy, submitLabel, placeholder, maxLength, autoFocus, quickReasons = false, helper, fixBy,
 }: SendBackFormProps) => {
   const id = useId();
   return (
@@ -96,6 +104,16 @@ export const SendBackForm = ({
         maxLength={maxLength}
         className="min-h-0 py-2.5 resize-none"
       />
+      {fixBy && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Fix by">
+          <span className="t-meta font-display font-semibold text-text-secondary">Fix within</span>
+          {FIX_BY_OPTIONS.map((o) => (
+            <ToggleChip key={o.label} on={fixBy.value === o.hours} disabled={busy} onClick={() => fixBy.onChange(o.hours)}>
+              {o.label}
+            </ToggleChip>
+          ))}
+        </div>
+      )}
       {helper && <p className="t-meta font-display text-text-muted">{helper}</p>}
       <div className="flex items-center justify-end gap-2">
         <Button size="sm" variant="outline" disabled={busy} onClick={onCancel}>Cancel</Button>

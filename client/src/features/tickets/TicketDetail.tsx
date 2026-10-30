@@ -19,6 +19,7 @@ import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
 import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
 import { ProgressUpdatesPanel } from './detail/ProgressUpdatesPanel';
+import { OverdueBanner } from './detail/OverdueBanner';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -418,6 +419,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 )}
                 <TicketDescription description={ticket.description} />
                 </>
+              )}
+
+              {due?.overdue && !ticket.declinedAt && !editing && (
+                <OverdueBanner since={due.text} canPost={workerCanMove && ticket.status === 'IN_PROGRESS'} composerId={`progress-${ticket.id}`} />
               )}
 
               {ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !awaitingHead && !editing && (

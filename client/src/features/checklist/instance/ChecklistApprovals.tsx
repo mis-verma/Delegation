@@ -51,7 +51,7 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
       id: row.id,
       verb: 'Sent back',
       label: row.instance.title,
-      run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note) : rejectRun(row.id, payload.note),
+      run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours) : rejectRun(row.id, payload.note, payload.fixByHours),
     });
   }, [schedule]);
 

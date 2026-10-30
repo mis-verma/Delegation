@@ -14,6 +14,7 @@ import { TicketRequestsCard } from './TicketRequestsCard';
 import { ExceptionsCard } from './ExceptionsCard';
 import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
+import { OverdueTicketsPopup } from './OverdueTicketsPopup';
 import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { MyScoresCard } from './MyScoresCard';
@@ -165,6 +166,8 @@ export const HomePage = () => {
   return (
     <div className="flex flex-col gap-3 w-full pt-2.5 [--type-scale:0.9]">
       <h1 className="sr-only">Today, {heading}</h1>
+
+      {!isCustomizing && <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />}
 
       <DashboardLayoutToolbar
         isCustomizing={isCustomizing}

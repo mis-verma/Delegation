@@ -220,7 +220,7 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
     return getPopulatedInstanceById(id)
 }
 
-export const sendBack = async (id: string, input: { itemIds: string[]; note: string }, user: AccessTokenPayload) => {
+export const sendBack = async (id: string, input: { itemIds: string[]; note: string; fixByHours?: number }, user: AccessTokenPayload) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     if (instance.verificationStatus !== "PENDING_APPROVAL") {
@@ -264,6 +264,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
             submitReminderSentAt: null,
             rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
             sentBackAt: now,
+            sentBackFixBy: input.fixByHours ? new Date(now.getTime() + input.fixByHours * 3_600_000) : null,
             updatedAt: now,
         }).where(eq(checklistInstances.id, id))
     })
@@ -411,6 +412,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
                 submitReminderSentAt: null,
                 rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                 sentBackAt: now,
+                sentBackFixBy: input.fixByHours ? new Date(now.getTime() + input.fixByHours * 3_600_000) : null,
                 updatedAt: now,
             }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
             if (rejected.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")

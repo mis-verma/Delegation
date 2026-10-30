@@ -8,8 +8,8 @@ const patch = (path: string, body: unknown, { keepalive }: RunOptions) =>
 export const approveRun = (id: string) => (options: RunOptions) =>
   patch(`/checklist-instances/${id}/verify`, { action: 'APPROVE' }, options);
 
-export const rejectRun = (id: string, note: string) => (options: RunOptions) =>
-  patch(`/checklist-instances/${id}/verify`, { action: 'REJECT', note }, options);
+export const rejectRun = (id: string, note: string, fixByHours?: number | null) => (options: RunOptions) =>
+  patch(`/checklist-instances/${id}/verify`, { action: 'REJECT', note, ...(fixByHours ? { fixByHours } : {}) }, options);
 
 export const approveTicketRun = (id: string, note?: string) => (options: RunOptions) =>
   patch(`/tickets/${id}/verify`, { action: 'APPROVE', ...(note ? { note } : {}) }, options);
@@ -23,5 +23,5 @@ export const approveTaskRun = (id: string, note?: string) => (options: RunOption
 export const rejectTaskRun = (id: string, note: string) => (options: RunOptions) =>
   patch(`/tasks/${id}/verify`, { action: 'REJECT', note }, options);
 
-export const sendBackRun = (id: string, itemIds: string[], note: string) => (options: RunOptions) =>
-  patch(`/checklist-instances/${id}/send-back`, { itemIds, note }, options);
+export const sendBackRun = (id: string, itemIds: string[], note: string, fixByHours?: number | null) => (options: RunOptions) =>
+  patch(`/checklist-instances/${id}/send-back`, { itemIds, note, ...(fixByHours ? { fixByHours } : {}) }, options);

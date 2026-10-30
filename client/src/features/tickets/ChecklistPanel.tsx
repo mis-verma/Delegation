@@ -1,5 +1,5 @@
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Plus, Trash2, Loader2, CheckSquare, ChevronDown, ChevronRight,
   Camera, Image as ImageIcon, X, RotateCcw, ListChecks, AlertCircle, Library,
@@ -9,6 +9,7 @@ import {
   ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft,
 } from '../../components';
 import { DETAIL_SECTION_HEADING } from './detail/detailConstants';
+import { useDoneLast } from '../../lib/useDoneLast';
 import {
   useAddChecklistMutation,
   useDeleteChecklistMutation,
@@ -64,6 +65,7 @@ const ItemRow = ({
 
   return (
     <div
+      id={`ticket-item-${item.id}`}
       className={`group/card flex flex-col gap-3 sm:gap-4 p-3.5 sm:p-5 rounded-xl border transition-all duration-200 min-w-0 ${
         item.isDone
           ? 'bg-surface-hover/40 border-border/60 opacity-80'
@@ -257,6 +259,8 @@ const ChecklistBlock = ({
   workerIds: string[];
 }) => {
   const [open, setOpen] = useState(true);
+  const [showDone, setShowDone] = useState(true);
+  const { pending: pendingItems, done: doneItems } = useDoneLast(checklist.items, isItemDone);
   const deleteChecklist = useDeleteChecklistMutation(ticketId);
   const doneCount = checklist.items.filter(i => i.isDone).length;
   const progress = checklist.items.length ? (doneCount / checklist.items.length) * 100 : 0;
@@ -325,7 +329,7 @@ const ChecklistBlock = ({
               No items in this checklist yet.
             </div>
           )}
-          {checklist.items.map(item => (
+          {pendingItems.map(item => (
             <ItemRow
               key={item.id}
               item={item}
@@ -334,14 +338,44 @@ const ChecklistBlock = ({
               canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
             />
           ))}
+          {doneItems.length > 0 && (
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {pendingItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowDone(v => !v)}
+                  aria-expanded={showDone}
+                  className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-200 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+                >
+                  <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${showDone ? '' : '-rotate-90'}`} aria-hidden />
+                  Done ({doneItems.length})
+                </button>
+              )}
+              {(showDone || pendingItems.length === 0) && doneItems.map(item => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  ticketId={ticketId}
+                  isAdmin={isAdmin}
+                  canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+const isItemDone = (item: ChecklistItem) => item.isDone;
+
 export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: ChecklistPanelProps) => {
   const { user } = useAuth();
+  const openItems = useMemo(
+    () => checklists.flatMap(cl => cl.items).filter(i => !i.isDone && !i.remarks?.trim()),
+    [checklists],
+  );
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'PC';
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
@@ -541,6 +575,24 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
           description={isAdmin ? 'Add a checklist to track sub-tasks and required evidence.' : 'Nothing to check off on this ticket yet.'}
           size="compact"
         />
+      )}
+
+      {openItems.length > 0 && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/30 bg-warning/5 px-3.5 py-2.5">
+          <p className="t-card font-display font-semibold text-text">
+            {openItems.length} {openItems.length === 1 ? 'item needs' : 'items need'} a tick or a remark before this ticket can be closed
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById(`ticket-item-${openItems[0]?.id ?? ''}`);
+              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            className="inline-flex min-h-9 cursor-pointer items-center rounded-full border border-warning/40 px-3 t-meta font-display font-bold text-warning outline-none transition-colors duration-150 hover:bg-warning/10 focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-coarse:min-h-11"
+          >
+            Go to first
+          </button>
+        </div>
       )}
 
       {checklists.map(cl => (

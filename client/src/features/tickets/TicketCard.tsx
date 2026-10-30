@@ -51,7 +51,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
       type="button"
       onClick={() => onClick(ticket)}
       {...prefetchHandlers}
-      className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer select-none outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
+      className={`group w-full h-full text-left flex flex-col gap-2 sm:gap-2 p-3 sm:p-3.5 rounded-2xl border transition-all duration-200 ease-in-out cursor-pointer select-none outline-none focus-visible:ring-2 [-webkit-tap-highlight-color:transparent] ${isOverdue ? 'border-danger/40 border-l-[3px] border-l-danger bg-danger/5 hover:border-danger/60 hover:border-l-danger active:bg-danger/10 focus-visible:border-danger/60 focus-visible:ring-danger/30' : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 focus-visible:border-primary-500/50 focus-visible:ring-primary-500/30'}`}
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">

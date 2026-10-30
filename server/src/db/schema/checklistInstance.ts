@@ -59,6 +59,7 @@ export const checklistInstances = mysqlTable(
     verificationNote: text('verificationNote'),
     rejectionCount: int('rejectionCount').notNull().default(0),
     sentBackAt: datetime('sentBackAt', { mode: 'date' }),
+    sentBackFixBy: datetime('sentBackFixBy', { mode: 'date' }),
     overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
     draftReminderSentAt: datetime('draftReminderSentAt', { mode: 'date' }),
     submitReminderSentAt: datetime('submitReminderSentAt', { mode: 'date' }),

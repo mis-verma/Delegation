@@ -4,10 +4,11 @@ interface DraftState {
   runId: string | null;
   picked: Record<string, string>;
   note: string;
+  fixByHours: number | null;
   sending: boolean;
 }
 
-const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, note: '', sending: false });
+const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, note: '', fixByHours: null, sending: false });
 
 export const useReviewDraft = (runId: string | null) => {
   const [state, setState] = useState<DraftState>(() => fresh(runId));
@@ -30,6 +31,7 @@ export const useReviewDraft = (runId: string | null) => {
   )), [update]);
 
   const setNote = useCallback((note: string) => update((prev) => ({ ...prev, note })), [update]);
+  const setFixBy = useCallback((fixByHours: number | null) => update((prev) => ({ ...prev, fixByHours })), [update]);
   const setSending = useCallback((sending: boolean) => update((prev) => ({ ...prev, sending })), [update]);
   const reset = useCallback(() => setState(fresh(runId)), [runId]);
   const startSendBackFor = useCallback((id: string) => setState({ ...fresh(id), sending: true }), []);
@@ -38,10 +40,10 @@ export const useReviewDraft = (runId: string | null) => {
   const pickedIds = useMemo(() => Object.keys(draft.picked), [draft.picked]);
   const pickedSet = useMemo<ReadonlySet<string>>(() => new Set(pickedIds), [pickedIds]);
 
-  const { picked, note, sending } = draft;
+  const { picked, note, fixByHours, sending } = draft;
   return useMemo(
-    () => ({ picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor, startPickFor }),
-    [picked, pickedIds, pickedSet, note, sending, togglePicked, setItemNote, setNote, setSending, reset, startSendBackFor, startPickFor],
+    () => ({ picked, pickedIds, pickedSet, note, fixByHours, sending, togglePicked, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor }),
+    [picked, pickedIds, pickedSet, note, fixByHours, sending, togglePicked, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor],
   );
 };
 

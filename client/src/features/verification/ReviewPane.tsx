@@ -16,6 +16,7 @@ import type { ChecklistRow } from './verificationModel';
 export interface SendBackPayload {
   itemIds: string[];
   note: string;
+  fixByHours?: number | null;
 }
 
 const Tile = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
@@ -172,7 +173,8 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
           note={note}
           onNoteChange={setNote}
           onCancel={() => setSending(false)}
-          onSubmit={() => onSendBack(row, { itemIds: pickedIds, note: composed })}
+          onSubmit={() => onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours })}
+          fixBy={{ value: draft.fixByHours, onChange: draft.setFixBy }}
           canSubmit={composed.length > 0 && !tooLong}
           isSending={false}
           busy={false}
