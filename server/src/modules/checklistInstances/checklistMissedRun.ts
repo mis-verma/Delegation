@@ -3,6 +3,7 @@ import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { checklistInstances, checklistInstanceItems } from "../../db/schema/index.js"
 import { assertRunOpen, canWorkEndedRun } from "./checklistRunEnd.js"
+import { assertNoSendBackBlock } from "./checklistSendBackBlock.js"
 
 export const localNowSql = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
 
@@ -48,7 +49,7 @@ export const missedInstanceIds = async (ids: string[]): Promise<Set<string>> => 
     return new Set(rows.map((r) => r.id))
 }
 
-export const assertRunOpenForUser = async (instanceId: string, user: { role: string }, now: Date = new Date()) => {
+export const assertRunOpenForUser = async (instanceId: string, user: { role: string; sub?: string }, now: Date = new Date()) => {
     if (canWorkEndedRun(user)) return
     const [run] = await db.select({
         recurrence: checklistInstances.recurrence,
@@ -69,5 +70,6 @@ export const assertRunOpenForUser = async (instanceId: string, user: { role: str
             checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime, checklistInstances.lateUntilTime,
         )
     if (!run) return
+    await assertNoSendBackBlock(instanceId, run.verificationStatus, user.sub, now)
     assertRunOpen({ ...run, totalItems: Number(run.totalItems), doneItems: Number(run.doneItems) }, user, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
 }

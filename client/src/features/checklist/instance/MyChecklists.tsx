@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
-import { AlertCircle, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
-import { useSearchParams } from 'react-router';
+import { AlertCircle, Undo2, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
 import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../../components/createdRangeBanner';
 import { useCreatedRange } from '../../../lib/createdRange';
@@ -57,6 +57,7 @@ const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
 };
 
 const PAGE_SIZE = 50;
+const SEND_BACK_GRACE_MS = 2 * 60 * 60 * 1000;
 
 const NARROW_QUERY = '(max-width: 639px)';
 
@@ -272,6 +273,12 @@ export const MyChecklists = () => {
     return [...groups.entries()];
   }, [view, instances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
 
+  const sendBack = useMemo(() => {
+    const rejected = allInstances.filter((i) => i.verificationStatus === 'REJECTED');
+    const locked = rejected.some((i) => !!i.sentBackAt && now - new Date(i.sentBackAt).getTime() >= SEND_BACK_GRACE_MS);
+    return { count: rejected.length, firstId: rejected[0]?.id ?? '', locked };
+  }, [allInstances, now]);
+
   const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
 
   return (
@@ -283,6 +290,25 @@ export const MyChecklists = () => {
           {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
           assigned to you today
         </div>
+
+        {sendBack.count > 0 && (
+          <div role="alert" className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-danger/40 bg-danger/10 py-2 pl-2 pr-3">
+            <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
+              <Undo2 size={16} strokeWidth={2.5} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 t-card font-display font-semibold text-danger">
+              {sendBack.count === 1 ? '1 checklist was sent back to you.' : `${sendBack.count} checklists were sent back to you.`}{' '}
+              {sendBack.locked ? 'Fix it to unlock your other checklists.' : 'Fix it soon, or your other checklists will lock.'}
+            </span>
+            <Link
+              to={`/checklists/${sendBack.firstId}`}
+              viewTransition
+              className="inline-flex h-11 shrink-0 items-center rounded-full border border-danger/50 px-3.5 t-meta font-display font-bold text-danger outline-none transition-colors duration-150 hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-9"
+            >
+              Fix now
+            </Link>
+          </div>
+        )}
 
         {lateNowCount > 0 && (
           <div role="alert" className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-danger/40 bg-danger/10 py-2 pl-2 pr-3">

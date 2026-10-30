@@ -263,6 +263,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
             approvalEscalatedAt: null,
             submitReminderSentAt: null,
             rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
+            sentBackAt: now,
             updatedAt: now,
         }).where(eq(checklistInstances.id, id))
     })
@@ -409,6 +410,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
                 approvalEscalatedAt: null,
                 submitReminderSentAt: null,
                 rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
+                sentBackAt: now,
                 updatedAt: now,
             }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
             if (rejected.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")

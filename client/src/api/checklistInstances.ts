@@ -152,6 +152,7 @@ export type ChecklistInstance = {
   verifiedBy:         string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;
+  sentBackAt?:        string | null;
   items:            ChecklistInstanceItem[];
 };
 
