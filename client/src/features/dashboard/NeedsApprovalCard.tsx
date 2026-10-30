@@ -11,6 +11,8 @@ import { InlineError } from '../../components/inlineError';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
+import { ApprovalStatsStrip } from './ApprovalStatsStrip';
+import { ActionPointsStrip } from './ActionPointsStrip';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
@@ -82,7 +84,9 @@ export const NeedsApprovalCard = () => {
     return combined.sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime());
   }, [tickets.data, tasks.data, checklists.data]);
 
-  if (!reviewsAllWork && !hasError && (isPending || total === 0)) return null;
+  const showsStats = reviewsAllWork || isHod;
+
+  if (!showsStats && !hasError && (isPending || total === 0)) return null;
 
   const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
   const visible = expanded ? rows : rows.slice(0, previewLimit);
@@ -136,6 +140,9 @@ export const NeedsApprovalCard = () => {
           )}
         </div>
       </div>
+
+      {showsStats && <ApprovalStatsStrip />}
+      {showsStats && <ActionPointsStrip />}
 
       {failedSources.length > 0 && (
         <div className="flex flex-col gap-2 px-4 py-3 sm:px-5">

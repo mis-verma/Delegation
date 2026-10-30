@@ -8,6 +8,7 @@ export interface DashboardViewConfig {
   frontLine: boolean;
   orgWide: boolean;
   isHod: boolean;
+  isPc: boolean;
   reviewsTicketRequests: boolean;
   order: readonly DashboardCardId[];
   layoutKeyPrefix: string;
@@ -29,7 +30,8 @@ export const dashboardViewFor = (role: Role | undefined): DashboardViewConfig =>
     frontLine,
     orgWide,
     isHod,
-    reviewsTicketRequests: isHod || role === 'ADMIN',
+    isPc: role === 'PC',
+    reviewsTicketRequests:isHod || role === 'ADMIN',
     order: frontLine ? FRONT_LINE_CARD_ORDER : DEFAULT_CARD_ORDER,
     layoutKeyPrefix: frontLine ? 'tm-dashboard-layout-user' : 'tm-dashboard-layout',
     showOversightCards: orgWide,

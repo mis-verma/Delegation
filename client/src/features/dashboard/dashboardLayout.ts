@@ -19,7 +19,7 @@ export type DashboardCardId =
 
 export type DashboardCardSize = 'small' | 'big';
 
-export const LAYOUT_VERSION = 16;
+export const LAYOUT_VERSION = 17;
 
 export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
@@ -54,13 +54,25 @@ export const LEGACY_V14_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'myScores',
 ];
 
-export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+export const LEGACY_V16_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
   'kpiStrip',
   'streak',
   'teamHeat',
   'exceptions',
   'needsApproval',
+  'ticketRequests',
+  'myTeam',
+  'myScores',
+];
+
+export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+  'needsApproval',
+  'todayStrip',
+  'kpiStrip',
+  'streak',
+  'teamHeat',
+  'exceptions',
   'ticketRequests',
   'myTeam',
   'myScores',
@@ -92,7 +104,9 @@ export const TEAM_VIEW_CARDS: ReadonlySet<DashboardCardId> = new Set(['teamHeat'
 
 export const HOD_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['myTeam']);
 
-export const HOD_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['needsApproval', 'myScores']);
+export const HOD_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['myScores']);
+
+export const PC_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['teamHeat', 'kpiStrip', 'myScores']);
 
 export const REQUEST_REVIEWER_CARDS: ReadonlySet<DashboardCardId> = new Set(['ticketRequests']);
 

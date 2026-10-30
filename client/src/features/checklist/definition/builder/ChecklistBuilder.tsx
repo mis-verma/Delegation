@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, Save, Type, CalendarClock, ShieldCheck, Users, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, ClipboardX } from 'lucide-react';
 import {
-  Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS,
+  ChecklistProgressBar, EmptyState, IconChip, InlineError, PANEL_CLASS,
 } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ApiError } from '../../../../api/http';
@@ -21,7 +21,6 @@ import { draftApi } from '../../../../api/drafts';
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
 import { QuestionTypePalette } from './QuestionTypePalette';
-import { draftPayload, draftProblem } from '../../questionTypes/model';
 import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
@@ -32,134 +31,18 @@ import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
 import { BuilderReviewStep } from './wizard/BuilderReviewStep';
+import { BuilderFooter } from './wizard/BuilderFooter';
+import { BuilderHeader } from './BuilderHeader';
+import { BuilderSkeleton } from './BuilderSkeleton';
+import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
+import {
+  ALL_WEEKDAYS, DEFAULT_WORKING_WEEKDAYS, STEPS, STEP_BLOCK_REASON, BLANK_SNAPSHOT, snapshotKey,
+  toItemDraft, copiedChecklistName, buildItemPayloads, firstItemProblem, type BuilderSnapshot,
+} from './builderModel';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
-import type {
-  ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode,
-  ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
-} from '../../../../api/checklistDefinitions';
-
-const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
-  key: item.id,
-  section: item.section,
-  label: item.label,
-  requiredImageCount: String(item.requiredImageCount),
-  maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
-  requiresLivePhoto: item.requiresLivePhoto,
-  referenceImageUrl: item.referenceImageUrl ?? '',
-  isCritical: item.isCritical ?? false,
-  itemType: item.itemType,
-  auditUserIds: item.auditUserIds,
-  accessories: item.accessories,
-  accessoriesFemale: item.accessoriesFemale,
-  accessoriesMale: item.accessoriesMale,
-  accessoriesByType: item.accessoriesByType ?? {},
-  numberEntryUnit: item.numberEntryUnit ?? '',
-  numberEntryMin: item.numberEntryMin != null ? String(item.numberEntryMin) : '',
-  numberEntryMax: item.numberEntryMax != null ? String(item.numberEntryMax) : '',
-  ratingScale: item.ratingScale != null ? String(item.ratingScale) : '5',
-  options: item.options,
-  gpsTargetLat: item.gpsTargetLat != null ? String(item.gpsTargetLat) : '',
-  gpsTargetLng: item.gpsTargetLng != null ? String(item.gpsTargetLng) : '',
-  gpsRadiusMeters: item.gpsRadiusMeters != null ? String(item.gpsRadiusMeters) : '',
-  qrExpectedValue: item.qrExpectedValue ?? '',
-  cashExpectedAmount: item.cashExpectedAmount != null ? String(item.cashExpectedAmount) : '',
-  acceptableAnswers: item.acceptableAnswers ?? [],
-  acceptableMin: item.acceptableMin != null ? String(item.acceptableMin) : '',
-  acceptableMax: item.acceptableMax != null ? String(item.acceptableMax) : '',
-  yesActions: item.yesActions ?? [],
-  noActions: item.noActions ?? [],
-});
-
-const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.length).trimEnd()} (copy)`;
-
-const buildItemPayloads = (
-  itemDrafts: ItemDraft[],
-  sections: string[],
-  storePersonIds: ReadonlySet<string> | null,
-): CreateChecklistDefinitionItemPayload[] =>
-  normalizeItemOrder(itemDrafts, sections)
-    .filter(d => d.label.trim())
-    .map(d => ({
-      id: d.key,
-      label: d.label.trim(),
-      section: d.section ?? undefined,
-      requiredImageCount: Number(d.requiredImageCount) || 0,
-      maxImageCount: d.maxImageCount ? Number(d.maxImageCount) : undefined,
-      requiresLivePhoto: d.requiresLivePhoto,
-      referenceImageUrl: d.referenceImageUrl || null,
-      isCritical: d.isCritical,
-      itemType: d.itemType,
-      ...draftPayload(d, { storePersonIds }),
-    }));
-
-const firstItemProblem = (
-  itemDrafts: ItemDraft[],
-  storePersonIds: ReadonlySet<string> | null,
-): { key: string | null; message: string } | null => {
-  if (itemDrafts.length === 0) return { key: null, message: 'Add at least one question to continue.' };
-  for (let i = 0; i < itemDrafts.length; i++) {
-    const d = itemDrafts[i];
-    const problem = d.label.trim() ? draftProblem(d, { storePersonIds }) : 'Type the question staff will see.';
-    if (problem) return { key: d.key, message: `Question ${i + 1}: ${problem}` };
-  }
-  return null;
-};
-
-const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
-const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
-
-const STEPS = [
-  { key: 'basics', label: 'Basics', icon: Type },
-  { key: 'schedule', label: 'Schedule', icon: CalendarClock },
-  { key: 'items', label: 'Questions', icon: ListChecks },
-  { key: 'reviewers', label: 'Reviewers', icon: ShieldCheck },
-  { key: 'assign', label: 'Assign', icon: Users },
-  { key: 'review', label: 'Review', icon: ClipboardCheck },
-] as const;
-
-const STEP_BLOCK_REASON: Record<number, string> = {
-  0: 'Give this checklist a name to continue.',
-};
-
-type BuilderSnapshot = {
-  name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-  startDate: string; opensTime: string; cutoffTime: string; lateUntilTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode;
-  assigneeIds: string[]; reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
-};
-const snapshotKey = (f: BuilderSnapshot) => JSON.stringify(f);
-
-const BLANK_SNAPSHOT: BuilderSnapshot = {
-  name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-  opensTime: '', cutoffTime: '', lateUntilTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, responseMode: 'SHARED',
-  assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
-};
-
-const BuilderSkeleton = () => (
-  <div className="flex flex-col gap-6 w-full py-2 sm:py-4" aria-busy="true">
-    <Skeleton className="h-4 w-72 max-w-full rounded" />
-    <div className="flex items-center gap-3">
-      <Skeleton className="size-11 rounded-lg shrink-0" />
-      <div className="flex flex-col gap-2 flex-1 min-w-0">
-        <Skeleton className="h-6 w-56 max-w-full rounded" />
-        <Skeleton className="hidden sm:block h-4 w-80 max-w-full rounded" />
-      </div>
-    </div>
-    <div className={`${PANEL_CLASS} overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border/60 bg-muted/20">
-        {Array.from({ length: STEPS.length }, (_, i) => (
-          <Skeleton key={i} className="size-8 rounded-full shrink-0" />
-        ))}
-      </div>
-      <div className="flex flex-col gap-4 p-4 sm:p-8 min-h-80">
-        <Skeleton className="h-6 w-40 rounded" />
-        <Skeleton className="h-12 w-full max-w-2xl rounded-lg" />
-        <Skeleton className="h-24 w-full max-w-2xl rounded-lg" />
-      </div>
-    </div>
-  </div>
-);
+import type { ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode } from '../../../../api/checklistDefinitions';
 
 export const ChecklistBuilder = () => {
   const { definitionId } = useParams();
@@ -384,40 +267,7 @@ export const ChecklistBuilder = () => {
   };
 
   const confirm = useConfirm();
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) => isDirtyNow() && !justSavedRef.current && currentLocation.pathname !== nextLocation.pathname,
-      [isDirtyNow],
-    ),
-  );
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return;
-    let cancelled = false;
-    (async () => {
-      const ok = await confirm({
-        title: 'Discard unsaved changes?',
-        description: 'This checklist has changes that haven\'t been saved yet. Leaving now will lose them.',
-        confirmLabel: 'Discard changes',
-        cancelLabel: 'Keep editing',
-        variant: 'danger',
-      });
-      if (cancelled) return;
-      if (ok) blocker.proceed();
-      else blocker.reset();
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocker.state]);
-
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (!isDirtyNow()) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirtyNow]);
+  useUnsavedChangesGuard(isDirtyNow, justSavedRef);
 
   const updateDraft = useCallback((key: string, patch: Partial<ItemDraft>) =>
     setItemDrafts(drafts => drafts.map(d => (d.key === key ? { ...d, ...patch } : d))), [setItemDrafts]);
@@ -800,44 +650,14 @@ export const ChecklistBuilder = () => {
 
   return (
     <div className="flex flex-col gap-3 sm:gap-6 w-full py-1 sm:py-4">
-      <div className="hidden sm:block">
-      <Breadcrumbs
-        items={[
-          { label: 'Dashboard', to: '/' },
-          { label: 'Admin', to: '/admin' },
-          { label: 'Recurring Checklists', to: '/admin/scheduled-checklists' },
-          { label: isEditing && existing ? existing.name : isCopying ? 'Duplicate Checklist' : 'New Checklist' },
-          { label: STEPS[step].label },
-        ]}
+      <BuilderHeader
+        isEditing={isEditing}
+        isCopying={isCopying}
+        existing={existing}
+        copySource={copySource}
+        stepLabel={STEPS[step].label}
+        onBack={() => navigate('/admin/scheduled-checklists')}
       />
-      </div>
-
-      <div className="hidden sm:block">
-      <PageHeader
-        icon={ListChecks}
-        title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : 'New Checklist'}
-        subtitle={
-          isEditing && existing
-            ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : STATE_LABEL[definitionState(existing)]}`
-            : isCopying && copySource
-              ? `Copied from "${copySource.name}" with its stores, people, schedule and every question. Give it a new name, then save.`
-              : 'Build a recurring checklist your team runs on a schedule.'
-        }
-        actions={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/admin/scheduled-checklists')}
-            className="font-display pointer-coarse:min-w-11"
-            aria-label="Back to Recurring Checklists"
-          >
-            <ArrowLeft size={13} />
-            <span className="hidden sm:inline">Back to Recurring Checklists</span>
-          </Button>
-        }
-      />
-      </div>
 
       <div className={PANEL_CLASS}>
         <div className="flex flex-col gap-3 px-4 sm:px-6 pt-2 sm:pt-5 pb-2 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
@@ -869,112 +689,29 @@ export const ChecklistBuilder = () => {
             {renderStep()}
           </motion.div>
 
-          <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
-            {mutation.isError && (
-              <div role="alert" className="order-first flex w-full flex-wrap items-start gap-x-3 gap-y-1.5 t-meta font-display font-medium text-danger">
-                <p className="flex min-w-0 flex-1 items-start gap-1.5">
-                  <AlertCircle size={13} className="shrink-0 mt-0.5" aria-hidden />
-                  <span className="min-w-0 break-words">{mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again."}</span>
-                </p>
-                {isEditing && isConflict && (
-                  <Button type="button" variant="outline" size="sm" onClick={reloadLatest} className="font-display pointer-coarse:h-11">
-                    Load latest version
-                  </Button>
-                )}
-              </div>
-            )}
-            {step < STEPS.length - 1 && !isStepValid(step) && (
-              <p role="status" className="order-first flex w-full items-start gap-2 rounded-xl border border-warning/30 bg-warning/8 px-3 py-2 t-meta font-display font-medium text-warning">
-                <AlertCircle size={14} className="mt-px shrink-0" aria-hidden />
-                <span className="min-w-0">{blockReasonFor(step)}</span>
-              </p>
-            )}
-            {step > 0 ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => goToStep(step - 1)}
-                className="font-display pointer-coarse:h-11"
-              >
-                <ChevronLeft size={15} />
-                <span>Back</span>
-              </Button>
-            ) : <span />}
-
-            {step < STEPS.length - 1 && (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {!isEditing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="md"
-                    onClick={saveAsDraft}
-                    isLoading={saveDraftMutation.isPending}
-                    disabled={!name.trim()}
-                    title={!name.trim() ? 'Give it a name first' : 'Save what you have and finish later'}
-                    className="font-display pointer-coarse:h-11"
-                  >
-                    <Save size={15} aria-hidden />
-                    <span>{savedDraftId ? 'Update draft' : 'Save draft'}</span>
-                  </Button>
-                )}
-                {isEditing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="md"
-                    onClick={() => void handleSubmit({ stay: true })}
-                    isLoading={mutation.isPending}
-                    disabled={!canSubmit || !isDirty}
-                    title={!canSubmit ? 'Fix the step that needs attention first' : !isDirty ? 'Nothing to save yet' : 'Save now and keep editing'}
-                    className="font-display pointer-coarse:h-11"
-                  >
-                    <Save size={15} aria-hidden />
-                    <span>{isDirty ? 'Save' : 'Saved'}</span>
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="md"
-                  onClick={handleNext}
-                  aria-disabled={!isStepValid(step)}
-                  className={`font-display pointer-coarse:h-11 ${isStepValid(step) ? '' : 'opacity-60'}`}
-                >
-                  <span>Next</span>
-                  <ChevronRight size={15} />
-                </Button>
-              </div>
-            )}
-            {step === STEPS.length - 1 && !isEditing && (
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                onClick={saveAsDraft}
-                isLoading={saveDraftMutation.isPending}
-                disabled={!name.trim()}
-                className="font-display pointer-coarse:h-11"
-              >
-                <Save size={15} aria-hidden />
-                <span>{savedDraftId ? 'Update draft' : 'Save draft'}</span>
-              </Button>
-            )}
-            {step === STEPS.length - 1 && (
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                onClick={() => void handleSubmit()}
-                isLoading={mutation.isPending}
-                disabled={!canSubmit}
-                className="font-display pointer-coarse:h-11"
-              >
-                {mutation.isPending ? 'Saving…' : !hasPeople ? 'Save as draft' : isEditing ? 'Save changes' : 'Create checklist'}
-              </Button>
-            )}
-          </div>
+          <BuilderFooter
+            step={step}
+            stepCount={STEPS.length}
+            stepValid={isStepValid(step)}
+            blockReason={blockReasonFor(step)}
+            isEditing={isEditing}
+            isDirty={isDirty}
+            canSubmit={canSubmit}
+            hasPeople={hasPeople}
+            hasName={!!name.trim()}
+            savedDraftId={savedDraftId}
+            isSaving={mutation.isPending}
+            isSavingDraft={saveDraftMutation.isPending}
+            hasError={mutation.isError}
+            errorMessage={mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again."}
+            isConflict={isEditing && isConflict}
+            onBack={() => goToStep(step - 1)}
+            onNext={handleNext}
+            onSaveDraft={saveAsDraft}
+            onSaveStay={() => void handleSubmit({ stay: true })}
+            onSubmit={() => void handleSubmit()}
+            onReloadLatest={reloadLatest}
+          />
         </div>
       </div>
     </div>
