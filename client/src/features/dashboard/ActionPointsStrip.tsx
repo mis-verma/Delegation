@@ -35,6 +35,7 @@ export const ActionPointsStrip = memo(() => {
           label="Delegation approvals"
           value={delegationApprovals}
           accent="green"
+          mutedAtZero
           caption={delegationApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
           loading={tasks.isPending}
           to={delegationApprovals > 0 ? queueHref : null}
@@ -45,6 +46,7 @@ export const ActionPointsStrip = memo(() => {
           label="Ticket approvals"
           value={ticketApprovals}
           accent="sky"
+          mutedAtZero
           caption={ticketApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
           loading={tickets.isPending}
           to={ticketApprovals > 0 ? queueHref : null}
@@ -56,6 +58,7 @@ export const ActionPointsStrip = memo(() => {
           value={totals.openTickets}
           caption={totals.overdueTickets === 0 ? 'None overdue' : `${totals.overdueTickets} overdue`}
           accent={totals.overdueTickets > 0 ? 'red' : 'sky'}
+          mutedAtZero
           alert={totals.overdueTickets > 0}
           loading={pointsLoading}
           to="/tickets"
@@ -67,6 +70,7 @@ export const ActionPointsStrip = memo(() => {
           value={totals.openDelegations}
           caption={totals.overdueDelegations === 0 ? 'None overdue' : `${totals.overdueDelegations} overdue`}
           accent={totals.overdueDelegations > 0 ? 'red' : 'green'}
+          mutedAtZero
           alert={totals.overdueDelegations > 0}
           loading={pointsLoading}
           to="/tasks"

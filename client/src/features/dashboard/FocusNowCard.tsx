@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 import { AlarmClockOff, BellRing, CheckCheck, ChevronDown, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
 import { DueChip } from '../../components/dueChip';
 import { IconChip } from '../../components/iconChip';
 import { RadialGauge } from '../../components';
@@ -246,7 +247,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
     }
     const teamNeedsLook = ownWorkOnly && reviewCount > 0;
     return (
-      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3 px-4 py-3.5 border-success/30 bg-success/5')}>
+      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, CARD_TOP_BAR.green, 'flex items-center gap-3 px-4 py-3.5 border-success/30 bg-success/5')}>
         {ring(
           <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
             <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
@@ -271,8 +272,8 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
   }
 
   return (
-    <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
-      <div className="flex items-start gap-3 px-3 py-3 sm:items-center sm:px-4">
+    <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, urgent > 0 ? CARD_TOP_BAR.red : CARD_TOP_BAR.blue, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
+      <div className={cn('flex items-start gap-3 px-3 py-3 sm:items-center sm:px-4', urgent > 0 ? CARD_HEAD_TINT.red : CARD_HEAD_TINT.blue)}>
         {ring(
           <span className={cn(TILE_CLASS, urgent > 0 ? TILE_DANGER : TILE_PRIMARY)}>
             <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />

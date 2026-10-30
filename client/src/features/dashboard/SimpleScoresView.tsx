@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { CARD_TOP_BAR } from './cardAccent';
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, Trophy, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,7 @@ export const SimpleScoresView = ({
   const stepClass = 'inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent sm:size-8 pointer-coarse:size-11';
 
   return (
-    <section className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-3.5 p-3.5 sm:gap-4 sm:p-4`} aria-label="Scores">
+    <section className={`${DASHBOARD_CARD_CLASS} ${CARD_TOP_BAR.violet} @container flex min-w-0 flex-col gap-3.5 p-3.5 sm:gap-4 sm:p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true">

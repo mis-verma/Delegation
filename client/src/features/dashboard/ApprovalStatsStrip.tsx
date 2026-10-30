@@ -27,6 +27,7 @@ export interface StatProps {
   trend?: readonly (number | null)[];
   trendLabel?: string;
   alert?: boolean;
+  mutedAtZero?: boolean;
   loading: boolean;
   to?: string | null;
   index?: number;
@@ -67,13 +68,16 @@ const VALUE: Record<StatAccent, string> = {
   red: 'text-vivid-red-text',
 };
 
+const MUTED_SURFACE = 'border-border/60 bg-surface hover:border-border-hover';
+
 const BASE = 'stat-rise relative flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border px-3 py-3 transition-colors duration-150';
 
-export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', format, decimals = 0, progress, trend, trendLabel, alert = false, loading, to, index = 0 }: StatProps) => {
+export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', format, decimals = 0, progress, trend, trendLabel, alert = false, mutedAtZero = false, loading, to, index = 0 }: StatProps) => {
+  const muted = mutedAtZero && !loading && value === 0;
   const style = { '--stat-delay': `${index * 60}ms` } as React.CSSProperties;
   const body = (
     <>
-      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl text-white', TILE[accent])}>
+      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', muted ? 'bg-surface-hover text-text-muted' : cn('text-white', TILE[accent]))}>
         <Icon className="size-5" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -81,7 +85,7 @@ export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', forma
         {loading ? (
           <Skeleton className="h-7 w-14" />
         ) : (
-          <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', VALUE[accent])}>
+          <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', muted ? 'text-text-muted' : VALUE[accent])}>
             {value == null ? '—' : <CountUp value={value} decimals={decimals} format={format} fromZero />}
           </span>
         )}
@@ -100,13 +104,14 @@ export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', forma
       )}
     </>
   );
-  if (!to) return <div className={cn(BASE, SURFACE[accent])} style={style}>{body}</div>;
+  const surface = muted ? MUTED_SURFACE : SURFACE[accent];
+  if (!to) return <div className={cn(BASE, surface)} style={style}>{body}</div>;
   return (
     <Link
       to={to}
       viewTransition
       style={style}
-      className={cn(BASE, SURFACE[accent], 'outline-none active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/50')}
+      className={cn(BASE, surface, 'outline-none active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/50')}
     >
       {body}
     </Link>
@@ -154,6 +159,7 @@ export const ApprovalStatsStrip = memo(() => {
           value={waiting}
           caption={waiting === 0 ? 'Nothing pending' : 'Awaiting a decision'}
           accent="blue"
+          mutedAtZero
           trend={inflow}
           trendLabel="Handed in for approval, last 7 days"
           loading={loading}

@@ -9,6 +9,7 @@ import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
 import { Button, DueChip, StatusBadge, WaitChip } from '../../components';
 import { useCanSeeExceptions, useExceptionsQuery } from './useExceptionsQuery';
 import { useAttentionPeople, useNow, useRemindMutation } from '../attention/useAttention';
@@ -107,8 +108,8 @@ export const ExceptionsCard = () => {
   const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending;
 
   return (
-    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
+    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.red} flex h-full flex-col overflow-hidden`}>
+      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40 ${CARD_HEAD_TINT.red}`}>
         <div className="flex items-center gap-3 min-w-0">
           <div className={cardIconTile('danger')}>
             <AlertTriangle className="size-4" strokeWidth={2.25} aria-hidden="true" />

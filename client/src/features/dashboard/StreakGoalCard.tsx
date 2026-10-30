@@ -3,11 +3,21 @@ import { Flame, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Segmented, Skeleton } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { CARD_TOP_BAR, type CardAccent } from './cardAccent';
 import { formatPct } from '../../lib/percent';
 import {
-  GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, STREAK_LABEL, STREAK_TITLE,
+  GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, type StreakKind, STREAK_LABEL, STREAK_TITLE,
   daysFor, summariseStreak, useStreakDays, useStreakGoal, useStreakKind,
 } from './useStreak';
+
+const KIND_ACCENT: Record<StreakKind, CardAccent> = { checklist: 'green', ticket: 'sky', delegation: 'blue', all: 'violet' };
+
+const KIND_TILE: Record<StreakKind, string> = {
+  checklist: 'bg-linear-to-br from-vivid-green to-vivid-green/70',
+  ticket: 'bg-linear-to-br from-vivid-sky to-vivid-sky/70',
+  delegation: 'bg-linear-to-br from-vivid-blue to-vivid-blue/70',
+  all: 'bg-linear-to-br from-vivid-blue to-coral-500',
+};
 
 const dayLetter = (date: string) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(`${date}T00:00:00Z`).getUTCDay()] ?? '';
 const dayNumber = (date: string) => Number(date.slice(8, 10));
@@ -46,12 +56,12 @@ export const StreakGoalCard = () => {
   const counted = days.filter((d) => d.value !== null).length;
 
   return (
-    <section aria-labelledby="streak-heading" className={cn(PANEL_CLASS, '@container flex flex-col p-4 sm:p-5')}>
+    <section aria-labelledby="streak-heading" className={cn(PANEL_CLASS, CARD_TOP_BAR[KIND_ACCENT[activeKind]], '@container flex flex-col p-4 sm:p-5')}>
       <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-center @3xl:gap-8">
         <div className="flex flex-col gap-3 @3xl:w-80 @3xl:shrink-0">
           <div className="flex items-center gap-3">
-            <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl text-white', hot ? 'bg-linear-to-br from-vivid-red to-vivid-sky' : 'bg-vivid-blue')} aria-hidden="true">
-              <Flame className="size-5" strokeWidth={2.25} />
+            <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl text-white', KIND_TILE[activeKind])} aria-hidden="true">
+              <Flame className={cn("size-5", hot && "live-dot")} strokeWidth={2.25} />
             </span>
             <div className="min-w-0">
               <h2 id="streak-heading" className="t-section font-display font-bold tracking-tight text-text">{STREAK_TITLE[activeKind]}</h2>

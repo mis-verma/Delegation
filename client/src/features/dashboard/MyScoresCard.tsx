@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { CARD_TOP_BAR } from './cardAccent';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -450,7 +451,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             : `Showing ${data?.name ?? 'this store'}.`;
 
   return (
-    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
+    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} ${CARD_TOP_BAR.violet} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between">
         <div className="flex min-w-0 items-start justify-between gap-3 @2xl:flex-1">
           <div className="flex min-w-0 items-start gap-3">

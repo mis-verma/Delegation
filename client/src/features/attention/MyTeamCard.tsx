@@ -5,6 +5,7 @@ import { BarChart3, ChevronRight, Grid3x3, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, EmptyState, ExportMenu, InlineError, Skeleton, ToggleChip } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { CARD_HEAD_TINT, CARD_TOP_BAR } from '../dashboard/cardAccent';
 import { scoreApi, type ScoreReportRow } from '../../api/scores';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -99,8 +100,8 @@ export const MyTeamCard = () => {
   ];
 
   return (
-    <section aria-labelledby="my-team-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5 sm:px-5 sm:py-3">
+    <section aria-labelledby="my-team-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.violet} flex h-full flex-col overflow-hidden`}>
+      <div className={`flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5 sm:px-5 sm:py-3 ${CARD_HEAD_TINT.violet}`}>
         <div className="flex min-w-0 items-center gap-3">
           <div className={cardIconTile('primary')}>
             <Users className="size-4" strokeWidth={2.25} aria-hidden="true" />

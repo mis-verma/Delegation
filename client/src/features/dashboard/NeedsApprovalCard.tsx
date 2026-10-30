@@ -15,6 +15,7 @@ import { ApprovalStatsStrip } from './ApprovalStatsStrip';
 import { ActionPointsStrip } from './ActionPointsStrip';
 import { StatsBoundary } from './StatsBoundary';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
 import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL, CATEGORY_TILE } from './categoryLook';
 
@@ -110,8 +111,8 @@ export const NeedsApprovalCard = () => {
   const allCaughtUp = nothingToShow && !hasError && !isPending;
 
   return (
-    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
+    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.blue} flex h-full flex-col overflow-hidden`}>
+      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40 ${CARD_HEAD_TINT.blue}`}>
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-vivid-blue text-white">
             <ShieldAlert className="size-5" strokeWidth={2.25} aria-hidden="true" />

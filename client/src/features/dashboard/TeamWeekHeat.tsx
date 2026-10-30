@@ -4,6 +4,7 @@ import { Grid3x3, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { ExplorerRow, ExplorerView, MatrixParams } from '../../api/scores';
 import { Button, InlineError, PANEL_CLASS, Skeleton } from '../../components';
+import { CARD_TOP_BAR } from './cardAccent';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { shiftDay } from '../admin/analytics/analyticsDisplay';
 import { BiDetailDialog, type BiDetail } from '../admin/analytics/bi/BiDetailDialog';
@@ -44,7 +45,7 @@ export const TeamWeekHeat = () => {
   };
 
   return (
-    <section aria-labelledby="team-week-heading" className={`${PANEL_CLASS} flex h-full flex-col gap-3 p-4 sm:p-5`}>
+    <section aria-labelledby="team-week-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.violet} flex h-full flex-col gap-3 p-4 sm:p-5`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className={cardIconTile('primary')}>
