@@ -22,6 +22,7 @@ import { auditService } from "../audit/audit.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { VerifyChecklistInstanceInput, RaiseChecklistTicketInput } from "./checklistInstance.validation.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
+import { assertCoordinatorRunReviewer } from "./checklistCoordinatorRun.js"
 import { env } from "../../config/env.js"
 import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, assertInstanceOpen, assertInstanceEditable, auditItemSnapshot, assertCanAccess, getDepartmentIdsForUserIds, assertConditionalActionsSatisfied, applyConditionalSideEffects, deriveInstanceItemCompletion, syncVerificationStatus, assertNotOwnRun, assertCanVerify, countsAgainstCompliance, loadWaivable, dropChecklistSummaries } from "./checklistInstanceShared.js"
 
@@ -232,6 +233,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
     await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
+    await assertCoordinatorRunReviewer(id, user)
 
     const wanted = [...new Set(input.itemIds)]
     const items = await db.select().from(checklistInstanceItems)
@@ -296,6 +298,7 @@ export const raiseTicket = async (id: string, itemId: string, input: RaiseCheckl
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
     await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
+    await assertCoordinatorRunReviewer(id, user)
 
     const [item] = await db.select().from(checklistInstanceItems)
         .where(and(eq(checklistInstanceItems.id, itemId), eq(checklistInstanceItems.instanceId, id))).limit(1)
@@ -385,6 +388,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
     await assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
     assertNotOwnRun(assigneeLinks, user)
+    await assertCoordinatorRunReviewer(id, user)
 
     const now = new Date()
     let afterRow: typeof instance

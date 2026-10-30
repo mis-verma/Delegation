@@ -7,6 +7,7 @@ let disabledUntil = 0
 const DISABLE_MS = 30_000
 
 const CONNECT_WAIT_MS = 250
+const WRITE_WAIT_MS = 1000
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
     new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("query cache connect timed out")), ms)
@@ -43,17 +44,15 @@ const inflight = new Map<string, Promise<unknown>>()
 const lookupOrCompute = async <T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> => {
     try {
         await withTimeout(connect(), CONNECT_WAIT_MS)
-        const hit = await client!.get(key)
+        const hit = await withTimeout(client!.get(key), CONNECT_WAIT_MS)
         if (hit !== null) return JSON.parse(hit) as T
     } catch {
         return compute()
     }
 
     const value = await compute()
-    try {
-        await client!.set(key, JSON.stringify(value), { EX: ttlSeconds })
-    } catch {
-    }
+    const redis = client!
+    withTimeout(redis.set(key, JSON.stringify(value), { EX: ttlSeconds }), WRITE_WAIT_MS).catch(() => {})
     return value
 }
 

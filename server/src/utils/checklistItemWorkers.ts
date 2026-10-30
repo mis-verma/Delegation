@@ -55,7 +55,18 @@ export const taskChecklistWorkerIds = async (taskChecklistId: string): Promise<s
     return [row.assigneeId, ...additional.map((a) => a.userId)].filter((id): id is string => !!id)
 }
 
-export const ticketChecklistWorkerIds = async (checklistId: string): Promise<string[]> => {
+export const assertTicketChecklistOpen = async (user: AccessTokenPayload, checklistId: string | null) => {
+    if (!checklistId || user.role === "ADMIN") return
+    const [row] = await db.select({ status: tickets.status, deletedAt: tickets.deletedAt })
+        .from(checklists)
+        .innerJoin(tickets, eq(tickets.id, checklists.ticketId))
+        .where(eq(checklists.id, checklistId))
+        .limit(1)
+    if (!row || row.deletedAt) throw AppError.notFound("Ticket not found")
+    if (row.status === "CLOSED") throw AppError.forbidden("This ticket is closed, so its checklist can't be changed.")
+}
+
+export const ticketChecklistWorkerIds =async (checklistId: string): Promise<string[]> => {
     const [row] = await db.select({ assigneeId: tickets.assigneeId })
         .from(checklists)
         .innerJoin(tickets, eq(tickets.id, checklists.ticketId))

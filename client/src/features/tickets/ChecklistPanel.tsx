@@ -10,6 +10,7 @@ import {
 } from '../../components';
 import { DETAIL_SECTION_HEADING } from './detail/detailConstants';
 import { useDoneLast } from '../../lib/useDoneLast';
+import { SmoothItem } from '../../components/smoothItem';
 import {
   useAddChecklistMutation,
   useDeleteChecklistMutation,
@@ -330,13 +331,14 @@ const ChecklistBlock = ({
             </div>
           )}
           {pendingItems.map(item => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              ticketId={ticketId}
-              isAdmin={isAdmin}
-              canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
-            />
+            <SmoothItem key={item.id} active>
+              <ItemRow
+                item={item}
+                ticketId={ticketId}
+                isAdmin={isAdmin}
+                canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
+              />
+            </SmoothItem>
           ))}
           {doneItems.length > 0 && (
             <div className="flex flex-col gap-3 sm:gap-4">
@@ -352,13 +354,14 @@ const ChecklistBlock = ({
                 </button>
               )}
               {(showDone || pendingItems.length === 0) && doneItems.map(item => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  ticketId={ticketId}
-                  isAdmin={isAdmin}
-                  canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
-                />
+                <SmoothItem key={item.id} active>
+                  <ItemRow
+                    item={item}
+                    ticketId={ticketId}
+                    isAdmin={isAdmin}
+                    canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
+                  />
+                </SmoothItem>
               ))}
             </div>
           )}

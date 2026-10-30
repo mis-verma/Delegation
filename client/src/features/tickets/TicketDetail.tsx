@@ -492,9 +492,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   isLoading={reopenMut.isPending}
                   disabled={reopenMut.isPending}
                   onClick={() => reopenMut.mutate({ id: ticket.id })}
-                  className="max-sm:flex-1 max-sm:h-11 gap-1.5 font-display font-semibold"
+                  className="h-12 min-w-40 gap-2 px-6 font-display font-semibold max-sm:flex-1 sm:h-11"
                 >
-                  <RotateCcw size={16} aria-hidden />
+                  <RotateCcw size={17} aria-hidden />
                   Reopen ticket
                 </Button>
               )}

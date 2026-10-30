@@ -1,4 +1,5 @@
 import { db } from "../../config/db.js"
+import { MAX_TAT_HOURS } from "../../utils/tatLimits.js"
 import { tags, stores } from "../../db/schema/index.js"
 import { TICKET_PRIORITIES } from "../../db/schema/ticket.js"
 import { parse as parseCsv } from "csv-parse/sync"
@@ -179,7 +180,7 @@ const resolvePriority = (raw: string | undefined): { priority: TicketPriority; m
 const resolveTatHours = (raw: string | undefined): { tatHours: number | null; invalid: boolean } => {
     if (!raw) return { tatHours: null, invalid: false }
     const n = Number(raw)
-    if (!Number.isFinite(n) || n <= 0) return { tatHours: null, invalid: true }
+    if (!Number.isFinite(n) || n <= 0 || n > MAX_TAT_HOURS) return { tatHours: null, invalid: true }
     return { tatHours: n, invalid: false }
 }
 

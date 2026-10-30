@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { MAX_TAT_HOURS } from "../../utils/tatLimits.js"
 import { TICKET_PRIORITIES } from "../../db/schema/ticket.js"
 import { objectId } from "../../utils/index.js"
 
@@ -12,7 +13,7 @@ export const ticketBulkImportPublishSchema = z.object({
         departmentId: objectId.optional(),
         storeId: objectId.optional(),
         categoryId: objectId.optional(),
-        tatHours: z.number().positive().optional(),
+        tatHours: z.number().positive().max(MAX_TAT_HOURS).optional(),
         tagIds: z.array(objectId).max(12).optional(),
     })).min(1, "At least one row is required"),
 })

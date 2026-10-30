@@ -1,5 +1,6 @@
 import path from "node:path";
-import fs from "node:fs";
+import fs from "node:fs"
+import { removeUploadedFile } from "../../utils/uploadFiles.js";
 import { db } from "../../config/db.js";
 import { checklistInstanceItems, checklistInstances, checklistInstanceImages, checklistInstanceAssignees } from "../../db/schema/index.js";
 import { and, eq, gt, inArray } from "drizzle-orm";
@@ -148,6 +149,7 @@ export const checklistInstanceImageService = {
         }
 
         await db.delete(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId));
+        removeUploadedFile(image.url);
         await auditService.record({
             entityType: "ChecklistInstanceImage",
             entityId: imageId,

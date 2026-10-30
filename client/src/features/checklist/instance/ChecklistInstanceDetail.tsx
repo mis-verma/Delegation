@@ -19,6 +19,7 @@ import {
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { useDoneLast } from '../../../lib/useDoneLast';
+import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateWindowBanner } from './LateWindowBanner';
 import { useAuth } from '../../../context/AuthContext';
@@ -128,6 +129,7 @@ export const ChecklistInstanceDetail = () => {
   const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id);
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
+    !(user?.role === 'PC' && instance.coordinatorRun) &&
     !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
@@ -349,8 +351,8 @@ export const ChecklistInstanceDetail = () => {
           </div>
         )}
         {shownItems.map((item, idx) => (
+          <SmoothItem key={item.id} active={reorder}>
           <DetailItemRow
-            key={item.id}
             item={item}
             instanceId={instanceId}
             canWork={canWork}
@@ -366,6 +368,7 @@ export const ChecklistInstanceDetail = () => {
             canWaive={canWaive}
             canRaiseTicket={canReview}
           />
+          </SmoothItem>
         ))}
       </div>
 

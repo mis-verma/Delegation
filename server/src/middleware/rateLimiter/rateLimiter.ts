@@ -59,9 +59,23 @@ const emailKey = (req: Request): string => {
     return `ip:${ipKeyGenerator(req.ip ?? "")}`
 }
 
+const emailAndIpKey = (req: Request): string => `${emailKey(req)}|${ipKeyGenerator(req.ip ?? "")}`
+
 export const createLoginEmailLimiter = (store?: Store) => rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: emailAndIpKey,
+    standardHeaders: false,
+    legacyHeaders: false,
+    store,
+    passOnStoreError: true,
+    message: { success: false, message: "Too many failed sign-in attempts, please try again later." }
+})
+
+export const createLoginEmailCeilingLimiter = (store?: Store) => rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
     skipSuccessfulRequests: true,
     keyGenerator: emailKey,
     standardHeaders: false,

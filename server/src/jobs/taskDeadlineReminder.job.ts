@@ -5,6 +5,7 @@ import { tasks, taskAdditionalAssignees, users } from '../db/schema/index.js';
 import { notificationService } from '../modules/notifications/notification.service.js';
 import { sendMail } from '../config/mailer.js';
 import { settingsService } from '../modules/settings/settings.service.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
 
 const REMINDER_BATCH_SIZE = 500;
 
@@ -68,7 +69,7 @@ export const startTaskDeadlineReminder = () => {
             .where(inArray(users.id, uniqueRecipientIds));
           await Promise.all(
             recipients.map((r) =>
-              sendMail({ to: r.email, subject: title, html: `<p>Hi ${r.firstName},</p><p>${message}</p>` })
+              sendMail({ to: r.email, subject: title, html: `<p>Hi ${escapeHtml(r.firstName)},</p><p>${escapeHtml(message)}</p>` })
                 .catch((err) => console.error(`Task deadline reminder: email to ${r.email} failed:`, err)),
             ),
           );

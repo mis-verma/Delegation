@@ -21,6 +21,7 @@ import { groupBy } from "../../utils/groupBy.js"
 import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
 import { UPCOMING_LEAD_DAYS } from "../../utils/period.js"
 import { CAN_VERIFY_BY_ROLE, coverCanVerify } from "./checklistVerifyRules.js"
+import { assertCoordinatorRunReviewer, coordinatorAssigneeIds, coordinatorRunSql } from "./checklistCoordinatorRun.js"
 import { type ChecklistItem, type ItemValueInput } from "./checklistItemValidators.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
 import { eq, and, inArray, isNull, asc, sql, gte, lt, type SQL } from "drizzle-orm"
@@ -59,6 +60,8 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
         list.push(link.userId)
         assigneeIdsByInstance.set(link.instanceId, list)
     }
+
+    const coordinatorIds = await coordinatorAssigneeIds([...new Set(assigneeLinks.map((l) => l.userId))])
 
     const reviewerLinks = await db.select().from(checklistInstanceReviewers).where(inArray(checklistInstanceReviewers.instanceId, instanceIds))
     const reviewerIdsByInstance = new Map<string, string[]>()
@@ -192,6 +195,7 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
             isLate: runPhase(endInput, nowMs, offsetMinutes) === "late",
             endedAt: new Date(runClosingMs(instance, offsetMinutes)).toISOString(),
             assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
+            coordinatorRun: (assigneeIdsByInstance.get(instance.id) ?? []).some((id) => coordinatorIds.has(id)),
             reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
             submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
             items: runItems,
@@ -474,6 +478,7 @@ export const loadWaivable = async (id: string, itemId: string, user: AccessToken
     const assigneeIds = assigneeLinks.map((l) => l.userId)
     const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
     await assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+    await assertCoordinatorRunReviewer(id, user)
     if (!["ADMIN", "PC", "MANAGER", "SENIOR"].includes(user.role)) throw AppError.forbidden("Only a department head, PC or Admin can waive a question.")
     if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You cannot waive a question on a checklist you fill in yourself.")
     const orgWide = isAdminOrPc(user.role)
@@ -576,9 +581,10 @@ export const instanceConditions = (filter: InstanceListFilter): SQL | undefined 
 }
 
 export const pendingApprovalScope = async (user: AccessTokenPayload): Promise<SQL | undefined> => {
-    if (isAdminOrPc(user.role)) return undefined
+    if (user.role === "ADMIN") return undefined
     const covers = await approvalCoverService.activeCoversFor(user.sub)
-    if (covers.some((cover) => isAdminOrPc(cover.role))) return undefined
+    if (covers.some((cover) => cover.role === "ADMIN")) return undefined
+    if (user.role === "PC" || covers.some((cover) => cover.role === "PC")) return sql`NOT ${coordinatorRunSql}`
     const reviewerIds = [user.sub, ...covers.map((cover) => cover.id)]
     const parts: SQL[] = [sql`EXISTS (
         SELECT 1 FROM ${checklistInstanceReviewers} r

@@ -43,3 +43,23 @@ export const FRESHNESS_LOOK: Record<Freshness, { tone: string; chip: string; tex
   aging: { tone: 'bg-warning', chip: 'border-warning/30 bg-warning/10', text: 'text-warning' },
   stale: { tone: 'bg-danger', chip: 'border-danger/30 bg-danger/10', text: 'text-danger' },
 };
+
+export interface LatestRemark {
+  text: string;
+  by: string;
+  ago: string;
+  label: string;
+}
+
+export const latestRemarkOf = (ticket: Pick<Ticket, 'statusUpdates'>, now: number = Date.now()): LatestRemark | null => {
+  const update = [...(ticket.statusUpdates ?? [])].filter((u) => !!u.remark?.trim()).sort(byNewest)[0];
+  if (!update?.remark) return null;
+  const label = isProgressUpdate(update)
+    ? 'Update'
+    : update.toStatus === 'ON_HOLD'
+      ? 'On hold'
+      : update.fromStatus === 'PENDING_APPROVAL' && update.toStatus === 'IN_PROGRESS'
+        ? 'Sent back'
+        : 'Remark';
+  return { text: update.remark.trim(), by: update.changedByUser?.firstName ?? 'Someone', ago: timeAgo(update.createdAt, now), label };
+};

@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto"
 import fs from "node:fs"
 import type { Request, Response, NextFunction } from "express"
+import { uploadDestination } from "../utils/diskSpace.js"
 import { settingsService } from "../modules/settings/settings.service.js";
 
 const UPLOAD_DIR = path.resolve("uploads", "tasks")
@@ -79,7 +80,7 @@ const SAFE_MIME_EXTENSIONS: Record<string, string> = {
 const safeExtensionFor = (mimetype: string): string => SAFE_MIME_EXTENSIONS[mimetype] ?? ".bin"
 
 const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+    destination: uploadDestination(UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -87,7 +88,7 @@ const storage = multer.diskStorage({
 });
 
 const ticketStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, TICKET_UPLOAD_DIR),
+    destination: uploadDestination(TICKET_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -95,7 +96,7 @@ const ticketStorage = multer.diskStorage({
 })
 
 const ticketAttachmentStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, TICKET_ATTACHMENT_UPLOAD_DIR),
+    destination: uploadDestination(TICKET_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -103,7 +104,7 @@ const ticketAttachmentStorage = multer.diskStorage({
 })
 
 const checklistInstanceStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_UPLOAD_DIR),
+    destination: uploadDestination(CHECKLIST_INSTANCE_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -111,7 +112,7 @@ const checklistInstanceStorage = multer.diskStorage({
 })
 
 const checklistInstanceSubmissionStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_SUBMISSION_UPLOAD_DIR),
+    destination: uploadDestination(CHECKLIST_INSTANCE_SUBMISSION_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -119,7 +120,7 @@ const checklistInstanceSubmissionStorage = multer.diskStorage({
 })
 
 const taskAttachmentStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, TASK_ATTACHMENT_UPLOAD_DIR),
+    destination: uploadDestination(TASK_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -127,7 +128,7 @@ const taskAttachmentStorage = multer.diskStorage({
 })
 
 const avatarStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, AVATAR_UPLOAD_DIR),
+    destination: uploadDestination(AVATAR_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -135,7 +136,7 @@ const avatarStorage = multer.diskStorage({
 })
 
 const logoStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, LOGO_UPLOAD_DIR),
+    destination: uploadDestination(LOGO_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -143,7 +144,7 @@ const logoStorage = multer.diskStorage({
 })
 
 const checklistReferenceStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, CHECKLIST_REFERENCE_UPLOAD_DIR),
+    destination: uploadDestination(CHECKLIST_REFERENCE_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -151,7 +152,7 @@ const checklistReferenceStorage = multer.diskStorage({
 })
 
 const taskCommentAttachmentStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
+    destination: uploadDestination(TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -197,14 +198,26 @@ export const ticketAttachmentUpload = (req : Request , res : Response , next : N
     return buildImageUpload(ticketAttachmentStorage).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
 }
 
+const dropOversizedImages = (req: Request, next: NextFunction) => (err?: unknown) => {
+    if (err) return next(err)
+    const capBytes = settingsService.getCached().maxUploadSizeMb * 1024 * 1024
+    const files = Array.isArray(req.files) ? req.files : []
+    req.files = files.filter((file) => {
+        if (file.mimetype.startsWith("video/") || file.size <= capBytes) return true
+        fs.unlink(file.path, () => {})
+        return false
+    })
+    next()
+}
+
 export const checklistInstanceImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, dropOversizedImages(req, next))
 }
 
 export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, dropOversizedImages(req, next))
 }
 
 export const checklistReferenceUpload = (req : Request , res : Response , next : NextFunction) => {

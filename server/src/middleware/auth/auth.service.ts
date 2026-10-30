@@ -171,6 +171,7 @@ export const authService = {
     const retriedAfterRotation = await wasJustRotated(stored);
     if (stored.revokedAt && !retriedAfterRotation) {
       await revokeAllSessions(stored.userId);
+      disconnectUserSockets(stored.userId);
       throw AppError.unauthorized('Invalid refresh token');
     }
     if (stored.expiresAt < new Date()) throw AppError.unauthorized('Invalid refresh token');
@@ -192,9 +193,12 @@ export const authService = {
 
   async logout(rawToken: string | undefined) {
     if (!rawToken) return;
+    const tokenHash = hashToken(rawToken);
+    const [stored] = await db.select({ userId: refreshTokens.userId }).from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).limit(1);
     await db.update(refreshTokens)
       .set({ revokedAt: new Date(), expiresAt: new Date(), updatedAt: new Date() })
-      .where(eq(refreshTokens.tokenHash, hashToken(rawToken)));
+      .where(eq(refreshTokens.tokenHash, tokenHash));
+    if (stored) disconnectUserSockets(stored.userId);
   },
 
   async resetPassword(input: ResetPasswordInput) {

@@ -6,6 +6,7 @@ import {
     createAuthRefreshLimiter,
     createLoginLimiter,
     createLoginEmailLimiter,
+    createLoginEmailCeilingLimiter,
     createForgotPasswordEmailLimiter,
 } from "../rateLimiter/rateLimiter.js"
 
@@ -15,13 +16,15 @@ export const createAuthRouter = (rateLimitStoreFactory?: (prefix: string) => Sto
     const loose = createAuthRefreshLimiter(rateLimitStoreFactory?.('auth-refresh'))
     const loginByIp = createLoginLimiter(rateLimitStoreFactory?.('auth-login'))
     const loginByEmail = createLoginEmailLimiter(rateLimitStoreFactory?.('auth-login-email'))
+    const loginCeiling = createLoginEmailCeilingLimiter(rateLimitStoreFactory?.('auth-login-ceiling'))
+    const resendByIp = createAuthLimiter(rateLimitStoreFactory?.('auth-resend'))
     const forgotByEmail = createForgotPasswordEmailLimiter(rateLimitStoreFactory?.('auth-forgot-email'))
     const codeByEmail = createForgotPasswordEmailLimiter(rateLimitStoreFactory?.('auth-code-email'))
 
     authRouter.post('/register', tight, authController.register)
-    authRouter.post('/login', loginByIp, loginByEmail, authController.login)
+    authRouter.post('/login', loginByIp, loginByEmail, loginCeiling, authController.login)
     authRouter.post('/login/verify', loginByIp, authController.loginWithCode)
-    authRouter.post('/login/resend', loginByIp, authController.resendLoginCode)
+    authRouter.post('/login/resend', resendByIp, authController.resendLoginCode)
     authRouter.post('/refresh', loose, authController.refresh)
     authRouter.post('/logout', loose, authController.logout)
     authRouter.post('/forgot-password', tight, forgotByEmail, authController.forgotPassword)

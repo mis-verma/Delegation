@@ -10,7 +10,7 @@ import { disconnectUserSockets } from '../../sockets/socket.js';
 import { AppError } from '../../utils/AppError.js';
 import { hashPassword } from '../../utils/password.js';
 import { passwordChangeStamp } from './auth.js';
-import { recordWrongCode } from './otpAttempts.js';
+import { reserveAttempt } from './otpAttempts.js';
 import { invalidateAuthUsers } from './authCache.js';
 
 type Purpose = (typeof PASSWORD_OTP_PURPOSES)[number];
@@ -98,10 +98,8 @@ export const passwordOtpService = {
       .limit(1);
     if (!otp) throw AppError.badRequest(WRONG_CODE);
 
-    if (!sameHash(otp.codeHash, hashCode(user.id, input.code))) {
-      await recordWrongCode(otp.id);
-      throw AppError.badRequest(WRONG_CODE);
-    }
+    if (!(await reserveAttempt(otp.id))) throw AppError.badRequest(WRONG_CODE);
+    if (!sameHash(otp.codeHash, hashCode(user.id, input.code))) throw AppError.badRequest(WRONG_CODE);
 
     const passwordHash = await hashPassword(input.password);
     await db.transaction(async (tx) => {

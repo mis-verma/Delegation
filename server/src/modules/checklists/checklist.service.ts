@@ -13,7 +13,7 @@ import { AppError } from '../../utils/AppError.js';
 import { emitTicketEvent } from '../../sockets/ticketEvent.js';
 import type { CreateChecklistInput, UpdateChecklistItemInput } from './checklist.validation.js';
 import type { AccessTokenPayload } from '../../middleware/auth/auth.js';
-import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from '../../utils/checklistItemWorkers.js';
+import { assertCanWorkChecklistItem, assertTicketChecklistOpen, ticketChecklistWorkerIds } from '../../utils/checklistItemWorkers.js';
 import { isAdminOrPc } from "../../utils/roles.js"
 
 type ChecklistItemRow = typeof checklistItems.$inferSelect;
@@ -126,6 +126,7 @@ export const checklistService = {
     const [ticket] = checklist ? await db.select().from(tickets).where(eq(tickets.id, checklist.ticketId)).limit(1) : [];
     if (!ticket) throw AppError.notFound('Ticket not found');
     assertCanManage(user, ticket);
+    await assertTicketChecklistOpen(user, item.checklistId);
 
     const patch: Partial<typeof checklistItems.$inferInsert> = { updatedAt: new Date() };
     if (input.label !== undefined) patch.label = input.label;
@@ -154,6 +155,7 @@ export const checklistService = {
     const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
     if (!item) throw AppError.notFound('Checklist item not found');
     await assertCanComplete(user, item);
+    await assertTicketChecklistOpen(user, item.checklistId);
 
     const images = await db.select().from(checklistImages).where(eq(checklistImages.checklistItemId, item.id));
 
@@ -180,6 +182,7 @@ export const checklistService = {
     const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
     if (!item) throw AppError.notFound('Checklist item not found');
     await assertCanComplete(user, item);
+    await assertTicketChecklistOpen(user, item.checklistId);
 
     await db.update(checklistItems).set({ remarks, updatedAt: new Date() }).where(eq(checklistItems.id, itemId));
     const [updated] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);

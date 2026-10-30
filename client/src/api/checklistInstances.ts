@@ -154,6 +154,7 @@ export type ChecklistInstance = {
   verificationNote:   string | null;
   sentBackAt?:        string | null;
   sentBackFixBy?:     string | null;
+  coordinatorRun?:    boolean;
   rejectionCount?:    number;
   items:            ChecklistInstanceItem[];
 };

@@ -18,4 +18,5 @@ export class AppError extends Error {
     static notFound(message = 'Not found') { return new AppError(message, 404); }
     static conflict(message: string) { return new AppError(message, 409); }
     static unprocessable(message: string) { return new AppError(message, 422); }
+    static tooManyRequests(message: string) { return new AppError(message, 429); }
 }

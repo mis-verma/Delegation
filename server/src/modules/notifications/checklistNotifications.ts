@@ -1,15 +1,21 @@
 import { db } from '../../config/db.js';
 import { users } from '../../db/schema/core.js';
 import { eq, and, inArray } from 'drizzle-orm';
+import { coordinatorReviewerIds, isCoordinatorRun } from '../checklistInstances/checklistCoordinatorRun.js';
 import { notifyMany, formatWaiting, type VerifiableChecklistInstance } from './notificationCore.js';
 
 export const notifyChecklistPendingVerification = async (instance: VerifiableChecklistInstance) => {
-  if (!instance.storeId) return [];
-  const pcs = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString()), eq(users.isActive, true)));
-  const recipientIds = pcs.map((p) => p.id);
+  let recipientIds: string[];
+  if (await isCoordinatorRun(instance._id.toString())) {
+    recipientIds = await coordinatorReviewerIds((instance.assigneeIds ?? []).map((id) => id.toString()));
+  } else {
+    if (!instance.storeId) return [];
+    const pcs = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString()), eq(users.isActive, true)));
+    recipientIds = pcs.map((p) => p.id);
+  }
   if (!recipientIds.length) return [];
 
   return notifyMany(recipientIds, {
@@ -21,8 +27,11 @@ export const notifyChecklistPendingVerification = async (instance: VerifiableChe
 }
 
 export const notifyChecklistApprovalReminder = async (instance: VerifiableChecklistInstance & { reviewerIds?: string[]; hoursWaiting: number }) => {
+  const coordinatorRun = await isCoordinatorRun(instance._id.toString());
   let recipientIds = (instance.reviewerIds ?? []).map((id) => id.toString());
-  if (!recipientIds.length) {
+  if (coordinatorRun) {
+    recipientIds = await coordinatorReviewerIds((instance.assigneeIds ?? []).map((id) => id.toString()));
+  } else if (!recipientIds.length) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
     if (assigneeIds.length) {
       const rows = await db.select({ departmentId: users.departmentId }).from(users).where(inArray(users.id, assigneeIds));
@@ -74,10 +83,11 @@ export const notifyChecklistApprovalReminder = async (instance: VerifiableCheckl
 }
 
 export const notifyChecklistApprovalEscalation = async (instance: VerifiableChecklistInstance & { hoursWaiting: number }) => {
+  const roles = (await isCoordinatorRun(instance._id.toString())) ? ['ADMIN', 'OWNER'] as const : ['ADMIN', 'PC', 'OWNER'] as const;
   const people = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(inArray(users.role, ['ADMIN', 'PC', 'OWNER']), eq(users.isActive, true)));
+    .where(and(inArray(users.role, [...roles]), eq(users.isActive, true)));
   const recipientIds = people.map((p) => p.id);
   if (!recipientIds.length) return [];
 

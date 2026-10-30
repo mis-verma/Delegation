@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { AlarmClock, CalendarDays, Clock3, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
-import { progressUpdatesOf } from '../../lib/ticketProgress';
+import { latestRemarkOf } from '../../lib/ticketProgress';
 import { TicketFlowChips } from './TicketFlowChips';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
@@ -30,7 +30,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
   const due = formatDueLabel(ticket);
   const isOverdue = !!due?.overdue;
   const isBoard = variant === 'board';
-  const deptChipClass = isBoard ? 'hidden' : 'hidden sm:inline-flex';
+  const deptChipClass = isBoard ? 'hidden sm:inline-flex max-w-[8rem]' : 'max-w-[8.5rem] sm:max-w-[12rem]';
   const tagChipClass = isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex';
   const priorityInfo = PRIORITY_CONFIG[ticket.priority];
   const statusChipStatus = (ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus;
@@ -41,8 +41,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     : null;
 
   const prefetchHandlers = usePrefetchTicket(ticket.id);
-  const working = ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !ticket.awaitingHeadApproval;
-  const latestNote = working ? progressUpdatesOf(ticket)[0]?.remark ?? null : null;
+  const latestRemark = latestRemarkOf(ticket);
 
   const statusChip = <StatusChip status={statusChipStatus} label={statusLabel} />;
 
@@ -79,24 +78,22 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             <span className="font-semibold">Declined{ticket.decliner ? ` by ${ticket.decliner.firstName}` : ''}:</span> {ticket.declineReason}
           </p>
         )}
-        {onHoldRemark && (
-          <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
-            <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
-          </p>
+        {latestRemark && !ticket.declinedAt && (
+          <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border/50 bg-surface-hover/40 px-2.5 py-1.5">
+            <div className="flex min-w-0 items-center gap-1.5 t-meta font-medium text-text-muted">
+              <span className="shrink-0 font-display font-semibold text-text-secondary">{latestRemark.label}</span>
+              <span aria-hidden="true">·</span>
+              <span className="min-w-0 truncate">{latestRemark.by}</span>
+              <span className="ml-auto shrink-0 tabular-nums">{latestRemark.ago}</span>
+            </div>
+            <p className="t-meta leading-snug text-text-secondary line-clamp-2 break-words">{latestRemark.text}</p>
+          </div>
         )}
-        {latestNote && (
-          <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
-            <span className="font-semibold text-text-secondary">Latest update:</span> {latestNote}
-          </p>
-        )}
-        {((isOverdue && !due) || progress !== null || (departmentName && !isBoard)) && (
+        {((isOverdue && !due) || progress !== null) && (
           <div className="flex items-center min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
             {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Late</span>}
             {progress !== null && (
               <span className="tabular-nums shrink-0">{isOverdue && !due ? ', ' : ''}Checklist {doneItems}/{totalItems}</span>
-            )}
-            {departmentName && !isBoard && (
-              <span className="min-w-0 truncate sm:hidden">{(isOverdue && !due) || progress !== null ? ', ' : ''}{departmentName}</span>
             )}
           </div>
         )}

@@ -23,7 +23,21 @@ export const disconnectUserSockets = (userId: string) => {
     }
 }
 
-export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolean): Promise<SocketIOServer> => {
+const MAX_SOCKETS_PER_USER = 5
+
+const trimOldestSockets = async (userId: string) => {
+    if (!io) return;
+    try {
+        const open = await io.in(userRoom(userId)).fetchSockets();
+        if (open.length <= MAX_SOCKETS_PER_USER) return;
+        const oldestFirst = [...open].sort((a, b) => a.handshake.issued - b.handshake.issued);
+        for (const extra of oldestFirst.slice(0, open.length - MAX_SOCKETS_PER_USER)) extra.disconnect(true);
+    } catch (err) {
+        console.error("Failed to trim sockets for user", userId, err);
+    }
+}
+
+export const initSocket =async (httpServer: HttpServer, useRedisAdapter: boolean): Promise<SocketIOServer> => {
     io = new SocketIOServer(httpServer, {
         cors: { origin: env.CLIENT_URL, credentials: true },
     });
@@ -74,6 +88,7 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
     io.on("connection", (socket: Socket) => {
         const user = socket.data.user as AccessTokenPayload;
         socket.join(userRoom(user.sub));
+        void trimOldestSockets(user.sub);
         socket.join(`role:${user.role}`);
         if (user.departmentId) socket.join(`department:${user.departmentId}`);
         if (user.storeId) socket.join(`store:${user.storeId}`)

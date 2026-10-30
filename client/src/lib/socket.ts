@@ -47,6 +47,9 @@ const openSocket = async (token: string) => {
     const created = io(BASE , {
         auth : (cb) => cb({ token : tokenStore.get() ?? token }),
     });
+    created.on("disconnect", (reason) => {
+        if (reason === "io server disconnect" && socket === created && tokenStore.get()) created.connect();
+    });
     created.on("connect_error", (err) => {
         if (!/access token/i.test(err.message)) return;
         const now = Date.now();

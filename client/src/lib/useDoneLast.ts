@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const SETTLE_MS = 600;
+const SETTLE_MS = 450;
 
 interface HasId {
   id: string;
