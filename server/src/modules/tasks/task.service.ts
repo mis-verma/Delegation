@@ -589,7 +589,7 @@ export const taskService = {
 
         if (reviewerIds !== undefined) {
             const added = reviewerIds.filter((r) => !beforeReviewerIds.includes(r));
-            if (added.length) await notifySafely(() => notificationService.notifyReviewerAdded({ _id: task.id, title: task.title }, 'TASK', added, user.sub));
+            if (added.length && task.status !== "draft") await notifySafely(() => notificationService.notifyReviewerAdded({ _id: task.id, title: task.title }, 'TASK', added, user.sub));
         }
         if (isStatusChange && (input.status === "in_progress" || input.status === "todo")) {
             await notifySafely(() => notificationService.notifyStatusMoved({ _id: task.id, title: task.title, raiserId: task.userId }, 'TASK', input.status === "todo" ? 'to do again' : 'in progress', user.sub));

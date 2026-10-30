@@ -27,6 +27,11 @@ describe("rangeProblem", () => {
         expect(rangeProblem("2026-10-29", "2027-03-01", today)).toMatch(/at most/)
         expect(rangeProblem("2026-10-01", "2026-10-02", today)).toMatch(/last 14 days/)
     })
+    it("limits heads to yesterday onward", () => {
+        expect(rangeProblem("2026-10-28", "2026-10-29", today, "MANAGER")).toBeNull()
+        expect(rangeProblem("2026-10-27", "2026-10-29", today, "SENIOR")).toMatch(/ask an admin/i)
+        expect(rangeProblem("2026-10-20", "2026-10-29", today, "PC")).toBeNull()
+    })
 })
 
 describe("canManageLeave", () => {

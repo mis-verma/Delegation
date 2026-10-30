@@ -3,6 +3,9 @@ export type LeaveTarget = { id: string; role: string; departmentId: string | nul
 
 export const MAX_LEAVE_DAYS = 90
 export const MAX_BACKDATE_DAYS = 14
+export const MAX_HEAD_BACKDATE_DAYS = 1
+
+export const backdateLimitFor = (role: string): number => (role === "ADMIN" || role === "PC" ? MAX_BACKDATE_DAYS : MAX_HEAD_BACKDATE_DAYS)
 
 const DAY_MS = 86_400_000
 
@@ -17,10 +20,11 @@ export const eachDay = (from: string, to: string): string[] => {
 export const rangesOverlap = (a: { startDate: string; endDate: string }, b: { startDate: string; endDate: string }): boolean =>
     a.startDate <= b.endDate && b.startDate <= a.endDate
 
-export const rangeProblem = (from: string, to: string, today: string): string | null => {
+export const rangeProblem = (from: string, to: string, today: string, actorRole = "ADMIN"): string | null => {
     if (from > to) return "The last day can't be before the first day."
     if (eachDay(from, to).length > MAX_LEAVE_DAYS) return `Leave can be at most ${MAX_LEAVE_DAYS} days at a time.`
-    if (dayNumber(today) - dayNumber(from) > MAX_BACKDATE_DAYS) return `Leave can only be added for the last ${MAX_BACKDATE_DAYS} days or later.`
+    const backdate = backdateLimitFor(actorRole)
+    if (dayNumber(today) - dayNumber(from) > backdate) return backdate === 1 ? "You can add leave from yesterday onward. Ask an admin for older days." : `Leave can only be added for the last ${backdate} days or later.`
     return null
 }
 

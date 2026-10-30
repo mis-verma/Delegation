@@ -4,9 +4,11 @@ import { Button, Combobox, DateRangePicker, Input, Modal, Skeleton, type DateRan
 import { useAssignableUsersQuery } from '../tickets/hook';
 import { useCreateLeaveMutation, useLeavePreviewQuery } from './hook';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../../context/AuthContext';
 
 const REASONS = ['Sick', 'Personal', 'Family', 'Travel'] as const;
-const BACKDATE_DAYS = 14;
+const ADMIN_BACKDATE_DAYS = 14;
+const HEAD_BACKDATE_DAYS = 1;
 
 const QUICK_RANGES = [
   { label: 'Today', start: 0, length: 1 },
@@ -34,6 +36,7 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
   const [userId, setUserId] = useState(defaultUserId ?? '');
   const [range, setRange] = useState<DateRangeValue>({ from: null, to: null });
   const [reason, setReason] = useState('');
+  const { user } = useAuth();
   const create = useCreateLeaveMutation();
   const { data: people, isPending: peoplePending } = useAssignableUsersQuery();
 
@@ -47,7 +50,7 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
   const ready = !!userId && !!startDate && !!endDate;
   const preview = useLeavePreviewQuery(ready ? { userId, startDate, endDate } : null);
   const days = ready ? Math.round((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / DAY_MS) + 1 : 0;
-  const [minDate] = useState(() => new Date(Date.now() - BACKDATE_DAYS * DAY_MS));
+  const [minDate] = useState(() => new Date(Date.now() - (user?.role === 'ADMIN' || user?.role === 'PC' ? ADMIN_BACKDATE_DAYS : HEAD_BACKDATE_DAYS) * DAY_MS));
 
   const pickQuick = (start: number, length: number) => {
     const first = new Date();

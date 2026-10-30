@@ -36,6 +36,7 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: |
           npm ci
+          npm run lint
           npm run build
 
       - name: Build server
@@ -43,6 +44,17 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      - name: Test server
+        working-directory: server
+        env:
+          NODE_ENV: test
+          CLIENT_URL: http://localhost:5173
+          JWT_ACCESS_SECRET: ci-placeholder-secret-not-real
+          COOKIE_SECURE: "false"
+        run: |
+          npx tsc --noEmit
+          npm test
 
       # Production node_modules are installed fresh ON the VPS (below), not shipped over SSH —
       # smaller/faster transfer and avoids native-module platform mismatches between the GitHub
@@ -131,28 +143,18 @@ jobs:
             "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/"
 
       - name: Install prod deps, migrate, reload PM2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_API_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            set -euo pipefail
-            # CloudPanel's Node.js sites run under per-user nvm — a plain non-interactive SSH
-            # command doesn't source ~/.bashrc/~/.profile the way an interactive login does, so
-            # `npm`/`pm2` aren't on PATH here unless nvm.sh is sourced explicitly first.
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            cd ~/htdocs/api.karyaos.in
-            npm ci --omit=dev
-            # .env lives here permanently (created once by hand, never touched by CI) — this
-            # reads it the same way the app itself does. Runs the *compiled* migrator
-            # (dist/src/db/migrate.js), not `npm run db:migrate` (tsx src/db/migrate.ts) — tsx is
-            # a devDependency, and --omit=dev above means it isn't installed here.
-            node dist/src/db/migrate.js
-            # `pm2 reload` fails outright if the process doesn't exist yet — true on the very
-            # first deploy, before anyone's run `pm2 start` by hand. Falling back to `pm2 start`
-            # makes this workflow correct on deploy #1 too, not just every one after it.
-            pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
-            pm2 save
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT || 22 }}
+          VPS_API_USER: ${{ secrets.VPS_API_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_API_USER@$VPS_HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd ~/htdocs/api.karyaos.in
+          npm ci --omit=dev
+          node dist/src/db/migrate.js
+          pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+          pm2 save
+          REMOTE

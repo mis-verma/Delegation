@@ -126,6 +126,18 @@ export const createWebhookLimiter = (store?: Store) => rateLimit({
     message: { success: false, message: "Too many requests, please try again later." }
 })
 
+export const createPasswordChangeLimiter = (store?: Store) => rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    skipSuccessfulRequests: true,
+    keyGenerator: userOrIpKey,
+    standardHeaders: false,
+    legacyHeaders: false,
+    store,
+    passOnStoreError: true,
+    message: { success: false, message: "Too many wrong password attempts. Try again in a few minutes." }
+})
+
 export const passwordChangeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 5,

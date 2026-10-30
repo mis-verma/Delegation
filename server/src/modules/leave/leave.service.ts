@@ -94,7 +94,7 @@ export const leaveService = {
 
     async preview(actor: AccessTokenPayload, userId: string, startDate: string, endDate: string) {
         await assertCanManage(actor, userId)
-        const problem = rangeProblem(startDate, endDate, orgLocalDate(Date.now()))
+        const problem = rangeProblem(startDate, endDate, orgLocalDate(Date.now()), actor.role)
         if (problem) throw AppError.badRequest(problem)
         let runs = 0
         for (const day of eachDay(startDate, endDate)) runs += await dropRunsOfPeopleOnLeaveOn(day, [userId], false)
@@ -104,7 +104,7 @@ export const leaveService = {
 
     async create(input: CreateLeaveInput, actor: AccessTokenPayload) {
         const target = await assertCanManage(actor, input.userId)
-        const problem = rangeProblem(input.startDate, input.endDate, orgLocalDate(Date.now()))
+        const problem = rangeProblem(input.startDate, input.endDate, orgLocalDate(Date.now()), actor.role)
         if (problem) throw AppError.badRequest(problem)
 
         const existing = await db.select().from(personLeaves).where(eq(personLeaves.userId, input.userId))

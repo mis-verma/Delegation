@@ -52,7 +52,7 @@ import { smartTaskConversationRouter } from "./modules/smartTaskConversations/sm
 import { todoRouter } from "./modules/todos/todo.routes.js"
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js"
 import { draftRouter } from "./modules/drafts/draft.routes.js"
-import { createApiLimiter, createAiLimiter , createWebhookLimiter } from "./middleware/rateLimiter/rateLimiter.js"
+import { createApiLimiter, createAiLimiter , createWebhookLimiter, createPasswordChangeLimiter } from "./middleware/rateLimiter/rateLimiter.js"
 import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js"
 import { doubletickRouter } from "./modules/doubletick/doubletick.routes.js"
 import helmet from "helmet"
@@ -134,6 +134,7 @@ class App {
             });
         });
         this.app.use('/auth', createAuthRouter(rateLimitStoreFactory));
+        this.app.use('/users/me/password', createPasswordChangeLimiter(rateLimitStoreFactory?.('password-change')));
         this.app.use('/users', dropScoresOnWrite, userRouter);
         this.app.use('/view-as', viewAsRouter);
         this.app.use('/stores', dropScoresOnWrite, StoreRouter);

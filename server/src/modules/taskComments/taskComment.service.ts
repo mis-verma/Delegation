@@ -115,7 +115,7 @@ export const taskCommentService = {
         });
 
         const helpers = (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, task.id))).map((r) => r.userId);
-        await notifySafely(() => notificationService.notifyCommentAdded({ _id: task.id, title: task.title, participantIds: [task.assigneeId, task.userId, ...helpers] }, "TASK", user.sub));
+        if (task.status !== "draft") await notifySafely(() => notificationService.notifyCommentAdded({ _id: task.id, title: task.title, participantIds: [task.assigneeId, task.userId, ...helpers] }, "TASK", user.sub));
 
         const [comment] = await findCommentsWithDetails(eq(taskComments.id, commentId));
         return comment!;
