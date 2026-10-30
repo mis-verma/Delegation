@@ -14,11 +14,64 @@ export const GOAL_MAX = 100;
 export const GOAL_STEP = 5;
 const GOAL_DEFAULT = 90;
 
+export type StreakKind = 'checklist' | 'ticket' | 'delegation' | 'all';
+
+export const STREAK_KINDS: readonly StreakKind[] = ['checklist', 'ticket', 'delegation', 'all'];
+
+export const STREAK_LABEL: Record<StreakKind, string> = {
+  checklist: 'Checklists',
+  ticket: 'Tickets',
+  delegation: 'Delegations',
+  all: 'All',
+};
+
+export const STREAK_TITLE: Record<StreakKind, string> = {
+  checklist: 'Checklist streak',
+  ticket: 'Ticket streak',
+  delegation: 'Delegation streak',
+  all: 'Overall streak',
+};
+
 export interface StreakDay {
   date: string;
   label: string;
   value: number | null;
 }
+
+type StreakValues = Record<StreakKind, number | null>;
+
+export interface StreakDayValues {
+  date: string;
+  label: string;
+  values: StreakValues;
+}
+
+const isKind = (value: unknown): value is StreakKind => STREAK_KINDS.some((k) => k === value);
+
+export const useStreakKind = () => {
+  const { user } = useAuth();
+  const key = `tm-streak-kind-${user?.id ?? 'anon'}`;
+  const [kind, setKindState] = useState<StreakKind>(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      return isKind(stored) ? stored : 'checklist';
+    } catch {
+      return 'checklist';
+    }
+  });
+  const setKind = useCallback((next: StreakKind) => {
+    setKindState(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      return;
+    }
+  }, [key]);
+  return { kind, setKind };
+};
+
+export const daysFor = (days: readonly StreakDayValues[], kind: StreakKind): StreakDay[] =>
+  days.map((d) => ({ date: d.date, label: d.label, value: d.values[kind] }));
 
 const readGoal = (key: string): number => {
   try {
@@ -92,12 +145,20 @@ export const useStreakDays = () => {
 
   const pending = results.some((r) => r.isPending);
   const failed = results.some((r) => r.isError) && !results.some((r) => r.data);
-  const days = useMemo<StreakDay[]>(
-    () => results.flatMap((r) => (r.data?.buckets ?? []).map((b) => ({
-      date: b.from,
-      label: b.label,
-      value: b.checklist.due > 0 ? b.checklist.completionPct : null,
-    }))),
+  const days = useMemo<StreakDayValues[]>(
+    () => results.flatMap((r) => (r.data?.buckets ?? []).map((b) => {
+      const anyDue = b.checklist.due + b.ticket.due + b.delegation.due > 0;
+      return {
+        date: b.from,
+        label: b.label,
+        values: {
+          checklist: b.checklist.due > 0 ? b.checklist.completionPct : null,
+          ticket: b.ticket.due > 0 ? b.ticket.completionPct : null,
+          delegation: b.delegation.due > 0 ? b.delegation.completionPct : null,
+          all: anyDue ? (b.overall ?? null) : null,
+        },
+      };
+    })),
     [results],
   );
 

@@ -1,10 +1,13 @@
 import { useMemo, type ReactNode } from 'react';
 import { Flame, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '../../components';
+import { Segmented, Skeleton } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { formatPct } from '../../lib/percent';
-import { GOAL_MAX, GOAL_MIN, GOAL_STEP, summariseStreak, useStreakDays, useStreakGoal } from './useStreak';
+import {
+  GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, STREAK_LABEL, STREAK_TITLE,
+  daysFor, summariseStreak, useStreakDays, useStreakGoal, useStreakKind,
+} from './useStreak';
 
 const dayLetter = (date: string) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(`${date}T00:00:00Z`).getUTCDay()] ?? '';
 const dayNumber = (date: string) => Number(date.slice(8, 10));
@@ -22,12 +25,20 @@ const StepButton = ({ label, onClick, disabled, children }: { label: string; onC
 );
 
 export const StreakGoalCard = () => {
-  const { days, pending, failed } = useStreakDays();
+  const { days: allDays, pending, failed } = useStreakDays();
   const { goal, setGoal } = useStreakGoal();
+  const { kind, setKind } = useStreakKind();
+
+  const available = useMemo(
+    () => STREAK_KINDS.filter((k) => allDays.some((d) => d.values[k] !== null)),
+    [allDays],
+  );
+  const activeKind = available.includes(kind) ? kind : (available[0] ?? 'checklist');
+  const days = useMemo(() => daysFor(allDays, activeKind), [allDays, activeKind]);
   const summary = useMemo(() => summariseStreak(days, goal), [days, goal]);
   const hasData = days.some((d) => d.value !== null);
 
-  if (pending && days.length === 0) return <Skeleton className="h-40 w-full rounded-2xl" />;
+  if (pending && allDays.length === 0) return <Skeleton className="h-40 w-full rounded-2xl" />;
   if (failed || !hasData) return null;
 
   const hot = summary.current >= 3;
@@ -43,10 +54,20 @@ export const StreakGoalCard = () => {
               <Flame className="size-5" strokeWidth={2.25} />
             </span>
             <div className="min-w-0">
-              <h2 id="streak-heading" className="t-section font-display font-bold tracking-tight text-text">Checklist streak</h2>
+              <h2 id="streak-heading" className="t-section font-display font-bold tracking-tight text-text">{STREAK_TITLE[activeKind]}</h2>
               <p className="t-meta font-medium text-text-muted">Days in a row at {goal}% or better</p>
             </div>
           </div>
+
+          {available.length > 1 && (
+            <Segmented
+              label="Streak type"
+              value={activeKind}
+              onChange={setKind}
+              options={available.map((k) => ({ value: k, label: STREAK_LABEL[k] }))}
+              className="self-start"
+            />
+          )}
 
           <div className="flex items-end justify-between gap-3">
             <p className="flex items-baseline gap-2">
