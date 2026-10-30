@@ -39,45 +39,55 @@ export const ActionPointsStrip = memo(() => {
     <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Action points">
       <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @6xl:grid-cols-5">
         <Stat
+          index={0}
           icon={Handshake}
           label="Delegation approvals"
-          value={String(delegationApprovals)}
+          value={delegationApprovals}
+          accent="green"
           caption={delegationApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
           loading={tasks.isPending}
           to={delegationApprovals > 0 ? queueHref : null}
         />
         <Stat
+          index={1}
           icon={ShieldCheck}
           label="Ticket approvals"
-          value={String(ticketApprovals)}
+          value={ticketApprovals}
+          accent="sky"
           caption={ticketApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
           loading={tickets.isPending}
           to={ticketApprovals > 0 ? queueHref : null}
         />
         <Stat
+          index={2}
           icon={Ticket}
           label="Open tickets"
-          value={String(totals.openTickets)}
+          value={totals.openTickets}
           caption={totals.overdueTickets === 0 ? 'None overdue' : `${totals.overdueTickets} overdue`}
-          tone={totals.overdueTickets > 0 ? 'danger' : 'default'}
+          accent={totals.overdueTickets > 0 ? 'red' : 'sky'}
+          alert={totals.overdueTickets > 0}
           loading={peopleLoading}
           to="/tickets"
         />
         <Stat
+          index={3}
           icon={ListTodo}
           label="Open delegations"
-          value={String(totals.openDelegations)}
+          value={totals.openDelegations}
           caption={totals.overdueDelegations === 0 ? 'None overdue' : `${totals.overdueDelegations} overdue`}
-          tone={totals.overdueDelegations > 0 ? 'danger' : 'default'}
+          accent={totals.overdueDelegations > 0 ? 'red' : 'green'}
+          alert={totals.overdueDelegations > 0}
           loading={peopleLoading}
           to="/tasks"
         />
         <Stat
+          index={4}
           icon={Undo2}
           label="Checklists sent back"
-          value={String(totals.sentBack)}
+          value={totals.sentBack}
           caption={totals.sentBack === 0 ? 'None to redo today' : `${plural(totals.sentBack, 'run', 'runs')} to redo today`}
-          tone={totals.sentBack > 0 ? 'danger' : 'success'}
+          accent={totals.sentBack > 0 ? 'red' : 'green'}
+          alert={totals.sentBack > 0}
           loading={peopleLoading}
         />
       </div>

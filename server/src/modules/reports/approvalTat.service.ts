@@ -5,6 +5,7 @@ import { checklistInstances } from "../../db/schema/checklistInstance.js"
 import { checklistDefinitions } from "../../db/schema/checklistDefinition.js"
 import { checklistInstanceAssignees } from "../../db/schema/checklistInstance.js"
 import { users } from "../../db/schema/core.js"
+import { env } from "../../config/env.js"
 import { and, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm"
 
 export const APPROVAL_TAT_HOURS = 24
@@ -71,7 +72,69 @@ const waitingOf = (rows: { submittedAt: Date | null; updatedAt: Date }[], now: n
     over24h: rows.filter((r) => now - (r.submittedAt ?? r.updatedAt).getTime() > WINDOW_MS).length,
 })
 
+export type ApprovalDay = { date: string; submitted: number; rate: number | null }
+
+const DAY_MS = 24 * HOUR_MS
+
 export const approvalTatService = {
+    async daily(fromDay: string, toDay: string, now = Date.now(), departmentId?: string): Promise<ApprovalDay[]> {
+        const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
+        const from = new Date(Date.parse(`${fromDay}T00:00:00.000Z`) - offsetMs)
+        const to = new Date(Date.parse(`${toDay}T00:00:00.000Z`) + DAY_MS - offsetMs)
+        const taskDept: SQL | undefined = departmentId ? eq(tasks.departmentId, departmentId) : undefined
+        const ticketDept: SQL | undefined = departmentId ? eq(tickets.departmentId, departmentId) : undefined
+        const runDept: SQL | undefined = departmentId
+            ? sql`EXISTS (SELECT 1 FROM ${checklistInstanceAssignees} a JOIN ${users} u ON u.id = a.userId WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId})`
+            : undefined
+        const [taskRows, ticketRows, checklistRows] = await Promise.all([
+            db
+                .select({ submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt })
+                .from(tasks)
+                .where(and(isNull(tasks.deletedAt), isNotNull(tasks.submittedAt), gte(tasks.submittedAt, from), lt(tasks.submittedAt, to), taskDept)),
+            db
+                .select({ ticketId: ticketStatusUpdates.ticketId, submittedAt: ticketStatusUpdates.createdAt, verifiedAt: tickets.verifiedAt })
+                .from(ticketStatusUpdates)
+                .innerJoin(tickets, eq(tickets.id, ticketStatusUpdates.ticketId))
+                .where(and(isNull(tickets.deletedAt), eq(ticketStatusUpdates.toStatus, "PENDING_APPROVAL"), gte(ticketStatusUpdates.createdAt, from), lt(ticketStatusUpdates.createdAt, to), ticketDept)),
+            db
+                .select({ submittedAt: checklistInstances.submittedAt, verifiedAt: checklistInstances.verifiedAt })
+                .from(checklistInstances)
+                .where(and(isNotNull(checklistInstances.submittedAt), gte(checklistInstances.submittedAt, from), lt(checklistInstances.submittedAt, to), runDept)),
+        ])
+
+        const latestPerTicket = new Map<string, HandIn>()
+        for (const row of ticketRows) {
+            const known = latestPerTicket.get(row.ticketId)
+            if (!known || row.submittedAt.getTime() > known.submittedAt.getTime()) {
+                latestPerTicket.set(row.ticketId, { submittedAt: row.submittedAt, verifiedAt: row.verifiedAt })
+            }
+        }
+        const handIns: HandIn[] = [
+            ...taskRows.filter((r): r is { submittedAt: Date; verifiedAt: Date | null } => r.submittedAt !== null),
+            ...latestPerTicket.values(),
+            ...checklistRows.filter((r): r is { submittedAt: Date; verifiedAt: Date | null } => r.submittedAt !== null),
+        ]
+
+        const byDay = new Map<string, HandIn[]>()
+        for (const h of handIns) {
+            const key = new Date(h.submittedAt.getTime() + offsetMs).toISOString().slice(0, 10)
+            const list = byDay.get(key)
+            if (list) list.push(h)
+            else byDay.set(key, [h])
+        }
+
+        const days: ApprovalDay[] = []
+        for (let t = Date.parse(`${fromDay}T00:00:00.000Z`); t <= Date.parse(`${toDay}T00:00:00.000Z`); t += DAY_MS) {
+            const key = new Date(t).toISOString().slice(0, 10)
+            const rows = byDay.get(key) ?? []
+            const counts = judge(rows, now)
+            const due = counts.met + counts.breached
+            days.push({ date: key, submitted: rows.length, rate: due > 0 ? Math.round((counts.met / due) * 100) : null })
+        }
+        return days
+    },
+
+
     async summary(from: Date, to: Date, now = Date.now(), departmentId?: string): Promise<ApprovalTatResult> {
         const taskDept: SQL | undefined = departmentId ? eq(tasks.departmentId, departmentId) : undefined
         const ticketDept: SQL | undefined = departmentId ? eq(tickets.departmentId, departmentId) : undefined

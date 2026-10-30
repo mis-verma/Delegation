@@ -12,6 +12,7 @@ export const ATTENTION_KEYS = {
   person: (id: string) => ['exceptions', 'person', id] as const,
   heatmap: (from: string, to: string, departmentId: string, storeId: string) => ['exceptions', 'heatmap', from, to, departmentId, storeId] as const,
   approvals: (from: string, to: string) => ['exceptions', 'approvals', from, to] as const,
+  approvalDays: (from: string, to: string) => ['exceptions', 'approval-days', from, to] as const,
 };
 
 export const useCanOversee = () => {
@@ -67,6 +68,17 @@ export const useTeamApprovals = (fromIso: string, toIso: string) => {
     enabled,
     retry: handleQueryRetry,
     staleTime: 60_000,
+  });
+};
+
+export const useApprovalDays = (from: string, to: string) => {
+  const enabled = useCanOversee();
+  return useQuery({
+    queryKey: ATTENTION_KEYS.approvalDays(from, to),
+    queryFn: () => peopleApi.approvalDays(from, to),
+    enabled,
+    retry: handleQueryRetry,
+    staleTime: 5 * 60_000,
   });
 };
 

@@ -51,3 +51,14 @@ exceptionRouter.get('/approvals', requireRole(...OVERSIGHT), asyncHandler(async 
   if (!orgWide && !user.departmentId) throw AppError.forbidden();
   res.json({ success: true, data: await approvalTatService.summary(new Date(from), new Date(to), Date.now(), orgWide ? undefined : user.departmentId) });
 }));
+const approvalDaysSchema = z
+  .object({ from: DAY, to: DAY })
+  .refine((q) => q.from <= q.to, 'From must be on or before To')
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 31 * 86_400_000, 'Pick at most a month');
+exceptionRouter.get('/approvals/daily', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
+  const { from, to } = approvalDaysSchema.parse(req.query);
+  const user = req.user!;
+  const orgWide = isAdminOrPc(user.role);
+  if (!orgWide && !user.departmentId) throw AppError.forbidden();
+  res.json({ success: true, data: await approvalTatService.daily(from, to, Date.now(), orgWide ? undefined : user.departmentId) });
+}));

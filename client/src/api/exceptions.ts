@@ -124,6 +124,12 @@ export interface TeamApprovals {
   waiting: { total: { now: number; over24h: number } };
 }
 
+export interface ApprovalDay {
+  date: string;
+  submitted: number;
+  rate: number | null;
+}
+
 const withFilter = (path: string, filter: { departmentId?: string; storeId?: string } = {}) => {
   const q = new URLSearchParams();
   if (filter.departmentId) q.set('departmentId', filter.departmentId);
@@ -146,4 +152,6 @@ export const peopleApi = {
   },
   approvals: (from: string, to: string): Promise<TeamApprovals> =>
     apiFetch<{ success: boolean; data: TeamApprovals }>(`/exceptions/approvals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then((r) => r.data),
+  approvalDays: (from: string, to: string): Promise<ApprovalDay[]> =>
+    apiFetch<{ success: boolean; data: ApprovalDay[] }>(`/exceptions/approvals/daily?from=${from}&to=${to}`).then((r) => r.data),
 };
