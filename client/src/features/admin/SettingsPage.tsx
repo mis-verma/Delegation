@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -137,7 +138,13 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
   );
 };
 
+const AdminOnly = ({ show, children }: { show: boolean; children: ReactNode }) => (
+  <div className={show ? 'contents' : 'hidden'}>{children}</div>
+);
+
 export const SettingsPage = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const { data: settings, isPending, isError, refetch } = useSettingsQuery();
   const confirm = useConfirm();
   const mutation = useUpdateSettingsMutation();
@@ -184,8 +191,22 @@ export const SettingsPage = () => {
     return () => window.removeEventListener('beforeunload', warn);
   }, [isDirty]);
 
-  const onSubmit = (data: SettingsFields) =>
-    mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null, androidAppUrl: data.androidAppUrl.trim() || null, iosAppUrl: data.iosAppUrl.trim() || null });
+  const onSubmit = (data: SettingsFields) => {
+    const androidAppUrl = data.androidAppUrl.trim() || null;
+    const iosAppUrl = data.iosAppUrl.trim() || null;
+    if (isAdmin) {
+      mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null, androidAppUrl, iosAppUrl });
+      return;
+    }
+    mutation.mutate({
+      orgName: data.orgName,
+      defaultTatHours: data.defaultTatHours,
+      notifyTaskDeadlineReminders: data.notifyTaskDeadlineReminders,
+      notifyChecklistOverdueReminders: data.notifyChecklistOverdueReminders,
+      androidAppUrl,
+      iosAppUrl,
+    });
+  };
 
   if (isError && !settings) {
     return (
@@ -260,6 +281,7 @@ export const SettingsPage = () => {
                 {...register('defaultTatHours', { valueAsNumber: true })}
               />
 
+              <AdminOnly show={isAdmin}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   id="maxUploadSizeMb"
@@ -321,8 +343,10 @@ export const SettingsPage = () => {
                   </div>
                 )}
               />
+              </AdminOnly>
             </SettingsCard>
 
+            <AdminOnly show={isAdmin}>
             <SettingsCard icon={Database} title="Data retention" hint="How long each type of record is kept before a nightly sweep deletes it. Set any of these to 0 to keep that record forever, the right choice if you must retain audit history indefinitely.">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
@@ -363,6 +387,7 @@ export const SettingsPage = () => {
                 />
               </div>
             </SettingsCard>
+            </AdminOnly>
           </div>
 
           <div className="flex flex-col gap-5">
@@ -381,6 +406,7 @@ export const SettingsPage = () => {
                   />
                 )}
               />
+              <AdminOnly show={isAdmin}>
               <div className="h-px w-full bg-border" />
               <Controller
                 control={control}
@@ -396,6 +422,7 @@ export const SettingsPage = () => {
                   />
                 )}
               />
+              </AdminOnly>
               <div className="h-px w-full bg-border" />
               <Controller
                 control={control}
@@ -413,6 +440,7 @@ export const SettingsPage = () => {
               />
             </SettingsCard>
 
+            <AdminOnly show={isAdmin}>
             <SettingsCard icon={KeyRound} title="Session and sign-in" hint='The app silently renews itself every access-token window, so people won&apos;t notice it. "Stay signed in for" is the one that matters day to day: how long someone can close the app and come back without logging in again. It only applies going forward; already-open sessions keep their current timing until they next refresh.'>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
@@ -451,7 +479,9 @@ export const SettingsPage = () => {
                 )}
               />
             </SettingsCard>
+            </AdminOnly>
 
+            <AdminOnly show={isAdmin}>
             <SettingsCard icon={Construction} title="Maintenance" tone="warning">
               <Controller
                 control={control}
@@ -479,6 +509,7 @@ export const SettingsPage = () => {
                 />
               )}
             </SettingsCard>
+            </AdminOnly>
           </div>
         </div>
 

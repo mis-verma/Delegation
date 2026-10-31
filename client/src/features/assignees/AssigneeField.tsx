@@ -51,7 +51,7 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
 
 export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'PC';
+  const isAdmin = currentUser?.role === 'ADMIN';
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [sheetOpen, setSheetOpen] = useState(false);

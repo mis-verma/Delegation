@@ -49,6 +49,7 @@ const ItemRow = ({
   const updateRemarks = useUpdateChecklistItemRemarksMutation(ticketId);
   const completeItem = useCompleteChecklistItemMutation(ticketId);
   const deleteItem = useDeleteChecklistItemMutation(ticketId);
+  const canDelete = useAuth().user?.role === 'ADMIN';
   const uploadImages = useUploadChecklistImagesMutation(ticketId);
   const deleteImage = useDeleteChecklistImageMutation(ticketId);
 
@@ -123,7 +124,7 @@ const ItemRow = ({
               <RotateCcw size={16} />
             </button>
           )}
-          {isAdmin && (
+          {canDelete && (
             <button
               type="button"
               onClick={() => deleteItem.mutate(item.id)}
@@ -263,6 +264,7 @@ const ChecklistBlock = ({
   const [showDone, setShowDone] = useState(true);
   const { pending: pendingItems, done: doneItems } = useDoneLast(checklist.items, isItemDone);
   const deleteChecklist = useDeleteChecklistMutation(ticketId);
+  const canDelete = useAuth().user?.role === 'ADMIN';
   const doneCount = checklist.items.filter(i => i.isDone).length;
   const progress = checklist.items.length ? (doneCount / checklist.items.length) * 100 : 0;
   const isComplete = progress === 100;
@@ -309,7 +311,7 @@ const ChecklistBlock = ({
           </div>
         </div>
 
-        {isAdmin && (
+        {canDelete && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); deleteChecklist.mutate(checklist.id); }}

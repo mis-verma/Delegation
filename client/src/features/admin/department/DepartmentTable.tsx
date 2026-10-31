@@ -14,7 +14,7 @@ interface DepartmentTableProps {
   deletingId: string | undefined;
   onToggleActive: (department: Department) => void;
   onEdit: (department: Department) => void;
-  onDelete: (department: Department) => void;
+  onDelete?: (department: Department) => void;
 }
 
 const HEAD_ROW_CLASS = 'bg-primary-800';
@@ -111,7 +111,7 @@ const DepartmentTableComponent = ({
                   <div className="flex justify-end">
                     <EntityCardActions
                       onEdit={() => onEdit(d)}
-                      onDelete={() => onDelete(d)}
+                      onDelete={onDelete ? () => onDelete(d) : undefined}
                       isDeleting={isDeleting}
                       editLabel={`Edit ${d.name} department`}
                       deleteLabel={`Delete ${d.name} department`}

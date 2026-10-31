@@ -20,7 +20,7 @@ interface DepartmentCardProps {
   isDeleting: boolean;
   onToggleActive: (department: Department) => void;
   onEdit: (department: Department) => void;
-  onDelete: (department: Department) => void;
+  onDelete?: (department: Department) => void;
 }
 
 export const DepartmentCard = memo(({
@@ -59,7 +59,7 @@ export const DepartmentCard = memo(({
         <div className="relative z-10 -mr-2 -mt-1">
           <EntityCardActions
             onEdit={() => onEdit(department)}
-            onDelete={() => onDelete(department)}
+            onDelete={onDelete ? () => onDelete(department) : undefined}
             isDeleting={isDeleting}
             editLabel={`Edit ${department.name}`}
             deleteLabel={`Delete ${department.name}`}

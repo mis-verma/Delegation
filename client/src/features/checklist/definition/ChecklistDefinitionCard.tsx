@@ -153,7 +153,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
               items={[
                 { label: 'Edit in builder', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${id}`) },
                 { label: 'Duplicate', icon: Copy, onClick: () => navigate(`/admin/scheduled-checklists/builder?copyFrom=${id}`) },
-                { label: 'Delete', icon: Trash2, variant: 'destructive', separatorBefore: true, onClick: handleDelete },
+                ...(user?.role === 'ADMIN' ? [{ label: 'Delete', icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: handleDelete }] : []),
               ]}
               trigger={
                 <button

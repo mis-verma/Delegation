@@ -16,6 +16,7 @@ import { useMediaQuery } from "../../../lib/useMediaQuery";
 import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from "../directory/OrgToolbar";
 import { useDirectoryView } from "../directory/useDirectoryView";
 import { useMonthScores } from "../directory/orgScoreData";
+import { useAuth } from "../../../context/AuthContext";
 import {
   EmptyState,
   FormChunkFallback,
@@ -62,6 +63,8 @@ export const DepartmentList = () => {
   const { mutate: updateDepartment } = updateMut;
   const { mutate: deleteDepartment } = deleteMut;
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const canDelete = user?.role === "ADMIN";
 
   const statusCounts = useMemo(() => ({
     all: departments.length,
@@ -233,7 +236,7 @@ export const DepartmentList = () => {
           deletingId={deleteMut.isPending ? deleteMut.variables : undefined}
           onToggleActive={toggleActive}
           onEdit={setEditingDepartment}
-          onDelete={handleDelete}
+          onDelete={canDelete ? handleDelete : undefined}
         />
       );
     }
@@ -256,7 +259,7 @@ export const DepartmentList = () => {
               isDeleting={deleteMut.isPending && deleteMut.variables === d.id}
               onToggleActive={toggleActive}
               onEdit={setEditingDepartment}
-              onDelete={handleDelete}
+              onDelete={canDelete ? handleDelete : undefined}
             />
           );
         })}

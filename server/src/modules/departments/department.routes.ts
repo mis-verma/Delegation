@@ -11,5 +11,5 @@ departmentRouter.get("/:id" , departmentController.getOne)
 
 departmentRouter.post("/", requireRole("ADMIN", "PC"), departmentController.create)
 departmentRouter.patch("/:id", requireRole("ADMIN", "PC"), departmentController.update)
-departmentRouter.delete("/:id", requireRole("ADMIN", "PC"), departmentController.remove)
+departmentRouter.delete("/:id", requireRole("ADMIN"), departmentController.remove)
 

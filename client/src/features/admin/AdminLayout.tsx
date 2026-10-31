@@ -75,6 +75,8 @@ const NAV: AdminNavItem[] = [
   { group: 'system', to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 
+const PC_HIDDEN_PATHS = ['/admin/owner', '/admin/audit-log', '/admin/system-health'];
+
 const NAV_LINK_BASE =
   "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 min-h-11 lg:min-h-0 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
 const NAV_LINK_ACTIVE = "bg-surface-hover text-text font-bold";
@@ -126,7 +128,7 @@ export const AdminLayout = () => {
     ? NAV
     : user?.role === 'OWNER'
       ? NAV.filter((item) => OWNER_NAV_PATHS.includes(item.to))
-      : NAV.filter((item) => item.to !== '/admin/system-health');
+      : NAV.filter((item) => !PC_HIDDEN_PATHS.includes(item.to));
 
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches

@@ -129,6 +129,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   const isEditing = Boolean(user);
   const confirm = useConfirm();
   const { user: me } = useAuth();
+  const isPcEditing = isEditing && me?.role === 'PC';
   const roleChoices = ROLE_ORDER.filter((r) => !(me?.role === 'PC' && (r === 'ADMIN' || r === 'OWNER')));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [showPassword, setShowPassword] = useState(false);
@@ -262,9 +263,9 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       const payload: UpdateUserPayload = {};
       if (data.firstName !== user.firstName) payload.firstName = data.firstName;
       if ((data.lastName ?? '') !== (user.lastName ?? '')) payload.lastName = data.lastName ?? '';
-      if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) payload.email = data.email;
+      if (!isPcEditing && data.email.trim().toLowerCase() !== user.email.toLowerCase()) payload.email = data.email;
       if ((phone ?? null) !== ((user.phone?.trim() || null))) payload.phone = phone ?? '';
-      if (data.role !== user.role) payload.role = data.role;
+      if (!isPcEditing && data.role !== user.role) payload.role = data.role;
       if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
       if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
@@ -427,11 +428,12 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   <Input id="lastName" label="Last name (optional)" icon={User} autoComplete="off" error={errors.lastName?.message} {...register('lastName')} />
                 </div>
 
-                <Input id="email" label="Email address" type="email" icon={Mail} autoComplete="off" error={errors.email?.message} {...register('email')} />
+                <Input id="email" label="Email address" type="email" icon={Mail} autoComplete="off" readOnly={isPcEditing} error={errors.email?.message} {...register('email')} />
 
                 <Input id="phone" label="Phone (optional)" type="tel" inputMode="tel" icon={Phone} autoComplete="off" error={errors.phone?.message} {...register('phone')} />
               </FormSection>
 
+              {!isPcEditing && (
               <FormSection title="Access" icon={ShieldCheck} description="How they sign in and what they can see.">
                 {!isEditing && (
                   <div className="flex flex-col gap-2">
@@ -497,6 +499,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   />
                 </FormField>
               </FormSection>
+              )}
 
               <FormSection title="Placement" icon={Building2} description="The department and store they work in.">
                 <FormField htmlFor="departmentId" label="Department" icon={Building2} warning={departmentWarning}>

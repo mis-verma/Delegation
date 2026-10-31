@@ -63,10 +63,10 @@ export type EntityStatusFilterValue = 'all' | 'active' | 'inactive';
 
 interface EntityCardActionsProps {
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   isDeleting: boolean;
   editLabel: string;
-  deleteLabel: string;
+  deleteLabel?: string;
   onDuplicate?: () => void;
   duplicateLabel?: string;
   extraItems?: DropdownAction[];
@@ -79,7 +79,7 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
       { label: editLabel, icon: Pencil, onClick: onEdit },
       ...(onDuplicate ? [{ label: duplicateLabel ?? 'Duplicate', icon: Copy, onClick: onDuplicate }] : []),
       ...extraItems,
-      { label: deleteLabel, icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: onDelete },
+      ...(onDelete ? [{ label: deleteLabel ?? 'Delete', icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: onDelete }] : []),
     ]}
     trigger={
       <button

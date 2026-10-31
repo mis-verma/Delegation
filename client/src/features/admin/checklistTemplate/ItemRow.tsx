@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useUpdateChecklistTemplateItemMutation, useDeleteChecklistTemplateItemMutation } from '../hook';
 import { ToggleChip, useConfirm } from '../../../components';
+import { useAuth } from '../../../context/AuthContext';
 import { CountStepper } from '../../checklist/definition/builder/CountStepper';
 import { PhotoSourceChips } from '../../checklist/definition/builder/PhotoRulesPanel';
 import { InlineRenameInput } from './InlineRenameInput';
@@ -28,6 +29,8 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   const updateItem = useUpdateChecklistTemplateItemMutation();
   const deleteItem = useDeleteChecklistTemplateItemMutation();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'ADMIN';
   const [renaming, setRenaming] = useState(false);
 
   const minPhotos = item.requiredImageCount;
@@ -133,15 +136,17 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleteItem.isPending}
-          className="flex items-center justify-center size-11 sm:size-9 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 disabled:pointer-events-none"
-          aria-label={`Delete step ${index + 1}`}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteItem.isPending}
+            className="flex items-center justify-center size-11 sm:size-9 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label={`Delete step ${index + 1}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
 
       </div>
     </article>

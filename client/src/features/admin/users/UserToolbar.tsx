@@ -37,7 +37,7 @@ interface UserToolbarProps {
   shownCount: number;
   totalPeople: number;
   resultText: string | null;
-  onNew: () => void;
+  onNew?: () => void;
   exportMenu?: ReactNode;
   onPreloadForm: () => void;
 }
@@ -238,7 +238,7 @@ export const UserToolbar = ({
 
         {exportMenu}
 
-        <CreateButton label="New user" onClick={onNew} onPreload={onPreloadForm} />
+        {onNew && <CreateButton label="New user" onClick={onNew} onPreload={onPreloadForm} />}
       </div>
 
       <span className="sr-only" aria-live="polite">{resultText ?? ''}</span>

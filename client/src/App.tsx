@@ -101,6 +101,7 @@ const AdminRoute = createRoleGuard(...ADMIN_AREA_ROLES, 'OWNER');
 const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 
 const AdminOnlyRoute = createRoleGuard('ADMIN');
+const AdminOrOwnerRoute = createRoleGuard('ADMIN', 'OWNER');
 
 const PcDeskRoute = createRoleGuard('ADMIN', 'PC');
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
@@ -335,11 +336,11 @@ const router = createBrowserRouter([
             ),
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
-              { path: '/admin/owner', element: <OwnerRoute /> },
+              { element: <AdminOrOwnerRoute />, children: [{ path: '/admin/owner', element: <OwnerRoute /> }] },
               { path: '/admin/rankings', element: <RedirectToScores set={{ view: 'department' }} /> },
               { path: '/admin/scorecard', element: <ScorecardRedirect /> },
               { path: '/admin/checklist-store-daily', element: <RedirectToScores set={{ view: 'store' }} /> },
-              { path: '/admin/data-check', element: <DataCheckPage /> },
+              { element: <AdminOnlyRoute />, children: [{ path: '/admin/data-check', element: <DataCheckPage /> }] },
               { path: '/admin/analytics', element: <Navigate to="/admin" replace /> },    
               { path: '/admin/reports/tasks', element: <Navigate to="/tasks/team" replace /> },
               { path: '/admin/directory', element: <DirectoryPage /> },
@@ -355,8 +356,13 @@ const router = createBrowserRouter([
               { path: '/admin/scheduled-checklists/:definitionId', element: <ChecklistDefinitionDetail /> },
               { path: '/admin/tickets', element: <TicketList /> },
               { path: '/admin/reports', element: <ReportsPage /> },
-              { path: '/admin/audit-log', element: <AuditLogPage /> },
-              { path: '/admin/system-health', element: <SystemHealthPage /> },
+              {
+                element: <AdminOnlyRoute />,
+                children: [
+                  { path: '/admin/audit-log', element: <AuditLogPage /> },
+                  { path: '/admin/system-health', element: <SystemHealthPage /> },
+                ],
+              },
               { path: '/admin/holidays', element: <HolidaysPage /> },
               { path: '/admin/dress-types', element: <DressTypesPage /> },
               { path: '/admin/checklist-former', element: <FormerPeoplePage /> },

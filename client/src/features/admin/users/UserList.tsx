@@ -75,6 +75,7 @@ export const UserList = () => {
   const bulkMut = useBulkUpdateUsersMutation();
   const confirm = useConfirm();
   const { user: me } = useAuth();
+  const isPc = me?.role === 'PC';
 
   const departmentNames = useMemo(() => new Map((departments ?? []).map(d => [d.id, d.name])), [departments]);
   const storeNames = useMemo(() => new Map((stores ?? []).map(s => [s.id, s.name])), [stores]);
@@ -253,8 +254,8 @@ export const UserList = () => {
         <EmptyState
           icon={Users}
           title="No people yet"
-          description="Add the first person to get started."
-          action={{ label: 'Add a person', icon: Plus, onClick: () => setShowForm(true) }}
+          description={isPc ? 'An admin can add the first person.' : 'Add the first person to get started.'}
+          action={isPc ? undefined : { label: 'Add a person', icon: Plus, onClick: () => setShowForm(true) }}
         />
       ) : (
         <EmptyState
@@ -320,7 +321,7 @@ export const UserList = () => {
         shownCount={filtered.length}
         totalPeople={users.length}
         resultText={resultText}
-        onNew={() => setShowForm(true)}
+        onNew={isPc ? undefined : () => setShowForm(true)}
         onPreloadForm={preloadForm}
         exportMenu={
           <ExportMenu
@@ -347,7 +348,7 @@ export const UserList = () => {
           disabled={bulkMut.isPending}
           onMoveDepartment={moveDepartment}
           onMoveStore={moveStore}
-          onChangeRole={changeRole}
+          onChangeRole={isPc ? undefined : changeRole}
           onClear={clearSelection}
         />
       )}

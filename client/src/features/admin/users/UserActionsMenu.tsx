@@ -32,7 +32,7 @@ const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPasswor
     }
     if (!isSelf) list.push({ label: 'Reset password', icon: KeyRound, onClick: () => onResetPassword(user) });
     if (!isSelf && user.isActive) list.push({ label: 'Email password code', icon: MailCheck, onClick: () => sendCode(user.id) });
-    if (!isSelf) {
+    if (!isSelf && me?.role !== 'PC') {
       list.push(
         user.isActive
           ? { label: 'Deactivate', icon: UserMinus, onClick: () => onDeactivate(user) }
@@ -43,7 +43,7 @@ const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPasswor
       }
     }
     return list;
-  }, [user, isSelf, realUser?.role, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete, sendCode, startPreview]);
+  }, [user, isSelf, realUser?.role, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete, sendCode, startPreview, me?.role]);
 
   if (lockedAdmin) return null;
 

@@ -40,6 +40,12 @@ const getChecklistWithItems = async (id: string) => {
 };
 
 
+const assertTicketOpenForChecklists = async (ticketId: string, user: AccessTokenPayload) => {
+  const [ticket] = await db.select({ status: tickets.status, deletedAt: tickets.deletedAt }).from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+  if (!ticket) throw AppError.notFound('Ticket not found');
+  assertTicketStateAllowsChecklistWork(ticket, user);
+};
+
 const assertCanManage = (user: AccessTokenPayload, ticket: { userId: string }) => {
   if (isAdminOrPc(user.role)) return;
   if (ticket.userId === user.sub) return;
@@ -51,7 +57,8 @@ const assertCanComplete = (user: AccessTokenPayload, item: Pick<ChecklistItemRow
   assertCanWorkTicketChecklistItem(user, item, 'Only the assigned person can complete this item');
 
 export const checklistService = {
-  async addToTicket(ticketId: string, input: CreateChecklistInput) {
+  async addToTicket(ticketId: string, input: CreateChecklistInput, user: AccessTokenPayload) {
+    await assertTicketOpenForChecklists(ticketId, user);
     const id = createId();
     await db.insert(checklists).values({ id, title: input.title, ticketId });
     if (input.items?.length) {
@@ -72,7 +79,8 @@ export const checklistService = {
     return getChecklistWithItems(id);
   },
 
-  async addFromTemplateToTicket(ticketId: string, templateId: string) {
+  async addFromTemplateToTicket(ticketId: string, templateId: string, user: AccessTokenPayload) {
+    await assertTicketOpenForChecklists(ticketId, user);
     const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, templateId), isNull(checklistTemplates.deletedAt))).limit(1);
     if (!template) throw AppError.notFound('Checklist template not found');
     if (template.appliesTo !== 'TICKET') throw AppError.badRequest('This template applies to tasks, not tickets');

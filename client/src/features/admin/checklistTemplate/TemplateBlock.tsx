@@ -8,6 +8,7 @@ import {
   useUpdateChecklistTemplateMutation,
 } from '../hook';
 import { useAssignableUsersQuery } from '../../tickets/hook';
+import { useAuth } from '../../../context/AuthContext';
 import { plural } from '../../checklist/checklistDisplay';
 import { ItemRow } from './ItemRow';
 import { InlineRenameInput } from './InlineRenameInput';
@@ -31,6 +32,8 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
   const updateTemplate = useUpdateChecklistTemplateMutation();
   const addItem = useAddChecklistTemplateItemMutation();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'ADMIN';
   const { data: assignableUsers } = useAssignableUsersQuery(template.departmentId ?? undefined, undefined, undefined, open);
 
   const handleAddItem = () => {
@@ -115,15 +118,17 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={handleDeleteTemplate}
-          disabled={deleteTemplate.isPending}
-          className={`${ICON_BTN_CLASS} hover:text-danger hover:bg-danger/10`}
-          aria-label={`Delete ${template.name}`}
-        >
-          {deleteTemplate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-        </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={handleDeleteTemplate}
+            disabled={deleteTemplate.isPending}
+            className={`${ICON_BTN_CLASS} hover:text-danger hover:bg-danger/10`}
+            aria-label={`Delete ${template.name}`}
+          >
+            {deleteTemplate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          </button>
+        )}
       </div>
 
       <AnimatePresence>

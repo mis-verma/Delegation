@@ -8,7 +8,6 @@ import { EXPLORER_MODULES, EXPLORER_VIEWS } from "./scoreExplorer.js"
 import { scoreExplorerService } from "./scoreExplorer.service.js"
 import { MATRIX_PERIODS } from "./scoreMatrix.js"
 import { scoreMatrixService } from "./scoreMatrix.service.js"
-import { isAdminOrPc } from "../../utils/roles.js"
 import { cachedScores } from "./scoreCache.js"
 
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-01")
@@ -87,7 +86,7 @@ export const scoreController = {
         res.json({ success: true, data })
     }),
     dataCheck: asyncHandler(async (req: Request, res: Response) => {
-        if (!isAdminOrPc(req.user!.role)) throw AppError.forbidden()
+        if (req.user!.role !== "ADMIN") throw AppError.forbidden()
         const { from, to } = dataCheckSchema.parse(req.query)
         res.json({ success: true, data: await assertScoreConsistency(from, to) })
     }),

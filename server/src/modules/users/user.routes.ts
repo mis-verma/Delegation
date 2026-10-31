@@ -3,6 +3,7 @@ import { userController } from "./user.controller.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 import { avatarUpload } from "../../config/upload.js"
 import { protectAdminAccounts } from "./adminAccountGuard.js"
+import { limitPcUserChanges } from "./userAccess.js"
 
 export const userRouter = Router()
 
@@ -19,14 +20,14 @@ userRouter.delete("/me/avatar", userController.removeMyAvatar)
 userRouter.use(requireRole('ADMIN', 'PC'))
 userRouter.get("/", userController.list)
 userRouter.get("/presence", userController.presence)
-userRouter.patch("/bulk", protectAdminAccounts, userController.bulkUpdate)
+userRouter.patch("/bulk", protectAdminAccounts, limitPcUserChanges, userController.bulkUpdate)
 userRouter.get("/:id", userController.getOne)
-userRouter.post("/", protectAdminAccounts, userController.create)
-userRouter.patch("/:id", protectAdminAccounts, userController.update)
+userRouter.post("/", requireRole('ADMIN'), protectAdminAccounts, userController.create)
+userRouter.patch("/:id", protectAdminAccounts, limitPcUserChanges, userController.update)
 userRouter.get("/:id/offboarding", userController.offboardingSummary)
-userRouter.post("/:id/offboard", protectAdminAccounts, userController.offboard)
+userRouter.post("/:id/offboard", requireRole('ADMIN'), protectAdminAccounts, userController.offboard)
 userRouter.post("/:id/reset-password", protectAdminAccounts, userController.resetPassword)
 userRouter.post("/:id/send-password-code", protectAdminAccounts, userController.sendPasswordCode)
 userRouter.post("/:id/avatar", protectAdminAccounts, avatarUpload, userController.uploadAvatar)
 userRouter.delete("/:id/avatar", protectAdminAccounts, userController.removeAvatar)
-userRouter.delete("/:id", protectAdminAccounts, userController.remove)
+userRouter.delete("/:id", requireRole('ADMIN'), protectAdminAccounts, userController.remove)

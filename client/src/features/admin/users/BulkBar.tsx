@@ -3,7 +3,6 @@ import { Building2, ChevronDown, ShieldCheck, Store, X } from 'lucide-react';
 import { Button, Dropdown, PANEL_CLASS, type DropdownAction } from '../../../components';
 import type { Role } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER } from '../roleBadge';
-import { useAuth } from '../../../context/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface BulkBarProps {
@@ -13,7 +12,7 @@ interface BulkBarProps {
   disabled: boolean;
   onMoveDepartment: (departmentId: string) => void;
   onMoveStore: (storeId: string) => void;
-  onChangeRole: (role: Role) => void;
+  onChangeRole?: (role: Role) => void;
   onClear: () => void;
 }
 
@@ -32,10 +31,9 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
     ],
     [stores, onMoveStore],
   );
-  const { user: me } = useAuth();
   const roleItems = useMemo<DropdownAction[]>(
-    () => ROLE_ORDER.filter((r) => !(me?.role === 'PC' && (r === 'ADMIN' || r === 'OWNER'))).map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),
-    [onChangeRole, me?.role],
+    () => ROLE_ORDER.map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole?.(r) })),
+    [onChangeRole],
   );
 
   return (
@@ -69,17 +67,19 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
           </Button>
         }
       />
-      <Dropdown
-        align="start"
-        items={roleItems}
-        trigger={
-          <Button type="button" variant="outline" size="sm" disabled={disabled}>
-            <ShieldCheck className="size-3.5" aria-hidden />
-            Change role
-            <ChevronDown className="size-3.5 text-text-light" aria-hidden />
-          </Button>
-        }
-      />
+      {onChangeRole && (
+        <Dropdown
+          align="start"
+          items={roleItems}
+          trigger={
+            <Button type="button" variant="outline" size="sm" disabled={disabled}>
+              <ShieldCheck className="size-3.5" aria-hidden />
+              Change role
+              <ChevronDown className="size-3.5 text-text-light" aria-hidden />
+            </Button>
+          }
+        />
+      )}
       <Button type="button" variant="ghost" size="sm" onClick={onClear} disabled={disabled} className="sm:ml-auto">
         <X className="size-3.5" aria-hidden />
         Clear selection

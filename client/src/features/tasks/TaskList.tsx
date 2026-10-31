@@ -538,7 +538,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               onToggleField={toggleField}
               assignableUsers={ownScopeOnly ? undefined : assignableUsers}
               tags={tags}
-              isAdmin={isVerifier}
+              isAdmin={user?.role === "ADMIN"}
               canExport={isVerifier}
               onExport={() => setShowExport(true)}
               hideCategory={!!lockCategory}

@@ -46,7 +46,7 @@ interface CategoryCardProps {
   usage?: CategoryTatRow;
   onEdit: (category: Category) => void;
   onToggle: (category: Category) => void;
-  onRemove: (category: Category) => void;
+  onRemove?: (category: Category) => void;
 }
 
 const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: CategoryCardProps) => {
@@ -78,7 +78,7 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
         <div className="-mr-2 -mt-1">
           <EntityCardActions
             onEdit={() => onEdit(c)}
-            onDelete={() => onRemove(c)}
+            onDelete={onRemove ? () => onRemove(c) : undefined}
             isDeleting={false}
             editLabel={`Edit ${c.name}`}
             deleteLabel={`Delete ${c.name}`}
@@ -265,7 +265,7 @@ export const CategoryList = () => {
                   busy={(updateMut.isPending && updateMut.variables?.id === c.id) || (deleteMut.isPending && deleteMut.variables === c.id)}
                   onEdit={setEditingCategory}
                   onToggle={toggleActive}
-                  onRemove={(category) => { void remove(category); }}
+                  onRemove={user?.role === "ADMIN" ? (category) => { void remove(category); } : undefined}
                 />
               ))}
             </div>

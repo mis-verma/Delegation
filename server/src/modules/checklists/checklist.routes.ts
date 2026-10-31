@@ -7,12 +7,12 @@ import { checklistImageUpload } from '../../config/upload.js';
 export const checklistRouter = Router();
 
 checklistRouter.use(authenticate);
-checklistRouter.delete('/:id', requireRole("ADMIN", "PC"), checklistController.removeChecklist);
+checklistRouter.delete('/:id', requireRole("ADMIN"), checklistController.removeChecklist);
 
 export const checklistItemRouter = Router();
 checklistItemRouter.use(authenticate);
 checklistItemRouter.patch('/:id', checklistController.updateItem);
 checklistItemRouter.patch('/:id/remarks', checklistController.updateRemarks);
 checklistItemRouter.post('/:id/complete', checklistController.completeItem);
-checklistItemRouter.delete('/:id', requireRole("ADMIN", "PC"), checklistController.removeItem);
+checklistItemRouter.delete('/:id', requireRole("ADMIN"), checklistController.removeItem);
 checklistItemRouter.post('/:id/images', checklistImageUpload, checklistImageController.upload);

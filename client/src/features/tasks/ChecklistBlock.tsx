@@ -4,6 +4,7 @@ import { useDeleteTaskChecklistMutation } from './hook';
 import type { TaskChecklist } from '../../api/taskChecklist';
 import { ChecklistItemRow } from './ChecklistItemRow';
 import { useConfirm } from '../../components';
+import { useAuth } from '../../context/AuthContext';
 
 export const ChecklistBlock = ({
   checklist, taskId, isAdmin, currentUserId, workerIds = [],
@@ -16,6 +17,7 @@ export const ChecklistBlock = ({
 }) => {
   const [open, setOpen] = useState(true);
   const deleteChecklist = useDeleteTaskChecklistMutation(taskId);
+  const canDelete = useAuth().user?.role === 'ADMIN';
   const confirm = useConfirm();
   const askDelete = async () => {
     const ok = await confirm({
@@ -79,7 +81,7 @@ export const ChecklistBlock = ({
           </div>
         </div>
 
-        {isAdmin && (
+        {canDelete && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); void askDelete(); }}

@@ -16,6 +16,7 @@ import type { TaskChecklistItem, CaptureMethod } from '../../api/taskChecklist';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { errorMessage } from '../../lib/queryHelpers';
 import { IconChip } from '../../components';
+import { useAuth } from '../../context/AuthContext';
 
 export const ChecklistItemRow = ({
   item, taskId, isAdmin, canWork,
@@ -32,6 +33,7 @@ export const ChecklistItemRow = ({
   const updateRemarks = useUpdateTaskItemRemarksMutation(taskId);
   const completeItem  = useCompleteTaskChecklistItemMutation(taskId);
   const deleteItem    = useDeleteTaskChecklistItemMutation(taskId);
+  const canDelete     = useAuth().user?.role === 'ADMIN';
   const confirm = useConfirm();
   const askDelete = async () => {
     const ok = await confirm({
@@ -121,7 +123,7 @@ export const ChecklistItemRow = ({
               <RotateCcw size={16} />
             </button>
           )}
-          {isAdmin && (
+          {canDelete && (
             <button
               type="button"
               onClick={() => void askDelete()}

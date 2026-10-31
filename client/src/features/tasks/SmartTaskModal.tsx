@@ -761,7 +761,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             </div>
                         </div>
 
-                        {unmatchedAssigneeName && isAdmin && (
+                        {unmatchedAssigneeName && currentUser?.role === "ADMIN" && (
                             <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
                                 <span className="t-meta text-primary-800 dark:text-primary-200">
                                     No user found for &quot;{unmatchedAssigneeName}&quot;.

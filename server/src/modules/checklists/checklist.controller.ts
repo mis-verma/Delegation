@@ -7,12 +7,12 @@ import { routeParam } from "../../utils/routeParam.js"
 export const checklistController = {
   addToTicket: asyncHandler(async (req: Request, res: Response) => {
     const input = createChecklistSchema.parse(req.body);
-    const checklist = await checklistService.addToTicket(routeParam(req, "ticketId"), input);
+    const checklist = await checklistService.addToTicket(routeParam(req, "ticketId"), input, req.user!);
     res.status(201).json({ success: true, data: checklist });
   }),
 
   addFromTemplateToTicket: asyncHandler(async (req: Request, res: Response) => {
-    const checklist = await checklistService.addFromTemplateToTicket(routeParam(req, "ticketId"), routeParam(req, "templateId"));
+    const checklist = await checklistService.addFromTemplateToTicket(routeParam(req, "ticketId"), routeParam(req, "templateId"), req.user!);
     res.status(201).json({ success: true, data: checklist });
   }),
 
