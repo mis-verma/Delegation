@@ -4,7 +4,7 @@ import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-r
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
-import { IconChip, Modal, PANEL_CLASS } from '../../components';
+import { IconChip, Modal, PANEL_CLASS, useConfirm } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
@@ -174,6 +174,7 @@ interface FooterProps {
 }
 
 const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
+  const confirm = useConfirm();
   const { pickedIds, picked, note, sending, setNote, setSending } = draft;
   const items = row.instance.items;
 
@@ -182,37 +183,46 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
     return composeSendBackNote(note, pickedIds.map((id) => ({ label: labelById.get(id) ?? 'Question', note: picked[id] ?? '' })));
   }, [items, note, pickedIds, picked]);
 
-  const noted = pickedIds.filter((id) => (picked[id] ?? '').trim().length > 0).length;
   const tooLong = composed.length > SEND_BACK_NOTE_MAX;
   const count = pickedIds.length;
+  const names = row.assigneeNames.length > 0 ? row.assigneeNames.join(', ') : 'the team';
+
+  const submitSendBack = async () => {
+    const hours = draft.fixByHours;
+    const deadline = hours ? ` within ${hours < 24 ? `${hours} hours` : `${Math.round(hours / 24)} ${hours === 24 ? 'day' : 'days'}`}` : '';
+    const ok = await confirm({
+      title: count > 0 ? `Send ${count} ${count === 1 ? 'question' : 'questions'} back?` : 'Send the whole checklist back?',
+      description: `${names} will see your note and must fix it and submit again${deadline}.`,
+      confirmLabel: 'Send back',
+      variant: 'danger',
+    });
+    if (ok) onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours });
+  };
 
   if (sending) {
     return (
       <div className="flex flex-col gap-3 w-full">
-        <p className="text-sm font-display font-semibold text-text">
-          {count > 0 ? `Send back ${count} ${count === 1 ? 'question' : 'questions'}` : 'Send the whole checklist back'}
-        </p>
+        <div className="flex flex-col gap-0.5">
+          <p className="t-card font-display font-semibold text-text">
+            {count > 0 ? `Send back ${count} ${count === 1 ? 'question' : 'questions'}` : 'Send the whole checklist back'}
+          </p>
+          <p className="t-meta text-text-muted">To {names}</p>
+        </div>
         <SendBackForm
           autoFocus
           quickReasons
           note={note}
           onNoteChange={setNote}
           onCancel={() => setSending(false)}
-          onSubmit={() => onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours })}
+          onSubmit={() => void submitSendBack()}
           fixBy={{ value: draft.fixByHours, onChange: draft.setFixBy }}
           canSubmit={composed.length > 0 && !tooLong}
           isSending={false}
           busy={false}
           submitLabel={count > 0 ? `Send back ${count}` : 'Send back all'}
-          placeholder={count > 0 ? 'What needs fixing on these questions?' : 'What needs fixing before this can be approved?'}
+          placeholder={count > 0 ? 'What needs fixing?' : 'What needs fixing before this can be approved?'}
           maxLength={SEND_BACK_NOTE_MAX}
-          helper={
-            tooLong
-              ? `The note is ${composed.length - SEND_BACK_NOTE_MAX} characters too long. Shorten a note.`
-              : noted > 0
-                ? `${noted} ${noted === 1 ? 'question note' : 'question notes'} will be added below your note.`
-                : undefined
-          }
+          helper={tooLong ? `The note is ${composed.length - SEND_BACK_NOTE_MAX} characters too long. Shorten a note.` : undefined}
         />
       </div>
     );

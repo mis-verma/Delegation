@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, Flag, TicketPlus, UserCheck } from 'lucide-react';
 import { Button, Modal } from '../../../components';
 import { cn } from '@/lib/utils';
 import { TicketPriorityChipPicker } from '../../tickets/form/TicketPriorityChipPicker';
@@ -9,6 +8,8 @@ import { useRaiseChecklistTicketMutation } from '../hook';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 const MIN_NOTE = 5;
+
+const PRIORITY_WORD: Record<TicketPriority, string> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' };
 
 const TAT_OPTIONS = [
   { hours: 4, label: '4 hours' },
@@ -65,44 +66,44 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
         open={open}
         onClose={close}
         size="md"
-        icon={<TicketPlus className="size-5" />}
-        title="Raise a ticket on this answer"
-        description="The person gets a ticket to fix it within the time you pick. This question counts as a failed check in compliance."
+        title="Raise a ticket"
+        description="This question counts as a failed check."
         footer={
-          <div className="flex w-full items-center justify-end gap-2">
-            <Button variant="ghost" onClick={close} disabled={raise.isPending}>Cancel</Button>
-            <Button onClick={submit} isLoading={raise.isPending} disabled={trimmed.length < MIN_NOTE}>
-              {!raise.isPending && <TicketPlus size={15} aria-hidden="true" />}
-              Raise ticket
-            </Button>
+          <div className="flex w-full flex-col gap-2">
+            <p className="t-meta font-display text-text-secondary">
+              {`${PRIORITY_WORD[priority]} priority ticket for ${item.completedByName ?? 'the person who answered it'}, to fix within ${TAT_OPTIONS.find((o) => o.hours === tatHours)?.label ?? `${tatHours} hours`}.`}
+            </p>
+            <div className="flex w-full items-center justify-end gap-2">
+              <Button variant="ghost" onClick={close} disabled={raise.isPending}>Cancel</Button>
+              <Button onClick={submit} isLoading={raise.isPending} disabled={trimmed.length < MIN_NOTE}>
+                Raise ticket
+              </Button>
+            </div>
           </div>
         }
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2.5">
+          <div className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-surface-hover/50 px-3 py-2">
             <p className="t-card font-display font-semibold text-text">{item.label}</p>
-            <p className="flex items-center gap-1.5 t-meta font-display text-text-muted">
-              <UserCheck size={13} aria-hidden="true" />
-              Goes to {item.completedByName ?? 'the person who answered it'}
-            </p>
+            <p className="t-meta font-display text-text-muted">To {item.completedByName ?? 'the person who answered it'}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`raise-note-${item.id}`} className={LABEL_CLASS}>What is wrong and what to fix</label>
+            <label htmlFor={`raise-note-${item.id}`} className={LABEL_CLASS}>What to fix</label>
             <textarea
               id={`raise-note-${item.id}`}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              rows={3}
+              rows={2}
               maxLength={2000}
-              placeholder="For example: the photo shows the counter was not cleaned. Clean it and add a new photo."
+              placeholder="For example: the counter was not cleaned. Clean it and add a new photo."
               className="w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-base text-text outline-none focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:text-sm"
             />
             <p className="t-meta text-text-muted">{trimmed.length < MIN_NOTE ? `At least ${MIN_NOTE} characters.` : `${trimmed.length} of 2000`}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={LABEL_CLASS}><Clock size={13} aria-hidden="true" />Fix within</span>
+            <span className={LABEL_CLASS}>Fix within</span>
             <div role="radiogroup" aria-label="Fix within" className="flex flex-wrap gap-1.5">
               {TAT_OPTIONS.map((o) => {
                 const on = o.hours === tatHours;
@@ -126,7 +127,7 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className={LABEL_CLASS}><Flag size={13} aria-hidden="true" />Priority</span>
+            <span className={LABEL_CLASS}>Priority</span>
             <TicketPriorityChipPicker value={priority} onChange={setPriority} />
           </div>
         </div>

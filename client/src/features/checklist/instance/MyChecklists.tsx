@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { AlertCircle, Undo2, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
@@ -44,6 +45,8 @@ const SORT_COMPARATORS: Record<SortKey, (a: ChecklistInstance, b: ChecklistInsta
   dueSoonest: (a, b) => instanceDeadline(a) - instanceDeadline(b),
   titleAsc: (a, b) => a.title.localeCompare(b.title),
 };
+
+const isRunDone = (i: ChecklistInstance) => i.items.length > 0 && i.items.every((it) => it.isDone);
 
 type GroupByKey = 'recurrence' | 'store' | 'person';
 const GROUP_BY_LABEL: Record<GroupByKey, string> = { recurrence: 'Recurrence', store: 'Store', person: 'Person' };
@@ -238,6 +241,9 @@ export const MyChecklists = () => {
       needsAction(i));
   }, [sortedInstances, now, quickFilter, canFillEnded]);
 
+  const { pending: pendingRuns, done: doneRuns } = useDoneLast(instances, isRunDone);
+  const sinkedInstances = useMemo(() => [...pendingRuns, ...doneRuns], [pendingRuns, doneRuns]);
+
   const lateNowCount = useMemo(
     () => instances.filter((i) => isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now)).length,
     [instances, now],
@@ -260,7 +266,7 @@ export const MyChecklists = () => {
       const group = groups.get(key);
       if (group) group.push(instance); else groups.set(key, [instance]);
     };
-    for (const instance of instances) {
+    for (const instance of sinkedInstances) {
       if (groupBy === 'person') {
         if (!instance.assigneeIds.length) addTo('Unassigned', instance);
         else for (const id of instance.assigneeIds) addTo(peopleNameById.get(id) ?? (peopleLoading ? 'Loading people' : 'Unknown'), instance);
@@ -271,7 +277,7 @@ export const MyChecklists = () => {
       }
     }
     return [...groups.entries()];
-  }, [view, instances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
+  }, [view, sinkedInstances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
 
   const sendBack = useMemo(() => {
     const rejected = allInstances.filter((i) => i.verificationStatus === 'REJECTED');
