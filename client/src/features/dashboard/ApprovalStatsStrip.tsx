@@ -1,14 +1,16 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { Hourglass, Timer, BadgeCheck, ShieldQuestion, type LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { InlineError } from '../../components/inlineError';
 import { Skeleton } from '../../components/skeleton';
 import { CountUp } from '../../components/countUp';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { useApprovalDays, useTeamApprovals } from '../attention/useAttention';
+import { useTeamApprovals } from '../attention/useAttention';
 import { formatDuration } from '../admin/analytics/analyticsDisplay';
 import { ApprovalRing } from './ApprovalRing';
+import { FigureCard, type FigureTone } from './FigureCard';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { Sparkline } from './Sparkline';
 import { windowFor } from './scorePeriods';
 import { orgDayWindow } from './scoreDrill';
@@ -118,11 +120,9 @@ export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', forma
   );
 };
 
-const addDays = (day: string, delta: number) => {
-  const d = new Date(`${day}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-};
+const LIMIT_HOURS = 24;
+
+const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
 export const ApprovalStatsStrip = memo(() => {
   const today = useOrgToday();
@@ -132,9 +132,6 @@ export const ApprovalStatsStrip = memo(() => {
   const query = useTeamApprovals(start, end);
   const data = query.data;
   const loading = query.isPending;
-  const days = useApprovalDays(addDays(today, -6), today).data;
-  const inflow = days?.map((d) => d.submitted);
-  const onTime = days?.map((d) => d.rate);
 
   if (query.isError && !data) {
     return (
@@ -147,58 +144,50 @@ export const ApprovalStatsStrip = memo(() => {
   const waiting = data?.waiting.total.now ?? 0;
   const over = data?.waiting.total.over24h ?? 0;
   const rate = data?.rate ?? null;
+  const avg = data?.avgDecisionHours ?? null;
+  const withinShare = waiting === 0 ? 100 : ((waiting - over) / waiting) * 100;
+  const overShare = waiting === 0 ? 0 : (over / waiting) * 100;
 
   return (
     <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Approval figures">
       <ApprovalRing />
-      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-4">
-        <Stat
-          index={0}
-          icon={ShieldQuestion}
+      <dl className="grid grid-cols-2 gap-2 @3xl:grid-cols-4">
+        <FigureCard
           label="Waiting now"
+          help="Items handed in for approval that are still waiting for a decision."
           value={waiting}
-          caption={waiting === 0 ? 'Nothing pending' : 'Awaiting a decision'}
-          accent="blue"
-          mutedAtZero
-          trend={inflow}
-          trendLabel="Handed in for approval, last 7 days"
+          tone={waiting === 0 ? 'good' : rateTone(withinShare)}
+          bar={withinShare}
           loading={loading}
         />
-        <Stat
-          index={1}
-          icon={Hourglass}
+        <FigureCard
           label="Over 24 hours"
+          help="Waiting items that have passed the 24 hour limit."
           value={over}
-          caption={over === 0 ? 'None past the limit' : 'Past the 24 hour limit'}
-          accent={over > 0 ? 'red' : 'green'}
-          alert={over > 0}
+          tone={over === 0 ? 'good' : 'bad'}
+          bar={overShare}
           loading={loading}
         />
-        <Stat
-          index={2}
-          icon={Timer}
-          label="Average decision time"
-          value={data?.avgDecisionHours ?? null}
+        <FigureCard
+          label="Decision time"
+          help="Average time from hand-in to decision this week. The bar fills toward the 24 hour limit."
+          value={avg}
           decimals={1}
           format={formatDuration}
-          caption={data && data.decided > 0 ? `${data.decided} decided this week` : 'Nothing decided this week'}
-          accent="sky"
+          tone={avg === null ? 'plain' : avg <= LIMIT_HOURS / 2 ? 'good' : avg <= LIMIT_HOURS ? 'fair' : 'bad'}
+          bar={avg === null ? null : (avg / LIMIT_HOURS) * 100}
           loading={loading}
         />
-        <Stat
-          index={3}
-          icon={BadgeCheck}
-          label="Decided within 24 hours"
+        <FigureCard
+          label="On time"
+          help="Share of this week's decisions made within 24 hours."
           value={rate}
           format={(n) => `${Math.round(n)}%`}
-          progress={rate}
-          caption="This week"
-          accent={rate == null || rate >= 70 ? 'green' : 'red'}
-          trend={onTime}
-          trendLabel="Decided within 24 hours, last 7 days"
+          tone={rate === null ? 'plain' : rateTone(rate)}
+          bar={rate}
           loading={loading}
         />
-      </div>
+      </dl>
     </div>
   );
 });
