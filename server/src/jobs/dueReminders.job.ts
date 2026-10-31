@@ -3,6 +3,7 @@ import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, ne, notInArray, sql 
 import { db } from '../config/db.js';
 import { env } from '../config/env.js';
 import { users, tickets, tasks, taskAdditionalAssignees, taskDepartmentApprovals, checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from '../db/schema/index.js';
+import { forEachLimit } from '../utils/forEachLimit.js';
 import { notificationService } from '../modules/notifications/notification.service.js';
 import { settingsService } from '../modules/settings/settings.service.js';
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from '../modules/checklistInstances/checklistInstance.service.js';
@@ -135,12 +136,10 @@ const checklistsDueSoon = async (now: Date) => {
   )).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfRuns(rows.map((r) => r.id));
-  for (const r of rows) {
-    await notificationService.notifyChecklistDueSoon({
-      _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [],
-      minutesLeft: minutesUntil(new Date(runDeadlineAt(r)), now), closesAt: formatClock(r.cutoffTime as string),
-    });
-  }
+  await forEachLimit(rows, NOTIFY_PARALLEL, (r) => notificationService.notifyChecklistDueSoon({
+    _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [],
+    minutesLeft: minutesUntil(new Date(runDeadlineAt(r)), now), closesAt: formatClock(r.cutoffTime as string),
+  }));
   await db.update(checklistInstances).set({ dueSoonNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
 };
 
@@ -155,9 +154,7 @@ const checklistsOpened = async (now: Date) => {
   )).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfRuns(rows.map((r) => r.id));
-  for (const r of rows) {
-    await notificationService.notifyChecklistOpened({ _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [], closesAt: r.cutoffTime ? formatClock(r.cutoffTime) : null });
-  }
+  await forEachLimit(rows, NOTIFY_PARALLEL, (r) => notificationService.notifyChecklistOpened({ _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [], closesAt: r.cutoffTime ? formatClock(r.cutoffTime) : null }));
   await db.update(checklistInstances).set({ openedNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
 };
 
@@ -168,13 +165,14 @@ const checklistsUpcoming = async (now: Date) => {
   )).limit(BATCH);
   if (!rows.length) return;
   const people = await assigneesOfRuns(rows.map((r) => r.id));
-  for (const r of rows) {
+  await forEachLimit(rows, NOTIFY_PARALLEL, (r) => {
     const opensOn = r.periodStart.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-    await notificationService.notifyChecklistUpcoming({ _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [], opensOn });
-  }
+    return notificationService.notifyChecklistUpcoming({ _id: r.id, title: r.title, assigneeIds: people.get(r.id) ?? [], opensOn });
+  });
   await db.update(checklistInstances).set({ upcomingNotifiedAt: now }).where(inArray(checklistInstances.id, rows.map((r) => r.id)));
 };
 
+const NOTIFY_PARALLEL = 5;
 const REMINDER_HOURS = 24;
 const ESCALATE_HOURS = 48;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -346,14 +344,14 @@ const overdueEscalations = async (now: Date) => {
     isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.overdueEscalatedAt), eq(tickets.isOverdue, true),
     notInArray(tickets.status, ['CLOSED', 'PENDING_APPROVAL']), lte(tickets.tatDueAt, cutoff), gt(tickets.tatDueAt, floor),
   )).limit(BATCH);
-  for (const t of lateTickets) await notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TICKET');
+  await forEachLimit(lateTickets, NOTIFY_PARALLEL, (t) => notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TICKET'));
   if (lateTickets.length) await db.update(tickets).set({ overdueEscalatedAt: now }).where(inArray(tickets.id, lateTickets.map((t) => t.id)));
 
   const lateTasks = await db.select().from(tasks).where(and(
     isNull(tasks.deletedAt), eq(tasks.awaitingHeadApproval, false), isNull(tasks.overdueEscalatedAt), notInArray(tasks.status, ['done', 'draft', 'pending_approval']),
     isNotNull(tasks.dueDate), lte(tasks.dueDate, cutoff), gt(tasks.dueDate, floor),
   )).limit(BATCH);
-  for (const t of lateTasks) await notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TASK');
+  await forEachLimit(lateTasks, NOTIFY_PARALLEL, (t) => notificationService.notifyOverdueEscalation({ _id: t.id, title: t.title }, 'TASK'));
   if (lateTasks.length) await db.update(tasks).set({ overdueEscalatedAt: now }).where(inArray(tasks.id, lateTasks.map((t) => t.id)));
 };
 
@@ -364,7 +362,7 @@ const unassignedReminders = async (now: Date) => {
     isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.assigneeId), isNull(tickets.unassignedNotifiedAt),
     eq(tickets.status, 'OPEN'), lte(tickets.createdAt, cutoff), gt(tickets.createdAt, floor),
   )).limit(BATCH);
-  for (const t of openTickets) await notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TICKET');
+  await forEachLimit(openTickets, NOTIFY_PARALLEL, (t) => notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TICKET'));
   if (openTickets.length) await db.update(tickets).set({ unassignedNotifiedAt: now }).where(inArray(tickets.id, openTickets.map((t) => t.id)));
 
   const openTasks = await db.select().from(tasks).where(and(
@@ -375,7 +373,7 @@ const unassignedReminders = async (now: Date) => {
     ? new Set((await db.select({ id: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees).where(inArray(taskAdditionalAssignees.taskId, openTasks.map((t) => t.id)))).map((r) => r.id))
     : new Set<string>();
   const unowned = openTasks.filter((t) => !withHelpers.has(t.id));
-  for (const t of unowned) await notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TASK');
+  await forEachLimit(unowned, NOTIFY_PARALLEL, (t) => notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TASK'));
   if (unowned.length) await db.update(tasks).set({ unassignedNotifiedAt: now }).where(inArray(tasks.id, unowned.map((t) => t.id)));
 };
 

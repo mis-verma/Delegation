@@ -1,9 +1,11 @@
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getTableName } from 'drizzle-orm'
-import type { AnyMySqlTable } from 'drizzle-orm/mysql-core'
+import { getTableColumns, getTableName, gt } from 'drizzle-orm'
+import { getTableConfig, type AnyMySqlColumn, type AnyMySqlTable } from 'drizzle-orm/mysql-core'
 import { db } from '../config/db.js'
 import { env } from '../config/env.js'
+import { countJsonArrayRows, openJsonArray } from './jsonArrayFile.js'
 import {
   tickets, ticketStatusUpdates, ticketAttachments, ticketComments,
   checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems,
@@ -34,6 +36,42 @@ export interface BackupResult {
   detail: { group: string; table: string; rows: number }[]
 }
 
+const PAGE_ROWS = 2000
+
+const keyColumns = (table: AnyMySqlTable): AnyMySqlColumn[] => {
+  const config = getTableConfig(table)
+  const single = config.columns.filter((column) => column.primary)
+  if (single.length > 0) return single
+  const composite = config.primaryKeys[0]?.columns
+  return composite && composite.length > 0 ? composite : config.columns.slice(0, 1)
+}
+
+const exportTable = async (table: AnyMySqlTable, file: string): Promise<number> => {
+  const keys = keyColumns(table)
+  const keyProp = keys.length === 1 ? Object.entries(getTableColumns(table)).find(([, column]) => column === keys[0])?.[0] : undefined
+  const writer = openJsonArray(file)
+  try {
+    let last: unknown
+    let offset = 0
+    for (;;) {
+      let query = db.select().from(table).$dynamic()
+      if (keyProp && last !== undefined) query = query.where(gt(keys[0]!, last))
+      query = query.orderBy(...keys).limit(PAGE_ROWS)
+      if (!keyProp) query = query.offset(offset)
+      const rows = (await query) as Record<string, unknown>[]
+      if (rows.length === 0) break
+      await writer.write(rows)
+      offset += rows.length
+      if (keyProp) last = rows[rows.length - 1]?.[keyProp]
+      if (rows.length < PAGE_ROWS) break
+    }
+  } catch (err) {
+    await writer.close().catch(() => undefined)
+    throw err
+  }
+  return writer.close()
+}
+
 export const runDataBackup = async (prefix = ''): Promise<BackupResult> => {
   const name = `${prefix}${new Date().toISOString().replace(/[:.]/g, '-')}`
   const dir = join(backupsRoot(), name)
@@ -43,10 +81,9 @@ export const runDataBackup = async (prefix = ''): Promise<BackupResult> => {
     const groupDir = join(dir, group)
     await mkdir(groupDir, { recursive: true })
     for (const table of groupTables) {
-      const rows = await db.select().from(table)
       const tableName = getTableName(table)
-      await writeFile(join(groupDir, `${tableName}.json`), JSON.stringify(rows))
-      detail.push({ group, table: tableName, rows: rows.length })
+      const rows = await exportTable(table, join(groupDir, `${tableName}.json`))
+      detail.push({ group, table: tableName, rows })
     }
   }
 
@@ -56,15 +93,13 @@ export const runDataBackup = async (prefix = ''): Promise<BackupResult> => {
 export const verifyBackup = async (backup: BackupResult): Promise<void> => {
   for (const { group, table, rows } of backup.detail) {
     const file = join(backup.dir, group, `${table}.json`)
-    let parsed: unknown
+    let found: number
     try {
-      parsed = JSON.parse(await readFile(file, 'utf8'))
+      found = await countJsonArrayRows(file)
     } catch {
       throw new Error(`Backup file for ${table} could not be read back.`)
     }
-    if (!Array.isArray(parsed) || parsed.length !== rows) {
-      throw new Error(`Backup file for ${table} has ${Array.isArray(parsed) ? parsed.length : 'no'} rows, expected ${rows}.`)
-    }
+    if (found !== rows) throw new Error(`Backup file for ${table} has ${found} rows, expected ${rows}.`)
   }
 }
 
@@ -92,11 +127,12 @@ export const copyBackupToS3 = async (backup: BackupResult): Promise<number | nul
   })
   try {
     for (const { group, table } of backup.detail) {
-      const body = await readFile(join(backup.dir, group, `${table}.json`))
+      const path = join(backup.dir, group, `${table}.json`)
       await client.send(new PutObjectCommand({
         Bucket: env.AWS_S3_BUCKET,
         Key: `backups/${backup.name}/${group}/${table}.json`,
-        Body: body,
+        Body: createReadStream(path),
+        ContentLength: (await stat(path)).size,
         ContentType: 'application/json',
         ServerSideEncryption: 'AES256',
       }))
