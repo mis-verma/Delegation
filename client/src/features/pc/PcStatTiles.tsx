@@ -56,7 +56,7 @@ const countTone = (total: number, late: number): FigureTone => (total === 0 || l
 const pctText = (n: number) => `${Math.round(n)}%`;
 
 const Group = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section className="flex flex-col gap-2" aria-label={title}>
+  <section className="flex w-full max-w-[34rem] flex-col gap-1.5" aria-label={title}>
     <h2 className="t-meta font-display font-semibold text-text-secondary">{title}</h2>
     <div className="@container grid grid-cols-3 gap-2">{children}</div>
   </section>
@@ -170,7 +170,7 @@ export const PcStatTiles = () => {
   return (
     <>
       <StatsBoundary label="The PC figures">
-        <div className="flex flex-col gap-4">
+        <div className="grid gap-x-6 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,30rem),1fr))]">
           <Group title="Go to">
             <FigureCard
               label="Verification Queue"
