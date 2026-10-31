@@ -106,6 +106,7 @@ interface PcListModalProps {
   icon: LucideIcon;
   items: PcListItem[];
   filters?: PcFilter[];
+  defaultFilter?: string;
   isLoading?: boolean;
   viewAllHref?: string;
   viewAllLabel?: string;
@@ -115,10 +116,10 @@ interface PcListModalProps {
   summary?: ReactNode;
 }
 
-export const PcListModal = ({ open, onClose, title, description, icon: Icon, items, filters = [], isLoading = false, viewAllHref, viewAllLabel = 'View all', emptyTitle, emptyDescription, onOpenPerson, summary }: PcListModalProps) => {
+export const PcListModal = ({ open, onClose, title, description, icon: Icon, items, filters = [], defaultFilter, isLoading = false, viewAllHref, viewAllLabel = 'View all', emptyTitle, emptyDescription, onOpenPerson, summary }: PcListModalProps) => {
   const navigate = useNavigate();
   const now = useNow();
-  const [activeKey, setActiveKey] = useState('all');
+  const [activeKey, setActiveKey] = useState(defaultFilter ?? 'all');
 
   const counts = useMemo(() => new Map(filters.map((f) => [f.key, items.filter(f.test).length])), [filters, items]);
   const shown = useMemo(() => {

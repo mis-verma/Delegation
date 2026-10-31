@@ -1,22 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarOff, ShieldQuestion } from 'lucide-react';
 import { toast } from 'sonner';
+import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { useApprovalSources } from '../dashboard/useApprovalSources';
+import { useDashboardSummaries } from '../dashboard/useDashboardSummaries';
 import { useExceptionsQuery } from '../dashboard/useExceptionsQuery';
+import { StatsBoundary } from '../dashboard/StatsBoundary';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { useAttentionPeople } from '../attention/useAttention';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useLeaveQuery } from '../leave/hook';
 import { StatusBadge } from '../../components/statusBadge';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { useNow } from '../../lib/useNow';
-import { PcFigure } from './PcFigure';
 import { PcListModal, type PcFilter, type PcListItem } from './PcListModal';
+import { PopupBoundary } from './PopupBoundary';
+import { usePcMonthScores } from './usePcMonthScores';
 
 const HOUR_MS = 3_600_000;
 const LIMIT_HOURS = 24;
 
-type Popup = 'waiting' | 'overdue' | 'people' | 'leave' | null;
+type Popup =
+  | { kind: 'waiting'; filter?: string }
+  | { kind: 'overdue' }
+  | { kind: 'people' }
+  | { kind: 'leave' };
 
 const WAITING_FILTERS: PcFilter[] = [
   { key: 'late', label: 'Over 24 hours', test: (i) => i.late },
@@ -41,16 +50,36 @@ const EXCEPTION_KIND = {
 
 const shortDay = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' });
 
+const bandTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
+const shareWithin = (total: number, late: number) => (total <= 0 ? 100 : Math.max(0, ((total - late) / total) * 100));
+const countTone = (total: number, late: number): FigureTone => (total === 0 || late === 0 ? 'good' : bandTone(shareWithin(total, late)));
+const pctText = (n: number) => `${Math.round(n)}%`;
+
+const Group = ({ title, children }: { title: string; children: ReactNode }) => (
+  <section className="flex flex-col gap-2" aria-label={title}>
+    <h2 className="t-meta font-display font-semibold text-text-secondary">{title}</h2>
+    <div className="@container grid grid-cols-3 gap-2">{children}</div>
+  </section>
+);
+
 export const PcStatTiles = () => {
   const now = useNow();
   const today = useOrgToday();
-  const [popup, setPopup] = useState<Popup>(null);
+  const [popup, setPopup] = useState<Popup | null>(null);
   const [openPerson, setOpenPerson] = useState<string | null>(null);
 
   const approvals = useApprovalSources();
   const exceptions = useExceptionsQuery();
   const people = useAttentionPeople();
   const leave = useLeaveQuery();
+  const scores = usePcMonthScores();
+  const { kpi } = useDashboardSummaries();
+
+  const closePopup = useCallback(() => setPopup(null), []);
+  const popupFailed = useCallback(() => {
+    setPopup(null);
+    toast.error("Couldn't open that list. Try again.");
+  }, []);
 
   const waitingItems = useMemo<PcListItem[]>(() => {
     const raw: Omit<PcListItem, 'late'>[] = [
@@ -112,117 +141,246 @@ export const PcStatTiles = () => {
 
   const peopleRows = people.data ?? [];
   const redCount = peopleRows.filter((p) => p.level === 'red').length;
-  const overLimit = waitingItems.filter((i) => i.late).length;
   const highCount = overdueItems.filter((i) => i.late).length;
-  const handOverCount = leaveItems.filter((i) => i.tags?.some((t) => t.variant === 'warning')).length;
+
+  const waitingTotal = approvals.total;
+  const lateOf = (kind: PcListItem['kind']) => waitingItems.filter((i) => i.kind === kind && i.late).length;
+  const ticketWaiting = approvals.tickets.data?.total ?? 0;
+  const taskWaiting = approvals.tasks.data?.total ?? 0;
+  const checklistWaiting = approvals.checklists.data?.total ?? 0;
+  const lateTotal = waitingItems.filter((i) => i.late).length;
+
+  const overall = scores.data?.total.overall ?? null;
+  const fillToday = kpi.checklistToday.data?.completionPct ?? null;
+  const openTickets = kpi.tickets.data?.pending ?? 0;
+  const lateTickets = kpi.tickets.data?.overdue ?? 0;
+  const openTasks = kpi.tasks.data?.pending ?? 0;
+  const lateTasks = kpi.tasks.data?.overdue ?? 0;
 
   const lastOver = useRef<number | null>(null);
   useEffect(() => {
     if (approvals.isPending) return;
-    if (lastOver.current !== null && overLimit > lastOver.current) {
-      const added = overLimit - lastOver.current;
+    if (lastOver.current !== null && lateTotal > lastOver.current) {
+      const added = lateTotal - lastOver.current;
       toast.warning(`${added} ${added === 1 ? 'approval' : 'approvals'} just passed 24 hours`);
     }
-    lastOver.current = overLimit;
-  }, [overLimit, approvals.isPending]);
+    lastOver.current = lateTotal;
+  }, [lateTotal, approvals.isPending]);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="PC figures">
-        <PcFigure
-          label="Waiting on you"
-          value={waitingItems.length}
-          caption={overLimit > 0 ? `${overLimit} over 24 hours` : waitingItems.length === 0 ? 'All clear' : 'Awaiting your decision'}
-          tone={overLimit > 0 ? 'bad' : waitingItems.length === 0 ? 'good' : 'plain'}
-          loading={approvals.isPending}
-          onClick={() => setPopup('waiting')}
-        />
-        <PcFigure
-          label="Overdue and missed"
-          value={overdueItems.length}
-          caption={overdueItems.length === 0 ? 'All clear' : highCount > 0 ? `${highCount} high priority` : 'Late, stuck or missed'}
-          tone={highCount > 0 ? 'bad' : overdueItems.length === 0 ? 'good' : 'plain'}
-          loading={exceptions.isPending}
-          onClick={() => setPopup('overdue')}
-        />
-        <PcFigure
-          label="People to follow up"
-          value={peopleRows.length}
-          caption={peopleRows.length === 0 ? 'All clear' : `${redCount} red, ${peopleRows.length - redCount} orange`}
-          tone={redCount > 0 ? 'bad' : peopleRows.length === 0 ? 'good' : 'plain'}
-          loading={people.isPending}
-          onClick={() => setPopup('people')}
-        />
-        <PcFigure
-          label="On leave today"
-          value={leaveItems.length}
-          caption={leaveItems.length === 0 ? 'Everyone is in' : handOverCount > 0 ? `${handOverCount} with open work` : 'Checklists skipped'}
-          tone={leaveItems.length === 0 ? 'good' : 'plain'}
-          loading={leave.isPending}
-          onClick={() => setPopup('leave')}
-        />
-      </div>
+      <StatsBoundary label="The PC figures">
+        <div className="flex flex-col gap-4">
+          <Group title="Go to">
+            <FigureCard
+              label="Verification Queue"
+              short="Queue"
+              help="Everything waiting for your review. Tap to open the queue."
+              value={waitingTotal}
+              tone={countTone(waitingTotal, lateTotal)}
+              bar={shareWithin(waitingTotal, lateTotal)}
+              loading={approvals.isPending}
+              to="/verify"
+            />
+            <FigureCard
+              label="Scores"
+              help="Whole organisation, this month. Tap to open the scores."
+              value={overall}
+              format={pctText}
+              tone={overall === null ? 'plain' : bandTone(overall)}
+              bar={overall}
+              loading={scores.isPending}
+              to="/admin/scores"
+            />
+            <FigureCard
+              label="Fill chart"
+              short="Fills"
+              help="Share of today's checklist items filled. Tap to open the fill chart."
+              value={fillToday}
+              format={pctText}
+              tone={fillToday === null ? 'plain' : bandTone(fillToday)}
+              bar={fillToday}
+              loading={kpi.checklistToday.isPending}
+              to="/team/fill"
+            />
+          </Group>
 
-      <PcListModal
-        open={popup === 'waiting'}
-        onClose={() => setPopup(null)}
-        title="Waiting on you"
-        description="Oldest first. Tap a row to open it, or the person to see how they are doing."
-        icon={ShieldQuestion}
-        items={waitingItems}
-        filters={WAITING_FILTERS}
-        summary={(
-          <>
-            <StatusBadge variant="neutral" icon={false} label={`${waitingItems.length} waiting`} />
-            {overLimit > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${overLimit} over 24 hours`} />}
-          </>
-        )}
-        viewAllHref="/verify"
-        viewAllLabel="Open Verification Queue"
-        emptyTitle="Nothing is waiting"
-        emptyDescription="Every approval has a decision."
-        onOpenPerson={setOpenPerson}
-      />
-      <PcListModal
-        open={popup === 'overdue'}
-        onClose={() => setPopup(null)}
-        title="Overdue and missed"
-        description="High priority first. Tap a row to open it, or the person to see how they are doing."
-        icon={AlertTriangle}
-        items={overdueItems}
-        filters={OVERDUE_FILTERS}
-        summary={(
-          <>
-            <StatusBadge variant="neutral" icon={false} label={`${overdueItems.length} items`} />
-            {highCount > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${highCount} high priority`} />}
-          </>
-        )}
-        emptyTitle="Nothing is late"
-        emptyDescription="No overdue or missed work right now."
-        onOpenPerson={setOpenPerson}
-      />
-      <PcListModal
-        open={popup === 'leave'}
-        onClose={() => setPopup(null)}
-        title="On leave today"
-        description="Their checklists are skipped. Tap the person to see their open work."
-        icon={CalendarOff}
-        items={leaveItems}
-        summary={<StatusBadge variant="neutral" icon={false} label={`${leaveItems.length} off today`} />}
-        viewAllHref="/leave"
-        viewAllLabel="Open Leave"
-        emptyTitle="Everyone is in"
-        emptyDescription="Nobody is on leave today."
-        isLoading={leave.isPending}
-        onOpenPerson={setOpenPerson}
-      />
-      <AttentionAllSheet
-        open={popup === 'people'}
-        onClose={() => setPopup(null)}
-        people={peopleRows}
-        onOpenPerson={setOpenPerson}
-      />
-      <PersonAttentionSheet userId={openPerson} onClose={() => setOpenPerson(null)} />
+          <Group title="Approvals waiting">
+            <FigureCard
+              label="Tickets"
+              help="Ticket approvals waiting for a decision. The bar shows how many are still inside 24 hours."
+              value={ticketWaiting}
+              tone={countTone(ticketWaiting, lateOf('ticket'))}
+              bar={shareWithin(ticketWaiting, lateOf('ticket'))}
+              loading={approvals.isPending}
+              onClick={() => setPopup({ kind: 'waiting', filter: 'ticket' })}
+            />
+            <FigureCard
+              label="Delegations"
+              short="Deleg."
+              help="Delegation approvals waiting for a decision. The bar shows how many are still inside 24 hours."
+              value={taskWaiting}
+              tone={countTone(taskWaiting, lateOf('delegation'))}
+              bar={shareWithin(taskWaiting, lateOf('delegation'))}
+              loading={approvals.isPending}
+              onClick={() => setPopup({ kind: 'waiting', filter: 'delegation' })}
+            />
+            <FigureCard
+              label="Checklists"
+              short="Lists"
+              help="Checklist runs waiting for review. The bar shows how many are still inside 24 hours."
+              value={checklistWaiting}
+              tone={countTone(checklistWaiting, lateOf('checklist'))}
+              bar={shareWithin(checklistWaiting, lateOf('checklist'))}
+              loading={approvals.isPending}
+              onClick={() => setPopup({ kind: 'waiting', filter: 'checklist' })}
+            />
+          </Group>
+
+          <Group title="Open work">
+            <FigureCard
+              label="Open tickets"
+              short="Tickets"
+              help={`Tickets open right now. ${lateTickets} past their deadline. Tap to open the tickets.`}
+              value={openTickets}
+              tone={countTone(openTickets, lateTickets)}
+              bar={shareWithin(openTickets, lateTickets)}
+              loading={kpi.tickets.isPending}
+              to="/tickets?quickFilter=pending"
+            />
+            <FigureCard
+              label="Open delegations"
+              short="Deleg."
+              help={`Delegations open right now. ${lateTasks} past their deadline. Tap to open the delegations.`}
+              value={openTasks}
+              tone={countTone(openTasks, lateTasks)}
+              bar={shareWithin(openTasks, lateTasks)}
+              loading={kpi.tasks.isPending}
+              to="/tasks?quickFilter=pending"
+            />
+            <FigureCard
+              label="Overdue and missed"
+              short="Overdue"
+              help="Late or stuck tickets and delegations, and checklist runs that closed unsubmitted. Tap for the list."
+              value={overdueItems.length}
+              tone={overdueItems.length === 0 ? 'good' : highCount > 0 ? 'bad' : 'plain'}
+              bar={overdueItems.length === 0 ? 100 : shareWithin(overdueItems.length, highCount)}
+              loading={exceptions.isPending}
+              onClick={() => setPopup({ kind: 'overdue' })}
+            />
+          </Group>
+
+          <Group title="People">
+            <FigureCard
+              label="People to follow up"
+              short="Follow up"
+              help={`${redCount} red and ${peopleRows.length - redCount} orange. Tap to see who, and send reminders.`}
+              value={peopleRows.length}
+              tone={peopleRows.length === 0 ? 'good' : redCount > 0 ? 'bad' : 'plain'}
+              bar={peopleRows.length === 0 ? 100 : shareWithin(peopleRows.length, redCount)}
+              loading={people.isPending}
+              onClick={() => setPopup({ kind: 'people' })}
+            />
+            <FigureCard
+              label="On leave today"
+              short="On leave"
+              help="People on leave today. Their checklists are skipped. Tap for the list."
+              value={leaveItems.length}
+              tone={leaveItems.length === 0 ? 'good' : 'plain'}
+              bar={null}
+              loading={leave.isPending}
+              onClick={() => setPopup({ kind: 'leave' })}
+            />
+            <FigureCard
+              label="Reports"
+              help="Download Excel and CSV reports. Tap to open."
+              value={null}
+              text="Open"
+              tone="plain"
+              bar={null}
+              loading={false}
+              to="/admin/reports"
+            />
+          </Group>
+        </div>
+      </StatsBoundary>
+
+      {popup?.kind === 'waiting' && (
+        <PopupBoundary onFail={popupFailed}>
+          <PcListModal
+            open
+            onClose={closePopup}
+            title="Waiting on you"
+            description="Oldest first. Tap a row to open it, or the person to see how they are doing."
+            icon={ShieldQuestion}
+            items={waitingItems}
+            filters={WAITING_FILTERS}
+            defaultFilter={popup.filter}
+            summary={(
+              <>
+                <StatusBadge variant="neutral" icon={false} label={`${waitingItems.length} waiting`} />
+                {lateTotal > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${lateTotal} over 24 hours`} />}
+              </>
+            )}
+            viewAllHref="/verify"
+            viewAllLabel="Open Verification Queue"
+            emptyTitle="Nothing is waiting"
+            emptyDescription="Every approval has a decision."
+            onOpenPerson={setOpenPerson}
+          />
+        </PopupBoundary>
+      )}
+      {popup?.kind === 'overdue' && (
+        <PopupBoundary onFail={popupFailed}>
+          <PcListModal
+            open
+            onClose={closePopup}
+            title="Overdue and missed"
+            description="High priority first. Tap a row to open it, or the person to see how they are doing."
+            icon={AlertTriangle}
+            items={overdueItems}
+            filters={OVERDUE_FILTERS}
+            summary={(
+              <>
+                <StatusBadge variant="neutral" icon={false} label={`${overdueItems.length} items`} />
+                {highCount > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${highCount} high priority`} />}
+              </>
+            )}
+            emptyTitle="Nothing is late"
+            emptyDescription="No overdue or missed work right now."
+            onOpenPerson={setOpenPerson}
+          />
+        </PopupBoundary>
+      )}
+      {popup?.kind === 'leave' && (
+        <PopupBoundary onFail={popupFailed}>
+          <PcListModal
+            open
+            onClose={closePopup}
+            title="On leave today"
+            description="Their checklists are skipped. Tap the person to see their open work."
+            icon={CalendarOff}
+            items={leaveItems}
+            summary={<StatusBadge variant="neutral" icon={false} label={`${leaveItems.length} off today`} />}
+            viewAllHref="/leave"
+            viewAllLabel="Open Leave"
+            emptyTitle="Everyone is in"
+            emptyDescription="Nobody is on leave today."
+            isLoading={leave.isPending}
+            onOpenPerson={setOpenPerson}
+          />
+        </PopupBoundary>
+      )}
+      {popup?.kind === 'people' && (
+        <PopupBoundary onFail={popupFailed}>
+          <AttentionAllSheet open onClose={closePopup} people={peopleRows} onOpenPerson={setOpenPerson} />
+        </PopupBoundary>
+      )}
+      {openPerson && (
+        <PopupBoundary onFail={() => { setOpenPerson(null); toast.error("Couldn't open that person. Try again."); }}>
+          <PersonAttentionSheet userId={openPerson} onClose={() => setOpenPerson(null)} />
+        </PopupBoundary>
+      )}
     </>
   );
 };
