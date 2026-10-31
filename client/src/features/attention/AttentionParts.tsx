@@ -92,7 +92,7 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
           onClick={() => onRemind(person.userId)}
           disabled={reminding || reminded}
           aria-label={reminded ? `${person.name} was reminded in the last 30 minutes` : `Send a reminder to ${person.name}`}
-          className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-full border border-border px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9"
+          className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-full border border-border px-3.5 max-sm:hidden t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9"
         >
           {reminded ? 'Reminded' : 'Remind'}
         </button>

@@ -38,9 +38,10 @@ interface FigureCardProps {
   to?: string;
   onClick?: () => void;
   selected?: boolean;
+  compact?: boolean;
 }
 
-export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected }: FigureCardProps) => {
+export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected, compact = false }: FigureCardProps) => {
   const body: ReactNode = (
     <>
       <span className="flex min-w-0 items-center gap-x-0.5 whitespace-nowrap t-meta text-text-muted">
@@ -52,7 +53,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         ) : (
           <span className="min-w-0 truncate">{label}</span>
         )}
-        <span title={help} className="inline-flex shrink-0 text-text-light">
+        <span title={help} className={cn('inline-flex shrink-0 text-text-light', compact && 'max-sm:hidden')}>
           <CircleHelp className="size-3.5" aria-hidden="true" />
           <span className="sr-only">{help}</span>
         </span>
@@ -64,7 +65,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
           {text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />)}
         </span>
       )}
-      <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+      <span className={cn('h-1.5 w-full overflow-hidden rounded-full bg-surface-hover', compact && 'max-sm:hidden')} aria-hidden="true">
         <span
           className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', value === null ? 'bg-border-hover' : BAR[tone])}
           style={{ width: `${loading || bar === null ? 0 : Math.max(4, Math.min(100, bar))}%` }}
@@ -73,7 +74,8 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
     </>
   );
 
-  if (to) return <Link to={to} viewTransition aria-label={label} className={cn(BOX, ACTION)}>{body}</Link>;
-  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(BOX, ACTION, selected && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
-  return <div className={BOX}>{body}</div>;
+  const box = cn(BOX, compact && 'max-sm:gap-0.5 max-sm:p-2');
+  if (to) return <Link to={to} viewTransition aria-label={label} className={cn(box, ACTION)}>{body}</Link>;
+  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
+  return <div className={box}>{body}</div>;
 };

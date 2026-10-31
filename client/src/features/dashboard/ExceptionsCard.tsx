@@ -157,7 +157,7 @@ export const ExceptionsCard = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="shrink-0 pointer-coarse:h-11"
+                className="shrink-0 max-sm:hidden pointer-coarse:h-11"
                 onClick={() => remind.mutate(redToRemind)}
                 isLoading={remind.isPending}
                 aria-label={`Send a reminder to the ${redToRemind.length} ${redToRemind.length === 1 ? 'person' : 'people'} who need you now`}

@@ -6,6 +6,7 @@ import { formatDuration } from '../admin/analytics/analyticsDisplay';
 import { ApprovalRing } from './ApprovalRing';
 import { FigureCard, type FigureTone } from './FigureCard';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { useApprovalSources } from './useApprovalSources';
 import { windowFor } from './scorePeriods';
 import { orgDayWindow } from './scoreDrill';
 
@@ -19,6 +20,8 @@ export const ApprovalStatsStrip = memo(() => {
   const query = useTeamApprovals(start, end);
   const data = query.data;
   const loading = query.isPending;
+  const { queueHref } = useApprovalSources();
+  const toQueue = queueHref ?? undefined;
 
   if (query.isError && !data) {
     return (
@@ -46,6 +49,8 @@ export const ApprovalStatsStrip = memo(() => {
           tone={waiting === 0 ? 'good' : rateTone(withinShare)}
           bar={withinShare}
           loading={loading}
+          compact
+          to={toQueue}
         />
         <FigureCard
           label="Over 24 hours"
@@ -54,6 +59,8 @@ export const ApprovalStatsStrip = memo(() => {
           tone={over === 0 ? 'good' : 'bad'}
           bar={overShare}
           loading={loading}
+          compact
+          to={toQueue}
         />
         <FigureCard
           label="On time"
@@ -63,6 +70,8 @@ export const ApprovalStatsStrip = memo(() => {
           tone={rate === null ? 'plain' : rateTone(rate)}
           bar={rate}
           loading={loading}
+          compact
+          to={toQueue}
         />
       </dl>
     </div>
