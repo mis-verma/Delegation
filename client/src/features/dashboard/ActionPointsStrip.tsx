@@ -1,13 +1,14 @@
 import { memo } from 'react';
-import { Handshake, ShieldCheck, Ticket, ListTodo, Undo2 } from 'lucide-react';
 import { InlineError } from '../../components/inlineError';
 import { useActionPoints } from '../attention/useAttention';
 import { useApprovalSources } from './useApprovalSources';
-import { Stat } from './ApprovalStatsStrip';
+import { FigureCard, type FigureTone } from './FigureCard';
 
 const NO_POINTS = { openTickets: 0, overdueTickets: 0, openDelegations: 0, overdueDelegations: 0, sentBackRuns: 0 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const shareOnTime = (open: number, overdue: number) => (open <= 0 ? 100 : Math.max(0, ((open - overdue) / open) * 100));
+const lateTone = (overdue: number): FigureTone => (overdue > 0 ? 'bad' : 'good');
 
 export const ActionPointsStrip = memo(() => {
   const { queueHref, tasks, tickets } = useApprovalSources();
@@ -28,61 +29,53 @@ export const ActionPointsStrip = memo(() => {
 
   return (
     <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Action points">
-      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @6xl:grid-cols-5">
-        <Stat
-          index={0}
-          icon={Handshake}
+      <div className="grid grid-cols-3 gap-2">
+        <FigureCard
           label="Delegation approvals"
+          short="Deleg. approvals"
+          help={delegationApprovals === 0 ? 'No delegations are waiting for sign-off.' : 'Delegations waiting for sign-off. Tap to open the queue.'}
           value={delegationApprovals}
-          accent="green"
-          mutedAtZero
-          caption={delegationApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
+          tone={delegationApprovals === 0 ? 'good' : 'plain'}
+          bar={delegationApprovals === 0 ? 100 : null}
           loading={tasks.isPending}
-          to={delegationApprovals > 0 ? queueHref : null}
+          to={delegationApprovals > 0 ? queueHref ?? undefined : undefined}
         />
-        <Stat
-          index={1}
-          icon={ShieldCheck}
+        <FigureCard
           label="Ticket approvals"
+          short="Ticket approvals"
+          help={ticketApprovals === 0 ? 'No tickets are waiting for sign-off.' : 'Tickets waiting for sign-off. Tap to open the queue.'}
           value={ticketApprovals}
-          accent="sky"
-          mutedAtZero
-          caption={ticketApprovals === 0 ? 'Nothing to approve' : 'Waiting for sign-off'}
+          tone={ticketApprovals === 0 ? 'good' : 'plain'}
+          bar={ticketApprovals === 0 ? 100 : null}
           loading={tickets.isPending}
-          to={ticketApprovals > 0 ? queueHref : null}
+          to={ticketApprovals > 0 ? queueHref ?? undefined : undefined}
         />
-        <Stat
-          index={2}
-          icon={Ticket}
+        <FigureCard
           label="Open tickets"
+          help={totals.overdueTickets === 0 ? 'Tickets open right now. None are overdue. Tap to open the tickets.' : `Tickets open right now. ${totals.overdueTickets} overdue. Tap to open the tickets.`}
           value={totals.openTickets}
-          caption={totals.overdueTickets === 0 ? 'None overdue' : `${totals.overdueTickets} overdue`}
-          accent={totals.overdueTickets > 0 ? 'red' : 'sky'}
-          mutedAtZero
-          alert={totals.overdueTickets > 0}
+          tone={lateTone(totals.overdueTickets)}
+          bar={shareOnTime(totals.openTickets, totals.overdueTickets)}
           loading={pointsLoading}
           to="/tickets"
         />
-        <Stat
-          index={3}
-          icon={ListTodo}
+        <FigureCard
           label="Open delegations"
+          short="Open deleg."
+          help={totals.overdueDelegations === 0 ? 'Delegations open right now. None are overdue. Tap to open the delegations.' : `Delegations open right now. ${totals.overdueDelegations} overdue. Tap to open the delegations.`}
           value={totals.openDelegations}
-          caption={totals.overdueDelegations === 0 ? 'None overdue' : `${totals.overdueDelegations} overdue`}
-          accent={totals.overdueDelegations > 0 ? 'red' : 'green'}
-          mutedAtZero
-          alert={totals.overdueDelegations > 0}
+          tone={lateTone(totals.overdueDelegations)}
+          bar={shareOnTime(totals.openDelegations, totals.overdueDelegations)}
           loading={pointsLoading}
           to="/tasks"
         />
-        <Stat
-          index={4}
-          icon={Undo2}
+        <FigureCard
           label="Checklists sent back"
+          short="Sent back"
+          help={totals.sentBackRuns === 0 ? 'No checklist runs to redo today.' : `${plural(totals.sentBackRuns, 'run', 'runs')} to redo today.`}
           value={totals.sentBackRuns}
-          caption={totals.sentBackRuns === 0 ? 'None to redo today' : `${plural(totals.sentBackRuns, 'run', 'runs')} to redo today`}
-          accent={totals.sentBackRuns > 0 ? 'red' : 'green'}
-          alert={totals.sentBackRuns > 0}
+          tone={totals.sentBackRuns > 0 ? 'bad' : 'good'}
+          bar={totals.sentBackRuns === 0 ? 100 : null}
           loading={pointsLoading}
         />
       </div>

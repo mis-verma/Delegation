@@ -1,5 +1,3 @@
-import { UserCheck } from 'lucide-react';
-import { PageHeader } from '../../components';
 import { CoverBanner } from '../dashboard/CoverBanner';
 import { NeedsApprovalCard } from '../dashboard/NeedsApprovalCard';
 import { ExceptionsCard } from '../dashboard/ExceptionsCard';
@@ -8,7 +6,7 @@ import { PcScoreCards } from './PcScoreCards';
 
 export const PcDeskPage = () => (
   <div className="flex flex-col gap-6 pt-2.5">
-    <PageHeader icon={UserCheck} title="PC desk" subtitle="Approvals that need you, and what is not done today." />
+    <h1 className="sr-only">PC desk</h1>
     <CoverBanner />
     <PcStatTiles />
     <PcScoreCards />
