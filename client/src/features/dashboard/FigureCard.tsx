@@ -39,12 +39,18 @@ interface FigureCardProps {
   onClick?: () => void;
   selected?: boolean;
   compact?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
-export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected, compact = false }: FigureCardProps) => {
+export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected, compact = false, error = false, onRetry }: FigureCardProps) => {
+  const failed = error && !loading;
+  const shownTone: FigureTone = failed ? 'plain' : tone;
+  const hint = failed ? "Couldn't load. Tap to try again." : help;
   const body: ReactNode = (
     <>
-      <span className="flex min-w-0 items-center gap-x-0.5 whitespace-nowrap t-meta text-text-muted">
+      <span className="flex min-w-0 items-center gap-x-1 whitespace-nowrap t-meta text-text-muted">
+        <span aria-hidden="true" className={cn('hidden size-2 shrink-0 rounded-full', compact && 'max-sm:inline-block', loading ? 'bg-border' : BAR[shownTone])} />
         {short ? (
           <>
             <span className="min-w-0 truncate @[22rem]:hidden">{short}</span>
@@ -53,28 +59,33 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         ) : (
           <span className="min-w-0 truncate">{label}</span>
         )}
-        <span title={help} className={cn('inline-flex shrink-0 text-text-light', compact && 'max-sm:hidden')}>
+        <span title={hint} className={cn('inline-flex shrink-0 text-text-light', compact && 'max-sm:hidden')}>
           <CircleHelp className="size-3.5" aria-hidden="true" />
-          <span className="sr-only">{help}</span>
+          <span className="sr-only">{hint}</span>
         </span>
       </span>
-      {loading ? (
-        <Skeleton className="h-7 w-14" />
-      ) : (
-        <span className={cn('t-stat font-display font-bold leading-tight tabular-nums', value === null && !text ? 'text-text-light' : TEXT[tone])}>
-          {text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />)}
-        </span>
-      )}
+      <span className="flex min-h-7 items-center">
+        {loading ? (
+          <Skeleton className="h-6 w-12" />
+        ) : (
+          <span className={cn('t-stat font-display font-bold leading-tight tabular-nums', failed || (value === null && !text) ? 'text-text-light' : TEXT[shownTone])}>
+            {failed ? '-' : (text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />))}
+          </span>
+        )}
+      </span>
       <span className={cn('h-1.5 w-full overflow-hidden rounded-full bg-surface-hover', compact && 'max-sm:hidden')} aria-hidden="true">
         <span
-          className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', value === null ? 'bg-border-hover' : BAR[tone])}
-          style={{ width: `${loading || bar === null ? 0 : Math.max(4, Math.min(100, bar))}%` }}
+          className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', value === null || failed ? 'bg-border-hover' : BAR[shownTone])}
+          style={{ width: `${loading || failed || bar === null ? 0 : Math.max(4, Math.min(100, bar))}%` }}
         />
       </span>
     </>
   );
 
   const box = cn(BOX, compact && 'max-sm:gap-0.5 max-sm:p-2');
+  if (failed && onRetry) {
+    return <button type="button" onClick={onRetry} aria-label={`${label}, couldn't load. Tap to try again`} className={cn(box, ACTION, 'border-danger/30')}>{body}</button>;
+  }
   if (to) return <Link to={to} viewTransition aria-label={label} className={cn(box, ACTION)}>{body}</Link>;
   if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
   return <div className={box}>{body}</div>;

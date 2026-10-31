@@ -157,6 +157,16 @@ export const PcStatTiles = () => {
   const openTasks = kpi.tasks.data?.pending ?? 0;
   const lateTasks = kpi.tasks.data?.overdue ?? 0;
 
+  const ticketsFailed = approvals.tickets.isError && approvals.tickets.data === undefined;
+  const tasksFailed = approvals.tasks.isError && approvals.tasks.data === undefined;
+  const checklistsFailed = approvals.checklists.isError && approvals.checklists.data === undefined;
+  const approvalsFailed = ticketsFailed || tasksFailed || checklistsFailed;
+  const retryApprovals = () => {
+    void approvals.tickets.refetch();
+    void approvals.tasks.refetch();
+    void approvals.checklists.refetch();
+  };
+
   const lastOver = useRef<number | null>(null);
   useEffect(() => {
     if (approvals.isPending) return;
@@ -180,6 +190,9 @@ export const PcStatTiles = () => {
               tone={countTone(waitingTotal, lateTotal)}
               bar={shareWithin(waitingTotal, lateTotal)}
               loading={approvals.isPending}
+              error={approvalsFailed}
+              onRetry={retryApprovals}
+              compact
               to="/verify"
             />
             <FigureCard
@@ -190,6 +203,9 @@ export const PcStatTiles = () => {
               tone={overall === null ? 'plain' : bandTone(overall)}
               bar={overall}
               loading={scores.isPending}
+              error={scores.isError && !scores.data}
+              onRetry={() => void scores.refetch()}
+              compact
               to="/admin/scores"
             />
             <FigureCard
@@ -201,6 +217,9 @@ export const PcStatTiles = () => {
               tone={fillToday === null ? 'plain' : bandTone(fillToday)}
               bar={fillToday}
               loading={kpi.checklistToday.isPending}
+              error={kpi.checklistToday.isError}
+              onRetry={kpi.checklistToday.onRetry}
+              compact
               to="/team/fill"
             />
           </Group>
@@ -213,6 +232,9 @@ export const PcStatTiles = () => {
               tone={countTone(ticketWaiting, lateOf('ticket'))}
               bar={shareWithin(ticketWaiting, lateOf('ticket'))}
               loading={approvals.isPending}
+              error={ticketsFailed}
+              onRetry={retryApprovals}
+              compact
               onClick={() => setPopup({ kind: 'waiting', filter: 'ticket' })}
             />
             <FigureCard
@@ -223,6 +245,9 @@ export const PcStatTiles = () => {
               tone={countTone(taskWaiting, lateOf('delegation'))}
               bar={shareWithin(taskWaiting, lateOf('delegation'))}
               loading={approvals.isPending}
+              error={tasksFailed}
+              onRetry={retryApprovals}
+              compact
               onClick={() => setPopup({ kind: 'waiting', filter: 'delegation' })}
             />
             <FigureCard
@@ -233,6 +258,9 @@ export const PcStatTiles = () => {
               tone={countTone(checklistWaiting, lateOf('checklist'))}
               bar={shareWithin(checklistWaiting, lateOf('checklist'))}
               loading={approvals.isPending}
+              error={checklistsFailed}
+              onRetry={retryApprovals}
+              compact
               onClick={() => setPopup({ kind: 'waiting', filter: 'checklist' })}
             />
           </Group>
@@ -246,6 +274,9 @@ export const PcStatTiles = () => {
               tone={countTone(openTickets, lateTickets)}
               bar={shareWithin(openTickets, lateTickets)}
               loading={kpi.tickets.isPending}
+              error={kpi.tickets.isError}
+              onRetry={kpi.tickets.onRetry}
+              compact
               to="/tickets?quickFilter=pending"
             />
             <FigureCard
@@ -256,6 +287,9 @@ export const PcStatTiles = () => {
               tone={countTone(openTasks, lateTasks)}
               bar={shareWithin(openTasks, lateTasks)}
               loading={kpi.tasks.isPending}
+              error={kpi.tasks.isError}
+              onRetry={kpi.tasks.onRetry}
+              compact
               to="/tasks?quickFilter=pending"
             />
             <FigureCard
@@ -266,6 +300,9 @@ export const PcStatTiles = () => {
               tone={overdueItems.length === 0 ? 'good' : highCount > 0 ? 'bad' : 'plain'}
               bar={overdueItems.length === 0 ? 100 : shareWithin(overdueItems.length, highCount)}
               loading={exceptions.isPending}
+              error={exceptions.isError && !exceptions.data}
+              onRetry={() => void exceptions.refetch()}
+              compact
               onClick={() => setPopup({ kind: 'overdue' })}
             />
           </Group>
@@ -279,6 +316,9 @@ export const PcStatTiles = () => {
               tone={peopleRows.length === 0 ? 'good' : redCount > 0 ? 'bad' : 'plain'}
               bar={peopleRows.length === 0 ? 100 : shareWithin(peopleRows.length, redCount)}
               loading={people.isPending}
+              error={people.isError && !people.data}
+              onRetry={() => void people.refetch()}
+              compact
               onClick={() => setPopup({ kind: 'people' })}
             />
             <FigureCard
@@ -289,6 +329,9 @@ export const PcStatTiles = () => {
               tone={leaveItems.length === 0 ? 'good' : 'plain'}
               bar={null}
               loading={leave.isPending}
+              error={leave.isError && !leave.data}
+              onRetry={() => void leave.refetch()}
+              compact
               onClick={() => setPopup({ kind: 'leave' })}
             />
             <FigureCard
@@ -299,6 +342,7 @@ export const PcStatTiles = () => {
               tone="plain"
               bar={null}
               loading={false}
+              compact
               to="/admin/reports"
             />
           </Group>

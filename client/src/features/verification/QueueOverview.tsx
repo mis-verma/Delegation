@@ -13,6 +13,9 @@ interface QueueOverviewProps {
   slowActive: boolean;
   onToggleAttention: () => void;
   onToggleSlow: () => void;
+  onShowReady: () => void;
+  onSortLowest: () => void;
+  sortedLowest: boolean;
 }
 
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
@@ -20,7 +23,7 @@ const shareOf = (part: number, whole: number) => (whole <= 0 ? 100 : Math.max(0,
 const pct = (n: number) => `${Math.round(n)}%`;
 
 export const QueueOverview = memo(function QueueOverview({
-  loading, rows, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow,
+  loading, rows, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow, onShowReady, onSortLowest, sortedLowest,
 }: QueueOverviewProps) {
   const stats = useMemo(() => {
     let needsLook = 0;
@@ -62,6 +65,7 @@ export const QueueOverview = memo(function QueueOverview({
           loading={false}
           selected={attentionActive}
           onClick={onToggleAttention}
+          compact
         />
         <FigureCard
           label="Ready to approve"
@@ -71,6 +75,8 @@ export const QueueOverview = memo(function QueueOverview({
           tone={stats.clean > 0 ? 'good' : 'plain'}
           bar={total === 0 ? null : (stats.clean / total) * 100}
           loading={false}
+          compact
+          onClick={stats.clean > 0 ? onShowReady : undefined}
         />
         <FigureCard
           label="Waiting 3+ days"
@@ -82,16 +88,20 @@ export const QueueOverview = memo(function QueueOverview({
           loading={false}
           selected={slowActive}
           onClick={onToggleSlow}
+          compact
         />
         <FigureCard
           label="Avg compliance"
           short="Compliance"
-          help={`Average compliance across the ${total} ${total === 1 ? 'checklist' : 'checklists'} waiting.`}
+          help={`Average compliance across the ${total} ${total === 1 ? 'checklist' : 'checklists'} waiting. Tap to put the lowest first.`}
           value={avg}
           format={pct}
           tone={avg === null ? 'plain' : rateTone(avg)}
           bar={avg}
           loading={false}
+          compact
+          selected={sortedLowest}
+          onClick={avg === null ? undefined : onSortLowest}
         />
       </div>
       {partial && <p className="t-meta text-text-muted">The counts cover the checklists loaded so far. Load more below to include the rest.</p>}

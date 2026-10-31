@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
 import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-react';
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
+import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,10 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
   const items = useMemo(() => [...instance.items].sort((x, y) => x.order - y.order), [instance.items]);
   const hasSections = items.some((i) => i.section);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
+  const jumpTo = (id: string | undefined) => (id ? () => document.getElementById(`item-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) : undefined);
+  const firstUnanswered = items.find((i) => !i.isDone && !i.isNotApplicable)?.id;
+  const firstWrong = items.find((i) => itemFlags(i).bad)?.id;
+  const firstNoPhoto = items.find((i) => itemFlags(i).missingPhotos)?.id;
 
   const fullPageLink = (
     <Link
@@ -100,6 +105,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
           tone={rateTone(risk.completion)}
           bar={risk.completion}
           loading={false}
+          compact
+          onClick={jumpTo(firstUnanswered)}
         />
         <FigureCard
           label="Compliance"
@@ -110,6 +117,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
           tone={rateTone(risk.compliance ?? 100)}
           bar={risk.compliance ?? 100}
           loading={false}
+          compact
+          onClick={jumpTo(firstWrong)}
         />
         <FigureCard
           label="Photos"
@@ -119,6 +128,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
           tone={risk.photosNeeded === 0 ? 'plain' : risk.photosHave < risk.photosNeeded ? 'bad' : 'good'}
           bar={risk.photosNeeded === 0 ? null : (risk.photosHave / risk.photosNeeded) * 100}
           loading={false}
+          compact
+          onClick={jumpTo(firstNoPhoto)}
         />
       </div>
 

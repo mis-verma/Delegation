@@ -129,7 +129,7 @@ export const ChecklistList = ({
           return (
             <Fragment key={row.id}>
               {starts && (
-                <li role="presentation" className={cn('flex items-center justify-between gap-2', index > 0 && 'pt-2')}>
+                <li role="presentation" id={group === 'ready' ? 'queue-ready' : undefined} className={cn('flex scroll-mt-4 items-center justify-between gap-2', index > 0 && 'pt-2')}>
                   <h3 className={cn('inline-flex items-center gap-1.5 t-meta font-display font-bold', meta.tone)}>
                     <meta.icon size={14} aria-hidden />
                     {meta.label}

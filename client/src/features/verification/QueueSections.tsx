@@ -42,6 +42,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
         bar={shareWithin(total, everythingLate)}
         loading={false}
         selected={tab === 'all'}
+        compact
         onClick={() => onChange('all')}
       />
       {SECTIONS.map((section) => {
@@ -56,6 +57,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
             bar={shareWithin(s.count, s.late)}
             loading={false}
             selected={tab === section}
+            compact
             onClick={() => onChange(tab === section ? 'all' : section)}
           />
         );

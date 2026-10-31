@@ -344,6 +344,9 @@ export const VerificationQueue = () => {
           slowActive={params.age === '3'}
           onToggleAttention={() => patch({ attention: !params.attention })}
           onToggleSlow={() => patch({ age: params.age === '3' ? 'any' : '3' })}
+          onShowReady={() => document.getElementById('queue-ready')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
+          onSortLowest={() => patch({ sort: params.sort === 'compliance' ? 'oldest' : 'compliance' })}
+          sortedLowest={params.sort === 'compliance'}
         />
       )}
 

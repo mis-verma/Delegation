@@ -41,6 +41,8 @@ export const ActionPointsStrip = memo(() => {
           tone={approvalTone(ticketApprovals)}
           bar={ticketApprovals === 0 ? 100 : null}
           loading={tickets.isPending}
+          error={tickets.isError && tickets.data === undefined}
+          onRetry={() => void tickets.refetch()}
           compact
           to={toQueue}
         />
@@ -52,6 +54,8 @@ export const ActionPointsStrip = memo(() => {
           tone={approvalTone(delegationApprovals)}
           bar={delegationApprovals === 0 ? 100 : null}
           loading={tasks.isPending}
+          error={tasks.isError && tasks.data === undefined}
+          onRetry={() => void tasks.refetch()}
           compact
           to={toQueue}
         />
@@ -63,6 +67,8 @@ export const ActionPointsStrip = memo(() => {
           tone={approvalTone(checklistApprovals)}
           bar={checklistApprovals === 0 ? 100 : null}
           loading={checklists.isPending}
+          error={checklists.isError && checklists.data === undefined}
+          onRetry={() => void checklists.refetch()}
           compact
           to={toQueue}
         />
