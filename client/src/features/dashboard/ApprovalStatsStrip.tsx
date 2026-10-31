@@ -120,8 +120,6 @@ export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', forma
   );
 };
 
-const LIMIT_HOURS = 24;
-
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
 export const ApprovalStatsStrip = memo(() => {
@@ -151,7 +149,7 @@ export const ApprovalStatsStrip = memo(() => {
   return (
     <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Approval figures">
       <ApprovalRing />
-      <dl className="grid grid-cols-2 gap-2 @3xl:grid-cols-4">
+      <dl className="grid grid-cols-3 gap-2">
         <FigureCard
           label="Waiting now"
           help="Items handed in for approval that are still waiting for a decision."
@@ -169,18 +167,8 @@ export const ApprovalStatsStrip = memo(() => {
           loading={loading}
         />
         <FigureCard
-          label="Decision time"
-          help="Average time from hand-in to decision this week. The bar fills toward the 24 hour limit."
-          value={avg}
-          decimals={1}
-          format={formatDuration}
-          tone={avg === null ? 'plain' : avg <= LIMIT_HOURS / 2 ? 'good' : avg <= LIMIT_HOURS ? 'fair' : 'bad'}
-          bar={avg === null ? null : (avg / LIMIT_HOURS) * 100}
-          loading={loading}
-        />
-        <FigureCard
           label="On time"
-          help="Share of this week's decisions made within 24 hours."
+          help={`Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`}
           value={rate}
           format={(n) => `${Math.round(n)}%`}
           tone={rate === null ? 'plain' : rateTone(rate)}
