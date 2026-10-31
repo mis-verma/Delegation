@@ -13,7 +13,7 @@ import { PANEL_CLASS } from '../../components/entityCard';
 import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
 import { useDepartmentsQuery, useTicketsAwaitingHeadQuery } from '../tickets/hook';
 import { HeadRequestRow } from '../tickets/approvals/HeadRequestRow';
-import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
+import { useAssignableUsersQuery, useTasksAwaitingHeadQuery } from '../tasks/hook';
 import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
 import { awaitingRequests } from '../tasks/taskFlow';
 import { cardIconTile } from './dashboardDisplay';
@@ -38,7 +38,7 @@ export const TicketRequestsCard = () => {
   const isHod = user?.role === 'MANAGER' || user?.role === 'SENIOR';
   const allowed = isAdmin || isHod;
   const board = useTicketsAwaitingHeadQuery(allowed);
-  const tasksQuery = useTasksQuery(undefined, allowed);
+  const tasksQuery = useTasksAwaitingHeadQuery(allowed);
   const { data: departments } = useDepartmentsQuery(allowed);
   const { data: people } = useAssignableUsersQuery();
   const sources = useApprovalSources();

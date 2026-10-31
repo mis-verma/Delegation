@@ -72,6 +72,33 @@ export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]
     });
 };
 
+const DASHBOARD_TASK_LIMIT = 250;
+
+export const useDashboardTasksQuery = (enabled = true, options?: DashboardQueryOptions) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tasks', 'dashboard'] as const,
+        queryFn: () => taskApi.getRecent(DASHBOARD_TASK_LIMIT),
+        select: (page: TaskListPage) => page.data,
+        staleTime: 2 * 60_000,
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+        placeholderData: keepPreviousData,
+        ...options,
+    });
+};
+
+export const useTasksAwaitingHeadQuery = (enabled = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tasks', 'awaiting-head'] as const,
+        queryFn: () => taskApi.getAwaitingHead(),
+        staleTime: 60_000,
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
 const PAGED_LIST_SIZE = 50;
 
 export type PagedTaskQuery = Omit<TaskListQuery, "page" | "limit">;

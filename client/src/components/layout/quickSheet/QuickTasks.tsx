@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { useTasksQuery } from '../../../features/tasks/hook';
+import { useDashboardTasksQuery } from '../../../features/tasks/hook';
 import { useTaskStatusMove } from '../../../features/tasks/useTaskStatusMove';
 import { isTaskOverdue } from '../../../features/dashboard/dashboardDisplay';
 import { DASHBOARD_QUERY_OPTIONS } from '../../../lib/dashboardQuery';
@@ -18,7 +18,7 @@ const NEXT: Partial<Record<Task['status'], { label: string; to: Task['status'] }
 
 export const QuickTasks = ({ now, onClose }: PanelProps) => {
   const { user } = useAuth();
-  const query = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
+  const query = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
   const { requestMove, statusRemarkDialog } = useTaskStatusMove();
   const mine = useMemo(
     () =>

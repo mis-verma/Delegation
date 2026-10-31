@@ -53,18 +53,27 @@ export const getMine = async (userId: string, options: {
     return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
 }
 
+const selectMineRows = (userId: string, options: { status?: InstanceStatusFilter; verificationStatus?: InstanceVerificationStatus; limit: number; hideEnded: boolean }) => {
+    const p = paginate(1, options.limit)
+    const where = instanceConditions({ userId, status: options.status, verificationStatus: options.verificationStatus, includeDeleted: false, hideEnded: options.hideEnded })
+    return db.select().from(checklistInstances)
+        .where(where)
+        .orderBy(desc(checklistInstances.periodStart), desc(checklistInstances.id))
+        .limit(p.limit).offset(p.offset)
+}
+
 export const getMyFocus = async (userId: string, options: { hideEnded: boolean }) => {
-    const base = { includeDeleted: false, hideEnded: options.hideEnded }
-    const [sentBack, overdue, unsent, due, recent] = await Promise.all([
-        getMine(userId, { ...base, verificationStatus: "REJECTED", limit: 50 }),
-        getMine(userId, { ...base, status: "OVERDUE", limit: 50 }),
-        getMine(userId, { ...base, status: "COMPLETED", verificationStatus: "NOT_SUBMITTED", limit: 50 }),
-        getMine(userId, { ...base, status: "DUE", limit: 50 }),
-        getMine(userId, { ...base, limit: 25 }),
+    const { hideEnded } = options
+    const lists = await Promise.all([
+        selectMineRows(userId, { verificationStatus: "REJECTED", limit: 50, hideEnded }),
+        selectMineRows(userId, { status: "OVERDUE", limit: 50, hideEnded }),
+        selectMineRows(userId, { status: "COMPLETED", verificationStatus: "NOT_SUBMITTED", limit: 50, hideEnded }),
+        selectMineRows(userId, { status: "DUE", limit: 50, hideEnded }),
+        selectMineRows(userId, { limit: 25, hideEnded }),
     ])
-    const byId = new Map<string, (typeof recent.data)[number]>()
-    for (const list of [sentBack, overdue, unsent, due, recent]) for (const row of list.data) byId.set(row.id, row)
-    return [...byId.values()]
+    const byId = new Map<string, (typeof lists)[number][number]>()
+    for (const list of lists) for (const row of list) if (!byId.has(row.id)) byId.set(row.id, row)
+    return hydrateInstances([...byId.values()])
 }
 
 export const listAll = async (filter: InstanceListFilter & { page?: number; limit?: number }) => {

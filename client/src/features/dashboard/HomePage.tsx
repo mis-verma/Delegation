@@ -5,7 +5,7 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
 import { useTicketsQuery } from '../tickets/hook';
-import { useTasksQuery } from '../tasks/hook';
+import { useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyFocusChecklistsQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
@@ -73,7 +73,7 @@ export const HomePage = () => {
   const reviewCount = useTeamReviewCount(!frontLine, !dashboardView.isHod);
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
-  const tasksQuery = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
+  const tasksQuery = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
   const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
 

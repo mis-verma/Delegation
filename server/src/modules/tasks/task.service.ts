@@ -82,6 +82,7 @@ export const taskService = {
             : (archived ? undefined : ne(tasks.status, "draft"));
 
         const base = [deletedFilter, condition, statusFilter];
+        if (query.awaitingHead) base.push(eq(tasks.awaitingHeadApproval, true), isNull(tasks.declinedAt));
 
         if (tagIds?.length) {
             const idList = sql.join(tagIds.map((id) => sql`${id}`), sql`, `);

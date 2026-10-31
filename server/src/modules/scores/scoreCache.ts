@@ -5,7 +5,30 @@ import { bumpVersions, cacheKey, cached, versionTag } from "../../config/queryCa
 const SCORES_VERSION = "scores"
 const SCORE_TTL_SECONDS = 20
 
-export const dropScoreCache = () => bumpVersions(SCORES_VERSION)
+const BUMP_EVERY_MS = 2_000
+
+export const createBumpCoalescer = (run: () => Promise<void>, everyMs: number, now: () => number = Date.now) => {
+    let lastRunAt = Number.NEGATIVE_INFINITY
+    let timer: ReturnType<typeof setTimeout> | null = null
+    return (): Promise<void> => {
+        const wait = lastRunAt + everyMs - now()
+        if (wait <= 0) {
+            lastRunAt = now()
+            return run()
+        }
+        if (!timer) {
+            timer = setTimeout(() => {
+                timer = null
+                lastRunAt = now()
+                void run()
+            }, wait)
+            timer.unref()
+        }
+        return Promise.resolve()
+    }
+}
+
+export const dropScoreCache = createBumpCoalescer(() => bumpVersions(SCORES_VERSION), BUMP_EVERY_MS)
 
 export const cachedScores = async <T>(name: string, req: Request, compute: () => Promise<T>): Promise<T> => {
     const user = req.user!

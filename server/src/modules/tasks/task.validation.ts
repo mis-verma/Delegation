@@ -70,6 +70,7 @@ export const listTasksQuerySchema = z.object({
     assigneeIds : idCsv(50),
     raisedByIds : idCsv(50),
     mine : queryFlag.optional(),
+    awaitingHead : queryFlag.optional(),
     handledBy : z.enum(["assignee", "creator"]).optional(),
     createdFrom : z.coerce.date().optional(),
     createdTo : z.coerce.date().optional(),
