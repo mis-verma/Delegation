@@ -72,7 +72,6 @@ jobs:
 
       - run: npm run build
 
-      # Only server/src/modules/tasks/ai/slotFilling.test.ts exists today (pure logic, no DB
-      # needed) — see the project's own "no automated tests" note. Safe to run in CI as-is; add a
-      # MySQL/Redis service container here if integration tests are added later.
+      # Pure-logic tests only (no DB or Redis). Add a MySQL/Redis service container here if
+      # integration tests are added later.
       - run: npm test

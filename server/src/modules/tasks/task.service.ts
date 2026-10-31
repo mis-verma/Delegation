@@ -587,9 +587,11 @@ export const taskService = {
             .from(taskAdditionalAssignees)
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
 
-        if (reviewerIds !== undefined) {
-            const added = reviewerIds.filter((r) => !beforeReviewerIds.includes(r));
-            if (added.length && task.status !== "draft") await notifySafely(() => notificationService.notifyReviewerAdded({ _id: task.id, title: task.title }, 'TASK', added, user.sub));
+        const publishedNow = beforeStatus === "draft" && task.status !== "draft";
+        if (task.status !== "draft" && (reviewerIds !== undefined || publishedNow)) {
+            const current = reviewerIds ?? ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id);
+            const added = publishedNow ? current : current.filter((r) => !beforeReviewerIds.includes(r));
+            if (added.length) await notifySafely(() => notificationService.notifyReviewerAdded({ _id: task.id, title: task.title }, 'TASK', added, user.sub));
         }
         if (isStatusChange && (input.status === "in_progress" || input.status === "todo")) {
             await notifySafely(() => notificationService.notifyStatusMoved({ _id: task.id, title: task.title, raiserId: task.userId }, 'TASK', input.status === "todo" ? 'to do again' : 'in progress', user.sub));

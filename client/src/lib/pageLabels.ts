@@ -11,6 +11,7 @@ const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/calendar/, label: 'Calendar' },
   { pattern: /^\/settings/, label: 'Settings' },
   { pattern: /^\/analytics/, label: 'Analytics' },
+  { pattern: /^\/pc/, label: 'PC desk' },
   { pattern: /^\/verify/, label: 'Verification Queue' },
   { pattern: /^\/team\/fill/, label: 'Fill chart' },
   { pattern: /^\/team/, label: 'Team Overview' },

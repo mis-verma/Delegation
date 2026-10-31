@@ -36,6 +36,7 @@ const FillHub = lazy(() => import('./features/attention/FillHub').then(m => ({ d
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const OwnerPage = lazy(() => import('./features/owner').then(m => ({ default: m.OwnerPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
+const PcDeskPage = lazy(() => import('./features/pc').then(m => ({ default: m.PcDeskPage })));
 const LeavePage = lazy(() => import('./features/leave/LeavePage').then(m => ({ default: m.LeavePage })));
 const TeamApprovalsPage = lazy(() => import('./features/tickets/TeamApprovalsPage').then(m => ({ default: m.TeamApprovalsPage })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
@@ -101,6 +102,7 @@ const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 
 const AdminOnlyRoute = createRoleGuard('ADMIN');
 
+const PcDeskRoute = createRoleGuard('ADMIN', 'PC');
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
 const LeaveRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
@@ -280,6 +282,12 @@ const router = createBrowserRouter([
             element: <AdminOnlyRoute />,
             children: [
               { path: '/team', element: <TeamRedirect /> },
+            ],
+          },
+          {
+            element: <PcDeskRoute />,
+            children: [
+              { path: '/pc', element: <PcDeskPage /> },
             ],
           },
           {

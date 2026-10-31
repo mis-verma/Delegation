@@ -19,6 +19,17 @@ export const useLeaveQuery = () => {
   });
 };
 
+export const useLeaveRulesQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: [...KEY, 'rules'],
+    queryFn: () => leaveApi.rules(),
+    enabled: !!token,
+    staleTime: 60 * 60 * 1000,
+    retry: handleQueryRetry,
+  });
+};
+
 export const useLeavePreviewQuery = (params: { userId: string; startDate: string; endDate: string } | null) =>
   useQuery({
     queryKey: [...KEY, 'preview', params?.userId, params?.startDate, params?.endDate],

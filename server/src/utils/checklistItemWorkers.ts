@@ -55,22 +55,32 @@ export const taskChecklistWorkerIds = async (taskChecklistId: string): Promise<s
     return [row.assigneeId, ...additional.map((a) => a.userId)].filter((id): id is string => !!id)
 }
 
-export const assertTicketChecklistOpen = async (user: AccessTokenPayload, checklistId: string | null) => {
-    if (!checklistId || user.role === "ADMIN") return
-    const [row] = await db.select({ status: tickets.status, deletedAt: tickets.deletedAt })
-        .from(checklists)
-        .innerJoin(tickets, eq(tickets.id, checklists.ticketId))
-        .where(eq(checklists.id, checklistId))
-        .limit(1)
-    if (!row || row.deletedAt) throw AppError.notFound("Ticket not found")
-    if (row.status === "CLOSED") throw AppError.forbidden("This ticket is closed, so its checklist can't be changed.")
+type TicketState = { status: string; deletedAt: Date | null }
+
+export const assertTicketStateAllowsChecklistWork = (ticket: TicketState, user: AccessTokenPayload) => {
+    if (user.role === "ADMIN") return
+    if (ticket.deletedAt) throw AppError.notFound("Ticket not found")
+    if (ticket.status === "CLOSED") throw AppError.forbidden("This ticket is closed, so its checklist can't be changed.")
 }
 
-export const ticketChecklistWorkerIds =async (checklistId: string): Promise<string[]> => {
-    const [row] = await db.select({ assigneeId: tickets.assigneeId })
+const ticketOfChecklist = async (checklistId: string) => {
+    const [row] = await db.select({ status: tickets.status, deletedAt: tickets.deletedAt, assigneeId: tickets.assigneeId })
         .from(checklists)
         .innerJoin(tickets, eq(tickets.id, checklists.ticketId))
         .where(eq(checklists.id, checklistId))
         .limit(1)
-    return row?.assigneeId ? [row.assigneeId] : []
+    return row
+}
+
+export const assertCanWorkTicketChecklistItem = async (
+    user: AccessTokenPayload,
+    item: { assigneeId: string | null; checklistId: string | null },
+    message: string,
+) => {
+    const ticket = item.checklistId && user.role !== "ADMIN" ? await ticketOfChecklist(item.checklistId) : undefined
+    if (item.checklistId && user.role !== "ADMIN") {
+        if (!ticket) throw AppError.notFound("Ticket not found")
+        assertTicketStateAllowsChecklistWork(ticket, user)
+    }
+    await assertCanWorkChecklistItem(user, item, async () => (ticket?.assigneeId ? [ticket.assigneeId] : []), message)
 }

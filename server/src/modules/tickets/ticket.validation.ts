@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { MAX_TAT_HOURS } from "../../utils/tatLimits.js"
+import { tatHoursSchema } from "../../utils/tatLimits.js"
 import { TICKET_PRIORITIES, ASSIGNMENT_MODES, TICKET_STATUSES, RESTRICTED_STATUSES } from "../../db/schema/ticket.js"
 import { objectId } from "../../utils/index.js"
 import { TICKET_LIST_BUCKETS, TICKET_LIST_HANDLERS, TICKET_LIST_SLAS, TICKET_LIST_SORTS } from "./ticketListParams.js"
@@ -18,7 +18,7 @@ export const createTicketSchema = z.object({
     storeId : objectId.optional(),
     categoryId : objectId.optional(),
     departmentId : objectId.optional(),
-    tatHours : z.number().positive().max(MAX_TAT_HOURS).optional(),
+    tatHours : tatHoursSchema.optional(),
     startDate : z.string().datetime({ offset: true }).optional(),
     tagIds : z.array(objectId).max(12).optional(),
     reviewerIds : z.array(objectId).max(20).optional()

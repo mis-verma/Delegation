@@ -1,27 +1,25 @@
 import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
-import { and, desc, eq, gt, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../../config/db.js'
 import { env } from '../../config/env.js'
 import { sendMail } from '../../config/mailer.js'
 import { passwordOtps } from '../../db/schema/core.js'
 import { settingsService } from '../../modules/settings/settings.service.js'
 import { AppError } from '../../utils/AppError.js'
+import { escapeHtml } from '../../utils/escapeHtml.js'
 import { hashCode, sameHash } from './passwordOtp.service.js'
-import { MAX_CODES_PER_HOUR, MAX_WRONG_CODES_PER_HOUR, attemptsInLastHour, codesInLastHour, reserveAttempt } from './otpAttempts.js'
+import { MAX_CODES_PER_HOUR, WRONG_CODE, codesInLastHour, reserveActiveOtp } from './otpAttempts.js'
 
 const LOCKED = 'Too many tries. Wait an hour, or ask another admin to turn the sign-in code off.'
 const CODE_MINUTES = 10
 const CHALLENGE_MINUTES = 15
 const DEVICE_DAYS = 30
 const RESEND_AFTER_MS = 30_000
-const WRONG_CODE = 'That code is wrong or has expired. Ask for a new one.'
 
 const derivedSecret = (purpose: string) => crypto.createHmac('sha256', env.JWT_ACCESS_SECRET).update(purpose).digest('hex')
 const CHALLENGE_SECRET = () => derivedSecret('login-challenge')
 const DEVICE_SECRET = () => derivedSecret('admin-device')
-
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 
 export const adminCodeRequired = () => settingsService.getCached().requireAdminLoginCode && !!env.SMTP_HOST
 
@@ -104,20 +102,11 @@ export const issueLoginCode = async (user: { id: string; email: string; firstNam
 }
 
 export const verifyLoginCode = async (userId: string, code: string) => {
-  const now = new Date()
-  if (await attemptsInLastHour(userId, 'LOGIN') >= MAX_WRONG_CODES_PER_HOUR) throw AppError.tooManyRequests(LOCKED)
-
-  const [otp] = await db.select().from(passwordOtps)
-    .where(and(eq(passwordOtps.userId, userId), eq(passwordOtps.purpose, 'LOGIN'), isNull(passwordOtps.usedAt), gt(passwordOtps.expiresAt, now)))
-    .orderBy(desc(passwordOtps.createdAt))
-    .limit(1)
-  if (!otp) throw AppError.badRequest(WRONG_CODE)
-
-  if (!(await reserveAttempt(otp.id))) throw AppError.badRequest(WRONG_CODE)
+  const otp = await reserveActiveOtp(userId, ['LOGIN'], LOCKED)
   if (!sameHash(otp.codeHash, hashCode(userId, code))) throw AppError.badRequest(WRONG_CODE)
 
   const [claimed] = await db.update(passwordOtps)
-    .set({ usedAt: now })
+    .set({ usedAt: new Date() })
     .where(and(eq(passwordOtps.id, otp.id), isNull(passwordOtps.usedAt)))
   if (claimed.affectedRows !== 1) throw AppError.badRequest(WRONG_CODE)
 }

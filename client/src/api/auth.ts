@@ -14,7 +14,9 @@ export const ownerMayVisit = (pathname: string): boolean => {
   return OWNER_EXACT_PATHS.includes(path) || OWNER_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 };
 
-export const homeFor = (role: Role): string => (role === 'OWNER' ? OWNER_HOME : ADMIN_AREA_ROLES.includes(role) ? '/admin' : '/');
+export const PC_HOME = '/pc';
+
+export const homeFor = (role: Role): string => (role === 'OWNER' ? OWNER_HOME : role === 'PC' ? PC_HOME : ADMIN_AREA_ROLES.includes(role) ? '/admin' : '/');
 
 export const OWN_SCOPE_ROLES: readonly Role[] = ['AGENT', 'USER'];
 

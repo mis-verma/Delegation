@@ -16,6 +16,7 @@ let started = false;
 let refCount = 0
 let lastTokenRefreshTry = 0
 const TOKEN_REFRESH_COOLDOWN_MS = 10_000
+const RECONNECT_SPREAD_MS = 5_000
 const listeners: { event: string; handler: Handler }[] = [];
 
 const asListener = (handler: Handler) => handler as (...args: unknown[]) => void;
@@ -45,10 +46,16 @@ const openSocket = async (token: string) => {
     }
     if (socket) return;
     const created = io(BASE , {
+        reconnectionDelay: 2_000,
+        reconnectionDelayMax: 30_000,
+        randomizationFactor: 0.8,
         auth : (cb) => cb({ token : tokenStore.get() ?? token }),
     });
     created.on("disconnect", (reason) => {
-        if (reason === "io server disconnect" && socket === created && tokenStore.get()) created.connect();
+        if (reason !== "io server disconnect") return;
+        window.setTimeout(() => {
+            if (socket === created && tokenStore.get()) created.connect();
+        }, Math.random() * RECONNECT_SPREAD_MS);
     });
     created.on("connect_error", (err) => {
         if (!/access token/i.test(err.message)) return;

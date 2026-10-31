@@ -137,13 +137,3 @@ export const createPasswordChangeLimiter = (store?: Store) => rateLimit({
     passOnStoreError: true,
     message: { success: false, message: "Too many wrong password attempts. Try again in a few minutes." }
 })
-
-export const passwordChangeLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 5,
-    skipSuccessfulRequests: true,
-    keyGenerator: userOrIpKey,
-    standardHeaders: false,
-    legacyHeaders: false,
-    message: { success: false, message: "Too many wrong password attempts. Try again in a few minutes." }
-})

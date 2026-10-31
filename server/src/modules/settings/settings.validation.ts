@@ -1,7 +1,8 @@
 import { z } from "zod"
+import { tatHoursSchema } from "../../utils/tatLimits.js"
 
 export const updateSettingsSchema = z.object({
-    defaultTatHours : z.number().positive().optional(),
+    defaultTatHours : tatHoursSchema.optional(),
     maxUploadSizeMb : z.number().positive().optional(),
     maxUploadFiles : z.number().int().positive().optional(),
     allowedImageTypes : z.array(z.string().min(1)).optional(),

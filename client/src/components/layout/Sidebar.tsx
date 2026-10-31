@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ClipboardCheck,
   ShieldQuestion,
+  UserCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -236,6 +237,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' }] : []),
     ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' }] : []),
     ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals', tint: 'coral' }] : []),
+    ...(isAdmin || isPC ? [{ to: '/pc', icon: UserCheck, label: 'PC desk', tint: 'primary' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),

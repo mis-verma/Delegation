@@ -31,7 +31,12 @@ export interface LeaveCreated extends LeavePreview {
   removedRuns: number;
 }
 
+export interface LeaveRules {
+  backdateDays: number;
+}
+
 export const leaveApi = {
+  rules: () => apiFetch<{ success: boolean; data: LeaveRules }>('/leave/rules').then((r) => r.data),
   list: () => apiFetch<{ success: boolean; data: LeaveEntry[] }>('/leave').then((r) => r.data),
   preview: (params: { userId: string; startDate: string; endDate: string }) =>
     apiFetch<{ success: boolean; data: LeavePreview }>(`/leave/preview?${new URLSearchParams(params).toString()}`).then((r) => r.data),

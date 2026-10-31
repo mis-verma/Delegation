@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
 import { sendMail } from '../../config/mailer.js';
@@ -8,22 +8,20 @@ import { settingsService } from '../../modules/settings/settings.service.js';
 import { auditService } from '../../modules/audit/audit.service.js';
 import { disconnectUserSockets } from '../../sockets/socket.js';
 import { AppError } from '../../utils/AppError.js';
+import { escapeHtml } from '../../utils/escapeHtml.js';
 import { hashPassword } from '../../utils/password.js';
 import { passwordChangeStamp } from './auth.js';
-import { reserveAttempt } from './otpAttempts.js';
+import { WRONG_CODE, reserveActiveOtp } from './otpAttempts.js';
 import { invalidateAuthUsers } from './authCache.js';
 
 type Purpose = (typeof PASSWORD_OTP_PURPOSES)[number];
 
 const LIFETIME_MINUTES: Record<Purpose, number> = { RESET: 10, SETUP: 24 * 60, LOGIN: 10 };
-const WRONG_CODE = 'That code is wrong or has expired. Ask for a new one.';
 
 export const hashCode = (userId: string, code: string) =>
   crypto.createHmac('sha256', env.JWT_ACCESS_SECRET).update(`${userId}:${code}`).digest('hex');
 
 export const sameHash = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
 const lifetimeText = (purpose: Purpose) => (purpose === 'SETUP' ? '24 hours' : '10 minutes');
 
@@ -92,13 +90,7 @@ export const passwordOtpService = {
     if (!user || !user.isActive) throw AppError.badRequest(WRONG_CODE);
 
     const now = new Date();
-    const [otp] = await db.select().from(passwordOtps)
-      .where(and(eq(passwordOtps.userId, user.id), inArray(passwordOtps.purpose, ['RESET', 'SETUP']), isNull(passwordOtps.usedAt), gt(passwordOtps.expiresAt, now)))
-      .orderBy(desc(passwordOtps.createdAt))
-      .limit(1);
-    if (!otp) throw AppError.badRequest(WRONG_CODE);
-
-    if (!(await reserveAttempt(otp.id))) throw AppError.badRequest(WRONG_CODE);
+    const otp = await reserveActiveOtp(user.id, ['RESET', 'SETUP'], 'Too many tries. Wait an hour, then ask for a new code.');
     if (!sameHash(otp.codeHash, hashCode(user.id, input.code))) throw AppError.badRequest(WRONG_CODE);
 
     const passwordHash = await hashPassword(input.password);

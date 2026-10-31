@@ -1,11 +1,13 @@
+import { isAdminOrPc } from "../../utils/roles.js"
+
 export type LeaveActor = { sub: string; role: string; departmentId: string | null }
 export type LeaveTarget = { id: string; role: string; departmentId: string | null; isActive: boolean }
 
 export const MAX_LEAVE_DAYS = 90
 export const MAX_BACKDATE_DAYS = 14
-export const MAX_HEAD_BACKDATE_DAYS = 1
+const MAX_HEAD_BACKDATE_DAYS = 1
 
-export const backdateLimitFor = (role: string): number => (role === "ADMIN" || role === "PC" ? MAX_BACKDATE_DAYS : MAX_HEAD_BACKDATE_DAYS)
+export const backdateLimitFor = (role: string): number => (isAdminOrPc(role) ? MAX_BACKDATE_DAYS : MAX_HEAD_BACKDATE_DAYS)
 
 const DAY_MS = 86_400_000
 
@@ -20,7 +22,7 @@ export const eachDay = (from: string, to: string): string[] => {
 export const rangesOverlap = (a: { startDate: string; endDate: string }, b: { startDate: string; endDate: string }): boolean =>
     a.startDate <= b.endDate && b.startDate <= a.endDate
 
-export const rangeProblem = (from: string, to: string, today: string, actorRole = "ADMIN"): string | null => {
+export const rangeProblem = (from: string, to: string, today: string, actorRole: string): string | null => {
     if (from > to) return "The last day can't be before the first day."
     if (eachDay(from, to).length > MAX_LEAVE_DAYS) return `Leave can be at most ${MAX_LEAVE_DAYS} days at a time.`
     const backdate = backdateLimitFor(actorRole)

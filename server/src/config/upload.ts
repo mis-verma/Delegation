@@ -3,7 +3,6 @@ import path from "node:path";
 import crypto from "node:crypto"
 import fs from "node:fs"
 import type { Request, Response, NextFunction } from "express"
-import { uploadDestination } from "../utils/diskSpace.js"
 import { settingsService } from "../modules/settings/settings.service.js";
 
 const UPLOAD_DIR = path.resolve("uploads", "tasks")
@@ -80,7 +79,7 @@ const SAFE_MIME_EXTENSIONS: Record<string, string> = {
 const safeExtensionFor = (mimetype: string): string => SAFE_MIME_EXTENSIONS[mimetype] ?? ".bin"
 
 const storage = multer.diskStorage({
-    destination: uploadDestination(UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -88,7 +87,7 @@ const storage = multer.diskStorage({
 });
 
 const ticketStorage = multer.diskStorage({
-    destination: uploadDestination(TICKET_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, TICKET_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -96,7 +95,7 @@ const ticketStorage = multer.diskStorage({
 })
 
 const ticketAttachmentStorage = multer.diskStorage({
-    destination: uploadDestination(TICKET_ATTACHMENT_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, TICKET_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -104,7 +103,7 @@ const ticketAttachmentStorage = multer.diskStorage({
 })
 
 const checklistInstanceStorage = multer.diskStorage({
-    destination: uploadDestination(CHECKLIST_INSTANCE_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -112,7 +111,7 @@ const checklistInstanceStorage = multer.diskStorage({
 })
 
 const checklistInstanceSubmissionStorage = multer.diskStorage({
-    destination: uploadDestination(CHECKLIST_INSTANCE_SUBMISSION_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_SUBMISSION_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -120,7 +119,7 @@ const checklistInstanceSubmissionStorage = multer.diskStorage({
 })
 
 const taskAttachmentStorage = multer.diskStorage({
-    destination: uploadDestination(TASK_ATTACHMENT_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, TASK_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -128,7 +127,7 @@ const taskAttachmentStorage = multer.diskStorage({
 })
 
 const avatarStorage = multer.diskStorage({
-    destination: uploadDestination(AVATAR_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, AVATAR_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -136,7 +135,7 @@ const avatarStorage = multer.diskStorage({
 })
 
 const logoStorage = multer.diskStorage({
-    destination: uploadDestination(LOGO_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, LOGO_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -144,7 +143,7 @@ const logoStorage = multer.diskStorage({
 })
 
 const checklistReferenceStorage = multer.diskStorage({
-    destination: uploadDestination(CHECKLIST_REFERENCE_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, CHECKLIST_REFERENCE_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
@@ -152,7 +151,7 @@ const checklistReferenceStorage = multer.diskStorage({
 })
 
 const taskCommentAttachmentStorage = multer.diskStorage({
-    destination: uploadDestination(TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
+    destination: (_req, _file, cb) => cb(null, TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
         cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)

@@ -6,15 +6,10 @@ import { checklistItems, checklistImages } from "../../db/schema/index.js";
 import { eq, inArray, sql } from "drizzle-orm";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
-import { assertCanWorkChecklistItem, assertTicketChecklistOpen, ticketChecklistWorkerIds } from "../../utils/checklistItemWorkers.js";
+import { assertCanWorkTicketChecklistItem } from "../../utils/checklistItemWorkers.js";
 
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; checklistId: string | null }) =>
-    assertCanWorkChecklistItem(
-        user,
-        item,
-        () => (item.checklistId ? ticketChecklistWorkerIds(item.checklistId) : Promise.resolve([])),
-        "Only the assigned person can upload evidence for this item",
-    );
+    assertCanWorkTicketChecklistItem(user, item, "Only the assigned person can upload evidence for this item");
 
 export const checklistImageService = {
     async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
@@ -22,7 +17,6 @@ export const checklistImageService = {
         if (!item) throw AppError.notFound("Checklist item not found");
         try {
             await assertCanUpload(user, item);
-            await assertTicketChecklistOpen(user, item.checklistId);
         } catch (err) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
             throw err;
@@ -73,7 +67,6 @@ export const checklistImageService = {
 
         const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, image.checklistItemId)).limit(1);
         await assertCanUpload(user, item ?? { assigneeId: image.uploadedBy, checklistId: null });
-        await assertTicketChecklistOpen(user, item?.checklistId ?? null);
 
         const absolutePath = path.resolve(process.cwd(), "uploads", "tickets", path.basename(image.url));
         fs.unlink(absolutePath, (err) => {

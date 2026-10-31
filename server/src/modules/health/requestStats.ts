@@ -20,6 +20,7 @@ type Bucket = {
 
 const MINUTE_MS = 60_000
 const KEEP_HOURS = 48
+const SLOW_LOG_MS = 1500
 const SKIPPED = ["/health", "/system-health", "/socket.io", "/uploads"]
 
 const emptyBucket = (): Bucket => ({ requests: 0, totalMs: 0, maxMs: 0, under100: 0, under300: 0, under1000: 0, under3000: 0, over3000: 0, serverErrors: 0 })
@@ -45,7 +46,9 @@ export const requestTimer = (req: Request, res: Response, next: NextFunction) =>
     if (SKIPPED.some((prefix) => req.originalUrl.startsWith(prefix))) return next()
     const started = process.hrtime.bigint()
     res.on("finish", () => {
-        record(Date.now(), Number(process.hrtime.bigint() - started) / 1e6, res.statusCode >= 500)
+        const ms = Number(process.hrtime.bigint() - started) / 1e6
+        record(Date.now(), ms, res.statusCode >= 500)
+        if (ms >= SLOW_LOG_MS) console.warn(`[slow] ${req.method} ${req.baseUrl}${req.route?.path ?? ""} ${Math.round(ms)}ms status=${res.statusCode}`)
     })
     next()
 }

@@ -1,6 +1,7 @@
 import { createClient, type RedisClientType } from "redis";
 import { RedisStore } from "rate-limit-redis"
 import { env } from "./env.js"
+import { resilientStore } from "./resilientStore.js"
 
 const reconnectStrategy = (retries : number) => Math.min(retries * 200, 5000)
 
@@ -34,10 +35,10 @@ export const createRedisRateLimitStoreFactory = async () => {
     await connectOrFail(client.connect(), "rate-limit");
     trackedClients.push(client);
 
-    return (prefix: string) => new RedisStore({
+    return (prefix: string) => resilientStore(new RedisStore({
         prefix: `rl:${prefix}:`,
         sendCommand : (...args : string[]) => client.sendCommand(args)
-    })
+    }))
 }
 
 export const disconnectRedisClients = async () => {

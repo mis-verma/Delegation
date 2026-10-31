@@ -18,14 +18,14 @@ describe("rangesOverlap", () => {
 describe("rangeProblem", () => {
     const today = "2026-10-29"
     it("accepts today and the future", () => {
-        expect(rangeProblem("2026-10-29", "2026-10-31", today)).toBeNull()
+        expect(rangeProblem("2026-10-29", "2026-10-31", today, "ADMIN")).toBeNull()
     })
     it("rejects a backwards range", () => {
-        expect(rangeProblem("2026-11-02", "2026-11-01", today)).toMatch(/can't be before/)
+        expect(rangeProblem("2026-11-02", "2026-11-01", today, "ADMIN")).toMatch(/can't be before/)
     })
     it("rejects too long and too old", () => {
-        expect(rangeProblem("2026-10-29", "2027-03-01", today)).toMatch(/at most/)
-        expect(rangeProblem("2026-10-01", "2026-10-02", today)).toMatch(/last 14 days/)
+        expect(rangeProblem("2026-10-29", "2027-03-01", today, "ADMIN")).toMatch(/at most/)
+        expect(rangeProblem("2026-10-01", "2026-10-02", today, "ADMIN")).toMatch(/last 14 days/)
     })
     it("limits heads to yesterday onward", () => {
         expect(rangeProblem("2026-10-28", "2026-10-29", today, "MANAGER")).toBeNull()

@@ -4,13 +4,11 @@ import { env } from "../../config/env.js"
 import { sendMail } from "../../config/mailer.js"
 import { pushSubscriptions, users } from "../../db/schema/core.js"
 import { settingsService } from "../settings/settings.service.js"
+import { escapeHtml } from "../../utils/escapeHtml.js"
 
 export const URGENT_TYPE = /ESCALATION|OVERDUE|CRITICAL|FAILED/
 
 type UrgentRow = { recipientId: string; type: string; title: string; message: string }
-
-const escapeHtml = (text: string) =>
-    text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
 const emailBody = (rows: UrgentRow[]) => {
     const items = rows.slice(0, 5)

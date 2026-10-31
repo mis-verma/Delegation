@@ -53,6 +53,7 @@ import { todoRouter } from "./modules/todos/todo.routes.js"
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js"
 import { draftRouter } from "./modules/drafts/draft.routes.js"
 import { createApiLimiter, createAiLimiter , createWebhookLimiter, createPasswordChangeLimiter } from "./middleware/rateLimiter/rateLimiter.js"
+import { requireDiskSpace } from "./utils/diskSpace.js"
 import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js"
 import { doubletickRouter } from "./modules/doubletick/doubletick.routes.js"
 import helmet from "helmet"
@@ -100,6 +101,7 @@ class App {
         this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
         this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
+        this.app.use(requireDiskSpace)
 
         this.app.use('/uploads', (req: Request, res: Response, next) => {
             const fullPath = `/uploads${req.path}`
