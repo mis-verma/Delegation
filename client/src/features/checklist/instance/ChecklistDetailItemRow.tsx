@@ -134,42 +134,6 @@ export const DetailItemRow = memo(({
         </div>
       )}
       <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
-        {(selecting || canRaiseTicket || item.reviewTicketId) && (
-          <div className="flex flex-wrap items-center gap-2">
-            {selecting && (
-              <label className={`flex flex-1 basis-48 items-center gap-2.5 px-3.5 min-h-11 rounded-lg border t-meta font-display font-semibold cursor-pointer transition-colors duration-150 ${picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
-                <input
-                  type="checkbox"
-                  checked={picked}
-                  onChange={() => onTogglePicked(item.id)}
-                  className="size-4 accent-danger cursor-pointer"
-                />
-                {picked ? 'Sending this question back' : 'Send this question back'}
-              </label>
-            )}
-            {(canRaiseTicket || item.reviewTicketId) && <RaiseTicketAction item={item} canRaise={canRaiseTicket} />}
-          </div>
-        )}
-        {selecting && picked && onNoteChange && (
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
-            {orderedItemReasons(suggestedReasons).map((option) => (
-              <ToggleChip key={option} on={hasItemReason(note, option)} onClick={() => onNoteChange(item.id, toggleItemReason(note, option, QUESTION_NOTE_MAX))}>
-                {option}
-              </ToggleChip>
-            ))}
-          </div>
-        )}
-        {selecting && picked && onNoteChange && (
-          <input
-            type="text"
-            value={note}
-            maxLength={QUESTION_NOTE_MAX}
-            onChange={(e) => onNoteChange(item.id, e.target.value)}
-            placeholder="Note for this question (optional)"
-            aria-label={`Note for: ${item.label}`}
-            className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
-          />
-        )}
         {item.referenceImageUrl && !item.isNotApplicable && (
           <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5">
             <PhotoThumbs files={[{ id: `reference-${item.id}`, url: item.referenceImageUrl, mimeType: 'image/jpeg', name: 'Example photo' }]} label="Example photo" />
@@ -236,6 +200,44 @@ export const DetailItemRow = memo(({
           <div className="border-t border-border/50 px-3 py-2 sm:px-4 empty:hidden">
             <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canEdit} />
           </div>
+          {(selecting || canRaiseTicket || item.reviewTicketId) && (
+            <div className="flex items-center justify-between gap-2 border-t border-border/50 px-3 py-1.5 sm:px-4">
+              {selecting ? (
+                <button
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => onTogglePicked(item.id)}
+                  className={cn(
+                    'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8',
+                    picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text',
+                  )}
+                >
+                  {picked ? 'Sending back' : 'Send back'}
+                </button>
+              ) : <span />}
+              {(canRaiseTicket || item.reviewTicketId) && <RaiseTicketAction item={item} canRaise={canRaiseTicket} />}
+            </div>
+          )}
+          {selecting && picked && onNoteChange && (
+            <div className="flex flex-col gap-2 border-t border-border/50 px-3 py-2.5 sm:px-4">
+              <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
+                {orderedItemReasons(suggestedReasons).map((option) => (
+                  <ToggleChip key={option} on={hasItemReason(note, option)} onClick={() => onNoteChange(item.id, toggleItemReason(note, option, QUESTION_NOTE_MAX))}>
+                    {option}
+                  </ToggleChip>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={note}
+                maxLength={QUESTION_NOTE_MAX}
+                onChange={(e) => onNoteChange(item.id, e.target.value)}
+                placeholder="Note for this question (optional)"
+                aria-label={`Note for: ${item.label}`}
+                className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
+              />
+            </div>
+          )}
         </div>
       </div>
     </>

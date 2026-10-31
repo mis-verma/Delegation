@@ -37,9 +37,10 @@ interface FigureCardProps {
   decimals?: number;
   to?: string;
   onClick?: () => void;
+  selected?: boolean;
 }
 
-export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick }: FigureCardProps) => {
+export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected }: FigureCardProps) => {
   const body: ReactNode = (
     <>
       <span className="flex min-w-0 items-center gap-x-0.5 whitespace-nowrap t-meta text-text-muted">
@@ -73,6 +74,6 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
   );
 
   if (to) return <Link to={to} viewTransition aria-label={label} className={cn(BOX, ACTION)}>{body}</Link>;
-  if (onClick) return <button type="button" onClick={onClick} aria-label={label} className={cn(BOX, ACTION)}>{body}</button>;
+  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(BOX, ACTION, selected && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
   return <div className={BOX}>{body}</div>;
 };

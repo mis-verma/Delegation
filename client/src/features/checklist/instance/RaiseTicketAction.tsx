@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, Flag, TicketPlus, Ticket as TicketIcon, UserCheck } from 'lucide-react';
+import { Clock, Flag, TicketPlus, UserCheck } from 'lucide-react';
 import { Button, Modal } from '../../../components';
 import { cn } from '@/lib/utils';
 import { TicketPriorityChipPicker } from '../../tickets/form/TicketPriorityChipPicker';
@@ -34,9 +34,8 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
     return (
       <Link
         to={`/tickets?open=${item.reviewTicketId}`}
-        className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-9 px-2.5 rounded-lg border border-primary-500/30 bg-primary-500/10 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:border-primary-500/50 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="inline-flex min-h-11 items-center rounded-full px-3 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8"
       >
-        <TicketIcon size={14} aria-hidden="true" />
         Open ticket
       </Link>
     );
@@ -59,8 +58,7 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="pointer-coarse:min-h-11">
-        <TicketPlus size={14} aria-hidden="true" />
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} className="pointer-coarse:min-h-11">
         Raise ticket
       </Button>
       <Modal

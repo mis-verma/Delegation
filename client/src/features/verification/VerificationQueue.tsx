@@ -330,7 +330,6 @@ export const VerificationQueue = () => {
           loading={loadingTotals}
           stats={sectionStats}
           total={counts?.all ?? 0}
-          now={now}
           onChange={(tab) => patch({ tab, open: null })}
         />
       )}
@@ -339,8 +338,6 @@ export const VerificationQueue = () => {
         <QueueOverview
           loading={loadingTotals}
           rows={allRows.filter((r) => !heldIds.has(r.id))}
-          waitingTotal={waitingTotal}
-          oldestWaiting={oldestWaiting}
           now={now}
           partial={hasMore}
           attentionActive={params.attention}

@@ -20,6 +20,8 @@ import {
   LayoutDashboard,
   ListOrdered,
   ListTodo,
+  ShieldQuestion,
+  UserCheck,
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,6 +37,14 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false, tint: 'coral' },
   { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, tint: 'info' },
   { to: '/todo', label: 'To-Do', icon: ListTodo, exact: false, tint: 'success' },
+  { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
+];
+
+const PC_NAV_ITEMS: NavItem[] = [
+  { to: '/pc', label: 'Desk', icon: UserCheck, exact: false, tint: 'primary' },
+  { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false, tint: 'coral' },
+  { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, tint: 'info' },
+  { to: '/verify', label: 'Queue', icon: ShieldQuestion, exact: false, tint: 'coral' },
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
 ];
 
@@ -69,7 +79,7 @@ export const BottomNav = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const items = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
+  const items = isOwner ? OWNER_NAV_ITEMS : user?.role === 'PC' ? PC_NAV_ITEMS : NAV_ITEMS;
   const [quickOpen, setQuickOpen] = useState(false);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState<{ module: QuickModule; summary: string; open: boolean } | null>(null);

@@ -1,10 +1,12 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
 import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-react';
+import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
+import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
-import { complianceToneClass, formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
+import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
 import { DetailItemRow } from '../checklist/instance/ChecklistDetailItemRow';
 import { ComplianceMeter } from './ComplianceMeter';
 import { PersonContext } from './PersonContext';
@@ -19,12 +21,7 @@ export interface SendBackPayload {
   fixByHours?: number | null;
 }
 
-const Tile = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
-  <div className="flex flex-col gap-0.5 p-2.5 sm:p-3 rounded-lg border border-border/60 bg-surface-hover/40">
-    <span className="t-meta font-display text-text-muted">{label}</span>
-    <span className={cn('t-stat font-display font-bold tabular-nums text-text', tone)}>{value}</span>
-  </div>
-);
+const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
 interface BodyProps {
   row: ChecklistRow;
@@ -94,17 +91,34 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Tile label="Completion" value={`${risk.completion}%`} />
-        <Tile
-          label="Compliance"
-          value={`${risk.compliance ?? 100}%`}
-          tone={complianceToneClass(risk.compliance ?? 100)}
+      <div className="grid grid-cols-3 gap-2">
+        <FigureCard
+          label="Completion"
+          help="Share of the questions that were answered."
+          value={risk.completion}
+          format={(n) => `${Math.round(n)}%`}
+          tone={rateTone(risk.completion)}
+          bar={risk.completion}
+          loading={false}
         />
-        <Tile
+        <FigureCard
+          label="Compliance"
+          short="Right"
+          help="Share of the scored answers that match the accepted answer."
+          value={risk.compliance ?? 100}
+          format={(n) => `${Math.round(n)}%`}
+          tone={rateTone(risk.compliance ?? 100)}
+          bar={risk.compliance ?? 100}
+          loading={false}
+        />
+        <FigureCard
           label="Photos"
-          value={photos}
-          tone={risk.photosNeeded === 0 ? 'text-text-muted' : risk.photosHave < risk.photosNeeded ? 'text-danger' : 'text-success'}
+          help={risk.photosNeeded === 0 ? 'No photos are needed for this checklist.' : `${risk.photosHave} of ${risk.photosNeeded} required photo questions have their photos.`}
+          value={risk.photosNeeded === 0 ? null : risk.photosHave}
+          text={photos}
+          tone={risk.photosNeeded === 0 ? 'plain' : risk.photosHave < risk.photosNeeded ? 'bad' : 'good'}
+          bar={risk.photosNeeded === 0 ? null : (risk.photosHave / risk.photosNeeded) * 100}
+          loading={false}
         />
       </div>
 
@@ -113,7 +127,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
       <PersonContext items={items} />
 
       <p className="t-meta font-display text-text-muted leading-relaxed">
-        Same view as the filled checklist. Tick a question to send only that one back, or raise a ticket on it.
+        Same view as the filled checklist. Tap Send back under a question to return only that one.
       </p>
       <div className="flex flex-col gap-3">
         {items.map((item, idx) => (
