@@ -72,7 +72,7 @@ export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]
     });
 };
 
-const DASHBOARD_TASK_LIMIT = 250;
+const DASHBOARD_TASK_LIMIT = 200;
 
 export const useDashboardTasksQuery = (enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();

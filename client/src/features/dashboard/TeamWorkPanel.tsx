@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CheckCheck, ChevronRight, ShieldAlert, Users } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { InlineError } from '../../components/inlineError';
-import { WaitChip, IconChip } from '../../components';
+import { WaitChip, StatusBadge } from '../../components';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/AttentionParts';
@@ -73,20 +73,14 @@ export const TeamWorkPanel = () => {
 
   return (
     <section aria-labelledby="team-work-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
-      <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
-        <span className="flex size-10 shrink-0 sm:size-11 items-center justify-center rounded-xl bg-linear-to-br from-vivid-blue to-vivid-sky text-white" aria-hidden="true">
-          <Users className="size-5" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0">
-          <h2 id="team-work-heading" className="t-section font-display font-bold text-text">Your team today</h2>
-          <p className="hidden t-meta text-text-muted sm:block">Who has work waiting, and what waits for your approval.</p>
-          {!people.isPending && !sources.isPending && (approvalTotal > 0 || peopleRows.length > 0) && (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {approvalTotal > 0 && <IconChip icon={ShieldAlert} tone="bg-vivid-blue" label={`${approvalTotal} to approve`} labelClassName="tabular-nums text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />}
-              {peopleRows.length > 0 && <IconChip icon={Users} tone="bg-vivid-red" label={`${peopleRows.length} behind`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />}
-            </div>
-          )}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
+        <h2 id="team-work-heading" className="t-section font-display font-bold tracking-tight text-text">Your team today</h2>
+        {!people.isPending && !sources.isPending && (approvalTotal > 0 || peopleRows.length > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {approvalTotal > 0 && <StatusBadge variant="neutral" icon={false} label={`${approvalTotal} to approve`} />}
+            {peopleRows.length > 0 && <StatusBadge variant="critical" icon={false} label={`${peopleRows.length} behind`} />}
+          </div>
+        )}
       </div>
 
       {sources.hasError && (
@@ -105,14 +99,9 @@ export const TeamWorkPanel = () => {
           <InlineError message="Couldn't load your team." onRetry={() => void people.refetch()} />
         </div>
       ) : nothing ? (
-        <div className="flex items-center gap-3 border-t border-border/60 px-4 py-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-vivid-green/15 text-vivid-green-text" aria-hidden="true">
-            <CheckCheck size={18} strokeWidth={2.5} />
-          </span>
-          <div className="min-w-0">
-            <p className="t-card font-display font-bold text-text">Your team is on track</p>
-            <p className="t-meta text-text-muted">Nobody is behind and nothing waits for your approval.</p>
-          </div>
+        <div className="flex flex-col items-center gap-1 border-t border-border/60 px-4 py-8 text-center">
+          <p className="t-card font-display font-semibold text-text">Your team is on track</p>
+          <p className="t-meta text-text-muted">Nobody is behind and nothing waits for your approval.</p>
         </div>
       ) : (
         <>
@@ -120,13 +109,11 @@ export const TeamWorkPanel = () => {
             <div className="flex flex-col border-t border-border/60">
               <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-1.5">
                 <h3 className="flex items-center gap-2 t-card font-display font-bold text-text">
-                  <ShieldAlert className="size-4 text-vivid-blue-text" aria-hidden />
                   Waiting for your approval
                   <span className="t-meta font-semibold text-text-muted tabular-nums">{approvalTotal}</span>
                 </h3>
-                <Link to={approvalsHref} viewTransition className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 t-meta font-display font-bold text-vivid-blue-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11">
+                <Link to={approvalsHref} viewTransition className="inline-flex min-h-9 items-center rounded-full border border-border px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11">
                   Open
-                  <ChevronRight className="size-3.5" aria-hidden />
                 </Link>
               </div>
               <ul className="flex flex-col divide-y divide-border/60">
@@ -174,7 +161,6 @@ export const TeamWorkPanel = () => {
           {peopleRows.length > 0 && (
             <div className="flex flex-col border-t border-border/60">
               <h3 className="flex items-center gap-2 px-4 pt-3 pb-1 t-card font-display font-bold text-text">
-                <Users className="size-4 text-text-muted" aria-hidden />
                 People behind
                 <span className="t-meta font-semibold text-text-muted tabular-nums">{peopleRows.length}</span>
               </h3>
@@ -187,6 +173,7 @@ export const TeamWorkPanel = () => {
                     onRemind={(userId) => remind.mutate([userId])}
                     reminding={remind.isPending}
                     reminded={remindedRecently(p.lastRemindedAt, now)}
+                    minimal
                   />
                 ))}
               </div>

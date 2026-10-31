@@ -1,13 +1,14 @@
 import { memo } from 'react';
 import { BellRing, Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, IconChip, Skeleton } from '../../components';
+import { Avatar, IconChip, Skeleton, StatusBadge } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
 import type { DayCell, PersonStatus } from '../../api/exceptions';
 import { DAY_LOOK, LEVEL_LOOK, agoLabel, attentionChips, dayMonthOf, weekdayOf } from './attentionDisplay';
 import { useNow } from './useAttention';
 
 const MAX_CHIPS = 3;
+const URGENT_CHIPS = new Set(['missed', 'soon', 'tickets', 'delegations', 'streak']);
 
 export const LevelAvatar = ({ name, src, level, size = 'md' }: { name: string; src: string | null; level: 'red' | 'orange' | null; size?: 'sm' | 'md' | 'lg' | 'xl' }) => (
   <span className="relative inline-flex shrink-0">
@@ -77,7 +78,9 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
           </span>
           {meta && <span className="line-clamp-1 t-meta font-medium text-text-muted">{meta}</span>}
           <span className="flex flex-wrap gap-1.5">
-            {shown.map((c) => <IconChip key={c.key} icon={minimal ? false : c.icon} tone={c.tone} label={c.label} labelClassName={c.text} soft />)}
+            {shown.map((c) => (minimal
+              ? <StatusBadge key={c.key} variant={URGENT_CHIPS.has(c.key) ? 'critical' : 'neutral'} icon={false} label={c.label} />
+              : <IconChip key={c.key} icon={c.icon} tone={c.tone} label={c.label} labelClassName={c.text} soft />))}
             {extra > 0 && <IconChip icon={false} label={`+${extra}`} />}
           </span>
         </span>

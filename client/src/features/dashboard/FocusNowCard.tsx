@@ -1,8 +1,9 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { Segmented } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { TeamWorkPanel } from './TeamWorkPanel';
-import { useFocusView, type FocusView } from './useFocusView';
+import { useFocusView } from './useFocusView';
+import { WorkTeamSwitch } from './WorkTeamSwitch';
+import { useAttentionPeople } from '../attention/useAttention';
 import { Link } from 'react-router';
 import { AlarmClockOff, BellRing, CheckCheck, ChevronDown, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -370,18 +371,14 @@ const FocusWorkCard = ({ ownWorkOnly = false, reviewCount = 0, todayChecklist = 
 };
 
 
-const VIEW_OPTIONS = [
-  { value: 'work', label: 'My work' },
-  { value: 'team', label: 'My team' },
-] as const;
-
 export const FocusNowCard = (props: FocusNowCardProps) => {
   const { user } = useAuth();
   const [view, setView] = useFocusView(user?.id);
+  const people = useAttentionPeople();
   if (!props.ownWorkOnly) return <FocusWorkCard {...props} />;
   return (
     <div className="flex flex-col gap-2">
-      <Segmented<FocusView> label="Show my work or my team" options={VIEW_OPTIONS} value={view} onChange={setView} className="w-full sm:w-fit [&>button]:flex-1 sm:[&>button]:flex-none" />
+      <WorkTeamSwitch value={view} onChange={setView} teamCount={people.data?.length ?? 0} />
       {view === 'team' ? <TeamWorkPanel /> : <FocusWorkCard {...props} />}
     </div>
   );
