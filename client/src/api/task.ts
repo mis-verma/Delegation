@@ -239,6 +239,7 @@ export type TaskPendingApproval = {
     id: string;
     title: string;
     submittedBy: string | null;
+    submittedById?: string | null;
     waitingSince: string;
 };
 

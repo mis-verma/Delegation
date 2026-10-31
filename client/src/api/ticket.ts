@@ -249,6 +249,7 @@ export type TicketPendingApproval = {
   id: string;
   title: string;
   submittedBy: string | null;
+  submittedById?: string | null;
   waitingSince: string;
 };
 

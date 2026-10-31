@@ -16,6 +16,9 @@ import { ChecklistList } from './ChecklistList';
 import { DecidedToday } from './DecidedToday';
 import { QueueToolbar } from './QueueToolbar';
 import { QueueOverview } from './QueueOverview';
+import { QueueSections } from './QueueSections';
+import { SectionTitle } from './SectionTitle';
+import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats';
 import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
@@ -118,9 +121,11 @@ export const VerificationQueue = () => {
   const taskTotal = Math.max(0, tasks.length - heldTasks);
   const ticketCount = filtersActive ? inDept(notHeld(filteredTickets)) : ticketTotal;
   const taskCount = filtersActive ? inDept(notHeld(filteredTasks)) : taskTotal;
-  const counts = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending
-    ? null
-    : { all: checklistCount + ticketCount + taskCount, checklists: checklistCount, tickets: ticketCount, delegations: taskCount };
+  const countsPending = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending;
+  const counts = useMemo(
+    () => (countsPending ? null : { all: checklistCount + ticketCount + taskCount, checklists: checklistCount, tickets: ticketCount, delegations: taskCount }),
+    [countsPending, checklistCount, ticketCount, taskCount],
+  );
 
   const waitingTotal = ticketTotal + taskTotal + Math.max(0, checklistTotal - heldInLoaded);
   const oldestWaiting = useMemo(() => {
@@ -131,6 +136,16 @@ export const VerificationQueue = () => {
     ].filter((t): t is number => t !== null);
     return times.length ? Math.min(...times) : null;
   }, [allRows, heldIds, tickets, tasks]);
+
+  const sectionStats = useMemo(() => {
+    const inDepartment = <T extends { departmentId: string | null }>(list: T[]) =>
+      params.dept ? list.filter((i) => (i.departmentId ?? UNASSIGNED) === params.dept) : list;
+    return {
+      checklists: { ...summarize(visibleRows.map((r) => r.waitingSince), now), count: counts?.checklists ?? visibleRows.length },
+      tickets: { ...summarize(inDepartment(filteredTickets.filter((t) => !heldIds.has(t.id))).map(ticketWaitingSince), now), count: counts?.tickets ?? 0 },
+      delegations: { ...summarize(inDepartment(filteredTasks.filter((t) => !heldIds.has(t.id))).map(taskWaitingSince), now), count: counts?.delegations ?? 0 },
+    };
+  }, [visibleRows, filteredTickets, filteredTasks, heldIds, params.dept, counts, now]);
 
   const [cursor, setCursor] = useState<string | null>(null);
   const rowById = useMemo(() => new Map(visibleRows.map((r) => [r.id, r])), [visibleRows]);
@@ -310,6 +325,17 @@ export const VerificationQueue = () => {
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
 
       {params.view === 'waiting' && (
+        <QueueSections
+          tab={params.tab}
+          loading={loadingTotals}
+          stats={sectionStats}
+          total={counts?.all ?? 0}
+          now={now}
+          onChange={(tab) => patch({ tab, open: null })}
+        />
+      )}
+
+      {params.view === 'waiting' && showChecklists && (
         <QueueOverview
           loading={loadingTotals}
           rows={allRows.filter((r) => !heldIds.has(r.id))}
@@ -366,6 +392,7 @@ export const VerificationQueue = () => {
                 onLoadMore={() => { void checklistQuery.fetchNextPage(); }}
                 onShowShortcuts={() => setHelpOpen(true)}
                 grouped
+                titleSlot={<SectionTitle section="checklists" stats={sectionStats.checklists} now={now} />}
                 onOpen={openRun}
                 onApprove={approve}
                 onSendBack={startSendBack}

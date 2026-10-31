@@ -30,6 +30,7 @@ export interface StatProps {
   mutedAtZero?: boolean;
   loading: boolean;
   to?: string | null;
+  onClick?: () => void;
   index?: number;
 }
 
@@ -72,7 +73,7 @@ const MUTED_SURFACE = 'border-border/60 bg-surface hover:border-border-hover';
 
 const BASE = 'stat-rise relative flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border px-3 py-3 transition-colors duration-150';
 
-export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', format, decimals = 0, progress, trend, trendLabel, alert = false, mutedAtZero = false, loading, to, index = 0 }: StatProps) => {
+export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', format, decimals = 0, progress, trend, trendLabel, alert = false, mutedAtZero = false, loading, to, onClick, index = 0 }: StatProps) => {
   const muted = mutedAtZero && !loading && value === 0;
   const style = { '--stat-delay': `${index * 60}ms` } as React.CSSProperties;
   const body = (
@@ -105,6 +106,18 @@ export const Stat = ({ icon: Icon, label, value, caption, accent = 'blue', forma
     </>
   );
   const surface = muted ? MUTED_SURFACE : SURFACE[accent];
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={style}
+        className={cn(BASE, surface, 'w-full cursor-pointer text-left outline-none active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/50')}
+      >
+        {body}
+      </button>
+    );
+  }
   if (!to) return <div className={cn(BASE, surface)} style={style}>{body}</div>;
   return (
     <Link

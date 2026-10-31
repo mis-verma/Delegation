@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users } from 'lucide-react';
+import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users, Hourglass, TicketCheck, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, EmptyState, Skeleton, useConfirm } from '../../components';
+import { Button, EmptyState, IconChip, Skeleton, StatusBadge, useConfirm } from '../../components';
 import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun } from './decisionRequests';
 import type { DecisionRequest } from './useDeferredDecisions';
 import { TicketRow, TaskRow } from './TicketTaskRows';
-import { UNASSIGNED, type QueueTab } from './verificationModel';
+import { UNASSIGNED, formatWaiting, type QueueTab } from './verificationModel';
+import { SECTION_LOOK } from './sectionLook';
+import { SectionTitle as SectionHeading } from './SectionTitle';
+import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 
@@ -16,11 +19,13 @@ interface DepartmentGroup {
   tasks: Task[];
 }
 
-const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen: (id: string) => void }) => (
+const DepartmentGroupCard = ({ group, now, onOpen }: { group: DepartmentGroup; now: number; onOpen: (id: string) => void }) => {
+  const stats = summarize([...group.tickets.map(ticketWaitingSince), ...group.tasks.map(taskWaitingSince)], now);
+  return (
   <button
     type="button"
     onClick={() => onOpen(group.id)}
-    className="flex flex-col gap-3 p-4 rounded-xl border border-border/60 bg-surface text-left hover:border-border-hover transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
+    className={`flex flex-col gap-3 p-4 rounded-xl border bg-surface text-left hover:border-border-hover transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 ${stats.late > 0 ? 'border-vivid-red/40' : 'border-border/60'}`}
   >
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 min-w-0">
@@ -32,16 +37,20 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
       <ChevronRight size={15} aria-hidden className="shrink-0 text-text-light" />
     </div>
 
+    <div className="flex flex-wrap items-center gap-1.5">
+      {group.tickets.length > 0 && <IconChip icon={TicketCheck} tone={SECTION_LOOK.tickets.tone} label={`${group.tickets.length} ${group.tickets.length === 1 ? 'ticket' : 'tickets'}`} />}
+      {group.tasks.length > 0 && <IconChip icon={ClipboardList} tone={SECTION_LOOK.delegations.tone} label={`${group.tasks.length} ${group.tasks.length === 1 ? 'delegation' : 'delegations'}`} />}
+    </div>
+
     <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
-      <span className="t-meta font-display font-medium text-text-muted">
-        <strong className="font-display font-bold text-text">{group.tickets.length}</strong> tickets, <strong className="font-display font-bold text-text">{group.tasks.length}</strong> delegations
-      </span>
-      <span className="t-meta font-display font-semibold text-text-muted tabular-nums">
-        {group.tickets.length + group.tasks.length} pending
-      </span>
+      {stats.late > 0
+        ? <StatusBadge variant="critical" icon={Hourglass} label={`${stats.late} over 24h`} />
+        : <StatusBadge variant="success" icon={CheckCircle2} label="None late" />}
+      {stats.oldest !== null && <span className="t-meta font-display font-medium text-text-muted">Oldest {formatWaiting(stats.oldest, now)}</span>}
     </div>
   </button>
-);
+  );
+};
 
 const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
   <div className="flex items-center gap-2">
@@ -187,7 +196,7 @@ export const TicketTaskQueue = ({
       <section className="flex flex-col gap-3" aria-label="Tickets and delegations by department">
         <SectionTitle title="Tickets and delegations by department" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {groups.map((g) => <DepartmentGroupCard key={g.id} group={g} onOpen={onOpenDepartment} />)}
+          {groups.map((g) => <DepartmentGroupCard key={g.id} group={g} now={now} onOpen={onOpenDepartment} />)}
         </div>
       </section>
     );
@@ -221,7 +230,7 @@ export const TicketTaskQueue = ({
 
       {showTickets && (
         <section className="flex flex-col gap-3" aria-label="Tickets">
-          <SectionTitle title="Tickets" count={visibleTickets.length} />
+          <SectionHeading section="tickets" stats={summarize(visibleTickets.map(ticketWaitingSince), now)} now={now} />
           <div className="flex flex-col gap-3">
             {visibleTickets.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" />}
             {visibleTickets.map((t) => (
@@ -243,7 +252,7 @@ export const TicketTaskQueue = ({
 
       {showTasks && (
         <section className="flex flex-col gap-3" aria-label="Delegations">
-          <SectionTitle title="Delegations" count={visibleTasks.length} />
+          <SectionHeading section="delegations" stats={summarize(visibleTasks.map(taskWaitingSince), now)} now={now} />
           <div className="flex flex-col gap-3">
             {visibleTasks.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" />}
             {visibleTasks.map((t) => (

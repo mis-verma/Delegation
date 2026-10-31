@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { CheckCircle2, CheckCheck, Flag, Keyboard, SearchX, History, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, EmptyState, InlineError, Skeleton } from '../../components';
@@ -42,6 +42,7 @@ interface ChecklistListProps {
   showDepartment?: boolean;
   inlineActions?: 'below-lg' | 'always';
   heading?: string;
+  titleSlot?: ReactNode;
   grouped?: boolean;
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
@@ -58,19 +59,21 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 export const ChecklistList = ({
   rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
-  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
+  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
   const groupCounts = { critical: 0, attention: 0, ready: 0 };
   for (const r of rows) groupCounts[groupOf(r)] += 1;
   return (
   <section className="flex flex-col gap-3 min-w-0" aria-label={heading}>
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
-        <h2 className="t-section font-display font-bold text-text">{heading}</h2>
-        {!isPending && rows.length > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
-        )}
-      </div>
+      {titleSlot ?? (
+        <div className="flex items-center gap-2">
+          <h2 className="t-section font-display font-bold text-text">{heading}</h2>
+          {!isPending && rows.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         {onShowShortcuts && (
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>

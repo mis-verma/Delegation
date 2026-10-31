@@ -29,6 +29,7 @@ export interface ExceptionItem {
     storeName: string | null
     since: string
     link: string
+    userId: string | null
     person: string | null
     remindedAt: string | null
 }
@@ -61,6 +62,7 @@ export const exceptionService = {
                 isOverdue: tickets.isOverdue,
                 storeName: stores.name,
                 remindedAt: tickets.overdueNotifiedAt,
+                assigneeId: tickets.assigneeId,
                 personFirst: users.firstName,
                 personLast: users.lastName,
             })
@@ -90,6 +92,7 @@ export const exceptionService = {
                 storeName: t.storeName,
                 since: (overdue && t.tatDueAt ? t.tatDueAt : t.createdAt).toISOString(),
                 link: `/tickets`,
+                userId: t.assigneeId ?? null,
                 person: personName(t.personFirst, t.personLast),
                 remindedAt: t.remindedAt ? t.remindedAt.toISOString() : null,
             })
@@ -105,6 +108,7 @@ export const exceptionService = {
                 priority: tasks.priority,
                 dueDate: tasks.dueDate,
                 remindedAt: tasks.overdueNotifiedAt,
+                assigneeId: tasks.assigneeId,
                 personFirst: users.firstName,
                 personLast: users.lastName,
             })
@@ -132,6 +136,7 @@ export const exceptionService = {
                 storeName: null,
                 since: t.dueDate!.toISOString(),
                 link: `/tasks?open=${t.id}`,
+                userId: t.assigneeId ?? null,
                 person: personName(t.personFirst, t.personLast),
                 remindedAt: t.remindedAt ? t.remindedAt.toISOString() : null,
             })
@@ -166,6 +171,7 @@ export const exceptionService = {
                     storeName: m.storeName,
                     since: new Date(now).toISOString(),
                     link: `/checklists`,
+                    userId: null,
                     person: null,
                     remindedAt: null,
                 })

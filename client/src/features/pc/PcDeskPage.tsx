@@ -4,6 +4,7 @@ import { PageHeader } from '../../components';
 import { CoverBanner } from '../dashboard/CoverBanner';
 import { NeedsApprovalCard } from '../dashboard/NeedsApprovalCard';
 import { ExceptionsCard } from '../dashboard/ExceptionsCard';
+import { PcStatTiles } from './PcStatTiles';
 
 interface DeskLink {
   to: string;
@@ -24,6 +25,7 @@ export const PcDeskPage = () => (
   <div className="flex flex-col gap-6 pt-2.5">
     <PageHeader icon={UserCheck} title="PC desk" subtitle="Approvals that need you, and what is not done today." />
     <CoverBanner />
+    <PcStatTiles />
     <nav aria-label="PC shortcuts" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {DESK_LINKS.map(({ to, label, hint, icon: Icon }) => (
         <Link

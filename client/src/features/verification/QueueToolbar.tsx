@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, History, Layers, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
+import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, History, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
 import { Combobox } from '../../components';
 import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import type { QueueLookups } from './useChecklistQueue';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
-import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type QueueTab, type QueueView, type SortKey } from './verificationModel';
+import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type QueueView, type SortKey } from './verificationModel';
 
 interface QueueToolbarProps {
   params: QueueParams;
@@ -25,7 +25,6 @@ const SORT_ICON: Record<SortKey, typeof Clock> = { oldest: Clock, overdue: Alarm
 
 const VIEW_OPTIONS: readonly QueueView[] = ['waiting', 'decided'];
 
-const TYPE_LABEL: Record<QueueTab, string> = { all: 'All', checklists: 'Checklists', tickets: 'Tickets', delegations: 'Delegations' };
 
 const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
   value: o.value,
@@ -57,7 +56,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
   const personName = params.person ? lookups.people.find((p) => p.id === params.person)?.name ?? 'Person' : null;
   const ageLabel = params.age !== 'any' ? AGE_SEGMENTS.find((a) => a.value === params.age)?.label ?? null : null;
 
-  const activeCount = (decided ? 1 : 0) + (!decided && params.tab !== 'all' ? 1 : 0) + (params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
+  const activeCount = (decided ? 1 : 0) +(params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
   const showLabel = shownCount == null ? 'Show results' : `Show ${shownCount} ${shownCount === 1 ? 'item' : 'items'}`;
 
   return (
@@ -97,7 +96,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
           activeCount={activeCount}
           subtitle={decided ? "Today's decisions" : filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
           onReset={() => { onClear(); patch({ sort: 'oldest', tab: 'all', view: 'waiting', open: null }); }}
-          canReset={filtersActive || params.sort !== 'oldest' || params.tab !== 'all' || decided}
+          canReset={filtersActive || params.sort !== 'oldest' || decided}
           showLabel={decided ? 'Show decisions' : showLabel}
         >
           <OptionSection icon={History} label="Show">
@@ -112,18 +111,6 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
               fill
             />
           </OptionSection>
-
-          {!decided && (
-            <OptionSection icon={Layers} label="Type">
-              <ChoiceWrap>
-                {(Object.keys(TYPE_LABEL) as QueueTab[]).map((tab) => (
-                  <ChoiceChip key={tab} active={params.tab === tab} onClick={() => patch({ tab, open: null })}>
-                    {TYPE_LABEL[tab]}{counts ? ` ${counts[tab]}` : ''}
-                  </ChoiceChip>
-                ))}
-              </ChoiceWrap>
-            </OptionSection>
-          )}
 
           {!decided && (<>
           <OptionSection icon={ArrowUpDown} label="Sort by">
@@ -204,10 +191,9 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
         </OptionsSheet>
       </div>
 
-      {(filtersActive || decided || (!decided && params.tab !== 'all')) && (
+      {(filtersActive || decided) && (
         <div className="flex flex-wrap items-center gap-2">
           {decided && <AppliedChip label="Decided today" onRemove={() => patch({ view: 'waiting' }, { replace: false })} />}
-          {!decided && params.tab !== 'all' && <AppliedChip label={TYPE_LABEL[params.tab]} onRemove={() => patch({ tab: 'all', open: null })} />}
           {storeName && <AppliedChip label={storeName} onRemove={() => patch({ store: null })} />}
           {deptName && <AppliedChip label={deptName} onRemove={() => patch({ dept: null })} />}
           {personName && <AppliedChip label={personName} onRemove={() => patch({ person: null })} />}

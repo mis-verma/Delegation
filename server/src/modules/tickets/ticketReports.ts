@@ -35,6 +35,7 @@ export type TicketPendingApprovalRow = {
   id: string
   title: string
   submittedBy: string | null
+  submittedById: string | null
   waitingSince: string
 }
 
@@ -275,6 +276,7 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
     id: tickets.id,
     title: tickets.title,
     createdAt: tickets.createdAt,
+    userId: tickets.userId,
     firstName: users.firstName,
     lastName: users.lastName,
   })
@@ -300,6 +302,7 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
     .map((r) => ({
       id: r.id,
       title: r.title,
+      submittedById: r.userId,
       submittedBy: r.firstName ? `${r.firstName}${r.lastName ? ` ${r.lastName}` : ""}` : null,
       waitingSince: new Date(sinceById.get(r.id) ?? r.createdAt).toISOString(),
     }))

@@ -11,6 +11,7 @@ export interface ExceptionItem {
   storeName: string | null;
   since: string;
   link: string;
+  userId: string | null;
   person: string | null;
   remindedAt: string | null;
 }

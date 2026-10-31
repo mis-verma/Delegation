@@ -97,7 +97,8 @@ export const QueueOverview = memo(function QueueOverview({
 
   const avg = stats.average;
   return (
-    <section aria-label="Queue overview" className="flex flex-col gap-2">
+    <section aria-label="Checklist checks" className="flex flex-col gap-2">
+      <h2 className="t-meta font-display font-semibold text-text-secondary">Checklist checks</h2>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
         <Tile
           icon={Inbox}
