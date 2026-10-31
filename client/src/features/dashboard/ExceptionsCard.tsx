@@ -1,15 +1,13 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router';
-import { AlarmClockOff, AlertTriangle, BellRing, CheckCheck, ChevronDown, ChevronRight, ClipboardX, Repeat, TicketX, Users, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/http';
 import type { ExceptionItem, ExceptionKind } from '../../api/exceptions';
 import { Skeleton } from '../../components/skeleton';
-import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
 import { Button, DueChip, StatusBadge, WaitChip } from '../../components';
 import { useCanSeeExceptions, useExceptionsQuery } from './useExceptionsQuery';
 import { useAttentionPeople, useNow, useRemindMutation } from '../attention/useAttention';
@@ -17,14 +15,6 @@ import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/Attention
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
 import { agoLabel, remindedRecently } from '../attention/attentionDisplay';
-import { cardIconTile } from './dashboardDisplay';
-
-const KIND_ICON: Record<ExceptionKind, LucideIcon> = {
-  TICKET_OVERDUE: TicketX,
-  TICKET_STALE: AlertTriangle,
-  TASK_OVERDUE: AlarmClockOff,
-  CHECKLIST_MISSED: ClipboardX,
-};
 
 const KIND_LABEL: Record<ExceptionKind, string> = {
   TICKET_OVERDUE: 'Ticket late',
@@ -36,28 +26,24 @@ const KIND_LABEL: Record<ExceptionKind, string> = {
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
 
-const ROW_CLASS = 'group relative flex items-center gap-3 min-h-[4.25rem] px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
+const ROW_CLASS = 'group relative flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
 
 const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: number; linked: boolean }) => {
-  const Icon = KIND_ICON[item.kind];
   const high = item.severity === 'high';
   const body = (
     <>
-      <span className={cn('flex items-center justify-center size-11 rounded-xl shrink-0 text-white', high ? 'bg-vivid-red' : 'bg-vivid-blue')}>
-        <Icon className="size-5" strokeWidth={2.25} aria-hidden="true" />
-      </span>
-      <div className="flex flex-1 min-w-0 flex-col gap-1.5">
-        <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{item.title}</p>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <p className="line-clamp-2 text-sm font-display font-medium leading-snug text-text sm:font-semibold">{item.title}</p>
         <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge variant={high ? 'critical' : 'warning'} icon={Icon} label={KIND_LABEL[item.kind]} />
-          {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} />}
-          {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} />}
+          <StatusBadge variant={high ? 'critical' : 'warning'} icon={false} label={KIND_LABEL[item.kind]} />
+          {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} plain />}
+          {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} plain />}
         </div>
-        <p className="t-meta font-medium text-text-muted line-clamp-2">
+        <p className="line-clamp-2 t-meta font-medium text-text-muted">
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
         </p>
         {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && (
-          <p className="t-meta font-display font-semibold text-text-secondary line-clamp-1">
+          <p className="line-clamp-1 t-meta font-display font-semibold text-text-secondary">
             {item.person ?? 'Nobody assigned'}
             <span className="font-medium text-text-muted">
               {item.remindedAt ? `, reminded ${agoLabel(item.remindedAt, now)}, still not done` : ', not reminded yet'}
@@ -65,8 +51,7 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
           </p>
         )}
       </div>
-      {linked && <span className="hidden shrink-0 items-center rounded-full border border-border bg-surface px-3 py-1 t-meta font-display font-bold text-text-secondary transition-colors group-hover:border-vivid-blue/50 group-hover:text-vivid-blue-text lg:inline-flex">Open</span>}
-      {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 lg:hidden" aria-hidden="true" />}
+      {linked && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />}
     </>
   );
   return linked ? (
@@ -108,31 +93,20 @@ export const ExceptionsCard = () => {
   const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending;
 
   return (
-    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.red} flex h-full flex-col overflow-hidden`}>
-      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40 ${CARD_HEAD_TINT.red}`}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cardIconTile('danger')}>
-            <AlertTriangle className="size-4" strokeWidth={2.25} aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <h2 id="exceptions-heading" className="t-section font-display font-bold text-text tracking-tight">Needs attention</h2>
-            <p className="hidden sm:block t-meta font-medium text-text-muted">Late, stuck or waiting too long</p>
-          </div>
-        </div>
+    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
+      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-5">
+        <h2 id="exceptions-heading" className="t-section font-display font-bold tracking-tight text-text">Needs attention</h2>
         {summaryParts.length > 0 && (
-          <StatusBadge variant="critical" icon={AlertTriangle} label={summaryParts.join(' · ')} />
+          <StatusBadge variant="critical" icon={false} label={summaryParts.join(' · ')} />
         )}
       </div>
 
       {query.isPending ? (
         <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading alerts">
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-3 sm:px-5">
-              <Skeleton className="size-9 shrink-0 rounded-xl" />
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3.5 w-1/3" />
-              </div>
+            <div key={i} className="flex min-h-14 flex-col justify-center gap-1.5 px-4 py-3 sm:px-5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3.5 w-1/3" />
             </div>
           ))}
         </div>
@@ -141,8 +115,9 @@ export const ExceptionsCard = () => {
           <InlineError message="Couldn't load alerts." onRetry={() => void query.refetch()} />
         </div>
       ) : nothingAtAll ? (
-        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-          <EmptyState size="compact" tone="success" icon={CheckCheck} title="All clear" description="Nothing is late or stuck, and everyone is on track." />
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 py-8 text-center sm:px-5">
+          <p className="t-card font-display font-semibold text-text">All clear</p>
+          <p className="t-meta text-text-muted">Nothing is late or stuck, and everyone is on track.</p>
         </div>
       ) : items.length === 0 ? null : (
         <div className="flex flex-col divide-y divide-border/60">
@@ -155,7 +130,7 @@ export const ExceptionsCard = () => {
           type="button"
           onClick={() => setShowAllAlerts((v) => !v)}
           aria-expanded={showAllAlerts}
-          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
         >
           {showAllAlerts ? 'Show fewer alerts' : `Show ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}
           <ChevronDown className={cn('size-3.5 transition-transform duration-200', showAllAlerts && 'rotate-180')} aria-hidden />
@@ -172,17 +147,10 @@ export const ExceptionsCard = () => {
           <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 sm:px-5">
             <div className="flex min-w-0 flex-col gap-0.5">
               <h3 className="flex items-center gap-2 t-card font-display font-bold text-text">
-                <Users className="size-4 text-text-muted" aria-hidden />
                 People to chase
-                <span className="t-meta font-semibold text-text-muted tabular-nums">{peopleRows.length}</span>
+                <span className="t-meta font-semibold tabular-nums text-text-muted">{peopleRows.length}</span>
               </h3>
-              <p className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full rounded-full bg-success opacity-60 animate-ping motion-reduce:animate-none" />
-                  <span className="relative inline-flex size-2 rounded-full bg-success" />
-                </span>
-                Live, updated {agoLabel(new Date(people.dataUpdatedAt || now).toISOString(), now)}
-              </p>
+              <p className="t-meta font-medium text-text-muted">Updated {agoLabel(new Date(people.dataUpdatedAt || now).toISOString(), now)}</p>
             </div>
             {redToRemind.length > 0 && (
               <Button
@@ -194,15 +162,14 @@ export const ExceptionsCard = () => {
                 isLoading={remind.isPending}
                 aria-label={`Send a reminder to the ${redToRemind.length} ${redToRemind.length === 1 ? 'person' : 'people'} who need you now`}
               >
-                <BellRing className="size-3.5" aria-hidden />
                 Send {redToRemind.length === 1 ? 'reminder' : `${redToRemind.length} reminders`}
               </Button>
             )}
           </div>
           <div className="flex flex-wrap gap-1.5 px-4 pb-2 sm:px-5">
-            {redPeople.length > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${redPeople.length} need you now`} />}
-            {orangeCount > 0 && <StatusBadge variant="warning" icon={ClipboardX} label={`${orangeCount} falling behind`} />}
-            {repeatCount > 0 && <StatusBadge variant="neutral" icon={Repeat} label={`${repeatCount} repeat misses`} />}
+            {redPeople.length > 0 && <StatusBadge variant="critical" icon={false} label={`${redPeople.length} need you now`} />}
+            {orangeCount > 0 && <StatusBadge variant="warning" icon={false} label={`${orangeCount} falling behind`} />}
+            {repeatCount > 0 && <StatusBadge variant="neutral" icon={false} label={`${repeatCount} repeat misses`} />}
           </div>
           <div className="flex flex-col divide-y divide-border/60">
             {peopleRows.slice(0, PEOPLE_PREVIEW_LIMIT).map((p) => (
@@ -213,6 +180,7 @@ export const ExceptionsCard = () => {
                 onRemind={(userId) => remind.mutate([userId])}
                 reminding={remind.isPending}
                 reminded={remindedRecently(p.lastRemindedAt, now)}
+                minimal
               />
             ))}
           </div>
@@ -220,7 +188,7 @@ export const ExceptionsCard = () => {
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
             >
               See all {peopleRows.length} people
               <ChevronRight className="size-3.5" aria-hidden />

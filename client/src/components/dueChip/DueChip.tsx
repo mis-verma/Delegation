@@ -20,12 +20,13 @@ interface DueChipProps {
   at: number | string | Date;
   now: number;
   className?: string;
+  plain?: boolean;
 }
 
-export const DueChip = ({ at, now, className }: DueChipProps) => {
+export const DueChip = ({ at, now, className, plain = false }: DueChipProps) => {
   const info = dueInfo(new Date(at).getTime(), now);
   const look = DUE_LOOK[info.level];
-  return <StatusBadge variant={look.variant} icon={look.icon} label={info.label} className={className} />;
+  return <StatusBadge variant={look.variant} icon={plain ? false : look.icon} label={info.label} className={className} />;
 };
 
 interface WaitChipProps {
@@ -34,9 +35,10 @@ interface WaitChipProps {
   warnAfterHours?: number;
   dangerAfterHours?: number;
   className?: string;
+  plain?: boolean;
 }
 
-export const WaitChip = ({ since, now, warnAfterHours = 12, dangerAfterHours = 24, className }: WaitChipProps) => {
+export const WaitChip = ({ since, now, warnAfterHours = 12, dangerAfterHours = 24, className, plain = false }: WaitChipProps) => {
   const info = waitInfo(new Date(since).getTime(), now, warnAfterHours, dangerAfterHours);
-  return <StatusBadge variant={WAIT_VARIANT[info.level]} icon={Hourglass} label={info.label} className={className} />;
+  return <StatusBadge variant={WAIT_VARIANT[info.level]} icon={plain ? false : Hourglass} label={info.label} className={className} />;
 };

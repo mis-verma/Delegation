@@ -39,9 +39,10 @@ interface AttentionPersonRowProps {
   onRemind?: (userId: string) => void;
   reminding?: boolean;
   reminded?: boolean;
+  minimal?: boolean;
 }
 
-export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, selected = false, onToggle, onRemind, reminding = false, reminded = false }: AttentionPersonRowProps) => {
+export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, selected = false, onToggle, onRemind, reminding = false, reminded = false, minimal = false }: AttentionPersonRowProps) => {
   const now = useNow();
   const chips = attentionChips(person);
   const shown = chips.slice(0, MAX_CHIPS);
@@ -76,13 +77,24 @@ export const AttentionPersonRow = memo(({ person, onOpen, selectable = false, se
           </span>
           {meta && <span className="line-clamp-1 t-meta font-medium text-text-muted">{meta}</span>}
           <span className="flex flex-wrap gap-1.5">
-            {shown.map((c) => <IconChip key={c.key} icon={c.icon} tone={c.tone} label={c.label} labelClassName={c.text} soft />)}
+            {shown.map((c) => <IconChip key={c.key} icon={minimal ? false : c.icon} tone={c.tone} label={c.label} labelClassName={c.text} soft />)}
             {extra > 0 && <IconChip icon={false} label={`+${extra}`} />}
           </span>
         </span>
-        <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />
+        {!minimal && <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden />}
       </button>
-      {onRemind && (
+      {onRemind && minimal && (
+        <button
+          type="button"
+          onClick={() => onRemind(person.userId)}
+          disabled={reminding || reminded}
+          aria-label={reminded ? `${person.name} was reminded in the last 30 minutes` : `Send a reminder to ${person.name}`}
+          className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-full border border-border px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9"
+        >
+          {reminded ? 'Reminded' : 'Remind'}
+        </button>
+      )}
+      {onRemind && !minimal && (
         <button
           type="button"
           onClick={() => onRemind(person.userId)}
