@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarOff, ShieldQuestion, Users } from 'lucide-react';
+import { AlertTriangle, CalendarOff, ShieldQuestion } from 'lucide-react';
 import { toast } from 'sonner';
-import { Stat } from '../dashboard/ApprovalStatsStrip';
 import { useApprovalSources } from '../dashboard/useApprovalSources';
 import { useExceptionsQuery } from '../dashboard/useExceptionsQuery';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
@@ -11,6 +10,7 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { useLeaveQuery } from '../leave/hook';
 import { StatusBadge } from '../../components/statusBadge';
 import { useNow } from '../../lib/useNow';
+import { PcFigure } from './PcFigure';
 import { PcListModal, type PcFilter, type PcListItem } from './PcListModal';
 
 const HOUR_MS = 3_600_000;
@@ -129,50 +129,35 @@ export const PcStatTiles = () => {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="PC figures">
-        <Stat
-          index={0}
-          icon={ShieldQuestion}
+        <PcFigure
           label="Waiting on you"
           value={waitingItems.length}
           caption={overLimit > 0 ? `${overLimit} over 24 hours` : waitingItems.length === 0 ? 'All clear' : 'Awaiting your decision'}
-          accent={overLimit > 0 ? 'red' : 'blue'}
-          alert={overLimit > 0}
-          mutedAtZero
+          tone={overLimit > 0 ? 'bad' : waitingItems.length === 0 ? 'good' : 'plain'}
           loading={approvals.isPending}
           onClick={() => setPopup('waiting')}
         />
-        <Stat
-          index={1}
-          icon={AlertTriangle}
+        <PcFigure
           label="Overdue and missed"
           value={overdueItems.length}
           caption={overdueItems.length === 0 ? 'All clear' : highCount > 0 ? `${highCount} high priority` : 'Late, stuck or missed'}
-          accent={overdueItems.length > 0 ? 'red' : 'green'}
-          alert={highCount > 0}
-          mutedAtZero
+          tone={highCount > 0 ? 'bad' : overdueItems.length === 0 ? 'good' : 'plain'}
           loading={exceptions.isPending}
           onClick={() => setPopup('overdue')}
         />
-        <Stat
-          index={2}
-          icon={Users}
+        <PcFigure
           label="People to follow up"
           value={peopleRows.length}
           caption={peopleRows.length === 0 ? 'All clear' : `${redCount} red, ${peopleRows.length - redCount} orange`}
-          accent={redCount > 0 ? 'red' : 'sky'}
-          alert={redCount > 0}
-          mutedAtZero
+          tone={redCount > 0 ? 'bad' : peopleRows.length === 0 ? 'good' : 'plain'}
           loading={people.isPending}
           onClick={() => setPopup('people')}
         />
-        <Stat
-          index={3}
-          icon={CalendarOff}
+        <PcFigure
           label="On leave today"
           value={leaveItems.length}
           caption={leaveItems.length === 0 ? 'Everyone is in' : handOverCount > 0 ? `${handOverCount} with open work` : 'Checklists skipped'}
-          accent={handOverCount > 0 ? 'sky' : 'green'}
-          mutedAtZero
+          tone={leaveItems.length === 0 ? 'good' : 'plain'}
           loading={leave.isPending}
           onClick={() => setPopup('leave')}
         />
