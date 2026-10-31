@@ -21,6 +21,22 @@ const BAR: Record<FigureTone, string> = {
   plain: 'bg-border-hover',
 };
 
+export type FigureTint = 'blue' | 'sky' | 'green' | 'red';
+
+const TINT: Record<FigureTint, string> = {
+  blue: 'border-vivid-blue/40 bg-vivid-blue/12',
+  sky: 'border-vivid-sky/40 bg-vivid-sky/12',
+  green: 'border-vivid-green/40 bg-vivid-green/12',
+  red: 'border-vivid-red/40 bg-vivid-red/12',
+};
+
+const TINT_SELECTED: Record<FigureTint, string> = {
+  blue: 'border-vivid-blue/70 bg-vivid-blue/12 ring-2 ring-black/5 dark:ring-white/10',
+  sky: 'border-vivid-sky/70 bg-vivid-sky/12 ring-2 ring-black/5 dark:ring-white/10',
+  green: 'border-vivid-green/70 bg-vivid-green/12 ring-2 ring-black/5 dark:ring-white/10',
+  red: 'border-vivid-red/70 bg-vivid-red/12 ring-2 ring-black/5 dark:ring-white/10',
+};
+
 const BOX = 'flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/50 bg-surface-hover/30 p-2.5 text-left';
 const ACTION = 'w-full cursor-pointer outline-none transition-colors duration-150 hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
@@ -39,11 +55,12 @@ interface FigureCardProps {
   onClick?: () => void;
   selected?: boolean;
   compact?: boolean;
+  tint?: FigureTint;
   error?: boolean;
   onRetry?: () => void;
 }
 
-export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected, compact = false, error = false, onRetry }: FigureCardProps) => {
+export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, format, decimals = 0, to, onClick, selected, compact = false, tint, error = false, onRetry }: FigureCardProps) => {
   const failed = error && !loading;
   const shownTone: FigureTone = failed ? 'plain' : tone;
   const hint = failed ? "Couldn't load. Tap to try again." : help;
@@ -82,11 +99,12 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
     </>
   );
 
-  const box = cn(BOX, compact && 'max-sm:gap-0.5 max-sm:p-2');
+  const tinted = !!tint && !failed && !loading && value !== null && value > 0;
+  const box = cn(BOX, compact && 'max-sm:gap-0.5 max-sm:p-2', tinted && tint && (selected ? TINT_SELECTED[tint] : TINT[tint]));
   if (failed && onRetry) {
     return <button type="button" onClick={onRetry} aria-label={`${label}, couldn't load. Tap to try again`} className={cn(box, ACTION, 'border-danger/30')}>{body}</button>;
   }
   if (to) return <Link to={to} viewTransition aria-label={label} className={cn(box, ACTION)}>{body}</Link>;
-  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
+  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && !tinted && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
   return <div className={box}>{body}</div>;
 };
