@@ -408,7 +408,9 @@ Who is affected: `;
 
   const targetDepartmentId = departmentId || (selectedCategory ? (typeof selectedCategory.departmentId === 'object' ? selectedCategory.departmentId.id : String(selectedCategory.departmentId)) : '');
   const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && user.departmentId === targetDepartmentId;
-  const needsHeadOk = !!targetDepartmentId && !isTargetHead;
+  const noActiveHead = !ownScopeOnly && !!departmentId && departmentId === targetDepartmentId && !!assignableUsers
+    && !assignableUsers.some((u) => u.role === 'MANAGER' || u.role === 'SENIOR');
+  const needsHeadOk = !!targetDepartmentId && !isTargetHead && !noActiveHead;
   const targetDepartmentName = departments?.find((d) => d.id === targetDepartmentId)?.name;
 
   const dueError = errors.dueDate?.message ?? errors.dueTime?.message ?? errors.startDate?.message;
