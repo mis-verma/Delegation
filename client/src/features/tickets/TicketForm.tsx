@@ -476,12 +476,35 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     </div>
   );
 
+  const modeToggle = (
+    <AssignmentModeToggle
+      frontLine={ownScopeOnly}
+      hideLabel
+      mode={assignmentMode}
+      onChange={(m) => {
+        if (m === assignmentMode) return;
+        if (ownScopeOnly) {
+          sendToDepartment(m === 'MANUAL');
+          return;
+        }
+        setValue('assignmentMode', m, { shouldDirty: true });
+        if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
+        if (m === 'MANUAL') {
+          setValue('categoryId', '', { shouldDirty: true });
+          setValue('assigneeId', '', { shouldDirty: true });
+          if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', { shouldDirty: true });
+          autoTitle.current = '';
+        }
+      }}
+    />
+  );
+
   return (
     <Modal
       open
       onClose={onClose}
       dirty={dirty}
-      size="2xl"
+      size="xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title={draft ? 'Finish draft ticket' : 'New ticket'}
       description={<span className="hidden sm:inline">Choose how it is sent first, then describe the problem.</span>}
@@ -495,87 +518,89 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
         ref={formRef}
         id="ticket-form"
         onSubmit={(e) => handleSubmit(onSubmit, onInvalid)(e)}
-        className="grid gap-6 px-5 pb-4 pt-0 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-8"
+        className="flex flex-col gap-7 px-5 pb-4 pt-0 sm:p-6"
         noValidate
       >
-        {!modeChosen ? (
-          <div className="lg:col-span-2">
+        <section className="flex flex-col gap-3" aria-label="How to send it">
+          {!modeChosen ? (
             <AssignmentChoice frontLine={ownScopeOnly} onChoose={chooseMode} error={submitCount > 0 ? errors.assignmentMode?.message : undefined} />
-          </div>
-        ) : (
-        <>
-        <div className="flex flex-col gap-5 min-w-0">
-          <StepHeading step={2} title="What happened" subtitle="Tell us the problem. Photos help a lot." />
-
-          <div data-field="title">
-            <FormField
-              label="Title"
-              htmlFor="title"
-              icon={<Type size={14} className="text-text-light" />}
-              required
-              hint="Short and specific: what is wrong and where."
-              error={errors.title?.message}
-            >
-              <Input
-                id="title"
-                placeholder="e.g. Card machine at counter 2 not printing"
-                className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
-                {...register('title')}
-                autoFocus={autoFocusTitle}
-              />
-            </FormField>
-          </div>
-
-          <div data-field="description">
-            <FormField
-              label="Description"
-              htmlFor="description"
-              icon={<AlignLeft size={14} className="text-text-light" />}
-              required
-              hint="What happened, when it started, and who it affects. Tap the camera to add a photo."
-              error={errors.description?.message}
-            >
-              <Controller
-                control={control}
-                name="description"
-                render={({ field }) => (
-                  <TaskDescriptionField
-                    id="description"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    rows={5}
-                    placeholder="e.g. Since this morning the printer shows an error light and no bills come out. Customers are waiting at the counter."
-                    toolbar={<PhotoToolbar onAdd={addPhotos} />}
-                    containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
-                  >
-                    {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
-                  </TaskDescriptionField>
-                )}
-              />
-            </FormField>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-5 min-w-0 max-lg:order-first lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border lg:bg-surface-hover/30">
-          <StepHeading
-            step={1}
-            title="Where it goes"
-            subtitle={ownScopeOnly ? 'Pick what it is about and the rest fills in for you.' : 'Pick a category and the rest fills in for you.'}
-          />
-
-          {needsHeadOk && (
-            <NoticeBanner tone="warning" icon={ShieldQuestion}>
-              <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
-            </NoticeBanner>
-          )}
-
-          {ownScopeOnly ? (
+          ) : (
             <>
-              <AssignmentModeToggle frontLine mode={assignmentMode} onChange={(m) => { if (m !== assignmentMode) sendToDepartment(m === 'MANUAL'); }} />
-              {assignmentMode === 'AUTO' ? (
+              <StepHeading step={1} title="How it is sent" subtitle="Auto uses a category. Manual lets you choose the team and person." />
+              {modeToggle}
+            </>
+          )}
+        </section>
+
+        {modeChosen && (
+          <>
+            <section className="flex flex-col gap-5" aria-label="What happened">
+              <StepHeading step={2} title="What happened" subtitle="Tell us the problem. Photos help a lot." />
+
+            <div data-field="title">
+              <FormField
+                label="Title"
+                htmlFor="title"
+                icon={<Type size={14} className="text-text-light" />}
+                required
+                hint={assignmentMode === 'AUTO' ? 'Leave it empty and it fills from the category you pick below. Or write your own.' : 'Short and specific: what is wrong and where.'}
+                error={errors.title?.message}
+              >
+                <Input
+                  id="title"
+                  placeholder="e.g. Card machine at counter 2 not printing"
+                  className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
+                  {...register('title')}
+                  autoFocus={autoFocusTitle}
+                />
+              </FormField>
+            </div>
+
+
+            <div data-field="description">
+              <FormField
+                label="Description"
+                htmlFor="description"
+                icon={<AlignLeft size={14} className="text-text-light" />}
+                required
+                hint="What happened, when it started, and who it affects. Tap the camera to add a photo."
+                error={errors.description?.message}
+              >
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field }) => (
+                    <TaskDescriptionField
+                      id="description"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      rows={5}
+                      placeholder="e.g. Since this morning the printer shows an error light and no bills come out. Customers are waiting at the counter."
+                      toolbar={<PhotoToolbar onAdd={addPhotos} />}
+                      containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
+                    >
+                      {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
+                    </TaskDescriptionField>
+                  )}
+                />
+              </FormField>
+            </div>
+            </section>
+
+            <section className="flex flex-col gap-5" aria-label="Where it goes">
+              <StepHeading step={3} title="Where it goes" subtitle={assignmentMode === 'AUTO' ? 'Pick a category and the rest fills in for you.' : 'Choose the team, the person and when it is due.'} />
+
+            {needsHeadOk && (
+              <NoticeBanner tone="warning" icon={ShieldQuestion}>
+                <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
+              </NoticeBanner>
+            )}
+
+            {ownScopeOnly ? (
+              assignmentMode === 'AUTO' ? (
                 <>
-                  {categoryField('What is it about?', 'Pick the closest match. Not listed? Switch to By department.', true)}
+                  {categoryField('What is it about?', 'Pick the closest match. Not listed? Switch to Manual.', true)}
                   {categorySummary}
                   {selectedCategory ? null : autoDueNote}
                 </>
@@ -584,88 +609,75 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                   {departmentField('Which team should handle this?')}
                   {dueField}
                 </>
-              )}
-            </>
-          ) : (
-            <>
-              <AssignmentModeToggle
-                mode={assignmentMode}
-                onChange={m => {
-                  setValue('assignmentMode', m, { shouldDirty: true });
-                  if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
-                  if (m === 'MANUAL') {
-                    setValue('categoryId', '', { shouldDirty: true });
-                    setValue('assigneeId', '', { shouldDirty: true });
-                    if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', { shouldDirty: true });
-                    autoTitle.current = '';
-                  }
-                }}
-              />
+              )
+            ) : (
+              <>
+                {assignmentMode === 'AUTO' && categoryField(
+                  'Category',
+                  isVerifier
+                    ? 'Sends the ticket to the right team and sets the due time.'
+                    : "Sends the ticket to the right team and sets the due time. Can't find yours? Ask an admin to add it.",
+                  true,
+                )}
 
-              {assignmentMode === 'AUTO' && categoryField(
-                'Category',
-                isVerifier
-                  ? 'Sends the ticket to the right team and sets the due time.'
-                  : "Sends the ticket to the right team and sets the due time. Can't find yours? Ask an admin to add it.",
-                true,
-              )}
+                {assignmentMode === 'AUTO' && categorySummary}
 
-              {assignmentMode === 'AUTO' && categorySummary}
+                {assignmentMode === 'MANUAL' ? (
+                  <>
+                    {departmentField('Which team should handle this?')}
 
-              {assignmentMode === 'MANUAL' ? (
-                <>
-                  {departmentField('Which team should handle this?')}
+                    <div data-field="assigneeId">
+                      <FormField
+                        label="Person"
+                        icon={<UserCheck size={14} className="text-text-light" />}
+                        required
+                        hint={departmentId || selectedCategory ? 'Who will work on it.' : 'Pick anyone. Choosing a team above narrows the list.'}
+                        error={errors.assigneeId?.message}
+                      >
+                        <AssigneeField
+                          single
+                          hideLabel
+                          selectedIds={assigneeId ? [assigneeId] : []}
+                          onChange={pickPerson}
+                          users={assigneeChoices}
+                          isLoading={isLoadingAssignableUsers}
+                        />
+                      </FormField>
+                    </div>
 
-                  <div data-field="assigneeId">
-                    <FormField
-                      label="Person"
-                      icon={<UserCheck size={14} className="text-text-light" />}
-                      required
-                      hint={departmentId || selectedCategory ? 'Who will work on it.' : 'Pick anyone. Choosing a team above narrows the list.'}
-                      error={errors.assigneeId?.message}
-                    >
-                      <AssigneeField
-                        single
-                        hideLabel
-                        selectedIds={assigneeId ? [assigneeId] : []}
-                        onChange={pickPerson}
-                        users={assigneeChoices}
-                        isLoading={isLoadingAssignableUsers}
-                      />
-                    </FormField>
-                  </div>
+                    {dueField}
+                  </>
+                ) : (
+                  selectedCategory ? null : autoDueNote
+                )}
+              </>
+            )}
+            </section>
 
-                  {dueField}
-                </>
-              ) : (
-                selectedCategory ? null : autoDueNote
-              )}
-            </>
-          )}
+            {assignmentMode === 'MANUAL' && (
+              <section className="flex flex-col gap-5" aria-label="Extra details">
+                <StepHeading step={4} title="Extra details" subtitle="Optional. Most tickets are Medium." />
 
-          {assignmentMode === 'MANUAL' && (
-          <>
-          <FormField
-            label="Priority"
-            icon={<Flag size={14} className="text-text-light" />}
-            hint="Critical is for work that has stopped. Most tickets are Medium."
-          >
-            <TicketPriorityChipPicker fullWidth value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
-          </FormField>
+                <FormField
+                  label="Priority"
+                  icon={<Flag size={14} className="text-text-light" />}
+                  hint="Critical is for work that has stopped. Most tickets are Medium."
+                >
+                  <TicketPriorityChipPicker fullWidth value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
+                </FormField>
 
-          {!ownScopeOnly && (
-            <LabelsField
-              tags={tags ?? []}
-              selectedIds={tagIds ?? []}
-              onChange={v => setValue('tagIds', v, { shouldDirty: true })}
-              canCreate={isVerifier}
-              lockedIds={selectedCategory?.tags.map(t => t.id)}
-            />
-          )}
+                {!ownScopeOnly && (
+                  <LabelsField
+                    tags={tags ?? []}
+                    selectedIds={tagIds ?? []}
+                    onChange={v => setValue('tagIds', v, { shouldDirty: true })}
+                    canCreate={isVerifier}
+                    lockedIds={selectedCategory?.tags.map(t => t.id)}
+                  />
+                )}
+              </section>
+            )}
           </>
-          )}
-        </div>
-        </>
         )}
       </form>
 

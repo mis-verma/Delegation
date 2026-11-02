@@ -5,22 +5,25 @@ interface AssignmentModeToggleProps {
   mode: 'MANUAL' | 'AUTO';
   onChange: (mode: 'MANUAL' | 'AUTO') => void;
   frontLine?: boolean;
+  hideLabel?: boolean;
 }
 
 const SEGMENT_BASE =
-  'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-lg text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
-const SEGMENT_SELECTED = 'bg-surface text-text border border-border/60 dark:border-white/[0.08]';
-const SEGMENT_IDLE = 'text-text-muted border border-transparent hover:text-text';
+  'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-sm text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
+const SEGMENT_SELECTED = 'bg-primary-800 text-white border border-transparent shadow-[inset_0_-2px_0_var(--color-gold)]';
+const SEGMENT_IDLE = 'text-text-secondary border border-transparent hover:bg-surface-hover hover:text-text';
 
-export const AssignmentModeToggle = ({ mode, onChange, frontLine = false }: AssignmentModeToggleProps) => {
+export const AssignmentModeToggle = ({ mode, onChange, frontLine = false, hideLabel = false }: AssignmentModeToggleProps) => {
   const options = frontLine ? FRONT_LINE_OPTIONS : ASSIGNMENT_OPTIONS;
   return (
   <div className="flex flex-col gap-1.5">
-    <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
+    {!hideLabel && (
+      <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <Workflow size={14} className="text-text-light" />
       How to send it
     </span>
-    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/70" role="group" aria-label="How to send it">
+    )}
+    <div className="grid grid-cols-2 gap-0.5 rounded-md border border-border bg-surface p-0.5" role="group" aria-label="How to send it">
       {options.map(({ value, label, icon: Icon }) => (
         <button
           key={value}
