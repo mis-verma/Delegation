@@ -35,7 +35,7 @@ export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', a
         <p className="t-meta font-display font-medium text-text-muted">{title}</p>
         {description && <p className="t-meta font-display text-text-light">{description}</p>}
         {action && (
-          <Button variant="outline" size="sm" onClick={action.onClick} className="min-h-11 sm:min-h-0 rounded-full font-medium">
+          <Button variant="outline" size="sm" onClick={action.onClick} className="min-h-11 sm:min-h-0 rounded-md font-medium">
             {action.icon && <action.icon size={13} />}
             {action.label}
           </Button>
@@ -45,16 +45,16 @@ export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', a
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center bg-surface/30 rounded-2xl border border-border/80 ${className}`}>
-      <div className={`flex items-center justify-center mb-4 size-14 rounded-full border ${TONE_TILE_CLASS[tone]}`}>
+    <div className={`flex flex-col items-center justify-center py-10 px-5 text-center bg-surface rounded-lg border border-border sm:py-16 sm:px-6 ${className}`}>
+      <div className={`flex items-center justify-center mb-4 size-12 rounded-md border sm:size-14 ${TONE_TILE_CLASS[tone]}`}>
         <Icon size={24} strokeWidth={1.5} />
       </div>
-      <h3 className="text-base font-display font-bold text-text tracking-tight">{title}</h3>
+      <h3 className="t-section font-display font-bold text-text">{title}</h3>
       {description && (
         <p className="text-sm font-display text-text-muted mt-2 max-w-sm leading-relaxed">{description}</p>
       )}
       {action && (
-        <Button variant="secondary" size="sm" onClick={action.onClick} className="mt-5 rounded-full font-medium">
+        <Button variant="secondary" size="sm" onClick={action.onClick} className="mt-5 min-h-11 rounded-md font-medium sm:min-h-0">
           {action.icon && <action.icon size={13} />}
           {action.label}
         </Button>

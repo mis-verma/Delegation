@@ -168,7 +168,7 @@ export const BottomNav = () => {
                 {badge && <NavCountBadge badge={badge} className="-top-1.5 left-1/2 ml-1.5" />}
               </span>
               <span
-                className={`relative max-w-full truncate text-[0.6875rem] leading-none font-display tracking-tight transition-colors duration-200 ${
+                className={`relative max-w-full truncate text-xs leading-none font-display transition-colors duration-200 ${
                   isActive ? `${look.text} font-bold` : 'text-text-muted font-medium group-hover:text-text'
                 }`}
               >

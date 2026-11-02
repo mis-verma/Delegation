@@ -431,9 +431,21 @@ h1 { font-family: var(--font-serif) !important; }
 }
 
 @media (max-width: 639px) {
-  .t-title, .t-section, .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 900); }
-  .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 900); }
-  .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 900); }
+  .t-title, .t-section { font-weight: clamp(600, var(--tw-font-weight, 400), 700); }
+  .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 800); }
+  .t-card { font-weight: clamp(500, var(--tw-font-weight, 400), 700); }
+  .t-meta { font-weight: clamp(450, var(--tw-font-weight, 400), 600); }
+}
+
+button, a, summary, [role="button"], [role="tab"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  button:not(:disabled):active, [role="button"]:active, [role="tab"]:active {
+    filter: brightness(0.96);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
