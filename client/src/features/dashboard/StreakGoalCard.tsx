@@ -122,7 +122,7 @@ export const StreakGoalCard = () => {
                   key={d.date}
                   title={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : formatPct(d.value)}`}
                   aria-label={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : `${formatPct(d.value)}, ${state === 'met' ? 'goal met' : 'below the goal'}`}`}
-                  style={state === 'met' ? { background: 'var(--heat-high)', color: 'var(--heat-high-ink)' } : state === 'missed' ? { background: 'var(--heat-low)', color: 'var(--heat-low-ink)' } : undefined}
+                  style={state === 'met' ? { background: 'var(--heat-high)', color: 'var(--heat-high-ink)' } : state === 'missed' ? { background: 'var(--heat-low)', color: 'var(--heat-low-ink)', boxShadow: 'inset 0 -3px 0 var(--color-vivid-red)' } : undefined}
                   className={cn(
                     'flex h-12 flex-col items-center justify-center rounded-md font-display leading-none',
                     state === 'none' && 'bg-surface-hover text-text-muted',
