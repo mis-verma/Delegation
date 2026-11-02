@@ -5,12 +5,12 @@ import { handleQueryRetry } from '../../lib/queryHelpers';
 
 export type { ChecklistDecision } from '../../api/checklistDecisions';
 
-export const useChecklistDecisionsQuery = (params: { from?: string; to?: string; limit?: number } = {}) => {
+export const useChecklistDecisionsQuery = (params: { from?: string; to?: string; limit?: number } = {}, allowed = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['checklist-instances', 'decisions', params.from ?? null, params.to ?? null, params.limit ?? null],
     queryFn: () => checklistDecisionApi.list(params),
-    enabled: !!token,
+    enabled: !!token && allowed,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
     staleTime: 30_000,

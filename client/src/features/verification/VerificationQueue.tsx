@@ -23,7 +23,7 @@ import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
 import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
-import { filterTasks, filterTickets, oldestCreated, sortByCreated, type TicketTaskFilter } from './ticketTaskFilters';
+import { filterTasks, filterTickets, oldestWaitingOf, sortByWaiting, type TicketTaskFilter } from './ticketTaskFilters';
 import { useChecklistDecisionsQuery } from './useChecklistDecisions';
 import {
   useChecklistQueueQuery, useChecklistRows, useNow, useQueueLookups, useVisibleChecklistRows,
@@ -82,15 +82,17 @@ export const VerificationQueue = () => {
     if (hasMore && !isFetchingNextPage && !isFetchNextPageError && loadedPages < AUTO_LOAD_PAGES) void fetchNextPage();
   }, [hasMore, isFetchingNextPage, isFetchNextPageError, loadedPages, fetchNextPage]);
   const lookups = useQueueLookups();
+  const waitingChecklistIds = useMemo(() => new Set(instances.map((i) => i.id)), [instances]);
   const allRows = useChecklistRows(instances, lookups);
 
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule, hold, release } = useDeferredDecisions({ afterSaved: refresh });
   const visibleRows = useVisibleChecklistRows(allRows, params, heldIds, now);
 
-  const decisionsQuery = useChecklistDecisionsQuery();
+  const canSeeDecided = viewer?.role !== 'APPROVAL_MANAGER';
+  const decisionsQuery = useChecklistDecisionsQuery({}, canSeeDecided);
   const decidedToday = useMemo(
-    () => (decisionsQuery.data ? decisionsQuery.data.filter((d) => d.action !== 'SUBMIT').length : null),
+    () => (decisionsQuery.data ? new Set(decisionsQuery.data.filter((d) => d.action !== 'SUBMIT').map((d) => d.instanceId)).size : null),
     [decisionsQuery.data],
   );
 
@@ -113,8 +115,8 @@ export const VerificationQueue = () => {
     personNameById,
     storeNameById,
   }), [params.store, params.person, params.age, params.q, now, personNameById, storeNameById]);
-  const filteredTickets = useMemo(() => sortByCreated(filterTickets(tickets, ticketTaskFilter), params.sort), [tickets, ticketTaskFilter, params.sort]);
-  const filteredTasks = useMemo(() => sortByCreated(filterTasks(tasks, ticketTaskFilter), params.sort), [tasks, ticketTaskFilter, params.sort]);
+  const filteredTickets = useMemo(() => sortByWaiting(filterTickets(tickets, ticketTaskFilter), ticketWaitingSince, params.sort), [tickets, ticketTaskFilter, params.sort]);
+  const filteredTasks = useMemo(() => sortByWaiting(filterTasks(tasks, ticketTaskFilter), taskWaitingSince, params.sort), [tasks, ticketTaskFilter, params.sort]);
 
   const heldInLoaded = useMemo(() => allRows.reduce((n, r) => n + (heldIds.has(r.id) ? 1 : 0), 0), [allRows, heldIds]);
   const checklistCount = filtersActive || !hasMore ? visibleRows.length : Math.max(visibleRows.length, checklistTotal - heldInLoaded);
@@ -137,8 +139,8 @@ export const VerificationQueue = () => {
   const oldestWaiting = useMemo(() => {
     const times = [
       ...allRows.filter((r) => !heldIds.has(r.id)).map((r) => r.waitingSince),
-      oldestCreated(tickets),
-      oldestCreated(tasks),
+      oldestWaitingOf(tickets.filter((t) => !heldIds.has(t.id)), ticketWaitingSince),
+      oldestWaitingOf(tasks.filter((t) => !heldIds.has(t.id)), taskWaitingSince),
     ].filter((t): t is number => t !== null);
     return times.length ? Math.min(...times) : null;
   }, [allRows, heldIds, tickets, tasks]);
@@ -289,8 +291,9 @@ export const VerificationQueue = () => {
     else toast.error(`Approved ${saved} of ${ids.length}. ${failed} could not be saved and are back in the list.`);
   }, [cleanRows, confirm, filtersActive, hold, release, refresh]);
 
-  const reviewedCount = decidedToday === null ? null : decidedToday + heldIds.size;
-  const dayTotal = reviewedCount === null ? 0 : reviewedCount + waitingTotal;
+  const checklistsWaiting = Math.max(0, checklistTotal - heldInLoaded);
+  const reviewedCount = decidedToday === null ? null : decidedToday + heldInLoaded;
+  const dayTotal = reviewedCount === null ? 0 : reviewedCount + checklistsWaiting;
   const loadingTotals = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending;
 
   const checklistsFailed = checklistQuery.isError && !checklistQuery.data;
@@ -309,7 +312,7 @@ export const VerificationQueue = () => {
   const counter = reviewedCount !== null && dayTotal > 0 ? (
     <span role="status" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/60 bg-surface t-meta font-display font-medium text-text-secondary tabular-nums">
       <CheckCheck size={13} aria-hidden className="text-success" />
-      {reviewedCount} of {dayTotal} reviewed today
+      {reviewedCount} of {dayTotal} checklists reviewed today
     </span>
   ) : null;
 
@@ -381,11 +384,12 @@ export const VerificationQueue = () => {
         onClear={clearFilters}
         shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
         counts={counts}
-        decidedCount={decisionsQuery.data?.length ?? null}
+        decidedCount={decidedToday}
+        canSeeDecided={canSeeDecided}
       />
 
-      {params.view === 'decided' ? (
-        <DecidedToday onShowWaiting={showWaiting} />
+      {params.view === 'decided' && canSeeDecided ? (
+        <DecidedToday onShowWaiting={showWaiting} waitingIds={waitingChecklistIds} />
       ) : (
         <>
 

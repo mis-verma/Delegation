@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, Check, CornerUpLeft, Flag, Minus, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { itemFlags, needsLookRank } from '../checklist/instance/reviewFlags';
+import { itemFlags, needsLookRank, photoBreakdown } from '../checklist/instance/reviewFlags';
 import { answerText } from '../checklist/instance/answerText';
 import { RaiseTicketAction } from '../checklist/instance/RaiseTicketAction';
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
@@ -74,7 +74,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTi
       sorted,
       answered: items.filter((i) => i.isDone || i.isNotApplicable).length,
       total: items.length,
-      photosHave: needPhotos.filter((i) => i.images.length >= i.requiredImageCount).length,
+      photosHave: needPhotos.filter((i) => photoBreakdown(i).qualifying >= i.requiredImageCount).length,
       photosNeeded: needPhotos.length,
     };
   }, [items]);

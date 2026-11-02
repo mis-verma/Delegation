@@ -1,3 +1,4 @@
+import { useAuth } from '../../context/AuthContext';
 import { memo, useState, type ReactNode } from 'react';
 import { TicketForm } from '../tickets/TicketForm';
 import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, UserRound } from 'lucide-react';
@@ -231,6 +232,7 @@ const asEvidence = (list: { id: string; url: string; mimeType: string; originalF
   list.map((a) => ({ id: a.id, url: a.url, mimeType: a.mimeType, name: a.originalFilename }));
 
 export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { ticket: Ticket } & DecisionProps & SelectableProps) {
+  const { user: signedIn } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -265,7 +267,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         preview={(flag) => <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(ticket.id, ticket.title)}
-        approveLabel={ticket.approvalStage === 'HOD' && ticket.departmentId ? 'Approve, send to PC' : 'Approve'}
+        approveLabel={ticket.approvalStage === 'HOD' && ticket.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now' : 'Approve, send to PC') : 'Approve'}
         onSendBack={(note) => onSendBack(ticket.id, ticket.title, note)}
       />
       {showDetail && <TicketDetail ticket={ticket} onClose={() => setShowDetail(false)} />}
@@ -274,6 +276,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
 });
 
 export const TaskRow = memo(function TaskRow({ task, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { task: Task } & DecisionProps & SelectableProps) {
+  const { user: signedIn } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [warmed, setWarmed] = useState(false);
   const { data: fullTask, isPending: isDetailPending } = useTaskQuery(task.id, expanded || warmed);
@@ -311,7 +314,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(task.id, task.title)}
-        approveLabel={task.approvalStage === 'HOD' && task.departmentId ? (headsStillWaiting(task) > 1 ? 'Approve for my department' : 'Approve, send to PC') : 'Approve'}
+        approveLabel={task.approvalStage === 'HOD' && task.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now (skips the head)' : headsStillWaiting(task) > 1 ? 'Approve for my department' : 'Approve, send to PC') : 'Approve'}
         onSendBack={(note) => onSendBack(task.id, task.title, note)}
       />
       {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}

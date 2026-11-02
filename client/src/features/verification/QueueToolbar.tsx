@@ -18,6 +18,7 @@ interface QueueToolbarProps {
   shownCount?: number | null;
   counts: { all: number; checklists: number; tickets: number; delegations: number } | null;
   decidedCount: number | null;
+  canSeeDecided?: boolean;
 }
 
 const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
@@ -46,7 +47,7 @@ const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void 
   </span>
 );
 
-export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, counts, decidedCount }: QueueToolbarProps) => {
+export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, counts, decidedCount, canSeeDecided = true }: QueueToolbarProps) => {
   const [open, setOpen] = useState(false);
   const decided = params.view === 'decided';
 
@@ -99,6 +100,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
           canReset={filtersActive || params.sort !== 'oldest' || decided}
           showLabel={decided ? 'Show decisions' : showLabel}
         >
+          {canSeeDecided && (
           <OptionSection icon={History} label="Show">
             <PeriodTabControl
               value={params.view}
@@ -111,6 +113,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
               fill
             />
           </OptionSection>
+          )}
 
           {!decided && (<>
           <OptionSection icon={ArrowUpDown} label="Sort by">

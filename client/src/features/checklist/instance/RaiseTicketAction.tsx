@@ -115,7 +115,7 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
                     aria-checked={on}
                     onClick={() => setTatHours(o.hours)}
                     className={cn(
-                      'h-9 pointer-coarse:h-10 px-3 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]',
+                      'h-9 pointer-coarse:h-11 px-3 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]',
                       on ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover',
                     )}
                   >

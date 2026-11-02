@@ -132,6 +132,7 @@ export const TicketTaskQueue = ({
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   }), []);
+  const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
   const toggleSelectAll = () => setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
 
   const approveItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string) => {
@@ -146,7 +147,7 @@ export const TicketTaskQueue = ({
   const sendBackTask = useMemo(() => sendBackItem('task'), [sendBackItem]);
 
   const bulkApprove = async () => {
-    if (!group || selectedIds.size === 0) return;
+    if (!group || selectedCount === 0) return;
     const ticketIds = group.tickets.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
     const taskIds = group.tasks.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
     const total = ticketIds.length + taskIds.length;
@@ -219,11 +220,11 @@ export const TicketTaskQueue = ({
           <Button
             size="sm"
             className="bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
-            disabled={selectedIds.size === 0 || bulkApproving}
+            disabled={selectedCount === 0 || bulkApproving}
             onClick={bulkApprove}
           >
             {bulkApproving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Check size={14} aria-hidden />}
-            Approve {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'selected'}
+            Approve {selectedCount > 0 ? `${selectedCount} selected` : 'selected'}
           </Button>
         </div>
       )}

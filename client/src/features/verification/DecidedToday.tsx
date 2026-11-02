@@ -67,9 +67,10 @@ const SkeletonRow = () => (
 
 interface DecidedTodayProps {
   onShowWaiting: () => void;
+  waitingIds?: ReadonlySet<string>;
 }
 
-export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
+export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) => {
   const { data, isPending, isError, refetch } = useChecklistDecisionsQuery();
   const canReopen = useCanReopen();
   const confirm = useConfirm();
@@ -80,6 +81,16 @@ export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
     () => [...(data ?? [])].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
     [data],
   );
+  const latestApproval = useMemo(() => {
+    const seen = new Set<string>();
+    const ids = new Set<string>();
+    for (const d of decisions) {
+      if (d.action !== 'APPROVE' || seen.has(d.instanceId)) continue;
+      seen.add(d.instanceId);
+      ids.add(d.id);
+    }
+    return ids;
+  }, [decisions]);
 
   const onReopen = useCallback(async (decision: ChecklistDecision) => {
     const ok = await confirm({
@@ -117,7 +128,7 @@ export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
           <DecisionRow
             key={d.id}
             decision={d}
-            canReopen={canReopen}
+            canReopen={canReopen && latestApproval.has(d.id) && !waitingIds?.has(d.instanceId)}
             reopening={reopen.isPending && reopen.variables === d.instanceId}
             onReopen={onReopen}
           />
