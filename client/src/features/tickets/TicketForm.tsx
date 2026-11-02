@@ -542,6 +542,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                           onChange={pickPerson}
                           users={assigneeChoices}
                           isLoading={isLoadingAssignableUsers}
+                          emptyText={departmentId ? 'Nobody is in this team yet. Pick another team.' : 'No assignable users'}
                         />
                       </FormField>
                     </div>

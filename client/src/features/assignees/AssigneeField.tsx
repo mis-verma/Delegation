@@ -1,13 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, Plus, UserPlus } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
 import { Button } from '../../components/button';
@@ -29,6 +21,7 @@ interface AssigneeFieldProps {
   hideLabel?: boolean;
   single?: boolean;
   hintFor?: (user: AssignableUser) => string | null | undefined;
+  emptyText?: string;
 }
 
 const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
@@ -49,7 +42,7 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
   );
 };
 
-export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor }: AssigneeFieldProps) => {
+export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor, emptyText = 'No assignable users' }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'ADMIN';
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -62,8 +55,10 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
 
   const { data: departments } = useDepartmentsQuery(!disabled && !hintFor);
   const departmentName = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d.name])), [departments]);
-  const hintOf = (u: AssignableUser): string | undefined =>
-    (hintFor ? hintFor(u) : u.departmentId ? departmentName.get(u.departmentId) : undefined) ?? undefined;
+  const hintOf = useCallback(
+    (u: AssignableUser): string | undefined => (hintFor ? hintFor(u) : u.departmentId ? departmentName.get(u.departmentId) : undefined) ?? undefined,
+    [hintFor, departmentName],
+  );
 
   const toggle = (id: string) => {
     if (single) {
@@ -77,11 +72,14 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     .map((id) => (users ?? []).find((u) => u.id === id))
     .filter((u): u is AssignableUser => !!u);
 
+  const grouped = useMemo(() => new Set((users ?? []).map((u) => hintOf(u) ?? '')).size > 1, [users, hintOf]);
+
   const orderedUsers = useMemo(() => {
-    const pinned = new Set(pinnedIds);
     const all = users ?? [];
+    if (grouped) return [...all].sort((a, b) => (hintOf(a) ?? '~').localeCompare(hintOf(b) ?? '~'));
+    const pinned = new Set(pinnedIds);
     return [...all.filter((u) => pinned.has(u.id)), ...all.filter((u) => !pinned.has(u.id))];
-  }, [users, pinnedIds]);
+  }, [users, pinnedIds, grouped, hintOf]);
 
   const onPickerOpenChange = (next: boolean) => {
     if (next) {
@@ -163,7 +161,8 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     return {
       value: u.id,
       label: name,
-      hint: hintOf(u),
+      hint: grouped ? undefined : hintOf(u),
+      group: grouped ? hintOf(u) ?? 'No department' : undefined,
       lead: (
         <span className={`flex items-center justify-center size-8 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
           {getInitials(name)}
@@ -185,99 +184,37 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         )}
 
         {!disabled && (
-          isPhone ? (
-            <PickerShell
-              bare
-              open={sheetOpen}
-              onOpenChange={onPickerOpenChange}
-              trigger={triggerButton}
-              title={single ? 'Assign to' : 'Assign to (pick one or more)'}
-              sheetFooter={!single && (
-                <Button variant="primary" onClick={() => onPickerOpenChange(false)} className="w-full h-11 font-display">
-                  {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
-                </Button>
-              )}
-            >
-              <OptionList
-                multiple={!single}
-                options={sheetOptions}
-                selected={activeIds}
-                isLoading={isLoading}
-                emptyText="No assignable users"
-                searchPlaceholder="Search people…"
-                onToggle={(id) => {
-                  if (single) { onChange([id]); setSheetOpen(false); } else toggle(id);
-                }}
-                topActions={[
-                  ...(single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : []),
-                  ...(isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : []),
-                ]}
-              />
-            </PickerShell>
-          ) : (
-          <DropdownMenu modal={false} open={sheetOpen} onOpenChange={onPickerOpenChange}>
-            <DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-56 max-h-72 pointer-events-auto overscroll-contain"
-              collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
-              collisionPadding={16}
-              container={triggerEl?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? undefined}
-            >
-              {single && (
-                <>
-                  <DropdownMenuItem onSelect={() => onChange([])} className="gap-2 text-text-muted">
-                    Unassigned
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem
-                    onSelect={() => setIsCreatingUser(true)}
-                    className="gap-2 text-primary-600 dark:text-primary-400"
-                  >
-                    <UserPlus size={14} />
-                    Create new user
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
-              {isLoading ? (
-                <div className="px-2 py-1.5 t-meta text-text-light">Loading team…</div>
-              ) : (users ?? []).length === 0 ? (
-                <div className="px-2 py-1.5 t-meta text-text-light">No assignable users</div>
-              ) : (
-                orderedUsers.map((u) => {
-                  const name = nameOf(u);
-                  const hint = hintOf(u);
-                  const checked = activeIds.includes(u.id);
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={u.id}
-                      checked={checked}
-                      onCheckedChange={() => toggle(u.id)}
-                      onSelect={(e) => { if (!single) e.preventDefault(); }}
-                      className="gap-2"
-                    >
-                      <span className={`flex items-center justify-center size-6 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
-                        {getInitials(name)}
-                      </span>
-                      <span className="flex min-w-0 flex-col">
-                        <span className="line-clamp-2 break-words">{name}</span>
-                        {hint && <span className="t-meta text-text-muted truncate">{hint}</span>}
-                      </span>
-                    </DropdownMenuCheckboxItem>
-                  );
-                })
-              )}
-
-            </DropdownMenuContent>
-          </DropdownMenu>
-          )
+          <PickerShell
+            bare
+            open={sheetOpen}
+            onOpenChange={onPickerOpenChange}
+            trigger={triggerButton}
+            title={single ? 'Assign to' : 'Assign to (pick one or more)'}
+            popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+            popoverClassName="w-[min(22rem,calc(100vw-2rem))]"
+            sheetFooter={isPhone && !single && (
+              <Button variant="primary" onClick={() => onPickerOpenChange(false)} className="w-full h-11 font-display">
+                {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
+              </Button>
+            )}
+          >
+            <OptionList
+              multiple={!single}
+              options={sheetOptions}
+              selected={activeIds}
+              isLoading={isLoading}
+              emptyText={emptyText}
+              searchable
+              searchPlaceholder="Search people…"
+              onToggle={(id) => {
+                if (single) { onChange([id]); setSheetOpen(false); } else toggle(id);
+              }}
+              topActions={[
+                ...(single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : []),
+                ...(isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : []),
+              ]}
+            />
+          </PickerShell>
         )}
 
       </div>
