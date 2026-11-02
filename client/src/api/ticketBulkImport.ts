@@ -1,4 +1,6 @@
-import { apiFetch } from './http';
+import { apiFetch, refreshAccessToken } from './http';
+import { tokenStore } from '../lib/tokenStore';
+import { downloadBlob } from '../lib/exportTable';
 import type { Priority } from './ticket';
 
 export type ApiResponse<T> = { success: boolean; data: T };
@@ -16,6 +18,7 @@ export type TicketBulkImportMatchedRow = {
     storeName?: string;
     categoryName?: string;
     tatHours?: string;
+    dueDate?: string;
     labelNames: string[];
   };
   assigneeId: string | null;
@@ -63,7 +66,32 @@ export type TicketBulkImportSummary = {
   failed: { rowIndex: number; message: string }[];
 };
 
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
+
 export const ticketBulkImportApi = {
+  downloadTemplate: async () => {
+    const send = async (token: string | null) => {
+      try {
+        return await fetch(`${BASE}/tickets/bulk-import/template`, { credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      } catch {
+        throw new Error('Network error. Check your connection and try again.');
+      }
+    };
+    const token = tokenStore.get();
+    let res = await send(token);
+    if (res.status === 401 && token) {
+      const fresh = await refreshAccessToken(token);
+      if (!fresh) throw new Error('Your session has expired. Sign in again, then download the template.');
+      res = await send(fresh);
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message ?? 'Could not download the template');
+    }
+    downloadBlob(await res.blob(), 'ticket-import-template.xlsx');
+  },
+
+
   preview: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

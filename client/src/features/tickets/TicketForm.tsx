@@ -23,6 +23,7 @@ import { buildTicketSchema, type TicketFields } from './form/ticketFormSchema';
 import { CategoryForm } from '../settings/CategoryForm';
 import { DepartmentForm } from '../admin/department/DepartmentForm';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
+import { AssignmentChoice } from './form/AssignmentChoice';
 import { DueDateField } from './form/DueDateField';
 import { FormField, StepHeading } from './form/FormField';
 import { FormProgress } from './form/FormProgress';
@@ -104,7 +105,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
+    defaultValues: { priority: 'MEDIUM', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
 
   const allValues = useWatch({ control });
@@ -128,6 +129,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const dirty = isDirty || photos.length > 0;
 
   const assignmentMode = useWatch({ control, name: 'assignmentMode' });
+  const modeChosen = assignmentMode === 'AUTO' || assignmentMode === 'MANUAL';
   const categoryId = useWatch({ control, name: 'categoryId' });
   const departmentId = useWatch({ control, name: 'departmentId' });
   const priority = useWatch({ control, name: 'priority' });
@@ -192,6 +194,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('categoryId', '', opts);
     setValue('departmentId', '', opts);
     setValue('assigneeId', '', opts);
+  };
+
+  const chooseMode = (mode: 'AUTO' | 'MANUAL') => {
+    sendToDepartment(mode === 'MANUAL');
+    setValue('assignmentMode', mode, { shouldDirty: true, shouldValidate: validateOnChange });
   };
 
   const due = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`) : null;
@@ -306,7 +313,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
           {!saveDraft.isPending && <FileClock size={15} aria-hidden />}
           {draft ? 'Update draft' : 'Save draft'}
         </Button>
-        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={submitting} disabled={saveDraft.isPending} className="max-sm:flex-1 max-sm:h-11 font-display">
+        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={submitting} disabled={saveDraft.isPending || !modeChosen} className="max-sm:flex-1 max-sm:h-11 font-display">
           {!submitting && <Check size={16} strokeWidth={2.5} />}
           {submitting ? (photos.length ? 'Adding photos…' : 'Creating…') : 'Create ticket'}
         </Button>
@@ -453,7 +460,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       size="2xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title={draft ? 'Finish draft ticket' : 'New ticket'}
-      description={<span className="hidden sm:inline">Describe the problem on the left, then choose where it goes on the right.</span>}
+      description={<span className="hidden sm:inline">Choose how it is sent first, then describe the problem.</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
       headerClassName="border-b-0"
@@ -467,8 +474,14 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
         className="grid gap-6 px-5 pb-4 pt-0 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-8"
         noValidate
       >
+        {!modeChosen ? (
+          <div className="lg:col-span-2">
+            <AssignmentChoice frontLine={ownScopeOnly} onChoose={chooseMode} error={submitCount > 0 ? errors.assignmentMode?.message : undefined} />
+          </div>
+        ) : (
+        <>
         <div className="flex flex-col gap-5 min-w-0">
-          <StepHeading step={1} title="What happened" subtitle="Tell us the problem. Photos help a lot." />
+          <StepHeading step={2} title="What happened" subtitle="Tell us the problem. Photos help a lot." />
 
           <div data-field="title">
             <FormField
@@ -520,9 +533,9 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 min-w-0 lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border/60 lg:bg-surface-hover/30">
+        <div className="flex flex-col gap-5 min-w-0 max-lg:order-first lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border lg:bg-surface-hover/30">
           <StepHeading
-            step={2}
+            step={1}
             title="Where it goes"
             subtitle={ownScopeOnly ? 'Pick what it is about and the rest fills in for you.' : 'Pick a category and the rest fills in for you.'}
           />
@@ -540,7 +553,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                 <>
                   {categoryField('What is it about?', 'Pick the closest match. Not listed? Switch to By department.', true)}
                   {categorySummary}
-                  {autoDueNote}
+                  {selectedCategory ? null : autoDueNote}
                 </>
               ) : (
                 <>
@@ -597,11 +610,13 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                   {dueField}
                 </>
               ) : (
-                autoDueNote
+                selectedCategory ? null : autoDueNote
               )}
             </>
           )}
 
+          {assignmentMode === 'MANUAL' && (
+          <>
           <FormField
             label="Priority"
             icon={<Flag size={14} className="text-text-light" />}
@@ -619,7 +634,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
               lockedIds={selectedCategory?.tags.map(t => t.id)}
             />
           )}
+          </>
+          )}
         </div>
+        </>
+        )}
       </form>
 
       {creating === 'category' && (

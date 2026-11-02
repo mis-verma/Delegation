@@ -8,7 +8,7 @@ const MAX_RETRY_WAIT_MS = 5000;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const refreshAccessToken = (staleToken: string | null): Promise<string | null> => {
+export const refreshAccessToken = (staleToken: string | null): Promise<string | null> => {
   const doRefresh = async (): Promise<string | null> => {
     const latest = tokenStore.get();
     if (latest && latest !== staleToken) return latest;

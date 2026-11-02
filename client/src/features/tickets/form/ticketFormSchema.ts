@@ -4,7 +4,7 @@ const baseTicketSchema = z.object({
   title: z.string().trim().min(5, 'Add a short title (at least 5 characters)'),
   description: z.string().trim().min(10, 'Say a bit more about it (at least 10 characters)'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  assignmentMode: z.enum(['AUTO', 'MANUAL']),
+  assignmentMode: z.enum(['AUTO', 'MANUAL'], { error: 'Choose Auto or Manual to continue' }),
   categoryId: z.string().optional().or(z.literal('')),
   departmentId: z.string().optional().or(z.literal('')),
   assigneeId: z.string().optional().or(z.literal('')),

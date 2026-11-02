@@ -19,6 +19,7 @@ ticketRouter.get('/:id', ticketController.getOne);
 
 ticketRouter.post('/', ticketController.create);
 
+ticketRouter.get('/bulk-import/template', requireRole('ADMIN', 'PC'), ticketBulkImportController.template);
 ticketRouter.post('/bulk-import/preview', requireRole('ADMIN', 'PC'), checklistBulkImportUpload, ticketBulkImportController.preview);
 ticketRouter.post('/bulk-import/publish', requireRole('ADMIN', 'PC'), ticketBulkImportController.publish);
 ticketRouter.patch('/:id', ticketController.update);

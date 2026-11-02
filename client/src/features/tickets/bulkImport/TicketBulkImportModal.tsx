@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
-import { UploadCloud, FileSpreadsheet, AlertCircle, X, PartyPopper, Tag as TagIcon } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, AlertCircle, X, PartyPopper, Tag as TagIcon, Download, ClipboardPaste } from 'lucide-react';
 import { Modal, Button, Combobox } from '../../../components';
+import { notifyError } from '../../../lib/queryHelpers';
+import { ticketBulkImportApi } from '../../../api/ticketBulkImport';
+import { pastedRowsToCsvFile } from './pasteRows';
 import { useTicketBulkImportPreviewMutation, useTicketBulkImportPublishMutation } from '../hook';
 import type {
   TicketBulkImportMatchedRow,
@@ -36,7 +39,10 @@ type ReviewRow = {
   excluded: boolean;
 };
 
-const ACCEPTED_EXTENSIONS = '.csv,.xlsx,.xls';
+const ACCEPTED_EXTENSIONS = '.csv,.xlsx';
+
+const routeOf = (r: { categoryId: string; departmentId: string; assigneeId: string }): 'auto' | 'manual' | 'none' =>
+  r.categoryId ? 'auto' : r.departmentId || r.assigneeId ? 'manual' : 'none';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low' },
@@ -63,6 +69,8 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
   const [tagNameById, setTagNameById] = useState<Map<string, string>>(new Map());
   const [summary, setSummary] = useState<TicketBulkImportSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pasted, setPasted] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   const previewMutation = useTicketBulkImportPreviewMutation();
   const publishMutation = useTicketBulkImportPublishMutation();
@@ -111,6 +119,26 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
     });
   };
 
+  const handleTemplate = async () => {
+    setDownloading(true);
+    try {
+      await ticketBulkImportApi.downloadTemplate();
+    } catch (err) {
+      notifyError(err, "Couldn't download the template. Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handlePaste = () => {
+    const file = pastedRowsToCsvFile(pasted);
+    if (!file) {
+      notifyError(new Error('Paste at least one row copied from your sheet.'), 'Paste at least one row copied from your sheet.');
+      return;
+    }
+    handleFile(file);
+  };
+
   const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
     e.preventDefault();
     setDragOver(false);
@@ -126,6 +154,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
     && (!r.raw.departmentName || !!r.departmentId)
     && (!r.raw.storeName || !!r.storeId)
     && (!r.raw.categoryName || !!r.categoryId)
+    && routeOf(r) !== 'none'
     && !r.tatHoursInvalid;
   const unresolvedCount = includedRows.filter((r) => !isRowResolved(r)).length;
   const canPublish = includedRows.length > 0 && unresolvedCount === 0;
@@ -158,7 +187,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
       open
       onClose={handleClose}
       title="Bulk import tickets"
-      description="Upload a file to create many tickets at once."
+      description="Download the template, fill one ticket per row, then upload it."
       icon={<UploadCloud size={18} className="text-primary-600" />}
       size="3xl"
       footer={
@@ -171,7 +200,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
                     ? 'Every row is excluded. Include at least one to continue.'
-                    : `Resolve ${unresolvedCount} row${unresolvedCount === 1 ? '' : 's'} to continue.`}
+                    : `Fix ${unresolvedCount} row${unresolvedCount === 1 ? '' : 's'} to continue. Every ticket needs a category or a team.`}
                 </p>
               )}
               <Button onClick={handlePublish} disabled={!canPublish} isLoading={publishMutation.isPending}>
@@ -185,34 +214,77 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
       }
     >
       {step === 'upload' && (
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          className={`flex flex-col items-center justify-center gap-3 py-10 sm:py-14 px-4 sm:px-6 rounded-xl border-2 cursor-pointer text-center transition-colors ${
-            dragOver ? 'border-primary-500 bg-primary-500/5' : 'border-border/80 hover:border-primary-400'
-          } ${previewMutation.isPending ? 'pointer-events-none opacity-60' : ''}`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_EXTENSIONS}
-            className="sr-only"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-          <span className="flex items-center justify-center size-12 rounded-2xl bg-surface-hover text-text-muted border border-border/60">
-            <FileSpreadsheet className="size-6" />
-          </span>
-          <div>
-            <p className="text-sm font-display font-semibold text-text">
-              {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
-            </p>
-            <p className="t-meta font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
-            <p className="t-meta font-display text-text-light mt-2">
-              Columns: Title, Description, Assignee (email or name), Priority, Department, Store, Category, TAT Hours, Labels. Title and Description are required.
-            </p>
-          </div>
-        </label>
+        <div className="flex flex-col gap-5">
+          <ol className="grid gap-3 sm:grid-cols-3">
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 1</span>
+              <p className="t-card font-display font-bold text-text">Get the template</p>
+              <p className="t-meta text-text-secondary">An Excel sheet with dropdown lists for category, team, person and priority.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleTemplate()} isLoading={downloading} className="mt-auto max-sm:h-11">
+                <Download size={15} aria-hidden />
+                Download template
+              </Button>
+            </li>
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 2</span>
+              <p className="t-card font-display font-bold text-text">Fill one ticket per row</p>
+              <p className="t-meta text-text-secondary">Title, Description and a Category or Department are needed. Everything else is optional.</p>
+            </li>
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 3</span>
+              <p className="t-card font-display font-bold text-text">Upload and check</p>
+              <p className="t-meta text-text-secondary">You see every ticket and can fix anything before it is created.</p>
+            </li>
+          </ol>
+
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            className={`flex flex-col items-center justify-center gap-3 py-8 sm:py-10 px-4 sm:px-6 rounded-lg border-2 border-dashed cursor-pointer text-center transition-colors ${
+              dragOver ? 'border-primary-600 bg-primary-500/5' : 'border-border hover:border-primary-600'
+            } ${previewMutation.isPending ? 'pointer-events-none opacity-60' : ''}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_EXTENSIONS}
+              className="sr-only"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+            />
+            <span className="flex items-center justify-center size-12 rounded-lg bg-surface-hover text-text-muted border border-border">
+              <FileSpreadsheet className="size-6" />
+            </span>
+            <div>
+              <p className="text-sm font-display font-semibold text-text">
+                {previewMutation.isPending ? 'Reading file…' : 'Drop your file here, or tap to choose it'}
+              </p>
+              <p className="t-meta font-display text-text-muted mt-1">Excel (.xlsx) or CSV</p>
+            </div>
+          </label>
+
+          <details className="rounded-lg border border-border bg-surface">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-4 t-card font-display font-semibold text-text">
+              <ClipboardPaste size={15} aria-hidden />
+              Or paste rows copied from Excel or Google Sheets
+            </summary>
+            <div className="flex flex-col gap-3 px-4 pb-4">
+              <p className="t-meta text-text-secondary">Copy the rows in your sheet, then paste them here. The columns can be in the template order, with or without the heading row.</p>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={5}
+                placeholder="Paste here"
+                className="w-full rounded-md border border-border bg-surface p-3 t-meta text-text outline-none focus:border-primary-600"
+              />
+              <div className="flex justify-end">
+                <Button type="button" size="sm" onClick={handlePaste} disabled={!pasted.trim() || previewMutation.isPending} className="max-sm:h-11">
+                  Read pasted rows
+                </Button>
+              </div>
+            </div>
+          </details>
+        </div>
       )}
 
       {step === 'review' && (
@@ -233,6 +305,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                   <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Category</th>
                   <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Priority</th>
                   <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">TAT (hrs)</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">How it goes</th>
                   <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Labels</th>
                   <th className="w-10" />
                 </tr>
@@ -316,9 +389,20 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         value={row.tatHours}
                         onChange={(e) => updateRow(row.rowIndex, { tatHours: e.target.value, tatHoursInvalid: false })}
                         disabled={row.excluded}
-                        placeholder="Default"
+                        placeholder={row.raw.dueDate ? `Due ${row.raw.dueDate}` : 'Default'}
                         className={`w-20 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
                       />
+                    </td>
+                    <td className="px-3 py-2 t-meta min-w-36">
+                      {routeOf(row) === 'auto' && (
+                        <span className="font-display font-semibold text-text">Auto <span className="font-medium text-text-muted">· {categoryOptions.find((c) => c.value === row.categoryId)?.label ?? 'category'}</span></span>
+                      )}
+                      {routeOf(row) === 'manual' && (
+                        <span className="font-display font-semibold text-text">Manual <span className="font-medium text-text-muted">· {departmentOptions.find((d) => d.value === row.departmentId)?.label ?? 'person chosen'}</span></span>
+                      )}
+                      {routeOf(row) === 'none' && !row.excluded && (
+                        <span className="flex items-center gap-1 font-display font-semibold text-danger"><AlertCircle size={12} className="shrink-0" /> Pick a category or team</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 t-meta max-w-40">
                       {row.tagIds.length > 0 && (
