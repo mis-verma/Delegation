@@ -21,12 +21,12 @@ interface FigurePanelProps {
   onRetry?: () => void;
 }
 
-const CELL = 'flex min-h-20 min-w-0 flex-col justify-center gap-0.5 bg-surface px-2.5 py-2.5 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
+const CELL = 'flex min-h-20 min-w-0 flex-col justify-center gap-0.5 rounded-xl bg-surface-hover/60 px-2.5 py-2.5 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry }: FigurePanelProps) => {
   const broken = failed && !loading;
   return (
-    <div className="grid w-full grid-cols-4 gap-px overflow-hidden rounded-xl border border-border bg-border" role="group" aria-label={label}>
+    <div className="grid w-full grid-cols-4 gap-1.5 sm:gap-2" role="group" aria-label={label}>
       {cells.map((cell) => {
         const retry = broken && !!onRetry;
         const interactive = retry || !!cell.onClick;

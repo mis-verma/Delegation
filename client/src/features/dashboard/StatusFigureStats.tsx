@@ -24,12 +24,12 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const CELL = 'flex min-h-20 min-w-0 cursor-pointer flex-col justify-center gap-0.5 bg-surface px-2.5 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
+const CELL = 'flex min-h-20 min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-xl bg-surface-hover/60 px-2.5 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
   return (
-    <div className="grid w-full grid-cols-4 gap-px overflow-hidden rounded-xl border border-border bg-border" role="group" aria-label={label}>
+    <div className="grid w-full grid-cols-4 gap-1.5 sm:gap-2" role="group" aria-label={label}>
       {items.map((item) => {
         const count = counts[item.key] ?? 0;
         const selected = active === item.key && !failed;
@@ -43,7 +43,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
             aria-pressed={retry ? undefined : selected}
             aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
             title={failed ? "Couldn't load. Tap to try again." : item.help}
-            className={cn(CELL, selected && 'bg-surface-hover shadow-[inset_0_-3px_0_var(--color-gold)] ring-2 ring-inset ring-primary-800')}
+            className={cn(CELL, selected && 'bg-primary-500/10 shadow-[inset_0_-3px_0_var(--color-gold)]')}
           >
             <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
               <span className="sm:hidden">{item.short ?? item.label}</span>
