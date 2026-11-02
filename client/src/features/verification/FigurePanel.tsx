@@ -60,7 +60,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             aria-pressed={retry ? undefined : cell.selected}
             aria-label={broken ? `${cell.label}, couldn't load. Tap to try again` : `${cell.label}${cell.value === null ? '' : `, ${cell.value}`}`}
             title={broken ? "Couldn't load. Tap to try again." : cell.help}
-            className={cn(CELL, 'cursor-pointer hover:bg-surface-hover', selected && 'bg-surface-hover shadow-[inset_0_-3px_0_var(--color-gold)] ring-2 ring-inset ring-primary-800')}
+            className={cn(CELL, 'cursor-pointer hover:bg-surface-hover', selected && 'bg-primary-500/10 shadow-[inset_0_-3px_0_var(--color-gold)]')}
           >
             {body}
           </button>
