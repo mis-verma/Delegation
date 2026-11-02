@@ -8,6 +8,7 @@ import { users } from "../../db/schema/core.js";
 import { eq } from "drizzle-orm";
 import { cached } from "../../config/queryCache.js";
 import { AUTH_USER_TTL_SECONDS, authUserKey } from "./authCache.js";
+import { settingsService } from "../../modules/settings/settings.service.js";
 
 export type AccessTokenPayload = { sub: string; role: Role; departmentId?: string; storeId?: string; iat?: number };
 
@@ -52,6 +53,11 @@ export const ownerMayWrite = (req: Request) => {
     return OWNER_WRITE_PATHS.some((pattern) => pattern.test(path));
 };
 
+const MAINTENANCE_OPEN_PATHS = [/^\/auth(\/|$)/, /^\/settings\/status$/, /^\/users\/me$/, /^\/notifications(\/|$)/];
+
+export const maintenanceBlocks = (role: Role, path: string, maintenanceMode: boolean) =>
+    maintenanceMode && role !== "ADMIN" && role !== "PC" && role !== "OWNER" && !MAINTENANCE_OPEN_PATHS.some((pattern) => pattern.test(path.replace(/\/+$/, "")));
+
 const effectiveRole = (role: Role): Role => (role === "OWNER" ? "PC" : role);
 
 export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
@@ -87,6 +93,11 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
 
     if (currentUser.role === "OWNER" && !READ_ONLY_METHODS.has(req.method) && !ownerMayWrite(req)) {
         return next(AppError.forbidden("The owner view is read only, so nothing can be changed from this account."));
+    }
+
+    const settingsNow = settingsService.getCached();
+    if (maintenanceBlocks(currentUser.role, `${req.baseUrl}${req.path}`, settingsNow.maintenanceMode)) {
+        return next(new AppError(settingsNow.maintenanceMessage || "The app is down for maintenance. Please try again soon.", 503));
     }
 
     const viewAsId = req.headers["x-view-as"];

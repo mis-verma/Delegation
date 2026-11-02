@@ -5,7 +5,7 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
 import { useTicketsQuery } from '../tickets/hook';
-import { useDashboardTasksQuery } from '../tasks/hook';
+import { useDashboardMyTasksQuery, useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyFocusChecklistsQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
@@ -74,6 +74,7 @@ export const HomePage = () => {
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
+  const myTasksQuery = useDashboardMyTasksQuery(!frontLine, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
   const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
 
@@ -84,7 +85,7 @@ export const HomePage = () => {
   const todos = useMemo(() => todosData ?? [], [todosData]);
   const focusQueries = frontLine
     ? [ticketsQuery, tasksQuery, todosQuery, focusRunsQuery]
-    : [ticketsQuery, ownTicketsQuery, tasksQuery, todosQuery, focusRunsQuery];
+    : [ticketsQuery, ownTicketsQuery, tasksQuery, myTasksQuery, todosQuery, focusRunsQuery];
   const focusPending = focusQueries.some((q) => q.isPending);
   const focusFailed = focusQueries.some((q) => q.isError && q.data === undefined);
   const retryFocus = () => {
@@ -95,8 +96,8 @@ export const HomePage = () => {
   const visibleTickets = useMemo(() => ticketPage?.data ?? NO_TICKETS, [ticketPage]);
 
   const assignedTasks = useMemo(
-    () => visibleTasks.filter((t) => t.assigneeId === userId || t.additionalAssigneeIds?.includes(userId ?? '')),
-    [visibleTasks, userId],
+    () => (frontLine ? visibleTasks : (myTasksQuery.data ?? NO_TASKS)).filter((t) => t.assigneeId === userId || t.additionalAssigneeIds?.includes(userId ?? '')),
+    [frontLine, visibleTasks, myTasksQuery.data, userId],
   );
   const ownTicketPage = ownTicketsQuery.data;
   const myAssignedTickets = useMemo(

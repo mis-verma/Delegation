@@ -320,7 +320,7 @@ export const ScoresPage = () => {
             </ul>
           </details>
 
-          {orgWide && (
+          {user?.role === 'ADMIN' && (
             <p className="t-meta text-text-muted">
               Numbers don&apos;t add up?{' '}
               <Link viewTransition to={`/admin/data-check?from=${win.from}&to=${win.to}`} className="font-display font-semibold text-text underline-offset-2 hover:underline">Open data check</Link>

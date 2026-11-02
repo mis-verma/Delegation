@@ -25,6 +25,20 @@ export const involvedDepartmentIds = async (
 export const additionalAssigneeIdsOf = async (taskId: string): Promise<string[]> =>
     (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, taskId))).map((r) => r.userId)
 
+export const additionalAssigneeIdsByTask = async (taskIds: string[]): Promise<Map<string, string[]>> => {
+    const byTask = new Map<string, string[]>()
+    if (!taskIds.length) return byTask
+    const rows = await db.select({ taskId: taskAdditionalAssignees.taskId, userId: taskAdditionalAssignees.userId })
+        .from(taskAdditionalAssignees)
+        .where(inArray(taskAdditionalAssignees.taskId, taskIds))
+    for (const row of rows) {
+        const list = byTask.get(row.taskId) ?? []
+        list.push(row.userId)
+        byTask.set(row.taskId, list)
+    }
+    return byTask
+}
+
 export const departmentsNeedingApproval = async (departmentIds: string[], actor: Actor): Promise<string[]> => {
     const checks = await Promise.all(departmentIds.map(async (departmentId) => ({
         departmentId,

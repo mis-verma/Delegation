@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CalendarOff, ClipboardList, Info } from 'lucide-react';
 import { Button, Combobox, DateRangePicker, Input, Modal, Skeleton, type DateRangeValue } from '../../components';
 import { useAssignableUsersQuery } from '../tickets/hook';
+import { useAuth } from '../../context/AuthContext';
 import { useCreateLeaveMutation, useLeavePreviewQuery, useLeaveRulesQuery } from './hook';
 import { cn } from '@/lib/utils';
 
@@ -37,10 +38,16 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
   const { data: rules } = useLeaveRulesQuery();
   const create = useCreateLeaveMutation();
   const { data: people, isPending: peoplePending } = useAssignableUsersQuery();
+  const { user } = useAuth();
+  const isHead = user?.role === 'MANAGER' || user?.role === 'SENIOR';
+  const myId = user?.id;
+  const myDepartmentId = user?.departmentId ?? null;
 
   const options = useMemo(
-    () => (people ?? []).map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })).sort((a, b) => a.label.localeCompare(b.label)),
-    [people],
+    () => (people ?? [])
+      .filter((p) => !isHead || (p.id !== myId && p.role !== 'ADMIN' && p.role !== 'PC' && !!myDepartmentId && p.departmentId === myDepartmentId))
+      .map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })).sort((a, b) => a.label.localeCompare(b.label)),
+    [people, isHead, myId, myDepartmentId],
   );
 
   const startDate = range.from ? dayKey(range.from) : '';

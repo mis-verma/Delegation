@@ -149,6 +149,7 @@ export const PcStatTiles = () => {
   const taskWaiting = approvals.tasks.data?.total ?? 0;
   const checklistWaiting = approvals.checklists.data?.total ?? 0;
   const lateTotal = waitingItems.filter((i) => i.late).length;
+  const waitingCapped = waitingItems.length < waitingTotal;
 
   const overall = scores.data?.total.overall ?? null;
   const fillToday = kpi.checklistToday.data?.completionPct ?? null;
@@ -362,14 +363,15 @@ export const PcStatTiles = () => {
             defaultFilter={popup.filter}
             summary={(
               <>
-                <StatusBadge variant="neutral" icon={false} label={`${waitingItems.length} waiting`} />
-                {lateTotal > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${lateTotal} over 24 hours`} />}
+                <StatusBadge variant="neutral" icon={false} label={waitingCapped ? `Oldest ${waitingItems.length} of ${waitingTotal}` : `${waitingTotal} waiting`} />
+                {lateTotal > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${lateTotal}${waitingCapped ? "+" : ""} over 24 hours`} />}
               </>
             )}
             viewAllHref="/verify"
             viewAllLabel="Open Verification Queue"
             emptyTitle="Nothing is waiting"
             emptyDescription="Every approval has a decision."
+            isLoading={approvals.isPending}
             onOpenPerson={setOpenPerson}
           />
         </PopupBoundary>
@@ -392,6 +394,7 @@ export const PcStatTiles = () => {
             )}
             emptyTitle="Nothing is late"
             emptyDescription="No overdue or missed work right now."
+            isLoading={exceptions.isPending}
             onOpenPerson={setOpenPerson}
           />
         </PopupBoundary>

@@ -236,7 +236,7 @@ const router = createBrowserRouter([
               { index : true, element : <Navigate to="/settings/account" replace />},
               { path : "account", element : <AccountSettings/>},
               { path : "appearance", element : <AppearanceSettings/>},
-              { path : "categories", element : <CategoryList/>}
+              { element : <PcDeskRoute/>, children : [{ path : "categories", element : <CategoryList/> }] },
 
           ] },
           { path: '/tickets', element: <TicketList /> },

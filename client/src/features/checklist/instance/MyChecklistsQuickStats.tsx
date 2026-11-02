@@ -24,9 +24,11 @@ interface MyChecklistsQuickStatsProps {
   onToggle: (key: MyChecklistsQuickFilterKey) => void;
   onClear?: () => void;
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
-export const MyChecklistsQuickStats = memo(({ counts, total, active, onToggle, isLoading = false }: MyChecklistsQuickStatsProps) => (
-  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} label="Checklist figures" />
+export const MyChecklistsQuickStats = memo(({ counts, total, active, onToggle, isLoading = false, error, onRetry }: MyChecklistsQuickStatsProps) => (
+  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Checklist figures" />
 ));
 MyChecklistsQuickStats.displayName = 'MyChecklistsQuickStats';

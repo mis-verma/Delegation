@@ -274,6 +274,10 @@ export const taskApi = {
         apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?checklistSummary=1&page=1&limit=${limit}`)
             .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta })),
 
+    getRecentMine: (limit: number): Promise<TaskListPage> =>
+        apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?mine=1&checklistSummary=1&page=1&limit=${limit}`)
+            .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta })),
+
     getPage: (query: TaskListQuery): Promise<TaskListPage> =>
         apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?${taskListParams(query).toString()}`)
             .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta })),

@@ -23,10 +23,12 @@ interface TicketQuickStatsProps {
   onToggle: (key: TicketQuickFilterKey) => void;
   onClear?: () => void;
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
-export const TicketQuickStats = ({ counts, total, active, onToggle, isLoading }: TicketQuickStatsProps) => (
+export const TicketQuickStats = ({ counts, total, active, onToggle, isLoading, error, onRetry }: TicketQuickStatsProps) => (
   <div className="relative w-full">
-    <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} label="Ticket figures" />
+    <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Ticket figures" />
   </div>
 );

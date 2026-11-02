@@ -23,8 +23,10 @@ interface TodoQuickStatsProps {
   onToggle: (key: TodoQuickFilterKey) => void;
   onClear?: () => void;
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
-export const TodoQuickStats = ({ counts, total, active, onToggle, isLoading }: TodoQuickStatsProps) => (
-  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} label="To-do figures" />
+export const TodoQuickStats = ({ counts, total, active, onToggle, isLoading, error, onRetry }: TodoQuickStatsProps) => (
+  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="To-do figures" />
 );

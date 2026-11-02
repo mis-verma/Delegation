@@ -741,7 +741,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
     user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))
   );
-  const canRemoveFiles = canAttach && (task.status !== 'done' || user?.role === 'ADMIN');
+  const canRemoveFiles = canAttach && ((task.status !== 'done' && task.status !== 'pending_approval') || user?.role === 'ADMIN');
   const nextStatus = NEXT_STATUS[task.status as keyof typeof NEXT_STATUS];
 
   const fieldMutation = useUpdateTaskMutation({ silent: true });

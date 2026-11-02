@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff, CalendarOff, Smartphone } from 'lucide-react';
-import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName, RoleChip } from '../../components';
+import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName, RoleChip, InlineError } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
 import { GetAppOptions } from '../getApp';
 import {
@@ -71,7 +71,7 @@ const WeekOffCard = ({ initial, isSaving, onSave, readOnly }: { initial: number[
 export const AccountSettings = () => {
   const { user } = useAuth();
   const canEditHrFields = user?.role === 'ADMIN' || user?.role === 'PC';
-  const { data: profile, isPending } = useMyProfileQuery();
+  const { data: profile, isPending, isError, refetch } = useMyProfileQuery();
   const updateProfileMut = useUpdateMyProfileMutation();
   const uploadAvatarMut = useUploadMyAvatarMutation();
   const removeAvatarMut = useRemoveMyAvatarMutation();
@@ -116,6 +116,14 @@ export const AccountSettings = () => {
       { currentPassword: data.currentPassword, newPassword: data.newPassword },
       { onSuccess: () => resetPasswordForm() },
     );
+
+  if (isError && !profile) {
+    return (
+      <div className="w-full max-w-5xl">
+        <InlineError message="Couldn't load your profile." onRetry={() => void refetch()} />
+      </div>
+    );
+  }
 
   if (isPending || !profile) {
     return (

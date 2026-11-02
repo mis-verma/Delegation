@@ -20,7 +20,7 @@ export const useApprovalSources = () => {
 
   const isPending = (reviewsWork && (tasks.isPending || tickets.isPending)) || (asksChecklists && checklists.isPending);
   const failedWithoutData = (q: { isError: boolean; data: unknown }) => q.isError && q.data === undefined;
-  const hasError = reportsErrors && ((reviewsWork && (failedWithoutData(tasks) || failedWithoutData(tickets))) || failedWithoutData(checklists));
+  const hasError = (reviewsWork && (failedWithoutData(tasks) || failedWithoutData(tickets))) || (asksChecklists && failedWithoutData(checklists));
 
   const total =
     (reviewsWork ? (tasks.data?.total ?? 0) + (tickets.data?.total ?? 0) : 0) +

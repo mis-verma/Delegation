@@ -90,7 +90,8 @@ export const ExceptionsCard = () => {
   const orangeCount = peopleRows.length - redPeople.length;
   const repeatCount = peopleRows.filter((p) => p.missedStreak >= 2).length;
   const redToRemind = redPeople.filter((p) => !remindedRecently(p.lastRemindedAt, now)).map((p) => p.userId);
-  const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending;
+  const peopleFailed = people.isError && !people.data;
+  const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending && !peopleFailed;
 
   return (
     <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
@@ -137,7 +138,11 @@ export const ExceptionsCard = () => {
         </button>
       )}
 
-      {people.isPending && !query.isPending ? (
+      {peopleFailed && !query.isPending ? (
+        <div className="border-t border-border/60 px-4 py-3 sm:px-5">
+          <InlineError message="Couldn't load the people to chase." onRetry={() => void people.refetch()} />
+        </div>
+      ) : people.isPending && !query.isPending ? (
         <div className="flex flex-col divide-y divide-border/60 border-t border-border/60" role="status" aria-label="Loading people">
           <AttentionRowSkeleton />
           <AttentionRowSkeleton />

@@ -88,6 +88,20 @@ export const useDashboardTasksQuery = (enabled = true, options?: DashboardQueryO
     });
 };
 
+export const useDashboardMyTasksQuery = (enabled = true, options?: DashboardQueryOptions) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tasks', 'dashboard-mine'] as const,
+        queryFn: () => taskApi.getRecentMine(DASHBOARD_TASK_LIMIT),
+        select: (page: TaskListPage) => page.data,
+        staleTime: 2 * 60_000,
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+        placeholderData: keepPreviousData,
+        ...options,
+    });
+};
+
 export const useTasksAwaitingHeadQuery = (enabled = true) => {
     const { token } = useAuth();
     return useQuery({
@@ -362,7 +376,7 @@ export const useTaskBulkImportPublishMutation = () => {
 export const useDeleteTaskChecklistMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (id: string) => taskChecklistApi.deleteChecklist(id),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Checklist deleted',
         retryable: true,
         errorFallback: "Couldn't delete the checklist. Try again.",
@@ -372,7 +386,7 @@ export const useUpdateTaskChecklistItemMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateTaskChecklistItemPayload }) =>
             taskChecklistApi.updateItem(id, payload).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         retryable: true,
         errorFallback: "Couldn't update the item. Try again.",
     });
@@ -381,7 +395,7 @@ export const useUpdateTaskItemRemarksMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: ({ id, remarks }: { id: string; remarks: string }) =>
             taskChecklistApi.updateRemarks(id, remarks).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Remarks saved',
         errorFallback: "Couldn't save the remarks. Try again.",
     });
@@ -389,7 +403,7 @@ export const useUpdateTaskItemRemarksMutation = (taskId: string) =>
 export const useCompleteTaskChecklistItemMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (id: string) => taskChecklistApi.completeItem(id).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Item marked complete',
         retryable: true,
         errorFallback: "Couldn't complete the item. Try again.",
@@ -398,7 +412,7 @@ export const useCompleteTaskChecklistItemMutation = (taskId: string) =>
 export const useDeleteTaskChecklistItemMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (id: string) => taskChecklistApi.deleteItem(id),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Item deleted',
         retryable: true,
         errorFallback: "Couldn't delete the item. Try again.",
@@ -408,7 +422,7 @@ export const useUploadTaskImagesMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: ({ itemId, files, captureMethod }: { itemId: string; files: File[]; captureMethod: CaptureMethod }) =>
             taskChecklistApi.uploadImages(itemId, files, captureMethod).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Photos uploaded',
         errorFallback: "Couldn't upload the photos. Try again.",
     });
@@ -416,7 +430,7 @@ export const useUploadTaskImagesMutation = (taskId: string) =>
 export const useDeleteTaskImageMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (id: string) => taskChecklistApi.deleteImage(id),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
+        invalidateKeys: [TASK_KEYS.detail(taskId), ['tasks']],
         successMessage: 'Photo deleted',
         retryable: true,
         errorFallback: "Couldn't delete the photo. Try again.",

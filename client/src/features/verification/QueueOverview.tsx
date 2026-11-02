@@ -16,6 +16,8 @@ interface QueueOverviewProps {
   onShowReady: () => void;
   onSortLowest: () => void;
   sortedLowest: boolean;
+  failed: boolean;
+  onRetry: () => void;
 }
 
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
@@ -23,7 +25,7 @@ const shareOf = (part: number, whole: number) => (whole <= 0 ? 100 : Math.max(0,
 const pct = (n: number) => `${Math.round(n)}%`;
 
 export const QueueOverview = memo(function QueueOverview({
-  loading, rows, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow, onShowReady, onSortLowest, sortedLowest,
+  loading, rows, now, partial, attentionActive, slowActive, onToggleAttention, onToggleSlow, onShowReady, onSortLowest, sortedLowest, failed, onRetry,
 }: QueueOverviewProps) {
   const stats = useMemo(() => {
     let needsLook = 0;
@@ -66,6 +68,8 @@ export const QueueOverview = memo(function QueueOverview({
           selected={attentionActive}
           onClick={onToggleAttention}
           compact
+          error={failed}
+          onRetry={onRetry}
         />
         <FigureCard
           label="Ready to approve"
@@ -76,6 +80,8 @@ export const QueueOverview = memo(function QueueOverview({
           bar={total === 0 ? null : (stats.clean / total) * 100}
           loading={false}
           compact
+          error={failed}
+          onRetry={onRetry}
           onClick={stats.clean > 0 ? onShowReady : undefined}
         />
         <FigureCard
@@ -89,6 +95,8 @@ export const QueueOverview = memo(function QueueOverview({
           selected={slowActive}
           onClick={onToggleSlow}
           compact
+          error={failed}
+          onRetry={onRetry}
         />
         <FigureCard
           label="Avg compliance"
@@ -100,6 +108,8 @@ export const QueueOverview = memo(function QueueOverview({
           bar={avg}
           loading={false}
           compact
+          error={failed}
+          onRetry={onRetry}
           selected={sortedLowest}
           onClick={avg === null ? undefined : onSortLowest}
         />

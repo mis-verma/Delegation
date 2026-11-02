@@ -28,7 +28,10 @@ describe("audit log read", () => {
     it("gives admin everything and PC only a single record", () => {
         expect(auditReadAllowed("ADMIN", {})).toBe(true)
         expect(auditReadAllowed("PC", {})).toBe(false)
-        expect(auditReadAllowed("PC", { entityId: "t1" })).toBe(true)
+        expect(auditReadAllowed("PC", { entityId: "t1" })).toBe(false)
+        expect(auditReadAllowed("PC", { entityId: "t1", entityType: "Ticket" })).toBe(true)
+        expect(auditReadAllowed("PC", { entityId: "t1", entityType: "Settings" })).toBe(false)
+        expect(auditReadAllowed("PC", { entityId: "t1", entityType: "User" })).toBe(false)
         expect(auditReadAllowed("PC", { entityId: "" })).toBe(false)
         expect(auditReadAllowed("MANAGER", { entityId: "t1" })).toBe(false)
     })

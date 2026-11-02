@@ -17,6 +17,8 @@ interface StatusFigureStatsProps<K extends string> {
   active: K | null;
   onToggle: (key: K) => void;
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   label: string;
 }
 
@@ -31,7 +33,7 @@ const toneOf = (kind: StatusKind, count: number): FigureTone => {
 
 const share = (count: number, total: number | undefined) => (total && total > 0 ? Math.min(100, (count / total) * 100) : null);
 
-export const StatusFigureStats = <K extends string>({ items, counts, total, active, onToggle, isLoading = false, label }: StatusFigureStatsProps<K>) => (
+export const StatusFigureStats = <K extends string>({ items, counts, total, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => (
   <div className="@container grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={label}>
     {items.map((item) => {
       const count = counts[item.key] ?? 0;
@@ -46,6 +48,8 @@ export const StatusFigureStats = <K extends string>({ items, counts, total, acti
           tint={TINT_OF[item.kind]}
           bar={share(count, total)}
           loading={isLoading}
+          error={error}
+          onRetry={onRetry}
           selected={active === item.key}
           onClick={() => onToggle(item.key)}
           compact

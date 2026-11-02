@@ -5,15 +5,19 @@ export type RoomTarget = {
     assigneeId?: string | null;
     departmentId?: string | null;
     storeId?: string | null;
+    extraUserIds?: string[];
+    extraDepartmentIds?: string[];
 };
 
 type Rooms = { private: string[]; shared: string[] };
 
 const roomsFor = (target: RoomTarget): Rooms => {
-    const privateRooms = new Set<string>(["role:ADMIN"]);
+    const privateRooms = new Set<string>(["role:ADMIN", "role:PC", "role:OWNER"]);
     const sharedRooms = new Set<string>();
     if (target.userId) privateRooms.add(`user:${target.userId}`);
     if (target.assigneeId) privateRooms.add(`user:${target.assigneeId}`);
+    target.extraUserIds?.forEach((id) => privateRooms.add(`user:${id}`));
+    target.extraDepartmentIds?.forEach((id) => sharedRooms.add(`department:${id}`));
     if (target.departmentId) sharedRooms.add(`department:${target.departmentId}`);
     if (target.storeId) sharedRooms.add(`store:${target.storeId}`);
     return { private: [...privateRooms], shared: [...sharedRooms] };

@@ -61,6 +61,8 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
     ...delegationRequests.map((t) => new Date(t.createdAt).getTime()),
   ];
   const oldest = oldestTimes.length ? Math.min(...oldestTimes) : null;
+  const loading = tasksQuery.isPending || boardQuery.isPending || allTasksQuery.isPending;
+  const failed = tasksQuery.isError || boardQuery.isError || allTasksQuery.isError;
 
   const approveTask = useCallback((id: string, title: string) => {
     schedule({ id, verb: 'Approved, sent to PC', label: title, run: approveTaskRun(id) });
@@ -79,21 +81,23 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
         />
       )}
 
-      <ul className="flex flex-wrap gap-2" aria-label="Summary">
-        <li><IconChip icon={UserCheck} tone="bg-primary-600" label={`${waitingTotal} waiting for you`} labelClassName="tabular-nums" /></li>
-        {oldest !== null && <li><IconChip icon={Clock} tone="bg-text-muted" label={`Oldest ${formatWaiting(oldest, now)}`} /></li>}
-        <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
-      </ul>
+      {!loading && !failed && (
+        <ul className="flex flex-wrap gap-2" aria-label="Summary">
+          <li><IconChip icon={UserCheck} tone="bg-primary-600" label={`${waitingTotal} waiting for you`} labelClassName="tabular-nums" /></li>
+          {oldest !== null && <li><IconChip icon={Clock} tone="bg-text-muted" label={`Oldest ${formatWaiting(oldest, now)}`} /></li>}
+          <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
+        </ul>
+      )}
 
-      {(tasksQuery.isPending || boardQuery.isPending || allTasksQuery.isPending) && (
+      {loading && (
         <div className="flex flex-col gap-3" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
       )}
 
-      {(tasksQuery.isError || boardQuery.isError || allTasksQuery.isError) && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void tasksQuery.refetch(); void boardQuery.refetch(); void allTasksQuery.refetch(); }} />}
+      {failed && <InlineError message="We couldn't load everything. Check your connection and try again." onRetry={() => { void tasksQuery.refetch(); void boardQuery.refetch(); void allTasksQuery.refetch(); }} />}
 
-      {!tasksQuery.isPending && !boardQuery.isPending && !allTasksQuery.isPending && !tasksQuery.isError && !boardQuery.isError && !allTasksQuery.isError && waitingTotal === 0 && (
+      {!loading && !failed && waitingTotal === 0 && (
         <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No requests or finished work are waiting for you. New items show up here as they come in." />
       )}
 

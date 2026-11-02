@@ -64,6 +64,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const navigate = useNavigate();
   const confirm = useConfirm();
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
+  const canSaveDraft = user?.role !== 'PC';
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const startsOnOwnDepartment = ownScopeOnly || user?.role === 'MANAGER';
   const mutation = useCreateTaskWithAttachmentsMutation();
@@ -278,23 +279,25 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
           <div className="min-w-0 sm:flex-1">{statusLine}</div>
 
-          <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3 shrink-0">
+          <div className={`grid ${canSaveDraft ? 'grid-cols-2' : 'grid-cols-1'} sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3 shrink-0`}>
             <Button type="button" variant="outline" size="sm" onClick={() => void cancel()} disabled={isBusy} className="hidden sm:inline-flex font-display">
               Cancel
             </Button>
-            <Button
-              type="submit"
-              form="task-form"
-              variant="outline"
-              size="sm"
-              onClick={() => setSaveAsDraft(true)}
-              disabled={isBusy}
-              isLoading={isDraftBusy}
-              className="font-display"
-            >
-              {!isDraftBusy && <FileEdit size={14} strokeWidth={2.5} />}
-              {isDraftBusy ? 'Saving…' : <><span className="sm:hidden">Draft</span><span className="hidden sm:inline">Save as draft</span></>}
-            </Button>
+            {canSaveDraft && (
+              <Button
+                type="submit"
+                form="task-form"
+                variant="outline"
+                size="sm"
+                onClick={() => setSaveAsDraft(true)}
+                disabled={isBusy}
+                isLoading={isDraftBusy}
+                className="font-display"
+              >
+                {!isDraftBusy && <FileEdit size={14} strokeWidth={2.5} />}
+                {isDraftBusy ? 'Saving…' : <><span className="sm:hidden">Draft</span><span className="hidden sm:inline">Save as draft</span></>}
+              </Button>
+            )}
             <Button
               type="submit"
               form="task-form"

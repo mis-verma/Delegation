@@ -126,11 +126,11 @@ export const ChecklistInstanceDetail = () => {
   const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceClosing(instance));
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
-  const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id);
+  const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id) && !(user.role === 'PC' && instance.coordinatorRun);
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
     !(user?.role === 'PC' && instance.coordinatorRun) &&
-    !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
+    !!user && (user.role === 'ADMIN' || !instance.assigneeIds.includes(user.id)) && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
     canWork && isComplete && !notYetOpen &&

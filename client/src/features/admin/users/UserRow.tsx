@@ -16,6 +16,7 @@ interface UserRowProps extends UserActionHandlers {
   online?: boolean;
   presenceText: string;
   selected: boolean;
+  selectable: boolean;
   busy: boolean;
   isSelf: boolean;
   onToggleSelect: (id: string) => void;
@@ -42,7 +43,7 @@ const Place = ({ icon: Icon, name, tone }: { icon: typeof Building2; name?: stri
   );
 
 const UserRowComponent = ({
-  user, departmentName, storeName, online, presenceText, selected, busy, isSelf, onToggleSelect,
+  user, departmentName, storeName, online, presenceText, selected, selectable, busy, isSelf, onToggleSelect,
   onEdit, onResetPassword, onDeactivate, onReactivate, onDelete,
 }: UserRowProps) => {
   const name = fullName(user);
@@ -69,10 +70,11 @@ const UserRowComponent = ({
         className={cn(CELL_CLASS, 'w-14 min-w-14 sticky left-0 z-10 border-l-[3px]', selected ? STICKY_SELECTED : STICKY_BG, user.isActive ? REACH_EDGE[ROLE_META[user.role].scope] : 'border-l-transparent')}
         onClick={(e) => e.stopPropagation()}
       >
-        <label className="flex items-center justify-center size-8 cursor-pointer">
+        <label className={cn('flex items-center justify-center size-8', selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
           <input
             type="checkbox"
-            checked={selected}
+            checked={selected && selectable}
+            disabled={!selectable}
             onChange={() => onToggleSelect(user.id)}
             aria-label={`Select ${name}`}
             className="size-4 rounded border-border accent-primary-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"

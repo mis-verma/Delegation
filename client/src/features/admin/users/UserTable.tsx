@@ -13,6 +13,7 @@ interface UserTableProps extends UserActionHandlers {
   storeNames: Map<string, string>;
   presenceById: Map<string, UserPresence>;
   selectedIds: Set<string>;
+  canSelect: (user: AdminUser) => boolean;
   busyId: string | null;
   selfId?: string;
   sort: UserSortKey;
@@ -48,11 +49,12 @@ const SortHeader = ({ label, active, dir, onClick }: { label: string; active: bo
 };
 
 const UserTableComponent = ({
-  users, departmentNames, storeNames, presenceById, selectedIds, busyId, selfId, sort, dir,
+  users, departmentNames, storeNames, presenceById, selectedIds, canSelect, busyId, selfId, sort, dir,
   onSort, onToggleSelect, onTogglePage, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete,
 }: UserTableProps) => {
-  const selectedOnPage = users.reduce((n, u) => n + (selectedIds.has(u.id) ? 1 : 0), 0);
-  const allSelected = users.length > 0 && selectedOnPage === users.length;
+  const selectable = users.filter(canSelect);
+  const selectedOnPage = selectable.reduce((n, u) => n + (selectedIds.has(u.id) ? 1 : 0), 0);
+  const allSelected = selectable.length > 0 && selectedOnPage === selectable.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
 
   const headCheckbox = useRef<HTMLInputElement>(null);
@@ -73,7 +75,7 @@ const UserTableComponent = ({
                   ref={headCheckbox}
                   type="checkbox"
                   checked={allSelected}
-                  onChange={() => onTogglePage(users.map((u) => u.id), !allSelected)}
+                  onChange={() => onTogglePage(selectable.map((u) => u.id), !allSelected)}
                   aria-label="Select everyone on this page"
                   className="size-4 rounded accent-primary-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 />
@@ -104,6 +106,7 @@ const UserTableComponent = ({
                 online={presence?.online}
                 presenceText={presenceLabel(presence)}
                 selected={selectedIds.has(u.id)}
+                selectable={canSelect(u)}
                 busy={busyId === u.id}
                 isSelf={u.id === selfId}
                 onToggleSelect={onToggleSelect}

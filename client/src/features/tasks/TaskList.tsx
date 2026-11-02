@@ -568,6 +568,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               onToggle={toggleQuickFilter}
               onClear={() => setQuickFilter(null)}
               isLoading={isPending}
+              error={isError && loadedTasks === undefined}
+              onRetry={() => void refetchTasks()}
             />
 
             {!userId && (user?.role === 'MANAGER' || user?.role === 'SENIOR') && (

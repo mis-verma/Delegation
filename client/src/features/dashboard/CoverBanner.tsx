@@ -6,7 +6,7 @@ import { useApprovalCoverQuery } from '../checklist/useApprovalCover';
 
 const COVER_ROLES = new Set(['ADMIN', 'PC', 'MANAGER', 'SENIOR']);
 
-const CoverBannerContent = () => {
+const CoverBannerContent = ({ to }: { to: string }) => {
   const cover = useApprovalCoverQuery();
   const active = (cover.data?.received ?? []).filter((row) => row.active);
   if (active.length === 0) return null;
@@ -16,7 +16,7 @@ const CoverBannerContent = () => {
 
   return (
     <Link
-      to="/tickets/approvals"
+      to={to}
       viewTransition
       className="group flex min-h-14 items-center gap-3 rounded-2xl border border-vivid-blue/30 bg-vivid-blue/8 px-3.5 py-2.5 outline-none transition-colors duration-150 hover:border-vivid-blue/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]"
     >
@@ -35,5 +35,5 @@ const CoverBannerContent = () => {
 export const CoverBanner = () => {
   const { user } = useAuth();
   if (!user || !COVER_ROLES.has(user.role)) return null;
-  return <CoverBannerContent />;
+  return <CoverBannerContent to={user.role === 'ADMIN' || user.role === 'PC' ? '/verify' : '/tickets/approvals'} />;
 };

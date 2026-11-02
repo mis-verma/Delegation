@@ -138,7 +138,8 @@ export const UserList = () => {
     ]),
   ];
 
-  const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && u.id !== me?.id), [filtered, selectedIds, me?.id]);
+  const canSelect = useCallback((u: AdminUser) => u.id !== me?.id && !(me?.role === 'PC' && (u.role === 'ADMIN' || u.role === 'OWNER')), [me?.id, me?.role]);
+  const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && canSelect(u)), [filtered, selectedIds, canSelect]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -277,6 +278,7 @@ export const UserList = () => {
             storeNames={storeNames}
             presenceById={presenceById}
             selectedIds={selectedIds}
+            canSelect={canSelect}
             busyId={busyId}
             selfId={me?.id}
             sort={list.sort}

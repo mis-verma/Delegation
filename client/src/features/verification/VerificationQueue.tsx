@@ -37,6 +37,7 @@ import { DAY_MS, UNASSIGNED, formatWaiting, type ChecklistRow } from './verifica
 
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
+const AUTO_LOAD_PAGES = 10;
 const NO_INSTANCES: ChecklistInstance[] = [];
 
 const focusRow = (id: string | null) => {
@@ -75,6 +76,11 @@ export const VerificationQueue = () => {
   const instances = useMemo(() => checklistQuery.data?.pages.flatMap((p) => p.data) ?? NO_INSTANCES, [checklistQuery.data]);
   const checklistTotal = checklistQuery.data?.pages[0]?.meta?.total ?? instances.length;
   const hasMore = !!checklistQuery.hasNextPage;
+  const loadedPages = checklistQuery.data?.pages.length ?? 0;
+  const { fetchNextPage, isFetchingNextPage, isFetchNextPageError } = checklistQuery;
+  useEffect(() => {
+    if (hasMore && !isFetchingNextPage && !isFetchNextPageError && loadedPages < AUTO_LOAD_PAGES) void fetchNextPage();
+  }, [hasMore, isFetchingNextPage, isFetchNextPageError, loadedPages, fetchNextPage]);
   const lookups = useQueueLookups();
   const allRows = useChecklistRows(instances, lookups);
 
@@ -287,9 +293,16 @@ export const VerificationQueue = () => {
   const dayTotal = reviewedCount === null ? 0 : reviewedCount + waitingTotal;
   const loadingTotals = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending;
 
+  const checklistsFailed = checklistQuery.isError && !checklistQuery.data;
+  const ticketsFailed = ticketsQuery.isError && !ticketsQuery.data;
+  const tasksFailed = tasksQuery.isError && !tasksQuery.data;
+  const anyFailed = checklistsFailed || ticketsFailed || tasksFailed;
+
   const subtitle = loadingTotals
     ? <span className="block h-4 w-56 skeleton-shimmer rounded-md bg-surface-active" aria-hidden />
-    : waitingTotal === 0
+    : anyFailed
+      ? 'Some lists did not load. Tap a card with a dash to try again.'
+      : waitingTotal === 0
       ? 'Nothing is waiting for your review'
       : `${waitingTotal} waiting for your review${oldestWaiting ? `. Oldest waiting: ${formatWaiting(oldestWaiting, now)}` : ''}`;
 
@@ -318,6 +331,11 @@ export const VerificationQueue = () => {
   const openDepartment = useCallback((id: string) => patch({ dept: id }, { replace: false }), [patch]);
   const clearDepartment = useCallback(() => patch({ dept: null }), [patch]);
   const retryAll = useCallback(() => { void ticketsQuery.refetch(); void tasksQuery.refetch(); }, [ticketsQuery, tasksQuery]);
+  const retryEverything = () => {
+    if (checklistsFailed) void checklistQuery.refetch();
+    if (ticketsFailed) void ticketsQuery.refetch();
+    if (tasksFailed) void tasksQuery.refetch();
+  };
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   return (
@@ -330,6 +348,8 @@ export const VerificationQueue = () => {
           loading={loadingTotals}
           stats={sectionStats}
           total={counts?.all ?? 0}
+          failed={{ checklists: checklistsFailed, tickets: ticketsFailed, delegations: tasksFailed }}
+          onRetry={retryEverything}
           onChange={(tab) => patch({ tab, open: null })}
         />
       )}
@@ -347,6 +367,8 @@ export const VerificationQueue = () => {
           onShowReady={() => document.getElementById('queue-ready')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
           onSortLowest={() => patch({ sort: params.sort === 'compliance' ? 'oldest' : 'compliance' })}
           sortedLowest={params.sort === 'compliance'}
+          failed={checklistsFailed}
+          onRetry={retryEverything}
         />
       )}
 

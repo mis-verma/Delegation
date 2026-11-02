@@ -219,30 +219,42 @@ export const useChecklistPendingApprovalQuery = (enabled = true, options?: Dashb
   });
 };
 
-export const useMyChecklistInstancesQuery = (
-  filter: {
-    status?: ChecklistInstanceStatus;
-    storeId?: string;
-    recurrence?: ChecklistRecurrence;
-    verificationStatus?: ChecklistVerificationStatus;
-    departmentId?: string;
-    assigneeIds?: string[];
-    from?: string;
-    to?: string;
-  } = {},
+type MyInstancesFilter = {
+  status?: ChecklistInstanceStatus;
+  storeId?: string;
+  recurrence?: ChecklistRecurrence;
+  verificationStatus?: ChecklistVerificationStatus;
+  departmentId?: string;
+  assigneeIds?: string[];
+  from?: string;
+  to?: string;
+};
+
+const myInstancesQuery = (filter: MyInstancesFilter, paging: { page?: number; limit?: number }) => ({
+  queryKey: [...KEYS.myInstances(filter.status), filter, paging],
+  queryFn: () => checklistInstanceApi.getMine(filter, paging),
+  retry: handleQueryRetry,
+  placeholderData: keepPreviousData,
+});
+
+export const useMyChecklistInstancesPageQuery = (
+  filter: MyInstancesFilter = {},
   paging: { page?: number; limit?: number } = {},
   options: DashboardQueryOptions & { enabled?: boolean } = {},
 ) => {
   const { token } = useAuth();
   const { enabled = true, ...queryOptions } = options;
-  return useQuery({
-    queryKey: [...KEYS.myInstances(filter.status), filter, paging],
-    queryFn: () => checklistInstanceApi.getMine(filter, paging).then(r => r.data),
-    enabled: !!token && enabled,
-    retry: handleQueryRetry,
-    placeholderData: keepPreviousData,
-    ...queryOptions,
-  });
+  return useQuery({ ...myInstancesQuery(filter, paging), enabled: !!token && enabled, ...queryOptions });
+};
+
+export const useMyChecklistInstancesQuery = (
+  filter: MyInstancesFilter = {},
+  paging: { page?: number; limit?: number } = {},
+  options: DashboardQueryOptions & { enabled?: boolean } = {},
+) => {
+  const { token } = useAuth();
+  const { enabled = true, ...queryOptions } = options;
+  return useQuery({ ...myInstancesQuery(filter, paging), select: (page) => page.data, enabled: !!token && enabled, ...queryOptions });
 };
 
 export const useMyFocusChecklistsQuery = (options: DashboardQueryOptions = {}) => {

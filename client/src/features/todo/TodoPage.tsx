@@ -34,7 +34,7 @@ export const TodoPage = () => {
   const [priority, setPriority] = useState<TodoPriorityFilter>('all');
   const [sort, setSort] = useState<TodoSortKey>('created');
   const [search, setSearch] = useState('');
-  const { data: allTodos = [], isPending } = useTodosQuery();
+  const { data: allTodos = [], isPending, isError, refetch, dataUpdatedAt } = useTodosQuery();
   const createdRange = useCreatedRange();
   const dueRange = useDueRange();
   const rangeFilter = useMemo(
@@ -89,6 +89,8 @@ export const TodoPage = () => {
         onToggle={toggleQuickFilter}
         onClear={() => setQuickFilter(null)}
         isLoading={isPending}
+        error={isError && dataUpdatedAt === 0}
+        onRetry={() => void refetch()}
       />
 
       <div className="flex items-start gap-2 max-sm:hidden">

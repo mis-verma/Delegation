@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../../api/auth';
-import { useMyChecklistInstancesQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
+import { useMyChecklistInstancesPageQuery, useMyFocusChecklistsQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 import { toFilterPeople } from '../../../lib/filterPeople';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
@@ -60,6 +60,7 @@ const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
 };
 
 const PAGE_SIZE = 50;
+const NO_INSTANCES: ChecklistInstance[] = [];
 const SEND_BACK_GRACE_MS = 2 * 60 * 60 * 1000;
 
 const NARROW_QUERY = '(max-width: 639px)';
@@ -174,7 +175,11 @@ export const MyChecklists = () => {
     from: rangeFrom ?? (quickFilter === 'completed' ? windowTo : quickFilter ? windowFrom : undefined),
     to: rangeTo ?? (quickFilter ? windowTo : undefined),
   };
-  const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
+  const { data: instancePage, isPending, isError, refetch } = useMyChecklistInstancesPageQuery(instanceFilter, { page, limit: PAGE_SIZE });
+  const allInstances = instancePage?.data ?? NO_INSTANCES;
+  const { data: focusRuns } = useMyFocusChecklistsQuery();
+  const serverPages = instancePage?.meta.totalPages;
+  if (serverPages !== undefined && page > Math.max(1, serverPages)) setPage(Math.max(1, serverPages));
 
   const activeOptionsCount = (storeId ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
 
@@ -194,7 +199,7 @@ export const MyChecklists = () => {
 
   const clearAllFilters = () => { clearOptions(); setQuickFilter(null); };
 
-  const { data: summary, isPending: summaryIsPending } = useChecklistInstanceSummaryQuery({
+  const { data: summary, isPending: summaryIsPending, isError: summaryIsError, refetch: refetchSummary } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
@@ -204,7 +209,7 @@ export const MyChecklists = () => {
     from: windowFrom,
     to: windowTo,
   });
-  const { data: todaySummary, isPending: todaySummaryIsPending } = useChecklistInstanceSummaryQuery({
+  const { data: todaySummary, isPending: todaySummaryIsPending, isError: todaySummaryIsError, refetch: refetchTodaySummary } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
@@ -215,6 +220,8 @@ export const MyChecklists = () => {
     to: windowTo,
   });
   const summaryPending = summaryIsPending || todaySummaryIsPending;
+  const summaryFailed = (summaryIsError && !summary) || (todaySummaryIsError && !todaySummary);
+  const retrySummaries = () => { void refetchSummary(); void refetchTodaySummary(); };
   const counts = useMemo<MyChecklistsQuickFilterCounts>(() => ({
     pending: summary?.pending ?? 0,
     completed: todaySummary?.completed ?? 0,
@@ -251,13 +258,7 @@ export const MyChecklists = () => {
   const missedCount = Math.max(0, counts.overdue - lateNowCount);
   const shownCounts = useMemo(() => ({ ...counts, overdue: missedCount }), [counts, missedCount]);
 
-  const matchingTotal =
-    quickFilter === 'pending' ? counts.pending
-    : quickFilter === 'completed' ? counts.completed
-    : quickFilter === 'due' ? counts.due
-    : quickFilter === 'overdue' ? counts.overdue
-    : (summary?.total ?? 0);
-  const totalPages = Math.max(1, Math.ceil(matchingTotal / PAGE_SIZE));
+  const totalPages = Math.max(1, serverPages ?? 1);
 
   const grouped = useMemo(() => {
     if (view !== 'list') return [];
@@ -280,12 +281,14 @@ export const MyChecklists = () => {
   }, [view, sinkedInstances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
 
   const sendBack = useMemo(() => {
-    const rejected = allInstances.filter((i) => i.verificationStatus === 'REJECTED');
+    const rejectedById = new Map<string, ChecklistInstance>();
+    for (const i of [...(focusRuns ?? []), ...allInstances]) if (i.verificationStatus === 'REJECTED') rejectedById.set(i.id, i);
+    const rejected = [...rejectedById.values()];
     const locked = rejected.some((i) => !!i.sentBackAt && now - new Date(i.sentBackAt).getTime() >= SEND_BACK_GRACE_MS);
     const fixTimes = rejected.map((i) => (i.sentBackFixBy ? new Date(i.sentBackFixBy).getTime() : null)).filter((t): t is number => t !== null && Number.isFinite(t));
     const fixBy = fixTimes.length ? Math.min(...fixTimes) : null;
     return { count: rejected.length, firstId: rejected[0]?.id ?? '', locked, fixBy };
-  }, [allInstances, now]);
+  }, [allInstances, focusRuns, now]);
 
   const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
 
@@ -295,7 +298,7 @@ export const MyChecklists = () => {
       <div className="flex flex-col gap-3">
         <h1 className="sr-only">My Checklists</h1>
         <div className="flex items-center gap-1.5 t-meta sm:t-card font-display text-text-muted">
-          {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
+          {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : todaySummaryIsError ? <span className="font-semibold text-text-light">-</span> : <Skeleton className="h-4 w-5" />}
           assigned to you today
         </div>
 
@@ -355,6 +358,9 @@ export const MyChecklists = () => {
           onToggle={toggleQuickFilter}
           onClear={clearQuickFilter}
           isLoading={summaryPending}
+          total={summary?.total}
+          error={summaryFailed}
+          onRetry={retrySummaries}
         />
         {summary && (
           <p className="t-meta font-display text-text-muted">

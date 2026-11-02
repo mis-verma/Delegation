@@ -131,10 +131,16 @@ export const NotificationSettings = () => {
         title="Morning summary"
         hint="One message at 9 AM saying how many updates are waiting, only on days you have some."
       >
-        <div className="flex items-center justify-between gap-4">
-          <label htmlFor="digest-switch" className="t-card font-display font-semibold text-text">Send me a morning summary</label>
-          <Switch id="digest-switch" checked={p?.morningDigest ?? false} disabled={!p || !serverReady} onChange={(on) => update({ morningDigest: on })} />
-        </div>
+        {prefs.isPending ? (
+          <Skeleton className="h-11 w-full rounded-xl" />
+        ) : prefs.isError ? (
+          <InlineError message="Couldn't load your preferences." onRetry={() => void prefs.refetch()} />
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <label htmlFor="digest-switch" className="t-card font-display font-semibold text-text">Send me a morning summary</label>
+            <Switch id="digest-switch" checked={p?.morningDigest ?? false} disabled={!p || !serverReady} onChange={(on) => update({ morningDigest: on })} />
+          </div>
+        )}
       </SettingsCard>
     </>
   );

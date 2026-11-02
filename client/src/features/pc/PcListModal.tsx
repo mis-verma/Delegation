@@ -122,10 +122,11 @@ export const PcListModal = ({ open, onClose, title, description, icon: Icon, ite
   const [activeKey, setActiveKey] = useState(defaultFilter ?? 'all');
 
   const counts = useMemo(() => new Map(filters.map((f) => [f.key, items.filter(f.test).length])), [filters, items]);
+  const filterKey = activeKey !== 'all' && (counts.get(activeKey) ?? 0) === 0 ? 'all' : activeKey;
   const shown = useMemo(() => {
-    const active = filters.find((f) => f.key === activeKey);
+    const active = filters.find((f) => f.key === filterKey);
     return active ? items.filter(active.test) : items;
-  }, [filters, items, activeKey]);
+  }, [filters, items, filterKey]);
 
   const open_ = (link: string) => {
     onClose();
@@ -161,14 +162,14 @@ export const PcListModal = ({ open, onClose, title, description, icon: Icon, ite
       )}
       draggable
     >
-      {(summary || visibleFilters.length > 1) && (
+      {(summary || visibleFilters.length > 1 || filterKey !== 'all') && (
         <div className="flex flex-col gap-2">
           {summary && <div className="flex flex-wrap items-center gap-1.5">{summary}</div>}
-          {visibleFilters.length > 1 && (
+          {(visibleFilters.length > 1 || filterKey !== 'all') && (
             <div role="group" aria-label="Filter the list" className="flex flex-wrap gap-1.5">
-              <ToggleChip on={activeKey === 'all'} onClick={() => setActiveKey('all')}>All {items.length}</ToggleChip>
+              <ToggleChip on={filterKey === 'all'} onClick={() => setActiveKey('all')}>All {items.length}</ToggleChip>
               {visibleFilters.map((f) => (
-                <ToggleChip key={f.key} on={activeKey === f.key} onClick={() => setActiveKey(f.key)}>{f.label} {counts.get(f.key)}</ToggleChip>
+                <ToggleChip key={f.key} on={filterKey === f.key} onClick={() => setActiveKey(f.key)}>{f.label} {counts.get(f.key)}</ToggleChip>
               ))}
             </div>
           )}

@@ -12,7 +12,7 @@ import { bucketCondition, optionConditions, scopeConditions, taskListCounts, tas
 import { resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import { ticketNeedsHeadApproval, type ApprovalStage } from "../tickets/ticketApproval.js"
 import {
-    additionalAssigneeIdsOf, applyApprovalPlan, approvalBlockers, approvalRowsOf, approvalsByTask, approvalsOf, approveCompletion, canApproveNow, canDecideOnAssignment,
+    additionalAssigneeIdsByTask, additionalAssigneeIdsOf, applyApprovalPlan, approvalBlockers, approvalRowsOf, approvalsByTask, approvalsOf, approveCompletion, canApproveNow, canDecideOnAssignment,
     clearCompletion, completionPendingDepartments, countCompletionPending, countPending, departmentsNeedingApproval, departmentsNeedingCompletion, headDepartmentOf,
     involvedDepartmentIds, markApproved, pendingDepartmentsFor, planApprovalRows, startCompletion, type ApprovalPlan,
 } from "./taskDepartmentApprovals.js"
@@ -133,11 +133,13 @@ export const taskService = {
         const taskIds = rows.map((t) => t.id);
         const decisionPeople = await peopleByIds([...new Set(rows.flatMap((t) => [t.assignmentApprovedBy, t.declinedBy]).filter((v): v is string => !!v))]);
         const approvalMap = await approvalsByTask(taskIds);
-        const [attachmentRows, tagMap] = await Promise.all([
+        const [attachmentRows, tagMap, coAssigneeMap, reviewerMap] = await Promise.all([
             db.select({ taskId: taskAttachments.taskId, url: taskAttachments.url, mimeType: taskAttachments.mimeType })
                 .from(taskAttachments)
                 .where(inArray(taskAttachments.taskId, taskIds)),
             tagsByTask(taskIds),
+            additionalAssigneeIdsByTask(taskIds),
+            reviewersByTask(taskIds),
         ]);
         const attachmentsByTask = new Map<string, { url: string; mimeType: string }[]>();
         for (const a of attachmentRows) {
@@ -172,6 +174,8 @@ export const taskService = {
                 ...task,
                 attachments: attachmentsByTask.get(task.id) ?? [],
                 tags: tagMap.get(task.id) ?? [],
+                additionalAssigneeIds: coAssigneeMap.get(task.id) ?? [],
+                reviewers: reviewerMap.get(task.id) ?? [],
                 assignmentApprover: task.assignmentApprovedBy ? decisionPeople.get(task.assignmentApprovedBy) ?? null : null,
                 decliner: task.declinedBy ? decisionPeople.get(task.declinedBy) ?? null : null,
                 departmentApprovals: approvalMap.get(task.id) ?? [],
@@ -289,6 +293,7 @@ export const taskService = {
             attachments,
             tags: (await tagsByTask([task.id])).get(task.id) ?? [],
             reviewers: (await reviewersByTask([task.id])).get(task.id) ?? [],
+            additionalAssigneeIds: await additionalAssigneeIdsOf(task.id),
             ...(await approverNames(task)),
             departmentApprovals: await approvalsOf(task.id),
             statusUpdates: await loadStatusUpdates(task.id),
@@ -351,7 +356,7 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: task.id, action: "CREATE", actorId: user.sub, after: task });
         await dropTaskSummaries();
 
-        return { ...task, departmentApprovals: needsHead ? await approvalsOf(task.id) : [] };
+        return { ...task, additionalAssigneeIds: additionalAssigneeIds ?? [], departmentApprovals: needsHead ? await approvalsOf(task.id) : [] };
     },
 
     async update(id: string, input: UpdateTaskInput, user: AccessTokenPayload) {
@@ -676,6 +681,7 @@ export const taskService = {
             ...task,
             tags: (await tagsByTask([id])).get(id) ?? [],
             reviewers: (await reviewersByTask([id])).get(id) ?? [],
+            additionalAssigneeIds: currentAdditionalIds,
             ...(await approverNames(task)),
             departmentApprovals: await approvalsOf(id),
             statusUpdates: await loadStatusUpdates(id),
@@ -797,7 +803,7 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: id, action: "VERIFY", actorId: user.sub, after: updated });
         await dropTaskSummaries();
 
-        return { ...updated!, ...(await approverNames(updated!)), departmentApprovals: await approvalsOf(id), statusUpdates: await loadStatusUpdates(id) };
+        return { ...updated!, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated!)), departmentApprovals: await approvalsOf(id), statusUpdates: await loadStatusUpdates(id) };
     },
 
     async approveAssignment(id: string, user: AccessTokenPayload) {
@@ -843,7 +849,7 @@ export const taskService = {
                 additionalAssigneeIds,
             }, user.sub));
         }
-        return { ...updated, ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
+        return { ...updated, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
     },
 
     async decline(id: string, reason: string, user: AccessTokenPayload) {
@@ -876,7 +882,7 @@ export const taskService = {
             assigneeId: updated.assigneeId,
             additionalAssigneeIds,
         }, note, user.sub));
-        return { ...updated, ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
+        return { ...updated, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
     },
 
     async reopenDeclined(id: string, user: AccessTokenPayload) {
@@ -922,7 +928,7 @@ export const taskService = {
                 additionalAssigneeIds,
             }, user.sub));
         }
-        return { ...updated, ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
+        return { ...updated, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
     },
 
     async remove(id: string, user: AccessTokenPayload) {

@@ -211,7 +211,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
         children: [
           ...(seesSmartDelegations ? [SMART_DELEGATIONS_CHILD] : []),
           ...(isPC ? [PENDING_APPROVALS_CHILD] : []),
-          ...TASK_CHILDREN,
+          ...(isPC ? [] : TASK_CHILDREN),
           ...(isPC || isAdmin ? TASK_ADMIN_CHILDREN : []),
         ],
       };

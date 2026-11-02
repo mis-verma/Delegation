@@ -105,6 +105,6 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
     return <button type="button" onClick={onRetry} aria-label={`${label}, couldn't load. Tap to try again`} className={cn(box, ACTION, 'border-danger/30')}>{body}</button>;
   }
   if (to) return <Link to={to} viewTransition aria-label={label} className={cn(box, ACTION)}>{body}</Link>;
-  if (onClick) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && !tinted && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
+  if (onClick && !loading) return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(box, ACTION, selected && !tinted && 'border-primary-500/60 bg-primary-500/8')}>{body}</button>;
   return <div className={box}>{body}</div>;
 };

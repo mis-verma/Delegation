@@ -11,6 +11,8 @@ interface QueueSectionsProps {
   loading: boolean;
   stats: Record<QueueSection, SectionStats>;
   total: number;
+  failed: Record<QueueSection, boolean>;
+  onRetry: () => void;
   onChange: (tab: QueueTab) => void;
 }
 
@@ -23,7 +25,7 @@ const toneOf = (count: number, late: number): FigureTone => {
   return share >= GOOD_FROM ? 'good' : share >= FAIR_FROM ? 'fair' : 'bad';
 };
 
-export const QueueSections = memo(function QueueSections({ tab, loading, stats, total, onChange }: QueueSectionsProps) {
+export const QueueSections = memo(function QueueSections({ tab, loading, stats, total, failed, onRetry, onChange }: QueueSectionsProps) {
   if (loading) {
     return (
       <div className="grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4" role="status" aria-label="Loading sections">
@@ -32,6 +34,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
     );
   }
   const everythingLate = SECTIONS.reduce((n, s) => n + stats[s].late, 0);
+  const anyFailed = SECTIONS.some((s) => failed[s]);
   return (
     <nav aria-label="Review sections" className="@container grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4">
       <FigureCard
@@ -43,6 +46,8 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
         loading={false}
         selected={tab === 'all'}
         compact
+        error={anyFailed}
+        onRetry={onRetry}
         onClick={() => onChange('all')}
       />
       {SECTIONS.map((section) => {
@@ -58,6 +63,8 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
             loading={false}
             selected={tab === section}
             compact
+            error={failed[section]}
+            onRetry={onRetry}
             onClick={() => onChange(tab === section ? 'all' : section)}
           />
         );

@@ -135,7 +135,7 @@ export const NeedsApprovalCard = () => {
   const failedSources = [
     (reviewsAllWork || isHod) && tickets.isError && { label: 'tickets', retry: () => void tickets.refetch() },
     (reviewsAllWork || isHod) && tasks.isError && { label: 'delegations', retry: () => void tasks.refetch() },
-    (reviewsAllWork || isHod) && checklists.isError && { label: 'checklists', retry: () => void checklists.refetch() },
+    checklists.isError && { label: 'checklists', retry: () => void checklists.refetch() },
   ].filter(Boolean) as { label: string; retry: () => void }[];
 
   const nothingToShow = rows.length === 0;

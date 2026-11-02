@@ -56,6 +56,22 @@ const assertCanManage = (user: AccessTokenPayload, ticket: { userId: string }) =
 const assertCanComplete = (user: AccessTokenPayload, item: Pick<ChecklistItemRow, 'assigneeId' | 'checklistId'>) =>
   assertCanWorkTicketChecklistItem(user, item, 'Only the assigned person can complete this item');
 
+const announceForTicket = async (ticketId: string, payload: unknown) => {
+  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+  if (!ticket) return;
+  emitTicketEvent('checklistItem:updated', {
+    userId: ticket.userId,
+    assigneeId: ticket.assigneeId ?? null,
+    departmentId: ticket.departmentId ?? null,
+    storeId: ticket.storeId ?? null,
+  }, payload);
+};
+
+const announceChecklistChange = async (checklistId: string, payload: unknown) => {
+  const [checklist] = await db.select({ ticketId: checklists.ticketId }).from(checklists).where(eq(checklists.id, checklistId)).limit(1);
+  if (checklist) await announceForTicket(checklist.ticketId, payload);
+};
+
 export const checklistService = {
   async addToTicket(ticketId: string, input: CreateChecklistInput, user: AccessTokenPayload) {
     await assertTicketOpenForChecklists(ticketId, user);
@@ -76,6 +92,7 @@ export const checklistService = {
         })),
       );
     }
+    await announceChecklistChange(id, { id });
     return getChecklistWithItems(id);
   },
 
@@ -107,6 +124,7 @@ export const checklistService = {
       );
     }
 
+    await announceChecklistChange(id, { id });
     return getChecklistWithItems(id);
   },
 
@@ -123,6 +141,7 @@ export const checklistService = {
       await tx.delete(checklistItems).where(eq(checklistItems.checklistId, id));
       await tx.delete(checklists).where(eq(checklists.id, id));
     });
+    await announceForTicket(checklist.ticketId, { id });
     return checklist;
   },
 
@@ -181,6 +200,7 @@ export const checklistService = {
       .where(eq(checklistItems.id, itemId));
 
     const [updated] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
+    await announceChecklistChange(item.checklistId, updated);
     return updated;
   },
 
@@ -192,6 +212,7 @@ export const checklistService = {
 
     await db.update(checklistItems).set({ remarks, updatedAt: new Date() }).where(eq(checklistItems.id, itemId));
     const [updated] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
+    await announceChecklistChange(item.checklistId, updated);
     return updated;
   },
 
@@ -200,6 +221,7 @@ export const checklistService = {
     if (!item) throw AppError.notFound('Checklist item not found');
     await db.delete(checklistImages).where(eq(checklistImages.checklistItemId, item.id));
     await db.delete(checklistItems).where(eq(checklistItems.id, id));
+    await announceChecklistChange(item.checklistId, item);
     return item;
   },
 };

@@ -203,6 +203,8 @@ export const TicketList = () => {
           onToggle={organizer.toggleQuickFilter}
           onClear={organizer.clearQuickFilter}
           isLoading={isPending}
+          error={isError && (paged ? !pageQuery.data : !boardQuery.data)}
+          onRetry={() => void refetch()}
         />
 
         <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap min-w-0">
