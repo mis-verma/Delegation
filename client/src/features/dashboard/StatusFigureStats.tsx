@@ -1,4 +1,5 @@
-import { FigureCard, type FigureTint, type FigureTone } from './FigureCard';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '../../components/skeleton';
 
 export type StatusKind = 'pending' | 'completed' | 'due' | 'late';
 
@@ -8,6 +9,7 @@ export interface StatusFigureItem<K extends string> {
   label: string;
   short?: string;
   help: string;
+  note?: string;
 }
 
 interface StatusFigureStatsProps<K extends string> {
@@ -22,39 +24,44 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const TINT_OF: Record<StatusKind, FigureTint> = { pending: 'sky', completed: 'green', due: 'blue', late: 'red' };
+const CELL = 'flex min-h-20 min-w-0 cursor-pointer flex-col justify-center gap-1 bg-surface px-4 py-3 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:px-6 sm:py-4';
 
-const toneOf = (kind: StatusKind, count: number): FigureTone => {
-  if (kind === 'late') return count > 0 ? 'bad' : 'good';
-  if (kind === 'completed') return count > 0 ? 'good' : 'plain';
-  if (kind === 'pending') return count === 0 ? 'good' : 'plain';
-  return 'plain';
+export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
+  const failed = error && !isLoading;
+  return (
+    <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-4" role="group" aria-label={label}>
+      {items.map((item) => {
+        const count = counts[item.key] ?? 0;
+        const selected = active === item.key && !failed;
+        const alert = item.kind === 'late' && count > 0 && !failed && !isLoading;
+        const retry = failed && !!onRetry;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={retry ? onRetry : () => onToggle(item.key)}
+            aria-pressed={retry ? undefined : selected}
+            aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
+            title={failed ? "Couldn't load. Tap to try again." : item.help}
+            className={cn(CELL, selected && 'bg-surface-hover ring-2 ring-inset ring-text')}
+          >
+            <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
+              <span className="sm:hidden">{item.short ?? item.label}</span>
+              <span className="hidden sm:inline">{item.label}</span>
+            </span>
+            <span className="flex min-h-9 items-center sm:min-h-11">
+              {isLoading ? (
+                <Skeleton className="h-7 w-14" />
+              ) : (
+                <span className={cn('font-display text-3xl font-bold leading-none tabular-nums sm:text-4xl', failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
+                  {failed ? '-' : count}
+                </span>
+              )}
+            </span>
+            {item.note && <span className="truncate t-meta text-text-light">{item.note}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
 };
-
-const share = (count: number, total: number | undefined) => (total && total > 0 ? Math.min(100, (count / total) * 100) : null);
-
-export const StatusFigureStats = <K extends string>({ items, counts, total, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => (
-  <div className="@container grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={label}>
-    {items.map((item) => {
-      const count = counts[item.key] ?? 0;
-      return (
-        <FigureCard
-          key={item.key}
-          label={item.label}
-          short={item.short}
-          help={item.help}
-          value={count}
-          tone={toneOf(item.kind, count)}
-          tint={TINT_OF[item.kind]}
-          bar={share(count, total)}
-          loading={isLoading}
-          error={error}
-          onRetry={onRetry}
-          selected={active === item.key}
-          onClick={() => onToggle(item.key)}
-          compact
-        />
-      );
-    })}
-  </div>
-);
