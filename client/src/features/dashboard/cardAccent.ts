@@ -1,17 +1,21 @@
 export type CardAccent = 'blue' | 'sky' | 'green' | 'red' | 'violet';
 
+const GOLD_BAR = 'border-t-2 border-t-gold';
+
 export const CARD_TOP_BAR: Record<CardAccent, string> = {
-  blue: 'border-t-[3px] border-t-vivid-blue',
-  sky: 'border-t-[3px] border-t-vivid-sky',
-  green: 'border-t-[3px] border-t-vivid-green',
-  red: 'border-t-[3px] border-t-vivid-red',
-  violet: 'border-t-[3px] border-t-coral-500',
+  blue: GOLD_BAR,
+  sky: GOLD_BAR,
+  green: GOLD_BAR,
+  red: 'border-t-2 border-t-vivid-red',
+  violet: GOLD_BAR,
 };
 
+const HEAD_TINT = 'bg-primary-800/[0.03] dark:bg-primary-300/[0.05]';
+
 export const CARD_HEAD_TINT: Record<CardAccent, string> = {
-  blue: 'bg-vivid-blue/5',
-  sky: 'bg-vivid-sky/5',
-  green: 'bg-vivid-green/5',
+  blue: HEAD_TINT,
+  sky: HEAD_TINT,
+  green: HEAD_TINT,
   red: 'bg-vivid-red/5',
-  violet: 'bg-coral-500/5',
+  violet: HEAD_TINT,
 };

@@ -2,20 +2,9 @@ import { useMemo, type KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils';
 import type { MatrixCell, MatrixResponse } from '../../../../api/scores';
 import { formatPct, roundPct } from '../../../../lib/percent';
-import { FAIR_FROM, GOOD_FROM } from '../../../../lib/scoreBands';
-import { TONE_COLOR, toneOf } from './vivid';
+import { HEAT_KEY, heatFill, heatLook } from '../../../../lib/heatScale';
 import { bucketShortLabel, bucketTitle, PERIOD_NOUN } from './biTimeUtils';
 import { cellDue, cellValue, measureLabel, moduleTitle, type BiMeasure, type BiModule, type DetailRow } from './biMetrics';
-
-const heatBackground = (value: number): string => {
-  const tone = toneOf(value);
-  const strength = tone === 'danger'
-    ? 0.6 - 0.3 * (value / FAIR_FROM)
-    : tone === 'warning'
-      ? 0.25 + 0.1 * ((value - FAIR_FROM) / (GOOD_FROM - FAIR_FROM))
-      : 0.25 + 0.35 * ((value - GOOD_FROM) / (100 - GOOD_FROM));
-  return `color-mix(in srgb, ${TONE_COLOR[tone]} ${Math.round(strength * 100)}%, transparent)`;
-};
 
 interface HeatRow extends DetailRow {
   cells: (MatrixCell | null)[];
@@ -102,11 +91,11 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                         aria-haspopup="dialog"
                         aria-label={`${row.name}, ${bucket ? bucketTitle(period, bucket) : ''}: ${value === null ? 'nothing due' : formatPct(value)}. Open the details.`}
                         onClick={() => onOpen(row, c)}
-                        style={value === null ? undefined : { background: heatBackground(value) }}
+                        style={value === null ? undefined : heatLook(value)}
                         className={cn(
                           'flex h-9 w-full min-w-8 items-center justify-center rounded-md t-meta font-display font-bold tabular-nums outline-none cursor-pointer sm:h-10 lg:h-11 pointer-coarse:h-11',
                           'focus-visible:ring-2 focus-visible:ring-primary-500/60',
-                          value === null ? 'bg-surface-hover/50 text-text-muted' : 'text-text',
+                          value === null && 'bg-surface-hover/50 text-text-muted',
                         )}
                       >
                         {value === null ? '-' : Math.round(value)}
@@ -121,9 +110,9 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted" aria-label="Colour key">
-        {([['Low', 20], ['Fair', 65], ['Good', 95]] as const).map(([label, sample]) => (
-          <span key={label} className="inline-flex items-center gap-1.5">
-            <span className="size-3.5 rounded" style={{ background: heatBackground(sample) }} aria-hidden="true" />
+        {HEAT_KEY.map(({ level, label }) => (
+          <span key={level} className="inline-flex items-center gap-1.5">
+            <span className="size-3.5 rounded-sm" style={{ background: heatFill(level) }} aria-hidden="true" />
             {label}
           </span>
         ))}

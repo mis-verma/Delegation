@@ -13,7 +13,7 @@ import {
 const KIND_ACCENT: Record<StreakKind, CardAccent> = { checklist: 'green', ticket: 'sky', delegation: 'blue', all: 'violet' };
 
 const KIND_TILE: Record<StreakKind, string> = {
-  checklist: 'bg-vivid-green',
+  checklist: 'bg-primary-800',
   ticket: 'bg-vivid-sky',
   delegation: 'bg-vivid-blue',
   all: 'bg-vivid-blue',
@@ -122,10 +122,9 @@ export const StreakGoalCard = () => {
                   key={d.date}
                   title={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : formatPct(d.value)}`}
                   aria-label={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : `${formatPct(d.value)}, ${state === 'met' ? 'goal met' : 'below the goal'}`}`}
+                  style={state === 'met' ? { background: 'var(--heat-high)', color: 'var(--heat-high-ink)' } : state === 'missed' ? { background: 'var(--heat-low)', color: 'var(--heat-low-ink)' } : undefined}
                   className={cn(
-                    'flex h-12 flex-col items-center justify-center rounded-lg font-display leading-none',
-                    state === 'met' && 'bg-vivid-green text-on-vivid',
-                    state === 'missed' && 'bg-vivid-red text-white dark:text-on-vivid',
+                    'flex h-12 flex-col items-center justify-center rounded-md font-display leading-none',
                     state === 'none' && 'bg-surface-hover text-text-muted',
                   )}
                 >
@@ -136,8 +135,8 @@ export const StreakGoalCard = () => {
             })}
           </ol>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted" aria-hidden="true">
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded bg-vivid-green" />Goal met</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded bg-vivid-red" />Below goal</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-sm" style={{ background: 'var(--heat-high)' }} />Goal met</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-sm" style={{ background: 'var(--heat-low)' }} />Below goal</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded bg-surface-hover" />Nothing due</span>
           </div>
         </div>
