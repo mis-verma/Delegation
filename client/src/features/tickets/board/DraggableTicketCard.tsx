@@ -14,7 +14,7 @@ export interface DraggableTicketCardProps {
 
 export const DraggableTicketCard = ({ ticket, onOpen, departmentName }: DraggableTicketCardProps) => {
   const { user } = useAuth();
-  const movable = canChangeTicket(user, ticket);
+  const movable = canChangeTicket(user, ticket) && !ticket.awaitingHeadApproval;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: ticket.id, disabled: !movable });
   const pressOrigin = useRef<{ x: number; y: number } | null>(null);
 

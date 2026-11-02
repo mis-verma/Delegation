@@ -6,8 +6,9 @@ export const canChangeTicket = (
   ticket: Pick<Ticket, 'assigneeId' | 'userId' | 'departmentId' | 'storeId'> & Partial<Pick<Ticket, 'declinedAt' | 'awaitingHeadApproval'>>,
 ): boolean => {
   if (!user) return false;
-  if (ticket.declinedAt || ticket.awaitingHeadApproval) return false;
+  if (ticket.declinedAt) return false;
   if (user.role === 'ADMIN' || user.role === 'PC') return true;
+  if (ticket.awaitingHeadApproval) return false;
   if (user.role === 'AGENT' || user.role === 'USER') return ticket.assigneeId === user.id || ticket.userId === user.id;
   const sameStore = !!user.storeId && ticket.storeId === user.storeId;
   if (user.role === 'MANAGER') return sameStore || (!!user.departmentId && ticket.departmentId === user.departmentId);

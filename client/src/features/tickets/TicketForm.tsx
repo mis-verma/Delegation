@@ -203,6 +203,19 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     }
   }, [getValues, setValue, swapCategoryLabels]);
 
+  const seededAutoFill = useRef(false);
+  useEffect(() => {
+    if (seededAutoFill.current || !selectedCategory) return;
+    seededAutoFill.current = true;
+    autoLabelIds.current = (selectedCategory.tags ?? []).map(t => t.id);
+    if (getValues('title') === selectedCategory.name) autoTitle.current = selectedCategory.name;
+    const template = `Problem: ${selectedCategory.name}
+Where: 
+Since when: 
+Who is affected: `;
+    if (getValues('description') === template) autoDescription.current = template;
+  }, [selectedCategory, getValues]);
+
   const selectCategory = (id: string) => {
     const category = categories?.find(c => c.id === id);
     if (category) applyCategory(category);
@@ -571,6 +584,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
         setValue('assignmentMode', m, { shouldDirty: true });
         if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
         if (m === 'MANUAL') {
+          swapCategoryLabels([]);
           setValue('categoryId', '', { shouldDirty: true });
           setValue('assigneeId', '', { shouldDirty: true });
           clearAutoFill();

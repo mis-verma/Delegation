@@ -21,7 +21,7 @@ import { notificationService, notifySafely } from "../notifications/notification
 import { settingsService } from "../settings/settings.service.js"
 import { canApproveAssignment, isDepartmentHead, resolveGateDepartment, ticketNeedsHeadApproval } from "./ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/roles.js"
-import { type TicketRow, NOT_DELETED, deriveTatDueAt, overdueAtHandOver } from "./ticketShared.js"
+import { type TicketRow, NOT_DELETED, assertAssignableUser, deriveTatDueAt, overdueAtHandOver } from "./ticketShared.js"
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
@@ -63,6 +63,7 @@ export const ticketService = {
     if (from) conditions.push(gte(dateColumn, new Date(from)))
     if (to) conditions.push(lte(dateColumn, new Date(to)))
     if (sla) {
+      conditions.push(eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt))
       const scope = resolveReportScope(user, {})
       if (scope.departmentId) conditions.push(eq(tickets.departmentId, scope.departmentId))
       if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
@@ -127,13 +128,21 @@ export const ticketService = {
 
   async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void>; skipHeadGate?: boolean }) {
     assertCanSetReviewers(input.reviewerIds, user)
-    const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const defaults = await categoryDefaults(input.categoryId)
+    if (input.categoryId && (!defaults.found || !defaults.isActive)) {
+      throw AppError.badRequest("That category is not available any more. Pick another one.")
+    }
+    if (input.assignmentMode === "AUTO" && !input.categoryId && !input.departmentId && !input.assigneeId) {
+      throw AppError.badRequest("Pick a category or a department.")
+    }
+    const assigneeId = input.assigneeId ?? defaults.assigneeId
+    if (assigneeId) await assertAssignableUser(assigneeId)
+    const tatHours = input.tatHours ?? defaults.tatHours ?? settingsService.getCached().defaultTatHours
     const tagIds = mergeTagIds(input.tagIds, defaults.tagIds)
     const id = createId()
     const now = new Date()
     const gated = !hooks?.skipHeadGate
-    const departmentId = await resolveGateDepartment(input.departmentId ?? null, input.assigneeId ?? null, gated)
+    const departmentId = await resolveGateDepartment(input.departmentId ?? defaults.departmentId, assigneeId, gated)
     const needsHead = gated && await ticketNeedsHeadApproval({ departmentId }, user)
     await db.transaction(async (tx) => {
       await tx.insert(tickets).values({
@@ -142,7 +151,7 @@ export const ticketService = {
         description: input.description,
         priority: input.priority ?? defaults.priority ?? undefined,
         assignmentMode: input.assignmentMode,
-        assigneeId: input.assigneeId ?? null,
+        assigneeId: assigneeId ?? null,
         storeId: input.storeId ?? null,
         categoryId: input.categoryId ?? null,
         departmentId,
@@ -263,6 +272,7 @@ export const ticketService = {
       patch.startDate = input.startDate ? new Date(input.startDate) : null
     }
 
+    if (input.assigneeId && input.assigneeId !== before.assigneeId) await assertAssignableUser(input.assigneeId)
     const touchesPlacement = input.assigneeId !== undefined || input.departmentId !== undefined
     const nextAssigneeId = input.assigneeId !== undefined ? input.assigneeId : before.assigneeId
     const followsAssignee = input.assigneeId !== undefined && input.departmentId === undefined && !!nextAssigneeId
@@ -388,6 +398,9 @@ export const ticketService = {
     if (before.status === "PENDING_APPROVAL" && !isVerifierRole(user)) {
       throw AppError.forbidden("This ticket is waiting for approval. The reviewer can send it back if it needs more work.")
     }
+    if ((before.status === "PENDING_APPROVAL" || before.status === "CLOSED") && input.status !== "PENDING_APPROVAL" && !input.remark) {
+      throw AppError.badRequest("Say why it is going back so the team knows what to fix.")
+    }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const checklistsWithItems = await getTicketChecklistsWithItems(id)
@@ -399,6 +412,13 @@ export const ticketService = {
       patch.awaitingHeadApproval = false
       patch.assignmentApprovedBy = user.sub
       patch.assignmentApprovedAt = new Date()
+      if (before.tatHours && before.assignmentMode !== "MANUAL") {
+        patch.tatDueAt = deriveTatDueAt(before.tatHours, new Date())
+        patch.isOverdue = false
+        patch.dueSoonNotifiedAt = null
+        patch.overdueNotifiedAt = null
+        patch.overdueEscalatedAt = null
+      }
     }
     if ((before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "PENDING_APPROVAL") {
       patch.reopenCount = before.reopenCount + 1
@@ -502,7 +522,7 @@ export const ticketService = {
       assignmentApprovedAt: now,
       updatedAt: now,
     }
-    if (ticket.tatHours) {
+    if (ticket.tatHours && ticket.assignmentMode !== "MANUAL") {
       patch.tatDueAt = deriveTatDueAt(ticket.tatHours, now)
       patch.isOverdue = false
       patch.dueSoonNotifiedAt = null

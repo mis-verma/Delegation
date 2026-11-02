@@ -126,20 +126,23 @@ export const TicketStatusRemarkDialog = ({
 }: TicketStatusRemarkDialogProps) => {
   const handIn = toStatus === 'PENDING_APPROVAL';
   const onHold = toStatus === 'ON_HOLD';
+  const sendBack = !handIn && !onHold && (ticket.status === 'PENDING_APPROVAL' || ticket.status === 'CLOSED');
   return (
     <StatusRemarkDialog
       itemTitle={ticket.title}
       from={chip(ticket.status)}
       to={chip(toStatus)}
-      title={onHold ? 'Why is it on hold?' : handIn ? `${HAND_IN_LABEL}?` : undefined}
+      title={onHold ? 'Why is it on hold?' : sendBack ? 'Why is it going back?' : handIn ? `${HAND_IN_LABEL}?` : undefined}
       confirmLabel={onHold ? 'Put on hold' : handIn ? HAND_IN_LABEL : `Move to ${getTicketStatusLabel(toStatus)}`}
-      optional={!onHold && !handIn}
+      optional={!onHold && !handIn && !sendBack}
       description={onHold
         ? 'Say why and when work should start again. Everyone working on this ticket sees it.'
         : handIn
           ? 'It goes to PC for approval. Say what was done so they can check it.'
-          : 'Add a note if you want to. You can also move it without one.'}
-      phoneNote={onHold ? 'The due time keeps running while it is on hold.' : handIn ? 'It goes to PC for approval. Say what was done.' : undefined}
+          : sendBack
+            ? 'Say what still needs fixing. The person working on it sees this note.'
+            : 'Add a note if you want to. You can also move it without one.'}
+      phoneNote={onHold ? 'The due time keeps running while it is on hold.' : sendBack ? 'Say what still needs fixing.' : handIn ? 'It goes to PC for approval. Say what was done.' : undefined}
       suggestions={onHold ? ON_HOLD_SUGGESTIONS : undefined}
       placeholder={onHold
         ? "e.g. Waiting for the vendor's replacement part. Work starts again when it arrives."

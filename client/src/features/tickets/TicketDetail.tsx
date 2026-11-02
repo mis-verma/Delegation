@@ -210,7 +210,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
       .map(s => (s.value === 'PENDING_APPROVAL' ? { ...s, label: HAND_IN_LABEL } : s));
 
   const handlePickStatus = (next: TicketStatus) => {
-    if (next === 'ON_HOLD' || next === 'PENDING_APPROVAL') setQuickStatusPick(next);
+    const sendingBack = ticket.status === 'CLOSED' || ticket.status === 'PENDING_APPROVAL';
+    if (next === 'ON_HOLD' || next === 'PENDING_APPROVAL' || (sendingBack && (RESTRICTED_STATUSES as readonly string[]).includes(next))) setQuickStatusPick(next as RestrictedStatus);
     else if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) statusUpdateMut.mutate({ status: next as RestrictedStatus });
     else updateMut.mutate({ id: ticket.id, payload: { status: next } });
   };

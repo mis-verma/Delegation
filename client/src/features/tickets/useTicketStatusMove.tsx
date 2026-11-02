@@ -41,7 +41,8 @@ export const useTicketStatusMove = () => {
       return;
     }
 
-    if (toStatus !== 'ON_HOLD' && toStatus !== 'PENDING_APPROVAL') {
+    const sendingBack = ticket.status === 'CLOSED' || ticket.status === 'PENDING_APPROVAL';
+    if (toStatus !== 'ON_HOLD' && toStatus !== 'PENDING_APPROVAL' && !sendingBack) {
       moveMutation.mutate({ id: ticket.id, payload: { status: toStatus } });
       return;
     }
