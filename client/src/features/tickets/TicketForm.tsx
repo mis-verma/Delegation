@@ -169,6 +169,14 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   }, [getValues, setValue]);
 
   const autoTitle = useRef('');
+  const autoDescription = useRef('');
+
+  const clearAutoFill = () => {
+    if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', { shouldDirty: true });
+    if (autoDescription.current && getValues('description') === autoDescription.current) setValue('description', '', { shouldDirty: true });
+    autoTitle.current = '';
+    autoDescription.current = '';
+  };
 
   const applyCategory = useCallback((category: Category) => {
     const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
@@ -178,6 +186,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     if (!currentTitle.trim() || currentTitle === autoTitle.current) {
       autoTitle.current = category.name;
       setValue('title', category.name, opts);
+    }
+    const currentDescription = getValues('description') ?? '';
+    if (!currentDescription.trim() || currentDescription === autoDescription.current) {
+      autoDescription.current = `Problem: ${category.name}\nWhere: \nSince when: \nWho is affected: `;
+      setValue('description', autoDescription.current, opts);
     }
     if (category.priority) setValue('priority', category.priority, opts);
     setValue('categoryId', category.id, opts);
@@ -202,8 +215,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const sendToDepartment = (yes: boolean) => {
     const opts = { shouldDirty: true };
     swapCategoryLabels([]);
-    if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', opts);
-    autoTitle.current = '';
+    clearAutoFill();
     setValue('assignmentMode', yes ? 'MANUAL' : 'AUTO', opts);
     setValue('categoryId', '', opts);
     setValue('departmentId', '', opts);
@@ -476,120 +488,9 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     </div>
   );
 
-  const modeToggle = (
-    <AssignmentModeToggle
-      frontLine={ownScopeOnly}
-      hideLabel
-      mode={assignmentMode}
-      onChange={(m) => {
-        if (m === assignmentMode) return;
-        if (ownScopeOnly) {
-          sendToDepartment(m === 'MANUAL');
-          return;
-        }
-        setValue('assignmentMode', m, { shouldDirty: true });
-        if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
-        if (m === 'MANUAL') {
-          setValue('categoryId', '', { shouldDirty: true });
-          setValue('assigneeId', '', { shouldDirty: true });
-          if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', { shouldDirty: true });
-          autoTitle.current = '';
-        }
-      }}
-    />
-  );
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      dirty={dirty}
-      size="xl"
-      icon={<TicketIcon className="w-5 h-5" />}
-      title={draft ? 'Finish draft ticket' : 'New ticket'}
-      description={<span className="hidden sm:inline">Choose how it is sent first, then describe the problem.</span>}
-      footer={footer}
-      bodyClassName="p-0 sm:p-0 overflow-y-auto"
-      headerClassName="border-b-0"
-      footerClassName="border-t-0"
-      closeButtonClassName="sm:hidden"
-    >
-      <form
-        ref={formRef}
-        id="ticket-form"
-        onSubmit={(e) => handleSubmit(onSubmit, onInvalid)(e)}
-        className="flex flex-col gap-7 px-5 pb-4 pt-0 sm:p-6"
-        noValidate
-      >
-        <section className="flex flex-col gap-3" aria-label="How to send it">
-          {!modeChosen ? (
-            <AssignmentChoice frontLine={ownScopeOnly} onChoose={chooseMode} error={submitCount > 0 ? errors.assignmentMode?.message : undefined} />
-          ) : (
-            <>
-              <StepHeading step={1} title="How it is sent" subtitle="Auto uses a category. Manual lets you choose the team and person." />
-              {modeToggle}
-            </>
-          )}
-        </section>
-
-        {modeChosen && (
-          <>
-            <section className="flex flex-col gap-5" aria-label="What happened">
-              <StepHeading step={2} title="What happened" subtitle="Tell us the problem. Photos help a lot." />
-
-            <div data-field="title">
-              <FormField
-                label="Title"
-                htmlFor="title"
-                icon={<Type size={14} className="text-text-light" />}
-                required
-                hint={assignmentMode === 'AUTO' ? 'Leave it empty and it fills from the category you pick below. Or write your own.' : 'Short and specific: what is wrong and where.'}
-                error={errors.title?.message}
-              >
-                <Input
-                  id="title"
-                  placeholder="e.g. Card machine at counter 2 not printing"
-                  className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
-                  {...register('title')}
-                  autoFocus={autoFocusTitle}
-                />
-              </FormField>
-            </div>
-
-
-            <div data-field="description">
-              <FormField
-                label="Description"
-                htmlFor="description"
-                icon={<AlignLeft size={14} className="text-text-light" />}
-                required
-                hint="What happened, when it started, and who it affects. Tap the camera to add a photo."
-                error={errors.description?.message}
-              >
-                <Controller
-                  control={control}
-                  name="description"
-                  render={({ field }) => (
-                    <TaskDescriptionField
-                      id="description"
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      rows={5}
-                      placeholder="e.g. Since this morning the printer shows an error light and no bills come out. Customers are waiting at the counter."
-                      toolbar={<PhotoToolbar onAdd={addPhotos} />}
-                      containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
-                    >
-                      {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
-                    </TaskDescriptionField>
-                  )}
-                />
-              </FormField>
-            </div>
-            </section>
-
+  const whereSection = (step: number) => (
             <section className="flex flex-col gap-5" aria-label="Where it goes">
-              <StepHeading step={3} title="Where it goes" subtitle={assignmentMode === 'AUTO' ? 'Pick a category and the rest fills in for you.' : 'Choose the team, the person and when it is due.'} />
+              <StepHeading step={step} title="Where it goes" subtitle={assignmentMode === 'AUTO' ? 'Pick a category and the rest fills in for you.' : 'Choose the team, the person and when it is due.'} />
 
             {needsHeadOk && (
               <NoticeBanner tone="warning" icon={ShieldQuestion}>
@@ -653,6 +554,128 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
               </>
             )}
             </section>
+  );
+
+  const modeToggle = (
+    <AssignmentModeToggle
+      frontLine={ownScopeOnly}
+      hideLabel
+      mode={assignmentMode}
+      onChange={(m) => {
+        if (m === assignmentMode) return;
+        if (ownScopeOnly) {
+          sendToDepartment(m === 'MANUAL');
+          return;
+        }
+        setValue('assignmentMode', m, { shouldDirty: true });
+        if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
+        if (m === 'MANUAL') {
+          setValue('categoryId', '', { shouldDirty: true });
+          setValue('assigneeId', '', { shouldDirty: true });
+          clearAutoFill();
+        }
+      }}
+    />
+  );
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      dirty={dirty}
+      size="xl"
+      icon={<TicketIcon className="w-5 h-5" />}
+      title={draft ? 'Finish draft ticket' : 'New ticket'}
+      description={<span className="hidden sm:inline">Choose how it is sent first, then describe the problem.</span>}
+      footer={footer}
+      bodyClassName="p-0 sm:p-0 overflow-y-auto"
+      headerClassName="border-b-0"
+      footerClassName="border-t-0"
+      closeButtonClassName="sm:hidden"
+    >
+      <form
+        ref={formRef}
+        id="ticket-form"
+        onSubmit={(e) => handleSubmit(onSubmit, onInvalid)(e)}
+        className="flex flex-col gap-7 px-5 pb-4 pt-0 sm:p-6"
+        noValidate
+      >
+        <section className="flex flex-col gap-3" aria-label="How to send it">
+          {!modeChosen ? (
+            <AssignmentChoice frontLine={ownScopeOnly} onChoose={chooseMode} error={submitCount > 0 ? errors.assignmentMode?.message : undefined} />
+          ) : (
+            <>
+              <StepHeading step={1} title="How it is sent" subtitle="Auto uses a category. Manual lets you choose the team and person." />
+              {modeToggle}
+            </>
+          )}
+        </section>
+
+        {modeChosen && (
+          <>
+            {assignmentMode === 'AUTO' && whereSection(2)}
+
+            {(assignmentMode === 'MANUAL' || !!categoryId) && (
+            <section className="flex flex-col gap-5" aria-label="What happened">
+              <StepHeading
+                step={assignmentMode === 'AUTO' ? 3 : 2}
+                title="What happened"
+                subtitle={assignmentMode === 'AUTO' ? 'Filled in from the category. Add the details and change anything you like.' : 'Tell us the problem. Photos help a lot.'}
+              />
+
+            <div data-field="title">
+              <FormField
+                label="Title"
+                htmlFor="title"
+                icon={<Type size={14} className="text-text-light" />}
+                required
+                hint={assignmentMode === 'AUTO' ? 'Filled from the category. You can change it.' : 'Short and specific: what is wrong and where.'}
+                error={errors.title?.message}
+              >
+                <Input
+                  id="title"
+                  placeholder="e.g. Card machine at counter 2 not printing"
+                  className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
+                  {...register('title')}
+                  autoFocus={autoFocusTitle}
+                />
+              </FormField>
+            </div>
+
+
+            <div data-field="description">
+              <FormField
+                label="Description"
+                htmlFor="description"
+                icon={<AlignLeft size={14} className="text-text-light" />}
+                required
+                hint="What happened, when it started, and who it affects. Tap the camera to add a photo."
+                error={errors.description?.message}
+              >
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field }) => (
+                    <TaskDescriptionField
+                      id="description"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      rows={5}
+                      placeholder="e.g. Since this morning the printer shows an error light and no bills come out. Customers are waiting at the counter."
+                      toolbar={<PhotoToolbar onAdd={addPhotos} />}
+                      containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
+                    >
+                      {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
+                    </TaskDescriptionField>
+                  )}
+                />
+              </FormField>
+            </div>
+            </section>
+            )}
+
+            {assignmentMode === 'MANUAL' && whereSection(3)}
 
             {assignmentMode === 'MANUAL' && (
               <section className="flex flex-col gap-5" aria-label="Extra details">
