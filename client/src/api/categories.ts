@@ -52,6 +52,27 @@ export type CategoryTatRow = {
     suggestedTatHours: number | null;
 };
 
+export type CategoryProposal = {
+    key: string;
+    name: string;
+    rowCount: number;
+    tatHours: number | null;
+    personName: string | null;
+    assigneeId: string | null;
+    departmentId: string | null;
+    departmentSource: "person" | "column" | "none";
+    exists: boolean;
+};
+
+export type CategoryHistoryPreview = {
+    columns: string[];
+    nameColumn: string;
+    totalRows: number;
+    proposals: CategoryProposal[];
+    departments: { id: string; name: string }[];
+    people: { id: string; name: string; email: string }[];
+};
+
 export type CategoryTatReport = { rows: CategoryTatRow[]; total: CategoryTatRow };
 
 export type CreateCategoryPayload = {
@@ -88,6 +109,12 @@ const normalizeCategory = (raw: CategoryRow): Category => {
 };
 
 export const categoryApi = {
+    historyPreview: (file: File, nameColumn?: string) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (nameColumn) formData.append("nameColumn", nameColumn);
+        return apiFetch<ApiResponse<CategoryHistoryPreview>>("/categories/history-import/preview", { method: "POST", body: formData }).then((r) => r.data);
+    },
     getAll: () => apiFetch<ApiResponse<CategoryRow[]>>("/categories").then((r) => ({ ...r, data: r.data.map(normalizeCategory) })),
     create: (payload: CreateCategoryPayload) =>
         apiFetch<ApiResponse<CategoryRow>>("/categories", { method: "POST", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),

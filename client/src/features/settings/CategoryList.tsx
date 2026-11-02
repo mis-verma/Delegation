@@ -1,6 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -24,6 +24,9 @@ const CategoryTatPanel = lazy(() =>
   import("./CategoryTatPanel").then(module => ({ default: module.CategoryTatPanel }))
 );
 
+const ImportCategoriesModal = lazy(() =>
+  import("./ImportCategoriesModal").then(module => ({ default: module.ImportCategoriesModal }))
+);
 const StarterCategoriesModal = lazy(() =>
   import("./StarterCategoriesModal").then(module => ({ default: module.StarterCategoriesModal }))
 );
@@ -166,6 +169,7 @@ export const CategoryList = () => {
   const [tab, setTab] = useState<CategoryTab>("list");
   const [showForm, setShowForm] = useState(false);
   const [showStarter, setShowStarter] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -285,6 +289,12 @@ export const CategoryList = () => {
           Add usual ({missingStarter})
         </Button>
       )}
+      {tab === "list" && (
+        <Button variant="outline" size="sm" onClick={() => setShowImport(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
+          <FileUp size={15} aria-hidden />
+          Import from file
+        </Button>
+      )}
       {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />}
     </div>
   );
@@ -344,6 +354,7 @@ export const CategoryList = () => {
           sheetTitle="Create"
           actions={[
             { key: "new", label: "New category", description: "Set the team, people, priority and due time", icon: Plus, onClick: () => setShowForm(true) },
+            { key: "import", label: "Import from a file", description: "Add categories from your old ticket file", icon: FileUp, onClick: () => setShowImport(true) },
             ...(missingStarter > 0 ? [{ key: "usual", label: "Add the usual categories", description: `${missingStarter} ready to add, pick the team for each`, icon: ListPlus, onClick: () => setShowStarter(true) }] : []),
           ]}
         />
@@ -352,6 +363,11 @@ export const CategoryList = () => {
       {activeModal && (
         <Suspense fallback={null}>
           <CategoryForm onClose={closeForm} category={editingCategory ?? undefined} />
+        </Suspense>
+      )}
+      {showImport && (
+        <Suspense fallback={null}>
+          <ImportCategoriesModal onClose={() => setShowImport(false)} />
         </Suspense>
       )}
       {showStarter && (

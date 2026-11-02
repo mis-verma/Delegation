@@ -5,6 +5,8 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { isOwnScopeRole } from "../../utils/roles.js";
 import { routeParam } from "../../utils/routeParam.js"
 import { categoryTatService, TAT_WINDOW_DAYS } from "./categoryTat.service.js"
+import { categoryHistoryImportService } from "./categoryHistoryImport.js"
+import { AppError } from "../../utils/AppError.js"
 import { z } from "zod"
 
 const tatQuerySchema = z.object({
@@ -16,6 +18,13 @@ const hideAssigneeEmails = <T extends { assignees: { email: string }[] }>(catego
     isOwnScopeRole(role) ? { ...category, assignees: category.assignees.map((assignee) => ({ ...assignee, email: "" })) } : category;
 
 export const categoryController = {
+    historyPreview : asyncHandler(async (req : Request, res : Response) => {
+        if (!req.file) throw AppError.badRequest("A file is required.")
+        const column = typeof req.body?.nameColumn === "string" && req.body.nameColumn ? req.body.nameColumn : undefined
+        const data = await categoryHistoryImportService.preview(req.file.buffer, req.file.mimetype, column, req.user!)
+        res.json({ success : true, data })
+    }),
+
     list : asyncHandler(async (req : Request , res : Response) => {
         const categories = await categoryService.list()
         res.json({ success : true, data : categories.map((category) => hideAssigneeEmails(category, req.user!.role))})
