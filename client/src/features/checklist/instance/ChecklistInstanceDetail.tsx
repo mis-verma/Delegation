@@ -28,6 +28,7 @@ import { useAuth } from '../../../context/AuthContext';
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
+const rowHasFocus = (id: string) => !!document.getElementById(`item-${id}`)?.contains(document.activeElement);
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
@@ -88,7 +89,7 @@ export const ChecklistInstanceDetail = () => {
     else navigate(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
   };
 
-  const { pending: pendingItems, done: answeredItems } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered);
+  const { pending: pendingItems, done: answeredItems, settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowHasFocus);
 
   if (isPending) return <DetailSkeleton />;
 
@@ -156,7 +157,7 @@ export const ChecklistInstanceDetail = () => {
     ]);
   })();
   const shownItems = show === 'left'
-    ? instance.items.filter((i) => !answered(i))
+    ? instance.items.filter((i) => !answered(i) || settling.has(i.id))
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
       : orderedItems;
@@ -351,7 +352,7 @@ export const ChecklistInstanceDetail = () => {
           </div>
         )}
         {shownItems.map((item, idx) => (
-          <SmoothItem key={item.id} active={reorder}>
+          <SmoothItem key={item.id} active={reorder || show === 'left'}>
           <DetailItemRow
             item={item}
             instanceId={instanceId}

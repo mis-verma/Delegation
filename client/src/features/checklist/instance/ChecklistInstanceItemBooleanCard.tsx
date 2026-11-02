@@ -43,7 +43,7 @@ const ANSWER_BASE =
   'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-11 px-4 rounded-xl border-2 t-card sm:text-sm font-display font-bold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
 
 const AUTO_SAVE_REASON_MS = 800;
-const AUTO_SAVE_PHOTO_MS = 150;
+const AUTO_SAVE_PHOTO_MS = 1500;
 
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();
@@ -78,21 +78,27 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     baselinePhotos.current = new Set(images.filter((img) => !sessionPhotos.includes(img)).map((img) => img.id));
   };
 
+  const latestReason = useRef(reasonDraft);
+  useEffect(() => {
+    latestReason.current = reasonDraft;
+  }, [reasonDraft]);
+
   const { mutate: mutateDone, isPending: saving } = setItemDone;
+  const { isPending: uploading } = uploadImages;
   const itemId = item.id;
   const save = useCallback((answer: Answer, reason: string | undefined) => {
     mutateDone(
       { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
-      { onSuccess: () => setPendingAnswer(null) },
+      { onSuccess: () => { if (reason === undefined || latestReason.current.trim() === reason) setPendingAnswer(null); } },
     );
   }, [mutateDone, itemId]);
 
   useEffect(() => {
-    if (!readyToSave || !pendingAnswer || saving) return undefined;
+    if (!readyToSave || !pendingAnswer || saving || uploading) return undefined;
     const wait = needsReason ? AUTO_SAVE_REASON_MS : AUTO_SAVE_PHOTO_MS;
     const timer = setTimeout(() => save(pendingAnswer, needsReason ? reasonDraft.trim() : undefined), wait);
     return () => clearTimeout(timer);
-  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, save]);
+  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, uploading, save]);
 
   const pickAnswer = (value: Answer) => {
     if (!interactive || setItemDone.isPending) return;
@@ -241,6 +247,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             </div>
           )}
 
+          {pendingAnswer && needsPhoto && photoReady && !needsReason && !saving && <p className="t-meta font-display text-text-muted">Saving in a moment. Add another photo now if you need one.</p>}
           {waitingOnFollowUp && <p className="t-meta font-display text-text-muted">Tap the {shownAnswer === 'YES' ? labels.yes : labels.no} button again to go back.</p>}
         </div>
       )}
