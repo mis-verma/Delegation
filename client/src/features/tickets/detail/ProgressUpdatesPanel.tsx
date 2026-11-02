@@ -99,7 +99,7 @@ export const ProgressUpdatesPanel = ({ ticket, canPost, onPreview }: ProgressUpd
   if (!canPost && updates.length === 0) {
     return (
       <section aria-label="Work updates" className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 px-3.5 py-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning text-white" aria-hidden="true">
           <Activity size={18} strokeWidth={2.3} />
         </span>
         <p className="t-card font-medium leading-snug text-text-secondary">Work has started. No update has been posted yet.</p>
@@ -111,7 +111,7 @@ export const ProgressUpdatesPanel = ({ ticket, canPost, onPreview }: ProgressUpd
     <section aria-label="Work updates" className="flex flex-col overflow-hidden rounded-xl border border-border/60 bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-warning/5 px-3.5 py-3 sm:px-4">
         <h3 className="flex items-center gap-2 t-card font-display font-bold text-text">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-warning text-white" aria-hidden="true">
             <Activity size={16} strokeWidth={2.4} />
           </span>
           Remarks and updates

@@ -30,8 +30,8 @@ const STATE_LABEL: Record<StepState, string> = {
 };
 
 const TILE_TONE: Record<StepState, string> = {
-  current: 'bg-linear-to-br from-vivid-blue to-vivid-sky text-white ring-4 ring-vivid-blue/20',
-  done: 'bg-linear-to-br from-vivid-blue to-vivid-sky text-white',
+  current: 'bg-vivid-blue text-white ring-4 ring-vivid-blue/20',
+  done: 'bg-vivid-blue text-white',
   attention: 'bg-warning/15 text-warning border-2 border-warning/50',
   locked: 'bg-surface-hover text-text-light border border-border',
   upcoming: 'bg-surface text-text-secondary border border-border',

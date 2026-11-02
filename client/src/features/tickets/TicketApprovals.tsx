@@ -105,7 +105,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
         <section aria-label="New requests" className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
           <h2 className="flex items-center gap-2 t-section font-display font-bold text-text">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-warning text-white" aria-hidden="true">
               <Inbox size={15} strokeWidth={2.4} />
             </span>
             New requests <span className="font-normal text-text-muted tabular-nums">· {requests.length}</span>
@@ -127,7 +127,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
         <section aria-label="New delegation requests" className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
             <h2 className="flex items-center gap-2 t-section font-display font-bold text-text">
-              <span className="flex size-7 items-center justify-center rounded-lg bg-linear-to-br from-info to-info/70 text-white" aria-hidden="true">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-info text-white" aria-hidden="true">
                 <Inbox size={15} strokeWidth={2.4} />
               </span>
               New delegation requests <span className="font-normal text-text-muted tabular-nums">· {delegationRequests.length}</span>

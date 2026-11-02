@@ -16,7 +16,7 @@ const scrollToComposer = (id: string) => {
 
 export const OverdueBanner = ({ since, canPost, composerId }: OverdueBannerProps) => (
   <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/40 border-l-[3px] border-l-danger bg-danger/8 px-3.5 py-3">
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-danger to-danger/70 text-white" aria-hidden="true">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger text-white" aria-hidden="true">
       <AlarmClock size={17} strokeWidth={2.4} />
     </span>
     <div className="min-w-0 flex-1">

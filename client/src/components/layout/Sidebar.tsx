@@ -79,13 +79,13 @@ const NAV: NavItem[] = [
 const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settings', tint: 'neutral' };
 
 const TINTS: Record<string, { idle: string; active: string }> = {
-  primary: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  info: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  coral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  success: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  warning: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  danger: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
-  neutral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-500 to-primary-600' },
+  primary: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  info: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  coral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  success: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  warning: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  danger: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
+  neutral: { idle: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', active: 'from-primary-800 to-primary-800' },
 };
 
 const isChildActive = (child: NavChild, location: { pathname: string; search: string }) =>

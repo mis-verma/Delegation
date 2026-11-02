@@ -46,7 +46,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         onClick={() => setOpen(true)}
         className="flex min-w-0 items-start gap-3 rounded-lg text-left outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning text-white" aria-hidden="true">
           <ShieldQuestion size={18} strokeWidth={2.3} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -86,7 +86,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
           onClick={() => { haptic('tap'); approveMut.mutate({ id: ticket.id }); }}
           isLoading={approveMut.isPending}
           disabled={busy}
-          className="h-11 gap-1.5 bg-linear-to-br from-success to-success/80 font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
+          className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
         >
           <CircleCheck size={16} aria-hidden="true" />
           Approve

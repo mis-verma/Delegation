@@ -28,7 +28,7 @@ export const HeadApprovedBanner = ({ approver, approvedAt, departmentName }: Hea
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/10 px-3.5 py-3" role="status">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-success to-success/70 text-white" aria-hidden="true">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success text-white" aria-hidden="true">
         <ShieldCheck size={18} strokeWidth={2.4} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

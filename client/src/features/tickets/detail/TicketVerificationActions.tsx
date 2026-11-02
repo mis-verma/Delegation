@@ -21,7 +21,7 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, finalApprova
     <>
       <div className="flex flex-col gap-2 rounded-xl border border-status-verify/25 bg-status-verify/5 p-2.5 sm:p-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-status-verify to-primary-700 text-white" aria-hidden="true">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-status-verify text-white" aria-hidden="true">
             <ShieldCheck size={16} strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-col">
@@ -33,7 +33,7 @@ export const TicketVerificationActions = ({ ticketTitle, isPending, finalApprova
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="primary"
-            className="h-11 sm:h-10 gap-1.5 rounded-lg border-0 bg-linear-to-br from-success to-success-strong text-white t-meta font-display font-semibold hover:opacity-95 focus-visible:ring-success"
+            className="h-11 sm:h-10 gap-1.5 rounded-lg border-0 bg-success text-white t-meta font-display font-semibold hover:opacity-95 focus-visible:ring-success"
             isLoading={isPending && !sendingBack}
             disabled={isPending}
             onClick={onApprove}

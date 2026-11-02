@@ -24,9 +24,9 @@ const METRIC_TONE_CLASS: Record<NonNullable<PersonRowProps['metricTone']>, strin
 };
 
 const MEDAL_CLASS: Record<number, string> = {
-  0: 'bg-gradient-to-br from-coral-300 to-coral-600 text-white border-coral-700/20',
-  1: 'bg-gradient-to-br from-text-light to-text-muted text-white border-border-hover/40',
-  2: 'bg-gradient-to-br from-warning/70 to-warning text-white border-warning/30',
+  0: 'bg-coral-300 text-white border-coral-700/20',
+  1: 'bg-text-light text-white border-border-hover/40',
+  2: 'bg-warning text-white border-warning/30',
 };
 
 export const PersonRow = ({ name, subtitle, metric, metricTone = 'default', index, progress }: PersonRowProps) => (

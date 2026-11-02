@@ -415,12 +415,6 @@ h1 { font-family: var(--font-serif) !important; }
 }
 
 @media (max-width: 639px) {
-  :root {
-    --font-sans: "League Spartan Variable", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-    --font-display: var(--font-sans);
-  }
-
-  body { font-weight: 500; }
   .t-title, .t-section, .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 900); }
   .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 900); }
   .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 900); }

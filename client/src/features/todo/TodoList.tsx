@@ -307,7 +307,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
 
 const CaughtUp = () => (
   <div role="status" className="flex items-center gap-3 rounded-xl border border-vivid-green/40 bg-vivid-green/10 px-4 py-4">
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-vivid-green to-vivid-green/70 text-on-vivid" aria-hidden="true">
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-vivid-green text-on-vivid" aria-hidden="true">
       <CheckCheck className="size-5" strokeWidth={2.5} />
     </span>
     <div className="min-w-0">

@@ -68,9 +68,9 @@ const REASON_TEXT: Record<Reason, string> = { sentBack: 'text-vivid-red-text', o
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 
 const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
-const TILE_DANGER = 'bg-linear-to-br from-vivid-red to-vivid-red/70';
-const TILE_SUCCESS = 'bg-linear-to-br from-vivid-green to-vivid-green/70';
-const TILE_PRIMARY = 'bg-linear-to-br from-vivid-blue to-vivid-blue/70';
+const TILE_DANGER = 'bg-vivid-red';
+const TILE_SUCCESS = 'bg-vivid-green';
+const TILE_PRIMARY = 'bg-vivid-blue';
 
 interface FocusNowCardProps {
   ownWorkOnly?: boolean;

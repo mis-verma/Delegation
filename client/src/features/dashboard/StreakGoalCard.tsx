@@ -13,10 +13,10 @@ import {
 const KIND_ACCENT: Record<StreakKind, CardAccent> = { checklist: 'green', ticket: 'sky', delegation: 'blue', all: 'violet' };
 
 const KIND_TILE: Record<StreakKind, string> = {
-  checklist: 'bg-linear-to-br from-vivid-green to-vivid-green/70',
-  ticket: 'bg-linear-to-br from-vivid-sky to-vivid-sky/70',
-  delegation: 'bg-linear-to-br from-vivid-blue to-vivid-blue/70',
-  all: 'bg-linear-to-br from-vivid-blue to-coral-500',
+  checklist: 'bg-vivid-green',
+  ticket: 'bg-vivid-sky',
+  delegation: 'bg-vivid-blue',
+  all: 'bg-vivid-blue',
 };
 
 const dayLetter = (date: string) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(`${date}T00:00:00Z`).getUTCDay()] ?? '';

@@ -57,9 +57,9 @@ const Step = ({ icon: Icon, label, state }: { icon: typeof Send; label: string; 
     <span
       className={`flex size-8 items-center justify-center rounded-full border transition-colors duration-200 ${
         state === 'done'
-          ? 'border-transparent bg-linear-to-br from-success to-success/70 text-white'
+          ? 'border-transparent bg-success text-white'
           : state === 'current'
-            ? 'border-transparent bg-linear-to-br from-warning to-warning/70 text-white ring-4 ring-warning/20'
+            ? 'border-transparent bg-warning text-white ring-4 ring-warning/20'
             : 'border-border bg-surface text-text-light'
       }`}
     >
@@ -99,7 +99,7 @@ export const HeadDecisionPanel = ({
     >
       <div className="flex items-start gap-3">
         <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-warning to-warning/70 text-white"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning text-white"
           aria-hidden="true"
         >
           {canDecide ? <ShieldQuestion size={20} strokeWidth={2.3} /> : <Hourglass size={19} strokeWidth={2.3} />}
@@ -163,7 +163,7 @@ export const HeadDecisionPanel = ({
             onClick={() => { haptic('tap'); onApprove(); }}
             disabled={busy}
             isLoading={isApproving}
-            className="h-11 gap-1.5 bg-linear-to-br from-success to-success/80 font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
+            className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
           >
             <CircleCheck size={16} aria-hidden="true" />
             Approve

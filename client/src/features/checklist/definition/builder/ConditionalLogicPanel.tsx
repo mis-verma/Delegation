@@ -151,7 +151,7 @@ export const ConditionalLogicPanel = ({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-warning to-warning/70 text-white" aria-hidden="true">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning text-white" aria-hidden="true">
             <Zap size={17} strokeWidth={2.25} />
           </span>
           <span className="flex min-w-0 flex-col">

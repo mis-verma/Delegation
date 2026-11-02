@@ -19,10 +19,10 @@ interface Tile {
 
 const TILE = {
   primary: 'bg-primary-800',
-  success: 'bg-linear-to-br from-success to-success/70',
-  coral: 'bg-linear-to-br from-coral-500 to-coral-600',
-  info: 'bg-linear-to-br from-info to-info/70',
-  warning: 'bg-linear-to-br from-warning to-warning/70',
+  success: 'bg-success',
+  coral: 'bg-coral-500',
+  info: 'bg-info',
+  warning: 'bg-warning',
 } as const;
 
 export const DirectoryStats = ({ onOpen }: { onOpen: (tab: StatTab) => void }) => {

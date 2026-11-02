@@ -278,19 +278,19 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
                   {departmentName && (
                     <TicketPropertyRow label="Department" wide phoneHidden={!moreOpen}>
-                      <IconChip icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" label={departmentName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                      <IconChip icon={Building2} tone="bg-coral-500" label={departmentName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
                   {storeName && (
                     <TicketPropertyRow label="Store" wide phoneHidden={!moreOpen}>
-                      <IconChip icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" label={storeName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                      <IconChip icon={StoreIcon} tone="bg-info" label={storeName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" wide phoneHidden={!moreOpen}>
-                      <IconChip icon={Layers} tone="bg-linear-to-br from-success to-success/70" label={categoryName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                      <IconChip icon={Layers} tone="bg-success" label={categoryName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 
@@ -406,7 +406,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 <>
                 {ticket.declinedAt && (
                   <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3" role="status">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-danger to-danger/70 text-white" aria-hidden="true">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger text-white" aria-hidden="true">
                       <Ban size={16} strokeWidth={2.4} />
                     </span>
                     <div className="min-w-0">

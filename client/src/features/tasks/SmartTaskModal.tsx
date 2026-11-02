@@ -398,7 +398,7 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                             className={`text-sm leading-relaxed px-3.5 py-2.5 ${
                                 isBot
                                     ? "bg-primary-500/10 dark:bg-primary-500/15 text-primary-900 dark:text-primary-200 rounded-2xl rounded-bl-sm"
-                                    : "bg-gradient-to-br from-primary-600 to-primary-800 text-white rounded-2xl rounded-br-sm"
+                                    : "bg-primary-600 text-white rounded-2xl rounded-br-sm"
                             }`}
                         >
                             {m.text}

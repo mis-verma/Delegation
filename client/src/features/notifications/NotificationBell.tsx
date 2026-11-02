@@ -162,7 +162,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       {unreadCount > 0 && (
         <span className={cn(
           "absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-5 h-5 px-1.5",
-          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white text-[11px] font-display font-extrabold leading-none tabular-nums",
+          "rounded-full bg-danger text-white text-[11px] font-display font-extrabold leading-none tabular-nums",
           badgeRing ? "ring-2 ring-surface" : "ring-2 ring-surface/80",
           "animate-in zoom-in duration-300",
           justArrived && "animate-pulse"

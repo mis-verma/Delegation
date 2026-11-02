@@ -46,7 +46,7 @@ export const TaskHeadDecision = ({ task, departmentName, departments, nameOf }: 
       {declined && (
         <div className="flex flex-col gap-3 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 sm:flex-row sm:items-start sm:justify-between" role="status">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-danger to-danger/70 text-white" aria-hidden="true">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger text-white" aria-hidden="true">
               <Ban size={16} strokeWidth={2.4} />
             </span>
             <div className="min-w-0">

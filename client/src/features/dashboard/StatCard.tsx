@@ -121,7 +121,7 @@ export const StatCard = ({
     highlight
       ? decorative
         ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 overflow-hidden'
-        : 'bg-gradient-to-br from-primary-600 to-primary-500'
+        : 'bg-primary-600'
       : 'border border-border/60 bg-surface dark:border-white/[0.06] overflow-hidden'
   } ${
     isInteractive

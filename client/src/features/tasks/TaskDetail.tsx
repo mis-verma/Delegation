@@ -586,7 +586,7 @@ const TaskEditLayout = ({
             <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth triggerClassName={PROPERTY_TRIGGER_CLASS} />
           </TicketPropertyRow>
 
-          <TicketPropertyRow wide label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
+          <TicketPropertyRow wide label="Department" icon={Building2} tone="bg-coral-500">
             {isViewOnly || !canReassign ? (
               departmentName ? <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span> : <span className="t-meta text-text-light">None</span>
             ) : (

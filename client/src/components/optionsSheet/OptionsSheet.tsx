@@ -24,11 +24,11 @@ export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: Lu
 
 const OPTION_TONES = [
   'bg-primary-800 dark:from-primary-400 dark:to-primary-600',
-  'bg-gradient-to-br from-coral-400 to-coral-600',
-  'bg-gradient-to-br from-success/80 to-success',
-  'bg-gradient-to-br from-warning/80 to-warning',
-  'bg-gradient-to-br from-status-approve/80 to-status-approve',
-  'bg-gradient-to-br from-info/80 to-info',
+  'bg-coral-400',
+  'bg-success',
+  'bg-warning',
+  'bg-status-approve',
+  'bg-info',
 ] as const;
 
 const toneAt = (index: number) => OPTION_TONES[index % OPTION_TONES.length];

@@ -139,7 +139,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${roleLabel(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-vivid-blue to-vivid-sky text-white font-display font-bold t-meta shrink-0 ring-2 ring-surface">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-vivid-blue text-white font-display font-bold t-meta shrink-0 ring-2 ring-surface">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>

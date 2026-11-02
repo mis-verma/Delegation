@@ -11,7 +11,7 @@ export const TaskFlowChips = ({ task }: { task: Task }) => {
   return (
     <>
       {awaiting && (needsMyDecision ? (
-        <IconChip icon={BellRing} tone="bg-linear-to-br from-warning to-warning/70" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
+        <IconChip icon={BellRing} tone="bg-warning" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
       ) : (
         <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
       ))}

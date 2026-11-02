@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { installTapHaptics } from './lib/haptics';
 import '@fontsource-variable/inter/index.css';
 import '@fontsource-variable/eb-garamond/index.css';
-import '@fontsource-variable/league-spartan/index.css';
 import '@fontsource-variable/noto-sans-devanagari/index.css';
 import './index.css';
 import App from './App.tsx';
