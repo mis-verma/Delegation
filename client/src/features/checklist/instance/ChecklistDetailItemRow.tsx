@@ -122,7 +122,7 @@ export const DetailItemRow = memo(({
       {showHeader && (
         <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-3'}`}>
           <Layers size={14} className="text-text-muted shrink-0" aria-hidden />
-          <h2 className="t-card font-display font-bold text-text">
+          <h2 className="t-section font-semibold text-text">
             {item.section ?? 'Ungrouped'}
           </h2>
           {sectionCount && (
@@ -134,7 +134,7 @@ export const DetailItemRow = memo(({
         </div>
       )}
       <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
-        {item.section && (
+        {item.section && !showHeader && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
             <span className="truncate">{item.section}</span>

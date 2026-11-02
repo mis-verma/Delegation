@@ -213,8 +213,8 @@ export const ChecklistInstanceDetail = () => {
 
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
-          <h1 className="t-title font-display font-semibold text-text tracking-tight leading-snug">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="t-meta font-medium text-text-muted">
+          <h1 className="text-[1.625rem] font-semibold leading-tight text-text sm:text-[2rem]">{instance.title.replace(/\.\s*$/, '')}</h1>
+          <p className="font-serif text-base text-text-muted sm:text-[1.0625rem]">
             {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
         </div>
@@ -240,24 +240,25 @@ export const ChecklistInstanceDetail = () => {
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5 pt-1">
+        <div className={cn('grid gap-px overflow-hidden rounded-lg border border-border bg-border', compliance !== null && 'sm:grid-cols-2')}>
           {compliance !== null && (
-            <div className="flex items-baseline justify-between gap-2 pb-1">
-              <span className="t-meta font-medium text-text-muted">Compliance</span>
-              <span className="flex items-baseline gap-2 tabular-nums">
-                <span className={`text-lg font-display font-bold leading-none ${complianceToneClass(compliance)}`}>{compliance}%</span>
-                <span className="t-meta font-semibold text-text">{good} of {scored} answered well</span>
+            <div className="flex flex-col gap-1.5 bg-surface p-4">
+              <span className="t-meta font-display font-semibold text-text-muted">Compliance</span>
+              <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 tabular-nums">
+                <span className={`text-3xl font-display font-bold leading-none ${complianceToneClass(compliance)}`}>{compliance}%</span>
+                <span className="t-meta font-medium text-text-secondary">{good} of {scored} answered well</span>
               </span>
+              <ChecklistProgressBar done={good} total={scored} tone="auto" bare />
             </div>
           )}
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="t-meta font-medium text-text-muted">Completion</span>
-            <span className="flex items-baseline gap-2 tabular-nums">
-              <span className={`text-lg font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
-              <span className="t-meta font-semibold text-text">{done} of {total} done</span>
+          <div className="flex flex-col gap-1.5 bg-surface p-4">
+            <span className="t-meta font-display font-semibold text-text-muted">Completion</span>
+            <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 tabular-nums">
+              <span className={`text-3xl font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
+              <span className="t-meta font-medium text-text-secondary">{done} of {total} done</span>
             </span>
+            <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
           </div>
-          <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
         </div>
       </div>
 
