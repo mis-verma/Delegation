@@ -21,7 +21,7 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
           aria-label={o.label}
           onClick={() => onChange(active ? allValue : o.value)}
           className={cn(
-            'inline-flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-sm px-2.5 t-meta font-display leading-tight outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-10 [-webkit-tap-highlight-color:transparent]',
+            'inline-flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-sm px-2.5 t-meta font-display leading-tight outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-[1.875rem] [-webkit-tap-highlight-color:transparent]',
             active ? 'bg-primary-800 font-bold text-white shadow-[inset_0_-2px_0_var(--color-gold)]' : 'font-semibold text-text-secondary hover:bg-surface-hover hover:text-text',
           )}
         >

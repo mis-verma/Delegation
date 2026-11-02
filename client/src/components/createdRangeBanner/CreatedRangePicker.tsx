@@ -100,7 +100,7 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
           type="button"
           title={label}
           className={cn(
-            'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-full border border-border bg-surface text-text-secondary text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40',
+            'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-md border border-border bg-surface text-text-secondary text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40',
             className,
           )}
         >

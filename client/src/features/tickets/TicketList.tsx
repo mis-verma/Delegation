@@ -294,7 +294,9 @@ export const TicketList = () => {
           size={isMobile ? 'compact' : undefined}
           title={isMobile ? 'Nothing here' : 'No tickets found'}
           description={isMobile ? undefined : organizer.hasActiveFilters
-            ? 'No tickets match these filters. Clear them to see more.'
+            ? organizer.quickFilter
+              ? `No ${{ pending: 'pending', completed: 'completed', due: 'on time', delayed: 'delayed' }[organizer.quickFilter]} tickets right now. Clear the filter to see all of them.`
+              : 'No tickets match these filters. Clear them to see more.'
             : 'Nothing here yet. Tickets you raise or are given show up here.'}
           action={organizer.hasActiveFilters ? { label: 'Clear all filters', onClick: organizer.handleResetFilters } : undefined}
         />

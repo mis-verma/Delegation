@@ -54,7 +54,7 @@ export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', a
         <p className="text-sm font-display text-text-muted mt-2 max-w-sm leading-relaxed">{description}</p>
       )}
       {action && (
-        <Button variant="secondary" size="sm" onClick={action.onClick} className="mt-5 min-h-11 rounded-md font-medium sm:min-h-0">
+        <Button variant="outline" size="sm" onClick={action.onClick} className="mt-5 min-h-11 rounded-md font-medium sm:min-h-0">
           {action.icon && <action.icon size={13} />}
           {action.label}
         </Button>

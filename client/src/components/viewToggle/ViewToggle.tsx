@@ -108,7 +108,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
           onKeyDown={(e) => handleKeyDown(e, index)}
           title={shortcuts ? `${tab.label} view (press ${tabs.indexOf(tab) + 1})` : `${tab.label} view`}
           aria-label={`${tab.label} view`}
-          className={`group items-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-sm t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
+          className={`group items-center gap-1.5 h-[1.875rem] pointer-coarse:h-11 px-3 rounded-sm t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
             tab.mobileHidden ? 'hidden sm:flex' : 'flex'
           } ${
             value === tab.key

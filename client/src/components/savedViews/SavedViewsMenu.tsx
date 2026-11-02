@@ -29,7 +29,7 @@ export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={cn('gap-2 rounded-full', className)} aria-label="Saved views">
+        <Button variant="outline" size="sm" className={cn('gap-2', className)} aria-label="Saved views">
           <Bookmark size={15} aria-hidden fill={activeId ? 'currentColor' : 'none'} className={activeId ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted'} />
           <span className="hidden md:inline">Views</span>
           <CountBadge count={views.length} label={`${views.length} saved ${views.length === 1 ? 'view' : 'views'}`} />
