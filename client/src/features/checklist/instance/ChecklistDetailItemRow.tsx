@@ -90,6 +90,7 @@ export interface DetailItemRowProps {
   overdue: boolean;
   showHeader: boolean;
   sectionCount?: { done: number; total: number };
+  inSectionBox?: boolean;
   isFirst: boolean;
   selecting: boolean;
   picked: boolean;
@@ -101,7 +102,7 @@ export interface DetailItemRowProps {
 }
 
 export const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
@@ -134,7 +135,7 @@ export const DetailItemRow = memo(({
         </div>
       )}
       <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
-        {item.section && !showHeader && (
+        {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
             <span className="truncate">{item.section}</span>

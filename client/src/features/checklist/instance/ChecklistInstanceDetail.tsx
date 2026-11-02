@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
@@ -163,6 +163,14 @@ export const ChecklistInstanceDetail = () => {
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
       : orderedItems;
+  const itemGroups = hasSections
+    ? shownItems.reduce<{ section: string | null; items: typeof shownItems }[]>((groups, item) => {
+        const last = groups[groups.length - 1];
+        if (last && last.section === (item.section ?? null)) last.items.push(item);
+        else groups.push({ section: item.section ?? null, items: [item] });
+        return groups;
+      }, [])
+    : [{ section: null as string | null, items: shownItems }];
   const sectionCounts = new Map<string, { done: number; total: number }>();
   for (const i of instance.items) {
     const key = i.section ?? '';
@@ -214,7 +222,7 @@ export const ChecklistInstanceDetail = () => {
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
           <h1 className="text-[1.625rem] font-semibold leading-tight text-text sm:text-[2rem]">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="font-serif text-base text-text-muted sm:text-[1.0625rem]">
+          <p className="text-base text-text-muted sm:text-[1.0625rem]">
             {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
         </div>
@@ -354,26 +362,44 @@ export const ChecklistInstanceDetail = () => {
             <p className="t-card font-display font-semibold text-text">Every question is answered.{canSubmit ? ' Submit it below.' : ''}</p>
           </div>
         )}
-        {shownItems.map((item, idx) => (
-          <SmoothItem key={item.id} active={reorder || show === 'left'}>
-          <DetailItemRow
-            item={item}
-            instanceId={instanceId}
-            canWork={canWork}
-            isLocked={isLocked}
-            currentUserId={user?.id}
-            overdue={overdue}
-            showHeader={hasSections && (idx === 0 || shownItems[idx - 1].section !== item.section)}
-            sectionCount={hasSections ? sectionCounts.get(item.section ?? '') : undefined}
-            isFirst={idx === 0}
-            selecting={selecting}
-            picked={picked.has(item.id)}
-            onTogglePicked={togglePicked}
-            canWaive={canWaive}
-            canRaiseTicket={canReview}
-          />
-          </SmoothItem>
-        ))}
+        {itemGroups.map((group, groupIndex) => {
+          const rows = group.items.map((item, idx) => (
+            <SmoothItem key={item.id} active={reorder || show === 'left'}>
+              <DetailItemRow
+                item={item}
+                instanceId={instanceId}
+                canWork={canWork}
+                isLocked={isLocked}
+                currentUserId={user?.id}
+                overdue={overdue}
+                showHeader={false}
+                inSectionBox={hasSections}
+                isFirst={groupIndex === 0 && idx === 0}
+                selecting={selecting}
+                picked={picked.has(item.id)}
+                onTogglePicked={togglePicked}
+                canWaive={canWaive}
+                canRaiseTicket={canReview}
+              />
+            </SmoothItem>
+          ));
+          if (!hasSections) return <Fragment key="all">{rows}</Fragment>;
+          const counts = sectionCounts.get(group.section ?? '');
+          const finished = !!counts && counts.done === counts.total;
+          return (
+            <section key={`${group.section ?? 'none'}-${groupIndex}`} aria-label={group.section ?? 'Ungrouped'} className="flex flex-col gap-3 rounded-lg border border-border bg-transparent p-3 sm:p-4">
+              <header className="flex items-center justify-between gap-3">
+                <h2 className="min-w-0 break-words t-section font-display font-bold text-text">{group.section ?? 'Ungrouped'}</h2>
+                {counts && (
+                  <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 t-meta font-display font-semibold tabular-nums', finished ? 'border-success/40 bg-success/10 text-success-strong' : 'border-border bg-surface text-text-secondary')}>
+                    {counts.done} / {counts.total} {counts.total === 1 ? 'question' : 'questions'}
+                  </span>
+                )}
+              </header>
+              {rows}
+            </section>
+          );
+        })}
       </div>
 
       {show === 'one' && instance.items.length > 1 && (

@@ -68,7 +68,6 @@
   --color-on-vivid: #07140d;
 
   --font-sans: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "EB Garamond Variable", "EB Garamond", Georgia, "Times New Roman", serif;
   --color-gold: #d1ad53;
   --heat-low: #dbe6f1;
   --heat-low-ink: #002f52;
@@ -417,10 +416,8 @@ body {
 
 :where(.t-meta, .text-xs):not(.font-mono) { font-family: var(--font-sans); }
 
-h1 { font-family: var(--font-serif) !important; }
-
-@utility t-title { font-family: var(--font-serif) !important; letter-spacing: -0.005em; font-size: calc(clamp(1.125rem, 1rem + 0.6vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.3; text-wrap: balance; }
-@utility t-section { font-family: var(--font-serif) !important; letter-spacing: -0.005em; font-size: calc(clamp(1.0625rem, 1rem + 0.3vw, 1.25rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
+@utility t-title { letter-spacing: -0.01em; font-size: calc(clamp(1.125rem, 1rem + 0.6vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.3; text-wrap: balance; }
+@utility t-section { letter-spacing: -0.01em; font-size: calc(clamp(1.0625rem, 1rem + 0.3vw, 1.25rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
 @utility t-card { font-size: calc(clamp(0.875rem, 0.84rem + 0.22vw, 1rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
 @utility t-meta { font-size: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale, 1))); line-height: 1.4; }
 @utility t-stat { font-size: calc(clamp(1.125rem, 1rem + 0.45vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }

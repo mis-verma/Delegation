@@ -24,7 +24,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
     <div className="flex items-start gap-3">
       <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <p className="font-serif text-base font-semibold leading-snug text-text sm:text-[1.0625rem]">{item.label}</p>
+        <p className="text-base font-semibold leading-snug text-text sm:text-[1.0625rem]">{item.label}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {item.isCritical && (
             <IconChip icon={Flag} tone="bg-danger" label="Critical" title="Critical question: a bad answer counts double against compliance" />
