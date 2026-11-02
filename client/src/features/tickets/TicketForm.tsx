@@ -276,7 +276,7 @@ Who is affected: `;
         categoryId: data.categoryId !== '' ? data.categoryId : undefined,
         departmentId: data.departmentId !== '' ? data.departmentId : undefined,
         assigneeId: data.assigneeId || undefined,
-        tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
+        tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? undefined) : undefined),
         startDate: data.assignmentMode === 'MANUAL' && !ownScopeOnly && data.startDate ? new Date(data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00`).toISOString() : undefined,
         tagIds: !ownScopeOnly && data.tagIds?.length ? data.tagIds : undefined,
       });
@@ -388,7 +388,7 @@ Who is affected: `;
         ) : (
           <IconChip icon={UserCheck} tone="bg-warning" label="Nobody set yet" />
         ))}
-        <IconChip icon={Clock} tone="bg-text-muted" label={`Due in ${selectedCategory.tatHours ?? 24} hours`} />
+        <IconChip icon={Clock} tone="bg-text-muted" label={selectedCategory.tatHours ? `Due in ${selectedCategory.tatHours} hours` : 'Due in the standard time'} />
         {selectedCategory.priority && <PriorityChip meta={PRIORITY_CONFIG[selectedCategory.priority]} />}
         {selectedCategory.tags.map(t => <TagChip key={t.id} tag={t} />)}
       </div>
@@ -495,8 +495,9 @@ Who is affected: `;
     <div className={`${INFO_BOX_CLASS} flex-row items-center`} role="status">
       <Clock size={16} className="shrink-0 text-text-light" aria-hidden />
       <p className="t-meta font-display text-text-secondary">
-        Due in <strong className="font-semibold text-text">{selectedCategory?.tatHours ?? 24} hours</strong>
-        {selectedCategory?.tatHours ? ', set by this category.' : '.'}
+        {selectedCategory?.tatHours
+          ? <>Due in <strong className="font-semibold text-text">{selectedCategory.tatHours} hours</strong>, set by this category.</>
+          : 'Due in the standard time set by your admin.'}
       </p>
     </div>
   );

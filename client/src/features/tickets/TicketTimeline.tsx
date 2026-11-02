@@ -27,12 +27,12 @@ type Bar = {
 };
 
 const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
-  const { days, bars, undated } = useMemo(() => {
+  const { days, bars, undated, earlier } = useMemo(() => {
     const scheduled = tickets.filter((t) => !!t.tatDueAt);
     const unscheduled = tickets.filter((t) => !t.tatDueAt);
 
     if (scheduled.length === 0) {
-      return { days: [] as Date[], bars: [] as Bar[], undated: unscheduled };
+      return { days: [] as Date[], bars: [] as Bar[], undated: unscheduled, earlier: 0 };
     }
 
     const barStart = (t: Ticket) => startOfDay(t.startDate ?? t.createdAt);
@@ -50,7 +50,8 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
 
     const axisDays = Array.from({ length: total }, (_, i) => new Date(axisStart + i * DAY_MS));
 
-    const placed: Bar[] = scheduled.map((ticket) => {
+    const inRange = scheduled.filter((t) => barEnd(t) >= axisStart);
+    const placed: Bar[] = inRange.map((ticket) => {
       const rawStart = barStart(ticket);
       const rawEnd = barEnd(ticket);
       const clampedStart = Math.max(rawStart, axisStart);
@@ -65,7 +66,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
       };
     });
 
-    return { days: axisDays, bars: placed, undated: unscheduled };
+    return { days: axisDays, bars: placed, undated: unscheduled, earlier: scheduled.length - inRange.length };
   }, [tickets]);
 
   const todayIndex = days.findIndex((d) => startOfDay(d) === startOfDay(new Date()));
@@ -184,6 +185,10 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
             </div>
           </div>
         </div>
+      )}
+
+      {earlier > 0 && (
+        <p className="px-1 t-meta text-text-muted">{earlier} older {earlier === 1 ? 'ticket' : 'tickets'} ended before this range. Use the list or table to see them.</p>
       )}
 
       {undated.length > 0 && (

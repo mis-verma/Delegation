@@ -48,7 +48,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
             const department = ticket.departmentId ? departmentNames.get(ticket.departmentId) : undefined;
             const store = ticket.storeId ? storeNames.get(ticket.storeId) : undefined;
             const category = ticket.categoryId ? categoryNames.get(ticket.categoryId) : undefined;
-            const raisedBy = assigneeNames.get(ticket.userId);
+            const raisedBy = ticket.raisedBy ? `${ticket.raisedBy.firstName} ${ticket.raisedBy.lastName ?? ''}`.trim() : assigneeNames.get(ticket.userId);
             const statusChipStatus = (ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus;
             const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
 

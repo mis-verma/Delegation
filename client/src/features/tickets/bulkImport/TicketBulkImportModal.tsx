@@ -147,6 +147,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
   };
 
   const includedRows = rows.filter((r) => !r.excluded);
+  const tatBad = (value: string) => !!value.trim() && !(Number(value) > 0 && Number(value) <= 24 * 90);
   const isRowResolved = (r: ReviewRow) =>
     !!r.title.trim()
     && !!r.description.trim()
@@ -155,7 +156,8 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
     && (!r.raw.storeName || !!r.storeId)
     && (!r.raw.categoryName || !!r.categoryId)
     && routeOf(r) !== 'none'
-    && !r.tatHoursInvalid;
+    && !r.tatHoursInvalid
+    && !tatBad(r.tatHours);
   const unresolvedCount = includedRows.filter((r) => !isRowResolved(r)).length;
   const canPublish = includedRows.length > 0 && unresolvedCount === 0;
 
@@ -319,7 +321,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { title: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Title"
-                        className={`w-36 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
+                        className={`w-36 px-2.5 py-1.5 pointer-coarse:h-11 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -328,7 +330,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { description: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Description"
-                        className={`w-40 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
+                        className={`w-40 px-2.5 py-1.5 pointer-coarse:h-11 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -390,7 +392,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { tatHours: e.target.value, tatHoursInvalid: false })}
                         disabled={row.excluded}
                         placeholder={row.raw.dueDate ? `Due ${row.raw.dueDate}` : 'Default'}
-                        className={`w-20 px-2.5 py-1.5 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
+                        className={`w-20 px-2.5 py-1.5 pointer-coarse:h-11 t-meta bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid || tatBad(row.tatHours) ? 'ring-2 ring-danger/40' : ''}`}
                       />
                     </td>
                     <td className="px-3 py-2 t-meta min-w-36">

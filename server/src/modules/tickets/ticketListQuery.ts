@@ -80,7 +80,7 @@ export const ticketOptionConditions = (options: TicketListOptions): (SQL | undef
 
 export const ticketListOrder = (sort: TicketListSort): SQL[] => {
     const newestFirst = [desc(tickets.createdAt), desc(tickets.id)]
-    if (sort === "tatDueAt") return [sql`${tickets.tatDueAt} IS NULL`, asc(tickets.tatDueAt), ...newestFirst]
+    if (sort === "tatDueAt") return [sql`${tickets.status} IN ('CLOSED', 'PENDING_APPROVAL')`, sql`${tickets.tatDueAt} IS NULL`, asc(tickets.tatDueAt), ...newestFirst]
     if (sort === "priority") return [sql`CASE ${tickets.priority} WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END`, ...newestFirst]
     if (sort === "title") return [asc(tickets.title), ...newestFirst]
     return newestFirst

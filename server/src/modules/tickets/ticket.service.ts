@@ -8,7 +8,7 @@ import {
   ticketAttachments,
 
 } from "../../db/schema/index.js"
-import { eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
+import { asc, eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -97,7 +97,7 @@ export const ticketService = {
     const where = and(baseWhere, optionWhere, bucket ? ticketBucketCondition(bucket) : undefined)
 
     const [rows, counts] = await Promise.all([
-      db.select().from(tickets).where(where).orderBy(...ticketListOrder(sort)).offset((page - 1) * limit).limit(limit),
+      db.select().from(tickets).where(where).orderBy(...(query.awaitingHead && !query.sort ? [asc(tickets.createdAt), asc(tickets.id)] : ticketListOrder(sort))).offset((page - 1) * limit).limit(limit),
       ticketListCounts(baseWhere, optionWhere, bucket),
     ])
     const data = await populateTickets(rows)
