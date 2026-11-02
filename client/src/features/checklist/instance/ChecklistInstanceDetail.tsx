@@ -151,7 +151,9 @@ export const ChecklistInstanceDetail = () => {
       const key = i.section ?? '';
       if (!sectionOrder.includes(key)) sectionOrder.push(key);
     }
-    return sectionOrder.flatMap((key) => [
+    const sectionFinished = (key: string) => !pendingItems.some((i) => (i.section ?? '') === key);
+    const orderedKeys = [...sectionOrder.filter((key) => !sectionFinished(key)), ...sectionOrder.filter(sectionFinished)];
+    return orderedKeys.flatMap((key) => [
       ...pendingItems.filter((i) => (i.section ?? '') === key),
       ...answeredItems.filter((i) => (i.section ?? '') === key),
     ]);
