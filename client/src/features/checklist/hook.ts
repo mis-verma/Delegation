@@ -10,13 +10,14 @@ import {
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
 import { weakPhotoMessage } from './photoQuality';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
+import { pushUndo } from '../../lib/undoRedo';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -377,6 +378,19 @@ type SetChecklistInstanceItemDoneVars = {
   notApplicable?: boolean;
 };
 
+const restorableValues = (item: ChecklistInstanceItem) => ({
+  numericValue: item.numericValue ?? undefined,
+  booleanAnswer: item.booleanAnswer ?? undefined,
+  textValue: item.textValue ?? undefined,
+  dateValue: item.dateValue ?? undefined,
+  gpsLat: item.gpsLat ?? undefined,
+  gpsLng: item.gpsLng ?? undefined,
+  gpsAccuracy: item.gpsAccuracy ?? undefined,
+  signatureValue: item.signatureValue ?? undefined,
+  conditionalReasonValue: item.conditionalReasonValue ?? undefined,
+  remarks: item.remarks,
+});
+
 export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   const queryClient = useQueryClient();
   const instanceKey = KEYS.instanceDetail(instanceId);
@@ -411,7 +425,22 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
       }
       return { previous, wasComplete };
     },
-    onSuccess: (_data, _vars, context) => {
+    onSuccess: (_data, vars, context) => {
+      const prevItem = context?.previous?.items.find((i) => i.id === vars.itemId);
+      if (prevItem && !prevItem.isNotApplicable) {
+        const { itemId, isDone, ...values } = vars;
+        const refresh = () => {
+          void queryClient.invalidateQueries({ queryKey: instanceKey });
+          void queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+        };
+        pushUndo({
+          label: vars.notApplicable ? 'marked not applicable' : isDone ? 'answered a question' : 'reopened a question',
+          undo: () => (prevItem.isDone
+            ? checklistInstanceApi.setItemDone(itemId, true, restorableValues(prevItem))
+            : checklistInstanceApi.setItemDone(itemId, false)).then(refresh),
+          redo: () => checklistInstanceApi.setItemDone(itemId, isDone, values).then(refresh),
+        });
+      }
       const current = queryClient.getQueryData<ChecklistInstance>(instanceKey);
       const isCompleteNow = !!current && current.items.length > 0 && current.items.every((i) => i.isDone);
       if (!context || context.wasComplete !== isCompleteNow) {

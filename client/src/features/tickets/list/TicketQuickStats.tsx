@@ -12,7 +12,7 @@ export interface TicketQuickFilterCounts {
 const ITEMS: readonly StatusFigureItem<TicketQuickFilterKey>[] = [
   { key: 'pending', kind: 'pending', label: 'Pending', help: 'Tickets still open. Tap to show only these, tap again to show all.' },
   { key: 'completed', kind: 'completed', label: 'Completed', short: 'Done', help: 'Tickets that are finished. Tap to show only these, tap again to show all.' },
-  { key: 'due', kind: 'due', label: 'Due Soon', short: 'Due soon', help: 'Tickets coming due. Tap to show only these, tap again to show all.' },
+  { key: 'due', kind: 'due', label: 'On time', help: 'Tickets still open and not past their deadline. Tap to show only these, tap again to show all.' },
   { key: 'delayed', kind: 'late', label: 'Delayed', help: 'Tickets past their deadline. Tap to show only these, tap again to show all.' },
 ];
 

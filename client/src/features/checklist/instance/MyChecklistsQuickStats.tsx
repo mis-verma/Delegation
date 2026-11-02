@@ -13,7 +13,7 @@ export interface MyChecklistsQuickFilterCounts {
 const ITEMS: readonly StatusFigureItem<MyChecklistsQuickFilterKey>[] = [
   { key: 'pending', kind: 'pending', label: 'Not done', note: 'This month', help: 'Checklists you still have to finish this month. Tap to show only these, tap again to show all.' },
   { key: 'completed', kind: 'completed', label: 'Done today', short: 'Done', note: 'Today', help: 'Checklists you finished today. Tap to show only these, tap again to show all.' },
-  { key: 'due', kind: 'due', label: 'On track', note: 'This month', help: 'Checklists still inside their time this month. Tap to show only these, tap again to show all.' },
+  { key: 'due', kind: 'due', label: 'On time', note: 'This month', help: 'Checklists still inside their time this month. Tap to show only these, tap again to show all.' },
   { key: 'overdue', kind: 'late', label: 'Missed', note: 'This month', help: 'Checklists that closed before they were finished this month. Tap to show only these, tap again to show all.' },
 ];
 

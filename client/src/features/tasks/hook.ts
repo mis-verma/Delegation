@@ -13,6 +13,7 @@ import type {
     CaptureMethod,
 } from "../../api/taskChecklist";
 import { handleQueryRetry, useEntityMutation, patchEntityInCache, notifyError, invalidateScoreCaches } from "../../lib/queryHelpers";
+import { describeFields, fieldsBefore, findCachedEntity } from "../../lib/undoFields";
 import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
 import { PUBLISH_REMARK } from "./taskStatusModel";
@@ -271,6 +272,18 @@ export const useUpdateTaskMutation = (options?: { silent?: boolean; quietErrors?
         optimisticUpdate: {
             keyPrefixes: [['tasks']],
             apply: ({ id, payload }) => (old) => patchEntityInCache<Task>(old, id, payload),
+        },
+        undo: {
+            capture: ({ id, payload }, queryClient) => fieldsBefore(findCachedEntity(queryClient, ['tasks'], id), payload),
+            entry: ({ vars, before, queryClient }) => {
+                if (!before) return null;
+                const send = (payload: UpdateTaskPayload) => taskApi.update(vars.id, payload).then(() => queryClient.invalidateQueries({ queryKey: ['tasks'] }));
+                return {
+                    label: describeFields('delegation', vars.payload),
+                    undo: () => send(before as UpdateTaskPayload),
+                    redo: () => send(vars.payload),
+                };
+            },
         },
         successMessage: options?.silent ? null : 'Delegation updated',
         errorFallback: "Couldn't save the change to the delegation. Try again.",

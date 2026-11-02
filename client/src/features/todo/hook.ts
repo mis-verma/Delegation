@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { DashboardQueryOptions } from "@/lib/dashboardQuery";
 import { notifyError } from "@/lib/queryHelpers";
 import { haptic } from "@/lib/haptics";
+import { pushUndo, undoEntry } from "@/lib/undoRedo";
 
 const TODO_KEY = {
     all: ["todos"] as const,
@@ -50,10 +51,16 @@ export const useCreateTodoMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (payload: CreateTodoPayload) => todoApi.create(payload).then(r => r.data),
-        onSuccess: () => {
+        onSuccess: (created, payload) => {
             refreshTodos(queryClient);
             toast.success("To-do added");
             haptic("success");
+            let currentId = created.id;
+            pushUndo({
+                label: "added to-do",
+                undo: () => todoApi.delete(currentId).then(() => refreshTodos(queryClient)),
+                redo: () => todoApi.create(payload).then((r) => { currentId = r.data.id; refreshTodos(queryClient); }),
+            });
         },
         onError: (err) => notifyError(err, "Couldn't add the to-do. Try again."),
     });
@@ -70,6 +77,17 @@ export const useUpdateTodoMutation = () => {
                 todos.map((t) => (t.id === id ? { ...t, ...payload } : t)),
             );
         },
+        onSuccess: (_data, { id, payload }, context) => {
+            const prev = context?.previous?.find((t) => t.id === id);
+            if (!prev || !Object.keys(payload).every((key) => key in prev)) return;
+            const before = Object.fromEntries(Object.keys(payload).map((key) => [key, prev[key as keyof Todo]])) as UpdateTodoPayload;
+            const send = (body: UpdateTodoPayload) => todoApi.update(id, body).then(() => refreshTodos(queryClient));
+            pushUndo({
+                label: "completed" in payload ? (payload.completed ? "completed to-do" : "reopened to-do") : "to-do edit",
+                undo: () => send(before),
+                redo: () => send(payload),
+            });
+        },
         onError: (err, vars, context) => {
             if (context?.previous) queryClient.setQueryData(TODO_KEY.all, context.previous);
             notifyError(err, "Couldn't update the to-do. Try again.", { retry: () => mutation.mutate(vars) });
@@ -81,23 +99,15 @@ export const useUpdateTodoMutation = () => {
     return mutation;
 };
 
-const restoreTodo = async (queryClient: QueryClient, todo: Todo) => {
-    try {
-        const created = await todoApi.create({
-            text: todo.text,
-            priority: todo.priority,
-            dueDate: todo.dueDate ?? undefined,
-        }).then(r => r.data);
-
-        if (todo.completed) {
-            await todoApi.update(created.id, { completed: true });
-        }
-        toast.success("To-do restored");
-    } catch (err) {
-        notifyError(err, "Couldn't restore the to-do. Try again.");
-    } finally {
-        refreshTodos(queryClient);
-    }
+const recreateTodo = async (queryClient: QueryClient, todo: Todo): Promise<string> => {
+    const created = await todoApi.create({
+        text: todo.text,
+        priority: todo.priority,
+        dueDate: todo.dueDate ?? undefined,
+    }).then(r => r.data);
+    if (todo.completed) await todoApi.update(created.id, { completed: true });
+    refreshTodos(queryClient);
+    return created.id;
 };
 
 const restoreTodos = async (queryClient: QueryClient, removed: Todo[]) => {
@@ -148,9 +158,22 @@ export const useDeleteTodoMutation = () => {
         },
         onSuccess: (_data, _id, context) => {
             const removed = context?.removed;
-            toast.success("To-do removed", removed && {
+            if (!removed) {
+                toast.success("To-do removed");
+                return;
+            }
+            let currentId: string | null = null;
+            const entry = pushUndo({
+                label: "removed to-do",
+                undo: async () => { currentId = await recreateTodo(queryClient, removed); },
+                redo: async () => {
+                    if (currentId) await todoApi.delete(currentId);
+                    refreshTodos(queryClient);
+                },
+            });
+            toast.success("To-do removed", {
                 duration: 8000,
-                action: { label: "Undo", onClick: () => void restoreTodo(queryClient, removed) },
+                action: { label: "Undo", onClick: () => void undoEntry(entry) },
             });
         },
         onError: (err, id, context) => {

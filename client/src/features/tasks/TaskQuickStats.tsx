@@ -12,7 +12,7 @@ export interface QuickFilterCounts {
 const ITEMS: readonly StatusFigureItem<QuickFilterKey>[] = [
   { key: 'pending', kind: 'pending', label: 'Pending', help: 'Delegations still open. Tap to show only these, tap again to show all.' },
   { key: 'completed', kind: 'completed', label: 'Completed', short: 'Done', help: 'Delegations that are finished, including ones waiting for approval. Tap to show only these, tap again to show all.' },
-  { key: 'due', kind: 'due', label: 'Due', help: 'Delegations coming due. Tap to show only these, tap again to show all.' },
+  { key: 'due', kind: 'due', label: 'On time', help: 'Delegations still open and not past their deadline. Tap to show only these, tap again to show all.' },
   { key: 'delayed', kind: 'late', label: 'Delayed', help: 'Delegations past their deadline. Tap to show only these, tap again to show all.' },
 ];
 

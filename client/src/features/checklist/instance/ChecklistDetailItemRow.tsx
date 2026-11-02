@@ -134,6 +134,12 @@ export const DetailItemRow = memo(({
         </div>
       )}
       <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
+        {item.section && (
+          <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
+            <Layers size={12} className="shrink-0" aria-hidden />
+            <span className="truncate">{item.section}</span>
+          </span>
+        )}
         {item.referenceImageUrl && !item.isNotApplicable && (
           <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5">
             <PhotoThumbs files={[{ id: `reference-${item.id}`, url: item.referenceImageUrl, mimeType: 'image/jpeg', name: 'Example photo' }]} label="Example photo" />

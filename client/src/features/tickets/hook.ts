@@ -21,6 +21,7 @@ import { departmentApi } from "../../api/departments";
 import { storeApi } from "../../api/stores";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { handleQueryRetry, useEntityMutation, patchEntityInCache, notifyError, invalidateScoreCaches } from '../../lib/queryHelpers';
+import { describeFields, fieldsBefore, findCachedEntity } from '../../lib/undoFields';
 import type { SummaryScope } from '../../api/http';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
@@ -114,6 +115,18 @@ export const useUpdateTicketMutation = (options?: { silent?: boolean; inlineErro
     optimisticUpdate: {
       keyPrefixes: [['tickets']],
       apply: ({ id, payload }) => (old) => patchEntityInCache<Ticket>(old, id, payload),
+    },
+    undo: {
+      capture: ({ id, payload }, queryClient) => fieldsBefore(findCachedEntity(queryClient, ['tickets'], id), payload),
+      entry: ({ vars, before, queryClient }) => {
+        if (!before) return null;
+        const send = (payload: UpdateTicketPayload) => ticketApi.update(vars.id, payload).then(() => queryClient.invalidateQueries({ queryKey: ['tickets'] }));
+        return {
+          label: describeFields('ticket', vars.payload),
+          undo: () => send(before as UpdateTicketPayload),
+          redo: () => send(vars.payload),
+        };
+      },
     },
     successMessage: options?.silent ? null : 'Ticket updated',
     errorFallback: "Couldn't save the ticket. Try again.",

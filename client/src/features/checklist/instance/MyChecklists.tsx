@@ -56,7 +56,7 @@ const RECURRENCES = Object.keys(RECURRENCE_LABEL) as ChecklistRecurrence[];
 const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerificationStatus[];
 
 const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
-  pending: 'Not done', completed: 'Done today', due: 'On track', overdue: 'Missed',
+  pending: 'Not done', completed: 'Done today', due: 'On time', overdue: 'Missed',
 };
 
 const PAGE_SIZE = 50;

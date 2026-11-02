@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { ApiError } from '../api/http';
 import { haptic, type HapticKind } from './haptics';
+import { pushUndo } from './undoRedo';
 
 const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 
@@ -101,7 +102,12 @@ type OptimisticUpdate<TVars> = {
 };
 
 type QueryEntry = readonly [readonly unknown[], unknown];
-type OptimisticContext = { snapshots: (readonly [readonly unknown[], QueryEntry[]])[] } | undefined;
+type OptimisticContext = { snapshots?: (readonly [readonly unknown[], QueryEntry[]])[]; before?: unknown } | undefined;
+
+type UndoPlan<TVars, TResult> = {
+  capture: (vars: TVars, queryClient: QueryClient) => unknown;
+  entry: (args: { vars: TVars; result: TResult; before: unknown; queryClient: QueryClient }) => Parameters<typeof pushUndo>[0] | null;
+};
 
 type EntityMutationConfig<TVars, TResult> = {
   mutationFn: (vars: TVars) => Promise<TResult>;
@@ -114,6 +120,7 @@ type EntityMutationConfig<TVars, TResult> = {
   errorToast?: boolean;
   retryable?: boolean;
   optimisticUpdate?: OptimisticUpdate<TVars>;
+  undo?: UndoPlan<TVars, TResult>;
 };
 
 const ANALYTICS_SOURCE_KEYS = ['tickets', 'tasks', 'checklist-instances'];
@@ -141,8 +148,9 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
   const mutation = useMutation<TResult, unknown, TVars, OptimisticContext>({
     mutationFn: config.mutationFn,
     onMutate: async (vars) => {
+      const before = config.undo?.capture(vars, queryClient);
       const opt = config.optimisticUpdate;
-      if (!opt) return undefined;
+      if (!opt) return config.undo ? { before } : undefined;
 
       await Promise.all(opt.keyPrefixes.map((key) => queryClient.cancelQueries({ queryKey: key })));
       const snapshots = opt.keyPrefixes.map(
@@ -150,9 +158,9 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       );
       const updater = opt.apply(vars);
       opt.keyPrefixes.forEach((key) => queryClient.setQueriesData({ queryKey: key }, updater));
-      return { snapshots };
+      return { snapshots, before };
     },
-    onSuccess: (result, vars) => {
+    onSuccess: (result, vars, context) => {
       const detail = config.setDetailData?.(result, vars);
       if (detail) queryClient.setQueryData(detail.key, detail.data);
 
@@ -167,6 +175,9 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
         queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       }
 
+      const planned = config.undo?.entry({ vars, result, before: context?.before, queryClient });
+      if (planned) pushUndo(planned);
+
       if (config.successMessage != null) {
         const msg = typeof config.successMessage === 'function'
           ? config.successMessage(result, vars)
@@ -178,7 +189,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       }
     },
     onError: (err, vars, context) => {
-      context?.snapshots.forEach(([, entries]) => {
+      context?.snapshots?.forEach(([, entries]) => {
         entries.forEach(([entryKey, data]) => queryClient.setQueryData(entryKey, data));
       });
       if (config.errorToast !== false) {
