@@ -40,6 +40,13 @@ export const buildTicketSchema = ({ requirePerson }: { requirePerson: boolean })
       { message: 'Pick a due time that is still ahead', path: ['dueDate'] },
     )
     .refine(
+      (data) => {
+        if (data.assignmentMode !== 'MANUAL' || !data.dueDate || !data.dueTime) return true;
+        return new Date(`${data.dueDate}T${data.dueTime}`).getTime() <= Date.now() + 90 * 24 * 60 * 60 * 1000;
+      },
+      { message: 'Pick a due date within the next 90 days', path: ['dueDate'] },
+    )
+    .refine(
       (data) => data.assignmentMode !== 'MANUAL' || !data.startDate || !data.dueDate
         || new Date(data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00`).getTime() <= new Date(`${data.dueDate}T${data.dueTime || '23:59'}`).getTime(),
       { message: 'The start has to be before the due time', path: ['startDate'] },

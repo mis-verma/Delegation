@@ -339,7 +339,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       type="button"
                       onClick={() => setMoreOpen(o => !o)}
                       aria-expanded={moreOpen}
-                      className="lg:hidden order-last col-span-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-surface-hover/40 t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                      className="lg:hidden order-last col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-surface-hover/40 t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                     >
                       {moreOpen ? 'Fewer details' : 'More details'}
                       <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />

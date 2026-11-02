@@ -32,7 +32,7 @@ export const startSlaSweep = () => {
       }
 
       await db.update(tickets)
-        .set({ isOverdue: true, updatedAt: new Date() })
+        .set({ isOverdue: true })
         .where(inArray(tickets.id, overdue.map((ticket) => ticket.id)));
 
       for (const ticket of overdue) {

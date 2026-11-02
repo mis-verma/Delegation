@@ -94,7 +94,7 @@ export const formatDueLabel = (
   if (isNaN(due.getTime())) return null;
   const days = Math.round((startOfDay(due) - startOfDay(new Date())) / 86_400_000);
   const day = due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-  const overdue = ticket.isOverdue && ticket.status !== 'CLOSED';
+  const overdue = ticket.isOverdue && ticket.status !== 'CLOSED' && ticket.status !== 'PENDING_APPROVAL';
   const text = overdue
     ? `Late since ${days === 0 ? formatClockShort(due) : day}`
     : `Due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : day}, ${formatClockShort(due)}`;
