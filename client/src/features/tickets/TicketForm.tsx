@@ -149,9 +149,14 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const assigneeChoices = categoryPeople.length ? categoryPeople : assignableUsers;
 
   const lastDepartmentRef = useRef(departmentId);
+  const keepAssignee = useRef(false);
   useEffect(() => {
     if (lastDepartmentRef.current === departmentId) return;
     lastDepartmentRef.current = departmentId;
+    if (keepAssignee.current) {
+      keepAssignee.current = false;
+      return;
+    }
     if (categoryId) return;
     setValue('assigneeId', '');
   }, [departmentId, categoryId, setValue]);
@@ -163,10 +168,17 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('tagIds', [...new Set([...kept, ...next])], { shouldDirty: true });
   }, [getValues, setValue]);
 
+  const autoTitle = useRef('');
+
   const applyCategory = useCallback((category: Category) => {
     const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
     const opts = { shouldValidate: true, shouldDirty: true };
     swapCategoryLabels((category.tags ?? []).map(t => t.id));
+    const currentTitle = getValues('title') ?? '';
+    if (!currentTitle.trim() || currentTitle === autoTitle.current) {
+      autoTitle.current = category.name;
+      setValue('title', category.name, opts);
+    }
     if (category.priority) setValue('priority', category.priority, opts);
     setValue('categoryId', category.id, opts);
     setValue('departmentId', deptId, opts);
@@ -176,7 +188,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       setValue('dueDate', toDateInput(due), opts);
       setValue('dueTime', toTimeInput(due), opts);
     }
-  }, [setValue, swapCategoryLabels]);
+  }, [getValues, setValue, swapCategoryLabels]);
 
   const selectCategory = (id: string) => {
     const category = categories?.find(c => c.id === id);
@@ -190,10 +202,22 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const sendToDepartment = (yes: boolean) => {
     const opts = { shouldDirty: true };
     swapCategoryLabels([]);
+    if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', opts);
+    autoTitle.current = '';
     setValue('assignmentMode', yes ? 'MANUAL' : 'AUTO', opts);
     setValue('categoryId', '', opts);
     setValue('departmentId', '', opts);
     setValue('assigneeId', '', opts);
+  };
+
+  const pickPerson = (ids: string[]) => {
+    const id = ids[0] ?? '';
+    setValue('assigneeId', id, { shouldValidate: validateOnChange, shouldDirty: true });
+    const person = id ? assigneeChoices?.find((u) => u.id === id) : undefined;
+    if (person?.departmentId && !getValues('departmentId')) {
+      keepAssignee.current = true;
+      setValue('departmentId', person.departmentId, { shouldValidate: validateOnChange, shouldDirty: true });
+    }
   };
 
   const chooseMode = (mode: 'AUTO' | 'MANUAL') => {
@@ -569,7 +593,12 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                 onChange={m => {
                   setValue('assignmentMode', m, { shouldDirty: true });
                   if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
-                  if (m === 'MANUAL') setValue('categoryId', '', { shouldDirty: true });
+                  if (m === 'MANUAL') {
+                    setValue('categoryId', '', { shouldDirty: true });
+                    setValue('assigneeId', '', { shouldDirty: true });
+                    if (autoTitle.current && getValues('title') === autoTitle.current) setValue('title', '', { shouldDirty: true });
+                    autoTitle.current = '';
+                  }
                 }}
               />
 
@@ -592,17 +621,16 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
                       label="Person"
                       icon={<UserCheck size={14} className="text-text-light" />}
                       required
-                      hint={departmentId || selectedCategory ? 'Who will work on it.' : 'Choose a department first.'}
+                      hint={departmentId || selectedCategory ? 'Who will work on it.' : 'Pick anyone. Choosing a team above narrows the list.'}
                       error={errors.assigneeId?.message}
                     >
                       <AssigneeField
                         single
                         hideLabel
                         selectedIds={assigneeId ? [assigneeId] : []}
-                        onChange={ids => setValue('assigneeId', ids[0] ?? '', { shouldValidate: validateOnChange, shouldDirty: true })}
+                        onChange={pickPerson}
                         users={assigneeChoices}
                         isLoading={isLoadingAssignableUsers}
-                        disabled={!departmentId && !selectedCategory}
                       />
                     </FormField>
                   </div>
