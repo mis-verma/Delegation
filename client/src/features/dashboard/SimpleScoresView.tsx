@@ -88,7 +88,7 @@ export const SimpleScoresView = ({
     <section className={`${DASHBOARD_CARD_CLASS} ${CARD_TOP_BAR.violet} @container flex min-w-0 flex-col gap-3.5 p-3.5 sm:gap-4 sm:p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
             <Trophy className="size-4.5" strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-col">

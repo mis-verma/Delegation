@@ -560,7 +560,7 @@ const TaskEditLayout = ({
     >
       <div className="flex flex-col gap-2">
         <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
-          <TicketPropertyRow wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
+          <TicketPropertyRow wide label="Assigned to" icon={UserRound} tone="bg-primary-800">
             <AssigneeField
               hideLabel
               selectedIds={selectedIds}

@@ -40,7 +40,7 @@ export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-pri
   <span
     title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
     className={cn(
-      'inline-flex items-center gap-1 sm:gap-1.5 h-6 sm:h-7 pr-2 sm:pr-2.5 py-0 max-w-full min-w-0 rounded-full border border-border/60 bg-surface',
+      'inline-flex items-center gap-1 sm:gap-1.5 h-6 sm:h-7 pr-2 sm:pr-2.5 py-0 max-w-full min-w-0 rounded-md border border-border bg-surface',
       Icon ? 'pl-1' : 'pl-2.5',
       look?.box,
       iconOnly && 'max-sm:size-6 max-sm:justify-center max-sm:gap-0 max-sm:border-0 max-sm:bg-transparent max-sm:p-0',

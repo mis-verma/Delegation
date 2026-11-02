@@ -277,7 +277,7 @@ export const HolidaysPage = () => {
           </Button>
           <form id="holiday-form" onSubmit={submit} className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5', !formOpen && 'hidden lg:flex')}>
             <div className="flex items-center gap-2">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true"><CalendarPlus size={16} strokeWidth={2.25} /></span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true"><CalendarPlus size={16} strokeWidth={2.25} /></span>
               <h2 className="t-card font-display font-bold text-text">Add a holiday</h2>
             </div>
             <div role="group" aria-labelledby="holiday-date-label" className="flex flex-col gap-1.5">

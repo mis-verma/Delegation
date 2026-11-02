@@ -61,7 +61,7 @@ export const EnableAlertsBanner = () => {
 
   return (
     <div role="region" aria-label="Turn on alerts" className="flex items-center gap-3 rounded-xl border border-primary-500/30 bg-primary-500/8 p-3 sm:p-3.5">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
         <BellRing size={18} strokeWidth={2.25} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">

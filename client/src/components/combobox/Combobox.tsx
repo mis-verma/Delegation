@@ -262,7 +262,7 @@ export const Combobox = ({
                   <span className="flex items-center gap-2 shrink-0 min-w-0">
                     {option.hint && <span className="truncate max-w-28 t-meta font-medium text-text-muted">{option.hint}</span>}
                     {isSelected && (
-                      <span className="flex items-center justify-center size-4 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shrink-0">
+                      <span className="flex items-center justify-center size-4 rounded-full bg-primary-800 text-white shrink-0">
                         <Check size={10} strokeWidth={3.5} />
                       </span>
                     )}

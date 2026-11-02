@@ -62,7 +62,7 @@ export const ItemScoreCard = ({ scoreAt, noun }: ItemScoreCardProps) => {
   return (
     <section aria-label="Score" className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/40 p-2.5">
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-800 text-white" aria-hidden="true">
           <Gauge size={13} strokeWidth={2.25} />
         </span>
         <span className="t-meta font-display font-semibold text-text-secondary">Score</span>

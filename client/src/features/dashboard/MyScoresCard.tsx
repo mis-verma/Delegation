@@ -455,7 +455,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       <header className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between">
         <div className="flex min-w-0 items-start justify-between gap-3 @2xl:flex-1">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white sm:flex"><Trophy className="size-5" strokeWidth={2.25} aria-hidden="true" /></span>
+            <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white sm:flex"><Trophy className="size-5" strokeWidth={2.25} aria-hidden="true" /></span>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex min-w-0 items-center gap-1.5">
                 <h2 className="line-clamp-2 t-section font-display font-bold tracking-tight text-text">{heading}</h2>

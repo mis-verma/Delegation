@@ -322,7 +322,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             {({ isActive }) => (
               <>
                 {!showLabel && (isActive || hasActiveChild) && (
-                  <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-full bg-primary-600 dark:bg-primary-400" />
+                  <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-gold" />
                 )}
                 <span
                   className={[

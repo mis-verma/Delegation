@@ -31,7 +31,7 @@ export interface ExportMenuProps extends ExportSource {
 
 const FORMATS: { format: ExportFormat; label: string; hint: string; icon: typeof FileText; tile: string }[] = [
   { format: 'xlsx', label: 'Excel', hint: 'Coloured, ready to share', icon: FileSpreadsheet, tile: 'bg-linear-to-br from-success to-success/70' },
-  { format: 'csv', label: 'CSV', hint: 'Plain data for other tools', icon: FileText, tile: 'bg-linear-to-br from-primary-500 to-primary-600' },
+  { format: 'csv', label: 'CSV', hint: 'Plain data for other tools', icon: FileText, tile: 'bg-primary-800' },
 ];
 
 const isCounted = (table: ExportTable): table is { rows: TableRows; count: number } => !Array.isArray(table);

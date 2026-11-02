@@ -95,7 +95,7 @@ export const ReportsPage = () => {
               to={to}
               className="group flex min-h-14 items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 outline-none transition-colors duration-150 hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
                 <Icon className="size-4.5" strokeWidth={2.25} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">

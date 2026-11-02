@@ -24,7 +24,7 @@ export const LoginCodeStep = ({ challenge, emailHint, onBack }: LoginCodeStepPro
   return (
     <form onSubmit={submit} className="flex flex-col gap-3.5" noValidate>
       <div className="flex items-start gap-3 rounded-xl border border-primary-500/30 bg-primary-500/10 p-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-800 text-white" aria-hidden="true">
           <MailCheck size={18} strokeWidth={2.25} />
         </span>
         <p className="t-meta font-display font-medium text-text-secondary leading-relaxed">

@@ -55,7 +55,7 @@ const QuickSheet = ({ open, module, summary, onClose }: QuickSheetProps) => {
       >
         <SheetGrabHandle targetRef={contentRef} onClose={onClose} />
         <div className="flex shrink-0 items-center gap-3 px-4 pt-3 pb-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
             <Icon className="size-5" strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col">

@@ -148,10 +148,10 @@ const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { lab
 };
 
 const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }> = {
-  delegation: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  tickets: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  todo: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  delegation: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  tickets: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  checklist: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
+  todo: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
 };
 
 const OnTrack = ({ className }: { className?: string }) => (
@@ -225,7 +225,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
       style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
       className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
     >
-      <span className="absolute inset-x-0 top-0 h-1 bg-vivid-blue" aria-hidden="true" />
+      <span className="absolute inset-x-0 top-0 h-0.5 bg-gold" aria-hidden="true" />
       <Link
         viewTransition
         to={view.href}

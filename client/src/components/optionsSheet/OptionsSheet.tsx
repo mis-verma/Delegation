@@ -23,7 +23,7 @@ export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: Lu
 );
 
 const OPTION_TONES = [
-  'bg-gradient-to-br from-primary-500 to-primary-700 dark:from-primary-400 dark:to-primary-600',
+  'bg-primary-800 dark:from-primary-400 dark:to-primary-600',
   'bg-gradient-to-br from-coral-400 to-coral-600',
   'bg-gradient-to-br from-success/80 to-success',
   'bg-gradient-to-br from-warning/80 to-warning',

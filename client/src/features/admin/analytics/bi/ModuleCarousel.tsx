@@ -100,7 +100,7 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false }: 
               )}
             >
               <span className="flex items-center gap-2.5">
-                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white', isAll ? 'bg-linear-to-br from-primary-500 to-primary-600' : CATEGORY_TILE[key])} aria-hidden="true">
+                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg text-white', isAll ? 'bg-primary-800' : CATEGORY_TILE[key])} aria-hidden="true">
                   <Icon className="size-[1.125rem]" strokeWidth={2.25} />
                 </span>
                 <span className="t-card font-display font-bold text-text">{moduleTitle(key)}</span>

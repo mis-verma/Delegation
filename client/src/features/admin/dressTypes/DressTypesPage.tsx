@@ -27,7 +27,7 @@ const DressTypeRow = memo(({ type, busy, onToggleActive, onEdit, onDelete }: Row
     )}
   >
     <div className="flex items-center gap-3 min-w-0 flex-1">
-      <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white">
+      <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white">
         <Shirt size={18} strokeWidth={2.25} />
       </span>
       <div className="flex flex-col gap-1 min-w-0">

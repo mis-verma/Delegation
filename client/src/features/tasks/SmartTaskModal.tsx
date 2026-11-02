@@ -390,7 +390,7 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                     key={i}
                     className={`flex items-end gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200 ${isBot ? "" : "flex-row-reverse"}`}
                 >
-                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 ${isBot ? "bg-gradient-to-br from-primary-500 to-primary-700 text-white" : "bg-surface border border-border text-text-secondary"}`}>
+                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 ${isBot ? "bg-primary-800 text-white" : "bg-surface border border-border text-text-secondary"}`}>
                         {isBot ? <Bot size={16} /> : <UserIcon size={14} />}
                     </div>
                     <div className={`flex flex-col gap-1 max-w-[75%] ${isBot ? "items-start" : "items-end"}`}>
@@ -748,7 +748,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
 
                                 {(parseMutation.isPending || isBotThinking) && (
                                     <div className="flex items-end gap-2 animate-in fade-in duration-200">
-                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 text-white">
+                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-primary-800 text-white">
                                             <Bot size={16} />
                                         </div>
                                         <div className="flex items-center gap-1 bg-primary-500/10 dark:bg-primary-500/15 rounded-2xl rounded-bl-sm px-4 py-3.5">

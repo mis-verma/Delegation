@@ -115,7 +115,7 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
           disabled={primary?.disabled}
           aria-label={ariaLabel ?? primary?.label ?? sheetTitle}
           className={cn(
-            'flex items-center justify-center size-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white cursor-pointer transition-transform duration-150 ease-out',
+            'flex items-center justify-center size-14 rounded-full bg-primary-800 text-white cursor-pointer transition-transform duration-150 ease-out',
             'ring-4 ring-background active:scale-95 focus-visible:outline-none focus-visible:ring-primary-500/40',
             'disabled:opacity-50 disabled:cursor-not-allowed [-webkit-tap-highlight-color:transparent]',
           )}

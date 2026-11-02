@@ -88,7 +88,7 @@ export const OwnerPage = () => {
     <div className="flex w-full flex-col gap-3">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white">
             <Crown className="size-5" strokeWidth={2.25} aria-hidden="true" />
           </span>
           <div className="min-w-0">

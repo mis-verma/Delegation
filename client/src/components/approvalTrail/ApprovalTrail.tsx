@@ -61,7 +61,7 @@ const buildAllSteps = (p: ApprovalTrailProps): Step[] => {
 
 const TILE: Record<StepState, string> = {
   done: 'bg-success text-white',
-  current: 'bg-linear-to-br from-primary-500 to-primary-700 text-white ring-4 ring-primary-500/20',
+  current: 'bg-primary-800 text-white ring-4 ring-primary-500/20',
   waiting: 'bg-surface-hover text-text-light border border-border',
   skipped: 'bg-surface-hover text-text-muted border border-dashed border-border-hover',
 };

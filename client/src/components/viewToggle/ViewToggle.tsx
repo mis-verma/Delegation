@@ -93,7 +93,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
   };
 
   return (
-    <div role="tablist" className="flex items-center gap-1 p-1 rounded-xl bg-surface-hover/60 border border-border/60 dark:border-white/[0.06]">
+    <div role="tablist" className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5">
       {tabs.map((tab, index) => {
         const Icon = VIEW_ICONS[tab.key] ?? tab.icon;
         return (
@@ -108,15 +108,15 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
           onKeyDown={(e) => handleKeyDown(e, index)}
           title={shortcuts ? `${tab.label} view (press ${tabs.indexOf(tab) + 1})` : `${tab.label} view`}
           aria-label={`${tab.label} view`}
-          className={`group items-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-lg t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+          className={`group items-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-sm t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
             tab.mobileHidden ? 'hidden sm:flex' : 'flex'
           } ${
             value === tab.key
-              ? 'bg-surface text-primary-700 dark:text-primary-300 font-bold ring-1 ring-primary-500/30'
-              : 'text-text-secondary font-semibold hover:text-text hover:bg-surface/70'
+              ? 'bg-primary-800 text-white font-bold shadow-[inset_0_-2px_0_var(--color-gold)]'
+              : 'text-text-secondary font-semibold hover:text-text hover:bg-surface-hover'
           }`}
         >
-          {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted transition-colors duration-200 group-hover:text-primary-600 dark:group-hover:text-primary-300'} />}
+          {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-white' : 'text-text-muted'} />}
           <span className="hidden md:inline">{tab.label}</span>
         </button>
         );

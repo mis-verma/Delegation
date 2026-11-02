@@ -134,7 +134,7 @@ export const ScoreStrip = ({ kind, id, name, row, from, to, failed }: ScoreStrip
       className="group/score relative z-10 flex flex-col gap-2.5 rounded-xl border border-border/60 bg-surface-hover/50 p-3 transition-colors duration-150 hover:border-primary-300 hover:bg-primary-500/5 active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:bg-surface-hover/30"
     >
       <span className="flex items-center gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-800 text-white" aria-hidden="true">
           <Trophy className="size-4" strokeWidth={2.25} />
         </span>
         <span className="min-w-0 flex-1 t-meta font-display font-semibold text-text-secondary">Score this month</span>

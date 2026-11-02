@@ -12,7 +12,7 @@ const DIAL_TOUCH = { size: 232, radius: 94, mark: 'size-10' };
 
 const segment = (on: boolean) => cn(
   'px-2.5 py-1 pointer-coarse:py-2 rounded-md text-lg font-display font-bold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
-  on ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white border border-transparent dark:from-primary-400 dark:to-primary-600' : 'text-text-muted border border-transparent hover:text-text',
+  on ? 'bg-primary-800 text-white border border-transparent dark:from-primary-400 dark:to-primary-600' : 'text-text-muted border border-transparent hover:text-text',
 );
 
 interface ClockPickerProps {
@@ -204,7 +204,7 @@ export const ClockPicker = ({ value, onChange, label, minAt, onTouch }: ClockPic
               className={cn(
                 'absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-full t-meta font-semibold transition-colors duration-150 flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
                 dial.mark,
-                active ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-secondary',
+                active ? 'bg-primary-800 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-secondary',
               )}
               style={{ left: pos.left, top: pos.top }}
             >

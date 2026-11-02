@@ -18,7 +18,7 @@ interface Tile {
 }
 
 const TILE = {
-  primary: 'bg-linear-to-br from-primary-500 to-primary-700',
+  primary: 'bg-primary-800',
   success: 'bg-linear-to-br from-success to-success/70',
   coral: 'bg-linear-to-br from-coral-500 to-coral-600',
   info: 'bg-linear-to-br from-info to-info/70',

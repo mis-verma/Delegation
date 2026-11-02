@@ -193,7 +193,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
 
   const heading = !hideHeading && (
     <label className={FIELD_LABEL_CLASS}>
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-800 text-white" aria-hidden="true">
         <TagIcon className="size-3.5" strokeWidth={2.25} />
       </span>
       Labels

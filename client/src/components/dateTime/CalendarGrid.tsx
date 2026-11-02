@@ -125,7 +125,7 @@ export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHo
                 onClick={() => { onMonthChange(new Date(jumpYear, i, 1)); setMode('days'); }}
                 className={cn(
                   'h-11 rounded-lg text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors [-webkit-tap-highlight-color:transparent]',
-                  isCurrent ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-secondary hover:bg-primary-500/10',
+                  isCurrent ? 'bg-primary-800 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-secondary hover:bg-primary-500/10',
                 )}
               >
                 {name.slice(0, 3)}
@@ -167,7 +167,7 @@ export const CalendarGrid = ({ month, onMonthChange, getDayState, onSelect, onHo
                     roundLeft ? 'rounded-l-lg' : 'rounded-l-none',
                     roundRight ? 'rounded-r-lg' : 'rounded-r-none',
                     disabled ? 'text-text-light/40 cursor-not-allowed' : 'cursor-pointer',
-                    solid && 'bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold hover:brightness-110 dark:from-primary-400 dark:to-primary-600',
+                    solid && 'bg-primary-800 text-white font-semibold hover:brightness-110 dark:from-primary-400 dark:to-primary-600',
                     inRange && !solid && 'bg-primary-500/12 dark:bg-primary-400/15 text-text',
                     !solid && !inRange && !disabled && 'text-text hover:bg-primary-500/10',
                     isToday && !solid && 'font-bold text-primary-700 dark:text-primary-300 ring-1 ring-inset ring-primary-500/50',

@@ -91,7 +91,7 @@ export const StatusRemarkDialog = ({
           <p className="t-meta font-display font-semibold text-text-secondary leading-snug line-clamp-1">{itemTitle}</p>
           <div className="flex items-center gap-2 flex-wrap">
             {from}
-            <span aria-hidden="true" className="flex items-center justify-center size-6 rounded-full bg-linear-to-br from-primary-500 to-primary-600 text-white shrink-0">
+            <span aria-hidden="true" className="flex items-center justify-center size-6 rounded-full bg-primary-800 text-white shrink-0">
               <ArrowRight size={12} strokeWidth={3} />
             </span>
             {to}

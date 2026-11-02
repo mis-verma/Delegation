@@ -29,7 +29,7 @@ export const EntityIconTile = ({ icon: Icon, tone = 'primary', className, iconCl
       'flex items-center justify-center size-10 rounded-xl shrink-0 text-white transition-all duration-300 group-hover:scale-105',
       tone === 'coral'
         ? 'bg-gradient-to-br from-coral-400 to-coral-600 border border-coral-700/20 dark:from-coral-500 dark:to-coral-700'
-        : 'bg-gradient-to-br from-primary-500 to-primary-700 border border-primary-800/20 dark:from-primary-600 dark:to-primary-900',
+        : 'bg-primary-800 border border-primary-800/20 dark:from-primary-600 dark:to-primary-900',
       className
     )}
   >

@@ -55,7 +55,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
           trigger={
             <button
               type="button"
-              className="group inline-flex shrink-0 items-center h-8 pointer-coarse:h-10 gap-1 pl-2.5 pr-2 rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white t-meta font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] disabled:opacity-50"
+              className="group inline-flex shrink-0 items-center h-8 pointer-coarse:h-10 gap-1 pl-2.5 pr-2 rounded-lg bg-primary-800 text-white t-meta font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] disabled:opacity-50"
             >
               <Plus size={14} strokeWidth={3} />
               Add

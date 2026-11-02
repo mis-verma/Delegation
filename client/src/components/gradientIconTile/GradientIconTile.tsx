@@ -37,7 +37,7 @@ export const GradientIconTile = ({ icon: Icon, size = 'md', className }: Gradien
     <div
       className={cn(
         'flex items-center justify-center shrink-0 relative overflow-hidden',
-        'bg-gradient-to-br from-primary-500 to-primary-600 text-white',
+        'bg-primary-800 text-white',
         tile,
         shadow,
         className

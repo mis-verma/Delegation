@@ -17,7 +17,7 @@ interface TicketPropertyRowProps {
   footer?: ReactNode;
 }
 
-export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false, footer }: TicketPropertyRowProps) => (
+export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-primary-800', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false, footer }: TicketPropertyRowProps) => (
   <div
     className={cn(
       railOnly ? 'hidden lg:flex' : footer ? 'grid grid-cols-[auto_minmax(0,1fr)] gap-y-1' : 'flex',

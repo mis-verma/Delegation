@@ -104,7 +104,7 @@ export function DatePicker({
               onClick={() => { selectDay(target); setViewMonth(target); }}
               className={cn(
                 'h-9 pointer-coarse:h-11 px-1 rounded-lg t-meta font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
-                isActive ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'bg-surface-hover/80 text-text-secondary hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300',
+                isActive ? 'bg-primary-800 text-white dark:from-primary-400 dark:to-primary-600' : 'bg-surface-hover/80 text-text-secondary hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300',
               )}
             >
               {pick.label}
@@ -129,7 +129,7 @@ export function DatePicker({
         type="button"
         disabled={!value}
         onClick={() => setOpen(false)}
-        className="w-full h-9 pointer-coarse:h-11 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 hover:brightness-110 text-white text-sm font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full h-9 pointer-coarse:h-11 rounded-lg bg-primary-800 hover:brightness-110 text-white text-sm font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {value ? `Set ${formatDay(value)}, ${formatClock(value)}` : 'Pick a day first'}
       </button>

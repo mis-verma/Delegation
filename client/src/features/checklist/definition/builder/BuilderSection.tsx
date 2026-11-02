@@ -13,7 +13,7 @@ export const BuilderSection = ({ icon: Icon, title, hint, aside, children }: Bui
   <section className="overflow-hidden rounded-2xl border border-border/60 bg-surface">
     <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-linear-to-r from-primary-500/[0.08] via-primary-500/[0.03] to-transparent px-4 py-3 sm:px-5">
       <span className="flex min-w-0 items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
           <Icon size={18} strokeWidth={2.25} />
         </span>
         <span className="flex min-w-0 flex-col">

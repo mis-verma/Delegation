@@ -104,7 +104,7 @@ export const ChecklistDetailsFields = ({
                   onKeyDown={(e) => onRadioKeyDown(e, index, CHECKLIST_ICON_KEYS.length, (next) => onIconChange(CHECKLIST_ICON_KEYS[next]))}
                   className={`flex aspect-square items-center justify-center rounded-xl border cursor-pointer transition-all duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     isSelected
-                      ? 'border-transparent bg-linear-to-br from-primary-500 to-primary-700 text-white'
+                      ? 'border-transparent bg-primary-800 text-white'
                       : 'border-border/70 bg-surface text-text-muted hover:border-primary-400 hover:text-text'
                   }`}
                 >
@@ -122,7 +122,7 @@ export const ChecklistDetailsFields = ({
         <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface">
           <div className="flex h-16 items-end bg-linear-to-br from-primary-500/20 via-primary-500/10 to-transparent px-4" aria-hidden="true" />
           <div className="-mt-7 flex flex-col gap-3 px-4 pb-4">
-            <span className="flex size-14 items-center justify-center rounded-2xl border-4 border-surface bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+            <span className="flex size-14 items-center justify-center rounded-2xl border-4 border-surface bg-primary-800 text-white" aria-hidden="true">
               <PreviewIcon size={24} strokeWidth={2.25} />
             </span>
             <div className="flex min-w-0 flex-col gap-0.5">

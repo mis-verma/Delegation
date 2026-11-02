@@ -31,7 +31,7 @@ export const AuthBackground = ({
             <ul className="flex flex-col gap-3.5 relative z-10">
                 {HIGHLIGHTS.map(({ icon: Icon, text }) => (
                     <li key={text} className="flex items-center gap-3">
-                        <span className="flex items-center justify-center size-9 rounded-xl shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 border border-primary-800/20 text-white">
+                        <span className="flex items-center justify-center size-9 rounded-xl shrink-0 bg-primary-800 border border-primary-800/20 text-white">
                             <Icon size={16} strokeWidth={2.25} />
                         </span>
                         <span className="text-sm font-display font-medium text-text-secondary">{text}</span>

@@ -186,7 +186,7 @@ const SectionContainer = ({
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
               <Layers size={16} strokeWidth={2.25} />
             </span>
             {renaming ? (

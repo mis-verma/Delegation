@@ -199,7 +199,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         className="w-full sm:max-w-[400px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none">
         <SheetHeader className="flex flex-col gap-2.5 border-b border-border/60 px-4 pt-3 pb-3 text-left shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center size-8 rounded-lg bg-linear-to-br from-primary-500 to-primary-700 text-white shrink-0" aria-hidden="true"><Bell className="size-4" strokeWidth={2.25} /></span>
+            <span className="flex items-center justify-center size-8 rounded-lg bg-primary-800 text-white shrink-0" aria-hidden="true"><Bell className="size-4" strokeWidth={2.25} /></span>
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <SheetTitle className="t-card font-display font-bold text-text">Notifications</SheetTitle>
               {unreadCount > 0 && (

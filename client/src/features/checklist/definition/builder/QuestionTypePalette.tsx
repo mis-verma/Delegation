@@ -21,7 +21,7 @@ export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, st
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 rounded-xl bg-linear-to-r from-primary-500/[0.09] to-transparent p-2.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
           <PlusCircle size={18} strokeWidth={2.25} />
         </span>
         <div className="flex min-w-0 flex-col">

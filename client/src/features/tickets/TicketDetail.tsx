@@ -294,7 +294,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     </TicketPropertyRow>
                   )}
 
-                  <TicketPropertyRow label="Assignee" icon={User} tone="bg-linear-to-br from-primary-500 to-primary-600" wide first>
+                  <TicketPropertyRow label="Assignee" icon={User} tone="bg-primary-800" wide first>
                     {canRoute ? (
                       <div title="Assignee" className="w-full min-w-0">
                         <AssigneeField

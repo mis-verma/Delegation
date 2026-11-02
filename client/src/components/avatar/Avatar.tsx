@@ -43,7 +43,7 @@ export const Avatar = ({ name, src, size = 'md', className, online }: AvatarProp
   ) : (
     <div
       className={cn(
-        'flex items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white font-display font-bold shrink-0 ring-1 ring-primary-500/10',
+        'flex items-center justify-center rounded-full bg-primary-800 text-white font-display font-bold shrink-0 ring-1 ring-primary-500/10',
         SIZE_CLASS[size],
         className
       )}

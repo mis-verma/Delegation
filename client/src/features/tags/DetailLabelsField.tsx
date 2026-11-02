@@ -17,7 +17,7 @@ interface DetailLabelsFieldProps {
 }
 
 const ICON_TILE = (
-  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-600 text-white" title="Labels" aria-hidden="true">
+  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary-800 text-white" title="Labels" aria-hidden="true">
     <TagIcon className="size-3.5" strokeWidth={2.25} />
   </span>
 );
@@ -48,7 +48,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
       <div className="flex flex-col gap-2">
         {!hideHeading && (
           <h3 className={headingClassName}>
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-800 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
             Labels
           </h3>
         )}
@@ -78,7 +78,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
   return (
     <div className="flex flex-col gap-2">
       <h3 className={headingClassName}>
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-800 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
         Labels
         <span className="ml-auto inline-flex h-5 min-w-9 items-center justify-center rounded-full bg-surface-hover px-2 t-meta font-display font-semibold text-text-muted tabular-nums">{ids.length}/12</span>
       </h3>

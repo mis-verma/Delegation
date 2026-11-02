@@ -93,7 +93,7 @@ export const AddQuestionModal = ({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
         <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-linear-to-r from-primary-500/[0.09] via-primary-500/[0.03] to-transparent p-3">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-primary-500 to-primary-700 text-white" aria-hidden="true">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-white" aria-hidden="true">
             <Icon size={22} strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col">

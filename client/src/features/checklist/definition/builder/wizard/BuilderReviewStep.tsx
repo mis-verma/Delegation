@@ -80,7 +80,7 @@ const ReviewCard = ({ label, icon: Icon, valid, onEdit, aside, children }: {
     >
       <span className="flex min-w-0 items-center gap-3">
         <span
-          className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', valid ? 'bg-linear-to-br from-primary-500 to-primary-700' : 'bg-warning')}
+          className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', valid ? 'bg-primary-800' : 'bg-warning')}
           aria-hidden="true"
         >
           <Icon size={18} strokeWidth={2.25} />
@@ -181,7 +181,7 @@ export const BuilderReviewStep = ({
           <span
             className={cn(
               'flex size-11 shrink-0 items-center justify-center rounded-xl text-white',
-              outcome.tone === 'warning' ? 'bg-warning' : outcome.tone === 'success' ? 'bg-success' : 'bg-linear-to-br from-primary-500 to-primary-700',
+              outcome.tone === 'warning' ? 'bg-warning' : outcome.tone === 'success' ? 'bg-success' : 'bg-primary-800',
             )}
             aria-hidden="true"
           >
