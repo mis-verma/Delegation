@@ -1,10 +1,8 @@
 import { memo } from 'react';
-import { Skeleton } from '../../components';
-import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
-import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { SECTION_LOOK, type QueueSection } from './sectionLook';
 import type { QueueTab } from './verificationModel';
 import type { SectionStats } from './sectionStats';
+import { FigurePanel, type FigureCell } from './FigurePanel';
 
 interface QueueSectionsProps {
   tab: QueueTab;
@@ -18,57 +16,42 @@ interface QueueSectionsProps {
 
 const SECTIONS: QueueSection[] = ['checklists', 'tickets', 'delegations'];
 
-const shareWithin = (count: number, late: number) => (count <= 0 ? 100 : Math.max(0, ((count - late) / count) * 100));
-const toneOf = (count: number, late: number): FigureTone => {
-  if (count === 0 || late === 0) return 'good';
-  const share = shareWithin(count, late);
-  return share >= GOOD_FROM ? 'good' : share >= FAIR_FROM ? 'fair' : 'bad';
-};
+const noteFor = (count: number, late: number) => (count === 0 ? 'Nothing waiting' : late > 0 ? `${late} over 24h` : 'All on time');
 
 export const QueueSections = memo(function QueueSections({ tab, loading, stats, total, failed, onRetry, onChange }: QueueSectionsProps) {
-  if (loading) {
-    return (
-      <div className="grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4" role="status" aria-label="Loading sections">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[4.75rem] rounded-lg" />)}
-      </div>
-    );
-  }
   const everythingLate = SECTIONS.reduce((n, s) => n + stats[s].late, 0);
   const anyFailed = SECTIONS.some((s) => failed[s]);
+
+  const cells: FigureCell[] = [
+    {
+      key: 'all',
+      label: 'Everything',
+      short: 'All',
+      value: total,
+      note: noteFor(total, everythingLate),
+      alert: everythingLate > 0,
+      help: 'Everything waiting for your review. Late means waiting more than 24 hours.',
+      selected: tab === 'all',
+      onClick: () => onChange('all'),
+    },
+    ...SECTIONS.map((section): FigureCell => {
+      const s = stats[section];
+      return {
+        key: section,
+        label: SECTION_LOOK[section].label,
+        value: s.count,
+        note: noteFor(s.count, s.late),
+        alert: s.late > 0,
+        help: `${SECTION_LOOK[section].label} waiting for review. Tap to show only these, tap again to show everything.`,
+        selected: tab === section,
+        onClick: () => onChange(tab === section ? 'all' : section),
+      };
+    }),
+  ];
+
   return (
-    <nav aria-label="Review sections" className="@container grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4">
-      <FigureCard
-        label="Everything"
-        help="Everything waiting for review. The bar shows how much is still inside 24 hours."
-        value={total}
-        tone={toneOf(total, everythingLate)}
-        bar={shareWithin(total, everythingLate)}
-        loading={false}
-        selected={tab === 'all'}
-        compact
-        error={anyFailed}
-        onRetry={onRetry}
-        onClick={() => onChange('all')}
-      />
-      {SECTIONS.map((section) => {
-        const s = stats[section];
-        return (
-          <FigureCard
-            key={section}
-            label={SECTION_LOOK[section].label}
-            help={`${SECTION_LOOK[section].label} waiting for review. The bar shows how many are still inside 24 hours. Tap again to see everything.`}
-            value={s.count}
-            tone={toneOf(s.count, s.late)}
-            bar={shareWithin(s.count, s.late)}
-            loading={false}
-            selected={tab === section}
-            compact
-            error={failed[section]}
-            onRetry={onRetry}
-            onClick={() => onChange(tab === section ? 'all' : section)}
-          />
-        );
-      })}
+    <nav aria-label="Review sections">
+      <FigurePanel cells={cells} label="Review sections" loading={loading} failed={anyFailed} onRetry={onRetry} />
     </nav>
   );
 });

@@ -1,7 +1,6 @@
 import { memo, useMemo } from 'react';
-import { Skeleton } from '../../components';
-import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
-import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { FAIR_FROM } from '../../lib/scoreBands';
+import { FigurePanel, type FigureCell } from './FigurePanel';
 import { DAY_MS, type ChecklistRow } from './verificationModel';
 
 interface QueueOverviewProps {
@@ -20,8 +19,6 @@ interface QueueOverviewProps {
   onRetry: () => void;
 }
 
-const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
-const shareOf = (part: number, whole: number) => (whole <= 0 ? 100 : Math.max(0, ((whole - part) / whole) * 100));
 const pct = (n: number) => `${Math.round(n)}%`;
 
 export const QueueOverview = memo(function QueueOverview({
@@ -44,76 +41,57 @@ export const QueueOverview = memo(function QueueOverview({
     return { needsLook, critical, clean, slow, average: counted ? Math.round(sum / counted) : null };
   }, [rows, now]);
 
-  if (loading) {
-    return (
-      <div className="grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4" role="status" aria-label="Loading overview">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[4.75rem] rounded-lg" />)}
-      </div>
-    );
-  }
-
   const total = rows.length;
   const avg = stats.average;
+  const cells: FigureCell[] = [
+    {
+      key: 'look',
+      label: 'Need a look',
+      short: 'Look',
+      value: stats.needsLook,
+      note: stats.critical > 0 ? `${stats.critical} critical` : stats.needsLook > 0 ? 'Wrong answers' : 'All clear',
+      alert: stats.critical > 0,
+      help: stats.critical > 0 ? `${stats.critical} with a critical question failed. Tap to show only the ones that need a look.` : 'Checklists with wrong answers or photo problems. Tap to show only these.',
+      selected: attentionActive,
+      onClick: onToggleAttention,
+    },
+    {
+      key: 'ready',
+      label: 'Ready to approve',
+      short: 'Ready',
+      value: stats.clean,
+      note: stats.clean > 0 ? 'Tap to show' : 'None yet',
+      help: 'Fully compliant, photos in, never sent back. Approve them in one go below.',
+      onClick: stats.clean > 0 ? onShowReady : undefined,
+    },
+    {
+      key: 'slow',
+      label: 'Waiting 3+ days',
+      short: '3+ days',
+      value: stats.slow,
+      note: stats.slow > 0 ? 'Review first' : 'None late',
+      alert: stats.slow > 0,
+      help: 'Checklists that have waited three days or more. Tap to show only these.',
+      selected: slowActive,
+      onClick: onToggleSlow,
+    },
+    {
+      key: 'avg',
+      label: 'Avg compliance',
+      short: 'Compliance',
+      value: avg === null ? null : pct(avg),
+      note: avg === null ? undefined : sortedLowest ? 'Lowest first' : 'Tap to sort',
+      alert: avg !== null && avg < FAIR_FROM,
+      help: `Average compliance across the ${total} ${total === 1 ? 'checklist' : 'checklists'} waiting. Tap to put the lowest first.`,
+      selected: sortedLowest,
+      onClick: avg === null ? undefined : onSortLowest,
+    },
+  ];
+
   return (
     <section aria-label="Checklist checks" className="flex flex-col gap-2">
       <h2 className="t-meta font-display font-semibold text-text-secondary">Checklist checks</h2>
-      <div className="@container grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-4">
-        <FigureCard
-          label="Need a look"
-          help={stats.critical > 0 ? `${stats.critical} with a critical question failed. Tap to show only the ones that need a look.` : 'Checklists with wrong answers or photo problems. Tap to show only these.'}
-          value={stats.needsLook}
-          tone={stats.critical > 0 ? 'bad' : stats.needsLook > 0 ? 'fair' : 'good'}
-          bar={shareOf(stats.needsLook, total)}
-          loading={false}
-          selected={attentionActive}
-          onClick={onToggleAttention}
-          compact
-          error={failed}
-          onRetry={onRetry}
-        />
-        <FigureCard
-          label="Ready to approve"
-          short="Ready"
-          help="Fully compliant, photos in, never sent back. Approve them in one go below."
-          value={stats.clean}
-          tone={stats.clean > 0 ? 'good' : 'plain'}
-          bar={total === 0 ? null : (stats.clean / total) * 100}
-          loading={false}
-          compact
-          error={failed}
-          onRetry={onRetry}
-          onClick={stats.clean > 0 ? onShowReady : undefined}
-        />
-        <FigureCard
-          label="Waiting 3+ days"
-          short="3+ days"
-          help="Checklists that have waited three days or more. Tap to show only these."
-          value={stats.slow}
-          tone={stats.slow > 0 ? 'bad' : 'good'}
-          bar={shareOf(stats.slow, total)}
-          loading={false}
-          selected={slowActive}
-          onClick={onToggleSlow}
-          compact
-          error={failed}
-          onRetry={onRetry}
-        />
-        <FigureCard
-          label="Avg compliance"
-          short="Compliance"
-          help={`Average compliance across the ${total} ${total === 1 ? 'checklist' : 'checklists'} waiting. Tap to put the lowest first.`}
-          value={avg}
-          format={pct}
-          tone={avg === null ? 'plain' : rateTone(avg)}
-          bar={avg}
-          loading={false}
-          compact
-          error={failed}
-          onRetry={onRetry}
-          selected={sortedLowest}
-          onClick={avg === null ? undefined : onSortLowest}
-        />
-      </div>
+      <FigurePanel cells={cells} label="Checklist checks" loading={loading} failed={failed} onRetry={onRetry} />
       {partial && <p className="t-meta text-text-muted">The counts cover the checklists loaded so far. Load more below to include the rest.</p>}
     </section>
   );
