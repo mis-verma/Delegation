@@ -242,7 +242,12 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
       <EmptyState
         icon={ListTodo}
         title="Your list is empty"
-        description="Type a to-do in the box above and press Enter. Tick it off here when it is done."
+        description={
+          <>
+            <span className="sm:hidden">Tap the + button to add a to-do. Tick it off here when it is done.</span>
+            <span className="hidden sm:inline">Type a to-do in the box above and press Enter. Tick it off here when it is done.</span>
+          </>
+        }
       />
     );
   }
@@ -312,7 +317,7 @@ const CaughtUp = () => (
     </span>
     <div className="min-w-0">
       <p className="t-card font-display font-bold text-text">You're all caught up</p>
-      <p className="t-meta font-medium text-text-secondary">Type in the box above and press Enter to add the next one.</p>
+      <p className="t-meta font-medium text-text-secondary"><span className="sm:hidden">Tap the + button to add the next one.</span><span className="hidden sm:inline">Type in the box above and press Enter to add the next one.</span></p>
     </div>
   </div>
 );

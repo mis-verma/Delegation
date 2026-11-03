@@ -70,8 +70,8 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         <span aria-hidden="true" className={cn('hidden size-2 shrink-0 rounded-full', compact && 'max-sm:inline-block', loading ? 'bg-border' : BAR[shownTone])} />
         {short ? (
           <>
-            <span className="min-w-0 truncate @[22rem]:hidden">{short}</span>
-            <span className="hidden min-w-0 truncate @[22rem]:inline">{label}</span>
+            <span className="min-w-0 truncate sm:@[22rem]:hidden">{short}</span>
+            <span className="hidden min-w-0 truncate sm:@[22rem]:inline">{label}</span>
           </>
         ) : (
           <span className="min-w-0 truncate">{label}</span>

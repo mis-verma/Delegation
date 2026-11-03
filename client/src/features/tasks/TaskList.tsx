@@ -305,10 +305,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     }
   };
 
-  const assigneeNames = useMemo(
-    () => new Map((assignableUsers ?? []).map(u => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])),
-    [assignableUsers],
-  );
   const departmentNames = useMemo(
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments],
@@ -363,6 +359,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const pagedTasks = pagedQuery.data?.tasks;
   const pagedMeta = pagedQuery.data?.meta;
   const loadedTasks = paged ? pagedTasks : tasks;
+  const assigneeNames = useMemo(() => {
+    const names = new Map<string, string>();
+    const fullName = (p: { firstName: string; lastName?: string | null }) => `${p.firstName} ${p.lastName ?? ''}`.trim();
+    for (const t of loadedTasks ?? []) {
+      if (t.raisedBy) names.set(t.raisedBy.id, fullName(t.raisedBy));
+      if (t.assigneePerson) names.set(t.assigneePerson.id, fullName(t.assigneePerson));
+    }
+    for (const u of assignableUsers ?? []) names.set(u.id, fullName(u));
+    return names;
+  }, [assignableUsers, loadedTasks]);
   const isPending = paged ? pagedQuery.isPending : fullQuery.isPending;
   const isError = paged ? pagedQuery.isError : fullQuery.isError;
   const refetchTasks = paged ? pagedQuery.refetch : fullQuery.refetch;

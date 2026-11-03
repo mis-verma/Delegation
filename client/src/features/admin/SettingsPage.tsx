@@ -168,7 +168,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (settings) {
-      reset({ ...settings, maintenanceMessage: settings.maintenanceMessage ?? '', androidAppUrl: settings.androidAppUrl ?? '', iosAppUrl: settings.iosAppUrl ?? '' });
+      reset({ ...settings, maintenanceMessage: settings.maintenanceMessage ?? '', androidAppUrl: settings.androidAppUrl ?? '', iosAppUrl: settings.iosAppUrl ?? '' }, { keepDirtyValues: true });
       setLogoUrl(settings.logoUrl);
     }
   }, [settings, reset]);
@@ -520,7 +520,7 @@ export const SettingsPage = () => {
         )}
 
         {(isDirty || mutation.isPending) && (
-          <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
+          <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
             <p className="text-sm font-display font-medium text-text-secondary">You have unsaved changes</p>
             <div className="flex items-center gap-2">
               <Button type="button" variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => reset({ ...settings, maintenanceMessage: settings?.maintenanceMessage ?? '', androidAppUrl: settings?.androidAppUrl ?? '', iosAppUrl: settings?.iosAppUrl ?? '' })}>

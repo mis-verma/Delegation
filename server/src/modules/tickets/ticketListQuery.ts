@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, like, lt, notInArray, or, sql, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lt, notInArray, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { tickets, ticketTags, TICKET_PRIORITIES, TICKET_STATUSES } from "../../db/schema/index.js"
 import type { TicketListBucket, TicketListHandler, TicketListSort } from "./ticketListParams.js"
@@ -39,7 +39,7 @@ const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => "\\" + c)
 
 export const ticketBucketCondition = (bucket: TicketListBucket): SQL => {
     if (bucket === "pending") return notInArray(tickets.status, [...HANDED_IN])
-    if (bucket === "completed") return inArray(tickets.status, [...HANDED_IN])
+    if (bucket === "completed") return and(inArray(tickets.status, [...HANDED_IN]), isNull(tickets.declinedAt))!
     if (bucket === "delayed") return and(eq(tickets.isOverdue, true), notInArray(tickets.status, [...HANDED_IN]))!
     return and(isNotNull(tickets.tatDueAt), notInArray(tickets.status, [...HANDED_IN]), eq(tickets.isOverdue, false))!
 }

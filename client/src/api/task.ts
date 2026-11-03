@@ -204,6 +204,7 @@ export type TaskListQuery = {
 
 const taskListParams = (query: TaskListQuery) => {
     const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
+    params.set('checklistSummary', '1');
     const set = (key: string, value: string | undefined) => { if (value) params.set(key, value); };
     set("sort", query.sort);
     set("bucket", query.bucket);

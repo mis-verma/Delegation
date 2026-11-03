@@ -223,7 +223,7 @@ export const CategoryList = () => {
   const remove = async (c: Category) => {
     const ok = await confirm({
       title: `Delete "${c.name}"?`,
-      description: "Tickets already filed under it keep their details. It can no longer be picked on new tickets.",
+      description: "This only works if no ticket was ever filed under it. If some were, turn it off instead and it stops showing on new tickets.",
       confirmLabel: "Delete",
       variant: "danger",
     });

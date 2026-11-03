@@ -1,9 +1,9 @@
 import { db } from "../../config/db.js";
 import { categories, categoryAssignees, departments, users } from "../../db/schema/core.js";
-import { categoryTags } from "../../db/schema/ticket.js";
+import { categoryTags, tickets } from "../../db/schema/ticket.js";
 import { tags } from "../../db/schema/task.js";
 import type { Executor } from "../tickets/ticketShared.js";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { CreateCategoryInput, UpdateCategoryInput } from "./category.validation.js";
@@ -159,6 +159,11 @@ export const categoryService = {
 
     async remove(id: string, actorId: string) {
         const category = await getByIdOrThrow(id);
+        const [filed] = await db.select({ count: sql<number>`count(*)` }).from(tickets).where(eq(tickets.categoryId, id));
+        const count = Number(filed?.count ?? 0);
+        if (count > 0) {
+            throw AppError.conflict(`${count} ${count === 1 ? "ticket was" : "tickets were"} filed under "${category.name}", so it can't be deleted. Turn it off instead and it stops showing on new tickets.`);
+        }
         await db.delete(categories).where(eq(categories.id, id));
         await auditService.record({ entityType: "Category", entityId: id, action: "DELETE", actorId, before: category });
         await dropCache();

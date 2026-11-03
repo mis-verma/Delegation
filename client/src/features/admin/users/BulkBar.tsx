@@ -40,7 +40,7 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
     <div
       role="region"
       aria-label="Actions for selected people"
-      className={cn(PANEL_CLASS, 'sticky bottom-3 z-30 flex flex-wrap items-center gap-2 p-3')}
+      className={cn(PANEL_CLASS, 'sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-3 z-30 flex flex-wrap items-center gap-2 p-3')}
     >
       <span className="text-sm font-display font-semibold text-text pr-1" aria-live="polite">
         {count} selected

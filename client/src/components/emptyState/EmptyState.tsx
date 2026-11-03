@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '../button';
 
@@ -10,7 +11,7 @@ interface EmptyStateAction {
 export interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
-  description?: string;
+  description?: ReactNode;
   tone?: 'neutral' | 'success';
   action?: EmptyStateAction;
   size?: 'default' | 'compact';

@@ -441,7 +441,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 onPreview={setPreviewImage}
               />
 
-              {(ticket.checklists?.length ?? 0) > 0 && (
+              {((ticket.checklists?.length ?? 0) > 0 || (isAdmin && ticket.status !== 'CLOSED' && !ticket.declinedAt)) && (
                 <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} workerIds={ticket.assignee ? [ticket.assignee.id] : []} />
               )}
               </div>
