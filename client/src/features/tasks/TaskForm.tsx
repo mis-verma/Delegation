@@ -25,6 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { Task } from '../../api/task';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
+import { DepartmentForm } from '../admin/department/DepartmentForm';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { TaskQuickDue } from './form/TaskQuickDue';
@@ -69,6 +70,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const startsOnOwnDepartment = ownScopeOnly || (user?.role === 'MANAGER' || user?.role === 'SENIOR');
   const mutation = useCreateTaskWithAttachmentsMutation();
+  const [creatingDepartment, setCreatingDepartment] = useState(false);
   const { data: allAssignable, isLoading: isLoadingAllUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
   const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
@@ -91,6 +93,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
     handleSubmit,
     control,
     setError,
+    setValue,
     reset,
     formState: { errors, isSubmitting, isDirty, submitCount },
   } = useForm<TaskFields>({
@@ -393,7 +396,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
               icon={<Building2 size={14} className="text-text-light" />}
               required={ownScopeOnly}
               optional={!ownScopeOnly}
-              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the team first. You can add people from other departments below.'}
+              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the main team first. You can add more departments below.'}
               error={errors.departmentId?.message}
             >
               <Controller
@@ -407,6 +410,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
                     departments={departments}
                     isLoading={isLoadingDepts}
                     triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
+                    onCreateNew={isVerifier ? () => setCreatingDepartment(true) : undefined}
                   />
                 )}
               />
@@ -490,6 +494,13 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
           />
         </div>
       </form>
+
+      {creatingDepartment && (
+        <DepartmentForm
+          onClose={() => setCreatingDepartment(false)}
+          onCreated={(created) => changePrimaryDepartment(created.id, (value) => setValue('departmentId', value, { shouldValidate: true, shouldDirty: true }))}
+        />
+      )}
     </Modal>
   );
 };

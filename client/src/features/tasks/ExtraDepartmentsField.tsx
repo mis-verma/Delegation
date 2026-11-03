@@ -19,6 +19,7 @@ export const ExtraDepartmentsField = ({ departments, isLoading, primaryId, extra
 
   return (
     <div className="flex flex-col gap-2 min-w-0">
+      <span className="t-meta font-display font-semibold text-text-secondary">More departments on this delegation</span>
       {extraIds.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Other departments on this delegation">
           {extraIds.map((id) => {
@@ -47,7 +48,8 @@ export const ExtraDepartmentsField = ({ departments, isLoading, primaryId, extra
             value=""
             onChange={(id) => { if (id) onAdd(id); }}
             isLoading={isLoading}
-            placeholder="Add people from another department"
+            placeholder="Add another department"
+            label="Add another department"
             options={available.map((d) => ({ value: d.id, label: d.name }))}
             className={`w-full ${FIELD_TRIGGER_CLASS}`}
           />
