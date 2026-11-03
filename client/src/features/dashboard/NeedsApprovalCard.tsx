@@ -8,7 +8,8 @@ import { InlineError } from '../../components/inlineError';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
-import { ApprovalStatsStrip } from './ApprovalStatsStrip';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ApprovalStatsStrip, type ApprovalBucket } from './ApprovalStatsStrip';
 import { SendBackDialog } from './SendBackDialog';
 import { canDecideInline, rowKey, useInlineDecisions } from './useInlineDecisions';
 import { useQueueShortcuts } from '../verification/useQueueShortcuts';
@@ -30,6 +31,8 @@ export interface ApprovalRow {
   link: string;
 }
 
+const LATE_MS = 24 * 60 * 60 * 1000;
+const BUCKET_TITLE: Record<ApprovalBucket, string> = { all: 'Waiting list', late: 'Delayed, over 24 hours', fresh: 'New, under 24 hours' };
 const PREVIEW_LIMIT = 6;
 const MOBILE_PREVIEW_LIMIT = 3;
 
@@ -76,6 +79,8 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   const [sendBackRow, setSendBackRow] = useState<ApprovalRow | null>(null);
   const [engaged, setEngaged] = useState(false);
   const [filter, setFilter] = useState<'all' | ApprovalCategory>('all');
+  const [bucket, setBucket] = useState<ApprovalBucket>('all');
+  const reduceMotion = useReducedMotion();
 
   const allRows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
@@ -93,8 +98,13 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       .filter((row) => !heldIds.has(rowKey(row)))
       .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime());
   }, [tickets.data, tasks.data, checklists.data, heldIds]);
-  const activeFilter = filter !== 'all' && allRows.some((r) => r.category === filter) ? filter : 'all';
-  const rows = useMemo(() => (activeFilter === 'all' ? allRows : allRows.filter((r) => r.category === activeFilter)), [allRows, activeFilter]);
+  const bucketRows = useMemo(() => {
+    if (bucket === 'all') return allRows;
+    const lateBefore = now - LATE_MS;
+    return allRows.filter((r) => (new Date(r.waitingSince).getTime() < lateBefore) === (bucket === 'late'));
+  }, [allRows, bucket, now]);
+  const activeFilter = filter !== 'all' && bucketRows.some((r) => r.category === filter) ? filter : 'all';
+  const rows = useMemo(() => (activeFilter === 'all' ? bucketRows : bucketRows.filter((r) => r.category === activeFilter)), [bucketRows, activeFilter]);
 
   const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
   const visible = useMemo(() => (expanded ? rows : rows.slice(0, previewLimit)), [expanded, rows, previewLimit]);
@@ -136,9 +146,9 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
     checklists.isError && { label: 'checklists', retry: () => void checklists.refetch() },
   ].filter(Boolean) as { label: string; retry: () => void }[];
 
-  const countOf = (c: ApprovalCategory) => allRows.filter((r) => r.category === c).length;
+  const countOf = (c: ApprovalCategory) => bucketRows.filter((r) => r.category === c).length;
   const filterOptions: { value: 'all' | ApprovalCategory; label: string }[] = [
-    { value: 'all', label: `All ${allRows.length}` },
+    { value: 'all', label: `All ${bucketRows.length}` },
     ...(['ticket', 'delegation', 'checklist'] as const)
       .filter((c) => countOf(c) > 0)
       .map((c) => ({ value: c, label: `${ACTIVITY_CATEGORY_LABEL[c]}s ${countOf(c)}` })),
@@ -175,7 +185,7 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
 
       {showsStats && !hideStats && (
         <>
-          <StatsBoundary label="Approval figures"><ApprovalStatsStrip /></StatsBoundary>
+          <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={setBucket} /></StatsBoundary>
           <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
         </>
       )}
@@ -206,16 +216,24 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
         !nothingToShow && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
-              <h3 className="t-meta font-display font-bold text-text">Waiting list</h3>
+              <h3 className="t-meta font-display font-bold text-text">{BUCKET_TITLE[bucket]}</h3>
               {filterOptions.length > 2 && (
                 <Segmented label="Filter approvals" value={activeFilter} onChange={setFilter} options={filterOptions} />
               )}
             </div>
 
             <div className="flex flex-col divide-y divide-border/60">
+              <AnimatePresence initial={false} mode="popLayout">
               {visible.map((row) => (
-                <ApprovalLink
+                <motion.div
                   key={rowKey(row)}
+                  layout={reduceMotion ? false : 'position'}
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.8 }}
+                >
+                <ApprovalLink
                   row={row}
                   now={now}
                   selected={rowKey(row) === selectedKey}
@@ -242,7 +260,21 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
                     </>
                   ) : undefined}
                 />
+                </motion.div>
               ))}
+              </AnimatePresence>
+              {visible.length === 0 && (
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center sm:px-5">
+                  <p className="t-card font-display font-semibold text-text">Nothing in this view</p>
+                  <button
+                    type="button"
+                    onClick={() => { setBucket('all'); setFilter('all'); }}
+                    className="inline-flex h-11 cursor-pointer items-center rounded-full border border-border px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-9"
+                  >
+                    Show all
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )
