@@ -526,6 +526,10 @@ export const taskService = {
             update.headEscalatedAt = null;
             update.assignmentApprovedBy = null;
             update.assignmentApprovedAt = null;
+            if (existing.awaitingHeadApproval && !headNeedsToDecide && existing.category === "delegation") {
+                update.assignmentApprovedBy = user.sub;
+                update.assignmentApprovedAt = new Date();
+            }
         } else if (existing.awaitingHeadApproval && isStatusChange) {
             headAutoApproved = true;
             const shifted = dueDate === undefined ? lateApprovalDueDate(existing.dueDate, new Date()) : undefined;

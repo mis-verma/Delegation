@@ -11,7 +11,7 @@ import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, B
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip, TagChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
-import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
+import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, useDepartmentsWithHeadQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
@@ -64,6 +64,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const { data: departments } = useDepartmentsQuery();
+  const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
   const { data: categories } = useCategoriesQuery();
   const { data: tags } = useTagsQuery(!ownScopeOnly);
   const mutation = useCreateTicketMutation();
@@ -71,7 +72,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const deleteDraft = useDeleteDraftMutation('TICKET');
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState<'category' | 'department' | null>(null);
-  const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly }), [ownScopeOnly]);
+  const headCanPick = useCallback(
+    (departmentId: string | undefined) => !!departmentId && departmentId !== user?.departmentId && !!headDepartmentIds?.has(departmentId),
+    [headDepartmentIds, user?.departmentId],
+  );
+  const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly, headCanPick }), [ownScopeOnly, headCanPick]);
   const formRef = useRef<HTMLFormElement>(null);
 
   const [autoFocusTitle] = useState(() => !window.matchMedia('(pointer: coarse)').matches);
@@ -408,8 +413,7 @@ Who is affected: `;
 
   const targetDepartmentId = departmentId || (selectedCategory ? (typeof selectedCategory.departmentId === 'object' ? selectedCategory.departmentId.id : String(selectedCategory.departmentId)) : '');
   const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && user.departmentId === targetDepartmentId;
-  const noActiveHead = !ownScopeOnly && !!departmentId && departmentId === targetDepartmentId && !!assignableUsers
-    && !assignableUsers.some((u) => u.role === 'MANAGER' || u.role === 'SENIOR');
+  const noActiveHead = !!headDepartmentIds && !!targetDepartmentId && !headDepartmentIds.has(targetDepartmentId);
   const needsHeadOk = !!targetDepartmentId && !isTargetHead && !noActiveHead;
   const targetDepartmentName = departments?.find((d) => d.id === targetDepartmentId)?.name;
 
@@ -547,8 +551,10 @@ Who is affected: `;
                       <FormField
                         label="Person"
                         icon={<UserCheck size={14} className="text-text-light" />}
-                        required
-                        hint={departmentId || selectedCategory ? 'Who will work on it.' : 'Pick anyone. Choosing a team above narrows the list.'}
+                        required={!headCanPick(departmentId || undefined)}
+                        hint={headCanPick(departmentId || undefined)
+                          ? 'Optional. Leave it empty and the head of that team picks who does it.'
+                          : departmentId || selectedCategory ? 'Who will work on it.' : 'Pick a team first to see its people.'}
                         error={errors.assigneeId?.message}
                       >
                         <AssigneeField

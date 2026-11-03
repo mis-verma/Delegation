@@ -75,7 +75,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
             <WaitChip since={ticket.createdAt} now={now} warnAfterHours={4} dangerAfterHours={24} />
-            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title="The clock starts when you approve" className="shrink-0" labelClassName="tabular-nums" />}
+            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title={ticket.assignmentMode === 'MANUAL' ? 'The sender chose this finish time' : 'The clock starts when you approve'} className="shrink-0" labelClassName="tabular-nums" />}
           </span>
         </span>
       </button>

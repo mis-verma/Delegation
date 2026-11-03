@@ -2,7 +2,7 @@ import { db } from "../../config/db.js";
 import { departments, users, categories } from "../../db/schema/core.js";
 import { tickets, tasks, checklistTemplates } from "../../db/schema/index.js";
 import { describeBlockers } from "../../utils/lookupModule.js";
-import { eq, ne, and, asc, sql, isNull } from "drizzle-orm";
+import { eq, ne, and, asc, sql, isNull, isNotNull, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { CreateDepartmentInput, UpdateDepartmentInput } from "./department.validation.js";
@@ -51,6 +51,12 @@ const departmentBlockers = async (department: { id: string; name: string }) => {
 };
 
 export const departmentService = {
+    async idsWithActiveHead() {
+        const rows = await db.selectDistinct({ departmentId: users.departmentId }).from(users)
+            .where(and(inArray(users.role, ["MANAGER", "SENIOR"]), eq(users.isActive, true), isNotNull(users.departmentId)));
+        return rows.map((r) => r.departmentId as string);
+    },
+
     async list(page?: number, limit?: number) {
         if (page && limit) {
             const [rows, totalRows] = await cached(cacheKey(CACHE_PREFIX, "page", page, limit), CACHE_TTL_SECONDS, () => Promise.all([

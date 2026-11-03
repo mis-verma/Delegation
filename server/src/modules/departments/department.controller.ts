@@ -12,6 +12,10 @@ export const departmentController = {
         res.json({ success : true , ...result})
     }),
 
+    withActiveHead : asyncHandler(async (_req : Request , res : Response) => {
+        res.json({ success : true , data : await departmentService.idsWithActiveHead() })
+    }),
+
     getOne : asyncHandler(async ( req : Request , res : Response) => {
         const department = await departmentService.getById(routeParam(req, "id"))
         res.json({ success : true, data : department})

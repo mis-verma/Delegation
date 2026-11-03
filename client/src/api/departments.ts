@@ -33,6 +33,8 @@ export type UpdateDepartmentPayload = Partial<Omit<CreateDepartmentPayload, "sto
 export const departmentApi = {
   getAll: () => apiFetch<ApiResponse<Department[]>>('/departments'),
 
+  withActiveHead: () => apiFetch<ApiResponse<string[]>>('/departments/with-active-head'),
+
   getPage: (page = 1, limit = 20) =>
     apiFetch<PaginatedResponse<Department>>(`/departments?page=${page}&limit=${limit}`),
 

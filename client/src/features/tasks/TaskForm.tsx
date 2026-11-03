@@ -20,7 +20,7 @@ import { LabelsField } from '../tags/LabelsField';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { AttachFilesToolbar } from './AttachFilesToolbar';
 import { StagedFileChips } from './StagedFileChips';
-import { useDepartmentsQuery } from '../tickets/hook';
+import { useDepartmentsQuery, useDepartmentsWithHeadQuery } from '../tickets/hook';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { Task } from '../../api/task';
@@ -70,6 +70,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const mutation = useCreateTaskWithAttachmentsMutation();
   const { data: allAssignable, isLoading: isLoadingAllUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
+  const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
   const { data: tags } = useTagsQuery();
   const keptKey = `delegation:${user?.id ?? 'anon'}`;
   const [kept] = useState(() => readKept<Partial<TaskFields> & { assigneeIds?: string[]; extraDepartmentIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
@@ -165,7 +166,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
 
   const headOfDepartment = (user?.role === 'MANAGER' || user?.role === 'SENIOR') ? user.departmentId ?? null : null;
   const involvedDepartmentIds = [...new Set([departmentId, ...assigneeIds.map(userDepartmentOf)].filter((id): id is string => !!id))];
-  const approvalDepartmentIds = involvedDepartmentIds.filter((id) => id !== headOfDepartment);
+  const approvalDepartmentIds = involvedDepartmentIds.filter((id) => id !== headOfDepartment && (!headDepartmentIds || headDepartmentIds.has(id)));
   const needsHeadOk = approvalDepartmentIds.length > 0 && !saveAsDraft;
   const approvalDepartmentNames = approvalDepartmentIds.map((id) => departments?.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
   const approvalNamesLabel = approvalDepartmentNames.length > 1

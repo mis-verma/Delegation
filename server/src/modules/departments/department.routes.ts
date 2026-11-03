@@ -7,6 +7,7 @@ export const departmentRouter = Router()
 departmentRouter.use(authenticate)
 
 departmentRouter.get("/", departmentController.list)
+departmentRouter.get("/with-active-head", departmentController.withActiveHead)
 departmentRouter.get("/:id" , departmentController.getOne)
 
 departmentRouter.post("/", requireRole("ADMIN", "PC"), departmentController.create)

@@ -208,6 +208,10 @@ export const ticketService = {
     if ((input.assigneeId !== undefined || input.departmentId !== undefined) && (isOwnScopeRole(user.role))) {
       throw AppError.forbidden("Only a manager or above can reassign a ticket's assignee or department.")
     }
+    const changesPlacement = input.assigneeId !== undefined || input.departmentId !== undefined
+    if (changesPlacement && ticket.awaitingHeadApproval && !ticket.declinedAt && !isAdminOrPc(user.role) && !isDepartmentHead(user, ticket)) {
+      throw AppError.forbidden("This ticket is waiting for its department head. Only they, the PC or an admin can change who gets it.")
+    }
     assertCanSetReviewers(input.reviewerIds, user)
 
     if (input.priority !== undefined && input.priority !== ticket.priority && (isOwnScopeRole(user.role))) {
@@ -282,6 +286,7 @@ export const ticketService = {
     if (touchesPlacement && nextDepartmentId !== before.departmentId) patch.departmentId = nextDepartmentId
     const reassigned = (input.assigneeId !== undefined && input.assigneeId !== before.assigneeId) || (input.departmentId !== undefined && input.departmentId !== before.departmentId)
     let nowAwaitingHead = false
+    let approvedByReassign = false
     if (reassigned && ["OPEN", "IN_PROGRESS", "ON_HOLD"].includes(before.status) && !before.declinedAt) {
       nowAwaitingHead = await ticketNeedsHeadApproval({ departmentId: nextDepartmentId }, user)
       patch.awaitingHeadApproval = nowAwaitingHead
@@ -289,6 +294,11 @@ export const ticketService = {
       patch.headEscalatedAt = null
       patch.assignmentApprovedBy = null
       patch.assignmentApprovedAt = null
+      if (before.awaitingHeadApproval && !nowAwaitingHead) {
+        approvedByReassign = true
+        patch.assignmentApprovedBy = user.sub
+        patch.assignmentApprovedAt = new Date()
+      }
     }
 
     if (input.tatHours !== undefined && input.tatHours !== before.tatHours) {
@@ -352,6 +362,7 @@ export const ticketService = {
       if (!nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
     if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
+    if (approvedByReassign) await notifySafely(() => notificationService.notifyTicketHeadApproved({ ...notificationTarget(afterRow!), assigneeId: null }, user.sub))
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", afterRow!.approvalStage ?? "PC"));
@@ -513,6 +524,7 @@ export const ticketService = {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this ticket.")
+    if (ticket.declinedAt) throw AppError.badRequest("This ticket was declined. Reopen it first if it should go ahead.")
     if (!ticket.awaitingHeadApproval) throw AppError.conflict("This ticket has already been approved.")
 
     if (assigneeId && assigneeId !== ticket.assigneeId) {

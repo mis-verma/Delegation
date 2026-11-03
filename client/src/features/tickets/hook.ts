@@ -410,6 +410,17 @@ export const useDepartmentsQuery = (enabled: boolean = true) => {
   });
 };
 
+export const useDepartmentsWithHeadQuery = (enabled: boolean = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['departments', 'with-active-head'] as const,
+    queryFn: () => departmentApi.withActiveHead().then(r => new Set(r.data)),
+    staleTime: ORG_STRUCTURE_STALE_TIME,
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+  });
+};
+
 export const storesQueryOptions = () => ({
   queryKey: ['stores'] as const,
   queryFn: () => storeApi.getAll().then(r => r.data),
