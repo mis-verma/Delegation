@@ -15,6 +15,7 @@ import { useQueueShortcuts } from '../verification/useQueueShortcuts';
 import { ActionPointsStrip } from './ActionPointsStrip';
 import { StatsBoundary } from './StatsBoundary';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { Segmented } from '../../components/segmented/Segmented';
 import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_PILL } from './categoryLook';
 
@@ -74,8 +75,9 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [sendBackRow, setSendBackRow] = useState<ApprovalRow | null>(null);
   const [engaged, setEngaged] = useState(false);
+  const [filter, setFilter] = useState<'all' | ApprovalCategory>('all');
 
-  const rows = useMemo<ApprovalRow[]>(() => {
+  const allRows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
       ...(tickets.data?.rows ?? []).map((t): ApprovalRow => ({
         id: t.id, category: 'ticket', title: t.title, meta: t.submittedBy, waitingSince: t.waitingSince, link: `/tickets?open=${t.id}`,
@@ -91,6 +93,8 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       .filter((row) => !heldIds.has(rowKey(row)))
       .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime());
   }, [tickets.data, tasks.data, checklists.data, heldIds]);
+  const activeFilter = filter !== 'all' && allRows.some((r) => r.category === filter) ? filter : 'all';
+  const rows = useMemo(() => (activeFilter === 'all' ? allRows : allRows.filter((r) => r.category === activeFilter)), [allRows, activeFilter]);
 
   const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
   const visible = useMemo(() => (expanded ? rows : rows.slice(0, previewLimit)), [expanded, rows, previewLimit]);
@@ -126,19 +130,21 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   const canExpand = rows.length > previewLimit;
   const notLoaded = Math.max(0, total - rows.length);
 
-  const categoryTotals: Record<ApprovalCategory, number> = {
-    ticket: reviewsAllWork || isHod ? (tickets.data?.total ?? 0) : 0,
-    delegation: reviewsAllWork || isHod ? (tasks.data?.total ?? 0) : 0,
-    checklist: checklists.data?.total ?? 0,
-  };
-
   const failedSources = [
     (reviewsAllWork || isHod) && tickets.isError && { label: 'tickets', retry: () => void tickets.refetch() },
     (reviewsAllWork || isHod) && tasks.isError && { label: 'delegations', retry: () => void tasks.refetch() },
     checklists.isError && { label: 'checklists', retry: () => void checklists.refetch() },
   ].filter(Boolean) as { label: string; retry: () => void }[];
 
-  const nothingToShow = rows.length === 0;
+  const countOf = (c: ApprovalCategory) => allRows.filter((r) => r.category === c).length;
+  const filterOptions: { value: 'all' | ApprovalCategory; label: string }[] = [
+    { value: 'all', label: `All ${allRows.length}` },
+    ...(['ticket', 'delegation', 'checklist'] as const)
+      .filter((c) => countOf(c) > 0)
+      .map((c) => ({ value: c, label: `${ACTIVITY_CATEGORY_LABEL[c]}s ${countOf(c)}` })),
+  ];
+
+  const nothingToShow = allRows.length === 0;
   const allCaughtUp = nothingToShow && !hasError && !isPending;
 
   return (
@@ -199,18 +205,12 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       ) : (
         !nothingToShow && (
           <>
-            {(['ticket', 'delegation', 'checklist'] as const).filter((c) => categoryTotals[c] > 0).length > 1 && (
-            <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1 sm:px-5 sm:pt-4">
-              {(['ticket', 'delegation', 'checklist'] as const)
-                .filter((c) => categoryTotals[c] > 0)
-                .map((c) => (
-                  <span key={c} className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 t-meta font-display font-bold', CATEGORY_PILL[c])}>
-                    <span className="tabular-nums">{categoryTotals[c]}</span>
-                    {ACTIVITY_CATEGORY_LABEL[c].toLowerCase()}{categoryTotals[c] === 1 ? '' : 's'}
-                  </span>
-                ))}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
+              <h3 className="t-meta font-display font-bold text-text">Waiting list</h3>
+              {filterOptions.length > 2 && (
+                <Segmented label="Filter approvals" value={activeFilter} onChange={setFilter} options={filterOptions} />
+              )}
             </div>
-            )}
 
             <div className="flex flex-col divide-y divide-border/60">
               {visible.map((row) => (

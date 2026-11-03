@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { ApprovalSection } from './ApprovalSection';
 import { InlineError } from '../../components/inlineError';
 import { useActionPoints } from '../attention/useAttention';
 import { useApprovalSources } from './useApprovalSources';
@@ -31,7 +32,7 @@ export const ActionPointsStrip = memo(() => {
   const approvalTone = (n: number): FigureTone => (n === 0 ? 'good' : 'plain');
 
   return (
-    <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Action points">
+    <ApprovalSection title="Open work" hint="Approvals, tickets and delegations" className="@container">
       <div className="grid grid-cols-3 gap-2">
         <FigureCard
           label="Ticket approvals"
@@ -106,7 +107,7 @@ export const ActionPointsStrip = memo(() => {
           to="/checklists"
         />
       </div>
-    </div>
+    </ApprovalSection>
   );
 });
 ActionPointsStrip.displayName = 'ActionPointsStrip';

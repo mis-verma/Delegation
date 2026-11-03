@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { ApprovalSection } from './ApprovalSection';
 import { useNavigate } from 'react-router';
 import { InlineError } from '../../components/inlineError';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -43,9 +44,9 @@ export const ApprovalStatsStrip = memo(() => {
   ];
 
   return (
-    <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Approval figures">
-      <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} />
-    </div>
+    <ApprovalSection title="Waiting for your decision" hint="Approvals handed in to you" className="@container">
+      <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} phoneColumns={2} />
+    </ApprovalSection>
   );
 });
 ApprovalStatsStrip.displayName = 'ApprovalStatsStrip';
