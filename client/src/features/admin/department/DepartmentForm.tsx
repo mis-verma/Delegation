@@ -64,7 +64,7 @@ const DepartmentHeads = ({ heads, isPending, headOptional }: { heads: AdminUser[
   </FormField>
 );
 
-export const DepartmentForm = ({ onClose, department, onCreated, prefillName, nested = false }: DepartmentFormProps) => {
+export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: DepartmentFormProps) => {
   const isEditing = !!department;
   const createMutation = useCreateDepartmentMutation();
   const updateMutation = useUpdateDepartmentMutation();
@@ -123,7 +123,6 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     <Modal
       open
       onClose={requestClose}
-      modal={!nested}
       icon={<Building2 className="w-5 h-5" />}
       title={isEditing ? 'Edit department' : 'New department'}
       description={

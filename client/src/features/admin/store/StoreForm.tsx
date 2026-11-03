@@ -52,7 +52,7 @@ interface StoreFormProps {
   nested?: boolean;
 }
 
-export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = false }: StoreFormProps) => {
+export const StoreForm = ({ onClose, store, onCreated, prefillName }: StoreFormProps) => {
   const isEditing = !!store;
   const createMutation = useCreateStoreMutation();
   const updateMutation = useUpdateStoreMutation();
@@ -132,7 +132,6 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
     <Modal
       open
       onClose={requestClose}
-      modal={!nested}
       icon={<StoreIcon className="w-5 h-5" />}
       title={isEditing ? 'Edit store' : 'New store'}
       description={isEditing ? "Update this store's name, code and address." : 'Add a place where checklists run.'}

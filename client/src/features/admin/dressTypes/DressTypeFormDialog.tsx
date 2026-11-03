@@ -30,7 +30,7 @@ const CHIP_BASE =
 
 const GENDER_NOUN = { FEMALE: 'women', MALE: 'men' } as const;
 
-export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName, nested = false }: DressTypeFormDialogProps) => {
+export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName }: DressTypeFormDialogProps) => {
   const isEditing = !!dressType;
   const { data: types } = useDressTypesQuery();
   const createMutation = useCreateDressTypeMutation();
@@ -99,7 +99,6 @@ export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName
     <Modal
       open
       onClose={requestClose}
-      modal={!nested}
       icon={<Shirt className="w-5 h-5" />}
       title={isEditing ? 'Edit dress type' : 'New dress type'}
       description="A dress type has its own list of things to check in an audit."
