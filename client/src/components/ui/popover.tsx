@@ -38,7 +38,7 @@ function PopoverContent({
         className={cn(
           "z-[80] w-(--radix-popover-trigger-width) min-w-[12rem] origin-(--radix-popover-content-transform-origin) outline-none",
           "bg-surface rounded-2xl border border-border p-3",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-150",
           className,
         )}
         {...props}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { clearKept, readKept, writeKept } from '../../lib/keptForm';
 import { haptic } from '../../lib/haptics';
@@ -94,6 +94,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
     control,
     setError,
     setValue,
+    getValues,
+    subscribe,
     reset,
     formState: { errors, isSubmitting, isDirty, submitCount },
   } = useForm<TaskFields>({
@@ -107,20 +109,30 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
     },
   });
 
-  const allValues = useWatch({ control });
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (allValues.title?.trim() || allValues.description?.trim()) {
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const keepWhatIsTyped = useCallback(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const values = getValues();
+      if (values.title?.trim() || values.description?.trim()) {
         writeKept(keptKey, {
-          title: allValues.title, description: allValues.description, priority: allValues.priority, departmentId: allValues.departmentId,
+          title: values.title, description: values.description, priority: values.priority, departmentId: values.departmentId,
           assigneeIds, extraDepartmentIds, tagIds, from: dateRange.from?.toISOString() ?? null, to: dateRange.to?.toISOString() ?? null,
         });
       } else {
         clearKept(keptKey);
       }
     }, 400);
-    return () => clearTimeout(timer);
-  }, [allValues, assigneeIds, extraDepartmentIds, tagIds, dateRange, keptKey]);
+  }, [getValues, assigneeIds, extraDepartmentIds, tagIds, dateRange, keptKey]);
+
+  useEffect(() => {
+    keepWhatIsTyped();
+    const unsubscribe = subscribe({ formState: { values: true }, callback: keepWhatIsTyped });
+    return () => {
+      clearTimeout(saveTimer.current);
+      unsubscribe();
+    };
+  }, [subscribe, keepWhatIsTyped]);
 
   useEffect(() => {
     if (!kept) return;

@@ -25,10 +25,12 @@ const ConfirmContext = createContext<((options: ConfirmOptions) => Promise<boole
 
 export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<ConfirmState | null>(null);
+  const [shown, setShown] = useState<ConfirmOptions | null>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
       setState({ ...options, resolve });
+      setShown(options);
     });
   }, []);
 
@@ -43,21 +45,21 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
       <Dialog open={!!state} onOpenChange={(open) => !open && handleClose(false)}>
         <DialogContent showCloseButton={false} className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{state?.title}</DialogTitle>
-            {state?.description && <DialogDescription>{state.description}</DialogDescription>}
+            <DialogTitle>{shown?.title}</DialogTitle>
+            {shown?.description && <DialogDescription>{shown.description}</DialogDescription>}
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => handleClose(false)}>
-              {state?.cancelLabel ?? 'Cancel'}
+              {shown?.cancelLabel ?? 'Cancel'}
             </Button>
             <Button
               type="button"
               variant="primary"
               size="sm"
-              className={state?.variant === 'danger' ? 'bg-danger hover:bg-danger/90 active:bg-danger/80' : ''}
+              className={shown?.variant === 'danger' ? 'bg-danger hover:bg-danger/90 active:bg-danger/80' : ''}
               onClick={() => handleClose(true)}
             >
-              {state?.confirmLabel ?? 'Confirm'}
+              {shown?.confirmLabel ?? 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

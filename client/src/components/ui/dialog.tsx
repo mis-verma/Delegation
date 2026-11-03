@@ -64,7 +64,7 @@ function DialogContent({
         ref={ref}
         data-slot="dialog-content"
         className={cn(
-          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 border border-border outline-none max-h-[90vh] overflow-y-auto no-scrollbar",
+          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 border border-border outline-none max-h-[90dvh] overflow-y-auto no-scrollbar",
           
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-150 data-[state=closed]:duration-100 data-[state=open]:ease-[cubic-bezier(0.32,0.72,0,1)]",
           

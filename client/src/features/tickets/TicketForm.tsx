@@ -106,6 +106,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     control,
     setValue,
     getValues,
+    subscribe,
     reset,
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
@@ -113,15 +114,24 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     defaultValues: { priority: 'MEDIUM', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
 
-  const allValues = useWatch({ control });
   useEffect(() => {
     if (draft) return;
-    const timer = setTimeout(() => {
-      if (allValues.title?.trim() || allValues.description?.trim()) writeKept(keptKey, allValues);
-      else clearKept(keptKey);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [allValues, draft, keptKey]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = subscribe({
+      formState: { values: true },
+      callback: ({ values }) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (values.title?.trim() || values.description?.trim()) writeKept(keptKey, values);
+          else clearKept(keptKey);
+        }, 400);
+      },
+    });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [subscribe, draft, keptKey]);
 
   useEffect(() => {
     if (!kept) return;
