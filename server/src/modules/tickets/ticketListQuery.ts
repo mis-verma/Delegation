@@ -38,10 +38,10 @@ const HANDED_IN = ["CLOSED", "PENDING_APPROVAL"] as const
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => "\\" + c)
 
 export const ticketBucketCondition = (bucket: TicketListBucket): SQL => {
-    if (bucket === "pending") return notInArray(tickets.status, [...HANDED_IN])
+    if (bucket === "pending") return and(notInArray(tickets.status, [...HANDED_IN]), eq(tickets.awaitingHeadApproval, false))!
     if (bucket === "completed") return and(inArray(tickets.status, [...HANDED_IN]), isNull(tickets.declinedAt))!
-    if (bucket === "delayed") return and(eq(tickets.isOverdue, true), notInArray(tickets.status, [...HANDED_IN]))!
-    return and(isNotNull(tickets.tatDueAt), notInArray(tickets.status, [...HANDED_IN]), eq(tickets.isOverdue, false))!
+    if (bucket === "delayed") return and(eq(tickets.isOverdue, true), notInArray(tickets.status, [...HANDED_IN]), eq(tickets.awaitingHeadApproval, false))!
+    return and(isNotNull(tickets.tatDueAt), notInArray(tickets.status, [...HANDED_IN]), eq(tickets.isOverdue, false), eq(tickets.awaitingHeadApproval, false))!
 }
 
 export const ticketScopeConditions = (scope: TicketListScope): (SQL | undefined)[] => {

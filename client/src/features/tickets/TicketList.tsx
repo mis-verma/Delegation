@@ -220,19 +220,18 @@ export const TicketList = () => {
             allValue="ALL"
             onChange={(v) => { organizer.setScopeFilter(v); organizer.setPage(1); }}
           />
-          <div className="hidden sm:contents">
-            <SavedViewsMenu
-              views={savedViews.views}
-              activeId={activeSavedViewId}
-              onSave={(name) => savedViews.save(name, organizer.snapshot)}
-              onApply={(v) => organizer.applySnapshot(v.state)}
-              onRemove={savedViews.remove}
-            />
-          </div>
-
           <TicketActiveTags organizer={organizer} allTickets={loadedTickets ?? []} />
 
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
+            <div className="hidden sm:contents">
+              <SavedViewsMenu
+                views={savedViews.views}
+                activeId={activeSavedViewId}
+                onSave={(name) => savedViews.save(name, organizer.snapshot)}
+                onApply={(v) => organizer.applySnapshot(v.state)}
+                onRemove={savedViews.remove}
+              />
+            </div>
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
             {draftCount > 0 && (
               <Button variant="outline" size="sm" onClick={() => setShowDrafts(true)} className="h-9 max-sm:h-11 font-display font-semibold">
