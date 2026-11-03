@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, Check, Search } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { cn } from '@/lib/utils';
+import { ArrowRightLeft } from 'lucide-react';
+import { PickerShell } from '../../../components/dateTime/PickerShell';
+import { OptionList, type ListOption } from '../../../components/dropdown/OptionList';
+import { DepartmentTile } from '../../departments/DepartmentField';
 import { useOrgMove } from './orgMoveContext';
 
 interface MoveToMenuProps {
@@ -10,97 +11,70 @@ interface MoveToMenuProps {
   currentDepartmentId: string | null;
 }
 
+const NONE = '__none__';
+
 export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenuProps) => {
   const move = useOrgMove();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
 
-  const options = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = move?.targets ?? [];
-    return q ? list.filter((t) => `${t.name} ${t.storeName ?? ''}`.toLowerCase().includes(q)) : list;
-  }, [move?.targets, query]);
+  const targets = move?.targets;
+  const options = useMemo<ListOption[]>(
+    () => [
+      ...(currentDepartmentId ? [{ value: NONE, label: 'No department', lead: <DepartmentTile name={null} size="md" /> }] : []),
+      ...(targets ?? []).map((t) => ({
+        value: t.id,
+        label: t.name,
+        hint: t.storeName ?? undefined,
+        lead: <DepartmentTile name={t.name} size="md" />,
+      })),
+    ],
+    [targets, currentDepartmentId],
+  );
 
   if (!move) return null;
 
-  const choose = (departmentId: string | null, storeId: string | null) => {
+  const choose = (value: string) => {
     setOpen(false);
-    move.moveUser(userId, departmentId === null ? { departmentId: null, storeId: null } : { departmentId, ...(storeId ? { storeId } : {}) });
+    if (value === currentDepartmentId) return;
+    if (value === NONE) {
+      move.moveUser(userId, { departmentId: null, storeId: null });
+      return;
+    }
+    const target = move.targets.find((t) => t.id === value);
+    if (target) move.moveUser(userId, { departmentId: target.id, ...(target.storeId ? { storeId: target.storeId } : {}) });
   };
 
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setQuery('');
-      }}
+  const trigger = (
+    <button
+      ref={setTriggerEl}
+      type="button"
+      aria-label={`Move ${userName} to another department`}
+      className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent t-meta font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Move ${userName} to another department`}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent t-meta font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-        >
-          <ArrowRightLeft className="size-3.5" aria-hidden />
-          <span className="hidden @md:inline">Move to...</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-2">
-        <div className="relative flex items-center">
-          <Search className="absolute left-3 size-3.5 text-text-light pointer-events-none" aria-hidden />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search departments"
-            placeholder="Search departments..."
-            className="w-full h-11 sm:h-9 rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-text placeholder:text-text-light outline-none transition-colors hover:border-border-hover focus:border-primary-500"
-          />
-        </div>
+      <ArrowRightLeft className="size-3.5" aria-hidden />
+      <span className="hidden @md:inline">Move to...</span>
+    </button>
+  );
 
-        <ul className="mt-2 flex max-h-60 flex-col gap-0.5 overflow-y-auto">
-          {currentDepartmentId && !query && (
-            <li>
-              <button
-                type="button"
-                onClick={() => choose(null, null)}
-                className="flex w-full min-h-11 sm:min-h-9 items-center gap-2 rounded-lg px-2.5 text-left text-sm font-display text-text-secondary cursor-pointer transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:bg-surface-hover"
-              >
-                No department
-              </button>
-            </li>
-          )}
-          {options.length === 0 ? (
-            <li className="px-2.5 py-3 t-meta font-display text-text-muted">No department matches that search.</li>
-          ) : (
-            options.map((t) => {
-              const isCurrent = t.id === currentDepartmentId;
-              return (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    disabled={isCurrent}
-                    onClick={() => choose(t.id, t.storeId)}
-                    className={cn(
-                      'flex w-full min-h-11 sm:min-h-9 items-center gap-2 rounded-lg px-2.5 text-left font-display transition-colors focus-visible:outline-none',
-                      isCurrent
-                        ? 'cursor-default text-text-muted'
-                        : 'cursor-pointer text-text hover:bg-surface-hover focus-visible:bg-surface-hover'
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{t.name}</span>
-                      {t.storeName && <span className="block truncate t-meta text-text-muted">{t.storeName}</span>}
-                    </span>
-                    {isCurrent && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" aria-label="Current department" />}
-                  </button>
-                </li>
-              );
-            })
-          )}
-        </ul>
-      </PopoverContent>
-    </Popover>
+  return (
+    <PickerShell
+      bare
+      open={open}
+      onOpenChange={setOpen}
+      trigger={trigger}
+      title={`Move ${userName} to`}
+      popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+      popoverClassName="w-[min(22rem,calc(100vw-2rem))] max-h-80"
+    >
+      <OptionList
+        options={options}
+        selected={currentDepartmentId ? [currentDepartmentId] : []}
+        emptyText="No departments yet"
+        searchable
+        searchPlaceholder="Search departments…"
+        onToggle={choose}
+      />
+    </PickerShell>
   );
 };

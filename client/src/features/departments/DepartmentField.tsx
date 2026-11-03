@@ -24,7 +24,7 @@ interface DepartmentFieldProps {
   className?: string;
 }
 
-const DepartmentTile = ({ name, size }: { name: string | null; size: 'sm' | 'md' }) => (
+export const DepartmentTile = ({ name, size }: { name: string | null; size: 'sm' | 'md' }) => (
   <span
     aria-hidden="true"
     className={cn(

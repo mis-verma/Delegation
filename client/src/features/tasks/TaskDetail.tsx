@@ -9,7 +9,6 @@ import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
 import { assignableUsersQueryOptions, useDepartmentsQuery } from '../tickets/hook';
 import { useQueries } from '@tanstack/react-query';
-import { ExtraDepartmentsField } from './ExtraDepartmentsField';
 import { TaskVerifyActions } from './TaskVerifyActions';
 import { TaskForm } from './TaskForm';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
@@ -538,11 +537,15 @@ const TaskEditLayout = ({
   const pickerUsers = task.departmentId
     ? peoplePool.filter((u) => (!!u.departmentId && scopeDepartmentIds.includes(u.departmentId)) || selectedIds.includes(u.id))
     : peoplePool;
-  const peopleInDepartment = (departmentId: string) => selectedIds.filter((id) => peoplePool.find((u) => u.id === id)?.departmentId === departmentId).length;
-  const removeExtraDepartment = (departmentId: string) => {
-    setExtraDepartmentIds((ids) => ids.filter((d) => d !== departmentId));
-    const keep = selectedIds.filter((id) => peoplePool.find((u) => u.id === id)?.departmentId !== departmentId);
-    if (keep.length !== selectedIds.length) onUpdate({ assigneeId: keep[0] ?? null, additionalAssigneeIds: keep.slice(1) });
+  const changeDepartments = (ids: string[]) => {
+    const [primary = '', ...extras] = ids;
+    const dropped = extraDepartmentIds.filter((d) => d !== primary && !extras.includes(d));
+    setExtraDepartmentIds(extras);
+    if (dropped.length) {
+      const keep = selectedIds.filter((id) => !dropped.includes(peoplePool.find((u) => u.id === id)?.departmentId ?? ''));
+      if (keep.length !== selectedIds.length) onUpdate({ assigneeId: keep[0] ?? null, additionalAssigneeIds: keep.slice(1) });
+    }
+    if (primary !== (task.departmentId ?? '')) onChangeDepartment(primary || null);
   };
 
   const nameOf = (id: string | null | undefined) => {
@@ -578,17 +581,6 @@ const TaskEditLayout = ({
               isLoading={isLoadingUsers}
               disabled={!canAssign}
             />
-            {canAssign && canReassign && !!task.departmentId && (
-              <ExtraDepartmentsField
-                departments={departments}
-                isLoading={isLoadingDepts}
-                primaryId={task.departmentId}
-                extraIds={extraDepartmentIds}
-                peopleCount={peopleInDepartment}
-                onAdd={(id) => setExtraDepartmentIds((ids) => (ids.includes(id) ? ids : [...ids, id]))}
-                onRemove={removeExtraDepartment}
-              />
-            )}
           </TicketPropertyRow>
 
           <TicketPropertyRow wide label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
@@ -604,6 +596,9 @@ const TaskEditLayout = ({
                   hideLabel
                   value={task.departmentId ?? ''}
                   onChange={(v) => onChangeDepartment(v || null)}
+                  multiple={canAssign}
+                  selectedIds={scopeDepartmentIds}
+                  onChangeMany={changeDepartments}
                   departments={departments}
                   isLoading={isLoadingDepts}
                   triggerClassName={PROPERTY_TRIGGER_CLASS}
