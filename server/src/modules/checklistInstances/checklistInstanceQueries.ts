@@ -300,6 +300,22 @@ export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8
     }
 }
 
+export const myApprovalStatus = async (user: AccessTokenPayload) => {
+    const mine = sql`EXISTS (SELECT 1 FROM ${checklistInstanceAssignees} a WHERE a.instanceId = ${checklistInstances.id} AND a.userId = ${user.sub})`
+    const [row] = await db.select({
+        withApprover: sql<number>`COALESCE(SUM(CASE WHEN ${checklistInstances.verificationStatus} = 'PENDING_APPROVAL' THEN 1 ELSE 0 END), 0)`,
+        sentBack: sql<number>`COALESCE(SUM(CASE WHEN ${checklistInstances.verificationStatus} = 'REJECTED' THEN 1 ELSE 0 END), 0)`,
+        oldest: sql<string | null>`MIN(CASE WHEN ${checklistInstances.verificationStatus} = 'PENDING_APPROVAL' THEN ${checklistInstances.updatedAt} END)`,
+    })
+        .from(checklistInstances)
+        .where(and(inArray(checklistInstances.verificationStatus, ["PENDING_APPROVAL", "REJECTED"]), parentNotDeletedExpr, mine))
+    return {
+        withApprover: Number(row?.withApprover ?? 0),
+        sentBack: Number(row?.sentBack ?? 0),
+        oldestWaitingSince: row?.oldest ? new Date(row.oldest as unknown as string).toISOString() : null,
+    }
+}
+
 export const decisions = async (user: AccessTokenPayload, query: { from?: string; to?: string; limit?: number } = {}): Promise<ChecklistDecision[]> => {
     const orgWide = isAdminOrPc(user.role)
     if (!orgWide && (!isHod(user) || !user.departmentId)) return []

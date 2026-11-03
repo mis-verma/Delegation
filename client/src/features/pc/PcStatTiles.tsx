@@ -58,10 +58,10 @@ const shareWithin = (total: number, late: number) => (total <= 0 ? 100 : Math.ma
 const countTone = (total: number, late: number): FigureTone => (total === 0 || late === 0 ? 'good' : bandTone(shareWithin(total, late)));
 const pctText = (n: number) => `${Math.round(n)}%`;
 
-const Group = ({ title, children }: { title: string; children: ReactNode }) => (
+const Group = ({ title, children, columns = 3 }: { title: string; children: ReactNode; columns?: 3 | 4 }) => (
   <section className="flex w-full max-w-[34rem] flex-col gap-1.5" aria-label={title}>
     <h2 className="t-meta font-display font-semibold text-text-secondary">{title}</h2>
-    <div className="@container grid grid-cols-3 gap-2">{children}</div>
+    <div className={`@container grid gap-2 ${columns === 4 ? 'grid-cols-2 min-[28rem]:grid-cols-4' : 'grid-cols-3'}`}>{children}</div>
   </section>
 );
 
@@ -347,7 +347,7 @@ export const PcStatTiles = () => {
             />
           </Group>
 
-          <Group title="My checklists today">
+          <Group title="My checklists" columns={4}>
             <FigureCard
               label="Done"
               help="Your own checklist runs finished today, out of the runs you have today. A finished run goes to an Admin or its head for approval, not to you."
@@ -362,10 +362,10 @@ export const PcStatTiles = () => {
               to="/checklists"
             />
             <FigureCard
-              label="Pending"
-              help="Your checklist runs for today that are not finished yet."
-              value={mine.checklists?.pending ?? null}
-              tone="plain"
+              label="Overdue"
+              help="Your checklist runs for today that are past their deadline and not finished."
+              value={mine.checklists?.overdue ?? null}
+              tone={(mine.checklists?.overdue ?? 0) > 0 ? 'bad' : 'good'}
               bar={null}
               loading={mine.isPending}
               error={mine.isError && !mine.checklists}
@@ -374,13 +374,29 @@ export const PcStatTiles = () => {
               to="/checklists"
             />
             <FigureCard
-              label="Overdue"
-              help="Your checklist runs that are past their deadline and not finished."
-              value={mine.checklists?.overdue ?? null}
-              tone={(mine.checklists?.overdue ?? 0) > 0 ? 'bad' : 'good'}
+              label="With approver"
+              short="Approver"
+              help={mine.approval?.oldestWaitingSince
+                ? `Your finished checklists waiting for an Admin or their head. The oldest has waited since ${new Date(mine.approval.oldestWaitingSince).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}. They do not come to you.`
+                : 'Your finished checklists waiting for an Admin or their head. They do not come to you.'}
+              value={mine.approval?.withApprover ?? null}
+              tone="plain"
               bar={null}
-              loading={mine.isPending}
-              error={mine.isError && !mine.checklists}
+              loading={mine.approvalPending}
+              error={mine.approvalError && !mine.approval}
+              onRetry={mine.retry}
+              compact
+              to="/checklists"
+            />
+            <FigureCard
+              label="Sent back"
+              short="Back"
+              help="Your checklists an approver sent back. Fix the marked questions and submit again."
+              value={mine.approval?.sentBack ?? null}
+              tone={(mine.approval?.sentBack ?? 0) > 0 ? 'bad' : 'good'}
+              bar={null}
+              loading={mine.approvalPending}
+              error={mine.approvalError && !mine.approval}
               onRetry={mine.retry}
               compact
               to="/checklists"

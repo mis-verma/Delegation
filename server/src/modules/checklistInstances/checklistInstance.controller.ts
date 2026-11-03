@@ -101,6 +101,10 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
+    myApprovalStatus: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await checklistInstanceService.myApprovalStatus(req.user!) })
+    }),
+
     pendingApprovalPreview: asyncHandler(async (req: Request, res: Response) => {
         const { data, meta } = await checklistInstanceService.pendingApprovalPreview(req.user!)
         res.json({ success: true, data, meta })

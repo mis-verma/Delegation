@@ -309,6 +309,12 @@ export type ChecklistInstanceSummary = {
   newToday: number;
 };
 
+export type MyApprovalStatus = {
+  withApprover: number;
+  sentBack: number;
+  oldestWaitingSince: string | null;
+};
+
 export type FormerPerson = {
   id:             string;
   firstName:      string;
@@ -474,6 +480,9 @@ export const checklistInstanceApi = {
         includeDeleted: filter.includeDeleted ? '1' : undefined,
       })}`,
     ),
+
+  getMyApprovalStatus: (): Promise<MyApprovalStatus> =>
+    apiFetch<ApiResponse<MyApprovalStatus>>('/checklist-instances/mine/approval-status').then(r => r.data),
 
   getPendingApprovalPreview: (): Promise<PendingApprovalPreview<ChecklistPendingApproval>> =>
     apiFetch<ApiResponse<ChecklistPendingApproval[]> & { meta?: { total: number; over24h?: number } }>('/checklist-instances/pending-approval-preview')
