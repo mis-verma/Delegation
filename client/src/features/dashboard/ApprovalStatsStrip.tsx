@@ -53,7 +53,7 @@ export const ApprovalStatsStrip = memo(({ bucket = 'all', onBucket }: ApprovalSt
 
   return (
     <ApprovalSection title="Waiting for your decision" className="@container">
-      <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} phoneColumns={2} />
+      <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} phoneColumns={2} compact />
     </ApprovalSection>
   );
 });

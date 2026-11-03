@@ -20,11 +20,14 @@ interface FigurePanelProps {
   failed?: boolean;
   onRetry?: () => void;
   phoneColumns?: 2 | 4;
+  compact?: boolean;
 }
 
-const CELL = 'flex min-h-20 min-w-0 flex-col justify-center gap-0.5 rounded-xl bg-surface px-2.5 py-2.5 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
+const CELL = 'flex min-w-0 flex-col justify-center gap-0.5 rounded-xl bg-surface text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40';
+const CELL_SIZE = 'min-h-20 px-2.5 py-2.5 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
+const CELL_SIZE_COMPACT = 'min-h-16 px-3 py-2 sm:min-h-[4.5rem] sm:px-4 sm:py-3';
 
-export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4 }: FigurePanelProps) => {
+export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false }: FigurePanelProps) => {
   const broken = failed && !loading;
   return (
     <div className={cn('grid w-full gap-1.5 sm:grid-cols-4 sm:gap-2', phoneColumns === 2 ? 'grid-cols-2' : 'grid-cols-4')} role="group" aria-label={label}>
@@ -38,11 +41,11 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
               <span className="sm:hidden">{cell.short ?? cell.label}</span>
               <span className="hidden sm:inline">{cell.label}</span>
             </span>
-            <span className="flex min-h-9 items-center sm:min-h-11">
+            <span className={cn('flex items-center', compact ? 'min-h-7 sm:min-h-8' : 'min-h-9 sm:min-h-11')}>
               {loading ? (
                 <Skeleton className="h-7 w-14" />
               ) : (
-                <span className={cn('font-display font-bold leading-none tabular-nums sm:text-4xl', typeof cell.value === 'string' || (cell.value ?? 0) < 1000 ? 'text-3xl' : 'text-2xl', broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('font-display font-bold leading-none tabular-nums', compact ? 'text-2xl sm:text-3xl' : cn('sm:text-4xl', typeof cell.value === 'string' || (cell.value ?? 0) < 1000 ? 'text-3xl' : 'text-2xl'), broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
                   {broken || cell.value === null ? '-' : cell.value}
                 </span>
               )}
@@ -52,7 +55,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             )}
           </>
         );
-        if (!interactive) return <div key={cell.key} title={cell.help} className={CELL}>{body}</div>;
+        if (!interactive) return <div key={cell.key} title={cell.help} className={cn(CELL, compact ? CELL_SIZE_COMPACT : CELL_SIZE)}>{body}</div>;
         return (
           <button
             key={cell.key}
@@ -61,7 +64,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             aria-pressed={retry ? undefined : cell.selected}
             aria-label={broken ? `${cell.label}, couldn't load. Tap to try again` : `${cell.label}${cell.value === null ? '' : `, ${cell.value}`}`}
             title={broken ? "Couldn't load. Tap to try again." : cell.help}
-            className={cn(CELL, 'cursor-pointer hover:bg-surface-hover', selected && 'bg-primary-500/15 shadow-[inset_0_-3px_0_var(--color-gold)]')}
+            className={cn(CELL, compact ? CELL_SIZE_COMPACT : CELL_SIZE, 'cursor-pointer hover:bg-surface-hover', selected && 'bg-primary-500/15 shadow-[inset_0_-3px_0_var(--color-gold)]')}
           >
             {body}
           </button>

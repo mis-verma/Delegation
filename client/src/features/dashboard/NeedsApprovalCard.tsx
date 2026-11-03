@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ChevronRight, ChevronDown } from 'lucide-react';
@@ -83,6 +83,11 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   const [bucket, setBucket] = useState<ApprovalBucket>('all');
   const reduceMotion = useReducedMotion();
   const [moreOpen, setMoreOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const pickBucket = useCallback((next: ApprovalBucket) => {
+    setBucket(next);
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
+  }, [reduceMotion]);
   const buckets = usePcApprovalBuckets();
 
   const allRows = useMemo<ApprovalRow[]>(() => {
@@ -187,7 +192,7 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
 
       {showsStats && !hideStats && (
         <>
-          <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={setBucket} /></StatsBoundary>
+          <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
           <button
             type="button"
             onClick={() => setMoreOpen((v) => !v)}
@@ -239,7 +244,7 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       ) : (
         !nothingToShow && (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
+            <div ref={listRef} className="flex scroll-mt-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
               <h3 className="t-meta font-display font-bold text-text">{BUCKET_TITLE[bucket]}</h3>
               {filterOptions.length > 1 && (
                 <Segmented label="Filter approvals by type" value={activeFilter} onChange={(v) => setFilter(v === activeFilter ? 'all' : v)} options={filterOptions} />
