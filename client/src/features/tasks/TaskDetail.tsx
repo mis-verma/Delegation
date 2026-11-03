@@ -545,7 +545,10 @@ const TaskEditLayout = ({
       const keep = selectedIds.filter((id) => !dropped.includes(peoplePool.find((u) => u.id === id)?.departmentId ?? ''));
       if (keep.length !== selectedIds.length) onUpdate({ assigneeId: keep[0] ?? null, additionalAssigneeIds: keep.slice(1) });
     }
-    if (primary !== (task.departmentId ?? '')) onChangeDepartment(primary || null);
+    if (primary !== (task.departmentId ?? '')) {
+      if (primary && scopeDepartmentIds.includes(primary)) onUpdate({ departmentId: primary });
+      else onChangeDepartment(primary || null);
+    }
   };
 
   const nameOf = (id: string | null | undefined) => {

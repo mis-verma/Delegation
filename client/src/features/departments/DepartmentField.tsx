@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Building2, ChevronDown, Plus, X } from 'lucide-react';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
@@ -41,6 +41,7 @@ export const DepartmentField = ({
   id, value = '', onChange, selectedIds = [], onChangeMany, multiple = false, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className,
 }: DepartmentFieldProps) => {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: stores } = useStoresQuery();
@@ -48,7 +49,8 @@ export const DepartmentField = ({
 
   const byId = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d])), [departments]);
   const hintOf = (d: Department) => (d.storeId ? storeName.get(d.storeId) : undefined);
-  const activeIds = multiple ? selectedIds : value ? [value] : [];
+  const rawIds = multiple ? selectedIds : value ? [value] : [];
+  const activeIds = byId.size > 0 ? rawIds.filter((pid) => byId.has(pid)) : rawIds;
   const pickedList = activeIds.map((pid) => byId.get(pid)).filter((d): d is Department => !!d);
   const picked = pickedList[0];
   const extraCount = pickedList.length - 1;
@@ -126,8 +128,21 @@ export const DepartmentField = ({
 
   if (disabled) {
     return (
-      <div className={cn('flex h-10 w-full min-w-0 items-center gap-2 rounded-lg border border-border/60 bg-surface-hover/40 pl-1.5 pr-2.5', className)}>
-        {body}
+      <div className="flex w-full min-w-0 flex-col gap-1.5">
+        <div className={cn('flex h-10 w-full min-w-0 items-center gap-2 rounded-lg border border-border/60 bg-surface-hover/40 pl-1.5 pr-2.5', className)}>
+          {body}
+        </div>
+        {multiple && pickedList.length > 1 && (
+          <ul className="flex flex-wrap gap-1.5" aria-label="Selected departments">
+            {pickedList.map((d, index) => (
+              <li key={d.id} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/60 bg-surface-hover/40 py-0.5 pl-1 pr-2">
+                <DepartmentTile name={d.name} size="sm" />
+                <span className="min-w-0 truncate t-meta font-display font-semibold text-text">{d.name}</span>
+                {index === 0 && <span className="shrink-0 rounded-sm bg-primary-800 px-1.5 t-meta font-display font-semibold text-white">Main</span>}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }
@@ -140,6 +155,8 @@ export const DepartmentField = ({
       ref={setTriggerEl}
       type="button"
       aria-expanded={inline ? open : undefined}
+      aria-haspopup="listbox"
+      aria-controls={inline && open ? `${panelId}` : undefined}
       onClick={inline ? () => setOpen((o) => !o) : undefined}
       aria-label={picked ? `Department: ${pickedList.map((d) => d.name).join(', ')}. Change` : 'Choose a department'}
       title="Change department"
@@ -178,10 +195,19 @@ export const DepartmentField = ({
 
   if (inline) {
     return (
-      <div className="flex w-full min-w-0 flex-col gap-1.5">
+      <div
+        className="flex w-full min-w-0 flex-col gap-1.5"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && open) {
+            e.stopPropagation();
+            setOpen(false);
+            triggerEl?.focus();
+          }
+        }}
+      >
         {trigger}
         {open && (
-          <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2">
+          <div id={panelId} className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2">
             <div className="max-h-72 overflow-y-auto overscroll-contain">{list}</div>
             <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
               <span className="t-meta font-display font-medium text-text-muted">{activeIds.length === 0 ? 'None selected' : `${activeIds.length} selected`}</span>
