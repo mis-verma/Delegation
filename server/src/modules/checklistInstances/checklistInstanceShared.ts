@@ -36,6 +36,7 @@ import { env } from "../../config/env.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
+import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
 
 export type InstanceStatusFilter = "OPEN" | "DUE" | "COMPLETED" | "OVERDUE"
 
@@ -353,7 +354,8 @@ export const assertConditionalActionsSatisfied = async (item: ChecklistItem, val
 
     if (actions.includes("REQUIRE_PHOTO")) {
         const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, conditionalPhotoPurposeFor(values.booleanAnswer as "YES" | "NO"))))
-        const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE").length : images.length
+        const clear = passingPhotos(images)
+        const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE").length : clear.length
         if (qualifying < 1) {
             throw AppError.badRequest("Upload a photo before completing this item. Your answer requires one")
         }

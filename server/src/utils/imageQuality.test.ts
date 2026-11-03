@@ -1,6 +1,6 @@
 import sharp from "sharp"
 import { describe, expect, it } from "vitest"
-import { assessImageQuality, measureQuality, serializeQualityFlags } from "./imageQuality.js"
+import { assessImageQuality, failingFlagsOf, measureQuality, serializeQualityFlags } from "./imageQuality.js"
 
 const WIDTH = 640
 const HEIGHT = 480
@@ -46,6 +46,74 @@ describe("assessImageQuality", () => {
 
     it("returns null for a file it cannot read", async () => {
         expect(await assessImageQuality(Buffer.from("not an image"))).toBeNull()
+    })
+})
+
+const lcg = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    return seed / 4294967296
+}
+
+const textPage = async (opts: { marginX: number; marginY: number }): Promise<Buffer> => {
+    const next = lcg(7)
+    const bars: string[] = []
+    const stopY = opts.marginY === 0 ? HEIGHT + 40 : HEIGHT - opts.marginY
+    const stopX = opts.marginX === 0 ? WIDTH + 80 : WIDTH - opts.marginX
+    for (let y = opts.marginY; y < stopY; y += 22) {
+        let x = opts.marginX
+        while (x < stopX) {
+            const wordWidth = 14 + Math.floor(next() * 46)
+            for (let g = 0; g < wordWidth; g += 6) bars.push(`<rect x="${x + g}" y="${y}" width="${2 + Math.floor(next() * 3)}" height="12" fill="#111"/>`)
+            x += wordWidth + 10
+        }
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}"><rect width="100%" height="100%" fill="#f4f1ea"/>${bars.join("")}</svg>`
+    return sharp(Buffer.from(svg)).png().toBuffer()
+}
+
+const blurred = (image: Buffer, sigma: number) => sharp(image).blur(sigma).png().toBuffer()
+
+describe("text photos", () => {
+    it("passes a sharp page with clear margins", async () => {
+        const quality = await assessImageQuality(await textPage({ marginX: 60, marginY: 50 }))
+        expect(quality?.flags).toEqual([])
+        expect(quality?.textLike).toBe(true)
+    })
+
+    it("flags text that is soft but not blurry overall", async () => {
+        const quality = await assessImageQuality(await blurred(await textPage({ marginX: 60, marginY: 50 }), 2))
+        expect(quality?.flags).toEqual(["TEXT_UNREADABLE"])
+    })
+
+    it("calls a heavily blurred page blurry", async () => {
+        const quality = await assessImageQuality(await blurred(await textPage({ marginX: 60, marginY: 50 }), 4))
+        expect(quality?.flags).toEqual(["BLURRY"])
+    })
+
+    it("flags text that runs off every edge", async () => {
+        const quality = await assessImageQuality(await textPage({ marginX: 0, marginY: 0 }))
+        expect(quality?.flags).toEqual(["CROPPED"])
+    })
+
+    it("flags text cut off on the left and right only", async () => {
+        const quality = await assessImageQuality(await textPage({ marginX: 0, marginY: 90 }))
+        expect(quality?.flags).toEqual(["CROPPED"])
+    })
+
+    it("does not treat a busy sharp scene as text", async () => {
+        const next = lcg(3)
+        const raw = Buffer.alloc(WIDTH * HEIGHT)
+        for (let i = 0; i < raw.length; i++) raw[i] = 60 + Math.floor(next() * 140)
+        const quality = await assessImageQuality(await png(raw))
+        expect(quality?.flags).toEqual([])
+    })
+})
+
+describe("failingFlagsOf", () => {
+    it("keeps only the flags that fail a photo", () => {
+        expect(failingFlagsOf("DARK,BLURRY,CROPPED")).toEqual(["BLURRY", "CROPPED"])
+        expect(failingFlagsOf("DARK,BRIGHT")).toEqual([])
+        expect(failingFlagsOf(null)).toEqual([])
     })
 })
 

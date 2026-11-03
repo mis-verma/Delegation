@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceImageService } from "./checklistInstanceImage.service.js"
-import { uploadChecklistInstanceImageSchema } from "../checklistInstances/checklistInstance.validation.js"
+import { reviewChecklistInstanceImageSchema, uploadChecklistInstanceImageSchema } from "../checklistInstances/checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { routeParam } from "../../utils/routeParam.js"
 
@@ -11,6 +11,12 @@ export const checklistInstanceImageController = {
         const files = (req.files as Express.Multer.File[]) ?? [];
         const images = await checklistInstanceImageService.upload(routeParam(req, "id"), files, captureMethod, purpose, req.user!, takenAt);
         res.status(201).json({ success: true, data: images });
+    }),
+
+    review: asyncHandler(async (req: Request, res: Response) => {
+        const input = reviewChecklistInstanceImageSchema.parse(req.body);
+        const image = await checklistInstanceImageService.review(routeParam(req, "id"), input, req.user!);
+        res.json({ success: true, data: image });
     }),
 
     remove: asyncHandler(async (req: Request, res: Response) => {

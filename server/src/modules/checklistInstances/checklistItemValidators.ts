@@ -3,11 +3,13 @@ import { db } from "../../config/db.js"
 import { checklistInstanceImages, checklistInstanceItems } from "../../db/schema/index.js"
 import type { CHECKLIST_ITEM_TYPES } from "../../db/schema/checklistDefinition.js"
 import { AppError } from "../../utils/AppError.js"
+import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
 
 export const assertPhotosSatisfied = async (item: ChecklistItem) => {
     if (item.requiredImageCount <= 0) return
     const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")))
-    const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE") : images
+    const clear = passingPhotos(images)
+    const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE") : clear
     if (qualifying.length < item.requiredImageCount) {
         const missing = item.requiredImageCount - qualifying.length
         const kind = item.requiresLivePhoto ? "live photo(s)" : "photo(s)"

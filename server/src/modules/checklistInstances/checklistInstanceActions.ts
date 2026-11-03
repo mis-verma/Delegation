@@ -13,6 +13,7 @@ import {
 } from "../../db/schema/index.js"
 import { assertPhotosSatisfied, VALUE_VALIDATORS_BY_ITEM_TYPE, type ItemValueInput } from "./checklistItemValidators.js"
 import { eq, and, inArray, isNull, sql } from "drizzle-orm"
+import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
@@ -125,7 +126,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     const mergedItem = { ...item, ...patch }
 
     if (stalePhotos.length) {
-        await db.delete(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, itemId), inArray(checklistInstanceImages.purpose, stalePhotos)))
+        await db.delete(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, itemId), inArray(checklistInstanceImages.purpose, stalePhotos), sql`NOT ${FAILED_PHOTO_SQL("ChecklistInstanceImage")}`))
     }
 
     if (isDone && !markingNotApplicable) {

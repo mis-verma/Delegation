@@ -49,6 +49,11 @@ export const uploadChecklistInstanceImageSchema = z.object({
     takenAt: z.union([z.string(), z.array(z.string())]).optional().transform((v) => (v === undefined ? [] : Array.isArray(v) ? v : [v])),
 })
 
+export const reviewChecklistInstanceImageSchema = z.object({
+    action: z.enum(["REJECT", "ACCEPT"]),
+    reason: z.enum(["BLURRY", "TEXT_UNREADABLE", "CROPPED", "OTHER"]).optional(),
+}).refine((v) => v.action === "ACCEPT" || !!v.reason, { message: "Say why the photo is rejected.", path: ["reason"] })
+
 export const verifyChecklistInstanceSchema = z.object({
     action: z.enum(["APPROVE", "REJECT"]),
     note: z.string().optional(),

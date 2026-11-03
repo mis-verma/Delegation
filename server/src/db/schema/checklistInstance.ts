@@ -225,6 +225,7 @@ export const checklistInstanceItemSubmissionAccessories = mysqlTable(
 );
 
 export const INSTANCE_IMAGE_PURPOSES = ['GENERAL', 'CONDITIONAL_YES', 'CONDITIONAL_NO'] as const;
+export const PHOTO_REVIEW_STATUSES = ['NONE', 'REJECTED', 'ACCEPTED'] as const;
 
 export const checklistInstanceImages = mysqlTable(
   'ChecklistInstanceImage',
@@ -239,6 +240,10 @@ export const checklistInstanceImages = mysqlTable(
     contentHash: varchar('contentHash', { length: 32 }),
     similarToId: varchar('similarToId', { length: 191 }),
     qualityFlags: varchar('qualityFlags', { length: 64 }),
+    reviewStatus: mysqlEnum('reviewStatus', PHOTO_REVIEW_STATUSES).notNull().default('NONE'),
+    reviewReason: varchar('reviewReason', { length: 32 }),
+    reviewedBy: varchar('reviewedBy', { length: 191 }),
+    reviewedAt: datetime('reviewedAt', { mode: 'date' }),
     takenAt: datetime('takenAt', { mode: 'date' }),
     checklistInstanceItemId: varchar('checklistInstanceItemId', { length: 191 }).notNull(),
     uploadedBy: varchar('uploadedBy', { length: 191 }).notNull().references(() => users.id),

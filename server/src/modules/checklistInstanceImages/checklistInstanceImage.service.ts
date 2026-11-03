@@ -8,6 +8,10 @@ import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js";
+import { assertCanVerify, assertNotOwnRun, dropChecklistSummaries, getDepartmentIdsForUserIds } from "../checklistInstances/checklistInstanceShared.js";
+import { assertCoordinatorRunReviewer } from "../checklistInstances/checklistCoordinatorRun.js";
+import { checklistInstanceReviewers } from "../../db/schema/index.js";
+import { FAILED_PHOTO_DELETE_MESSAGE, MAX_FAILED_PHOTOS, MAX_PASSING_PHOTOS, isFailedPhoto, passingPhotos, type PhotoReviewReason } from "./photoFailure.js";
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js";
 import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
@@ -74,18 +78,23 @@ export const checklistInstanceImageService = {
             }
         }
 
-        if (item.maxImageCount != null && purpose === "GENERAL") {
-            const existing = await db.select({ id: checklistInstanceImages.id })
-                .from(checklistInstanceImages)
-                .where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")));
-            const existingCount = existing.length;
-            if (existingCount + files.length > item.maxImageCount) {
+        if (!wantsVideo) {
+            const existing = await db.select().from(checklistInstanceImages)
+                .where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, purpose)));
+            const failedCount = existing.filter(isFailedPhoto).length;
+            if (failedCount >= MAX_FAILED_PHOTOS) {
                 files.forEach((f) => fs.unlink(f.path, () => {}));
-                const remaining = Math.max(item.maxImageCount - existingCount, 0);
+                throw AppError.badRequest("Too many photos on this question did not pass the check. Ask your department head for help.");
+            }
+            const passingCount = passingPhotos(existing).length;
+            const limit = purpose === "GENERAL" && item.maxImageCount != null ? Math.min(item.maxImageCount, MAX_PASSING_PHOTOS) : MAX_PASSING_PHOTOS;
+            if (passingCount + files.length > limit) {
+                files.forEach((f) => fs.unlink(f.path, () => {}));
+                const remaining = Math.max(limit - passingCount, 0);
                 throw AppError.badRequest(
                     remaining > 0
-                        ? `This item allows at most ${item.maxImageCount} photo(s) — only ${remaining} more can be uploaded`
-                        : `This item already has the maximum of ${item.maxImageCount} photo(s)`,
+                        ? `This item allows at most ${limit} clear photo(s). Only ${remaining} more can be uploaded.`
+                        : `This item already has the maximum of ${limit} clear photo(s).`,
                 );
             }
         }
@@ -148,6 +157,10 @@ export const checklistInstanceImageService = {
             throw AppError.badRequest("This item is already done — reopen it first to change its evidence");
         }
 
+        if (isFailedPhoto(image) && !isAdminOrPc(user.role)) {
+            throw AppError.forbidden(FAILED_PHOTO_DELETE_MESSAGE);
+        }
+
         await db.delete(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId));
         removeUploadedFile(image.url);
         await auditService.record({
@@ -158,5 +171,44 @@ export const checklistInstanceImageService = {
             before: image,
         });
         return image;
+    },
+
+    async review(imageId: string, input: { action: "REJECT" | "ACCEPT"; reason?: PhotoReviewReason }, user: AccessTokenPayload) {
+        const [image] = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId)).limit(1);
+        if (!image) throw AppError.notFound("Image not found");
+        const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, image.checklistInstanceItemId)).limit(1);
+        if (!item) throw AppError.notFound("Checklist item not found");
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1);
+        if (!instance) throw AppError.notFound("Checklist instance not found");
+        if (instance.verificationStatus !== "PENDING_APPROVAL") {
+            throw AppError.badRequest("Photos can only be reviewed while the checklist is waiting for approval.");
+        }
+
+        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instance.id));
+        const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, instance.id));
+        await assertCanVerify(await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId)), reviewerLinks.map((l) => l.userId), user);
+        assertNotOwnRun(assigneeLinks, user);
+        await assertCoordinatorRunReviewer(instance.id, user);
+
+        if (input.action === "REJECT" && !input.reason) throw AppError.badRequest("Say why the photo is rejected.");
+
+        const now = new Date();
+        const patch = input.action === "REJECT"
+            ? { reviewStatus: "REJECTED" as const, reviewReason: input.reason ?? "OTHER", reviewedBy: user.sub, reviewedAt: now, updatedAt: now }
+            : { reviewStatus: "ACCEPTED" as const, reviewReason: null, reviewedBy: user.sub, reviewedAt: now, updatedAt: now };
+        await db.update(checklistInstanceImages).set(patch).where(eq(checklistInstanceImages.id, imageId));
+
+        await auditService.record({
+            entityType: "ChecklistInstanceImage",
+            entityId: imageId,
+            action: "UPDATE",
+            actorId: user.sub,
+            before: image,
+            after: { ...image, ...patch },
+        });
+        await dropChecklistSummaries(assigneeLinks.map((l) => l.userId));
+
+        const [updated] = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId)).limit(1);
+        return updated!;
     },
 };

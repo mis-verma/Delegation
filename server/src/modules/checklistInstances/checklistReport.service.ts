@@ -19,6 +19,7 @@ import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { AppError } from "../../utils/AppError.js"
 import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.js"
 import { isRankable, pooledCompliancePct, round1 } from "../scores/scoreFormulas.js"
+import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 
 const ROUND = (n: number, d: number) => (d ? round1((n / d) * 100) : null)
 
@@ -51,7 +52,7 @@ const WEIGHT = sql`(CASE WHEN cii.isCritical = 1 THEN 2 ELSE 1 END)`
 
 const ITEM_PHOTO_COUNT = sql`(
     (SELECT COUNT(*) FROM ${checklistInstanceImages} im
-        WHERE im.checklistInstanceItemId = cii.id AND im.purpose = 'GENERAL' AND (cii.requiresLivePhoto = 0 OR im.captureMethod = 'LIVE'))
+        WHERE im.checklistInstanceItemId = cii.id AND im.purpose = 'GENERAL' AND (cii.requiresLivePhoto = 0 OR im.captureMethod = 'LIVE') AND NOT ${FAILED_PHOTO_SQL("im")})
     + (CASE WHEN cii.itemType = 'AUDIT' THEN
         (SELECT COUNT(*) FROM ${checklistInstanceItemSubmissionImages} si
             JOIN ${checklistInstanceItemSubmissions} su ON su.id = si.submissionId
