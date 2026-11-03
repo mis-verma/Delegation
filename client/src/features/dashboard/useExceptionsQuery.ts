@@ -24,6 +24,18 @@ export const useExceptionsQuery = () => {
   });
 };
 
+export const useExceptionTotalsQuery = () => {
+  const { token } = useAuth();
+  const allowed = useCanSeeExceptions();
+  return useQuery({
+    queryKey: ['exceptions', 'totals'] as const,
+    queryFn: exceptionApi.totals,
+    enabled: !!token && allowed,
+    retry: handleQueryRetry,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+};
+
 export const useTeamReviewCount = (enabled: boolean, includeApprovals: boolean) => {
   const approvals = useApprovalSources();
   const exceptions = useExceptionsQuery();

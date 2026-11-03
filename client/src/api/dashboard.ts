@@ -11,6 +11,7 @@ export interface DashboardSummariesData {
   ticketsKpi?: TicketSummary;
   todos?: TodoSummary;
   checklistToday?: ChecklistInstanceSummary;
+  orgChecklistToday?: ChecklistInstanceSummary;
 }
 
 export const dashboardApi = {

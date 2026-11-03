@@ -16,7 +16,17 @@ export interface ExceptionItem {
   remindedAt: string | null;
 }
 
+export interface ExceptionTotals {
+  tickets: number;
+  delegations: number;
+  missedRuns: number;
+  high: number;
+}
+
 export const exceptionApi = {
+  totals: (): Promise<ExceptionTotals> =>
+    apiFetch<{ success: boolean; data: ExceptionTotals }>('/exceptions/totals').then((r) => r.data),
+
   list: (): Promise<ExceptionItem[]> =>
     apiFetch<{ success: boolean; data: ExceptionItem[] }>('/exceptions').then((r) => r.data),
 };

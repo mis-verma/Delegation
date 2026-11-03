@@ -64,7 +64,7 @@ export const ApprovalLink = memo(({ row, now, selected = false, actions }: Appro
 ));
 ApprovalLink.displayName = 'ApprovalLink';
 
-export const NeedsApprovalCard = () => {
+export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }) => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
   const now = useNow();
@@ -167,7 +167,7 @@ export const NeedsApprovalCard = () => {
         )}
       </div>
 
-      {showsStats && (
+      {showsStats && !hideStats && (
         <>
           <StatsBoundary label="Approval figures"><ApprovalStatsStrip /></StatsBoundary>
           <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>

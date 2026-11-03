@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { useApprovalSources } from '../dashboard/useApprovalSources';
 import { useDashboardSummaries } from '../dashboard/useDashboardSummaries';
-import { useExceptionsQuery } from '../dashboard/useExceptionsQuery';
+import { useExceptionsQuery, useExceptionTotalsQuery } from '../dashboard/useExceptionsQuery';
 import { StatsBoundary } from '../dashboard/StatsBoundary';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
@@ -70,6 +70,7 @@ export const PcStatTiles = () => {
 
   const approvals = useApprovalSources();
   const exceptions = useExceptionsQuery();
+  const exceptionTotals = useExceptionTotalsQuery();
   const people = useAttentionPeople();
   const leave = useLeaveQuery();
   const scores = usePcMonthScores();
@@ -105,7 +106,6 @@ export const PcStatTiles = () => {
         title: e.title,
         link: e.link,
         late: e.severity === 'high',
-        since: e.since,
         detail: e.detail,
         store: e.storeName,
         person: e.person,
@@ -141,7 +141,9 @@ export const PcStatTiles = () => {
 
   const peopleRows = people.data ?? [];
   const redCount = peopleRows.filter((p) => p.level === 'red').length;
-  const highCount = overdueItems.filter((i) => i.late).length;
+  const totals = exceptionTotals.data;
+  const overdueTotal = totals ? totals.tickets + totals.delegations + totals.missedRuns : overdueItems.length;
+  const highCount = totals ? totals.high : overdueItems.filter((i) => i.late).length;
 
   const waitingTotal = approvals.total;
   const lateOf = (kind: PcListItem['kind']) => waitingItems.filter((i) => i.kind === kind && i.late).length;
@@ -152,7 +154,7 @@ export const PcStatTiles = () => {
   const waitingCapped = waitingItems.length < waitingTotal;
 
   const overall = scores.data?.total.overall ?? null;
-  const fillToday = kpi.checklistToday.data?.completionPct ?? null;
+  const fillToday = kpi.orgChecklistToday.data?.completionPct ?? null;
   const openTickets = kpi.tickets.data?.pending ?? 0;
   const lateTickets = kpi.tickets.data?.overdue ?? 0;
   const openTasks = kpi.tasks.data?.pending ?? 0;
@@ -212,14 +214,14 @@ export const PcStatTiles = () => {
             <FigureCard
               label="Fill chart"
               short="Fills"
-              help="Share of today's checklist items filled. Tap to open the fill chart."
+              help="Share of today's checklist runs completed across the whole organisation. Tap to open the fill chart."
               value={fillToday}
               format={pctText}
               tone={fillToday === null ? 'plain' : bandTone(fillToday)}
               bar={fillToday}
-              loading={kpi.checklistToday.isPending}
-              error={kpi.checklistToday.isError}
-              onRetry={kpi.checklistToday.onRetry}
+              loading={kpi.orgChecklistToday.isPending}
+              error={kpi.orgChecklistToday.isError}
+              onRetry={kpi.orgChecklistToday.onRetry}
               compact
               to="/team/fill"
             />
@@ -297,9 +299,9 @@ export const PcStatTiles = () => {
               label="Overdue and missed"
               short="Overdue"
               help="Late or stuck tickets and delegations, and checklist runs that closed unsubmitted. Tap for the list."
-              value={overdueItems.length}
-              tone={overdueItems.length === 0 ? 'good' : highCount > 0 ? 'bad' : 'plain'}
-              bar={overdueItems.length === 0 ? 100 : shareWithin(overdueItems.length, highCount)}
+              value={overdueTotal}
+              tone={overdueTotal === 0 ? 'good' : highCount > 0 ? 'bad' : 'plain'}
+              bar={overdueTotal === 0 ? 100 : shareWithin(overdueTotal, highCount)}
               loading={exceptions.isPending}
               error={exceptions.isError && !exceptions.data}
               onRetry={() => void exceptions.refetch()}
@@ -382,13 +384,13 @@ export const PcStatTiles = () => {
             open
             onClose={closePopup}
             title="Overdue and missed"
-            description="High priority first. Tap a row to open it, or the person to see how they are doing."
+            description={overdueTotal > overdueItems.length ? `The oldest ${overdueItems.length} of ${overdueTotal} are listed. Tap a row to open it, or the person to see how they are doing.` : "High priority first. Tap a row to open it, or the person to see how they are doing."}
             icon={AlertTriangle}
             items={overdueItems}
             filters={OVERDUE_FILTERS}
             summary={(
               <>
-                <StatusBadge variant="neutral" icon={false} label={`${overdueItems.length} items`} />
+                <StatusBadge variant="neutral" icon={false} label={`${overdueTotal} ${overdueTotal === 1 ? 'item' : 'items'}`} />
                 {highCount > 0 && <StatusBadge variant="critical" icon={AlertTriangle} label={`${highCount} high priority`} />}
               </>
             )}

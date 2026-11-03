@@ -30,6 +30,9 @@ exceptionRouter.use(authenticate);
 exceptionRouter.get('/', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
   res.json({ success: true, data: await exceptionService.list(req.user!) });
 }));
+exceptionRouter.get('/totals', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
+  res.json({ success: true, data: await exceptionService.totals(req.user!) });
+}));
 exceptionRouter.get('/people', requireRole(...OVERSIGHT), asyncHandler(async (req, res) => {
   const filter = filterSchema.parse(req.query);
   res.json({ success: true, data: await attentionService.people(req.user!, filter) });
