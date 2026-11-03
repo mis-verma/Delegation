@@ -6,8 +6,8 @@ import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { useAuth } from '../../../context/AuthContext';
 import { formatTimeOnly } from '../checklistDisplay';
 import { REVIEW_REASONS, failureLabel, failureTitle, isFailedPhoto, qualityFlagsOf, qualityLabel, qualityTitle } from '../photoQuality';
-import { useReviewChecklistInstanceImageMutation } from '../hook';
-import { usePhotoReview } from './photoReviewContext';
+import { usePhotoReviewMutation } from '../usePhotoReviewMutation';
+import { usePhotoReview, type PhotoReviewState } from './photoReviewContext';
 import type { CaptureMethod } from '../../../api/ticket';
 import type { PhotoReviewReason, PhotoReviewStatus } from '../../../api/checklistInstances';
 
@@ -37,8 +37,8 @@ interface EvidenceThumbProps {
 const REVIEW_BUTTON =
   'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8';
 
-const PhotoReviewActions = ({ image, instanceId }: { image: EvidenceImage; instanceId: string }) => {
-  const review = useReviewChecklistInstanceImageMutation(instanceId);
+const PhotoReviewActions = ({ image, state }: { image: EvidenceImage; state: PhotoReviewState }) => {
+  const review = usePhotoReviewMutation(state);
   const [choosing, setChoosing] = useState(false);
   const rejected = image.reviewStatus === 'REJECTED';
   const failed = isFailedPhoto(image);
@@ -179,7 +179,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
         {open && !isVideo && createPortal(<ImageLightbox src={current} images={gallery} onChange={setCurrent} onClose={closeLightbox} />, document.body)}
       </div>
 
-      {review && !isVideo && <PhotoReviewActions image={image} instanceId={review.instanceId} />}
+      {review && !isVideo && <PhotoReviewActions image={image} state={review} />}
     </div>
   );
 });

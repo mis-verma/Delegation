@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { passingPhotos } from '../checklistInstanceImages/photoFailure.js';
 import { db } from '../../config/db.js';
 import {
   checklists,
@@ -185,9 +186,10 @@ export const checklistService = {
 
     const images = await db.select().from(checklistImages).where(eq(checklistImages.checklistItemId, item.id));
 
+    const clearImages = passingPhotos(images);
     const qualifyingImages = item.requiresLivePhoto
-      ? images.filter((img) => img.captureMethod === 'LIVE')
-      : images;
+      ? clearImages.filter((img) => img.captureMethod === 'LIVE')
+      : clearImages;
 
     if (qualifyingImages.length < item.requiredImageCount) {
       const missing = item.requiredImageCount - qualifyingImages.length;

@@ -1,12 +1,25 @@
 import { CheckCircle2, Circle, AlertTriangle, ImageOff, Flag } from 'lucide-react';
 import { Skeleton } from '../../components';
 import { qualifyingPhotoCount, summarizeChecklists, type PreviewItem, type PreviewChecklist } from './checklistSummary';
-import { PhotoThumbs } from './PhotoThumbs';
+import { EvidenceThumb, type EvidenceImage } from '../checklist/instance/EvidenceThumb';
+
+const asEvidence = (img: PreviewItem['images'][number]): EvidenceImage => ({
+  id: img.id,
+  url: img.url,
+  originalFilename: img.originalFilename ?? null,
+  mimeType: img.mimeType ?? 'image/jpeg',
+  captureMethod: img.captureMethod ?? 'GALLERY',
+  createdAt: img.createdAt ?? new Date(0).toISOString(),
+  qualityFlags: img.qualityFlags ?? null,
+  reviewStatus: img.reviewStatus,
+  reviewReason: img.reviewReason ?? null,
+});
 
 const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewItem) => void }) => {
   const qualifying = qualifyingPhotoCount(item);
   const missingRequiredPhotos = item.requiredImageCount > 0 && qualifying < item.requiredImageCount;
-  const notLive = !!item.requiresLivePhoto && item.images.length > qualifying;
+  const galleryCount = item.images.filter((i) => i.captureMethod !== 'LIVE').length;
+  const notLive = !!item.requiresLivePhoto && galleryCount > 0;
   const needsAttention = !item.isDone || missingRequiredPhotos;
 
   return (
@@ -21,7 +34,7 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
           {item.label}
         </span>
         {missingRequiredPhotos && (
-          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} ${item.requiresLivePhoto ? 'live ' : ''}photo${item.requiredImageCount === 1 ? '' : 's'}, has ${qualifying}${notLive ? ` (${item.images.length - qualifying} from the gallery do not count)` : ''}`}>
+          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} ${item.requiresLivePhoto ? 'live ' : ''}photo${item.requiredImageCount === 1 ? '' : 's'}, has ${qualifying}${notLive ? ` (${galleryCount} from the gallery do not count)` : ''}`}>
             <AlertTriangle size={11} strokeWidth={2.5} />
             {notLive ? 'Not live ' : ''}{qualifying}/{item.requiredImageCount}
           </span>
@@ -39,7 +52,14 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
         )}
       </div>
 
-      {item.images.length > 0 && <PhotoThumbs files={item.images} className="pl-6" />}
+      {item.images.length > 0 && (
+        <div className="flex flex-wrap gap-3 pl-6">
+          {item.images.map((img) => {
+            const evidence = asEvidence(img);
+            return <EvidenceThumb key={img.id} image={evidence} siblings={item.images.map(asEvidence)} />;
+          })}
+        </div>
+      )}
     </li>
   );
 };

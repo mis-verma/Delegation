@@ -1,4 +1,5 @@
 import { asRows } from "../../utils/dbErrors.js"
+import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskDepartmentApprovals, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
 import { departments, users } from "../../db/schema/core.js"
@@ -162,7 +163,7 @@ export const taskService = {
                 FROM TaskChecklistItem tci
                 JOIN TaskChecklist tc ON tc.id = tci.taskChecklistId
                 LEFT JOIN (
-                    SELECT taskChecklistItemId, COUNT(*) AS totalCount FROM TaskImage GROUP BY taskChecklistItemId
+                    SELECT taskChecklistItemId, COUNT(*) AS totalCount FROM TaskImage WHERE NOT ${FAILED_PHOTO_SQL("TaskImage")} GROUP BY taskChecklistItemId
                 ) img ON img.taskChecklistItemId = tci.id
                 WHERE tc.taskId IN (${sql.join(taskIds.map((id) => sql`${id}`), sql`, `)})
                 GROUP BY tc.taskId

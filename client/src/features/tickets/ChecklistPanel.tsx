@@ -1,8 +1,11 @@
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
+import { EvidenceThumb } from '../checklist/instance/EvidenceThumb';
+import { FailedPhotoNote } from '../checklist/instance/FailedPhotoNote';
+import { passingPhotos } from '../checklist/photoQuality';
 import { useMemo, useState } from 'react';
 import {
   Plus, Trash2, Loader2, CheckSquare, ChevronDown, ChevronRight,
-  Camera, Image as ImageIcon, X, RotateCcw, ListChecks, AlertCircle, Library,
+  Camera, Image as ImageIcon, RotateCcw, ListChecks, AlertCircle, Library,
 } from 'lucide-react';
 import {
   Button, EmptyState,
@@ -25,7 +28,6 @@ import {
   useApplyChecklistTemplateMutation,
 } from './hook';
 import { errorMessage } from '../../lib/queryHelpers';
-import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import type { Checklist, ChecklistItem, CaptureMethod } from '../../api/ticket';
 import { useAuth } from '../../context/AuthContext';
 import { Badge } from '../../components/ui/badge';
@@ -54,9 +56,11 @@ const ItemRow = ({
   const deleteImage = useDeleteChecklistImageMutation(ticketId);
 
   const images = item.images ?? [];
+  const clearImages = passingPhotos(images);
+  const failedCount = images.length - clearImages.length;
   const qualifying = item.requiresLivePhoto
-    ? images.filter(i => i.captureMethod === 'LIVE').length
-    : images.length;
+    ? clearImages.filter(i => i.captureMethod === 'LIVE').length
+    : clearImages.length;
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
     if (!files || !files.length) return;
@@ -140,36 +144,22 @@ const ItemRow = ({
       </div>
 
       {images.length > 0 && (
-        <div className="grid grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 pl-0 sm:pl-9 max-w-xl">
+        <div className="flex flex-wrap gap-3 pl-0 sm:pl-9">
           {images.map(img => (
-            <div key={img.id} className="relative group/img aspect-square w-full overflow-hidden rounded-lg border border-border bg-surface-hover">
-              <img
-                src={`${UPLOADS_BASE}${img.url}`}
-                alt={img.originalFilename ?? 'evidence'}
-                loading="lazy"
-                className="size-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-opacity pointer-events-none" />
-
-              <span className={`absolute top-1 left-1 t-meta font-bold px-1.5 py-0.5 rounded text-white ${
-                img.captureMethod === 'LIVE' ? 'bg-black/70' : 'bg-black/50'
-              }`}>
-                {img.captureMethod === 'LIVE' ? 'Camera' : 'Gallery'}
-              </span>
-
-              {canWork && (
-                <button
-                  type="button"
-                  onClick={() => deleteImage.mutate(img.id)}
-                  disabled={deleteImage.isPending}
-                  aria-label="Remove image"
-                  className="absolute top-1 right-1 flex items-center justify-center size-8 rounded-full bg-danger/90 text-white opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-colors hover:bg-danger cursor-pointer outline-none focus:opacity-100 after:absolute after:-inset-1.5 focus-visible:ring-2 focus-visible:ring-danger/50 disabled:opacity-50"
-                >
-                  {deleteImage.isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={14} strokeWidth={2.5} />}
-                </button>
-              )}
-            </div>
+            <EvidenceThumb
+              key={img.id}
+              image={img}
+              siblings={images}
+              large
+              onDelete={canWork && !item.isDone ? deleteImage.mutate : undefined}
+              deleting={deleteImage.isPending}
+            />
           ))}
+        </div>
+      )}
+      {failedCount > 0 && (
+        <div className="pl-0 sm:pl-9">
+          <FailedPhotoNote count={failedCount} needsMore={item.requiredImageCount > 0 && !photosSatisfied} />
         </div>
       )}
 

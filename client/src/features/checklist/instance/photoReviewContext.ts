@@ -1,7 +1,10 @@
 import { createContext, useContext } from 'react';
 
+export type PhotoReviewKind = 'run' | 'task' | 'ticket';
+
 export interface PhotoReviewState {
-  instanceId: string;
+  kind: PhotoReviewKind;
+  ownerId: string;
 }
 
 export const PhotoReviewContext = createContext<PhotoReviewState | null>(null);

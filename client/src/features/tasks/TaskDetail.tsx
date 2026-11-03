@@ -34,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from '../../lib/ticketApproval';
+import { PhotoReviewContext } from '../checklist/instance/photoReviewContext';
 import { useApprovers } from '../checklist/useApprovalCover';
 import { TaskApprovalTrail } from './TaskApprovalTrail';
 import { TaskHeadDecision } from './TaskHeadDecision';
@@ -855,6 +856,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
         />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:px-8 lg:pt-2 lg:pb-6 custom-scrollbar">
+          <PhotoReviewContext.Provider value={task.status === 'pending_approval' && canApproveTicket(approvers, taskApprovalSubject(task)) ? { kind: 'task', ownerId: task.id } : null}>
           <TaskEditLayout
             task={task}
             isVerifier={isVerifier}
@@ -878,6 +880,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
             onUpdate={handleUpdate}
             onChangeDepartment={(id) => void changeDepartment(id)}
           />
+          </PhotoReviewContext.Provider>
         </div>
 
         <div className="shrink-0 border-t border-border/60 bg-surface px-4 py-3 sm:px-6 lg:px-8">

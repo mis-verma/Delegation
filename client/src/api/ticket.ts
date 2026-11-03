@@ -41,6 +41,8 @@ export type CaptureMethod = 'LIVE' | 'GALLERY';
 export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL'] as const;
 export type RestrictedStatus = typeof RESTRICTED_STATUSES[number];
 
+type PhotoReviewStatus = 'NONE' | 'REJECTED' | 'ACCEPTED';
+
 export type ChecklistImage = {
   id:               string;
   url:              string;
@@ -51,6 +53,9 @@ export type ChecklistImage = {
   checklistItemId:  string;
   uploadedBy:       string;
   createdAt:        string;
+  qualityFlags?:       string | null;
+  reviewStatus?:       PhotoReviewStatus;
+  reviewReason?:       string | null;
 };
 
 export type ChecklistItem = {

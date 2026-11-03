@@ -361,7 +361,7 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { instanceId } : null}>
+      <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instanceId } : null}>
       <div className="flex flex-col gap-3">
         {show === 'left' && shownItems.length === 0 && (
           <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4')}>

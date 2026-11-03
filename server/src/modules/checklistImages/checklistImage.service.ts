@@ -2,11 +2,16 @@ import path from "node:path";
 import fs from "node:fs";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "../../config/db.js";
-import { checklistItems, checklistImages } from "../../db/schema/index.js";
+import { checklistItems, checklistImages, checklists, tickets } from "../../db/schema/index.js";
 import { eq, inArray, sql } from "drizzle-orm";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanWorkTicketChecklistItem } from "../../utils/checklistItemWorkers.js";
+import { assessImageQuality, serializeQualityFlags } from "../../utils/imageQuality.js";
+import { FAILED_PHOTO_DELETE_MESSAGE, isFailedPhoto, type PhotoReviewReason } from "../checklistInstanceImages/photoFailure.js";
+import { assertCanVerify } from "../tickets/ticketAccess.js";
+import { auditService } from "../audit/audit.service.js";
+import { isAdminOrPc } from "../../utils/roles.js";
 
 const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; checklistId: string | null }) =>
     assertCanWorkTicketChecklistItem(user, item, "Only the assigned person can upload evidence for this item");
@@ -47,9 +52,11 @@ export const checklistImageService = {
             }
         }
 
-        const rows = files.map((file) => ({
+        const qualities = await Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? assessImageQuality(file.path) : Promise.resolve(null))));
+        const rows = files.map((file, index) => ({
             id: createId(),
             url: `/uploads/tickets/${path.basename(file.path)}`,
+            qualityFlags: serializeQualityFlags(qualities[index] ?? null),
             originalFilename: file.originalname,
             mimeType: file.mimetype,
             sizeBytes: file.size,
@@ -67,6 +74,7 @@ export const checklistImageService = {
 
         const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, image.checklistItemId)).limit(1);
         await assertCanUpload(user, item ?? { assigneeId: image.uploadedBy, checklistId: null });
+        if (isFailedPhoto(image) && !isAdminOrPc(user.role)) throw AppError.forbidden(FAILED_PHOTO_DELETE_MESSAGE);
 
         const absolutePath = path.resolve(process.cwd(), "uploads", "tickets", path.basename(image.url));
         fs.unlink(absolutePath, (err) => {
@@ -75,5 +83,27 @@ export const checklistImageService = {
 
         await db.delete(checklistImages).where(eq(checklistImages.id, imageId));
         return image;
+    },
+
+    async review(imageId: string, input: { action: "REJECT" | "ACCEPT"; reason?: PhotoReviewReason }, user: AccessTokenPayload) {
+        const [image] = await db.select().from(checklistImages).where(eq(checklistImages.id, imageId)).limit(1);
+        if (!image) throw AppError.notFound("Image not found");
+        const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, image.checklistItemId)).limit(1);
+        if (!item?.checklistId) throw AppError.notFound("Checklist item not found");
+        const [checklist] = await db.select({ ticketId: checklists.ticketId }).from(checklists).where(eq(checklists.id, item.checklistId)).limit(1);
+        const [ticket] = checklist ? await db.select().from(tickets).where(eq(tickets.id, checklist.ticketId)).limit(1) : [];
+        if (!ticket) throw AppError.notFound("Ticket not found");
+        if (ticket.status !== "PENDING_APPROVAL") throw AppError.badRequest("Photos can only be reviewed while the ticket is waiting for approval.");
+        await assertCanVerify(ticket, user);
+        if (input.action === "REJECT" && !input.reason) throw AppError.badRequest("Say why the photo is rejected.");
+
+        const now = new Date();
+        const patch = input.action === "REJECT"
+            ? { reviewStatus: "REJECTED" as const, reviewReason: input.reason ?? "OTHER", reviewedBy: user.sub, reviewedAt: now, updatedAt: now }
+            : { reviewStatus: "ACCEPTED" as const, reviewReason: null, reviewedBy: user.sub, reviewedAt: now, updatedAt: now };
+        await db.update(checklistImages).set(patch).where(eq(checklistImages.id, imageId));
+        await auditService.record({ entityType: "ChecklistImage", entityId: imageId, action: "UPDATE", actorId: user.sub, before: image, after: { ...image, ...patch } });
+        const [updated] = await db.select().from(checklistImages).where(eq(checklistImages.id, imageId)).limit(1);
+        return updated!;
     },
 };

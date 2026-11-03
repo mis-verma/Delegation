@@ -54,6 +54,7 @@ import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
 import { RESTRICTED_STATUSES, type Ticket, type TicketAttachment, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
 import { canApproveTicket, isFinalApproval } from '../../lib/ticketApproval';
+import { PhotoReviewContext } from '../checklist/instance/photoReviewContext';
 import { useApprovers } from '../checklist/useApprovalCover';
 import { TicketApprovalTrail } from './detail/TicketApprovalTrail';
 import { ticketScore } from '../../lib/itemScore';
@@ -442,7 +443,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               />
 
               {((ticket.checklists?.length ?? 0) > 0 || (isAdmin && ticket.status !== 'CLOSED' && !ticket.declinedAt)) && (
-                <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} workerIds={ticket.assignee ? [ticket.assignee.id] : []} />
+                <PhotoReviewContext.Provider value={showVerify ? { kind: 'ticket', ownerId: ticket.id } : null}>
+                  <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} workerIds={ticket.assignee ? [ticket.assignee.id] : []} />
+                </PhotoReviewContext.Provider>
               )}
               </div>
 

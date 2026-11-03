@@ -1,8 +1,15 @@
+import { passingPhotos } from '../checklist/photoQuality';
+
 export interface PreviewImage {
   id: string;
   url: string;
   mimeType?: string;
   captureMethod?: 'LIVE' | 'GALLERY';
+  originalFilename?: string | null;
+  createdAt?: string;
+  qualityFlags?: string | null;
+  reviewStatus?: 'NONE' | 'REJECTED' | 'ACCEPTED';
+  reviewReason?: string | null;
 }
 
 export interface PreviewItem {
@@ -14,8 +21,10 @@ export interface PreviewItem {
   images: PreviewImage[];
 }
 
-export const qualifyingPhotoCount = (item: PreviewItem) =>
-  item.requiresLivePhoto ? item.images.filter((i) => i.captureMethod === 'LIVE').length : item.images.length;
+export const qualifyingPhotoCount = (item: PreviewItem) => {
+  const clear = passingPhotos(item.images);
+  return item.requiresLivePhoto ? clear.filter((i) => i.captureMethod === 'LIVE').length : clear.length;
+};
 
 export interface PreviewChecklist {
   id: string;

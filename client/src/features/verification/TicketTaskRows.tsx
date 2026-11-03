@@ -10,6 +10,7 @@ import { useTaskQuery } from '../tasks/hook';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
 import { ChecklistCompletionPreview } from './ChecklistCompletionPreview';
+import { PhotoReviewContext } from '../checklist/instance/photoReviewContext';
 import { summarizeChecklists } from './checklistSummary';
 import { formatWaiting } from './verificationModel';
 import { TicketDetail } from '../tickets/TicketDetail';
@@ -264,7 +265,11 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         expanded={expanded}
         onToggleExpanded={() => setExpanded((v) => !v)}
         summary={summarizeChecklists(ticket.checklists)}
-        preview={(flag) => <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
+        preview={(flag) => (
+          <PhotoReviewContext.Provider value={{ kind: 'ticket', ownerId: ticket.id }}>
+            <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />
+          </PhotoReviewContext.Provider>
+        )}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(ticket.id, ticket.title)}
         approveLabel={ticket.approvalStage === 'HOD' && ticket.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now' : 'Approve, send to PC') : 'Approve'}
@@ -311,7 +316,11 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         onToggleExpanded={() => setExpanded((v) => !v)}
         onWarm={() => setWarmed(true)}
         summary={expanded && fullTask ? summarizeChecklists(fullTask.checklists) : task.checklistSummary}
-        preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
+        preview={(flag) => (
+          <PhotoReviewContext.Provider value={{ kind: 'task', ownerId: task.id }}>
+            <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />
+          </PhotoReviewContext.Provider>
+        )}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(task.id, task.title)}
         approveLabel={task.approvalStage === 'HOD' && task.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now (skips the head)' : headsStillWaiting(task) > 1 ? 'Approve for my department' : 'Approve, send to PC') : 'Approve'}

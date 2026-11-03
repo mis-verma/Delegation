@@ -5,3 +5,4 @@ import { authenticate } from "../../middleware/auth/auth.js"
 export const checklistImageRouter = Router()
 checklistImageRouter.use(authenticate)
 checklistImageRouter.delete('/:id', checklistImageController.remove)
+checklistImageRouter.post('/:id/review', checklistImageController.review)

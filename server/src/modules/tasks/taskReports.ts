@@ -1,4 +1,5 @@
 import { dropScoreCache } from "../scores/scoreCache.js"
+import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskStatusUpdates } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
@@ -128,7 +129,7 @@ export const complianceReport = async (groupBy: ReportGroupBy, departmentId?: st
         JOIN Task t ON t.id = tc.taskId
         LEFT JOIN (
             SELECT taskChecklistItemId, COUNT(*) AS totalCount, SUM(captureMethod = 'LIVE') AS liveCount
-            FROM TaskImage GROUP BY taskChecklistItemId
+            FROM TaskImage WHERE NOT ${FAILED_PHOTO_SQL("TaskImage")} GROUP BY taskChecklistItemId
         ) img ON img.taskChecklistItemId = tci.id
         LEFT JOIN TaskAdditionalAssignee taa ON taa.taskId = t.id AND taa.userId = ${userId ?? null}
         ${whereClause}

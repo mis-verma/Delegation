@@ -4,6 +4,8 @@ import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
 export type CaptureMethod = 'LIVE' | 'GALLERY';
 
+import type { PhotoReviewStatus } from './checklistInstances';
+
 export type TaskImage = {
   id:                  string;
   url:                 string;
@@ -14,6 +16,9 @@ export type TaskImage = {
   taskChecklistItemId: string;
   uploadedBy:          string;
   createdAt:           string;
+  qualityFlags?:       string | null;
+  reviewStatus?:       PhotoReviewStatus;
+  reviewReason?:       string | null;
 };
 
 export type TaskChecklistItem = {

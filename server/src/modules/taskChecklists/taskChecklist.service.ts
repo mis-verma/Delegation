@@ -1,4 +1,5 @@
 import { db } from "../../config/db.js"
+import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
 import { tasks, taskChecklists, taskChecklistItems, taskImages, checklistTemplates, checklistTemplateItems } from "../../db/schema/index.js"
 import { eq, and, asc, inArray, isNull } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
@@ -128,9 +129,10 @@ export const taskChecklistService = {
 
         const images = await db.select().from(taskImages).where(eq(taskImages.taskChecklistItemId, item.id));
 
+        const clearImages = passingPhotos(images);
         const qualifyingImages = item.requiresLivePhoto
-            ? images.filter((img) => img.captureMethod === "LIVE")
-            : images;
+            ? clearImages.filter((img) => img.captureMethod === "LIVE")
+            : clearImages;
 
         if (qualifyingImages.length < item.requiredImageCount) {
             const missing = item.requiredImageCount - qualifyingImages.length;
