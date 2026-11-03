@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Building2, ChevronDown, Plus } from 'lucide-react';
+import { Building2, ChevronDown, Plus, X } from 'lucide-react';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
 import { Button } from '../../components/button';
@@ -76,22 +76,52 @@ export const DepartmentField = ({
   };
 
   const subLine = multiple && extraCount > 0
-    ? `Main team, plus ${extraCount} more: ${pickedList.slice(1).map((d) => d.name).join(', ')}`
+    ? `${pickedList.length} departments. The first is the main team.`
     : picked && multiple ? 'Main team' : picked ? hintOf(picked) : undefined;
+
+  const makeMain = (pid: string) => onChangeMany?.([pid, ...activeIds.filter((x) => x !== pid)]);
+  const removeOne = (pid: string) => onChangeMany?.(activeIds.filter((x) => x !== pid));
 
   const body = (
     <>
       <DepartmentTile name={picked?.name ?? null} size="sm" />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className={cn('truncate t-meta font-display font-semibold', picked ? 'text-text' : 'text-text-muted')}>
-          {isLoading ? 'Loading…' : picked ? picked.name : noneLabel ?? 'Choose a department'}
+          {isLoading ? 'Loading…' : picked ? (multiple ? pickedList.map((d) => d.name).join(', ') : picked.name) : noneLabel ?? 'Choose a department'}
         </span>
         {picked && subLine && <span className="truncate t-meta leading-tight text-text-muted">{subLine}</span>}
       </span>
-      {multiple && extraCount > 0 && (
-        <span className="shrink-0 rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted">+{extraCount}</span>
-      )}
     </>
+  );
+
+  const chips = multiple && pickedList.length > 0 && (
+    <ul className="flex flex-wrap gap-1.5" aria-label="Selected departments">
+      {pickedList.map((d, index) => (
+        <li key={d.id} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/60 bg-surface-hover/40 py-0.5 pl-1 pr-0.5">
+          <DepartmentTile name={d.name} size="sm" />
+          <span className="min-w-0 truncate t-meta font-display font-semibold text-text">{d.name}</span>
+          {index === 0 ? (
+            <span className="shrink-0 rounded-sm bg-primary-800 px-1.5 t-meta font-display font-semibold text-white">Main</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => makeMain(d.id)}
+              className="shrink-0 cursor-pointer rounded-sm px-1.5 t-meta font-display font-semibold text-primary-600 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 pointer-coarse:min-h-9"
+            >
+              Make main
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => removeOne(d.id)}
+            aria-label={`Remove ${d.name}`}
+            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-muted outline-none transition-colors hover:bg-surface-active hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:size-9"
+          >
+            <X size={13} strokeWidth={2.5} aria-hidden="true" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 
   if (disabled) {
@@ -153,16 +183,23 @@ export const DepartmentField = ({
         {open && (
           <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2">
             <div className="max-h-72 overflow-y-auto overscroll-contain">{list}</div>
-            <Button variant="primary" size="sm" onClick={() => setOpen(false)} className="w-full font-display">
-              {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
-            </Button>
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+              <span className="t-meta font-display font-medium text-text-muted">{activeIds.length === 0 ? 'None selected' : `${activeIds.length} selected`}</span>
+              <div className="flex items-center gap-1.5">
+                {activeIds.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => onChangeMany?.([])} className="font-display">Clear</Button>
+                )}
+                <Button variant="primary" size="sm" onClick={() => setOpen(false)} className="font-display">Done</Button>
+              </div>
+            </div>
           </div>
         )}
+        {chips}
       </div>
     );
   }
 
-  return (
+  const picker = (
     <PickerShell
       bare
       open={open}
@@ -180,4 +217,11 @@ export const DepartmentField = ({
       {list}
     </PickerShell>
   );
+
+  return multiple ? (
+    <div className="flex w-full min-w-0 flex-col gap-1.5">
+      {picker}
+      {chips}
+    </div>
+  ) : picker;
 };
