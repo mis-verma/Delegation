@@ -55,7 +55,8 @@ exceptionRouter.get('/approvals', requireRole(...OVERSIGHT), asyncHandler(async 
   const orgWide = isAdminOrPc(user.role);
   if (!orgWide && !user.departmentId) throw AppError.forbidden();
   const departmentId = orgWide ? undefined : user.departmentId;
-  const data = await cached(cacheKey('exceptions', 'approvals', departmentId ?? 'org', from, to), APPROVAL_TTL_SECONDS, () => approvalTatService.summary(new Date(from), new Date(to), Date.now(), departmentId));
+  const viewerPcId = user.role === 'PC' ? user.sub : undefined;
+  const data = await cached(cacheKey('exceptions', 'approvals', departmentId ?? 'org', viewerPcId ?? 'all', from, to), APPROVAL_TTL_SECONDS, () => approvalTatService.summary(new Date(from), new Date(to), Date.now(), departmentId, viewerPcId));
   res.json({ success: true, data });
 }));
 const approvalDaysSchema = z

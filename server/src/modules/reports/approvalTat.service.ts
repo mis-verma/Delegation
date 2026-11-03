@@ -6,7 +6,8 @@ import { checklistDefinitions } from "../../db/schema/checklistDefinition.js"
 import { checklistInstanceAssignees } from "../../db/schema/checklistInstance.js"
 import { users } from "../../db/schema/core.js"
 import { env } from "../../config/env.js"
-import { and, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm"
+import { and, eq, gte, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
+import { coordinatorRunSql } from "../checklistInstances/checklistCoordinatorRun.js"
 
 export const APPROVAL_TAT_HOURS = 24
 const WINDOW_MS = APPROVAL_TAT_HOURS * 60 * 60 * 1000
@@ -135,7 +136,10 @@ export const approvalTatService = {
     },
 
 
-    async summary(from: Date, to: Date, now = Date.now(), departmentId?: string): Promise<ApprovalTatResult> {
+    async summary(from: Date, to: Date, now = Date.now(), departmentId?: string, viewerPcId?: string): Promise<ApprovalTatResult> {
+        const notMyTask: SQL | undefined = viewerPcId ? or(isNull(tasks.assigneeId), ne(tasks.assigneeId, viewerPcId)) : undefined
+        const notMyTicket: SQL | undefined = viewerPcId ? or(isNull(tickets.assigneeId), ne(tickets.assigneeId, viewerPcId)) : undefined
+        const notCoordinatorRun: SQL | undefined = viewerPcId ? sql`NOT ${coordinatorRunSql}` : undefined
         const taskDept: SQL | undefined = departmentId ? eq(tasks.departmentId, departmentId) : undefined
         const ticketDept: SQL | undefined = departmentId ? eq(tickets.departmentId, departmentId) : undefined
         const runDept: SQL | undefined = departmentId
@@ -164,11 +168,11 @@ export const approvalTatService = {
             db
                 .select({ submittedAt: tasks.submittedAt, updatedAt: tasks.updatedAt })
                 .from(tasks)
-                .where(and(isNull(tasks.deletedAt), eq(tasks.status, "pending_approval"), taskDept)),
+                .where(and(isNull(tasks.deletedAt), eq(tasks.status, "pending_approval"), taskDept, notMyTask)),
             db
                 .select({ submittedAt: tickets.submittedAt, updatedAt: tickets.updatedAt })
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), eq(tickets.status, "PENDING_APPROVAL"), ticketDept)),
+                .where(and(isNull(tickets.deletedAt), eq(tickets.status, "PENDING_APPROVAL"), ticketDept, notMyTicket)),
             db
                 .select({ submittedAt: checklistInstances.submittedAt, updatedAt: checklistInstances.updatedAt })
                 .from(checklistInstances)
@@ -176,6 +180,7 @@ export const approvalTatService = {
                     eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"),
                     sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitions} d WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL)`,
                     runDept,
+                    notCoordinatorRun,
                 )),
         ])
 
