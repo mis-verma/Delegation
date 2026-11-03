@@ -15,12 +15,31 @@ type Row = CategoryProposal & { selected: boolean; hours: string };
 const FIELD = 'w-20 rounded-md border border-border bg-surface px-2 py-1.5 t-meta text-text outline-none focus:border-primary-600';
 const MIN_ROWS_BY_DEFAULT = 3;
 
-const toRows = (proposals: CategoryProposal[]): Row[] =>
-  proposals.map((p) => ({
+const SAMPLE_FILE = [
+  'Category,Department,Assigned To,Due Hours',
+  'Printer not working,IT Department,nitin@yourcompany.in,24',
+  'Bank change,Accounts Department,,48',
+  'Billing error,Accounts Department,arun@yourcompany.in,24',
+].join('\r\n');
+
+const downloadSample = () => {
+  const url = URL.createObjectURL(new Blob([SAMPLE_FILE], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'categories-sample.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const toRows = (proposals: CategoryProposal[]): Row[] => {
+  const isList = proposals.every((p) => p.rowCount < MIN_ROWS_BY_DEFAULT);
+  const minRows = isList ? 1 : MIN_ROWS_BY_DEFAULT;
+  return proposals.map((p) => ({
     ...p,
-    selected: !p.exists && !!p.departmentId && p.rowCount >= MIN_ROWS_BY_DEFAULT,
+    selected: !p.exists && !!p.departmentId && p.rowCount >= minRows,
     hours: p.tatHours ? String(p.tatHours) : '',
   }));
+};
 
 export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) => {
   const [file, setFile] = useState<File | null>(null);
@@ -89,12 +108,13 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
       open
       onClose={onClose}
       icon={<FileUp className="size-5" />}
-      title="Add categories from your ticket history"
-      description="Upload the old ticket file. Each category gets its team, person and usual due time from how those tickets were handled."
+      title="Add categories from a file"
+      description="Upload a list of categories (Excel or CSV). Check the list, then add the ones you want."
       footer={footer}
       size="3xl"
     >
       {!preview ? (
+        <>
         <label
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -116,6 +136,23 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
             <p className="mt-1 t-meta text-text-muted">Excel (.xlsx) or CSV with a Category or Sub Category column</p>
           </div>
         </label>
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border/60 bg-surface-hover/30 p-4">
+          <p className="text-sm font-display font-semibold text-text">How to make the file</p>
+          <p className="t-meta text-text-secondary">One row per category. The first row holds the column names.</p>
+          <ul className="flex flex-col gap-1.5 t-meta text-text-secondary">
+            <li><strong className="font-semibold text-text">Category</strong> (needed): the name people will pick.</li>
+            <li><strong className="font-semibold text-text">Department</strong>: the team that handles it. Use the name exactly as in Karya.</li>
+            <li><strong className="font-semibold text-text">Assigned To</strong> (optional): a person's email, or full name.</li>
+            <li><strong className="font-semibold text-text">Due Hours</strong> (optional): usual hours to finish, like 24 or 48.</li>
+          </ul>
+          <p className="t-meta text-text-muted">A category with no person is sent to its department head to pick. A category with no hours uses the standard due time. Names already in Karya are skipped.</p>
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={downloadSample} className="max-sm:h-11">
+              Download a sample file
+            </Button>
+          </div>
+        </div>
+        </>
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildCategoryProposals, hoursFromSlaMinutes } from "./categoryHistoryImport.js"
+import { buildCategoryProposals, hoursFromHours, hoursFromSlaMinutes } from "./categoryHistoryImport.js"
 
 const people = [
     { id: "u1", name: "Nitin Jain", email: "nitin@x.in", departmentId: "d-it" },
@@ -26,6 +26,31 @@ describe("hoursFromSlaMinutes", () => {
         expect(hoursFromSlaMinutes("")).toBeNull()
         expect(hoursFromSlaMinutes("0")).toBeNull()
         expect(hoursFromSlaMinutes("999999999")).toBeNull()
+    })
+})
+
+describe("category list file", () => {
+    const list = [
+        { Category: "Printer not working", Department: "IT Department", "Assigned To": "nitin@x.in", "Due Hours": "24" },
+        { Category: "Bank change", Department: "Accounts Department", "Assigned To": "", "Due Hours": "" },
+    ]
+    const proposals = buildCategoryProposals(list, "Category", { people, departments, existingNames: new Set() })
+    it("reads due hours and a person by email", () => {
+        const printer = proposals.find((p) => p.name === "Printer not working")!
+        expect(printer.tatHours).toBe(24)
+        expect(printer.assigneeId).toBe("u1")
+        expect(printer.departmentId).toBe("d-it")
+    })
+    it("finds the department from its column when no person is given", () => {
+        const bank = proposals.find((p) => p.name === "Bank change")!
+        expect(bank.assigneeId).toBeNull()
+        expect(bank.departmentId).toBe("d-acc")
+        expect(bank.tatHours).toBeNull()
+    })
+    it("rounds whole hours and rejects nonsense", () => {
+        expect(hoursFromHours("36")).toBe(36)
+        expect(hoursFromHours("0")).toBeNull()
+        expect(hoursFromHours("abc")).toBeNull()
     })
 })
 

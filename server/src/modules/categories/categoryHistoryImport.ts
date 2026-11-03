@@ -10,8 +10,9 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 export const NAME_COLUMN_CHOICES = ["Sub Category (Filled)", "Category (Refined)", "Category", "Sub Category", "Category Name", "Name"] as const
 
 const SLA_COLUMNS = ["sla (min)", "sla", "sla minutes"]
-const PERSON_COLUMNS = ["completed by (claimed by)", "completed by", "assignee", "person"]
-const DEPARTMENT_COLUMNS = ["store / department", "department", "dept"]
+const HOURS_COLUMNS = ["due hours", "due time (hours)", "tat hours", "tat (hours)", "hours"]
+const PERSON_COLUMNS = ["completed by (claimed by)", "completed by", "assignee", "assigned to", "person", "person email", "assignee email", "email"]
+const DEPARTMENT_COLUMNS = ["store / department", "department", "department name", "dept", "team"]
 const UNUSABLE_NAMES = new Set(["not set in source", "unclear request (no detail in source)", "n/a", "na", "-"])
 
 export type HistoryPerson = { id: string; name: string; email: string; departmentId: string | null }
@@ -45,6 +46,13 @@ const modeOf = <T,>(values: T[]): T | null => {
     return best
 }
 
+export const hoursFromHours = (raw: string): number | null => {
+    const hours = Number(raw)
+    if (!Number.isFinite(hours) || hours <= 0) return null
+    const whole = Math.max(1, Math.round(hours))
+    return whole > MAX_TAT_HOURS ? null : whole
+}
+
 export const hoursFromSlaMinutes = (raw: string): number | null => {
     const minutes = Number(raw)
     if (!Number.isFinite(minutes) || minutes <= 0) return null
@@ -61,6 +69,7 @@ export const buildCategoryProposals = (
 ): CategoryProposal[] => {
     const headers = records.length ? Object.keys(records[0]!) : []
     const slaColumn = findColumn(headers, SLA_COLUMNS)
+    const hoursColumn = findColumn(headers, HOURS_COLUMNS)
     const personColumn = findColumn(headers, PERSON_COLUMNS)
     const departmentColumn = findColumn(headers, DEPARTMENT_COLUMNS)
 
@@ -71,10 +80,8 @@ export const buildCategoryProposals = (
         const key = keyOf(name)
         const group = groups.get(key) ?? { name, sla: [], people: [], departments: [], rows: 0 }
         group.rows += 1
-        if (slaColumn) {
-            const hours = hoursFromSlaMinutes(record[slaColumn] ?? "")
-            if (hours !== null) group.sla.push(hours)
-        }
+        const hours = hoursColumn ? hoursFromHours(record[hoursColumn] ?? "") : slaColumn ? hoursFromSlaMinutes(record[slaColumn] ?? "") : null
+        if (hours !== null) group.sla.push(hours)
         if (personColumn) group.people.push(...peopleIn(record[personColumn] ?? ""))
         if (departmentColumn) {
             const department = squash(record[departmentColumn] ?? "")
@@ -86,7 +93,9 @@ export const buildCategoryProposals = (
     const proposals: CategoryProposal[] = []
     for (const [key, group] of groups) {
         const topPerson = modeOf(group.people)
-        const person = topPerson ? matchExactOrFuzzy(topPerson, ctx.people, (p) => p.name).match : null
+        const person = topPerson
+            ? ctx.people.find((p) => p.email.toLowerCase() === topPerson.toLowerCase()) ?? matchExactOrFuzzy(topPerson, ctx.people, (p) => p.name).match
+            : null
 
         let departmentId: string | null = null
         let departmentSource: CategoryProposal["departmentSource"] = "none"
