@@ -15,6 +15,7 @@ import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, 
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
+import { DepartmentField } from '../departments/DepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { ticketApi } from '../../api/ticket';
 import type { Category } from '../../api/categories';
@@ -496,16 +497,13 @@ Who is affected: `;
         hint={hint}
         error={errors.departmentId?.message}
       >
-        <Combobox
+        <DepartmentField
           value={departmentId ?? ''}
           onChange={v => setValue('departmentId', v, { shouldValidate: validateOnChange, shouldDirty: true })}
+          departments={departments}
           disabled={!ownScopeOnly && !!selectedCategory}
-          placeholder="Search departments..."
-          emptyOptionLabel="Choose a department"
-          options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
           onCreateNew={isVerifier ? () => setCreating('department') : undefined}
-          createNewLabel="New department"
-          className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.departmentId ? 'border-danger/60' : ''}`}
+          className={errors.departmentId ? 'border-danger/60' : ''}
         />
       </FormField>
     </div>

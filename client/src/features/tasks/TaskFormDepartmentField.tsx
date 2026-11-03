@@ -1,4 +1,4 @@
-import { Combobox } from '../../components';
+import { DepartmentField } from '../departments/DepartmentField';
 import { FIELD_LABEL_CLASS, FIELD_CARD_CLASS } from './taskFormFieldStyles';
 import type { Department } from '../../api/departments';
 
@@ -20,17 +20,14 @@ export const TaskFormDepartmentField = ({ value, onChange, departments, isLoadin
         Department
       </label>
     )}
-    <Combobox
+    <DepartmentField
       value={value}
       onChange={onChange}
+      departments={departments}
       isLoading={isLoading}
       disabled={disabled}
-      placeholder="Search departments..."
-      label="Department"
-      emptyOptionLabel="No department"
-      options={(departments ?? []).map((d) => ({ value: d.id, label: d.name }))}
+      noneLabel="No department"
       onCreateNew={onCreateNew}
-      createNewLabel="New department"
       className={triggerClassName}
     />
   </div>
