@@ -164,6 +164,25 @@ export const HomePage = () => {
 
   const heading = new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
+  const focusCard = !isCustomizing && (
+      <FocusNowCard
+        ownWorkOnly={!frontLine}
+        reviewCount={reviewCount}
+        todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
+        tasks={assignedTasks}
+        tickets={myAssignedTickets}
+        checklists={focusChecklists}
+        todos={todos}
+        now={now}
+        isPending={focusPending}
+        isError={focusFailed}
+        onRetry={retryFocus}
+        updatedAt={summaries.updatedAt}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+      />
+  );
+
   return (
     <div className="flex flex-col gap-3 w-full pt-2.5 [--type-scale:0.9]">
       <h1 className="sr-only">Today, {heading}</h1>
@@ -183,24 +202,7 @@ export const HomePage = () => {
       {!isCustomizing && <CoverBanner />}
       {!isCustomizing && <OvertimeNotice today={orgToday} />}
       {!isCustomizing && <EnableAlertsBanner />}
-      {!isCustomizing && (
-        <FocusNowCard
-          ownWorkOnly={!frontLine}
-          reviewCount={reviewCount}
-          todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
-          tasks={assignedTasks}
-          tickets={myAssignedTickets}
-          checklists={focusChecklists}
-          todos={todos}
-          now={now}
-          isPending={focusPending}
-          isError={focusFailed}
-          onRetry={retryFocus}
-          updatedAt={summaries.updatedAt}
-          onRefresh={refresh}
-          isRefreshing={isRefreshing}
-        />
-      )}
+      {!dashboardView.isPc && focusCard}
 
       {isCustomizing && isMobile ? (
         <DashboardMobileCustomize order={eligibleCardOrder} hidden={hiddenIds} onMove={moveCard} onToggle={toggleHidden} />
@@ -211,6 +213,8 @@ export const HomePage = () => {
       ) : (
         staticGrid
       )}
+
+      {dashboardView.isPc && focusCard}
     </div>
   );
 };
