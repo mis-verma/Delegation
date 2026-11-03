@@ -21,6 +21,7 @@ interface DepartmentFieldProps {
   disabled?: boolean;
   noneLabel?: string;
   onCreateNew?: () => void;
+  peopleCount?: (departmentId: string) => number;
   className?: string;
 }
 
@@ -38,7 +39,7 @@ export const DepartmentTile = ({ name, size }: { name: string | null; size: 'sm'
 );
 
 export const DepartmentField = ({
-  id, value = '', onChange, selectedIds = [], onChangeMany, multiple = false, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className,
+  id, value = '', onChange, selectedIds = [], onChangeMany, multiple = false, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, peopleCount, className,
 }: DepartmentFieldProps) => {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -96,12 +97,23 @@ export const DepartmentField = ({
     </>
   );
 
+  const peopleNote = (departmentId: string) => {
+    if (!peopleCount) return null;
+    const count = peopleCount(departmentId);
+    return (
+      <span className={cn('shrink-0 t-meta font-display font-medium', count === 0 ? 'text-warning' : 'text-text-muted')}>
+        {count === 0 ? 'no one picked' : `${count} ${count === 1 ? 'person' : 'people'}`}
+      </span>
+    );
+  };
+
   const chips = multiple && pickedList.length > 0 && (
     <ul className="flex flex-wrap gap-1.5" aria-label="Selected departments">
       {pickedList.map((d, index) => (
         <li key={d.id} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/60 bg-surface-hover/40 py-0.5 pl-1 pr-0.5">
           <DepartmentTile name={d.name} size="sm" />
           <span className="min-w-0 truncate t-meta font-display font-semibold text-text">{d.name}</span>
+          {peopleNote(d.id)}
           {index === 0 ? (
             <span className="shrink-0 rounded-sm bg-primary-800 px-1.5 t-meta font-display font-semibold text-white">Main</span>
           ) : (
@@ -138,6 +150,7 @@ export const DepartmentField = ({
               <li key={d.id} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/60 bg-surface-hover/40 py-0.5 pl-1 pr-2">
                 <DepartmentTile name={d.name} size="sm" />
                 <span className="min-w-0 truncate t-meta font-display font-semibold text-text">{d.name}</span>
+                {peopleNote(d.id)}
                 {index === 0 && <span className="shrink-0 rounded-sm bg-primary-800 px-1.5 t-meta font-display font-semibold text-white">Main</span>}
               </li>
             ))}

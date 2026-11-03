@@ -602,6 +602,7 @@ const TaskEditLayout = ({
                   multiple={canAssign}
                   selectedIds={scopeDepartmentIds}
                   onChangeMany={changeDepartments}
+                  peopleCount={(id) => selectedIds.filter((p) => peoplePool.find((u) => u.id === p)?.departmentId === id).length}
                   departments={departments}
                   isLoading={isLoadingDepts}
                   triggerClassName={PROPERTY_TRIGGER_CLASS}

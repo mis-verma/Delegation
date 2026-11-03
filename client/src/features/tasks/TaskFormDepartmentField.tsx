@@ -14,9 +14,10 @@ interface TaskFormDepartmentFieldProps {
   hideLabel?: boolean;
   triggerClassName?: string;
   onCreateNew?: () => void;
+  peopleCount?: (departmentId: string) => number;
 }
 
-export const TaskFormDepartmentField = ({ value, onChange, multiple, selectedIds, onChangeMany, departments, isLoading, disabled = false, hideLabel = false, triggerClassName, onCreateNew }: TaskFormDepartmentFieldProps) => (
+export const TaskFormDepartmentField = ({ value, onChange, multiple, selectedIds, onChangeMany, departments, isLoading, disabled = false, hideLabel = false, triggerClassName, onCreateNew, peopleCount }: TaskFormDepartmentFieldProps) => (
   <div className={`group/field flex flex-col justify-end gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && (
       <label className={FIELD_LABEL_CLASS}>
@@ -34,6 +35,7 @@ export const TaskFormDepartmentField = ({ value, onChange, multiple, selectedIds
       disabled={disabled}
       noneLabel="No department"
       onCreateNew={onCreateNew}
+      peopleCount={peopleCount}
       className={triggerClassName}
     />
   </div>

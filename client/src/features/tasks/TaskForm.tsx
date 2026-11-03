@@ -421,6 +421,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
                     multiple={!ownScopeOnly}
                     selectedIds={[field.value, ...extraDepartmentIds].filter((d): d is string => !!d)}
                     onChangeMany={(ids) => changeDepartments(ids, field.onChange)}
+                    peopleCount={(id) => assigneeIds.filter((p) => userDepartmentOf(p) === id).length}
                     departments={departments}
                     isLoading={isLoadingDepts}
                     triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
