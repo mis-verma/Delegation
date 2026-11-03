@@ -309,10 +309,16 @@ export const myApprovalStatus = async (user: AccessTokenPayload) => {
     })
         .from(checklistInstances)
         .where(and(inArray(checklistInstances.verificationStatus, ["PENDING_APPROVAL", "REJECTED"]), parentNotDeletedExpr, mine))
+    const withApprover = Number(row?.withApprover ?? 0)
+    const heads = withApprover > 0 && user.departmentId
+        ? await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users)
+            .where(and(inArray(users.role, ["MANAGER", "SENIOR"]), eq(users.departmentId, user.departmentId), eq(users.isActive, true), ne(users.id, user.sub)))
+        : []
     return {
-        withApprover: Number(row?.withApprover ?? 0),
+        withApprover,
         sentBack: Number(row?.sentBack ?? 0),
         oldestWaitingSince: row?.oldest ? new Date(row.oldest as unknown as string).toISOString() : null,
+        heads: heads.map((h) => `${h.firstName}${h.lastName ? ` ${h.lastName}` : ""}`),
     }
 }
 

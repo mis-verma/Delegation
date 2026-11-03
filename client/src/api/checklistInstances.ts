@@ -313,6 +313,7 @@ export type MyApprovalStatus = {
   withApprover: number;
   sentBack: number;
   oldestWaitingSince: string | null;
+  heads: string[];
 };
 
 export type FormerPerson = {

@@ -376,9 +376,7 @@ export const PcStatTiles = () => {
             <FigureCard
               label="With approver"
               short="Approver"
-              help={mine.approval?.oldestWaitingSince
-                ? `Your finished checklists waiting for an Admin or their head. The oldest has waited since ${new Date(mine.approval.oldestWaitingSince).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}. They do not come to you.`
-                : 'Your finished checklists waiting for an Admin or their head. They do not come to you.'}
+              help={`${mine.approval?.withApprover ? 'Your finished checklists are waiting for an Admin' : 'Your finished checklists go to an Admin'}${mine.approval?.heads.length ? ` or your head ${mine.approval.heads.slice(0, 2).join(' or ')}` : ' or your department head'}. They do not come to you.${mine.approval?.oldestWaitingSince ? ` The oldest has waited since ${new Date(mine.approval.oldestWaitingSince).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}.` : ''}`}
               value={mine.approval?.withApprover ?? null}
               tone="plain"
               bar={null}
