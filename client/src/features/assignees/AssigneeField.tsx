@@ -8,6 +8,7 @@ import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
 import { FIELD_LABEL_CLASS, FIELD_CARD_CLASS } from '../tasks/taskFormFieldStyles';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { UserForm } from '../admin/users/UserForm';
 import type { AssignableUser } from '../../api/users';
 import { useDepartmentsQuery } from '../tickets/hook';
@@ -48,6 +49,7 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
 export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor, emptyText = 'No assignable users' }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'ADMIN';
+  const showRoles = !!currentUser && !OWN_SCOPE_ROLES.includes(currentUser.role);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -77,14 +79,14 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
 
   const grouped = useMemo(() => new Set((users ?? []).map((u) => hintOf(u) ?? '')).size > 1, [users, hintOf]);
 
-  const headsFirst = (a: AssignableUser, b: AssignableUser) => Number(isHead(b)) - Number(isHead(a));
+  const headsFirst = useCallback((a: AssignableUser, b: AssignableUser) => (showRoles ? Number(isHead(b)) - Number(isHead(a)) : 0), [showRoles]);
 
   const orderedUsers = useMemo(() => {
     const all = users ?? [];
     if (grouped) return [...all].sort((a, b) => (hintOf(a) ?? '~').localeCompare(hintOf(b) ?? '~') || headsFirst(a, b));
     const pinned = new Set(pinnedIds);
     return [...all.filter((u) => pinned.has(u.id)), ...all.filter((u) => !pinned.has(u.id)).sort(headsFirst)];
-  }, [users, pinnedIds, grouped, hintOf]);
+  }, [users, pinnedIds, grouped, hintOf, headsFirst]);
 
   const onPickerOpenChange = (next: boolean) => {
     if (next) {
@@ -166,7 +168,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     return {
       value: u.id,
       label: name,
-      hint: grouped ? roleLabel(u) : [hintOf(u), roleLabel(u)].filter(Boolean).join(' · '),
+      hint: grouped ? (showRoles ? roleLabel(u) : undefined) : [hintOf(u), showRoles ? roleLabel(u) : undefined].filter(Boolean).join(' · '),
       group: grouped ? hintOf(u) ?? 'No department' : undefined,
       lead: (
         <span className={`flex items-center justify-center size-8 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
