@@ -1,16 +1,15 @@
 import { memo } from 'react';
+import { useNavigate } from 'react-router';
 import { InlineError } from '../../components/inlineError';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useTeamApprovals } from '../attention/useAttention';
 import { formatDuration } from '../admin/analytics/analyticsDisplay';
-import { ApprovalRing } from './ApprovalRing';
-import { FigureCard, type FigureTone } from './FigureCard';
-import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { FigurePanel, type FigureCell } from '../verification/FigurePanel';
+import { usePcApprovalBuckets } from '../pc/usePcApprovalBuckets';
+import { FAIR_FROM } from '../../lib/scoreBands';
 import { useApprovalSources } from './useApprovalSources';
 import { windowFor } from './scorePeriods';
 import { orgDayWindow } from './scoreDrill';
-
-const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
 export const ApprovalStatsStrip = memo(() => {
   const today = useOrgToday();
@@ -21,6 +20,8 @@ export const ApprovalStatsStrip = memo(() => {
   const data = query.data;
   const loading = query.isPending;
   const { queueHref } = useApprovalSources();
+  const buckets = usePcApprovalBuckets();
+  const navigate = useNavigate();
   const toQueue = queueHref ?? undefined;
 
   if (query.isError && !data) {
@@ -31,49 +32,19 @@ export const ApprovalStatsStrip = memo(() => {
     );
   }
 
-  const waiting = data?.waiting.total.now ?? 0;
-  const over = data?.waiting.total.over24h ?? 0;
   const rate = data?.rate ?? null;
   const avg = data?.avgDecisionHours ?? null;
-  const withinShare = waiting === 0 ? 100 : ((waiting - over) / waiting) * 100;
-  const overShare = waiting === 0 ? 0 : (over / waiting) * 100;
+  const { pending, old, fresh } = buckets.total;
+  const cells: FigureCell[] = [
+    { key: 'pending', label: 'Pending', value: pending, note: pending === 0 ? 'All decided' : 'Waiting for you', help: 'Everything handed in that is still waiting for your decision.', onClick: toQueue ? () => navigate(toQueue) : undefined },
+    { key: 'delayed', label: 'Delayed', value: old, note: old === 0 ? 'None late' : 'Over 24 hours', alert: old > 0, help: 'Waiting items that have passed the 24 hour limit.', onClick: toQueue ? () => navigate(toQueue) : undefined },
+    { key: 'new', label: 'New', value: fresh, note: 'Under 24 hours', help: 'Items that arrived in the last 24 hours.', onClick: toQueue ? () => navigate(toQueue) : undefined },
+    { key: 'ontime', label: 'On time', value: rate === null ? null : `${Math.round(rate)}%`, note: 'This week', alert: rate !== null && rate < FAIR_FROM, help: `Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`, onClick: toQueue ? () => navigate(toQueue) : undefined },
+  ];
 
   return (
     <div className="@container border-b border-border/40 px-4 py-3 sm:px-5" role="group" aria-label="Approval figures">
-      <ApprovalRing />
-      <dl className="grid grid-cols-3 gap-2">
-        <FigureCard
-          label="Waiting now"
-          help="Items handed in for approval that are still waiting for a decision."
-          value={waiting}
-          tone={waiting === 0 ? 'good' : rateTone(withinShare)}
-          bar={withinShare}
-          loading={loading}
-          compact
-          to={toQueue}
-        />
-        <FigureCard
-          label="Over 24 hours"
-          help="Waiting items that have passed the 24 hour limit."
-          value={over}
-          tone={over === 0 ? 'good' : 'bad'}
-          bar={overShare}
-          loading={loading}
-          compact
-          to={toQueue}
-        />
-        <FigureCard
-          label="On time"
-          help={`Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`}
-          value={rate}
-          format={(n) => `${Math.round(n)}%`}
-          tone={rate === null ? 'plain' : rateTone(rate)}
-          bar={rate}
-          loading={loading}
-          compact
-          to={toQueue}
-        />
-      </dl>
+      <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} />
     </div>
   );
 });
