@@ -23,6 +23,7 @@ import {
     LAST_ADMIN_MESSAGE,
 } from "./userGuards.js";
 import { userOffboardingService } from "./userOffboarding.service.js";
+import { notificationService, notifySafely } from "../notifications/notification.service.js";
 import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 
@@ -300,6 +301,11 @@ export const userService = {
 
         if (roleChanged || user.departmentId !== before.departmentId || user.storeId !== before.storeId || user.isActive !== before.isActive) {
             disconnectUserSockets(id);
+        }
+
+        if (before.departmentId && user.departmentId !== before.departmentId) {
+            const oldDepartmentId = before.departmentId;
+            await notifySafely(() => notificationService.notifyAssigneeMovedTeam(id, oldDepartmentId, user.departmentId ?? null));
         }
 
         if (!sameDays(user.weekOffDays, before.weekOffDays) || user.departmentId !== before.departmentId || user.storeId !== before.storeId) {

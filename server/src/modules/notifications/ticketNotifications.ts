@@ -1,6 +1,7 @@
 import { db } from '../../config/db.js';
 import { departments, notifications, users } from '../../db/schema/core.js';
-import { eq, and, inArray, ne } from 'drizzle-orm';
+import { tickets } from '../../db/schema/index.js';
+import { eq, and, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { notifyMany, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
 
 export const notifyTicketAssigned = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null }) => {
@@ -54,6 +55,33 @@ const personLine = async (userId: string | null | undefined): Promise<string | n
   const name = `${row.firstName}${row.lastName ? ` ${row.lastName}` : ''}`;
   return row.department ? `${name} (${row.department})` : name;
 };
+
+export const notifyAssigneeMovedTeam = async (personId: string, oldDepartmentId: string, newDepartmentId: string | null) => {
+  const [open] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(tickets)
+    .where(and(
+      eq(tickets.assigneeId, personId),
+      eq(tickets.departmentId, oldDepartmentId),
+      isNull(tickets.deletedAt),
+      isNull(tickets.declinedAt),
+      ne(tickets.status, 'CLOSED'),
+    ));
+  const count = Number(open?.count ?? 0);
+  if (count === 0) return [];
+  const [person, newTeam, heads] = await Promise.all([
+    db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, personId)).limit(1),
+    newDepartmentId ? db.select({ name: departments.name }).from(departments).where(eq(departments.id, newDepartmentId)).limit(1) : Promise.resolve([]),
+    db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, oldDepartmentId), eq(users.isActive, true), ne(users.id, personId))),
+  ]);
+  const name = person[0] ? `${person[0].firstName}${person[0].lastName ? ` ${person[0].lastName}` : ''}` : 'Someone';
+  const where = newTeam[0]?.name ? `moved to ${newTeam[0].name}` : 'left your team';
+  return notifyMany(heads.map((h) => h.id), {
+    type: 'TICKET_ASSIGNEE_MOVED',
+    title: 'A teammate changed teams',
+    message: `${name} ${where}. ${count} open ${count === 1 ? 'ticket is' : 'tickets are'} still assigned to them. Open ${count === 1 ? 'it' : 'them'} and pick someone new.`,
+  });
+}
 
 export const notifyTicketAwaitingHead = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null; userId?: string | null }) => {
   if (!ticket.departmentId) return [];

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { ArrowRight, Ban, CircleCheck, Forward, ShieldQuestion, Timer, User } from 'lucide-react';
 import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../../components';
+import { useAuth } from '../../../context/AuthContext';
 import { cn } from '@/lib/utils';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
@@ -33,6 +34,7 @@ export const Avatar = ({ name }: { name: string | null }) =>
   );
 
 export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }: HeadRequestRowProps) => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -79,6 +81,10 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
           </span>
         </span>
       </button>
+
+      {ticket.assigneeId === user?.id && (
+        <p className="t-meta font-display font-semibold text-warning">This ticket is assigned to you. If you approve it, PC can see that you approved your own work.</p>
+      )}
 
       {needsPerson && (
         <div className="flex flex-col gap-1.5">
