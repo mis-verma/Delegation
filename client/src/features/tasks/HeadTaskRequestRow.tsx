@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { ArrowRight, Ban, CalendarDays, CircleCheck, ShieldQuestion } from 'lucide-react';
+import { toast } from 'sonner';
+import { ArrowRight, Ban, CalendarDays, CircleCheck, Forward, ShieldQuestion } from 'lucide-react';
 import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../components';
 import { cn } from '@/lib/utils';
 import { Avatar } from '../tickets/approvals/HeadRequestRow';
 import { DeclineTicketDialog } from '../tickets/detail/DeclineTicketDialog';
-import { useApproveTaskAssignmentMutation, useDeclineTaskMutation } from './hook';
+import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useUpdateTaskMutation } from './hook';
+import { useDepartmentsQuery } from '../tickets/hook';
+import { RedirectTicketDialog } from '../tickets/detail/RedirectTicketDialog';
 import { formatShortDate } from './cardFields';
 import { PRIORITY_MAP } from './taskDisplay';
 import { TaskDetail } from './TaskDetail';
@@ -24,7 +27,11 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
   const [declining, setDeclining] = useState(false);
   const approveMut = useApproveTaskAssignmentMutation();
   const declineMut = useDeclineTaskMutation();
-  const busy = approveMut.isPending || declineMut.isPending;
+  const redirectMut = useUpdateTaskMutation({ silent: true });
+  const { data: departments } = useDepartmentsQuery();
+  const [redirecting, setRedirecting] = useState(false);
+  const canRedirect = (task.departmentApprovals?.length ?? 0) <= 1;
+  const busy = approveMut.isPending || declineMut.isPending || redirectMut.isPending;
   const raiser = raiserName ?? null;
   const assignee = assigneeName ?? null;
 
@@ -61,6 +68,17 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
       </button>
 
       <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
+        {canRedirect && (
+          <Button
+            variant="outline"
+            onClick={() => setRedirecting(true)}
+            disabled={busy}
+            className="col-span-2 h-11 gap-1.5 font-display font-semibold sm:col-span-1 sm:h-10"
+          >
+            <Forward size={16} aria-hidden="true" />
+            Wrong team
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => setDeclining(true)}
@@ -89,6 +107,24 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
         isPending={declineMut.isPending}
         onCancel={() => setDeclining(false)}
         onConfirm={(reason) => declineMut.mutate({ id: task.id, reason }, { onSuccess: () => setDeclining(false) })}
+      />
+
+      <RedirectTicketDialog
+        open={redirecting}
+        ticketTitle={task.title}
+        currentDepartmentId={task.departmentId}
+        departments={departments ?? []}
+        isPending={redirectMut.isPending}
+        onCancel={() => setRedirecting(false)}
+        onConfirm={(departmentId) => redirectMut.mutate(
+          { id: task.id, payload: { departmentId, assigneeId: null, additionalAssigneeIds: [] } },
+          {
+            onSuccess: () => {
+              setRedirecting(false);
+              toast.success('Sent to the other team. Their head will decide next.');
+            },
+          },
+        )}
       />
 
       {open && <TaskDetail task={task} onClose={() => setOpen(false)} />}

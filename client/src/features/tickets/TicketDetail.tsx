@@ -40,6 +40,7 @@ import { TicketDescription } from './detail/TicketDescription';
 import { TicketAttachments } from './detail/TicketAttachments';
 import { TicketEditForm } from './detail/TicketEditForm';
 import { canChangeTicket, canWithdrawTicket } from './ticketPermissions';
+import { TicketForm } from './TicketForm';
 import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketActivitySheet } from './detail/TicketActivitySheet';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
@@ -187,6 +188,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const due = formatDueLabel(ticket);
 
   const [quickStatusPick, setQuickStatusPick] = useState<RestrictedStatus | null>(null);
+  const [sendingAgain, setSendingAgain] = useState(false);
   const [quickStatusPhotos, setQuickStatusPhotos] = useState<File[]>([]);
   const [quickStatusCaptureMethod, setQuickStatusCaptureMethod] = useState<CaptureMethod>('GALLERY');
 
@@ -225,7 +227,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && (isAdmin || coverLeadership || (isDepartmentHead && ticket.userId !== currentUser?.id));
   const canApproveAssignment = awaitingHead && (isAdmin || coverLeadership || isDepartmentHead);
   const canReopenDeclined = !!ticket.declinedAt && (isAdmin || coverLeadership || isDepartmentHead);
-  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || canReopenDeclined;
+  const canSendAgain = !!ticket.declinedAt && ticket.userId === currentUser?.id;
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || canReopenDeclined || canSendAgain;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
@@ -486,6 +489,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   />
                 </div>
               )}
+              {canSendAgain && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setSendingAgain(true)}
+                  className="h-12 min-w-40 gap-2 px-6 font-display font-semibold max-sm:flex-1 sm:h-11"
+                >
+                  <RotateCcw size={17} aria-hidden />
+                  Edit and send again
+                </Button>
+              )}
               {canReopenDeclined && (
                 <Button
                   variant="primary"
@@ -548,6 +562,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         />
 
       </SheetContent>
+
+      {sendingAgain && (
+        <TicketForm
+          onClose={() => setSendingAgain(false)}
+          prefill={{
+            title: ticket.title,
+            description: ticket.description,
+            priority: ticket.priority,
+            tagIds: (ticket.tags ?? []).map((t) => t.id),
+          }}
+        />
+      )}
 
       {quickStatusPick && (
         <TicketStatusRemarkDialog
