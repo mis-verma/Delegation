@@ -134,7 +134,7 @@ export const DetailItemRow = memo(({
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
+      <div id={`item-${item.id}`} data-row-id={item.id} className="flex flex-col gap-1.5 scroll-mt-28">
         {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />

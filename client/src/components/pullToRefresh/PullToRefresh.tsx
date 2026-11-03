@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
+import { motion } from 'framer-motion';
 import { haptic } from '../../lib/haptics';
 import { SCROLL_TOP_EVENT, recalledScroll, rememberScroll } from '../../lib/appNav';
 import { ArrowDown, Loader2 } from 'lucide-react';
@@ -129,7 +130,8 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled, scroll
   };
 
   return (
-    <div
+    <motion.div
+      layoutScroll
       ref={scrollRef}
       data-app-scroll=""
       className={cn("relative", className)}
@@ -161,6 +163,6 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled, scroll
       </div>
 
       {children}
-    </div>
+    </motion.div>
   );
 };

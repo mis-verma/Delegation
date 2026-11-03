@@ -20,6 +20,7 @@ import {
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { useDoneLast } from '../../../lib/useDoneLast';
+import { useRowActivity } from '../../../lib/useRowActivity';
 import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateWindowBanner } from './LateWindowBanner';
@@ -29,7 +30,7 @@ import { useAuth } from '../../../context/AuthContext';
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
-const rowHasFocus = (id: string) => !!document.getElementById(`item-${id}`)?.contains(document.activeElement);
+const rowDomId = (id: string) => `item-${id}`;
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
@@ -90,7 +91,8 @@ export const ChecklistInstanceDetail = () => {
     else navigate(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
   };
 
-  const { pending: pendingItems, done: answeredItems, settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowHasFocus);
+  const rowIsBusy = useRowActivity(rowDomId);
+  const { pending: pendingItems, done: answeredItems, settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowIsBusy);
 
   if (isPending) return <DetailSkeleton />;
 
