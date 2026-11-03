@@ -230,7 +230,7 @@ export const summary = async (user: AccessTokenPayload, scope?: TaskSummaryScope
     });
 }
 
-export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number } }> => {
+export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number; over24h: number } }> => {
     const POOL = 200;
     const stageScope = user.role === "ADMIN"
         ? undefined
@@ -254,8 +254,12 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
                 ne(tasks.userId, user.sub),
             );
     const pendingWhere = and(eq(tasks.status, "pending_approval"), NOT_DELETED, stageScope);
-    const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tasks).where(pendingWhere);
+    const [countRow] = await db.select({
+        total: sql<number>`COUNT(*)`,
+        old: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${tasks.submittedAt}, ${tasks.updatedAt}) < ${new Date(Date.now() - 24 * 3_600_000)} THEN 1 ELSE 0 END), 0)`,
+    }).from(tasks).where(pendingWhere);
     const total = Number(countRow?.total ?? 0);
+    const over24h = Number(countRow?.old ?? 0);
     const rows = await db.select({
         id: tasks.id,
         title: tasks.title,
@@ -270,7 +274,7 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
         .orderBy(asc(tasks.createdAt))
         .limit(POOL);
 
-    if (rows.length === 0) return { data: [], meta: { total } };
+    if (rows.length === 0) return { data: [], meta: { total, over24h } };
 
     const ids = rows.map((r) => r.id);
     const sinceRows = await db.select({
@@ -292,5 +296,5 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
         }))
         .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
         .slice(0, limit);
-    return { data, meta: { total } };
+    return { data, meta: { total, over24h } };
 }

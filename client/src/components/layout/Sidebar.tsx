@@ -10,6 +10,7 @@ import { useTodoSummaryQuery } from '../../features/todo/hook';
 import { useTodayChecklistSummary } from './useNavBadges';
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import { NavCountBadge } from './NavCountBadge';
+import { VerifyQueueBadge } from './VerifyQueueBadge';
 import {
   Crown,
   LayoutDashboard,
@@ -337,6 +338,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                   {!showLabel && SUMMARY_BY_LABEL[label] && (
                     <NavCountBadge badge={{ due: SUMMARY_BY_LABEL[label].due, overdue: SUMMARY_BY_LABEL[label].overdue }} className="-top-1 -right-1" />
                   )}
+                  {!showLabel && label === 'Verification Queue' && <VerifyQueueBadge compact />}
                 </span>
                 <span
                   className={[
@@ -350,6 +352,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             )}
           </NavLink>
           </RailTip>
+
+          {showLabel && label === 'Verification Queue' && <VerifyQueueBadge />}
 
           {showLabel && (
             <SidebarSummaryBadge

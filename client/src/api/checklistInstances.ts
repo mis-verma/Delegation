@@ -476,8 +476,8 @@ export const checklistInstanceApi = {
     ),
 
   getPendingApprovalPreview: (): Promise<PendingApprovalPreview<ChecklistPendingApproval>> =>
-    apiFetch<ApiResponse<ChecklistPendingApproval[]> & { meta?: { total: number } }>('/checklist-instances/pending-approval-preview')
-      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
+    apiFetch<ApiResponse<ChecklistPendingApproval[]> & { meta?: { total: number; over24h?: number } }>('/checklist-instances/pending-approval-preview')
+      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length, over24h: r.meta?.over24h ?? 0 })),
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`)

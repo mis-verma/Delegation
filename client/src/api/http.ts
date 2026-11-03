@@ -163,4 +163,4 @@ export const apiUpload = async <T>(path: string, body: FormData, onProgress?: Up
 
 export type SummaryScope = 'mine' | 'visible';
 
-export type PendingApprovalPreview<T> = { rows: T[]; total: number };
+export type PendingApprovalPreview<T> = { rows: T[]; total: number; over24h: number };

@@ -304,8 +304,8 @@ export const taskApi = {
         apiFetch<ApiResponse<TaskSummary>>(`/tasks/summary?scope=${scope}`).then(r => r.data),
 
     getPendingApproval: (): Promise<PendingApprovalPreview<TaskPendingApproval>> =>
-        apiFetch<ApiResponse<TaskPendingApproval[]> & { meta?: { total: number } }>('/tasks/pending-approval')
-            .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
+        apiFetch<ApiResponse<TaskPendingApproval[]> & { meta?: { total: number; over24h?: number } }>('/tasks/pending-approval')
+            .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length, over24h: r.meta?.over24h ?? 0 })),
 
     create: (payload: CreateTaskPayload) =>
         apiFetch<ApiResponse<Task>>('/tasks', { method: 'POST', body: JSON.stringify(payload) }).then(r => normalizeTask(r.data)),

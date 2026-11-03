@@ -316,8 +316,8 @@ export const ticketApi = {
     apiFetch<ApiResponse<TicketSummary>>(`/tickets/summary?scope=${scope}`).then(r => r.data),
 
   getPendingApproval: (): Promise<PendingApprovalPreview<TicketPendingApproval>> =>
-    apiFetch<ApiResponse<TicketPendingApproval[]> & { meta?: { total: number } }>('/tickets/pending-approval')
-      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
+    apiFetch<ApiResponse<TicketPendingApproval[]> & { meta?: { total: number; over24h?: number } }>('/tickets/pending-approval')
+      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length, over24h: r.meta?.over24h ?? 0 })),
 
   create: (payload: CreateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>('/tickets', { method: 'POST', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

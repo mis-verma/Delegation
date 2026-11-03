@@ -30,7 +30,7 @@ export const coverAuthorities = async (user: AccessTokenPayload): Promise<Access
 }
 
 type PendingRow = { id: string; waitingSince: string }
-type PendingPage<Row extends PendingRow> = { data: Row[]; meta: { total: number } }
+type PendingPage<Row extends PendingRow> = { data: Row[]; meta: { total: number; over24h?: number } }
 
 export const mergePendingApprovals = async <Row extends PendingRow>(
     user: AccessTokenPayload,
@@ -53,5 +53,6 @@ export const mergePendingApprovals = async <Row extends PendingRow>(
         .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
         .slice(0, limit)
     const total = Math.max(data.length, pages.reduce((sum, page) => sum + page.meta.total, 0) - duplicates)
-    return { data, meta: { total } }
+    const over24h = Math.min(total, pages.reduce((sum, page) => sum + (page.meta.over24h ?? 0), 0))
+    return { data, meta: { total, over24h } }
 }

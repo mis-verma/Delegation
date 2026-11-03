@@ -260,7 +260,7 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
   })
 }
 
-export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Promise<{ data: TicketPendingApprovalRow[]; meta: { total: number } }> => {
+export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Promise<{ data: TicketPendingApprovalRow[]; meta: { total: number; over24h: number } }> => {
   const POOL = 40
   const stageScope = user.role === "PC"
     ? or(isNull(tickets.assigneeId), ne(tickets.assigneeId, user.sub))
@@ -268,8 +268,12 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
       ? undefined
       : sql`1 = 0`
   const pendingWhere = and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED, stageScope)
-  const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tickets).where(pendingWhere)
+  const [countRow] = await db.select({
+    total: sql<number>`COUNT(*)`,
+    old: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${tickets.submittedAt}, ${tickets.updatedAt}) < ${new Date(Date.now() - 24 * 3_600_000)} THEN 1 ELSE 0 END), 0)`,
+  }).from(tickets).where(pendingWhere)
   const total = Number(countRow?.total ?? 0)
+  const over24h = Number(countRow?.old ?? 0)
   const rows = await db.select({
     id: tickets.id,
     title: tickets.title,
@@ -284,7 +288,7 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
     .orderBy(asc(tickets.createdAt))
     .limit(POOL)
 
-  if (rows.length === 0) return { data: [], meta: { total } }
+  if (rows.length === 0) return { data: [], meta: { total, over24h } }
 
   const ids = rows.map((r) => r.id)
   const sinceRows = await db.select({
@@ -306,5 +310,5 @@ export const pendingApproval = async (user: AccessTokenPayload, limit = 8): Prom
     }))
     .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
     .slice(0, limit)
-  return { data, meta: { total } }
+  return { data, meta: { total, over24h } }
 }

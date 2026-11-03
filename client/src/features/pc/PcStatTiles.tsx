@@ -17,6 +17,8 @@ import { useNow } from '../../lib/useNow';
 import { PcListModal, type PcFilter, type PcListItem } from './PcListModal';
 import { PopupBoundary } from './PopupBoundary';
 import { usePcMonthScores } from './usePcMonthScores';
+import { usePcApprovalBuckets } from './usePcApprovalBuckets';
+import { useMySummaries } from './useMySummaries';
 
 const HOUR_MS = 3_600_000;
 const LIMIT_HOURS = 24;
@@ -29,6 +31,7 @@ type Popup =
 
 const WAITING_FILTERS: PcFilter[] = [
   { key: 'late', label: 'Over 24 hours', test: (i) => i.late },
+  { key: 'fresh', label: 'Under 24 hours', test: (i) => !i.late },
   { key: 'ticket', label: 'Tickets', test: (i) => i.kind === 'ticket' },
   { key: 'delegation', label: 'Delegations', test: (i) => i.kind === 'delegation' },
   { key: 'checklist', label: 'Checklists', test: (i) => i.kind === 'checklist' },
@@ -69,6 +72,8 @@ export const PcStatTiles = () => {
   const [openPerson, setOpenPerson] = useState<string | null>(null);
 
   const approvals = useApprovalSources();
+  const buckets = usePcApprovalBuckets();
+  const mine = useMySummaries();
   const exceptions = useExceptionsQuery();
   const exceptionTotals = useExceptionTotalsQuery();
   const people = useAttentionPeople();
@@ -146,11 +151,8 @@ export const PcStatTiles = () => {
   const highCount = totals ? totals.high : overdueItems.filter((i) => i.late).length;
 
   const waitingTotal = approvals.total;
-  const lateOf = (kind: PcListItem['kind']) => waitingItems.filter((i) => i.kind === kind && i.late).length;
-  const ticketWaiting = approvals.tickets.data?.total ?? 0;
-  const taskWaiting = approvals.tasks.data?.total ?? 0;
-  const checklistWaiting = approvals.checklists.data?.total ?? 0;
-  const lateTotal = waitingItems.filter((i) => i.late).length;
+  const lateTotal = buckets.total.old;
+  const freshTotal = buckets.total.fresh;
   const waitingCapped = waitingItems.length < waitingTotal;
 
   const overall = scores.data?.total.overall ?? null;
@@ -227,48 +229,165 @@ export const PcStatTiles = () => {
             />
           </Group>
 
-          <Group title="Approvals waiting">
+          <Group title="Approvals to decide">
             <FigureCard
-              label="Tickets"
-              help="Ticket approvals waiting for a decision. The bar shows how many are still inside 24 hours."
-              value={ticketWaiting}
-              tone={countTone(ticketWaiting, lateOf('ticket'))}
-              bar={shareWithin(ticketWaiting, lateOf('ticket'))}
+              label="Old"
+              help="Approvals waiting more than 24 hours. Your own checklist is not counted, it goes to an Admin and its head. Tap for the list."
+              value={lateTotal}
+              tone={lateTotal === 0 ? 'good' : 'bad'}
+              bar={waitingTotal === 0 ? 100 : shareWithin(waitingTotal, lateTotal)}
               loading={approvals.isPending}
-              error={ticketsFailed}
+              error={approvalsFailed}
               onRetry={retryApprovals}
               compact
-              onClick={() => setPopup({ kind: 'waiting', filter: 'ticket' })}
+              onClick={() => setPopup({ kind: 'waiting', filter: 'late' })}
             />
             <FigureCard
-              label="Delegations"
-              short="Deleg."
-              help="Delegation approvals waiting for a decision. The bar shows how many are still inside 24 hours."
-              value={taskWaiting}
-              tone={countTone(taskWaiting, lateOf('delegation'))}
-              bar={shareWithin(taskWaiting, lateOf('delegation'))}
+              label="New"
+              help="Approvals that arrived in the last 24 hours. Tap for the list."
+              value={freshTotal}
+              tone={freshTotal === 0 ? 'good' : 'plain'}
+              bar={null}
               loading={approvals.isPending}
-              error={tasksFailed}
+              error={approvalsFailed}
               onRetry={retryApprovals}
               compact
-              onClick={() => setPopup({ kind: 'waiting', filter: 'delegation' })}
+              onClick={() => setPopup({ kind: 'waiting', filter: 'fresh' })}
             />
             <FigureCard
-              label="Checklists"
-              short="Lists"
-              help="Checklist runs waiting for review. The bar shows how many are still inside 24 hours."
-              value={checklistWaiting}
-              tone={countTone(checklistWaiting, lateOf('checklist'))}
-              bar={shareWithin(checklistWaiting, lateOf('checklist'))}
+              label="Pending"
+              help="Everything waiting for your decision: tickets, delegations and checklists. Tap for the list."
+              value={waitingTotal}
+              tone={waitingTotal === 0 ? 'good' : lateTotal > 0 ? 'fair' : 'plain'}
+              bar={null}
               loading={approvals.isPending}
-              error={checklistsFailed}
+              error={approvalsFailed}
               onRetry={retryApprovals}
               compact
-              onClick={() => setPopup({ kind: 'waiting', filter: 'checklist' })}
+              onClick={() => setPopup({ kind: 'waiting' })}
             />
           </Group>
 
-          <Group title="Open work">
+          <Group title="My tickets">
+            <FigureCard
+              label="New"
+              help="Tickets given to you that were raised today. Tap to open the tickets."
+              value={mine.tickets?.newToday ?? null}
+              tone="plain"
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tickets}
+              onRetry={mine.retry}
+              compact
+              to="/tickets"
+            />
+            <FigureCard
+              label="Pending"
+              help="Tickets given to you that are still open."
+              value={mine.tickets?.pending ?? null}
+              tone="plain"
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tickets}
+              onRetry={mine.retry}
+              compact
+              to="/tickets?quickFilter=pending"
+            />
+            <FigureCard
+              label="Late"
+              help="Your open tickets that are past their deadline."
+              value={mine.tickets?.overdue ?? null}
+              tone={(mine.tickets?.overdue ?? 0) > 0 ? 'bad' : 'good'}
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tickets}
+              onRetry={mine.retry}
+              compact
+              to="/tickets?quickFilter=delayed"
+            />
+          </Group>
+
+          <Group title="My delegations">
+            <FigureCard
+              label="New"
+              short="New"
+              help="Delegations given to you that were created today. Tap to open them."
+              value={mine.tasks?.newToday ?? null}
+              tone="plain"
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tasks}
+              onRetry={mine.retry}
+              compact
+              to="/tasks"
+            />
+            <FigureCard
+              label="Pending"
+              help="Delegations given to you that are still open."
+              value={mine.tasks?.pending ?? null}
+              tone="plain"
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tasks}
+              onRetry={mine.retry}
+              compact
+              to="/tasks?quickFilter=pending"
+            />
+            <FigureCard
+              label="Late"
+              help="Your open delegations that are past their deadline."
+              value={mine.tasks?.overdue ?? null}
+              tone={(mine.tasks?.overdue ?? 0) > 0 ? 'bad' : 'good'}
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.tasks}
+              onRetry={mine.retry}
+              compact
+              to="/tasks?quickFilter=delayed"
+            />
+          </Group>
+
+          <Group title="My checklists today">
+            <FigureCard
+              label="Done"
+              help="Your own checklist runs finished today, out of the runs you have today. A finished run goes to an Admin or its head for approval, not to you."
+              value={mine.checklists?.completed ?? null}
+              text={mine.checklists ? `${mine.checklists.completed}/${mine.checklists.total}` : undefined}
+              tone={mine.checklists && mine.checklists.total > 0 && mine.checklists.completed === mine.checklists.total ? 'good' : 'plain'}
+              bar={mine.checklists && mine.checklists.total > 0 ? (mine.checklists.completed / mine.checklists.total) * 100 : null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.checklists}
+              onRetry={mine.retry}
+              compact
+              to="/checklists"
+            />
+            <FigureCard
+              label="Pending"
+              help="Your checklist runs for today that are not finished yet."
+              value={mine.checklists?.pending ?? null}
+              tone="plain"
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.checklists}
+              onRetry={mine.retry}
+              compact
+              to="/checklists"
+            />
+            <FigureCard
+              label="Overdue"
+              help="Your checklist runs that are past their deadline and not finished."
+              value={mine.checklists?.overdue ?? null}
+              tone={(mine.checklists?.overdue ?? 0) > 0 ? 'bad' : 'good'}
+              bar={null}
+              loading={mine.isPending}
+              error={mine.isError && !mine.checklists}
+              onRetry={mine.retry}
+              compact
+              to="/checklists"
+            />
+          </Group>
+
+          <Group title="Whole organisation">
             <FigureCard
               label="Open tickets"
               short="Tickets"

@@ -261,14 +261,15 @@ export const listPendingVerification = async (user: AccessTokenPayload, page?: n
     return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
 }
 
-export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8): Promise<{ data: ChecklistPendingApprovalRow[]; meta: { total: number } }> => {
+export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8): Promise<{ data: ChecklistPendingApprovalRow[]; meta: { total: number; over24h: number } }> => {
     const conditions: SQL[] = [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr]
     const scope = await pendingApprovalScope(user)
     if (scope) conditions.push(scope)
     const where = and(...conditions)
 
-    const [total, rows] = await Promise.all([
+    const [total, over24h, rows] = await Promise.all([
         countInstances(where),
+        countInstances(and(where, lt(checklistInstances.updatedAt, new Date(Date.now() - 24 * 3_600_000)))),
         db.select({
             id: checklistInstances.id,
             title: checklistInstances.title,
@@ -295,7 +296,7 @@ export const pendingApprovalPreview = async (user: AccessTokenPayload, limit = 8
             submittedBy: r.submitterFirst ? `${r.submitterFirst}${r.submitterLast ? ` ${r.submitterLast}` : ""}` : null,
             waitingSince: r.updatedAt.toISOString(),
         })),
-        meta: { total },
+        meta: { total, over24h },
     }
 }
 
