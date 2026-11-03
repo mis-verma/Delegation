@@ -38,7 +38,7 @@ const ModuleBlock = ({ module, row }: { module: ScoreModule; row: ExplorerRow })
 };
 
 export const ScoresTotalCard = ({ total, modules, title, windowLabel, capped }: ScoresTotalCardProps) => (
-  <section aria-label={`${title}, totals`} className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
+  <section aria-label={`${title}, totals`} className={cn(PANEL_CLASS, '@container flex flex-col gap-4', CARD_PAD)}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
         <h2 className="t-section font-display font-bold text-text line-clamp-2">{title}</h2>
@@ -56,7 +56,7 @@ export const ScoresTotalCard = ({ total, modules, title, windowLabel, capped }: 
         </span>
       </div>
     </div>
-    <div className={cn('grid grid-cols-1 gap-3', modules.length > 1 && 'md:grid-cols-3')}>
+    <div className={cn('grid grid-cols-1 gap-3', modules.length > 1 && '@[50rem]:grid-cols-3')}>
       {modules.map((m) => <ModuleBlock key={m} module={m} row={total} />)}
     </div>
   </section>
