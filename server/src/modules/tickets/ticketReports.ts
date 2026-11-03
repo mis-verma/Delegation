@@ -9,7 +9,7 @@ import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCa
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
-import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
 import { NOT_DELETED, NOT_GATED, round1 } from "./ticketShared.js"
 import { visibilityFilter } from "./ticketAccess.js"
@@ -235,9 +235,7 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
   const version = await versionTag(TICKET_SUMMARY_VERSION)
   return cached(cacheKey(TICKET_SUMMARY_PREFIX, `v${version}`, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
     const scopeCondition = scope === "visible"
-      ? isDepartmentHeadRole(user.role)
-        ? user.departmentId ? eq(tickets.departmentId, user.departmentId) : sql`1 = 0`
-        : await visibilityFilter(user)
+      ? await visibilityFilter(user)
       : eq(tickets.assigneeId, user.sub)
     const where = and(NOT_DELETED, NOT_GATED, scopeCondition)
 

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
-import { AlertCircle, Undo2, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
+import { AlertCircle, Undo2, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../../components/createdRangeBanner';
@@ -370,13 +370,13 @@ export const MyChecklists = () => {
         )}
       </div>
 
-      <div className="hidden sm:flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="hidden sm:block">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey={`view:checklists:${user?.id ?? "anon"}`} />
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-3">
-          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
+          <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
@@ -488,6 +488,21 @@ export const MyChecklists = () => {
           </OptionsSheet>
         </div>
       </div>
+
+      {storeId && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => changeStore('')}
+            aria-label={`Remove the ${storeNameById.get(storeId) ?? 'store'} filter`}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-9"
+          >
+            <Store size={14} aria-hidden />
+            {storeNameById.get(storeId) ?? 'One store'}
+            <X size={14} aria-hidden />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {isPending && <InstancesSkeleton view={view} />}

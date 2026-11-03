@@ -7,8 +7,7 @@ import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCa
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
-import { selfAndDepartmentCondition, NOT_DELETED, additionalAssigneeTaskIds, buildVisibilityCondition, departmentApprovalInvolves, NOT_GATED } from "./taskAccess.js"
-import { isDepartmentHeadRole } from "../../utils/roles.js"
+import { selfAndDepartmentCondition, NOT_DELETED, additionalAssigneeTaskIds, buildVisibilityCondition, NOT_GATED } from "./taskAccess.js"
 
 export type TaskOwnerStatsRow = {
     ownerId: string | null;
@@ -195,9 +194,7 @@ export const summary = async (user: AccessTokenPayload, scope?: TaskSummaryScope
                     eq(tasks.assigneeId, user.sub),
                     sql`EXISTS (SELECT 1 FROM ${taskAdditionalAssignees} ta WHERE ta.taskId = ${tasks.id} AND ta.userId = ${user.sub})`,
                 )
-                : isDepartmentHeadRole(user.role)
-                    ? user.departmentId ? or(eq(tasks.departmentId, user.departmentId), departmentApprovalInvolves(user.departmentId)) : sql`1 = 0`
-                    : await buildVisibilityCondition(user);
+                : await buildVisibilityCondition(user);
             where = and(
                 NOT_DELETED,
                 NOT_GATED,

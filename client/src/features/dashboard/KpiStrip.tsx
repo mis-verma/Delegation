@@ -449,7 +449,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         pending: (x: ChecklistInstance) => live(x) && (!isChecklistDone(x) || x.verificationStatus === 'REJECTED' || x.verificationStatus === 'NOT_SUBMITTED'),
         completed: (x: ChecklistInstance) => isChecklistDone(x) && isNew(x.generatedAt),
         newToday: (x: ChecklistInstance) => live(x) && isNew(x.generatedAt),
-        overdue: (x: ChecklistInstance) => live(x) && isInstanceOverdue(x, isChecklistDone(x)),
+        overdue: (x: ChecklistInstance) => !instanceOpensOnLaterDay(x, now) && (instanceDeadline(x) ?? 0) >= startOfToday(now) && isInstanceOverdue(x, isChecklistDone(x)),
       }[kind];
       rows = checklistList.filter(pick).map((x) => checklistRow(x, now));
     } else {
