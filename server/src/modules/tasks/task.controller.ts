@@ -1,7 +1,7 @@
 import { runWithCover, mergePendingApprovals } from "../approvalCover/coverAuthority.js"
 import type { Request , Response } from "express"
 import { taskService } from "./task.service.js"
-import { createTaskSchema , updateTaskSchema, verifyTaskSchema, declineTaskSchema, redirectTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
+import { createTaskSchema , updateTaskSchema, verifyTaskSchema, declineTaskSchema, redirectTaskSchema, removeTeamSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -56,6 +56,12 @@ export const taskController = {
     decline : asyncHandler(async (req : Request , res : Response) => {
         const input = declineTaskSchema.parse(req.body);
         const task = await runWithCover(req.user!, (actor) => taskService.decline(routeParam(req, "id") , input.reason , actor))
+        res.json({ success : true, data : task });
+    }),
+
+    removeTeam : asyncHandler(async (req : Request , res : Response) => {
+        const { departmentId } = removeTeamSchema.parse(req.body);
+        const task = await taskService.removeTeam(routeParam(req, "id"), departmentId, req.user!)
         res.json({ success : true, data : task });
     }),
 

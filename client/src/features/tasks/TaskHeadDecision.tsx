@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Ban, RotateCcw } from 'lucide-react';
+import { Ban, RotateCcw, UserMinus } from 'lucide-react';
 import { Button } from '../../components';
+import { useConfirm } from '../../components/confirmDialog/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { DeclineTicketDialog } from '../tickets/detail/DeclineTicketDialog';
 import { HeadApprovedBanner } from '../tickets/detail/HeadApprovedBanner';
 import { HeadDecisionPanel } from '../tickets/detail/HeadDecisionPanel';
-import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useReopenDeclinedTaskMutation } from './hook';
+import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useRemoveTaskTeamMutation, useReopenDeclinedTaskMutation } from './hook';
 import { canApproveTaskNow, canDecideOnTask, taskFlowState } from './taskFlow';
 import type { Task } from '../../api/task';
 import type { Department } from '../../api/departments';
@@ -24,6 +25,8 @@ export const TaskHeadDecision = ({ task, departmentName, departments, nameOf }: 
   const approveMut = useApproveTaskAssignmentMutation();
   const declineMut = useDeclineTaskMutation();
   const reopenMut = useReopenDeclinedTaskMutation();
+  const removeTeamMut = useRemoveTaskTeamMutation();
+  const confirm = useConfirm();
   const [declining, setDeclining] = useState(false);
 
   const { awaiting, declined, headApproved } = taskFlowState(task, user);
@@ -37,6 +40,23 @@ export const TaskHeadDecision = ({ task, departmentName, departments, nameOf }: 
   }));
   const isLeadership = user?.role === 'ADMIN' || user?.role === 'PC';
   const canDeclineLive = canDecide && headApproved && LIVE_STATUSES.includes(task.status) && (isLeadership || task.userId !== user?.id);
+
+  const isHead = user?.role === 'MANAGER' || user?.role === 'SENIOR';
+  const removableTeams = !declined && LIVE_STATUSES.includes(task.status)
+    ? (task.departmentApprovals ?? [])
+      .filter((a) => a.departmentId !== task.departmentId)
+      .filter((a) => user?.role === 'ADMIN' || (isHead && a.departmentId === user?.departmentId))
+      .map((a) => ({ id: a.departmentId, name: departments?.find((d) => d.id === a.departmentId)?.name ?? 'that team' }))
+    : [];
+  const removeTeam = async (team: { id: string; name: string }) => {
+    const ok = await confirm({
+      title: user?.role === 'ADMIN' ? `Take the ${team.name} team off?` : 'Take your team off this delegation?',
+      description: `Everyone from ${team.name} leaves "${task.title}". The other people carry on and the person who gave it is told.`,
+      confirmLabel: 'Take team off',
+      variant: 'danger',
+    });
+    if (ok) removeTeamMut.mutate({ id: task.id, departmentId: team.id });
+  };
 
   const raiser = nameOf(task.userId);
   const assignee = nameOf(task.assigneeId);
@@ -99,6 +119,24 @@ export const TaskHeadDecision = ({ task, departmentName, departments, nameOf }: 
               Decline this delegation
             </Button>
           )}
+        </div>
+      )}
+
+      {removableTeams.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {removableTeams.map((team) => (
+            <Button
+              key={team.id}
+              variant="ghost"
+              size="sm"
+              onClick={() => void removeTeam(team)}
+              isLoading={removeTeamMut.isPending && removeTeamMut.variables?.departmentId === team.id}
+              className="gap-1.5 font-display font-semibold text-danger hover:bg-danger/10 hover:text-danger"
+            >
+              <UserMinus size={14} aria-hidden="true" />
+              {user?.role === 'ADMIN' ? `Take ${team.name} team off` : 'Take our team off'}
+            </Button>
+          ))}
         </div>
       )}
 

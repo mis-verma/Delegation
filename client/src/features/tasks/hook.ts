@@ -332,6 +332,16 @@ export const useDeclineTaskMutation = () =>
         errorFallback: "Couldn't decline the delegation. Try again.",
     });
 
+export const useRemoveTaskTeamMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ id, departmentId }: { id: string; departmentId: string }) => taskApi.removeTeam(id, departmentId),
+        setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
+        invalidateKeys: [['tasks'], ['scores']],
+        successMessage: 'Team taken off. The person who gave it has been told.',
+        successHaptic: 'warning',
+        errorFallback: "Couldn't take the team off. Try again.",
+    });
+
 export const useReopenDeclinedTaskMutation = () =>
     useEntityMutation({
         mutationFn: ({ id }: { id: string }) => taskApi.reopenDeclined(id),

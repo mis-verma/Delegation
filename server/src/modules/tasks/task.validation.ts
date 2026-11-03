@@ -116,6 +116,10 @@ export const redirectTaskSchema = z.object({
     departmentId : objectId,
 });
 
+export const removeTeamSchema = z.object({
+    departmentId : objectId,
+});
+
 export const declineTaskSchema = z.object({
     reason : z.string().trim().min(1, "Say why you are declining it.").max(500),
 });

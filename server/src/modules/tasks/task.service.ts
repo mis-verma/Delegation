@@ -898,6 +898,61 @@ export const taskService = {
         return { ...updated, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
     },
 
+    async removeTeam(id: string, departmentId: string, user: AccessTokenPayload) {
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
+        if (!task) throw AppError.notFound("Delegation not found");
+        const isAdmin = user.role === "ADMIN";
+        if (!isAdmin && headDepartmentOf(user) !== departmentId) {
+            throw AppError.forbidden("Only the head of that team or an admin can take the team off this delegation.");
+        }
+        if (task.category !== "delegation") throw AppError.badRequest("Only a delegation can have a team taken off.");
+        if (task.declinedAt) throw AppError.badRequest("This delegation was declined.");
+        if (!(["todo", "in_progress", "on_hold"] as string[]).includes(task.status)) {
+            throw AppError.badRequest(task.status === "pending_approval"
+                ? "This delegation is waiting for approval. Approve it or send it back first."
+                : "This delegation is not open, so its people can't be changed.");
+        }
+        if (task.departmentId === departmentId) {
+            throw AppError.badRequest("This is the main department of the delegation. Decline it or send it to another team instead.");
+        }
+
+        const additional = await additionalAssigneeIdsOf(id);
+        const people = [task.assigneeId, ...additional].filter((p): p is string => !!p);
+        const peopleRows = people.length
+            ? await db.select({ id: users.id, departmentId: users.departmentId }).from(users).where(inArray(users.id, people))
+            : [];
+        const departmentOf = new Map(peopleRows.map((p) => [p.id, p.departmentId]));
+        const removed = people.filter((p) => departmentOf.get(p) === departmentId);
+        if (!removed.length) throw AppError.badRequest("Nobody from that team is on this delegation.");
+        const staying = people.filter((p) => departmentOf.get(p) !== departmentId);
+        if (!staying.length) throw AppError.badRequest("Nobody would be left on this delegation. Decline it instead.");
+
+        const nextAssigneeId = task.assigneeId && departmentOf.get(task.assigneeId) !== departmentId ? task.assigneeId : staying[0];
+        const nextAdditional = staying.filter((p) => p !== nextAssigneeId);
+        const [department] = await db.select({ name: departments.name }).from(departments).where(eq(departments.id, departmentId)).limit(1);
+        const now = new Date();
+
+        await db.transaction(async (tx) => {
+            await tx.delete(taskDepartmentApprovals).where(and(eq(taskDepartmentApprovals.taskId, id), eq(taskDepartmentApprovals.departmentId, departmentId)));
+            const stillPending = task.awaitingHeadApproval ? await countPending(tx, id) : 0;
+            const [result] = await tx.update(tasks)
+                .set({
+                    assigneeId: nextAssigneeId,
+                    updatedAt: now,
+                    ...(task.awaitingHeadApproval && stillPending === 0
+                        ? { awaitingHeadApproval: false, assignmentApprovedBy: user.sub, assignmentApprovedAt: now }
+                        : {}),
+                })
+                .where(and(eq(tasks.id, id), eq(tasks.status, task.status), isNull(tasks.declinedAt), NOT_DELETED));
+            if (result.affectedRows === 0) throw AppError.conflict("Someone changed this delegation a moment ago. Open it again and retry.");
+            await replaceAdditionalAssignees(tx, id, nextAdditional);
+        });
+
+        const { updated } = await finishHeadDecision(id, task, "REMOVE_TEAM", user);
+        await notifySafely(() => notificationService.notifyTaskTeamRemoved({ _id: updated.id, title: updated.title, userId: updated.userId }, removed, department?.name ?? "other", user.sub));
+        return { ...updated, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated)), departmentApprovals: await approvalsOf(id) };
+    },
+
     async decline(id: string, reason: string, user: AccessTokenPayload) {
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");

@@ -322,6 +322,9 @@ export const taskApi = {
     redirect: (id: string, departmentId: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/redirect`, { method: 'POST', body: JSON.stringify({ departmentId }) }).then(r => normalizeTask(r.data)),
 
+    removeTeam: (id: string, departmentId: string) =>
+        apiFetch<ApiResponse<Task>>(`/tasks/${id}/remove-team`, { method: 'POST', body: JSON.stringify({ departmentId }) }).then(r => normalizeTask(r.data)),
+
     decline: (id: string, reason: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => normalizeTask(r.data)),
 

@@ -95,6 +95,17 @@ export const notifyTaskPartlyApproved = async (task: { _id: string; title: strin
   });
 }
 
+export const notifyTaskTeamRemoved = async (task: { _id: string; title: string; userId: string }, removedIds: string[], departmentName: string, actorId: string) => {
+  await settleHeadNotices(task._id.toString(), actorId, 'department');
+  const recipientIds = [...new Set([task.userId.toString(), ...removedIds])].filter((id) => id !== actorId);
+  return notifyMany(recipientIds, {
+    type: 'TASK_TEAM_REMOVED',
+    title: 'Team taken off a delegation',
+    message: `The ${departmentName} team was taken off "${task.title}". The other people on it carry on.`,
+    taskId: task._id.toString(),
+  });
+}
+
 export const notifyTaskDeclined = async (task: { _id: string; title: string; userId: string; assigneeId?: string | null; additionalAssigneeIds?: string[] }, reason: string, actorId: string) => {
   await settleHeadNotices(task._id.toString(), actorId, 'everyone');
   const recipientIds = [task.userId?.toString(), task.assigneeId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);

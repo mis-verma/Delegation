@@ -288,4 +288,33 @@ describe("following a delegation from another department", () => {
         const blocked = await as("headC", request(app).post(`/tasks/${task.id}/comments`)).send({ body: "Hello" })
         expect(blocked.status).toBeGreaterThanOrEqual(400)
     })
+
+    it("lets the head of an added team take only their own people off", async () => {
+        const task = await createTask("headA", { departmentId: departmentIds.a, assigneeId: people.workerA!.id, additionalAssigneeIds: [people.workerB!.id, people.workerC!.id] })
+        expect(task.awaitingHeadApproval).toBe(true)
+
+        const notHead = await as("headC", request(app).post(`/tasks/${task.id}/remove-team`)).send({ departmentId: departmentIds.b })
+        expect(notHead.status).toBe(403)
+        const mainTeam = await as("headA", request(app).post(`/tasks/${task.id}/remove-team`)).send({ departmentId: departmentIds.a })
+        expect(mainTeam.status).toBe(400)
+
+        const res = await as("headB", request(app).post(`/tasks/${task.id}/remove-team`)).send({ departmentId: departmentIds.b })
+        expect(res.status).toBe(200)
+        expect(res.body.data.assigneeId).toBe(people.workerA!.id)
+        expect(res.body.data.additionalAssigneeIds).toEqual([people.workerC!.id])
+        expect(res.body.data.awaitingHeadApproval).toBe(true)
+        expect((await rowsFor(task.id)).map((r) => r.departmentId)).toEqual([departmentIds.c])
+
+        const again = await as("headB", request(app).post(`/tasks/${task.id}/remove-team`)).send({ departmentId: departmentIds.b })
+        expect(again.status).toBe(400)
+    })
+
+    it("opens the gate when the removed team was the last one waiting", async () => {
+        const task = await createTask("headA", { departmentId: departmentIds.a, assigneeId: people.workerA!.id, additionalAssigneeIds: [people.workerB!.id] })
+        expect(task.awaitingHeadApproval).toBe(true)
+        const res = await as("headB", request(app).post(`/tasks/${task.id}/remove-team`)).send({ departmentId: departmentIds.b })
+        expect(res.status).toBe(200)
+        expect(res.body.data.awaitingHeadApproval).toBe(false)
+        expect(res.body.data.additionalAssigneeIds).toEqual([])
+    })
 })
