@@ -76,6 +76,7 @@ export type Task = {
     decliner?:        TaskPerson | null;
     raisedBy?:        TaskPerson | null;
     assigneePerson?:  TaskPerson | null;
+    additionalAssigneePeople?: TaskPerson[];
     verifier?:        { id: string; firstName: string; lastName: string | null } | null;
     verificationNote: string | null;
     aiMeta?: {

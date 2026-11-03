@@ -1,6 +1,6 @@
 import { db } from '../../config/db.js';
-import { users } from '../../db/schema/core.js';
-import { eq, and, inArray } from 'drizzle-orm';
+import { notifications, users } from '../../db/schema/core.js';
+import { eq, and, inArray, ne } from 'drizzle-orm';
 import { notifyMany, formatWaiting, activeVerifierIds, activeEscalationIds } from './notificationCore.js';
 
 const pendingDepartmentIds = (task: { departmentId?: string | null; departmentIds?: string[] }): string[] =>
@@ -12,6 +12,25 @@ const headsOf = async (departmentIds: string[]) => {
     .select({ id: users.id })
     .from(users)
     .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), inArray(users.departmentId, departmentIds), eq(users.isActive, true)));
+};
+
+const HEAD_NOTICE_TYPES = ['TASK_AWAITING_HEAD', 'TASK_AWAITING_HEAD_REMINDER', 'TASK_AWAITING_HEAD_ESCALATION'];
+
+const settleHeadNotices = async (taskId: string, deciderId: string, scope: 'department' | 'everyone') => {
+  let recipientIds: string[] | null = null;
+  if (scope === 'department') {
+    const [decider] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, deciderId)).limit(1);
+    if (!decider?.departmentId) return;
+    recipientIds = (await headsOf([decider.departmentId])).map((h) => h.id).filter((id) => id !== deciderId);
+    if (!recipientIds.length) return;
+  }
+  await db.update(notifications).set({ isRead: true }).where(and(
+    eq(notifications.taskId, taskId),
+    inArray(notifications.type, HEAD_NOTICE_TYPES),
+    ne(notifications.recipientId, deciderId),
+    eq(notifications.isRead, false),
+    recipientIds ? inArray(notifications.recipientId, recipientIds) : undefined,
+  ));
 };
 
 export const notifyTaskAwaitingHead = async (task: { _id: string; title: string; departmentId?: string | null; departmentIds?: string[]; userId?: string | null }) => {
@@ -50,6 +69,7 @@ export const notifyTaskHeadDecisionEscalation = async (task: { _id: string; titl
 }
 
 export const notifyTaskHeadApproved = async (task: { _id: string; title: string; userId?: string | null; assigneeId?: string | null; additionalAssigneeIds?: string[] }, actorId: string) => {
+  await settleHeadNotices(task._id.toString(), actorId, 'department');
   const ids = [task.assigneeId?.toString(), task.userId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
   const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
   const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
@@ -62,6 +82,7 @@ export const notifyTaskHeadApproved = async (task: { _id: string; title: string;
 }
 
 export const notifyTaskPartlyApproved = async (task: { _id: string; title: string; userId?: string | null }, remaining: number, actorId: string) => {
+  await settleHeadNotices(task._id.toString(), actorId, 'department');
   const raiserId = task.userId?.toString();
   if (!raiserId || raiserId === actorId) return [];
   const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
@@ -75,6 +96,7 @@ export const notifyTaskPartlyApproved = async (task: { _id: string; title: strin
 }
 
 export const notifyTaskDeclined = async (task: { _id: string; title: string; userId: string; assigneeId?: string | null; additionalAssigneeIds?: string[] }, reason: string, actorId: string) => {
+  await settleHeadNotices(task._id.toString(), actorId, 'everyone');
   const recipientIds = [task.userId?.toString(), task.assigneeId?.toString(), ...(task.additionalAssigneeIds ?? []).map((id) => id.toString())].filter((id): id is string => !!id && id !== actorId);
   return notifyMany(recipientIds, {
     type: 'TASK_DECLINED',

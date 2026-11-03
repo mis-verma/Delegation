@@ -256,7 +256,13 @@ const taskHeadDecisionChasers = async (now: Date) => {
   const headsAway = headsAllOnLeaveCheck(now);
   for (const t of waiting) {
     const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
-    const unreachable = hours >= 1 && await headsAway(t.departmentId);
+    const pendingDepartments = pendingByTask.get(t.id) ?? (t.departmentId ? [t.departmentId] : []);
+    let unreachable = false;
+    if (hours >= 1) {
+      for (const departmentId of pendingDepartments) {
+        if (await headsAway(departmentId)) { unreachable = true; break; }
+      }
+    }
     if ((hours >= HEAD_ESCALATE_HOURS || unreachable) && escalationDue(t.headEscalatedAt, now)) {
       await notificationService.notifyTaskHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
       await db.update(tasks).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tasks.id, t.id));

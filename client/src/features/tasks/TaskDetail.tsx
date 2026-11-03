@@ -11,6 +11,7 @@ import { assignableUsersQueryOptions, useDepartmentsQuery } from '../tickets/hoo
 import { useQueries } from '@tanstack/react-query';
 import { ExtraDepartmentsField } from './ExtraDepartmentsField';
 import { TaskVerifyActions } from './TaskVerifyActions';
+import { TaskForm } from './TaskForm';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskDescriptionField } from './TaskDescriptionField';
@@ -183,11 +184,12 @@ interface TaskFooterProps {
   onBack: (() => void) | null;
   onHold: (() => void) | null;
   onReopen: (() => void) | null;
+  onSendAgain: (() => void) | null;
   isAdvancing: boolean;
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAdvance, onBack, onHold, onReopen, isAdvancing, onClose }: TaskFooterProps) => {
+const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAdvance, onBack, onHold, onReopen, onSendAgain, isAdvancing, onClose }: TaskFooterProps) => {
   const needsDecision = canApprove && task.status === 'pending_approval';
   const showAdvance = !!nextStatus && canMove;
   const hasMenu = canMove && (onBack || onHold || onReopen);
@@ -258,6 +260,12 @@ const TaskFooter = ({ task, canMove, canApprove, finalApproval, nextStatus, onAd
           >
             {isAdvancing ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
             <span className="truncate">{FORWARD_LABEL[task.status] ?? `Move to ${STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}`}</span>
+          </Button>
+        )}
+        {onSendAgain && (
+          <Button variant="primary" size="sm" className="max-sm:flex-1 max-sm:min-w-0 font-display" onClick={onSendAgain}>
+            <RotateCcw size={14} className="shrink-0" />
+            <span className="truncate">Edit and send again</span>
           </Button>
         )}
         {menu}
@@ -721,6 +729,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { user } = useAuth();
   const approvers = useApprovers();
 
+  const [sendingAgain, setSendingAgain] = useState(false);
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
   const [editing, setEditing] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -884,6 +893,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
             onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}
             onBack={BACK_STATUS[task.status] ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
             onReopen={task.status === 'done' && user?.role === 'ADMIN' ? () => setAdvanceTo('in_progress') : null}
+            onSendAgain={task.declinedAt && task.userId === user?.id ? () => setSendingAgain(true) : null}
             isAdvancing={statusMutation.isPending}
             onClose={onClose}
           />
@@ -891,6 +901,13 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
 
         <ActivitySheet entityType="Task" entityId={task.id} code={taskCode(task.id)} open={activityOpen} onOpenChange={setActivityOpen} />
       </SheetContent>
+
+      {sendingAgain && (
+        <TaskForm
+          onClose={() => setSendingAgain(false)}
+          prefill={{ title: task.title, description: task.description, priority: task.priority, departmentId: task.departmentId }}
+        />
+      )}
 
       {advanceTo && (
         <TaskStatusRemarkDialog

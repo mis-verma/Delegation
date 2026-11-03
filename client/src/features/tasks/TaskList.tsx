@@ -365,6 +365,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     for (const t of loadedTasks ?? []) {
       if (t.raisedBy) names.set(t.raisedBy.id, fullName(t.raisedBy));
       if (t.assigneePerson) names.set(t.assigneePerson.id, fullName(t.assigneePerson));
+      for (const p of t.additionalAssigneePeople ?? []) names.set(p.id, fullName(p));
     }
     for (const u of assignableUsers ?? []) names.set(u.id, fullName(u));
     return names;

@@ -57,9 +57,10 @@ interface TaskFormProps {
   onClose: () => void;
   onCreated?: (task: Task) => void;
   defaultDueDate?: Date;
+  prefill?: { title: string; description: string | null; priority: 'low' | 'medium' | 'high'; departmentId: string | null };
 }
 
-export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) => {
+export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -73,7 +74,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
   const { data: tags } = useTagsQuery();
   const keptKey = `delegation:${user?.id ?? 'anon'}`;
-  const [kept] = useState(() => readKept<Partial<TaskFields> & { assigneeIds?: string[]; extraDepartmentIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
+  const [kept] = useState(() => prefill ? null : readKept<Partial<TaskFields> & { assigneeIds?: string[]; extraDepartmentIds?: string[]; tagIds?: string[]; from?: string | null; to?: string | null }>(keptKey));
   const [assigneeIds, setAssigneeIds] = useState<string[]>(kept?.assigneeIds ?? []);
   const [extraDepartmentIds, setExtraDepartmentIds] = useState<string[]>(kept?.extraDepartmentIds ?? []);
   const [tagIds, setTagIds] = useState<string[]>(kept?.tagIds ?? []);
@@ -99,6 +100,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       departmentId: startsOnOwnDepartment ? user?.departmentId ?? '' : '',
       description: '',
       ...(kept ? { title: kept.title, description: kept.description ?? '', priority: kept.priority ?? 'medium', departmentId: kept.departmentId ?? '' } : {}),
+      ...(prefill ? { title: prefill.title, description: prefill.description ?? '', priority: prefill.priority, departmentId: prefill.departmentId ?? '' } : {}),
     },
   });
 

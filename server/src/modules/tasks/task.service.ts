@@ -141,6 +141,8 @@ export const taskService = {
             additionalAssigneeIdsByTask(taskIds),
             reviewersByTask(taskIds),
         ]);
+        const coPeople = await peopleByIds([...new Set([...coAssigneeMap.values()].flat())].filter((id) => !decisionPeople.has(id)));
+        const personById = (id: string) => decisionPeople.get(id) ?? coPeople.get(id) ?? null;
         const attachmentsByTask = new Map<string, { url: string; mimeType: string }[]>();
         for (const a of attachmentRows) {
             const list = attachmentsByTask.get(a.taskId) ?? [];
@@ -180,6 +182,7 @@ export const taskService = {
                 decliner: task.declinedBy ? decisionPeople.get(task.declinedBy) ?? null : null,
                 raisedBy: decisionPeople.get(task.userId) ?? null,
                 assigneePerson: task.assigneeId ? decisionPeople.get(task.assigneeId) ?? null : null,
+                additionalAssigneePeople: (coAssigneeMap.get(task.id) ?? []).map(personById).filter((p): p is NonNullable<ReturnType<typeof personById>> => p !== null),
                 departmentApprovals: approvalMap.get(task.id) ?? [],
                 ...(includeChecklistSummary
                     ? { checklistSummary: checklistSummaryByTask.get(task.id) ?? { total: 0, done: 0, missingPhotos: 0 } }
