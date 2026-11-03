@@ -16,6 +16,6 @@ export const CountsLine = ({ due, done, late, notDone, open }: { due?: number; d
     <IconChip icon={CheckCheck} tone="bg-success" label={`${done} done`} labelClassName="tabular-nums" />
     {late > 0 && <IconChip icon={Clock3} tone="bg-warning" label={`${late} late`} labelClassName="tabular-nums" />}
     {notDone > 0 && <IconChip icon={XCircle} tone="bg-danger" label={`${notDone} not done`} labelClassName="tabular-nums" />}
-    {open ? <IconChip icon={CircleDashed} tone="bg-text-muted" label={`${open} open`} labelClassName="tabular-nums" /> : null}
+    {open ? <IconChip icon={CircleDashed} tone="bg-text-muted" label={`${open} open, not counted yet`} labelClassName="tabular-nums" /> : null}
   </p>
 );

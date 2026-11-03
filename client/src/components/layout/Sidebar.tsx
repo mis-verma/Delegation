@@ -245,6 +245,14 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin', tint: 'danger' }] : []),
   ];
 
+  const NAV_GROUPS: { title: string; paths: readonly string[]; dot?: boolean }[] = isOwner
+    ? [{ title: 'Admin', paths: adminNavItems.map((i) => i.to), dot: true }]
+    : [
+        { title: 'Approvals', paths: ['/tickets/approvals', '/pc', '/verify'] },
+        { title: 'Team', paths: ['/analytics', '/admin/scores', '/team/fill', '/leave'] },
+        { title: 'Admin', paths: ['/admin'], dot: true },
+      ];
+
   const handleNavClick = () => {
     if (isMobile) {
       onNavigate?.();
@@ -462,7 +470,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
               (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
             ].join(' ')}
           >
-            Workspace
+            My work
           </p>
           {isDrawer && (
             <button
@@ -483,28 +491,32 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
         >
           {navItems.map((item) => renderNavItem(item, isDrawer))}
 
-          {adminNavItems.length > 0 && (
-            <>
-              <div
-                className={[
-                  'border-t border-border transition-all duration-300 ease-in-out',
-                  (isDrawer || isOpen) ? 'mt-4 mb-3 mx-1' : 'mt-3 mb-2 mx-2',
-                ].join(' ')}
-                aria-hidden="true"
-              />
-              <p
-                className={[
-                  'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
-                  'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
-                  (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-3' : 'max-h-0 opacity-0 mb-0',
-                ].join(' ')}
-              >
-                <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />
-                Admin
-              </p>
-              {adminNavItems.map((item) => renderNavItem(item, isDrawer))}
-            </>
-          )}
+          {NAV_GROUPS.map((group) => {
+            const items = adminNavItems.filter((item) => group.paths.includes(item.to));
+            if (items.length === 0) return null;
+            return (
+              <div key={group.title} role="group" aria-label={group.title} className="flex flex-col gap-1">
+                <div
+                  className={[
+                    'border-t border-border transition-all duration-300 ease-in-out',
+                    (isDrawer || isOpen) ? 'mt-3 mb-2 mx-1' : 'mt-3 mb-2 mx-2',
+                  ].join(' ')}
+                  aria-hidden="true"
+                />
+                <p
+                  className={[
+                    'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
+                    'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
+                    (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-1.5' : 'max-h-0 opacity-0 mb-0',
+                  ].join(' ')}
+                >
+                  {group.dot && <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />}
+                  {group.title}
+                </p>
+                {items.map((item) => renderNavItem(item, isDrawer))}
+              </div>
+            );
+          })}
         </nav>
 
         {!isDrawer && navOverflowsAbove && (

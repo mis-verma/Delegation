@@ -111,6 +111,8 @@ const matchesPath = (pathname: string, to: string) => pathname === to || pathnam
 const activeChildTo = (children: AdminNavChild[] | undefined, pathname: string) =>
   children?.filter((child) => matchesPath(pathname, child.to)).sort((a, b) => b.to.length - a.to.length)[0]?.to;
 
+const RAIL_KEY = 'karya-admin-rail';
+
 export const AdminLayout = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
@@ -130,9 +132,22 @@ export const AdminLayout = () => {
       ? NAV.filter((item) => OWNER_NAV_PATHS.includes(item.to))
       : NAV.filter((item) => !PC_HIDDEN_PATHS.includes(item.to));
 
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
-  );
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return false;
+    try {
+      return localStorage.getItem(RAIL_KEY) !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    if (!window.matchMedia('(min-width: 1024px)').matches) return;
+    try {
+      localStorage.setItem(RAIL_KEY, sidebarOpen ? 'open' : 'closed');
+    } catch {
+      return;
+    }
+  }, [sidebarOpen]);
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches
   );

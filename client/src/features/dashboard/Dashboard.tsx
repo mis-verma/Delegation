@@ -11,7 +11,8 @@ import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNot
 import { PageMaintenance } from '../../components/error/PageMaintenance';
 import { isPathUnderMaintenance, maintenancePageLabel } from '../../lib/maintenance';
 import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
-import { directionBetween, type NavDirection } from '../../lib/appNav';
+import { directionBetween, hasBackArrow, type NavDirection } from '../../lib/appNav';
+import { useEdgeSwipeOpen } from '../../lib/useEdgeSwipeOpen';
 import { useEdgeSwipeBack } from '../../lib/useEdgeSwipeBack';
 
 export const Dashboard = () => {
@@ -55,6 +56,8 @@ export const Dashboard = () => {
   }, [mobileDrawerOpen]);
 
   useEdgeSwipeBack(isMobileViewport && !mobileDrawerOpen);
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  useEdgeSwipeOpen(isMobileViewport && !mobileDrawerOpen && !hasBackArrow(location.pathname), openSidebar);
 
   const isAdmin = user?.role === 'ADMIN';
   const maintenanceMatch = isPathUnderMaintenance(location.pathname);
