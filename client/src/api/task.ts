@@ -319,6 +319,9 @@ export const taskApi = {
     approveAssignment: (id: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/approve-assignment`, { method: 'POST' }).then(r => normalizeTask(r.data)),
 
+    redirect: (id: string, departmentId: string) =>
+        apiFetch<ApiResponse<Task>>(`/tasks/${id}/redirect`, { method: 'POST', body: JSON.stringify({ departmentId }) }).then(r => normalizeTask(r.data)),
+
     decline: (id: string, reason: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => normalizeTask(r.data)),
 

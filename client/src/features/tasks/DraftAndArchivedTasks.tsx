@@ -168,7 +168,7 @@ export const DraftDelegationsPage = () => {
 export const ArchivedDelegationsPage = () => {
   const { user } = useAuth();
   if (!user) return null;
-  if (user.role !== 'ADMIN' && user.role !== 'PC') return <Navigate to="/tasks" replace />;
+  if (user.role !== 'ADMIN') return <Navigate to="/tasks" replace />;
   return <ArchivedDelegationsList />;
 };
 

@@ -21,10 +21,11 @@ taskRouter.get("/:id" , taskController.getOne)
 taskRouter.patch("/:id" , taskController.update)
 taskRouter.patch("/:id/verify", taskController.verify)
 taskRouter.post("/:id/approve-assignment", taskController.approveAssignment)
+taskRouter.post("/:id/redirect", taskController.redirect)
 taskRouter.post("/:id/decline", taskController.decline)
 taskRouter.post("/:id/reopen-declined", taskController.reopenDeclined)
 taskRouter.delete("/:id" , taskController.remove)
-taskRouter.patch("/:id/restore", requireRole("ADMIN", "PC"), taskController.restore)
+taskRouter.patch("/:id/restore", requireRole("ADMIN"), taskController.restore)
 
 taskRouter.post("/", taskController.create)
 

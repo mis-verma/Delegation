@@ -1,7 +1,7 @@
 import { asRows } from "../../utils/dbErrors.js"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskDepartmentApprovals, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
-import { users } from "../../db/schema/core.js"
+import { departments, users } from "../../db/schema/core.js"
 import { asc, eq, and, or, inArray, sql, isNull, isNotNull, ne } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
@@ -815,6 +815,36 @@ export const taskService = {
         return { ...updated!, additionalAssigneeIds: await additionalAssigneeIdsOf(id), ...(await approverNames(updated!)), departmentApprovals: await approvalsOf(id), statusUpdates: await loadStatusUpdates(id) };
     },
 
+    async redirect(id: string, newDepartmentId: string, user: AccessTokenPayload) {
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
+        if (!task) throw AppError.notFound("Delegation not found");
+        if (task.category !== "delegation" || !task.awaitingHeadApproval || task.declinedAt) {
+            throw AppError.badRequest("Only a delegation that is waiting for its department head can be sent to another team.");
+        }
+        const rows = await approvalRowsOf(id);
+        if (!canApproveNow(task, rows, user)) throw AppError.forbidden("Only the head of a department that still has to approve, the PC or an admin can send this on.");
+        const ownDepartment = isAdminOrPc(user.role) ? task.departmentId : headDepartmentOf(user);
+        if (!ownDepartment || task.departmentId !== ownDepartment) {
+            throw AppError.badRequest("Only the head of the main department can send this to another team. Decline it instead, or ask the person who sent it.");
+        }
+        if (newDepartmentId === ownDepartment) throw AppError.badRequest("Pick a different team.");
+        const [target] = await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, newDepartmentId), eq(departments.isActive, true))).limit(1);
+        if (!target) throw AppError.badRequest("That team is not available.");
+
+        const people = [task.assigneeId, ...(await additionalAssigneeIdsOf(id))].filter((p): p is string => !!p);
+        const peopleRows = people.length
+            ? await db.select({ id: users.id, departmentId: users.departmentId }).from(users).where(inArray(users.id, people))
+            : [];
+        const departmentOf = new Map(peopleRows.map((p) => [p.id, p.departmentId]));
+        const staying = people.filter((p) => departmentOf.get(p) !== ownDepartment);
+        const [nextAssignee, ...nextAdditional] = staying;
+        return taskService.update(id, {
+            departmentId: newDepartmentId,
+            assigneeId: nextAssignee ?? null,
+            additionalAssigneeIds: nextAdditional,
+        }, user);
+    },
+
     async approveAssignment(id: string, user: AccessTokenPayload) {
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), NOT_DELETED)).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
@@ -947,8 +977,8 @@ export const taskService = {
         const [task] = await db.select().from(tasks).where(where).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
 
-        const isVerifier = isAdminOrPc(user.role);
-        if (!isVerifier && !(task.userId === user.sub && task.status === "draft")) {
+        const isAdmin = user.role === "ADMIN";
+        if (!isAdmin && !(task.userId === user.sub && task.status === "draft")) {
             throw AppError.forbidden("You can only discard your own drafts.");
         }
 

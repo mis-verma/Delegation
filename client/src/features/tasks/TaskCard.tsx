@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
+import { useAuth } from "../../context/AuthContext";
 import { TaskVerifyActions } from "./TaskVerifyActions";
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from "../../lib/ticketApproval";
 import { useApprovers } from "../checklist/useApprovalCover";
@@ -63,6 +64,7 @@ const daysLeftLabel = (dueDate: string) => {
 
 export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove }: TaskCardProps) => {
   const deleteMutation = useDeleteTaskMutation();
+  const canDelete = useAuth().user?.role === 'ADMIN';
   const confirm = useConfirm();
   const priority = PRIORITY_MAP[task.priority];
   const coverPhoto = coverPhotoFor(task.attachments);
@@ -158,7 +160,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             )}
-            {isVerifier && (
+            {isVerifier && canDelete && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

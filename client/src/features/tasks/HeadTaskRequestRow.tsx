@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { ArrowRight, Ban, CalendarDays, CircleCheck, Forward, ShieldQuestion } from 'lucide-react';
 import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../components';
 import { cn } from '@/lib/utils';
 import { Avatar } from '../tickets/approvals/HeadRequestRow';
 import { DeclineTicketDialog } from '../tickets/detail/DeclineTicketDialog';
-import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useUpdateTaskMutation } from './hook';
+import { useApproveTaskAssignmentMutation, useDeclineTaskMutation, useRedirectTaskMutation } from './hook';
+import { useAuth } from '../../context/AuthContext';
 import { useDepartmentsQuery } from '../tickets/hook';
 import { RedirectTicketDialog } from '../tickets/detail/RedirectTicketDialog';
 import { formatShortDate } from './cardFields';
@@ -27,10 +27,11 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
   const [declining, setDeclining] = useState(false);
   const approveMut = useApproveTaskAssignmentMutation();
   const declineMut = useDeclineTaskMutation();
-  const redirectMut = useUpdateTaskMutation({ silent: true });
+  const redirectMut = useRedirectTaskMutation();
+  const { user } = useAuth();
   const { data: departments } = useDepartmentsQuery();
   const [redirecting, setRedirecting] = useState(false);
-  const canRedirect = (task.departmentApprovals?.length ?? 0) <= 1;
+  const canRedirect = !!task.departmentId && (user?.role === 'ADMIN' || user?.role === 'PC' || user?.departmentId === task.departmentId);
   const busy = approveMut.isPending || declineMut.isPending || redirectMut.isPending;
   const raiser = raiserName ?? null;
   const assignee = assigneeName ?? null;
@@ -117,13 +118,8 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
         isPending={redirectMut.isPending}
         onCancel={() => setRedirecting(false)}
         onConfirm={(departmentId) => redirectMut.mutate(
-          { id: task.id, payload: { departmentId, assigneeId: null, additionalAssigneeIds: [] } },
-          {
-            onSuccess: () => {
-              setRedirecting(false);
-              toast.success('Sent to the other team. Their head will decide next.');
-            },
-          },
+          { id: task.id, departmentId },
+          { onSuccess: () => setRedirecting(false) },
         )}
       />
 

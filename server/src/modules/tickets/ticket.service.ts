@@ -700,7 +700,7 @@ export const ticketService = {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
 
-    const withdrawn = !isVerifierRole(user)
+    const withdrawn = user.role !== "ADMIN"
     if (withdrawn) {
       if (ticket.userId !== user.sub) {
         throw AppError.forbidden("Only the person who raised this ticket can withdraw it.")

@@ -19,7 +19,7 @@ interface StoreCardProps {
   isDeleting: boolean;
   onToggleActive: (store: Store) => void;
   onEdit: (store: Store) => void;
-  onDelete: (store: Store) => void;
+  onDelete?: (store: Store) => void;
 }
 
 export const StoreCard = memo(({
@@ -54,7 +54,7 @@ export const StoreCard = memo(({
         <div className="relative z-10 -mr-2 -mt-1">
           <EntityCardActions
             onEdit={() => onEdit(store)}
-            onDelete={() => onDelete(store)}
+            onDelete={onDelete ? () => onDelete(store) : undefined}
             isDeleting={isDeleting}
             editLabel={`Edit ${store.name}`}
             deleteLabel={`Delete ${store.name}`}

@@ -117,7 +117,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, 
         res.json({ success: true, data: item })
     }))
 
-    router.delete("/:id", asyncHandler(async (req, res) => {
+    router.delete("/:id", requireRole("ADMIN"), asyncHandler(async (req, res) => {
         const [existing] = (await db.select().from(table).where(eq(table.id, routeParam(req, "id"))).limit(1)) as LookupRow[];
         if (!existing) throw AppError.notFound("Not Found")
         const blocked = await options.deleteBlockers?.({ id: existing.id, name: String(existing.name) })

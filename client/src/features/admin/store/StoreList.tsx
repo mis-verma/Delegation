@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { Plus, Store as StoreIcon, ArrowDownAZ, Users, Building2, type LucideIcon } from 'lucide-react';
 import { OptionSection, OptionSelect } from '../../../components/optionsSheet';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
@@ -54,6 +55,7 @@ export const StoreList = () => {
   const { data: departments } = useDepartmentsQuery();
   const updateMut = useUpdateStoreMutation();
   const deleteMut = useDeleteStoreMutation();
+  const isAdminUser = useAuth().user?.role === 'ADMIN';
   const { mutate: updateStore } = updateMut;
   const { mutate: deleteStore } = deleteMut;
   const confirm = useConfirm();
@@ -250,7 +252,7 @@ export const StoreList = () => {
               isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
               onToggleActive={toggleActive}
               onEdit={setEditingStore}
-              onDelete={handleDelete}
+              onDelete={isAdminUser ? handleDelete : undefined}
             />
           );
         })}

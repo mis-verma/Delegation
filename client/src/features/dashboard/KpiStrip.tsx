@@ -28,8 +28,8 @@ import { describeDueBy, instanceDeadline, instanceOpensOnLaterDay, isInstanceEnd
 import { doneLabel, dueLabel, isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
-import type { Task } from '../../api/task';
-import type { Ticket } from '../../api/ticket';
+import { taskApi, type Task } from '../../api/task';
+import { ticketApi, type Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { formatPct, roundPct } from '../../lib/percent';
@@ -419,6 +419,25 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     return { values: source.buckets.map((b) => (b[module].due > 0 ? b[module].score : null)), labels: source.buckets.map((b) => b.label) };
   };
 
+  const remoteDrill = useQuery({
+    queryKey: ['dashboard-drill', openDrill?.key, openDrill?.kind] as const,
+    enabled: !!openDrill && (openDrill.key === 'tickets' || openDrill.key === 'delegation') && user?.role !== 'USER' && user?.role !== 'AGENT',
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { key, kind } = openDrill!;
+      const bucket = ({ pending: 'pending', completed: 'completed', overdue: 'delayed', newToday: undefined } as const)[kind];
+      const createdFrom = kind === 'newToday' ? startOfToday(Date.now()) : undefined;
+      if (key === 'tickets') {
+        const page = await ticketApi.getPage({ page: 1, limit: 200, bucket, createdFrom });
+        return { tickets: page.data, tasks: null };
+      }
+      const page = await taskApi.getPage({ page: 1, limit: 200, bucket, category: 'delegation', createdFrom });
+      return { tickets: null, tasks: page.data };
+    },
+  });
+  const remoteTickets = remoteDrill.data?.tickets ?? null;
+  const remoteTasks = remoteDrill.data?.tasks ?? null;
+
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
     const { key, kind } = openDrill;
@@ -434,7 +453,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Task) => isNew(x.createdAt),
         overdue: (x: Task) => isTaskOverdue(x, now),
       }[kind];
-      rows = taskList.filter((x) => x.category === 'delegation' && isLiveWork(x)).filter(pick).map((x) => taskDrilldownRow(x, now));
+      rows = (remoteTasks ?? taskList).filter((x) => x.category === 'delegation' && isLiveWork(x)).filter(pick).map((x) => taskDrilldownRow(x, now));
     } else if (key === 'tickets') {
       const pick = {
         pending: (x: Ticket) => !isTicketHandedIn(x),
@@ -442,7 +461,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Ticket) => isNew(x.createdAt),
         overdue: (x: Ticket) => !isTicketHandedIn(x) && isTicketLate(x),
       }[kind];
-      rows = ticketList.filter(isLiveWork).filter(pick).map((x) => ticketRow(x, now));
+      rows = (remoteTickets ?? ticketList).filter(isLiveWork).filter(pick).map((x) => ticketRow(x, now));
     } else if (key === 'checklist') {
       const live = (x: ChecklistInstance) => isChecklistLive(x, now);
       const pick = {
@@ -480,7 +499,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       viewAllHref,
       viewAllLabel: `Open ${PAGE_NAME[key]}`,
     };
-  }, [openDrill, views, now, taskList, ticketList, todoList, checklistList]);
+  }, [openDrill, views, now, taskList, ticketList, todoList, checklistList, remoteTickets, remoteTasks]);
 
   return (
     <div className="flex flex-col gap-3">

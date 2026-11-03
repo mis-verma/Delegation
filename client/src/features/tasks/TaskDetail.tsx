@@ -849,7 +849,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           onShowActivity={() => setActivityOpen(true)}
           onEdit={canEditText ? () => setEditing((v) => !v) : undefined}
           editing={editing}
-          onDelete={isVerifier ? () => void askDelete() : undefined}
+          onDelete={user?.role === 'ADMIN' ? () => void askDelete() : undefined}
           isDeleting={deleteMutation.isPending}
         />
 

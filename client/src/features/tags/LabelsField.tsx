@@ -8,6 +8,7 @@ import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
 import { Button } from '../../components/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../../context/AuthContext';
 import { IconChip } from '../../components/iconChip';
 import type { Tag } from '../../api/tags';
 
@@ -104,6 +105,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
   const deleteTag = useDeleteTagMutation();
+  const canDeleteLabels = useAuth().user?.role === 'ADMIN';
   const updateTag = useUpdateTagMutation();
 
   const [open, setOpen] = useState(false);
@@ -343,7 +345,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
                       <X size={14} strokeWidth={2.75} />
                     </button>
                   </span>
-                ) : (
+                ) : canDeleteLabels ? (
                   <button
                     type="button"
                     onClick={() => setConfirmingId(tag.id)}
@@ -352,7 +354,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
                   >
                     <Trash2 size={14} strokeWidth={2.5} />
                   </button>
-                )}
+                ) : null}
               </div>
               {recolorId === tag.id && <ColorSwatches value={labelColorKey(byId.get(tag.id)!)} onPick={(key) => recolor(tag, key)} label="Label colour" />}
             </li>

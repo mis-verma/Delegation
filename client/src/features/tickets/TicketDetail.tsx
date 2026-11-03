@@ -253,7 +253,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           raisedByName={raisedByName}
           onEdit={canEdit && !editing ? startEditing : undefined}
           onShowActivity={() => setActivityOpen(true)}
-          onDelete={isAdmin ? handleDelete : undefined}
+          onDelete={role === 'ADMIN' ? handleDelete : undefined}
           isDeleting={deleteMut.isPending}
         />
 

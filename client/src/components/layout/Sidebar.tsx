@@ -57,10 +57,8 @@ const TASK_CHILDREN: NavChild[] = [
 
 const PENDING_APPROVALS_CHILD: NavChild = { to: '/tasks?status=pending_approval', label: 'Pending Approvals' };
 const SMART_DELEGATIONS_CHILD: NavChild = { to: '/tasks/smart', label: 'Smart Delegations' };
-const TASK_ADMIN_CHILDREN: NavChild[] = [
-  { to: '/tasks/team', label: 'Team Delegations' },
-  { to: '/tasks/archived', label: 'Archived' },
-];
+const TEAM_DELEGATIONS_CHILD: NavChild = { to: '/tasks/team', label: 'Team Delegations' };
+const ARCHIVED_DELEGATIONS_CHILD: NavChild = { to: '/tasks/archived', label: 'Archived' };
 
 const REVIEW_QUEUE_CHILD: NavChild = { to: '/checklists/approvals', label: 'To review' };
 const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'History' };
@@ -212,7 +210,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
           ...(seesSmartDelegations ? [SMART_DELEGATIONS_CHILD] : []),
           ...(isPC ? [PENDING_APPROVALS_CHILD] : []),
           ...(isPC ? [] : TASK_CHILDREN),
-          ...(isPC || isAdmin ? TASK_ADMIN_CHILDREN : []),
+          ...(isPC || isAdmin ? [TEAM_DELEGATIONS_CHILD] : []),
+          ...(isAdmin ? [ARCHIVED_DELEGATIONS_CHILD] : []),
         ],
       };
     }

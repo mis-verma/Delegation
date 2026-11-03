@@ -312,6 +312,15 @@ export const useApproveTaskAssignmentMutation = () =>
         errorFallback: "Couldn't approve the delegation. Try again.",
     });
 
+export const useRedirectTaskMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ id, departmentId }: { id: string; departmentId: string }) => taskApi.redirect(id, departmentId),
+        setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
+        invalidateKeys: [['tasks']],
+        successMessage: 'Sent to the other team. Their head will decide next.',
+        errorFallback: "Couldn't send it to that team. Try again.",
+    });
+
 export const useDeclineTaskMutation = () =>
     useEntityMutation({
         mutationFn: ({ id, reason }: { id: string; reason: string }) => taskApi.decline(id, reason),

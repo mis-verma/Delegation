@@ -15,7 +15,7 @@ checklistDefinitionRouter.post("/", checklistDefinitionController.create)
 checklistDefinitionRouter.put("/:id", checklistDefinitionController.update)
 checklistDefinitionRouter.patch("/:id/active", checklistDefinitionController.setActive)
 checklistDefinitionRouter.delete("/:id", requireRole("ADMIN"), checklistDefinitionController.remove)
-checklistDefinitionRouter.post("/:id/restore", checklistDefinitionController.restore)
+checklistDefinitionRouter.post("/:id/restore", requireRole("ADMIN"), checklistDefinitionController.restore)
 
 checklistDefinitionRouter.post("/bulk-import/preview", checklistBulkImportUpload, checklistBulkImportController.preview)
 checklistDefinitionRouter.post("/bulk-import/publish", checklistBulkImportController.publish)
