@@ -12,6 +12,7 @@ const baseTicketSchema = z.object({
   dueTime: z.string().optional().or(z.literal('')),
   startDate: z.string().optional().or(z.literal('')),
   tagIds: z.array(z.string()).max(12).optional(),
+  teamEmpty: z.boolean().optional(),
 });
 
 export const buildTicketSchema = ({ requirePerson, headCanPick }: { requirePerson: boolean; headCanPick: (departmentId: string | undefined) => boolean }) =>
@@ -25,7 +26,7 @@ export const buildTicketSchema = ({ requirePerson, headCanPick }: { requirePerso
       { message: 'Choose a department', path: ['departmentId'] },
     )
     .refine(
-      (data) => !requirePerson || data.assignmentMode !== 'MANUAL' || !!data.categoryId || !!data.assigneeId || headCanPick(data.departmentId || undefined),
+      (data) => !requirePerson || data.assignmentMode !== 'MANUAL' || !!data.categoryId || !!data.assigneeId || !!data.teamEmpty || headCanPick(data.departmentId || undefined),
       { message: 'Pick who should handle it', path: ['assigneeId'] },
     )
     .refine(

@@ -143,6 +143,10 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
   const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly);
+  const emptyTeamId = departmentId && !isLoadingAssignableUsers && assignableUsers?.length === 0 ? departmentId : null;
+  useEffect(() => {
+    setValue('teamEmpty', !!emptyTeamId);
+  }, [emptyTeamId, setValue]);
 
   const [justCreated, setJustCreated] = useState<Category | null>(null);
   const selectedCategory = categories?.find(c => c.id === categoryId) ?? (justCreated && justCreated.id === categoryId ? justCreated : undefined);
@@ -551,8 +555,10 @@ Who is affected: `;
                       <FormField
                         label="Person"
                         icon={<UserCheck size={14} className="text-text-light" />}
-                        required={!headCanPick(departmentId || undefined)}
-                        hint={headCanPick(departmentId || undefined)
+                        required={!headCanPick(departmentId || undefined) && emptyTeamId !== departmentId}
+                        hint={emptyTeamId && emptyTeamId === departmentId
+                          ? 'Nobody is in this team yet, so this is optional. The ticket waits until someone is added.'
+                          : headCanPick(departmentId || undefined)
                           ? 'Optional. Leave it empty and the head of that team picks who does it.'
                           : departmentId || selectedCategory ? 'Who will work on it.' : 'Pick a team first to see its people.'}
                         error={errors.assigneeId?.message}
