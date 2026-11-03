@@ -237,7 +237,7 @@ export const useTicketsAwaitingHeadQuery = (enabled = true) => {
 
 export const useApproveAssignmentMutation = () =>
   useEntityMutation({
-    mutationFn: ({ id }: { id: string }) => ticketApi.approveAssignment(id).then(r => r.data),
+    mutationFn: ({ id, assigneeId }: { id: string; assigneeId?: string }) => ticketApi.approveAssignment(id, assigneeId).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
     successMessage: 'Approved. The team can start work now.',

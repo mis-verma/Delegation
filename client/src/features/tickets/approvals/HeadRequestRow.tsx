@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { ArrowRight, Ban, CircleCheck, ShieldQuestion, Timer, User } from 'lucide-react';
+import { toast } from 'sonner';
+import { ArrowRight, Ban, CircleCheck, Forward, ShieldQuestion, Timer, User } from 'lucide-react';
 import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import { haptic } from '../../../lib/haptics';
 import { PRIORITY_CONFIG } from '../ticketDisplay';
-import { useApproveAssignmentMutation, useDeclineTicketMutation } from '../hook';
+import { useApproveAssignmentMutation, useAssignableUsersQuery, useDeclineTicketMutation, useDepartmentsQuery, useUpdateTicketMutation } from '../hook';
+import { AssigneeField } from '../../assignees/AssigneeField';
+import { RedirectTicketDialog } from '../detail/RedirectTicketDialog';
 import { DeclineTicketDialog } from '../detail/DeclineTicketDialog';
 import { TicketDetail } from '../TicketDetail';
 import type { Ticket } from '../../../api/ticket';
@@ -32,9 +35,15 @@ export const Avatar = ({ name }: { name: string | null }) =>
 export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }: HeadRequestRowProps) => {
   const [open, setOpen] = useState(false);
   const [declining, setDeclining] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [pickedId, setPickedId] = useState('');
+  const needsPerson = !ticket.assigneeId;
+  const { data: people, isLoading: loadingPeople } = useAssignableUsersQuery(ticket.departmentId ?? undefined, undefined, undefined, needsPerson);
+  const { data: departments } = useDepartmentsQuery();
+  const redirectMut = useUpdateTicketMutation({ silent: true });
   const approveMut = useApproveAssignmentMutation();
   const declineMut = useDeclineTicketMutation();
-  const busy = approveMut.isPending || declineMut.isPending;
+  const busy = approveMut.isPending || declineMut.isPending || redirectMut.isPending;
 
   const raiserName = ticket.raisedBy?.firstName ?? null;
   const assigneeName = ticket.assignee?.firstName ?? null;
@@ -71,7 +80,31 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         </span>
       </button>
 
+      {needsPerson && (
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta font-display font-semibold text-text-secondary">Who will do it? You can pick now or later.</span>
+          <AssigneeField
+            single
+            hideLabel
+            selectedIds={pickedId ? [pickedId] : []}
+            onChange={(ids) => setPickedId(ids[0] ?? '')}
+            users={people}
+            isLoading={loadingPeople}
+            emptyText="Nobody is in this team yet."
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
+        <Button
+          variant="outline"
+          onClick={() => { haptic('tap'); setRedirecting(true); }}
+          disabled={busy}
+          className="col-span-2 h-11 gap-1.5 font-display font-semibold sm:col-span-1 sm:h-10"
+        >
+          <Forward size={16} aria-hidden="true" />
+          Wrong team
+        </Button>
         <Button
           variant="outline"
           onClick={() => { haptic('tap'); setDeclining(true); }}
@@ -83,13 +116,13 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         </Button>
         <Button
           variant="primary"
-          onClick={() => { haptic('tap'); approveMut.mutate({ id: ticket.id }); }}
+          onClick={() => { haptic('tap'); approveMut.mutate({ id: ticket.id, assigneeId: pickedId || undefined }); }}
           isLoading={approveMut.isPending}
           disabled={busy}
           className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
         >
           <CircleCheck size={16} aria-hidden="true" />
-          Approve
+          {pickedId ? 'Approve and assign' : 'Approve'}
         </Button>
       </div>
 
@@ -99,6 +132,24 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         isPending={declineMut.isPending}
         onCancel={() => setDeclining(false)}
         onConfirm={(reason) => declineMut.mutate({ id: ticket.id, reason }, { onSuccess: () => setDeclining(false) })}
+      />
+
+      <RedirectTicketDialog
+        open={redirecting}
+        ticketTitle={ticket.title}
+        currentDepartmentId={ticket.departmentId ?? null}
+        departments={departments ?? []}
+        isPending={redirectMut.isPending}
+        onCancel={() => setRedirecting(false)}
+        onConfirm={(departmentId) => redirectMut.mutate(
+          { id: ticket.id, payload: { departmentId, assigneeId: null } },
+          {
+            onSuccess: () => {
+              setRedirecting(false);
+              toast.success('Sent to the other team. Their head will decide next.');
+            },
+          },
+        )}
       />
 
       {open && <TicketDetail ticket={ticket} onClose={() => setOpen(false)} />}

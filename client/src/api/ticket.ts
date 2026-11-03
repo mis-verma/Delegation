@@ -327,8 +327,8 @@ export const ticketApi = {
   reopenDeclined: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/reopen-declined`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
-  approveAssignment: (id: string) =>
-    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+  approveAssignment: (id: string, assigneeId?: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST', body: JSON.stringify(assigneeId ? { assigneeId } : {}) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   decline: (id: string, reason: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

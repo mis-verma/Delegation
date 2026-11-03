@@ -509,15 +509,21 @@ export const ticketService = {
     return populated;
   },
 
-  async approveAssignment(id: string, user: AccessTokenPayload) {
+  async approveAssignment(id: string, user: AccessTokenPayload, assigneeId?: string) {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this ticket.")
     if (!ticket.awaitingHeadApproval) throw AppError.conflict("This ticket has already been approved.")
 
+    if (assigneeId && assigneeId !== ticket.assigneeId) {
+      await assertAssignableUser(assigneeId)
+      await resolveGateDepartment(ticket.departmentId, assigneeId)
+    }
+
     const now = new Date()
     const patch: Partial<typeof tickets.$inferInsert> = {
       awaitingHeadApproval: false,
+      ...(assigneeId ? { assigneeId } : {}),
       assignmentApprovedBy: user.sub,
       assignmentApprovedAt: now,
       updatedAt: now,

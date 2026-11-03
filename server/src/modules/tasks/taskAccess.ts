@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskReviewers } from "../../db/schema/index.js"
-import { eq, and, or, inArray, isNull, isNotNull, sql } from "drizzle-orm"
+import { eq, and, or, inArray, isNull, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateTaskInput } from "./task.validation.js"
@@ -59,12 +59,8 @@ const buildOwnVisibilityCondition = async (user: AccessTokenPayload) => {
         ? or(selfCondition, inArray(tasks.id, reviewedIds))
         : selfCondition;
 
-    if (user.role === "MANAGER" && user.departmentId) {
+    if ((user.role === "MANAGER" || user.role === "SENIOR") && user.departmentId) {
         return or(eq(tasks.departmentId, user.departmentId), departmentApprovalInvolves(user.departmentId), withReviewer);
-    }
-
-    if (user.role === "SENIOR" && user.departmentId) {
-        return or(and(or(eq(tasks.departmentId, user.departmentId), departmentApprovalInvolves(user.departmentId)), or(eq(tasks.status, "pending_approval"), eq(tasks.awaitingHeadApproval, true), isNotNull(tasks.declinedAt))), withReviewer);
     }
 
     return withReviewer;

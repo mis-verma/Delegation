@@ -4,7 +4,7 @@ import {
   ticketReviewers,
 
 } from "../../db/schema/index.js"
-import { eq, and, or, inArray, isNotNull } from "drizzle-orm"
+import { eq, and, or, inArray } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { canApproveAtStage, type ApprovalStage } from "./ticketApproval.js"
@@ -33,20 +33,11 @@ const ownVisibilityFilter = async (user: AccessTokenPayload) => {
 
   let base: ReturnType<typeof or>
 
-  if (user.role === "MANAGER") {
+  if (user.role === "MANAGER" || user.role === "SENIOR") {
     const or_conditions = [eq(tickets.userId, user.sub)]
     if (user.departmentId) or_conditions.push(eq(tickets.departmentId, user.departmentId))
     if (user.storeId) or_conditions.push(eq(tickets.storeId, user.storeId))
     base = or(...or_conditions)
-  } else if (user.role === "SENIOR") {
-    const seniorConditions = [user.storeId ? eq(tickets.storeId, user.storeId) : eq(tickets.userId, user.sub)]
-    if (user.departmentId) {
-      seniorConditions.push(and(
-        eq(tickets.departmentId, user.departmentId),
-        or(eq(tickets.awaitingHeadApproval, true), isNotNull(tickets.declinedAt)),
-      )!)
-    }
-    base = or(...seniorConditions)
   } else if (isOwnScopeRole(user.role)) {
     base = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
   } else {
@@ -87,14 +78,9 @@ export const assertCanMutate = (user: AccessTokenPayload, ticket: Pick<TicketRow
     throw AppError.forbidden("Not your ticket")
   }
 
-  if (user.role === "MANAGER") {
+  if (user.role === "MANAGER" || user.role === "SENIOR") {
     if (isSameDeptOrStore(user, ticket)) return
-    throw AppError.forbidden("Outside your department/store")
-  }
-
-  if (user.role === "SENIOR") {
-    if (user.storeId && ticket.storeId === user.storeId) return
-    throw AppError.forbidden("Outside your store")
+    throw AppError.forbidden("This ticket belongs to another team. Ask its department head.")
   }
 
   throw AppError.forbidden()

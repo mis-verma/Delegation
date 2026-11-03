@@ -360,7 +360,8 @@ const unassignedReminders = async (now: Date) => {
   const floor = new Date(now.getTime() - 72 * HOUR_MS);
   const openTickets = await db.select().from(tickets).where(and(
     isNull(tickets.deletedAt), isNull(tickets.declinedAt), isNull(tickets.assigneeId), isNull(tickets.unassignedNotifiedAt),
-    eq(tickets.status, 'OPEN'), lte(tickets.createdAt, cutoff), gt(tickets.createdAt, floor),
+    eq(tickets.status, 'OPEN'), eq(tickets.awaitingHeadApproval, false),
+    sql`COALESCE(${tickets.assignmentApprovedAt}, ${tickets.createdAt}) <= ${cutoff}`, sql`COALESCE(${tickets.assignmentApprovedAt}, ${tickets.createdAt}) > ${floor}`,
   )).limit(BATCH);
   await forEachLimit(openTickets, NOTIFY_PARALLEL, (t) => notificationService.notifyUnassignedReminder({ _id: t.id, title: t.title, departmentId: t.departmentId }, 'TICKET'));
   if (openTickets.length) await db.update(tickets).set({ unassignedNotifiedAt: now }).where(inArray(tickets.id, openTickets.map((t) => t.id)));

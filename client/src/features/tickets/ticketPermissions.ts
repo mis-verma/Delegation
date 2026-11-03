@@ -11,8 +11,7 @@ export const canChangeTicket = (
   if (ticket.awaitingHeadApproval) return false;
   if (user.role === 'AGENT' || user.role === 'USER') return ticket.assigneeId === user.id || ticket.userId === user.id;
   const sameStore = !!user.storeId && ticket.storeId === user.storeId;
-  if (user.role === 'MANAGER') return sameStore || (!!user.departmentId && ticket.departmentId === user.departmentId);
-  if (user.role === 'SENIOR') return sameStore;
+  if (user.role === 'MANAGER' || user.role === 'SENIOR') return sameStore || (!!user.departmentId && ticket.departmentId === user.departmentId);
   return false;
 };
 

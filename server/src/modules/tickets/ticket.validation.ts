@@ -79,6 +79,10 @@ export const ownerStatsQuerySchema = z.object({
     storeId : objectId.optional(),
 })
 
+export const approveAssignmentSchema = z.object({
+    assigneeId : objectId.optional(),
+})
+
 export const verifyTicketSchema = z.object({
     action : z.enum(["APPROVE", "REJECT"]),
     note : z.string().optional(),

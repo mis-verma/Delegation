@@ -43,6 +43,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
     const person = id ? people?.find((p) => p.id === id) : undefined;
     return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
   };
+  const personName = (p: { firstName: string; lastName?: string | null } | null | undefined) => (p ? `${p.firstName}${p.lastName ? ` ${p.lastName}` : ''}` : undefined);
   const allTasks = tasksQuery.data?.data ?? NO_TASKS;
   const myTasks = useMemo(
     () => allTasks
@@ -139,8 +140,8 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
               key={task.id}
               task={task}
               now={now}
-              raiserName={nameOf(task.userId)}
-              assigneeName={nameOf(task.assigneeId)}
+              raiserName={personName(task.raisedBy) ?? nameOf(task.userId)}
+              assigneeName={personName(task.assigneePerson) ?? nameOf(task.assigneeId)}
               departmentName={departments?.find((d) => d.id === task.departmentId)?.name}
             />
           ))}

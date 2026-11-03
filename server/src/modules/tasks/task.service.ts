@@ -131,7 +131,7 @@ export const taskService = {
         if (!rows.length) return { data: [], meta };
 
         const taskIds = rows.map((t) => t.id);
-        const decisionPeople = await peopleByIds([...new Set(rows.flatMap((t) => [t.assignmentApprovedBy, t.declinedBy]).filter((v): v is string => !!v))]);
+        const decisionPeople = await peopleByIds([...new Set(rows.flatMap((t) => [t.assignmentApprovedBy, t.declinedBy, t.userId, t.assigneeId]).filter((v): v is string => !!v))]);
         const approvalMap = await approvalsByTask(taskIds);
         const [attachmentRows, tagMap, coAssigneeMap, reviewerMap] = await Promise.all([
             db.select({ taskId: taskAttachments.taskId, url: taskAttachments.url, mimeType: taskAttachments.mimeType })
@@ -178,6 +178,8 @@ export const taskService = {
                 reviewers: reviewerMap.get(task.id) ?? [],
                 assignmentApprover: task.assignmentApprovedBy ? decisionPeople.get(task.assignmentApprovedBy) ?? null : null,
                 decliner: task.declinedBy ? decisionPeople.get(task.declinedBy) ?? null : null,
+                raisedBy: decisionPeople.get(task.userId) ?? null,
+                assigneePerson: task.assigneeId ? decisionPeople.get(task.assigneeId) ?? null : null,
                 departmentApprovals: approvalMap.get(task.id) ?? [],
                 ...(includeChecklistSummary
                     ? { checklistSummary: checklistSummaryByTask.get(task.id) ?? { total: 0, done: 0, missingPhotos: 0 } }

@@ -1,7 +1,7 @@
 import { runWithCover, mergePendingApprovals } from "../approvalCover/coverAuthority.js"
 import { type Request , type Response } from "express"
 import { ticketService } from "./ticket.service.js"
-import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema } from "./ticket.validation.js"
+import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema, approveAssignmentSchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { routeParam } from "../../utils/routeParam.js"
@@ -49,7 +49,7 @@ export const ticketController = {
     }),
 
     approveAssignment : asyncHandler(async (req : Request , res : Response) => {
-        const ticket = await runWithCover(req.user!, (actor) => ticketService.approveAssignment(routeParam(req, "id"), actor))
+        const ticket = await runWithCover(req.user!, (actor) => ticketService.approveAssignment(routeParam(req, "id"), actor, approveAssignmentSchema.parse(req.body ?? {}).assigneeId))
         res.json({ success : true , data : ticket })
     }),
 
