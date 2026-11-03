@@ -1,10 +1,12 @@
 import { CheckCircle2, Circle, AlertTriangle, ImageOff, Flag } from 'lucide-react';
 import { Skeleton } from '../../components';
-import { summarizeChecklists, type PreviewItem, type PreviewChecklist } from './checklistSummary';
+import { qualifyingPhotoCount, summarizeChecklists, type PreviewItem, type PreviewChecklist } from './checklistSummary';
 import { PhotoThumbs } from './PhotoThumbs';
 
 const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewItem) => void }) => {
-  const missingRequiredPhotos = item.requiredImageCount > 0 && item.images.length < item.requiredImageCount;
+  const qualifying = qualifyingPhotoCount(item);
+  const missingRequiredPhotos = item.requiredImageCount > 0 && qualifying < item.requiredImageCount;
+  const notLive = !!item.requiresLivePhoto && item.images.length > qualifying;
   const needsAttention = !item.isDone || missingRequiredPhotos;
 
   return (
@@ -19,9 +21,9 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
           {item.label}
         </span>
         {missingRequiredPhotos && (
-          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} photo${item.requiredImageCount === 1 ? '' : 's'}, has ${item.images.length}`}>
+          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} ${item.requiresLivePhoto ? 'live ' : ''}photo${item.requiredImageCount === 1 ? '' : 's'}, has ${qualifying}${notLive ? ` (${item.images.length - qualifying} from the gallery do not count)` : ''}`}>
             <AlertTriangle size={11} strokeWidth={2.5} />
-            {item.images.length}/{item.requiredImageCount}
+            {notLive ? 'Not live ' : ''}{qualifying}/{item.requiredImageCount}
           </span>
         )}
         {onFlag && needsAttention && (
