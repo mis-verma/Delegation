@@ -130,7 +130,7 @@ export const DepartmentField = ({
       trigger={trigger}
       title={multiple ? 'Choose departments' : 'Choose a department'}
       popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
-      popoverClassName="w-[min(22rem,calc(100vw-2rem))]"
+      popoverClassName="w-[min(22rem,calc(100vw-2rem))] max-h-80"
       sheetFooter={isPhone && multiple && (
         <Button variant="primary" onClick={() => setOpen(false)} className="w-full h-11 font-display">
           {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
@@ -154,6 +154,13 @@ export const DepartmentField = ({
           onSelect: () => { setOpen(false); onCreateNew(); },
         }] : undefined}
       />
+      {multiple && !isPhone && (
+        <div className="sticky bottom-0 -mx-3 -mb-3 mt-2 border-t border-border/60 bg-surface px-3 py-2">
+          <Button variant="primary" size="sm" onClick={() => setOpen(false)} className="w-full font-display">
+            {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
+          </Button>
+        </div>
+      )}
     </PickerShell>
   );
 };
