@@ -12,6 +12,7 @@ import {
 import { useChecklistInstanceQuery } from '../hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
+import { PhotoReviewContext } from './photoReviewContext';
 import { DetailItemRow } from './ChecklistDetailItemRow';
 import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import {
@@ -355,6 +356,7 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
+      <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { instanceId } : null}>
       <div className="flex flex-col gap-3">
         {show === 'left' && shownItems.length === 0 && (
           <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4')}>
@@ -401,6 +403,7 @@ export const ChecklistInstanceDetail = () => {
           );
         })}
       </div>
+      </PhotoReviewContext.Provider>
 
       {show === 'one' && instance.items.length > 1 && (
         <div className="flex items-center justify-between gap-3">

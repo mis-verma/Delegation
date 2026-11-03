@@ -12,6 +12,8 @@ import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
 import { EvidenceThumb } from './EvidenceThumb';
+import { FailedPhotoNote } from './FailedPhotoNote';
+import { isFailedPhoto, passingPhotos } from '../photoQuality';
 import { CaptureButton, UploadingHint } from './CaptureButton';
 import { isFlaggedAnswer } from '../checklistDisplay';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
@@ -70,12 +72,12 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const images = (item.images ?? []).filter((img) => img.purpose === conditionalPurpose);
   const sessionPhotos = images.filter((img) => !baselinePhotos.current.has(img.id));
   const reasonReady = !needsReason || reasonDraft.trim().length > 0;
-  const photoReady = !needsPhoto || images.length > 0;
+  const photoReady = !needsPhoto || passingPhotos(images).length > 0;
   const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
 
   const discardSession = () => {
-    for (const img of sessionPhotos) deleteImage.mutate(img.id);
-    baselinePhotos.current = new Set(images.filter((img) => !sessionPhotos.includes(img)).map((img) => img.id));
+    for (const img of sessionPhotos) if (!isFailedPhoto(img)) deleteImage.mutate(img.id);
+    baselinePhotos.current = new Set(images.filter((img) => !sessionPhotos.includes(img) || isFailedPhoto(img)).map((img) => img.id));
   };
 
   const latestReason = useRef(reasonDraft);
@@ -235,6 +237,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
                   ))}
                 </div>
               )}
+              <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
               {pendingAnswer && (
                 <div className="flex flex-wrap items-center gap-2">
                   <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={(files) => handleFiles(files, 'LIVE')} />

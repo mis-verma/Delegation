@@ -26,7 +26,14 @@ export type ChecklistInstanceImage = {
   reusedFromEarlier?:      boolean;
   takenBeforeRun?:         boolean;
   qualityFlags?:           string | null;
+  reviewStatus?:           PhotoReviewStatus;
+  reviewReason?:           string | null;
+  reviewedBy?:             string | null;
+  reviewedAt?:             string | null;
 };
+
+export type PhotoReviewStatus = 'NONE' | 'REJECTED' | 'ACCEPTED';
+export type PhotoReviewReason = 'BLURRY' | 'TEXT_UNREADABLE' | 'CROPPED' | 'OTHER';
 
 export type ChecklistInstanceItemSubmissionImage = {
   id:             string;
@@ -572,6 +579,9 @@ export const checklistInstanceApi = {
 
   deleteImage: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-instance-images/${id}`, { method: 'DELETE' }),
+
+  reviewImage: (id: string, payload: { action: 'REJECT'; reason: PhotoReviewReason } | { action: 'ACCEPT' }) =>
+    apiFetch<ApiResponse<ChecklistInstanceImage>>(`/checklist-instance-images/${id}/review`, { method: 'POST', body: JSON.stringify(payload) }),
 
   getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string, includeDeleted?: boolean, assigneeId?: string) => {
     const params = new URLSearchParams({ groupBy });

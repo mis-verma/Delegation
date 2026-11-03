@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -10,7 +10,7 @@ import {
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstanceImage, type PhotoReviewReason, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
@@ -462,16 +462,36 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   return mutation;
 };
 
+const UPLOAD_BATCH = 3;
+
+const showUploadedPhotos = (queryClient: QueryClient, instanceId: string, itemId: string, images: ChecklistInstanceImage[]) => {
+  queryClient.setQueryData<ChecklistInstance>(KEYS.instanceDetail(instanceId), (current) => current && ({
+    ...current,
+    items: current.items.map((item) => (item.id === itemId
+      ? { ...item, images: [...(item.images ?? []).filter((img) => !images.some((fresh) => fresh.id === img.id)), ...images] }
+      : item)),
+  }));
+};
+
 export const useUploadChecklistInstanceImagesMutation = (instanceId: string) => {
+  const queryClient = useQueryClient();
   const [progress, setProgress] = useState<number | null>(null);
   const mutation = useEntityMutation({
     mutationFn: async ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) => {
       setProgress(0);
+      const saved: ChecklistInstanceImage[] = [];
       try {
-        const images = (await checklistInstanceApi.uploadImages(itemId, files, captureMethod, purpose, setProgress)).data;
-        const weak = weakPhotoMessage(images);
-        if (weak) toast.warning(weak, { duration: 10000 });
-        return images;
+        for (let start = 0; start < files.length; start += UPLOAD_BATCH) {
+          const batch = files.slice(start, start + UPLOAD_BATCH);
+          const images = (await checklistInstanceApi.uploadImages(itemId, batch, captureMethod, purpose, (percent) => {
+            setProgress(Math.round(((start + (percent / 100) * batch.length) / files.length) * 100));
+          })).data;
+          saved.push(...images);
+          showUploadedPhotos(queryClient, instanceId, itemId, images);
+          const weak = weakPhotoMessage(images);
+          if (weak) toast.warning(weak, { duration: 10000 });
+        }
+        return saved;
       } finally {
         setProgress(null);
       }
@@ -483,6 +503,16 @@ export const useUploadChecklistInstanceImagesMutation = (instanceId: string) => 
   });
   return { ...mutation, progress };
 };
+
+export const useReviewChecklistInstanceImageMutation = (instanceId: string) =>
+  useEntityMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & ({ action: 'REJECT'; reason: PhotoReviewReason } | { action: 'ACCEPT' })) =>
+      checklistInstanceApi.reviewImage(id, payload).then((r) => r.data),
+    invalidateKeys: [KEYS.instanceDetail(instanceId)],
+    successMessage: (image) => (image.reviewStatus === 'REJECTED' ? 'Photo rejected. Send the question back so they can add a clear one.' : 'Photo accepted'),
+    errorFallback: "Couldn't save your decision on that photo. Try again.",
+    retryable: true,
+  });
 
 export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
   useEntityMutation({

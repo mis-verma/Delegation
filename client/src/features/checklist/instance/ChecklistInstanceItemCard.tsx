@@ -18,6 +18,8 @@ import { CaptureButton, UploadingHint } from './CaptureButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 import { formatDateTime } from '../checklistDisplay';
+import { passingPhotos } from '../photoQuality';
+import { FailedPhotoNote } from './FailedPhotoNote';
 
 interface ChecklistInstanceItemCardProps {
   item:       ChecklistInstanceItem;
@@ -34,9 +36,11 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
   const mediaWord = isVideoItem ? 'video' : 'photo';
 
   const images = (item.images ?? []).filter(i => i.purpose === 'GENERAL');
+  const clearImages = passingPhotos(images);
+  const failedCount = images.length - clearImages.length;
   const qualifying = item.requiresLivePhoto
-    ? images.filter(i => i.captureMethod === 'LIVE').length
-    : images.length;
+    ? clearImages.filter(i => i.captureMethod === 'LIVE').length
+    : clearImages.length;
   const photosSatisfied = item.requiredImageCount > 0 && qualifying >= item.requiredImageCount;
   const interactive = canWork && !isLocked;
   const canReopen = useCanReopen();
@@ -118,6 +122,8 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
           ))}
         </div>
       )}
+
+      <FailedPhotoNote count={failedCount} needsMore={!photosSatisfied} />
 
       {interactive && !item.isDone && (
         <div className="flex flex-col gap-2">

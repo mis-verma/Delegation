@@ -1,5 +1,5 @@
 import { answerVerdict } from '../checklistCompliance';
-import { hasWeakPhoto } from '../photoQuality';
+import { hasWeakPhoto, isFailedPhoto } from '../photoQuality';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 export interface ItemFlags {
@@ -25,10 +25,11 @@ const generalPhotos = (item: Pick<ChecklistInstanceItem, 'images'>) =>
 export const generalPhotoCount = (item: Pick<ChecklistInstanceItem, 'images'>): number => generalPhotos(item).length;
 
 export const photoBreakdown = (item: PhotoItem) => {
-  const photos = generalPhotos(item);
+  const all = generalPhotos(item);
+  const photos = all.filter((img) => !isFailedPhoto(img));
   const live = photos.filter((img) => img.captureMethod === 'LIVE').length;
   const qualifying = item.requiresLivePhoto ? live : photos.length;
-  return { live, gallery: photos.length - live, qualifying };
+  return { live, gallery: photos.length - live, qualifying, failed: all.length - photos.length };
 };
 
 export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
