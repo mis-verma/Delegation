@@ -4,16 +4,24 @@ import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { useUpdateTaskMutation } from './hook';
 import { STATUS_LABEL } from './taskDisplay';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
+import { FRONT_LINE_BACK_MESSAGE, isBackwardMove } from './taskStatusModel';
 import type { Task } from '../../api/task';
 
 export const useTaskStatusMove = () => {
   const updateMutation = useUpdateTaskMutation({ silent: true });
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const [pendingMove, setPendingMove] = useState<{ task: Task; toStatus: Task['status'] } | null>(null);
 
   const requestMove = useCallback((task: Task, toStatus: Task['status']) => {
     if (task.status === toStatus) return;
+
+    if (frontLine && isBackwardMove(task.status, toStatus)) {
+      toast.error(FRONT_LINE_BACK_MESSAGE);
+      return;
+    }
 
     if (task.status === 'done' && !isAdmin) {
       toast.error('This delegation is approved and closed. Only an admin can reopen it.');
@@ -40,7 +48,7 @@ export const useTaskStatusMove = () => {
     }
 
     setPendingMove({ task, toStatus });
-  }, [isAdmin]);
+  }, [isAdmin, frontLine]);
 
   const statusRemarkDialog: ReactNode = pendingMove && (
     <TaskStatusRemarkDialog

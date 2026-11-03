@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
 import { useAuth } from "../../context/AuthContext";
+import { OWN_SCOPE_ROLES } from "../../api/auth";
 import { TaskVerifyActions } from "./TaskVerifyActions";
 import { canApproveTicket, isFinalApproval, taskApprovalSubject } from "../../lib/ticketApproval";
 import { useApprovers } from "../checklist/useApprovalCover";
@@ -64,7 +65,9 @@ const daysLeftLabel = (dueDate: string) => {
 
 export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove }: TaskCardProps) => {
   const deleteMutation = useDeleteTaskMutation();
-  const canDelete = useAuth().user?.role === 'ADMIN';
+  const authUser = useAuth().user;
+  const canDelete = authUser?.role === 'ADMIN';
+  const frontLine = !!authUser && OWN_SCOPE_ROLES.includes(authUser.role);
   const confirm = useConfirm();
   const priority = PRIORITY_MAP[task.priority];
   const coverPhoto = coverPhotoFor(task.attachments);
@@ -144,7 +147,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 <DropdownMenuSubContent className="w-52 rounded-xl">
                   <DropdownMenuLabel className="t-meta text-text-muted font-medium">Move to</DropdownMenuLabel>
                   {MOVABLE_STATUSES.map((status) => {
-                    const blocked = isMoveBlocked(task.status, status);
+                    const blocked = isMoveBlocked(task.status, status, frontLine);
                     return (
                       <DropdownMenuItem
                         key={status}

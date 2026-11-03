@@ -23,6 +23,7 @@ import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/r
 import { NOT_DELETED, additionalAssigneeTaskIds, buildVisibilityCondition, assertCanVerify, buildMutationCondition, assertCanSetReviewers, assertFrontLineCanEdit } from "./taskAccess.js"
 import { peopleByIds, approverNames, tagsByTask, syncTaskTags, taskTagIds, syncTaskReviewers, reviewersByTask, replaceAdditionalAssignees, loadStatusUpdates } from "./taskRelations.js"
 import { dropTaskSummaries, complianceReport, ownerStats, summary, pendingApproval } from "./taskReports.js"
+import { FRONT_LINE_BACK_MESSAGE, isBackwardMove } from "./taskStatusRules.js"
 export type { TaskOwnerStatsRow, TaskPendingApprovalRow, TaskSummaryRow, TaskSummaryScope } from "./taskReports.js"
 
 const DAY_MS = 86_400_000;
@@ -408,6 +409,10 @@ export const taskService = {
             }
         }
 
+        if (isOwnScopeRole(user.role) && statusMoves && isBackwardMove(beforeStatus, input.status!)) {
+            throw AppError.forbidden(FRONT_LINE_BACK_MESSAGE)
+        }
+
         if (input.status === "draft" && beforeStatus !== "draft") {
             throw AppError.badRequest("A delegation that has gone out can't be turned back into a draft.")
         }
@@ -464,8 +469,10 @@ export const taskService = {
 
         const isStatusChange = input.status !== undefined && input.status !== beforeStatus;
         const remark = statusRemark?.trim();
-        if (isStatusChange && !remark && input.status !== "pending_approval") {
-            throw AppError.badRequest("A remark is required to change a delegation's status.")
+        if (isStatusChange && !remark) {
+            throw AppError.badRequest(input.status === "pending_approval"
+                ? "Write what was done before sending this delegation for review."
+                : "A remark is required to change a delegation's status.")
         }
 
         const update: Record<string, unknown> = { ...rest, updatedAt: new Date() };

@@ -20,6 +20,7 @@ import { TicketDescription } from '../tickets/detail/TicketDescription';
 import { STATUS_LABEL, NEXT_STATUS, endOfDay, PRIORITY_MAP, taskCode } from './taskDisplay';
 import { TaskDetailHeader } from './TaskDetailHeader';
 import { TaskStatusCard } from './TaskStatusCard';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { FORWARD_LABEL, BACK_STATUS, BACK_LABEL, CAN_HOLD, PUBLISH_REMARK, draftPublishProblem } from './taskStatusModel';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
@@ -727,6 +728,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { data: fresh } = useTaskQuery(initialTask.id);
   const task = fresh ?? initialTask;
   const { user } = useAuth();
+  const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const approvers = useApprovers();
 
   const [sendingAgain, setSendingAgain] = useState(false);
@@ -891,7 +893,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
               else if (nextStatus) setAdvanceTo(nextStatus);
             }}
             onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}
-            onBack={BACK_STATUS[task.status] ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
+            onBack={BACK_STATUS[task.status] && !frontLine ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
             onReopen={task.status === 'done' && user?.role === 'ADMIN' ? () => setAdvanceTo('in_progress') : null}
             onSendAgain={task.declinedAt && task.userId === user?.id ? () => setSendingAgain(true) : null}
             isAdvancing={statusMutation.isPending}

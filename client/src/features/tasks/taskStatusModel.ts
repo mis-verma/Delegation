@@ -23,8 +23,19 @@ export const BACK_LABEL: Partial<Record<Status, string>> = {
   done: 'Reopen',
 };
 
-export const isMoveBlocked = (from: Status, to: Status): boolean =>
-  to === from
+const FORWARD_ORDER: Status[] = ['draft', 'todo', 'in_progress', 'pending_approval', 'done'];
+
+export const isBackwardMove = (from: Status, to: Status): boolean => {
+  const was = FORWARD_ORDER.indexOf(from);
+  const next = FORWARD_ORDER.indexOf(to);
+  return was !== -1 && next !== -1 && next < was;
+};
+
+export const FRONT_LINE_BACK_MESSAGE = 'Moving a delegation back is done by the person who reviews it. Ask your department head, or use Put on hold if the work has stopped.';
+
+export const isMoveBlocked = (from: Status, to: Status, frontLine = false): boolean =>
+  (frontLine && isBackwardMove(from, to))
+  || to === from
   || to === 'done'
   || (to === 'pending_approval' && from !== 'in_progress')
   || (to === 'on_hold' && !CAN_HOLD.includes(from))

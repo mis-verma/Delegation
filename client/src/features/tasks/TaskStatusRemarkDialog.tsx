@@ -45,10 +45,9 @@ export const TaskStatusRemarkDialog = ({
     from={<StatusPill status={task.status} />}
     to={<StatusPill status={toStatus} />}
     confirmLabel={confirmLabelFor(task.status, toStatus, STATUS_LABEL[toStatus])}
-    optional={toStatus === 'pending_approval'}
-    title={toStatus === 'on_hold' ? 'Why is it on hold?' : task.status === 'done' ? 'Why reopen it?' : undefined}
+    title={toStatus === 'pending_approval' ? 'What was done?' : toStatus === 'on_hold' ? 'Why is it on hold?' : task.status === 'done' ? 'Why reopen it?' : undefined}
     description={toStatus === 'pending_approval'
-      ? 'Add a note for the reviewer if you want to. You can also mark it completed without one.'
+      ? 'Write what you did, so your head can check it fast. It goes to your department head for approval, then to PC.'
       : toStatus === 'on_hold'
         ? 'Everyone working on this delegation will see the reason. The due date keeps running while it is on hold.'
         : task.status === 'done'
@@ -56,7 +55,7 @@ export const TaskStatusRemarkDialog = ({
         : BACK_STATUS[task.status] === toStatus
         ? 'Say why it is moving back. Everyone working on this delegation will see the note.'
         : "Status changes are recorded on this delegation's timeline for everyone working on it."}
-    phoneNote={toStatus === 'on_hold' ? 'The due date keeps running while it is on hold.' : undefined}
+    phoneNote={toStatus === 'on_hold' ? 'The due date keeps running while it is on hold.' : toStatus === 'pending_approval' ? 'Say what was done. Your head approves it next.' : undefined}
     suggestions={task.status === 'done' ? REOPEN_SUGGESTIONS : REMARK_SUGGESTIONS[toStatus]}
     onCancel={onCancel}
     onConfirm={onConfirm}

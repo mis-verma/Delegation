@@ -7,6 +7,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from './taskDisplay';
 import { isMoveBlocked } from './taskStatusModel';
 import { canMoveTask } from './taskPermissions';
@@ -20,6 +21,7 @@ interface TaskMoveMenuProps {
 export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
   const { user } = useAuth();
   if (!canMoveTask(task, user)) return null;
+  const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
 
   return (
     <DropdownMenu>
@@ -39,7 +41,7 @@ export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
         {MOVABLE_STATUSES.map((status) => (
           <DropdownMenuItem
             key={status}
-            disabled={isMoveBlocked(task.status, status)}
+            disabled={isMoveBlocked(task.status, status, frontLine)}
             onClick={() => onMove(task, status)}
             className="gap-2 py-2 cursor-pointer"
           >
