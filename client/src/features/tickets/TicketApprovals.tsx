@@ -12,7 +12,7 @@ import { useRefreshAfterDecision } from '../verification/useRefreshAfterDecision
 import { formatWaiting } from '../verification/verificationModel';
 import { useDepartmentsQuery, useTicketsAwaitingHeadQuery } from './hook';
 import { HeadRequestRow } from './approvals/HeadRequestRow';
-import { useAssignableUsersQuery, useTasksQuery } from '../tasks/hook';
+import { useAssignableUsersQuery, useTasksAwaitingHeadQuery } from '../tasks/hook';
 import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
 import { awaitingRequests } from '../tasks/taskFlow';
 import type { Ticket } from '../../api/ticket';
@@ -27,7 +27,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const tasksQuery = usePendingTasksQuery('pending_approval');
   const boardQuery = useTicketsAwaitingHeadQuery();
   const { data: departments } = useDepartmentsQuery();
-  const allTasksQuery = useTasksQuery();
+  const allTasksQuery = useTasksAwaitingHeadQuery();
   const { data: people } = useAssignableUsersQuery();
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule } = useDeferredDecisions({ afterSaved: refresh });
@@ -66,7 +66,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const failed = tasksQuery.isError || boardQuery.isError || allTasksQuery.isError;
 
   const approveTask = useCallback((id: string, title: string) => {
-    schedule({ id, verb: 'Approved, sent to PC', label: title, run: approveTaskRun(id) });
+    schedule({ id, verb: 'Approved, now with the final approver (PC)', label: title, run: approveTaskRun(id) });
   }, [schedule]);
   const sendBackTask = useCallback((id: string, title: string, note: string) => {
     schedule({ id, verb: 'Sent back', label: title, run: rejectTaskRun(id, note) });
@@ -86,7 +86,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
         <ul className="flex flex-wrap gap-2" aria-label="Summary">
           <li><IconChip icon={UserCheck} tone="bg-primary-600" label={`${waitingTotal} waiting for you`} labelClassName="tabular-nums" /></li>
           {oldest !== null && <li><IconChip icon={Clock} tone="bg-text-muted" label={`Oldest ${formatWaiting(oldest, now)}`} /></li>}
-          <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with PC now`} labelClassName="tabular-nums" /></li>
+          <li><IconChip icon={CheckCircle2} tone="bg-success" label={`${withPc} with the final approver (PC)`} labelClassName="tabular-nums" /></li>
         </ul>
       )}
 

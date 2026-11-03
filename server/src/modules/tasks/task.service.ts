@@ -2,7 +2,7 @@ import { asRows } from "../../utils/dbErrors.js"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskDepartmentApprovals, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, and, or, inArray, sql, isNull, isNotNull, ne } from "drizzle-orm"
+import { asc, eq, and, or, inArray, sql, isNull, isNotNull, ne } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
@@ -118,7 +118,7 @@ export const taskService = {
         const [rows, counts] = await Promise.all([
             db.select().from(tasks)
                 .where(where)
-                .orderBy(...taskListOrder(sort))
+                .orderBy(...(query.awaitingHead && !query.sort ? [asc(tasks.createdAt), asc(tasks.id)] : taskListOrder(sort)))
                 .offset((page - 1) * limit)
                 .limit(limit),
             taskListCounts(baseWhere, scopeWhere, optionWhere, bucket, now),

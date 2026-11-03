@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { users } from '../../db/schema/core.js';
+import { departments, users } from '../../db/schema/core.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { notifyMany, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
 
@@ -31,9 +31,23 @@ export const notifyTicketAssigned = async (ticket: { _id: string; title: string;
   return [...sent, ...toHeads];
 }
 
+const personLine = async (userId: string | null | undefined): Promise<string | null> => {
+  if (!userId) return null;
+  const [row] = await db
+    .select({ firstName: users.firstName, lastName: users.lastName, department: departments.name })
+    .from(users)
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row) return null;
+  const name = `${row.firstName}${row.lastName ? ` ${row.lastName}` : ''}`;
+  return row.department ? `${name} (${row.department})` : name;
+};
+
 export const notifyTicketAwaitingHead = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null; userId?: string | null }) => {
   if (!ticket.departmentId) return [];
   const raiserId = ticket.userId ? ticket.userId.toString() : null;
+  const raiserLine = await personLine(raiserId);
   const heads = await db
     .select({ id: users.id })
     .from(users)
@@ -41,7 +55,7 @@ export const notifyTicketAwaitingHead = async (ticket: { _id: string; title: str
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TICKET_AWAITING_HEAD',
     title: 'New ticket needs your approval',
-    message: `"${ticket.title}" was raised for your department. Approve it first, then the team can work on it.`,
+    message: `${raiserLine ?? 'Someone'} sent you "${ticket.title}". Approve it and pick who does it, send it to the right team, or decline it.`,
     ticketId: ticket._id.toString(),
   });
 }
@@ -108,10 +122,11 @@ export const notifyTicketProgress = async (ticket: { _id: string; title: string;
 
 export const notifyTicketDeclined = async (ticket: { _id: string; title: string; userId: string; assigneeId?: string | null }, reason: string, actorId: string) => {
   const recipientIds = [ticket.userId?.toString(), ticket.assigneeId?.toString()].filter((id): id is string => !!id && id !== actorId);
+  const declinedBy = await personLine(actorId);
   return notifyMany(recipientIds, {
     type: 'TICKET_DECLINED',
     title: 'Ticket declined',
-    message: `"${ticket.title}" was declined by the department: ${reason}`,
+    message: `"${ticket.title}" was declined${declinedBy ? ` by ${declinedBy}` : ' by the department'}: ${reason}`,
     ticketId: ticket._id.toString(),
   });
 }

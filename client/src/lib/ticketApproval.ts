@@ -53,7 +53,7 @@ export const isFinalApproval = (users: Approvers, ticket: Pick<ApprovalTicket, '
 
 export const STAGE_LABEL: Record<ApprovalStage, string> = {
   HOD: 'With the department head',
-  PC: 'With PC for final approval',
+  PC: 'With the final approver (PC)',
 };
 
 export const taskApprovalSubject = (task: {

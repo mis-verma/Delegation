@@ -68,7 +68,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
             <ArrowRight size={13} className="shrink-0 text-text-light" strokeWidth={2.5} aria-hidden="true" />
             <span className="inline-flex min-w-0 items-center gap-1.5">
               <Avatar name={assigneeName} />
-              <span className={`truncate ${assigneeName ? '' : 'text-text-muted'}`}>{assigneeName ?? 'Nobody picked yet'}</span>
+              <span className={`truncate ${assigneeName ? '' : 'text-text-muted'}`}>{assigneeName ?? 'No person yet'}</span>
             </span>
           </span>
           <span className="flex flex-wrap items-center gap-1.5">

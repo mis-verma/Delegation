@@ -55,7 +55,7 @@ export const HeadTaskRequestRow = ({ task, now, raiserName, assigneeName, depart
             <ArrowRight size={13} className="shrink-0 text-text-light" strokeWidth={2.5} aria-hidden="true" />
             <span className="inline-flex min-w-0 items-center gap-1.5">
               <Avatar name={assignee} />
-              <span className={`truncate ${assignee ? '' : 'text-text-muted'}`}>{assignee ?? 'Nobody picked yet'}</span>
+              <span className={`truncate ${assignee ? '' : 'text-text-muted'}`}>{assignee ?? 'No person yet'}</span>
             </span>
           </span>
           <span className="flex flex-wrap items-center gap-1.5">

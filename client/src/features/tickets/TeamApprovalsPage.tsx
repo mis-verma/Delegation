@@ -11,7 +11,7 @@ const ApprovalCoverCard = lazy(() => import('../checklist/ApprovalCoverCard').th
 type ApprovalsTab = 'work' | 'checklists';
 
 const TABS: readonly ApprovalsTab[] = ['work', 'checklists'];
-const LABELS: Record<ApprovalsTab, string> = { work: 'Requests and finished work', checklists: 'Checklists' };
+const LABELS: Record<ApprovalsTab, string> = { work: 'To decide and finished work', checklists: 'Checklists' };
 
 export const TeamApprovalsPage = () => {
   const [params, setParams] = useSearchParams();

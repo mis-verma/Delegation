@@ -28,7 +28,7 @@ export const TicketFlowChips = ({ ticket, showFreshness = true }: TicketFlowChip
       {awaiting && (needsMyDecision ? (
         <IconChip icon={BellRing} tone="bg-warning" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
       ) : (
-        <IconChip icon={ShieldQuestion} tone="bg-warning" label="Head approval" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
+        <IconChip icon={ShieldQuestion} tone="bg-warning" label="Waiting for head" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
       ))}
       {headApproved && (
         <IconChip

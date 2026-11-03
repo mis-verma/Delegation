@@ -121,7 +121,7 @@ export const HeadDecisionPanel = ({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <PersonPill person={raiser} empty="Unknown" />
         <ArrowRight size={16} className="hidden shrink-0 text-text-light sm:block" strokeWidth={2.5} aria-hidden="true" />
-        <PersonPill person={assignee} empty="Nobody picked yet" />
+        <PersonPill person={assignee} empty="No person yet" />
       </div>
 
       {several && (
@@ -141,7 +141,7 @@ export const HeadDecisionPanel = ({
       <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
         <Step icon={Send} label="Raised" state="done" />
         <Connector filled />
-        <Step icon={ShieldQuestion} label={several ? 'Heads decide' : 'Head decides'} state="current" />
+        <Step icon={ShieldQuestion} label={several ? 'Heads approve' : 'Head approves'} state="current" />
         <Connector filled={false} />
         <Step icon={Play} label="Work starts" state="next" />
       </ol>
