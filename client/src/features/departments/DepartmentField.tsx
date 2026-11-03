@@ -2,15 +2,20 @@ import { useMemo, useState } from 'react';
 import { Building2, ChevronDown, Plus } from 'lucide-react';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
+import { Button } from '../../components/button';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useStoresQuery } from '../tickets/hook';
 import type { Department } from '../../api/departments';
 
 interface DepartmentFieldProps {
   id?: string;
-  value: string;
-  onChange: (id: string) => void;
+  value?: string;
+  onChange?: (id: string) => void;
+  selectedIds?: string[];
+  onChangeMany?: (ids: string[]) => void;
+  multiple?: boolean;
   departments?: Department[];
   isLoading?: boolean;
   disabled?: boolean;
@@ -32,18 +37,25 @@ const DepartmentTile = ({ name, size }: { name: string | null; size: 'sm' | 'md'
   </span>
 );
 
-export const DepartmentField = ({ id, value, onChange, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className }: DepartmentFieldProps) => {
+export const DepartmentField = ({
+  id, value = '', onChange, selectedIds = [], onChangeMany, multiple = false, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className,
+}: DepartmentFieldProps) => {
   const [open, setOpen] = useState(false);
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: stores } = useStoresQuery();
   const storeName = useMemo(() => new Map((stores ?? []).map((s) => [s.id, s.name])), [stores]);
 
+  const byId = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d])), [departments]);
   const hintOf = (d: Department) => (d.storeId ? storeName.get(d.storeId) : undefined);
-  const picked = (departments ?? []).find((d) => d.id === value);
+  const activeIds = multiple ? selectedIds : value ? [value] : [];
+  const pickedList = activeIds.map((pid) => byId.get(pid)).filter((d): d is Department => !!d);
+  const picked = pickedList[0];
+  const extraCount = pickedList.length - 1;
 
   const options = useMemo<ListOption[]>(
     () => [
-      ...(noneLabel ? [{ value: '', label: noneLabel, lead: <DepartmentTile name={null} size="md" /> }] : []),
+      ...(!multiple && noneLabel ? [{ value: '', label: noneLabel, lead: <DepartmentTile name={null} size="md" /> }] : []),
       ...(departments ?? []).map((d) => ({
         value: d.id,
         label: d.name,
@@ -51,8 +63,21 @@ export const DepartmentField = ({ id, value, onChange, departments, isLoading = 
         lead: <DepartmentTile name={d.name} size="md" />,
       })),
     ],
-    [departments, noneLabel, storeName],
+    [departments, multiple, noneLabel, storeName],
   );
+
+  const toggle = (pid: string) => {
+    if (!multiple) {
+      onChange?.(pid);
+      setOpen(false);
+      return;
+    }
+    onChangeMany?.(activeIds.includes(pid) ? activeIds.filter((x) => x !== pid) : [...activeIds, pid]);
+  };
+
+  const subLine = multiple && extraCount > 0
+    ? `Main team, plus ${extraCount} more: ${pickedList.slice(1).map((d) => d.name).join(', ')}`
+    : picked && multiple ? 'Main team' : picked ? hintOf(picked) : undefined;
 
   const body = (
     <>
@@ -61,8 +86,11 @@ export const DepartmentField = ({ id, value, onChange, departments, isLoading = 
         <span className={cn('truncate t-meta font-display font-semibold', picked ? 'text-text' : 'text-text-muted')}>
           {isLoading ? 'Loading…' : picked ? picked.name : noneLabel ?? 'Choose a department'}
         </span>
-        {picked && hintOf(picked) && <span className="truncate t-meta leading-tight text-text-muted">{hintOf(picked)}</span>}
+        {picked && subLine && <span className="truncate t-meta leading-tight text-text-muted">{subLine}</span>}
       </span>
+      {multiple && extraCount > 0 && (
+        <span className="shrink-0 rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted">+{extraCount}</span>
+      )}
     </>
   );
 
@@ -79,7 +107,7 @@ export const DepartmentField = ({ id, value, onChange, departments, isLoading = 
       id={id}
       ref={setTriggerEl}
       type="button"
-      aria-label={picked ? `Department: ${picked.name}. Change` : 'Choose a department'}
+      aria-label={picked ? `Department: ${pickedList.map((d) => d.name).join(', ')}. Change` : 'Choose a department'}
       title="Change department"
       className={cn(
         'group/dept flex h-10 w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-surface pl-1.5 pr-2.5 text-left outline-none transition-colors duration-150 ease-out hover:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] pointer-coarse:h-11',
@@ -100,18 +128,24 @@ export const DepartmentField = ({ id, value, onChange, departments, isLoading = 
       open={open}
       onOpenChange={setOpen}
       trigger={trigger}
-      title="Choose a department"
+      title={multiple ? 'Choose departments' : 'Choose a department'}
       popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
       popoverClassName="w-[min(22rem,calc(100vw-2rem))]"
+      sheetFooter={isPhone && multiple && (
+        <Button variant="primary" onClick={() => setOpen(false)} className="w-full h-11 font-display">
+          {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
+        </Button>
+      )}
     >
       <OptionList
+        multiple={multiple}
         options={options}
-        selected={[value]}
+        selected={multiple ? activeIds : [value]}
         isLoading={isLoading}
         emptyText="No departments yet"
         searchable
         searchPlaceholder="Search departments…"
-        onToggle={(id) => { onChange(id); setOpen(false); }}
+        onToggle={toggle}
         topActions={onCreateNew ? [{
           key: 'create',
           label: 'New department',

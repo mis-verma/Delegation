@@ -3,8 +3,11 @@ import { FIELD_LABEL_CLASS, FIELD_CARD_CLASS } from './taskFormFieldStyles';
 import type { Department } from '../../api/departments';
 
 interface TaskFormDepartmentFieldProps {
-  value: string;
-  onChange: (value: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
+  multiple?: boolean;
+  selectedIds?: string[];
+  onChangeMany?: (ids: string[]) => void;
   departments?: Department[];
   isLoading: boolean;
   disabled?: boolean;
@@ -13,7 +16,7 @@ interface TaskFormDepartmentFieldProps {
   onCreateNew?: () => void;
 }
 
-export const TaskFormDepartmentField = ({ value, onChange, departments, isLoading, disabled = false, hideLabel = false, triggerClassName, onCreateNew }: TaskFormDepartmentFieldProps) => (
+export const TaskFormDepartmentField = ({ value, onChange, multiple, selectedIds, onChangeMany, departments, isLoading, disabled = false, hideLabel = false, triggerClassName, onCreateNew }: TaskFormDepartmentFieldProps) => (
   <div className={`group/field flex flex-col justify-end gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && (
       <label className={FIELD_LABEL_CLASS}>
@@ -23,6 +26,9 @@ export const TaskFormDepartmentField = ({ value, onChange, departments, isLoadin
     <DepartmentField
       value={value}
       onChange={onChange}
+      multiple={multiple}
+      selectedIds={selectedIds}
+      onChangeMany={onChangeMany}
       departments={departments}
       isLoading={isLoading}
       disabled={disabled}

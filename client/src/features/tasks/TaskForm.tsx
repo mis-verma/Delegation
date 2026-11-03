@@ -14,7 +14,6 @@ import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
 import { assignableUsersQueryOptions } from '../tickets/hook';
 import type { AssignableUser } from '../../api/users';
-import { ExtraDepartmentsField } from './ExtraDepartmentsField';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { TaskDescriptionField } from './TaskDescriptionField';
@@ -173,13 +172,13 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
     if (next) keepPeopleIn([next, ...extras]);
     else setAssigneeIds([]);
   };
-  const addExtraDepartment = (id: string) => setExtraDepartmentIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
-  const removeExtraDepartment = (id: string) => {
-    const extras = extraDepartmentIds.filter((d) => d !== id);
+  const changeDepartments = (ids: string[], apply: (value: string) => void) => {
+    const [primary = '', ...extras] = ids;
     setExtraDepartmentIds(extras);
-    keepPeopleIn([departmentId, ...extras].filter((d): d is string => !!d));
+    apply(primary);
+    if (primary) keepPeopleIn([primary, ...extras]);
+    else setAssigneeIds([]);
   };
-  const peopleInDepartment = (id: string) => assigneeIds.filter((p) => userDepartmentOf(p) === id).length;
 
   const headOfDepartment = (user?.role === 'MANAGER' || user?.role === 'SENIOR') ? user.departmentId ?? null : null;
   const involvedDepartmentIds = [...new Set([departmentId, ...assigneeIds.map(userDepartmentOf)].filter((id): id is string => !!id))];
@@ -408,7 +407,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
               icon={<Building2 size={14} className="text-text-light" />}
               required={ownScopeOnly}
               optional={!ownScopeOnly}
-              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the main team first. You can add more departments below.'}
+              hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Tap to pick one or more departments. The first one is the main team.'}
               error={errors.departmentId?.message}
             >
               <Controller
@@ -419,6 +418,9 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
                     hideLabel
                     value={field.value ?? ''}
                     onChange={(next) => changePrimaryDepartment(next, field.onChange)}
+                    multiple={!ownScopeOnly}
+                    selectedIds={[field.value, ...extraDepartmentIds].filter((d): d is string => !!d)}
+                    onChangeMany={(ids) => changeDepartments(ids, field.onChange)}
                     departments={departments}
                     isLoading={isLoadingDepts}
                     triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
@@ -428,18 +430,6 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate, prefill }: TaskFo
               />
             </FormField>
           </div>
-
-          {!ownScopeOnly && !!departmentId && (
-            <ExtraDepartmentsField
-              departments={departments}
-              isLoading={isLoadingDepts}
-              primaryId={departmentId}
-              extraIds={extraDepartmentIds}
-              peopleCount={peopleInDepartment}
-              onAdd={addExtraDepartment}
-              onRemove={removeExtraDepartment}
-            />
-          )}
 
           {!ownScopeOnly && (
             <FormField
