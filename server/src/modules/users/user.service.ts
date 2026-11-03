@@ -319,7 +319,7 @@ export const userService = {
         const { ids, departmentId, storeId, role } = input;
         await assertOrgRefs(departmentId, storeId);
 
-        const { changed, orgChanged } = await db.transaction(async (tx) => {
+        const { changed, orgChanged, leftTeam } = await db.transaction(async (tx) => {
             const rows = await tx.select(publicUserColumns).from(users).where(inArray(users.id, ids)).for("update");
             if (rows.length !== ids.length) throw AppError.notFound("Some of the selected people no longer exist. Refresh the list and try again.");
 
@@ -334,6 +334,7 @@ export const userService = {
 
             const changed: string[] = [];
             const orgChanged: string[] = [];
+            const leftTeam: { id: string; oldDepartmentId: string }[] = [];
             for (const before of rows) {
                 const set: Partial<typeof users.$inferInsert> = {};
                 if (departmentId !== undefined && departmentId !== before.departmentId) set.departmentId = departmentId;
@@ -353,13 +354,17 @@ export const userService = {
                 });
                 changed.push(before.id);
                 if (set.departmentId !== undefined || set.storeId !== undefined) orgChanged.push(before.id);
+                if (set.departmentId !== undefined && before.departmentId) leftTeam.push({ id: before.id, oldDepartmentId: before.departmentId });
             }
-            return { changed, orgChanged };
+            return { changed, orgChanged, leftTeam };
         });
 
         await invalidateAuthUsers(...changed);
         for (const id of changed) disconnectUserSockets(id);
         await refreshLiveChecklistsForUsers(orgChanged, "a bulk move");
+        for (const move of leftTeam) {
+            await notifySafely(() => notificationService.notifyAssigneeMovedTeam(move.id, move.oldDepartmentId, departmentId ?? null));
+        }
 
         return { updated: changed.length };
     },

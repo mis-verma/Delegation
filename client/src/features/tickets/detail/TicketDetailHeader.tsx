@@ -117,7 +117,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
       </SheetTitle>
 
       <SheetDescription className="sr-only">
-        {raisedByName ? `Raised by ${raisedByName}, ${formatDate(ticket.createdAt)}` : `Raised ${formatDate(ticket.createdAt)}`}
+        {raisedByName ? `Sent by ${raisedByName}, ${formatDate(ticket.createdAt)}` : `Sent ${formatDate(ticket.createdAt)}`}
       </SheetDescription>
     </SheetHeader>
   );

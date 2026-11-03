@@ -37,7 +37,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
             <th scope="col" className={`${HEAD_CLASS} ${FROM_2XL}`}>Store</th>
             <th scope="col" className={`${HEAD_CLASS} ${FROM_XL}`}>Category</th>
             <th scope="col" className={HEAD_CLASS}>Assignee</th>
-            <th scope="col" className={`${HEAD_CLASS} ${FROM_2XL}`}>Raised by</th>
+            <th scope="col" className={`${HEAD_CLASS} ${FROM_2XL}`}>Sent by</th>
             <th scope="col" className={HEAD_CLASS}>TAT Due</th>
             <th scope="col" className={`${HEAD_CLASS} ${FROM_XL}`}>Created</th>
           </tr>

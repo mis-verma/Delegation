@@ -37,7 +37,7 @@ export const DeclineTicketDialog = ({ noun = 'ticket', open, ticketTitle, isPend
       size="md"
       icon={<Ban className="size-5" />}
       title={`Decline this ${noun}`}
-      description="It closes and goes back to the person who raised it with your reason. It does not count in anyone's score."
+      description="It closes and goes back to the person who sent it with your reason. It does not count in anyone's score."
       footer={
         <div className="flex w-full items-center justify-end gap-2">
           <Button variant="ghost" onClick={close} disabled={isPending}>Cancel</Button>

@@ -1,7 +1,7 @@
 import { db } from '../../config/db.js';
 import { users } from '../../db/schema/core.js';
 import { eq, and, or, inArray } from 'drizzle-orm';
-import { notifyMany, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
+import { notifyMany, formatWaiting, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
 
 export const notifyAdminsOfRisk = async (kind: string, title: string, message: string) => {
   const admins = (await db.select({ id: users.id }).from(users).where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true)))).map((u) => u.id);
@@ -18,7 +18,7 @@ export const notifyBackupFailed = async (reason: string) => {
 }
 
 export const notifyPendingVerification = async (entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET', stage: 'HOD' | 'PC' = 'PC', waitingHours?: number) => {
-  const waitText = waitingHours ? `has been waiting ${waitingHours} hours for your approval` : null;
+  const waitText = waitingHours ? `has been waiting ${formatWaiting(waitingHours)} for your approval` : null;
   const idFieldOf = () => (kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() });
   if (stage === 'HOD') {
     const headDepartments = entity.departmentIds?.length ? entity.departmentIds : entity.departmentId ? [entity.departmentId.toString()] : [];
@@ -90,7 +90,7 @@ export const notifyApprovalEscalation = async (entity: { _id: string; title: str
   return notifyMany(recipientIds, {
     type: `${kind}_APPROVAL_ESCALATION`,
     title: 'Approval is late',
-    message: `"${entity.title}" has waited ${hoursWaiting} hours for approval. Please decide or chase the reviewer.`,
+    message: `"${entity.title}" has waited ${formatWaiting(hoursWaiting)} for approval. Please decide or chase the reviewer.`,
     ...idField,
   });
 }

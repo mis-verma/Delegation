@@ -1,5 +1,5 @@
 import { notifyMany, notifySafely } from './notificationCore.js';
-import { notifyAssigneeMovedTeam, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
+import { notifyAssigneeMovedTeam, notifyTicketRedirected, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
 import { notifyTaskAwaitingHead, notifyTaskHeadDecisionReminder, notifyTaskHeadDecisionEscalation, notifyTaskHeadApproved, notifyTaskPartlyApproved, notifyTaskDeclined, notifyTaskAssigned, notifyTaskUnassigned, notifyTaskOverdue, notifyTaskDueSoon } from './taskNotifications.js';
 import { notifyAdminsOfRisk, notifyBackupFailed, notifyPendingVerification, notifyVerificationResult, notifyApprovalEscalation, notifyOverdueEscalation, notifyOverdueHeadChase, notifyUnassignedReminder, notifyStageHandOff, notifyCompletionPartlyApproved, notifyCommentAdded, notifyReviewerAdded, notifyStatusMoved } from './workflowNotifications.js';
 import { notifyChecklistPendingVerification, notifyChecklistApprovalReminder, notifyChecklistApprovalEscalation, notifyChecklistVerificationResult, notifyAreaManagersOfChecklistFlag, notifyChecklistOverdue, notifyChecklistLateWindowClosing, notifyChecklistOpened, notifyChecklistDueSoon, notifyChecklistUpcoming, notifyChecklistDraftReminder, notifyChecklistSubmitReminder } from './checklistNotifications.js';
@@ -10,6 +10,7 @@ export { notifySafely };
 export const notificationService = {
   notifyMany,
   notifyAssigneeMovedTeam,
+  notifyTicketRedirected,
   notifyTicketAssigned,
   notifyTicketAwaitingHead,
   notifyHeadDecisionReminder,

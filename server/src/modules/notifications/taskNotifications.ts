@@ -1,7 +1,7 @@
 import { db } from '../../config/db.js';
 import { users } from '../../db/schema/core.js';
 import { eq, and, inArray } from 'drizzle-orm';
-import { notifyMany, activeVerifierIds, activeEscalationIds } from './notificationCore.js';
+import { notifyMany, formatWaiting, activeVerifierIds, activeEscalationIds } from './notificationCore.js';
 
 const pendingDepartmentIds = (task: { departmentId?: string | null; departmentIds?: string[] }): string[] =>
   task.departmentIds?.length ? task.departmentIds : task.departmentId ? [task.departmentId.toString()] : [];
@@ -35,7 +35,7 @@ export const notifyTaskHeadDecisionReminder = async (task: { _id: string; title:
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TASK_AWAITING_HEAD_REMINDER',
     title: 'A delegation is waiting for your decision',
-    message: `"${task.title}" has waited ${hoursWaiting} hours. Nobody can start until you approve or decline it.`,
+    message: `"${task.title}" has waited ${formatWaiting(hoursWaiting)}. Nobody can start until you approve or decline it.`,
     taskId: task._id.toString(),
   });
 }
@@ -44,7 +44,7 @@ export const notifyTaskHeadDecisionEscalation = async (task: { _id: string; titl
   return notifyMany(await activeEscalationIds(), {
     type: 'TASK_AWAITING_HEAD_ESCALATION',
     title: 'Department head has not decided',
-    message: `"${task.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
+    message: `"${task.title}" has waited ${formatWaiting(hoursWaiting)} for the department head. You can approve or decline it now.`,
     taskId: task._id.toString(),
   });
 }

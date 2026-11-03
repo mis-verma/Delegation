@@ -139,7 +139,7 @@ export const TicketRequestsCard = () => {
 
       {!failed && everything === 0 && (
         <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-          <EmptyState size="compact" tone="success" icon={CheckCheck} title={showFinished ? 'All caught up' : 'No requests waiting'} description={showFinished ? 'Nothing is waiting for your decision or approval right now.' : 'New tickets and delegations raised for your department show up here for your decision.'} />
+          <EmptyState size="compact" tone="success" icon={CheckCheck} title={showFinished ? 'All caught up' : 'No requests waiting'} description={showFinished ? 'Nothing is waiting for your decision or approval right now.' : 'New tickets and delegations sent to your department show up here for your decision.'} />
         </div>
       )}
 

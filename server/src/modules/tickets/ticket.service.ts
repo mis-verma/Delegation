@@ -362,6 +362,7 @@ export const ticketService = {
       if (!nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
     if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
+    if (input.departmentId && before.departmentId && input.departmentId !== before.departmentId) await notifySafely(() => notificationService.notifyTicketRedirected({ _id: id, title: afterRow!.title, userId: before.userId }, input.departmentId!, user.sub))
     if (approvedByReassign) await notifySafely(() => notificationService.notifyTicketHeadApproved({ ...notificationTarget(afterRow!), assigneeId: null }, user.sub))
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {

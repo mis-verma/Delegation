@@ -2,7 +2,7 @@ import { db } from '../../config/db.js';
 import { departments, notifications, users } from '../../db/schema/core.js';
 import { tickets } from '../../db/schema/index.js';
 import { eq, and, inArray, isNull, ne, sql } from 'drizzle-orm';
-import { notifyMany, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
+import { notifyMany, formatWaiting, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
 
 export const notifyTicketAssigned = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null }) => {
   const recipientIds: string[] = [];
@@ -83,6 +83,20 @@ export const notifyAssigneeMovedTeam = async (personId: string, oldDepartmentId:
   });
 }
 
+export const notifyTicketRedirected = async (ticket: { _id: string; title: string; userId: string }, newDepartmentId: string, actorId: string) => {
+  if (ticket.userId === actorId) return [];
+  const [team, actor] = await Promise.all([
+    db.select({ name: departments.name }).from(departments).where(eq(departments.id, newDepartmentId)).limit(1),
+    personLine(actorId),
+  ]);
+  return notifyMany([ticket.userId], {
+    type: 'TICKET_REDIRECTED',
+    title: 'Your ticket was sent to another team',
+    message: `${actor ?? 'The department head'} sent "${ticket.title}" to ${team[0]?.name ?? 'another team'}. Their head will decide next.`,
+    ticketId: ticket._id.toString(),
+  });
+}
+
 export const notifyTicketAwaitingHead = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null; userId?: string | null }) => {
   if (!ticket.departmentId) return [];
   const raiserId = ticket.userId ? ticket.userId.toString() : null;
@@ -109,7 +123,7 @@ export const notifyHeadDecisionReminder = async (ticket: { _id: string; title: s
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TICKET_AWAITING_HEAD_REMINDER',
     title: 'A ticket is waiting for your decision',
-    message: `"${ticket.title}" has waited ${hoursWaiting} hours. Nobody can start until you approve or decline it.`,
+    message: `"${ticket.title}" has waited ${formatWaiting(hoursWaiting)}. Nobody can start until you approve or decline it.`,
     ticketId: ticket._id.toString(),
   });
 }
@@ -118,7 +132,7 @@ export const notifyHeadDecisionEscalation = async (ticket: { _id: string; title:
   return notifyMany(await activeEscalationIds(), {
     type: 'TICKET_AWAITING_HEAD_ESCALATION',
     title: 'Department head has not decided',
-    message: `"${ticket.title}" has waited ${hoursWaiting} hours for the department head. You can approve or decline it now.`,
+    message: `"${ticket.title}" has waited ${formatWaiting(hoursWaiting)} for the department head. You can approve or decline it now.`,
     ticketId: ticket._id.toString(),
   });
 }
@@ -129,7 +143,7 @@ export const notifyStaleWork = async (ticket: { _id: string; title: string; assi
   return notifyMany([assigneeId], {
     type: 'TICKET_STALE_REMINDER',
     title: 'Add a quick update',
-    message: `"${ticket.title}" has had no update for ${hoursQuiet} hours. Post a short note so everyone knows where it stands.`,
+    message: `"${ticket.title}" has had no update for ${formatWaiting(hoursQuiet)}. Post a short note so everyone knows where it stands.`,
     ticketId: ticket._id.toString(),
   });
 }

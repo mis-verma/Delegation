@@ -139,7 +139,7 @@ export const HeadDecisionPanel = ({
       )}
 
       <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
-        <Step icon={Send} label="Raised" state="done" />
+        <Step icon={Send} label="Sent" state="done" />
         <Connector filled />
         <Step icon={ShieldQuestion} label={several ? 'Heads approve' : 'Head approves'} state="current" />
         <Connector filled={false} />

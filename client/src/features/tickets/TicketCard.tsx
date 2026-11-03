@@ -151,7 +151,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
 
         <span
           className={`hidden sm:inline-flex ${progress === null ? 'ml-auto' : ''} items-center gap-1 shrink-0 t-meta font-medium text-text-light tabular-nums`}
-          title={`Raised ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
+          title={`Sent ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
         >
           <Clock3 className="size-3" strokeWidth={2.25} aria-hidden="true" />
           {formatAge(ticket.createdAt)}

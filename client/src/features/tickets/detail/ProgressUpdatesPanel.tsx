@@ -130,7 +130,7 @@ export const ProgressUpdatesPanel = ({ ticket, canPost, onPreview }: ProgressUpd
 
       <div className="flex flex-col gap-3 px-3.5 py-3.5 sm:px-4">
         {updates.length === 0 ? (
-          <p className="t-meta font-medium text-text-muted">No update yet. Post one so the person who raised this knows work is moving.</p>
+          <p className="t-meta font-medium text-text-muted">No update yet. Post one so the person who sent this knows work is moving.</p>
         ) : (
           <ol className="relative flex flex-col gap-3 pl-9 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:w-0.5 before:rounded-full before:bg-border">
             {visibleUpdates.map((u, i) => (

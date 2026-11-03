@@ -61,7 +61,7 @@ const buildSteps = (ticket: Ticket, departmentName?: string): Step[] => {
       id: 'raised',
       icon: Send,
       tone: 'primary',
-      chip: <IconChip icon={Send} tone="bg-primary-600 dark:bg-primary-400" label="Raised" />,
+      chip: <IconChip icon={Send} tone="bg-primary-600 dark:bg-primary-400" label="Sent" />,
       who: ticket.raisedBy ?? null,
       at: ticket.createdAt,
     },

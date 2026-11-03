@@ -111,7 +111,7 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
             </span>
             New requests <span className="font-normal text-text-muted tabular-nums">· {requests.length}</span>
           </h2>
-          <p className="t-meta font-medium text-text-muted">Raised for your department. Nobody can start until you decide.</p>
+          <p className="t-meta font-medium text-text-muted">Sent to your department. Nobody can start until you decide.</p>
           </div>
           {requests.map((ticket) => (
             <HeadRequestRow

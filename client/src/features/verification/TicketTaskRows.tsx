@@ -249,7 +249,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         raiseTicketFrom={ticket.title}
         raiseTicketPath={`/tickets?open=${ticket.id}`}
         title={ticket.title}
-        facts={[raisedByName ? `Raised by ${raisedByName}` : null, ticket.assignee ? `handled by ${ticket.assignee.firstName}` : 'nobody working on it yet'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
+        facts={[raisedByName ? `Sent by ${raisedByName}` : null, ticket.assignee ? `handled by ${ticket.assignee.firstName}` : 'nobody working on it yet'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
           <>
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
@@ -295,7 +295,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         raiseTicketFrom={task.title}
         raiseTicketPath={`/tasks?open=${task.id}`}
         title={task.title}
-        facts={[raisedByName ? `Raised by ${raisedByName}` : null, task.dueDate ? `due ${new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'no due date'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
+        facts={[raisedByName ? `Sent by ${raisedByName}` : null, task.dueDate ? `due ${new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'no due date'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
           <>
             <PriorityChip meta={PRIORITY_MAP[task.priority]} />

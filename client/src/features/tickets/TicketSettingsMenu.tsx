@@ -185,7 +185,7 @@ export const TicketSettingsMenu = ({
       )}
 
       {!!people.length && (
-        <OptionSection icon={Users} label="Raised by" aside={filters.raisedByIds.length > 0 && <ChoiceClear onClick={() => patch({ raisedByIds: [] })} />}>
+        <OptionSection icon={Users} label="Sent by" aside={filters.raisedByIds.length > 0 && <ChoiceClear onClick={() => patch({ raisedByIds: [] })} />}>
           {personChips(filters.raisedByIds, (raisedByIds) => patch({ raisedByIds }))}
         </OptionSection>
       )}

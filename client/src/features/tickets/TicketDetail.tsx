@@ -454,7 +454,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
           <p className="mt-5 flex items-center gap-1.5 border-t border-border/50 pt-3 t-meta font-medium text-text-muted">
             <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
-            {raisedByName ? `Raised by ${raisedByName}` : 'Raised'}, {formatRaised(ticket.createdAt)}
+            {raisedByName ? `Sent by ${raisedByName}` : 'Sent'}, {formatRaised(ticket.createdAt)}
           </p>
         </div>
 
