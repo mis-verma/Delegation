@@ -8,6 +8,7 @@ import { useStoresQuery } from '../tickets/hook';
 import type { Department } from '../../api/departments';
 
 interface DepartmentFieldProps {
+  id?: string;
   value: string;
   onChange: (id: string) => void;
   departments?: Department[];
@@ -31,7 +32,7 @@ const DepartmentTile = ({ name, size }: { name: string | null; size: 'sm' | 'md'
   </span>
 );
 
-export const DepartmentField = ({ value, onChange, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className }: DepartmentFieldProps) => {
+export const DepartmentField = ({ id, value, onChange, departments, isLoading = false, disabled = false, noneLabel, onCreateNew, className }: DepartmentFieldProps) => {
   const [open, setOpen] = useState(false);
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
   const { data: stores } = useStoresQuery();
@@ -75,6 +76,7 @@ export const DepartmentField = ({ value, onChange, departments, isLoading = fals
 
   const trigger = (
     <button
+      id={id}
       ref={setTriggerEl}
       type="button"
       aria-label={picked ? `Department: ${picked.name}. Change` : 'Choose a department'}

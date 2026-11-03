@@ -1,8 +1,9 @@
+import { DepartmentField } from '../departments/DepartmentField';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Tag, Building2, Users, Clock, Route, Flag, type LucideIcon } from 'lucide-react';
-import { Input, Button, UserMultiSelect, Modal, Combobox, DepartmentChip, IconChip, PriorityChip, TagChip } from '../../components';
+import { Input, Button, UserMultiSelect, Modal, DepartmentChip, IconChip, PriorityChip, TagChip } from '../../components';
 import { LabelsField } from '../tags/LabelsField';
 import { useTagsQuery } from '../tags/hook';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
@@ -141,14 +142,12 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             control={control}
             name="departmentId"
             render={({ field }) => (
-              <Combobox
+              <DepartmentField
                 id="departmentId"
                 value={field.value}
                 onChange={field.onChange}
+                departments={departments}
                 isLoading={isDepartmentsLoading}
-                placeholder="Search departments..."
-                emptyOptionLabel="Choose a department"
-                options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
                 className={errors.departmentId ? 'border-danger/60' : undefined}
               />
             )}

@@ -1,3 +1,4 @@
+import { DepartmentField } from '../../departments/DepartmentField';
 import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -509,16 +510,14 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                     render={({ field }) => (
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
-                          <Combobox
+                          <DepartmentField
                             id="departmentId"
                             value={field.value ?? ''}
                             onChange={(id) => handleDepartmentChange(id, field.onChange)}
+                            departments={departments}
                             isLoading={isDepartmentsLoading}
-                            placeholder="Search departments..."
-                            emptyOptionLabel="No department"
-                            options={(departments ?? []).map((d) => ({ value: d.id, label: d.name }))}
-                            onCreateNew={(query) => setCreatingDepartment(query)}
-                            createNewLabel="Create new department"
+                            noneLabel="No department"
+                            onCreateNew={() => setCreatingDepartment('')}
                           />
                         </div>
                         {field.value && (
