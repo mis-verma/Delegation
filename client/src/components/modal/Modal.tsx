@@ -157,7 +157,7 @@ export const Modal = ({
     if (shouldClose) void requestClose();
   };
 
-  const blockOutside = !!guard || !dismissOnOutsideClick;
+  const blockOutside = !modal || !!guard || !dismissOnOutsideClick;
 
   return (
     <Dialog
