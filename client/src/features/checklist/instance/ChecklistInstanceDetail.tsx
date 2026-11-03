@@ -31,6 +31,7 @@ const NO_ITEMS: ChecklistInstanceItem[] = [];
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
 const rowDomId = (id: string) => `item-${id}`;
+const SETTLE_AND_MOVE_MS = 900;
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
@@ -190,7 +191,9 @@ export const ChecklistInstanceDetail = () => {
       return;
     }
     if (show === 'left' && !shownItems.includes(next)) setShow('all');
-    requestAnimationFrame(() => document.getElementById(`item-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    const scrollToNext = () => document.getElementById(`item-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (settling.size > 0) window.setTimeout(() => requestAnimationFrame(scrollToNext), SETTLE_AND_MOVE_MS);
+    else requestAnimationFrame(scrollToNext);
   };
   const verificationNote = instance.verificationNote;
   const showBanners =
