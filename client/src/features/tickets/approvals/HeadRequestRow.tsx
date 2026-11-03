@@ -63,7 +63,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5 t-meta font-display font-semibold text-text-secondary">
             <span className="inline-flex min-w-0 items-center gap-1.5">
               <Avatar name={raiserName} />
-              <span className="truncate">{raiserName ?? 'Someone'}</span>
+              <span className="truncate">{raiserName ?? 'Someone'}{ticket.raisedByDepartment ? <span className="font-normal text-text-muted">, {ticket.raisedByDepartment}</span> : null}</span>
             </span>
             <ArrowRight size={13} className="shrink-0 text-text-light" strokeWidth={2.5} aria-hidden="true" />
             <span className="inline-flex min-w-0 items-center gap-1.5">

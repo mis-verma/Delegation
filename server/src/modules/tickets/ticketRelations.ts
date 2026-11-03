@@ -11,6 +11,7 @@ import {
   checklistItems,
   checklistImages,
   users,
+  departments,
 } from "../../db/schema/index.js"
 import { eq, and, inArray, desc, asc } from "drizzle-orm"
 import { type TicketRow, NOT_DELETED, userCols, groupBy, type Executor } from "./ticketShared.js"
@@ -99,6 +100,9 @@ export const populateTickets = async (ticketRows: TicketRow[]) => {
   const userIds = [...new Set(ticketRows.flatMap((t) => [t.assigneeId, t.userId, t.verifiedBy, t.hodApprovedBy, t.declinedBy, t.assignmentApprovedBy]).filter((v): v is string => Boolean(v)))]
   const userRows = userIds.length ? await db.select(userCols).from(users).where(inArray(users.id, userIds)) : []
   const userById = new Map(userRows.map((u) => [u.id, u]))
+  const raiserIds = [...new Set(ticketRows.filter((t) => t.awaitingHeadApproval).map((t) => t.userId))]
+  const raiserDepartments = !raiserIds.length ? [] : await db.select({ id: users.id, name: departments.name }).from(users).innerJoin(departments, eq(users.departmentId, departments.id)).where(inArray(users.id, raiserIds))
+  const departmentOfRaiser = new Map(raiserDepartments.map((r) => [r.id, r.name]))
 
   const tagsByTicketMap = await tagsByTicket(ticketIds)
   const reviewersByTicketMap = await reviewersByTicket(ticketIds)
@@ -155,6 +159,7 @@ export const populateTickets = async (ticketRows: TicketRow[]) => {
     ...t,
     assignee: t.assigneeId ? userById.get(t.assigneeId) ?? null : null,
     raisedBy: userById.get(t.userId) ?? null,
+    raisedByDepartment: departmentOfRaiser.get(t.userId) ?? null,
     verifier: t.verifiedBy ? userById.get(t.verifiedBy) ?? null : null,
     hodApprover: t.hodApprovedBy ? userById.get(t.hodApprovedBy) ?? null : null,
     decliner: t.declinedBy ? userById.get(t.declinedBy) ?? null : null,
