@@ -23,5 +23,5 @@ export const approveTaskRun = (id: string, note?: string) => (options: RunOption
 export const rejectTaskRun = (id: string, note: string) => (options: RunOptions) =>
   patch(`/tasks/${id}/verify`, { action: 'REJECT', note }, options);
 
-export const sendBackRun = (id: string, itemIds: string[], note: string, fixByHours?: number | null) => (options: RunOptions) =>
-  patch(`/checklist-instances/${id}/send-back`, { itemIds, note, ...(fixByHours ? { fixByHours } : {}) }, options);
+export const sendBackRun = (id: string, itemIds: string[], note: string, fixByHours?: number | null, photoOnlyItemIds?: string[]) => (options: RunOptions) =>
+  patch(`/checklist-instances/${id}/send-back`, { itemIds, note, ...(fixByHours ? { fixByHours } : {}), ...(photoOnlyItemIds?.length ? { photoOnlyItemIds } : {}) }, options);

@@ -67,6 +67,7 @@ export const sendBackChecklistInstanceSchema = z.object({
     itemIds: z.array(z.string().min(1)).min(1, "Pick at least one question.").max(200),
     note: z.string().trim().min(1, "Say what needs fixing.").max(1000),
     fixByHours: z.number().int().min(1).max(72).optional(),
+    photoOnlyItemIds: z.array(z.string().min(1)).max(200).optional(),
 })
 
 export const raiseChecklistTicketSchema = z.object({

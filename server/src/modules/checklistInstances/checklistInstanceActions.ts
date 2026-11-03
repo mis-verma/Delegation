@@ -51,6 +51,12 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
         throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
     }
 
+    const photoOnly = item.sendBackPhotoOnly && isDone
+    if (photoOnly && values.notApplicable === true) {
+        throw AppError.badRequest("Only a new photo was asked for on this question. Add the photo, the answer stays as it is.")
+    }
+    if (photoOnly) values = { remarks: values.remarks }
+
     const { remarks: remarkInput, notApplicable, ...answerValues } = values
     const isRemarkOnly = remarkInput !== undefined
         && notApplicable === undefined
@@ -121,7 +127,10 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     const stalePhotos = isDone ? stalePhotoPurposes(item, values) : []
     if (remarkInput !== undefined) patch.remarks = remarkInput?.trim() ? remarkInput.trim() : null
     patch.isNotApplicable = markingNotApplicable
-    if (isDone) patch.sendBackNote = null
+    if (isDone) {
+        patch.sendBackNote = null
+        patch.sendBackPhotoOnly = false
+    }
 
     const mergedItem = { ...item, ...patch }
 
@@ -131,8 +140,10 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
 
     if (isDone && !markingNotApplicable) {
         await assertPhotosSatisfied(mergedItem)
-        VALUE_VALIDATORS_BY_ITEM_TYPE[item.itemType]?.(mergedItem, values)
-        await assertConditionalActionsSatisfied(mergedItem, values)
+        if (!photoOnly) {
+            VALUE_VALIDATORS_BY_ITEM_TYPE[item.itemType]?.(mergedItem, values)
+            await assertConditionalActionsSatisfied(mergedItem, values)
+        }
     }
 
     const completion = deriveInstanceItemCompletion(isDone, isDone ? user.sub : null)
@@ -142,7 +153,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
 
         const alreadyThere = fresh.isDone === isDone
             && (!isDone || fresh.isNotApplicable === markingNotApplicable)
-            && Object.entries(patch).every(([key, value]) => key === "sendBackNote" || sameStoredValue((fresh as Record<string, unknown>)[key], value))
+            && Object.entries(patch).every(([key, value]) => key === "sendBackNote" || key === "sendBackPhotoOnly" || sameStoredValue((fresh as Record<string, unknown>)[key], value))
         if (alreadyThere) return { fresh, changed: false }
 
         if (!isDone && fresh.isDone && user.role !== "ADMIN") {
@@ -162,7 +173,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
 
     let updatedItem = { ...mergedItem, isDone, completedAt: completion.completedAt, completedBy: completion.completedBy }
 
-    if (isDone && !markingNotApplicable) {
+    if (isDone && !markingNotApplicable && !photoOnly) {
         updatedItem = await applyConditionalSideEffects(updatedItem, instanceRow, user, values, item.booleanAnswer)
     }
 
@@ -222,7 +233,7 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
     return getPopulatedInstanceById(id)
 }
 
-export const sendBack = async (id: string, input: { itemIds: string[]; note: string; fixByHours?: number }, user: AccessTokenPayload) => {
+export const sendBack = async (id: string, input: { itemIds: string[]; note: string; fixByHours?: number; photoOnlyItemIds?: string[] }, user: AccessTokenPayload) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     if (instance.verificationStatus !== "PENDING_APPROVAL") {
@@ -241,6 +252,17 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
         .where(and(eq(checklistInstanceItems.instanceId, id), inArray(checklistInstanceItems.id, wanted)))
     if (items.length !== wanted.length) throw AppError.badRequest("Some of those questions aren't on this checklist.")
 
+    const photoOnlyIds = [...new Set(input.photoOnlyItemIds ?? [])].filter((itemId) => wanted.includes(itemId))
+    if (photoOnlyIds.length) {
+        const photoCounts = await db.select({ itemId: checklistInstanceImages.checklistInstanceItemId, count: sql<number>`COUNT(*)` })
+            .from(checklistInstanceImages)
+            .where(and(inArray(checklistInstanceImages.checklistInstanceItemId, photoOnlyIds), eq(checklistInstanceImages.purpose, "GENERAL")))
+            .groupBy(checklistInstanceImages.checklistInstanceItemId)
+        const withPhotos = new Set(photoCounts.filter((r) => Number(r.count) > 0).map((r) => r.itemId))
+        const notPhotoQuestion = items.find((i) => photoOnlyIds.includes(i.id) && (i.itemType === "AUDIT" || (i.requiredImageCount <= 0 && !withPhotos.has(i.id))))
+        if (notPhotoQuestion) throw AppError.badRequest(`"${notPhotoQuestion.label}" has no photo to retake. Send it back as a normal question instead.`)
+    }
+
     const now = new Date()
     const note = input.note.trim()
     await db.transaction(async (tx) => {
@@ -252,8 +274,17 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
             sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
         }).where(inArray(checklistInstanceItems.id, wanted))
         await tx.update(checklistInstanceItems).set({
-            isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, sendBackNote: note, updatedAt: now,
+            isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, sendBackNote: note, sendBackPhotoOnly: false, updatedAt: now,
         }).where(inArray(checklistInstanceItems.id, wanted))
+        if (photoOnlyIds.length) {
+            await tx.update(checklistInstanceItems).set({ sendBackPhotoOnly: true }).where(inArray(checklistInstanceItems.id, photoOnlyIds))
+            await tx.update(checklistInstanceImages).set({ reviewStatus: "REJECTED", reviewReason: "OTHER", reviewedBy: user.sub, reviewedAt: now })
+                .where(and(
+                    inArray(checklistInstanceImages.checklistInstanceItemId, photoOnlyIds),
+                    eq(checklistInstanceImages.purpose, "GENERAL"),
+                    sql`${checklistInstanceImages.reviewStatus} <> 'REJECTED'`,
+                ))
+        }
         const auditItemIds = items.filter((i) => i.itemType === "AUDIT").map((i) => i.id)
         if (auditItemIds.length) {
             await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, isNotApplicable: false, completedAt: null, updatedAt: now })
@@ -279,7 +310,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: "SEND_BACK", actorId: user.sub,
         before: { verificationStatus: instance.verificationStatus },
-        after: { verificationStatus: "REJECTED", sentBackItemIds: wanted, note },
+        after: { verificationStatus: "REJECTED", sentBackItemIds: wanted, photoOnlyItemIds: photoOnlyIds, note },
     })
     await dropChecklistSummaries(assigneeLinks.map((l) => l.userId))
     emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
@@ -425,6 +456,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
                 isDone: false,
                 completedAt: null,
                 completedBy: null,
+                sendBackPhotoOnly: false,
                 updatedAt: now,
             }).where(eq(checklistInstanceItems.instanceId, id))
             await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, isNotApplicable: false, completedAt: null, updatedAt: now })

@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistInstanceItem` ADD `sendBackPhotoOnly` boolean DEFAULT false NOT NULL;

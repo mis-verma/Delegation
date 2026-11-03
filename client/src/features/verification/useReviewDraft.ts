@@ -3,12 +3,13 @@ import { useCallback, useMemo, useState } from 'react';
 interface DraftState {
   runId: string | null;
   picked: Record<string, string>;
+  photoOnly: string[];
   note: string;
   fixByHours: number | null;
   sending: boolean;
 }
 
-const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, note: '', fixByHours: null, sending: false });
+const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, photoOnly: [], note: '', fixByHours: null, sending: false });
 
 export const useReviewDraft = (runId: string | null) => {
   const [state, setState] = useState<DraftState>(() => fresh(runId));
@@ -23,7 +24,13 @@ export const useReviewDraft = (runId: string | null) => {
   const togglePicked = useCallback((itemId: string) => update((prev) => {
     const picked = { ...prev.picked };
     if (itemId in picked) delete picked[itemId]; else picked[itemId] = '';
-    return { ...prev, picked };
+    return { ...prev, picked, photoOnly: prev.photoOnly.filter((id) => id in picked) };
+  }), [update]);
+
+  const togglePhotoOnly = useCallback((itemId: string) => update((prev) => {
+    if (!(itemId in prev.picked)) return prev;
+    const on = prev.photoOnly.includes(itemId);
+    return { ...prev, photoOnly: on ? prev.photoOnly.filter((id) => id !== itemId) : [...prev.photoOnly, itemId] };
   }), [update]);
 
   const setItemNote = useCallback((itemId: string, text: string) => update((prev) => (
@@ -40,10 +47,11 @@ export const useReviewDraft = (runId: string | null) => {
   const pickedIds = useMemo(() => Object.keys(draft.picked), [draft.picked]);
   const pickedSet = useMemo<ReadonlySet<string>>(() => new Set(pickedIds), [pickedIds]);
 
-  const { picked, note, fixByHours, sending } = draft;
+  const { picked, photoOnly, note, fixByHours, sending } = draft;
+  const photoOnlySet = useMemo<ReadonlySet<string>>(() => new Set(photoOnly), [photoOnly]);
   return useMemo(
-    () => ({ picked, pickedIds, pickedSet, note, fixByHours, sending, togglePicked, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor }),
-    [picked, pickedIds, pickedSet, note, fixByHours, sending, togglePicked, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor],
+    () => ({ picked, pickedIds, pickedSet, photoOnlyIds: photoOnly, photoOnlySet, note, fixByHours, sending, togglePicked, togglePhotoOnly, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor }),
+    [picked, pickedIds, pickedSet, photoOnly, photoOnlySet, note, fixByHours, sending, togglePicked, togglePhotoOnly, setItemNote, setNote, setFixBy, setSending, reset, startSendBackFor, startPickFor],
   );
 };
 

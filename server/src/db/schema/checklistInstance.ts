@@ -164,6 +164,7 @@ export const checklistInstanceItems = mysqlTable(
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
     sendBackNote: text('sendBackNote'),
     sendBackCount: int('sendBackCount').notNull().default(0),
+    sendBackPhotoOnly: boolean('sendBackPhotoOnly').notNull().default(false),
     sentBackFrom: varchar('sentBackFrom', { length: 191 }),
     waivedAt: datetime('waivedAt', { mode: 'date' }),
     waivedBy: varchar('waivedBy', { length: 191 }),

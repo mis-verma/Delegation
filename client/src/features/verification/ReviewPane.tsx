@@ -20,6 +20,7 @@ export interface SendBackPayload {
   itemIds: string[];
   note: string;
   fixByHours?: number | null;
+  photoOnlyItemIds?: string[];
 }
 
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
@@ -28,12 +29,14 @@ interface BodyProps {
   row: ChecklistRow;
   picked: Readonly<Record<string, string>>;
   pickedSet: ReadonlySet<string>;
+  photoOnlySet: ReadonlySet<string>;
   onTogglePicked: (itemId: string) => void;
+  onTogglePhotoOnly: (itemId: string) => void;
   onItemNote: (itemId: string, note: string) => void;
   hideTitle?: boolean;
 }
 
-const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, onTogglePicked, onItemNote, hideTitle = false }: BodyProps) {
+const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, photoOnlySet, onTogglePicked, onTogglePhotoOnly, onItemNote, hideTitle = false }: BodyProps) {
   const { instance, risk } = row;
   const { user } = useAuth();
   const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
@@ -155,6 +158,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, on
             selecting
             picked={pickedSet.has(item.id)}
             onTogglePicked={onTogglePicked}
+            photoOnly={photoOnlySet.has(item.id)}
+            onTogglePhotoOnly={onTogglePhotoOnly}
             canWaive={canWaive}
             canRaiseTicket={canRaiseTicket}
             note={picked[item.id] ?? ''}
@@ -196,7 +201,7 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
       confirmLabel: 'Send back',
       variant: 'danger',
     });
-    if (ok) onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours });
+    if (ok) onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours, photoOnlyItemIds: draft.photoOnlyIds });
   };
 
   if (sending) {
@@ -258,7 +263,7 @@ interface PaneProps extends FooterProps {
 export const ReviewPane = ({ row, draft, onApprove, onSendBack, className }: PaneProps) => (
   <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0 lg:max-h-[calc(100dvh-7rem)]', className)}>
     <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-5">
-      <ReviewPaneBody row={row} picked={draft.picked} pickedSet={draft.pickedSet} onTogglePicked={draft.togglePicked} onItemNote={draft.setItemNote} />
+      <ReviewPaneBody row={row} picked={draft.picked} pickedSet={draft.pickedSet} photoOnlySet={draft.photoOnlySet} onTogglePicked={draft.togglePicked} onTogglePhotoOnly={draft.togglePhotoOnly} onItemNote={draft.setItemNote} />
     </div>
     <div className="shrink-0 flex border-t border-border/60 p-3.5 sm:p-4">
       <ReviewPaneFooter row={row} draft={draft} onApprove={onApprove} onSendBack={onSendBack} />
@@ -279,6 +284,6 @@ export const ReviewSheet = ({ row, draft, onApprove, onSendBack, onClose }: Omit
     contentClassName="max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none"
     footer={row ? <ReviewPaneFooter row={row} draft={draft} onApprove={onApprove} onSendBack={onSendBack} /> : undefined}
   >
-    {row && <ReviewPaneBody key={row.id} row={row} picked={draft.picked} pickedSet={draft.pickedSet} onTogglePicked={draft.togglePicked} onItemNote={draft.setItemNote} hideTitle />}
+    {row && <ReviewPaneBody key={row.id} row={row} picked={draft.picked} pickedSet={draft.pickedSet} photoOnlySet={draft.photoOnlySet} onTogglePicked={draft.togglePicked} onTogglePhotoOnly={draft.togglePhotoOnly} onItemNote={draft.setItemNote} hideTitle />}
   </Modal>
 );

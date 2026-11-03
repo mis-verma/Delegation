@@ -2,6 +2,8 @@ import { memo, type ReactElement } from 'react';
 import { AlertTriangle, Camera, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
+import { Switch } from '../../../components/switch';
+import { RetakePhotoPanel } from './RetakePhotoPanel';
 import { itemFlags, photoBreakdown } from './reviewFlags';
 import { PreviousAnswerPanel } from './PreviousAnswerPanel';
 import { PhotoThumbs } from '../../verification/PhotoThumbs';
@@ -99,16 +101,20 @@ export interface DetailItemRowProps {
   canRaiseTicket?: boolean;
   note?: string;
   onNoteChange?: (itemId: string, note: string) => void;
+  photoOnly?: boolean;
+  onTogglePhotoOnly?: (itemId: string) => void;
 }
 
 export const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
   const waived = waiveNotice(item);
   const flags = itemFlags(item);
   const photos = photoBreakdown(item);
+  const hasPhotos = item.itemType !== 'AUDIT' && (item.requiredImageCount > 0 || (item.images ?? []).some((i) => i.purpose === 'GENERAL'));
+  const retaking = !!item.sendBackPhotoOnly && !item.isDone && canEdit;
   const showPhotoRule = item.requiredImageCount > 0 && !item.isNotApplicable && (!canEdit || item.isDone);
   const suggestedReasons = [
     ...(flags.notLive ? ['Not live'] : []),
@@ -190,7 +196,7 @@ export const DetailItemRow = memo(({
         )}
         {!item.isDone && item.sendBackNote && (
           <NoticeBanner tone="danger" icon={CornerUpLeft} className="p-2.5 px-3.5">
-            Sent back: {item.sendBackNote}
+            {item.sendBackPhotoOnly ? 'New photo asked for' : 'Sent back'}: {item.sendBackNote}
           </NoticeBanner>
         )}
         {canWaive && (item.waivedAt || countsAgainstCompliance(item)) && (
@@ -202,8 +208,9 @@ export const DetailItemRow = memo(({
           {item.isNotApplicable ? (
             <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
           ) : (
-            ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId })
+            ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork: retaking ? false : canWork, isLocked: retaking || isLocked, currentUserId })
           )}
+          {retaking && <RetakePhotoPanel item={item} instanceId={instanceId} />}
           <div className="border-t border-border/50 px-3 py-2 sm:px-4 empty:hidden">
             <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canEdit} />
           </div>
@@ -227,6 +234,15 @@ export const DetailItemRow = memo(({
           )}
           {selecting && picked && onNoteChange && (
             <div className="flex flex-col gap-2 border-t border-border/50 px-3 py-2.5 sm:px-4">
+              {hasPhotos && onTogglePhotoOnly && (
+                <label htmlFor={`photo-only-${item.id}`} className="flex min-h-11 cursor-pointer items-center justify-between gap-3 sm:min-h-9">
+                  <span className="flex min-w-0 flex-col">
+                    <span className="t-card font-display font-semibold text-text">New photo only</span>
+                    <span className="t-meta text-text-muted">The answer stays. The team only retakes the photo.</span>
+                  </span>
+                  <Switch id={`photo-only-${item.id}`} checked={photoOnly} onChange={() => onTogglePhotoOnly(item.id)} />
+                </label>
+              )}
               <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
                 {orderedItemReasons(suggestedReasons).map((option) => (
                   <ToggleChip key={option} on={hasItemReason(note, option)} onClick={() => onNoteChange(item.id, toggleItemReason(note, option, QUESTION_NOTE_MAX))}>

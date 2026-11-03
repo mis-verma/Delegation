@@ -205,7 +205,7 @@ export const VerificationQueue = () => {
       id: row.id,
       verb: 'Sent back',
       label: row.instance.title,
-      run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours) : rejectRun(row.id, payload.note, payload.fixByHours),
+      run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours, payload.photoOnlyItemIds) : rejectRun(row.id, payload.note, payload.fixByHours),
     });
   }, [advanceFrom, schedule]);
 

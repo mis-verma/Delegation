@@ -121,6 +121,7 @@ export type ChecklistInstanceItem = {
   isNotApplicable:    boolean;
   sendBackNote:       string | null;
   sendBackCount:      number;
+  sendBackPhotoOnly?: boolean;
   waivedAt:           string | null;
   waivedBy:           string | null;
   waiveReason:        string | null;
@@ -166,7 +167,7 @@ export type ChecklistInstance = {
   items:            ChecklistInstanceItem[];
 };
 
-export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string };
+export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string; photoOnlyItemIds?: string[] };
 export type VerifyChecklistInstancePayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 
 export type ComplianceReportGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';

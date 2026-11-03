@@ -652,6 +652,13 @@
       "when": 1792930000000,
       "tag": "0092_checklist_photo_review",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "5",
+      "when": 1792940000000,
+      "tag": "0093_send_back_photo_only",
+      "breakpoints": true
     }
   ]
 }
