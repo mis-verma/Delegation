@@ -66,7 +66,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
   const canSaveDraft = user?.role !== 'PC';
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
-  const startsOnOwnDepartment = ownScopeOnly || user?.role === 'MANAGER';
+  const startsOnOwnDepartment = ownScopeOnly || (user?.role === 'MANAGER' || user?.role === 'SENIOR');
   const mutation = useCreateTaskWithAttachmentsMutation();
   const { data: allAssignable, isLoading: isLoadingAllUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();

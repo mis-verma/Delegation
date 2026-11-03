@@ -202,15 +202,18 @@ const HEAD_REMINDER_HOURS = 4;
 const HEAD_ESCALATE_HOURS = 24;
 const STALE_WORK_HOURS = 24;
 const TIMER_LOOKBACK_DAYS = 7;
+const HEAD_WAIT_LOOKBACK_DAYS = 30;
+
+const escalationDue = (last: Date | null, now: Date) => !last || now.getTime() - last.getTime() >= HEAD_ESCALATE_HOURS * HOUR_MS;
 
 const headDecisionChasers = async (now: Date) => {
-  const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
+  const floor = new Date(now.getTime() - HEAD_WAIT_LOOKBACK_DAYS * 24 * HOUR_MS);
   const waiting = await db.select().from(tickets).where(and(
     isNull(tickets.deletedAt), isNull(tickets.declinedAt), eq(tickets.awaitingHeadApproval, true), gt(tickets.createdAt, floor),
   )).limit(BATCH);
   for (const t of waiting) {
     const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
-    if (hours >= HEAD_ESCALATE_HOURS && !t.headEscalatedAt) {
+    if (hours >= HEAD_ESCALATE_HOURS && escalationDue(t.headEscalatedAt, now)) {
       await notificationService.notifyHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
       await db.update(tickets).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tickets.id, t.id));
     } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
@@ -221,7 +224,7 @@ const headDecisionChasers = async (now: Date) => {
 };
 
 const taskHeadDecisionChasers = async (now: Date) => {
-  const floor = new Date(now.getTime() - TIMER_LOOKBACK_DAYS * 24 * HOUR_MS);
+  const floor = new Date(now.getTime() - HEAD_WAIT_LOOKBACK_DAYS * 24 * HOUR_MS);
   const waiting = await db.select().from(tasks).where(and(
     isNull(tasks.deletedAt), isNull(tasks.declinedAt), eq(tasks.awaitingHeadApproval, true), gt(tasks.createdAt, floor),
   )).limit(BATCH);
@@ -233,7 +236,7 @@ const taskHeadDecisionChasers = async (now: Date) => {
   for (const row of pendingRows) pendingByTask.set(row.taskId, [...(pendingByTask.get(row.taskId) ?? []), row.departmentId]);
   for (const t of waiting) {
     const hours = (now.getTime() - t.createdAt.getTime()) / HOUR_MS;
-    if (hours >= HEAD_ESCALATE_HOURS && !t.headEscalatedAt) {
+    if (hours >= HEAD_ESCALATE_HOURS && escalationDue(t.headEscalatedAt, now)) {
       await notificationService.notifyTaskHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
       await db.update(tasks).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tasks.id, t.id));
     } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
