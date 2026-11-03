@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
+import { preloadWhenIdle } from "../../../lib/preloadWhenIdle";
 import { Plus, Inbox, ArrowDownAZ, Users, type LucideIcon } from "lucide-react";
 
 import type { Department } from "../../../api/departments";
@@ -44,6 +45,7 @@ const DepartmentForm = lazy(() =>
 );
 
 export const DepartmentList = () => {
+  useEffect(() => preloadWhenIdle(loadDepartmentForm), []);
   const [showForm, setShowForm] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [page, setPage] = useState(1);

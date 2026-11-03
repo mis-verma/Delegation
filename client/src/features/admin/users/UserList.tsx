@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { preloadWhenIdle } from '../../../lib/preloadWhenIdle';
 import { toast } from 'sonner';
 import { Plus, SearchX, Users } from 'lucide-react';
 import type { AdminUser, Role } from '../../../api/admin';
@@ -59,6 +60,7 @@ const UserTableSkeleton = () => (
 );
 
 export const UserList = () => {
+  useEffect(() => preloadWhenIdle(loadUserForm), []);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [offboarding, setOffboarding] = useState<AdminUser | null>(null);

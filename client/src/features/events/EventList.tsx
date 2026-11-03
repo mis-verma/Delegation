@@ -1,4 +1,5 @@
-import { useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { preloadWhenIdle } from '../../lib/preloadWhenIdle';
 import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState, Fab } from '../../components';
 import { Badge } from '@/components/ui/badge';
@@ -7,11 +8,13 @@ import { useEventsQuery, useDeleteEventMutation } from './hook';
 import { EVENT_TYPE_LABELS, EVENT_TYPE_SOLID, EVENT_TYPE_GRADIENT, EVENT_TYPE_ICONS, EVENT_TYPE_TILES } from './eventDisplay';
 import type { Event, EventType } from '@/api/events';
 
+const loadEventForm = () => import('./EventForm');
 const EventForm = lazy(() =>
-  import('./EventForm').then(module => ({ default: module.EventForm }))
+  loadEventForm().then(module => ({ default: module.EventForm }))
 );
 
 export const EventList = () => {
+  useEffect(() => preloadWhenIdle(loadEventForm), []);
   const { user } = useAuth();
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
 

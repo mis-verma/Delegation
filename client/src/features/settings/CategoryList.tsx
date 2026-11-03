@@ -1,4 +1,5 @@
-import { useMemo, useState, lazy, Suspense } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
 import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
@@ -16,19 +17,22 @@ import { avatarColorClass } from "../../lib/avatarColors";
 import { STARTER_CATEGORIES, normalizeCategoryName } from "./starterCategories";
 import { SLA_BAR, SLA_TEXT, formatTatHours, slaTone } from "./tatFormat";
 
+const loadCategoryForm = () => import("./CategoryForm");
 const CategoryForm = lazy(() =>
-  import("./CategoryForm").then(module => ({ default: module.CategoryForm }))
+  loadCategoryForm().then(module => ({ default: module.CategoryForm }))
 );
 
 const CategoryTatPanel = lazy(() =>
   import("./CategoryTatPanel").then(module => ({ default: module.CategoryTatPanel }))
 );
 
+const loadImportCategories = () => import("./ImportCategoriesModal");
+const loadStarterCategories = () => import("./StarterCategoriesModal");
 const ImportCategoriesModal = lazy(() =>
-  import("./ImportCategoriesModal").then(module => ({ default: module.ImportCategoriesModal }))
+  loadImportCategories().then(module => ({ default: module.ImportCategoriesModal }))
 );
 const StarterCategoriesModal = lazy(() =>
-  import("./StarterCategoriesModal").then(module => ({ default: module.StarterCategoriesModal }))
+  loadStarterCategories().then(module => ({ default: module.StarterCategoriesModal }))
 );
 
 type CategoryTab = "list" | "tat";
@@ -163,6 +167,7 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
 };
 
 export const CategoryList = () => {
+  useEffect(() => preloadWhenIdle(loadCategoryForm, loadImportCategories, loadStarterCategories), []);
   const confirm = useConfirm();
   const { user } = useAuth();
   const canSeeReport = user?.role === "ADMIN" || user?.role === "PC";

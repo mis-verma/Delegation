@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from 'react';
+import { preloadWhenIdle } from '../../../lib/preloadWhenIdle';
 import { useAuth } from '../../../context/AuthContext';
 import { Plus, Store as StoreIcon, ArrowDownAZ, Users, Building2, type LucideIcon } from 'lucide-react';
 import { OptionSection, OptionSelect } from '../../../components/optionsSheet';
@@ -39,6 +40,7 @@ const StoreForm = lazy(() =>
 );
 
 export const StoreList = () => {
+  useEffect(() => preloadWhenIdle(loadStoreForm), []);
   const [showForm, setShowForm] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [page, setPage] = useState(1);
