@@ -102,11 +102,15 @@ export const DepartmentField = ({
     );
   }
 
+  const inline = multiple && !isPhone;
+
   const trigger = (
     <button
       id={id}
       ref={setTriggerEl}
       type="button"
+      aria-expanded={inline ? open : undefined}
+      onClick={inline ? () => setOpen((o) => !o) : undefined}
       aria-label={picked ? `Department: ${pickedList.map((d) => d.name).join(', ')}. Change` : 'Choose a department'}
       title="Change department"
       className={cn(
@@ -121,6 +125,42 @@ export const DepartmentField = ({
       </span>
     </button>
   );
+
+  const list = (
+    <OptionList
+      multiple={multiple}
+      options={options}
+      selected={multiple ? activeIds : [value]}
+      isLoading={isLoading}
+      emptyText="No departments yet"
+      searchable
+      searchPlaceholder="Search departments…"
+      onToggle={toggle}
+      topActions={onCreateNew ? [{
+        key: 'create',
+        label: 'New department',
+        icon: Plus,
+        tone: 'primary' as const,
+        onSelect: () => { setOpen(false); onCreateNew(); },
+      }] : undefined}
+    />
+  );
+
+  if (inline) {
+    return (
+      <div className="flex w-full min-w-0 flex-col gap-1.5">
+        {trigger}
+        {open && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2">
+            <div className="max-h-72 overflow-y-auto overscroll-contain">{list}</div>
+            <Button variant="primary" size="sm" onClick={() => setOpen(false)} className="w-full font-display">
+              {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <PickerShell
@@ -137,30 +177,7 @@ export const DepartmentField = ({
         </Button>
       )}
     >
-      <OptionList
-        multiple={multiple}
-        options={options}
-        selected={multiple ? activeIds : [value]}
-        isLoading={isLoading}
-        emptyText="No departments yet"
-        searchable
-        searchPlaceholder="Search departments…"
-        onToggle={toggle}
-        topActions={onCreateNew ? [{
-          key: 'create',
-          label: 'New department',
-          icon: Plus,
-          tone: 'primary' as const,
-          onSelect: () => { setOpen(false); onCreateNew(); },
-        }] : undefined}
-      />
-      {multiple && !isPhone && (
-        <div className="sticky bottom-0 -mx-3 -mb-3 mt-2 border-t border-border/60 bg-surface px-3 py-2">
-          <Button variant="primary" size="sm" onClick={() => setOpen(false)} className="w-full font-display">
-            {activeIds.length ? `Done, ${activeIds.length} selected` : 'Done'}
-          </Button>
-        </div>
-      )}
+      {list}
     </PickerShell>
   );
 };
