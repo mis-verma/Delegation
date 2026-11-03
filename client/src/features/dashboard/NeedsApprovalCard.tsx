@@ -9,6 +9,7 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { usePcApprovalBuckets } from '../pc/usePcApprovalBuckets';
 import { ApprovalStatsStrip, type ApprovalBucket } from './ApprovalStatsStrip';
 import { SendBackDialog } from './SendBackDialog';
 import { canDecideInline, rowKey, useInlineDecisions } from './useInlineDecisions';
@@ -81,6 +82,8 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   const [filter, setFilter] = useState<'all' | ApprovalCategory>('all');
   const [bucket, setBucket] = useState<ApprovalBucket>('all');
   const reduceMotion = useReducedMotion();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const buckets = usePcApprovalBuckets();
 
   const allRows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
@@ -138,7 +141,9 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   if (!showsStats && !hasError && (isPending || total === 0)) return null;
 
   const canExpand = rows.length > previewLimit;
-  const notLoaded = Math.max(0, total - rows.length);
+  const notLoaded = Math.max(0, total - allRows.length);
+  const bucketExpected = bucket === 'late' ? buckets.total.old : bucket === 'fresh' ? buckets.total.fresh : 0;
+  const partial = bucket !== 'all' && activeFilter === 'all' && bucketExpected > rows.length;
 
   const failedSources = [
     (reviewsAllWork || isHod) && tickets.isError && { label: 'tickets', retry: () => void tickets.refetch() },
@@ -147,12 +152,9 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
   ].filter(Boolean) as { label: string; retry: () => void }[];
 
   const countOf = (c: ApprovalCategory) => bucketRows.filter((r) => r.category === c).length;
-  const filterOptions: { value: 'all' | ApprovalCategory; label: string }[] = [
-    { value: 'all', label: `All ${bucketRows.length}` },
-    ...(['ticket', 'delegation', 'checklist'] as const)
-      .filter((c) => countOf(c) > 0)
-      .map((c) => ({ value: c, label: `${ACTIVITY_CATEGORY_LABEL[c]}s ${countOf(c)}` })),
-  ];
+  const filterOptions = (['ticket', 'delegation', 'checklist'] as const)
+    .filter((c) => countOf(c) > 0)
+    .map((c) => ({ value: c, label: `${ACTIVITY_CATEGORY_LABEL[c]}s ${countOf(c)}` }));
 
   const nothingToShow = allRows.length === 0;
   const allCaughtUp = nothingToShow && !hasError && !isPending;
@@ -186,7 +188,29 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       {showsStats && !hideStats && (
         <>
           <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={setBucket} /></StatsBoundary>
-          <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+            className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 border-b border-border/40 px-4 py-2.5 text-left t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover sm:px-5"
+          >
+            {moreOpen ? 'Hide open work figures' : 'Show open work figures'}
+            <ChevronDown className={cn('size-3.5 transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
+          </button>
+          <AnimatePresence initial={false}>
+            {moreOpen && (
+              <motion.div
+                key="open-work"
+                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 
@@ -217,8 +241,8 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
           <>
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
               <h3 className="t-meta font-display font-bold text-text">{BUCKET_TITLE[bucket]}</h3>
-              {filterOptions.length > 2 && (
-                <Segmented label="Filter approvals" value={activeFilter} onChange={setFilter} options={filterOptions} />
+              {filterOptions.length > 1 && (
+                <Segmented label="Filter approvals by type" value={activeFilter} onChange={(v) => setFilter(v === activeFilter ? 'all' : v)} options={filterOptions} />
               )}
             </div>
 
@@ -292,7 +316,13 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
           <ChevronDown className={cn('size-3.5 transition-transform duration-200', expanded && 'rotate-180')} aria-hidden="true" />
         </button>
       )}
-      {notLoaded > 0 && (
+      {partial && (
+        <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">
+          Showing {rows.length} of {bucketExpected}.{queueHref ? ' ' : ''}
+          {queueHref && <Link to={queueHref} viewTransition className="font-semibold text-text-secondary underline underline-offset-2 hover:text-text">Open the queue for the rest</Link>}
+        </p>
+      )}
+      {notLoaded > 0 && !partial && (
         queueHref ? (
           <Link
             to={queueHref}

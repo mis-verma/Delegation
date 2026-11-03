@@ -45,14 +45,14 @@ export const ApprovalStatsStrip = memo(({ bucket = 'all', onBucket }: ApprovalSt
   const { pending, old, fresh } = buckets.total;
   const pick = (next: ApprovalBucket) => (onBucket ? () => onBucket(bucket === next ? 'all' : next) : toQueue ? () => navigate(toQueue) : undefined);
   const cells: FigureCell[] = [
-    { key: 'pending', label: 'Pending', value: pending, note: pending === 0 ? 'All decided' : 'Waiting for you', help: 'Everything handed in that is still waiting for your decision. Tap to show them all.', selected: bucket === 'all' && !!onBucket, onClick: pick('all') },
+    { key: 'pending', label: 'Pending', value: pending, note: pending === 0 ? 'All decided' : 'Waiting for you', help: 'Everything handed in that is still waiting for your decision. Tap to show them all.', onClick: pick('all') },
     { key: 'delayed', label: 'Delayed', value: old, note: old === 0 ? 'None late' : 'Over 24 hours', alert: old > 0, help: 'Waiting items that have passed the 24 hour limit. Tap to show only these.', selected: bucket === 'late', onClick: pick('late') },
     { key: 'new', label: 'New', value: fresh, note: 'Under 24 hours', help: 'Items that arrived in the last 24 hours. Tap to show only these.', selected: bucket === 'fresh', onClick: pick('fresh') },
     { key: 'ontime', label: 'On time', value: rate === null ? null : `${Math.round(rate)}%`, note: 'This week', alert: rate !== null && rate < FAIR_FROM, help: `Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`, onClick: toQueue ? () => navigate(toQueue) : undefined },
   ];
 
   return (
-    <ApprovalSection title="Waiting for your decision" hint="Approvals handed in to you" className="@container">
+    <ApprovalSection title="Waiting for your decision" className="@container">
       <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} phoneColumns={2} />
     </ApprovalSection>
   );

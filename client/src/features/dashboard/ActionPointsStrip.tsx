@@ -32,7 +32,7 @@ export const ActionPointsStrip = memo(() => {
   const approvalTone = (n: number): FigureTone => (n === 0 ? 'good' : 'plain');
 
   return (
-    <ApprovalSection title="Open work" hint="Approvals, tickets and delegations" className="@container">
+    <ApprovalSection title="Open work" className="@container">
       <div className="grid grid-cols-3 gap-2">
         <FigureCard
           label="Ticket approvals"
