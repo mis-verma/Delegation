@@ -24,6 +24,9 @@ interface AssigneeFieldProps {
   emptyText?: string;
 }
 
+const isHead = (u: AssignableUser) => u.role === 'MANAGER' || u.role === 'SENIOR';
+const roleLabel = (u: AssignableUser) => (isHead(u) ? 'Head' : 'Team member');
+
 const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
 
 const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => {
@@ -74,11 +77,13 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
 
   const grouped = useMemo(() => new Set((users ?? []).map((u) => hintOf(u) ?? '')).size > 1, [users, hintOf]);
 
+  const headsFirst = (a: AssignableUser, b: AssignableUser) => Number(isHead(b)) - Number(isHead(a));
+
   const orderedUsers = useMemo(() => {
     const all = users ?? [];
-    if (grouped) return [...all].sort((a, b) => (hintOf(a) ?? '~').localeCompare(hintOf(b) ?? '~'));
+    if (grouped) return [...all].sort((a, b) => (hintOf(a) ?? '~').localeCompare(hintOf(b) ?? '~') || headsFirst(a, b));
     const pinned = new Set(pinnedIds);
-    return [...all.filter((u) => pinned.has(u.id)), ...all.filter((u) => !pinned.has(u.id))];
+    return [...all.filter((u) => pinned.has(u.id)), ...all.filter((u) => !pinned.has(u.id)).sort(headsFirst)];
   }, [users, pinnedIds, grouped, hintOf]);
 
   const onPickerOpenChange = (next: boolean) => {
@@ -161,7 +166,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     return {
       value: u.id,
       label: name,
-      hint: grouped ? undefined : hintOf(u),
+      hint: grouped ? roleLabel(u) : [hintOf(u), roleLabel(u)].filter(Boolean).join(' · '),
       group: grouped ? hintOf(u) ?? 'No department' : undefined,
       lead: (
         <span className={`flex items-center justify-center size-8 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
