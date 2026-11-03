@@ -69,7 +69,7 @@ export const ApprovalLink = memo(({ row, now, selected = false, actions }: Appro
 ));
 ApprovalLink.displayName = 'ApprovalLink';
 
-export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }) => {
+export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: { hideStats?: boolean; hideOpenWork?: boolean }) => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
   const now = useNow();
@@ -193,29 +193,33 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean }
       {showsStats && !hideStats && (
         <>
           <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
-          <button
-            type="button"
-            onClick={() => setMoreOpen((v) => !v)}
-            aria-expanded={moreOpen}
-            className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 border-b border-border/40 px-4 py-2.5 text-left t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover sm:px-5"
-          >
-            {moreOpen ? 'Hide open work figures' : 'Show open work figures'}
-            <ChevronDown className={cn('size-3.5 transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
-          </button>
-          <AnimatePresence initial={false}>
-            {moreOpen && (
-              <motion.div
-                key="open-work"
-                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="overflow-hidden"
+          {!hideOpenWork && (
+            <>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={moreOpen}
+                className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 border-b border-border/40 px-4 py-2.5 text-left t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover sm:px-5"
               >
-                <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                {moreOpen ? 'Hide open work figures' : 'Show open work figures'}
+                <ChevronDown className={cn('size-3.5 transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
+              </button>
+              <AnimatePresence initial={false}>
+                {moreOpen && (
+                  <motion.div
+                    key="open-work"
+                    initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="overflow-hidden"
+                  >
+                    <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
         </>
       )}
 
