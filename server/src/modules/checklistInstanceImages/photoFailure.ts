@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import { failingFlagsOf } from "../../utils/imageQuality.js"
+import { AppError } from "../../utils/AppError.js"
 
 export const PHOTO_REVIEW_REASONS = ["BLURRY", "TEXT_UNREADABLE", "CROPPED", "OTHER"] as const
 export type PhotoReviewReason = (typeof PHOTO_REVIEW_REASONS)[number]
@@ -23,3 +24,21 @@ export const FAILED_PHOTO_SQL = (alias: string) => sql.raw(
 )
 
 export const passingPhotos = <T extends PhotoState>(images: readonly T[]): T[] => images.filter((image) => !isFailedPhoto(image))
+
+export const photoRoomError = (existing: readonly PhotoState[], incoming: number, itemMax: number | null | undefined): string | null => {
+    if (existing.filter(isFailedPhoto).length >= MAX_FAILED_PHOTOS) {
+        return "Too many photos on this item did not pass the check. Ask your department head for help."
+    }
+    const passing = passingPhotos(existing).length
+    const limit = itemMax != null ? Math.min(itemMax, MAX_PASSING_PHOTOS) : MAX_PASSING_PHOTOS
+    if (passing + incoming <= limit) return null
+    const remaining = Math.max(limit - passing, 0)
+    return remaining > 0
+        ? `This item allows at most ${limit} clear photo(s). Only ${remaining} more can be uploaded.`
+        : `This item already has the maximum of ${limit} clear photo(s).`
+}
+
+export const assertPhotoRoom = (existing: readonly PhotoState[], incoming: number, itemMax: number | null | undefined) => {
+    const message = photoRoomError(existing, incoming, itemMax)
+    if (message) throw AppError.badRequest(message)
+}

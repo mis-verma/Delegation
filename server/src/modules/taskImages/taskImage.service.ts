@@ -2,13 +2,13 @@ import path from "node:path"
 import fs from "node:fs"
 import { db } from "../../config/db.js"
 import { taskChecklistItems, taskChecklists, taskImages, tasks } from "../../db/schema/index.js"
-import { eq, count, inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { assertCanWorkChecklistItem, assertChecklistOpenForWork, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 import { assessImageQuality, serializeQualityFlags } from "../../utils/imageQuality.js"
-import { FAILED_PHOTO_DELETE_MESSAGE, isFailedPhoto, type PhotoReviewReason } from "../checklistInstanceImages/photoFailure.js"
+import { FAILED_PHOTO_DELETE_MESSAGE, assertPhotoRoom, isFailedPhoto, type PhotoReviewReason } from "../checklistInstanceImages/photoFailure.js"
 import { assertCanVerify } from "../tasks/taskAccess.js"
 import { auditService } from "../audit/audit.service.js"
 import { isAdminOrPc } from "../../utils/roles.js"
@@ -46,20 +46,10 @@ export const taskImageService = {
             throw AppError.badRequest("This item requires a live camera photo, not a gallery upload");
         }
 
-        if (item.maxImageCount != null) {
-            const [{ existingCount } = { existingCount: 0 }] = await db.select({ existingCount: count() })
-                .from(taskImages)
-                .where(eq(taskImages.taskChecklistItemId, item.id));
-            if (existingCount + files.length > item.maxImageCount) {
-                files.forEach((f) => fs.unlink(f.path, () => { }));
-                const remaining = Math.max(item.maxImageCount - existingCount, 0);
-                throw AppError.badRequest(
-                    remaining > 0
-                        ? `This item allows at most ${item.maxImageCount} photo(s) — only ${remaining} more can be uploaded`
-                        : `This item already has the maximum of ${item.maxImageCount} photo(s)`,
-                );
-            }
-        }
+        const existing = await db.select({ qualityFlags: taskImages.qualityFlags, reviewStatus: taskImages.reviewStatus })
+            .from(taskImages)
+            .where(eq(taskImages.taskChecklistItemId, item.id));
+        assertPhotoRoom(existing, files.length, item.maxImageCount);
 
         const qualities = await Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? assessImageQuality(file.path) : Promise.resolve(null))));
         const rows = files.map((file, index) => ({

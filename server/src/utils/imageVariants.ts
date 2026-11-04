@@ -10,6 +10,7 @@ const VARIANTS_ROOT = path.join(UPLOADS_ROOT, ".variants")
 const WIDTHS = [160, 320, 640, 1280] as const
 const SOURCE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"])
 const JPEG_QUALITY = 80
+const WEBP_QUALITY = 78
 const CACHE_SECONDS = 86_400
 const STALE_AFTER_DAYS = 30
 const DAY_MS = 86_400_000
@@ -36,13 +37,18 @@ const resolveSource = (urlPath: string): string | null => {
     return full
 }
 
+export type VariantFormat = "jpeg" | "webp"
+
+export const variantFormat = (accept: string | undefined): VariantFormat =>
+    accept && /\bimage\/webp\b/i.test(accept) ? "webp" : "jpeg"
+
 const exists = (file: string) => fs.stat(file).then(() => true, () => false)
 
-const build = async (source: string, width: number): Promise<string | null> => {
+const build = async (source: string, width: number, format: VariantFormat): Promise<string | null> => {
     const stat = await fs.stat(source).catch(() => null)
     if (!stat?.isFile()) return null
     const key = crypto.createHash("sha1").update(`${source}:${stat.mtimeMs}:${stat.size}`).digest("hex")
-    const target = path.join(VARIANTS_ROOT, String(width), `${key}.jpg`)
+    const target = path.join(VARIANTS_ROOT, String(width), `${key}.${format === "webp" ? "webp" : "jpg"}`)
     if (await exists(target)) {
         const now = new Date()
         fs.utimes(target, now, now).catch(() => undefined)
@@ -50,24 +56,28 @@ const build = async (source: string, width: number): Promise<string | null> => {
     }
     await fs.mkdir(path.dirname(target), { recursive: true })
     const temp = `${target}.${process.pid}.tmp`
-    await withImageSlot(() => sharp(source, { failOn: "none" })
-        .rotate()
-        .flatten({ background: "#ffffff" })
-        .resize({ width, withoutEnlargement: true })
-        .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-        .toFile(temp))
+    await withImageSlot(() => {
+        const resized = sharp(source, { failOn: "none" })
+            .rotate()
+            .flatten({ background: "#ffffff" })
+            .resize({ width, withoutEnlargement: true })
+        const encoded = format === "webp"
+            ? resized.webp({ quality: WEBP_QUALITY, effort: 4 })
+            : resized.jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+        return encoded.toFile(temp)
+    })
     await fs.rename(temp, target)
     return target
 }
 
-export const imageVariantPath = (urlPath: string, rawWidth: unknown): Promise<string | null> => {
+export const imageVariantPath = (urlPath: string, rawWidth: unknown, format: VariantFormat = "jpeg"): Promise<string | null> => {
     const width = snapWidth(rawWidth)
     const source = resolveSource(urlPath)
     if (!width || !source) return Promise.resolve(null)
-    const flightKey = `${source}:${width}`
+    const flightKey = `${source}:${width}:${format}`
     const running = inFlight.get(flightKey)
     if (running) return running
-    const job = build(source, width).finally(() => inFlight.delete(flightKey))
+    const job = build(source, width, format).finally(() => inFlight.delete(flightKey))
     inFlight.set(flightKey, job)
     return job
 }
@@ -96,13 +106,14 @@ export const serveImageVariant = (req: Request, res: Response, next: NextFunctio
         next()
         return
     }
-    imageVariantPath(req.path, req.query.w)
+    imageVariantPath(req.path, req.query.w, variantFormat(req.headers.accept))
         .then((file) => {
             if (!file) {
                 next()
                 return
             }
             res.setHeader("Cache-Control", `private, max-age=${CACHE_SECONDS}`)
+            res.setHeader("Vary", "Accept")
             res.sendFile(file, { dotfiles: "allow" }, (err) => {
                 if (err && !res.headersSent) next()
             })

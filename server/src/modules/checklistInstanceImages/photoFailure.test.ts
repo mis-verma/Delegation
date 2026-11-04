@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isFailedPhoto, passingPhotos } from "./photoFailure.js"
+import { isFailedPhoto, passingPhotos, photoRoomError } from "./photoFailure.js"
 
 describe("isFailedPhoto", () => {
     it("fails a photo the system flagged as blurry, unreadable or cropped", () => {
@@ -29,5 +29,27 @@ describe("passingPhotos", () => {
             { id: "d", qualityFlags: "CROPPED", reviewStatus: "ACCEPTED" },
         ])
         expect(kept.map((p) => p.id)).toEqual(["a", "d"])
+    })
+})
+
+const clear = (n: number) => Array.from({ length: n }, () => ({ qualityFlags: null, reviewStatus: "NONE" }))
+const failed = (n: number) => Array.from({ length: n }, () => ({ qualityFlags: "BLURRY", reviewStatus: "NONE" }))
+
+describe("photoRoomError", () => {
+    it("allows up to 25 clear photos when the item sets no limit", () => {
+        expect(photoRoomError(clear(20), 5, null)).toBeNull()
+        expect(photoRoomError(clear(20), 6, null)).toContain("Only 5 more")
+        expect(photoRoomError(clear(25), 1, null)).toContain("already has the maximum of 25")
+    })
+    it("uses the smaller of the item limit and 25", () => {
+        expect(photoRoomError(clear(2), 1, 3)).toBeNull()
+        expect(photoRoomError(clear(3), 1, 3)).toContain("maximum of 3")
+        expect(photoRoomError(clear(25), 1, 40)).toContain("maximum of 25")
+    })
+    it("does not count failed photos against the clear limit", () => {
+        expect(photoRoomError([...clear(24), ...failed(10)], 1, null)).toBeNull()
+    })
+    it("stops uploads once 25 photos have failed", () => {
+        expect(photoRoomError(failed(25), 1, null)).toContain("did not pass the check")
     })
 })
