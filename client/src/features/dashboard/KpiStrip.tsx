@@ -1,12 +1,15 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, ListTodo, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { Skeleton } from '../../components/skeleton';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
-import { IconChip, RadialGauge } from '../../components';
+import { IconChip, InlineError, RadialGauge } from '../../components';
+import { FigureCard } from './FigureCard';
+import { DashCardLink } from './DashCardHeader';
+import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL } from './categoryLook';
 import { useQuery } from '@tanstack/react-query';
 import { scoreApi, type ScoreScope, type ScoreTrend, type Scores } from '../../api/scores';
 import { useAuth } from '../../context/AuthContext';
@@ -25,7 +28,7 @@ import type { ScoreModule } from '../../lib/scoreLabels';
 import { useNow } from '../../lib/useNow';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { describeDueBy, instanceDeadline, instanceOpensOnLaterDay, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
-import { doneLabel, dueLabel, isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
+import { doneLabel, dueLabel, isTaskOverdue, isTicketLate, taskDrilldownRow, type ActivityCategory } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
 import { taskApi, type Task } from '../../api/task';
@@ -84,7 +87,7 @@ const EMPTY_REASON: Record<DrillKind, string> = { pending: 'are open right now',
 
 const isLiveWork = (x: { awaitingHeadApproval?: boolean; declinedAt?: string | null }) => !x.awaitingHeadApproval && !x.declinedAt;
 
-const startOfToday =(now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const startOfToday = (now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 const ticketRow = (t: Ticket, now: number): DrilldownRow => {
   const completed = isTicketHandedIn(t);
@@ -121,38 +124,7 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
   return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue, meta, dueAt: deadline };
 };
 
-const MINI_TONE = {
-  success: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-vivid-green-text' },
-  info: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-vivid-blue-text' },
-  neutral: { box: 'bg-surface-hover/60 hover:bg-surface-hover', value: 'text-text' },
-} as const;
-
-const MiniStat = ({ label, shortLabel, value, onClick, tone = 'neutral' }: { label: string; shortLabel: string; value: number | null; onClick?: () => void; tone?: keyof typeof MINI_TONE }) => {
-  const look = MINI_TONE[tone];
-  const body = (
-    <>
-      <span className={cn('block t-card sm:text-lg font-display font-extrabold tabular-nums leading-tight', look.value)}>{value ?? '-'}</span>
-      <span className="block break-words t-meta font-medium leading-tight text-text-muted">
-        <span className="sm:hidden">{shortLabel}</span>
-        <span className="hidden sm:inline">{label}</span>
-      </span>
-    </>
-  );
-  return onClick ? (
-    <button type="button" onClick={onClick} className={cn('flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl px-1 py-2 text-center outline-none transition-colors active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40', look.box)}>
-      {body}
-    </button>
-  ) : (
-    <div className={cn('flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl px-1 py-2 text-center', look.box)}>{body}</div>
-  );
-};
-
-const MODULE_TONE: Record<ModuleKey, { tile: string; text: string; bar: string }> = {
-  delegation: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  tickets: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  checklist: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-  todo: { tile: 'bg-primary-800', text: 'text-primary-700 dark:text-primary-300', bar: 'bg-vivid-sky' },
-};
+const CATEGORY_OF: Record<ModuleKey, ActivityCategory> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist', todo: 'todo' };
 
 const OnTrack = ({ className }: { className?: string }) => (
   <IconChip icon={CheckCircle2} tone="bg-vivid-green" label="On track" labelClassName="text-vivid-green-text" className={cn('shrink-0 border-vivid-green/40 bg-vivid-green/10', className)} />
@@ -195,154 +167,181 @@ interface Spark {
   labels: string[];
 }
 
-const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number; spark?: Spark }) => {
-  const Icon = view.icon;
-  if (view.isPending) {
-    return (
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 sm:gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
-        <div className="flex h-10 sm:h-8 items-center gap-2">
-          <Skeleton className="hidden sm:block size-8 shrink-0 rounded-lg" />
-          <Skeleton className="h-5 w-24" />
-        </div>
-        <div className="flex h-11 flex-col justify-end gap-1 sm:hidden">
-          <Skeleton className="h-6 w-12" />
-          <Skeleton className="h-3.5 w-14" />
-        </div>
-        <Skeleton className="hidden sm:block h-28 w-full rounded-xl" />
-        <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="mx-auto h-11 sm:h-12 w-10 sm:w-14 rounded-lg" />)}
-        </div>
-      </div>
-    );
-  }
-  const failed = view.pending == null;
-  const idle = !failed && (view.total ?? 0) === 0 && (view.pending ?? 0) === 0 && (view.completed ?? 0) === 0 && (view.newToday ?? 0) === 0 && view.overdue === 0;
-  const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
-  const tone = MODULE_TONE[view.key];
-  return (
-    <section
-      aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title}
-      style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
-      className={cn(PANEL_CLASS, 'stat-rise relative flex min-w-0 flex-col gap-2 overflow-hidden p-3 pt-3.5 sm:gap-3 sm:p-4 sm:pt-4.5 transition-colors hover:border-border-hover')}
-    >
-      <span className="absolute inset-x-0 top-0 h-0.5 bg-gold" aria-hidden="true" />
-      <Link
-        viewTransition
-        to={view.href}
-        aria-label={`Open ${view.title}`}
-        className="group flex min-h-11 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-0"
-      >
-        <span className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl text-white max-[359px]:hidden', tone.tile)}>
-          <Icon className="size-4 sm:size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 break-words leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
-          {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ' · all time'}</span>}
-        </span>
-        <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
-          <span className="hidden sm:inline group-hover:underline">View all</span>
-          <ChevronRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
-        </span>
-      </Link>
+const NOTHING_DUE = 'Nothing due today';
+const RETRY_LINE = 'relative inline-flex min-h-11 w-fit items-center rounded-md t-meta font-display font-semibold text-danger underline-offset-2 outline-none transition-colors duration-150 ease-out hover:underline focus-visible:ring-2 focus-visible:ring-danger/40 pointer-fine:min-h-6';
+const TAP_PILL = 'inline-flex min-h-11 items-center rounded-full outline-none transition-transform duration-150 ease-out active:scale-[0.97] focus-visible:ring-2 pointer-fine:min-h-0';
 
-      {idle ? (
-        <div className="flex flex-1 flex-col justify-center gap-0.5 py-1">
-          <div role="img" aria-label={`No ${view.noun} yet`} className="min-h-16 flex-1 rounded-xl bg-surface-hover/50" />
-        </div>
-      ) : failed ? (
-        <button type="button" onClick={view.onRetry} className="rounded-lg border border-border/60 px-3 py-3 text-left t-meta text-text-muted hover:border-border-hover">
-          Couldn't load {view.noun}. Tap to try again.
-        </button>
+const CompactTile = ({ view, failed, idle, refreshFailed }: { view: ModuleView; failed: boolean; idle: boolean; refreshFailed: boolean }) => {
+  const category = CATEGORY_OF[view.key];
+  const Icon = CATEGORY_ICON[category];
+  const late = view.overdue;
+  const spoken = failed
+    ? `${view.title}, couldn't load`
+    : idle
+      ? `${view.title}, ${NOTHING_DUE.toLowerCase()}`
+      : `${view.title}, ${view.pending ?? 0} pending, ${late > 0 ? `${late} late` : 'nothing late'}`;
+  return (
+    <div className="relative flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/60 bg-surface p-3 transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985] sm:hidden">
+      <Link viewTransition to={view.href} aria-label={`Open ${PAGE_NAME[view.key]}: ${spoken}`} className="absolute inset-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40" />
+      <span className="pointer-events-none relative flex min-w-0 items-center gap-1.5" aria-hidden="true">
+        <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', CATEGORY_PILL[category])}>
+          <Icon className="size-4" strokeWidth={2.25} />
+        </span>
+        <span className="min-w-0 line-clamp-2 break-words leading-snug t-card font-display font-bold text-text">{view.title}</span>
+      </span>
+      {failed ? (
+        <>
+          <span className="pointer-events-none relative t-meta text-text-muted" aria-hidden="true">Couldn't load.</span>
+          <button type="button" onClick={view.onRetry} className={RETRY_LINE}>Retry</button>
+        </>
+      ) : idle ? (
+        <span className="pointer-events-none relative flex flex-col gap-0.5" aria-hidden="true">
+          <span className="t-meta font-semibold text-text-muted">{NOTHING_DUE}</span>
+          <span className="t-meta font-display font-semibold text-primary-700 dark:text-primary-300">Open {PAGE_NAME[view.key]}</span>
+        </span>
       ) : (
         <>
-          <div className="hidden min-h-[7.75rem] grid-cols-2 items-center gap-2 sm:grid">
-            <div className="flex min-w-0 flex-col items-start gap-1.5">
-              <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-start rounded-xl px-1 py-0.5 text-left outline-none transition-all duration-150 hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={'t-figure font-display font-extrabold leading-none tabular-nums text-text'}>
-                  <CountUp value={view.pending ?? 0} fromZero />
-                </span>
-                <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
-              </button>
-              {view.overdue > 0 ? (
-                <button type="button" onClick={() => onOpen('overdue')} className="rounded-full outline-none transition-transform active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-danger/40">
-                  <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
-                </button>
-              ) : (
-                <OnTrack />
-              )}
-            </div>
-            {score.value === null ? (
-              <div role="img" aria-label={score.label === 'Done' ? 'No to-dos yet' : 'No score yet'} className="h-full min-h-24 rounded-xl bg-surface-hover/50" />
-            ) : (
-            <div className="flex flex-col items-center justify-center border-l border-border/60">
-              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
-              </RadialGauge>
-              <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
-                {score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`}
-                {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
-              </span>
-            </div>
-            )}
-          </div>
+          <span className="pointer-events-none relative flex items-baseline gap-1" aria-hidden="true">
+            <span className="t-stat font-display font-bold leading-none tabular-nums text-text"><CountUp value={view.pending ?? 0} fromZero /></span>
+            <span className="t-meta text-text-muted">pending</span>
+          </span>
+          <span className={cn('pointer-events-none relative t-meta font-semibold', late > 0 ? 'text-danger' : 'text-text-muted')} aria-hidden="true">
+            {late > 0 ? `${late} late` : 'Nothing late'}
+          </span>
+        </>
+      )}
+      {refreshFailed && (
+        <button type="button" onClick={view.onRetry} className={RETRY_LINE}>Couldn't refresh. Retry</button>
+      )}
+    </div>
+  );
+};
 
-          <div className="flex flex-col gap-0.5 sm:hidden">
-            <div className="flex items-center justify-between gap-2">
-              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg py-0.5 text-left outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                <span className={'block t-figure font-display font-extrabold tabular-nums leading-none text-text'}>
-                  <CountUp value={view.pending ?? 0} fromZero />
-                </span>
-                <span className="mt-1 block t-meta font-semibold text-text-muted">Pending</span>
-              </button>
-              {score.value !== null && (
-                <div className="flex shrink-0 flex-col items-center" role="img" aria-label={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`}: ${formatPct(score.value)}`}>
-                  <RadialGauge percent={score.value} size={52} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                    <span className="t-meta font-display font-extrabold tabular-nums text-text">{formatPct(score.value)}</span>
+const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: GaugeScore; scopeTag?: string; index: number; spark?: Spark }) => {
+  const category = CATEGORY_OF[view.key];
+  const Icon = CATEGORY_ICON[category];
+  if (view.isPending) {
+    return (
+      <>
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface p-3 sm:hidden" role="status" aria-label={`Loading ${view.noun}`}>
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="size-7 shrink-0 rounded-md" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <Skeleton className="h-6 w-12" />
+          <Skeleton className="h-3.5 w-20" />
+        </div>
+        <div className={cn(PANEL_CLASS, 'hidden flex-col gap-3 p-4 sm:flex')} role="status" aria-label={`Loading ${view.noun}`}>
+          <div className="flex h-9 items-center gap-2">
+            <Skeleton className="size-9 shrink-0 rounded-lg" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <div className="grid grid-cols-3 gap-1.5">
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+          </div>
+        </div>
+      </>
+    );
+  }
+  const hasData = view.pending != null;
+  const failed = !hasData;
+  const refreshFailed = hasData && view.isError;
+  const idle = hasData && (view.total ?? 0) === 0 && (view.pending ?? 0) === 0 && (view.completed ?? 0) === 0 && (view.newToday ?? 0) === 0 && view.overdue === 0;
+  const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
+  const gaugeName = score.label === 'Done' ? 'To-dos done' : `${score.owner} score today`;
+  return (
+    <>
+      <CompactTile view={view} failed={failed} idle={idle} refreshFailed={refreshFailed} />
+      <section
+        aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title}
+        style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
+        className={cn(PANEL_CLASS, '@container stat-rise hidden min-w-0 flex-col gap-3 p-4 transition-colors duration-150 ease-out hover:border-border-hover sm:flex')}
+      >
+        <Link
+          viewTransition
+          to={view.href}
+          aria-label={`Open ${view.title}`}
+          className="group flex min-h-11 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:min-h-9"
+        >
+          <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', CATEGORY_PILL[category])}>
+            <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 break-words leading-snug t-card font-display font-bold text-text">{view.title}</h3>
+            {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ' · all time'}</span>}
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
+            <span className="group-hover:underline">View all</span>
+            <ChevronRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+          </span>
+        </Link>
+
+        {failed ? (
+          <InlineError message={`Couldn't load ${view.noun}.`} onRetry={view.onRetry} />
+        ) : idle ? (
+          <div className="flex min-h-28 flex-1 flex-col items-start justify-center gap-2 rounded-lg border border-border/60 px-3 py-4">
+            <p className="t-card font-display font-semibold text-text-secondary">{NOTHING_DUE}</p>
+            <DashCardLink to={view.href} label={`Open ${PAGE_NAME[view.key]}`}>Open {PAGE_NAME[view.key]}</DashCardLink>
+          </div>
+        ) : (
+          <>
+            <div className="grid min-h-[7.75rem] grid-cols-2 items-center gap-2">
+              <div className="flex min-w-0 flex-col items-start gap-1.5">
+                <button type="button" onClick={() => onOpen('pending')} className="flex min-h-11 flex-col items-start rounded-lg px-1 py-0.5 text-left outline-none transition-colors duration-150 ease-out hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                  <span className="t-stat font-display font-bold leading-none tabular-nums text-text">
+                    <CountUp value={view.pending ?? 0} fromZero />
+                  </span>
+                  <span className="t-meta font-semibold text-text-muted">Pending now</span>
+                </button>
+                {view.overdue > 0 ? (
+                  <button type="button" onClick={() => onOpen('overdue')} className={cn(TAP_PILL, 'focus-visible:ring-danger/40')}>
+                    <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
+                  </button>
+                ) : (
+                  <OnTrack />
+                )}
+              </div>
+              {score.value === null ? (
+                <div className="flex h-full min-h-24 flex-col items-center justify-center gap-1 border-l border-border/60 px-2 text-center">
+                  <span className="t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'No to-dos yet' : 'No score yet today'}</span>
+                  <span className="t-meta text-text-muted">{score.label === 'Done' ? 'Add one on the To-do page' : 'It shows once work comes due'}</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1 border-l border-border/60">
+                  <RadialGauge percent={score.value} size={84} variant="circle" ariaLabel={`${gaugeName} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                    <span className="t-stat font-display font-bold tabular-nums text-text">{formatPct(score.value)}</span>
                   </RadialGauge>
-                  <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : `${score.owner} score`}</span>
+                  <span className="flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
+                    {gaugeName}
+                    {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
+                  </span>
                 </div>
               )}
             </div>
-            {view.overdue > 0 ? (
-              <button type="button" onClick={() => onOpen('overdue')} className="flex min-h-9 w-fit items-center rounded-full outline-none active:scale-[0.97] pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-danger/40">
-                <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
-              </button>
-            ) : (
-              <div className="flex min-h-9 items-center pointer-coarse:min-h-11">
-                <OnTrack className="w-fit" />
+
+            {spark && spark.values.some((v) => v !== null) && (
+              <div className="flex flex-col gap-1">
+                <span className="t-meta font-medium text-text-muted">Last 7 days</span>
+                <HeatDots values={spark.values} labels={spark.labels} />
               </div>
             )}
-          </div>
 
-          {spark && spark.values.some((v) => v !== null) && (
-            <div className="flex flex-col gap-1">
-              <span className="t-meta font-medium text-text-muted">Last 7 days</span>
-              <HeatDots values={spark.values} labels={spark.labels} />
+            <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={CATEGORY_ACCENT[category]} />
+
+            <div className="grid grid-cols-3 gap-1.5">
+              <FigureCard label="Done" value={view.completed} tone="plain" loading={false} onClick={() => onOpen('completed')} />
+              <FigureCard label="New today" short="New" value={view.newToday} tone="plain" loading={false} onClick={() => onOpen('newToday')} />
+              <FigureCard label="Total" value={view.total} tone="plain" loading={false} />
             </div>
-          )}
 
-          <ProgressBar done={view.completed ?? 0} overdue={view.overdue} open={view.pending ?? 0} openClass={tone.bar} />
-
-          <div className="hidden grid-cols-3 gap-1.5 text-center sm:grid">
-            <MiniStat label="Done" shortLabel="Done" value={view.completed} tone="success" onClick={() => onOpen('completed')} />
-            <MiniStat label="New today" shortLabel="New" value={view.newToday} tone="info" onClick={() => onOpen('newToday')} />
-            <MiniStat label="Total" shortLabel="Total" value={view.total} />
-          </div>
-
-          <div className="flex items-center border-t border-border/60 pt-1 sm:hidden">
-            <button type="button" onClick={() => onOpen('completed')} className="flex min-h-9 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-success/10 active:bg-success/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="font-extrabold tabular-nums text-primary-600 dark:text-primary-300">{view.completed ?? '-'}</span>
-              done
-            </button>
-            <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
-            <button type="button" onClick={() => onOpen('newToday')} className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-info/10 active:bg-info/15 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="font-extrabold tabular-nums text-info">{view.newToday ?? '-'}</span>
-              new
-            </button>
-          </div>
-        </>
-      )}
-    </section>
+            {refreshFailed && (
+              <button type="button" onClick={view.onRetry} className={RETRY_LINE}>Couldn't refresh. Retry</button>
+            )}
+          </>
+        )}
+      </section>
+    </>
   );
 };
 
@@ -361,23 +360,23 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     const ct = checklistToday.data;
     return [
       {
-        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', todayCounts: false, scope: 'team',
+        key: 'delegation', icon: CATEGORY_ICON.delegation, title: 'Delegation', noun: 'delegations', href: '/tasks', todayCounts: false, scope: 'team',
         isPending: tasks.isPending, isError: tasks.isError, onRetry: tasks.onRetry,
         total: t?.total ?? null, pending: t?.pending ?? null, completed: t?.completed ?? null, newToday: t?.newToday ?? null, overdue: t?.overdue ?? 0,
       },
       {
-        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', todayCounts: false, scope: 'team',
+        key: 'tickets', icon: CATEGORY_ICON.ticket, title: 'Tickets', noun: 'tickets', href: '/tickets', todayCounts: false, scope: 'team',
         isPending: tickets.isPending, isError: tickets.isError, onRetry: tickets.onRetry,
         total: k?.total ?? null, pending: k?.pending ?? null, completed: k?.completed ?? null, newToday: k?.newToday ?? null, overdue: k?.overdue ?? 0,
       },
       {
-        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', todayCounts: true, scope: 'mine',
+        key: 'checklist', icon: CATEGORY_ICON.checklist, title: 'Checklist', noun: 'checklists', href: '/checklists', todayCounts: true, scope: 'mine',
         isPending: checklistToday.isPending, isError: checklistToday.isError,
         onRetry: checklistToday.onRetry,
         total: ct?.total ?? null, pending: ct?.pending ?? null, completed: ct?.completed ?? null, newToday: ct?.newToday ?? null, overdue: ct?.overdue ?? 0,
       },
       {
-        key: 'todo', icon: ListTodo, title: 'To-do', noun: 'to-dos', href: '/todo', todayCounts: false, scope: 'mine',
+        key: 'todo', icon: CATEGORY_ICON.todo, title: 'To-do', noun: 'to-dos', href: '/todo', todayCounts: false, scope: 'mine',
         isPending: todos.isPending, isError: todos.isError, onRetry: todos.onRetry,
         total: d?.total ?? null, pending: d?.pending ?? null, completed: d?.completed ?? null, newToday: d?.newToday ?? null, overdue: d?.overdue ?? 0,
       },

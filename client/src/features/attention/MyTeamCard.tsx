@@ -5,19 +5,17 @@ import { BarChart3, ChevronRight, Grid3x3, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, EmptyState, ExportMenu, InlineError, Skeleton, ToggleChip } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { CARD_HEAD_TINT, CARD_TOP_BAR } from '../dashboard/cardAccent';
 import { scoreApi, type ScoreReportRow } from '../../api/scores';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { cardIconTile } from '../dashboard/dashboardDisplay';
 import { windowFor } from '../dashboard/scorePeriods';
-import { orgDayWindow } from '../dashboard/scoreDrill';
-import { useTeamApprovals } from './useAttention';
 import { PersonAttentionSheet } from './PersonAttentionSheet';
 import { pctText, scoreBar, scoreTone } from './attentionDisplay';
 import { FAIR_FROM, GOOD_FROM } from '../../lib/scoreBands';
 import { ToneChip } from '../dashboard/ToneChip';
-import { toneOf } from '../dashboard/scoreTone';
+import { figureToneOf, toneOf } from '../dashboard/scoreTone';
+import { DashCardHeader } from '../dashboard/DashCardHeader';
+import { FigureCard } from '../dashboard/FigureCard';
 
 type Period = 'day' | 'week' | 'month';
 const PERIODS: { key: Period; label: string }[] = [
@@ -29,16 +27,7 @@ const PREVIEW = 6;
 
 const approvedOf = (r: ScoreReportRow) => (r.checklist.submitted > 0 ? (r.checklist.approved / r.checklist.submitted) * 100 : null);
 
-const Tile = ({ label, value, caption, loading }: { label: string; value: number | null | undefined; caption?: string; loading?: boolean }) => (
-  <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border/60 bg-surface px-3 py-2.5">
-    <span className="t-meta font-medium text-text-muted line-clamp-1">{label}</span>
-    {loading ? <Skeleton className="h-6 w-14" /> : <span className={cn('t-stat font-display font-bold tabular-nums leading-none', scoreTone(value))}>{pctText(value)}</span>}
-    <span className="h-1 w-full overflow-hidden rounded-full bg-border/60">
-      <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', scoreBar(value))} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
-    </span>
-    {caption && <span className="t-meta text-text-muted line-clamp-1">{caption}</span>}
-  </div>
-);
+const pctFormat = (n: number) => `${Math.round(n)}%`;
 
 const Metric = ({ label, value }: { label: string; value: number | null | undefined }) => (
   <span className="inline-flex items-center gap-1 t-meta font-medium text-text-muted">
@@ -48,13 +37,14 @@ const Metric = ({ label, value }: { label: string; value: number | null | undefi
   </span>
 );
 
+const FOOT_LINK = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] pointer-fine:min-h-9';
+
 export const MyTeamCard = () => {
   const today = useOrgToday();
   const [period, setPeriod] = useState<Period>('day');
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const win = windowFor(period, 0, today);
   const to = win.to > today ? today : win.to;
-  const instants = orgDayWindow(win.from, to);
 
   const report = useQuery({
     queryKey: ['scores', 'my-team', win.from, to],
@@ -65,7 +55,6 @@ export const MyTeamCard = () => {
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   });
-  const approvals = useTeamApprovals(instants.start, instants.end);
 
   const people = useMemo(() => (report.data?.people ?? []).filter((p) => p.id !== 'unassigned' && !p.left), [report.data]);
   const rankOf = useMemo(() => {
@@ -77,10 +66,8 @@ export const MyTeamCard = () => {
     [people],
   );
   const total = report.data?.total;
-  const ap = approvals.data;
   const loading = report.isPending;
   const noScores = !loading && worstFirst.length === 0;
-  const showTiles = !noScores || (ap?.rate != null) || (ap?.waiting.total.now ?? 0) > 0;
 
   const exportRows = () => [
     ['Rank', 'Name', 'Overall %', 'Checklist completion %', 'Checklist compliance %', 'Checklists approved %', 'Ticket score %', 'Delegation score %', 'Checklists due', 'Tickets due', 'Delegations due'],
@@ -99,24 +86,24 @@ export const MyTeamCard = () => {
     ]),
   ];
 
+  const teamScore = total?.overall ?? null;
+  const filled = total?.checklist.completionPct ?? null;
+  const compliance = total?.checklist.compliancePct ?? null;
+
   return (
-    <section aria-labelledby="my-team-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.violet} flex h-full flex-col overflow-hidden`}>
-      <div className={`flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5 sm:px-5 sm:py-3 ${CARD_HEAD_TINT.violet}`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <div className={cardIconTile('primary')}>
-            <Users className="size-4" strokeWidth={2.25} aria-hidden="true" />
+    <section aria-labelledby="my-team-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
+      <DashCardHeader
+        id="my-team-heading"
+        title="My team"
+        subtitle={`${total?.name ?? 'Your department'}, ${win.label.toLowerCase()}`}
+        action={
+          <div className="flex items-center gap-1.5" role="group" aria-label="Period">
+            {PERIODS.map((p) => (
+              <ToggleChip key={p.key} on={period === p.key} onClick={() => setPeriod(p.key)} className="sm:min-h-11 pointer-fine:min-h-8">{p.label}</ToggleChip>
+            ))}
           </div>
-          <div className="min-w-0">
-            <h2 id="my-team-heading" className="t-section font-display font-bold text-text tracking-tight">My team</h2>
-            <p className="hidden sm:block t-meta font-medium text-text-muted">{total?.name ?? 'Your department'}, {win.label.toLowerCase()}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5" role="group" aria-label="Period">
-          {PERIODS.map((p) => (
-            <ToggleChip key={p.key} on={period === p.key} onClick={() => setPeriod(p.key)}>{p.label}</ToggleChip>
-          ))}
-        </div>
-      </div>
+        }
+      />
 
       {report.isError && !report.data ? (
         <div className="p-4 sm:p-5">
@@ -124,22 +111,47 @@ export const MyTeamCard = () => {
         </div>
       ) : (
         <>
-          {showTiles && <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-4 sm:px-5 sm:pt-3">
-            <Tile label="Team score" value={total?.overall} loading={loading} caption={total ? `${people.length} people` : undefined} />
-            <Tile label="Checklists filled" value={total?.checklist.completionPct} loading={loading} caption={total?.checklist.due ? `${total.checklist.done} of ${total.checklist.due} due` : 'Nothing due yet'} />
-            <Tile label="Compliance" value={total?.checklist.compliancePct} loading={loading} caption="Good answers" />
-            <Tile
-              label="Approved within 24h"
-              value={ap?.rate}
-              loading={approvals.isPending}
-              caption={ap ? `${ap.waiting.total.now} waiting${ap.waiting.total.over24h ? `, ${ap.waiting.total.over24h} late` : ''}` : undefined}
-            />
-          </div>}
+          {!noScores && (
+            <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-3 sm:px-5">
+              <div className="col-span-2 sm:col-span-1">
+                <FigureCard
+                  label="Team score"
+                  help="Everyone's work in this period, completion and compliance counted equally."
+                  value={teamScore}
+                  tone={figureToneOf(teamScore)}
+                  bar={teamScore}
+                  loading={loading}
+                  format={pctFormat}
+                  caption={total ? `${people.length} ${people.length === 1 ? 'person' : 'people'}` : undefined}
+                />
+              </div>
+              <FigureCard
+                label="Checklists filled"
+                help="Share of the team's checklists that came due and were filled."
+                value={filled}
+                tone={figureToneOf(filled)}
+                bar={filled}
+                loading={loading}
+                format={pctFormat}
+                caption={total?.checklist.due ? `${total.checklist.done} of ${total.checklist.due} due` : 'Nothing due yet'}
+              />
+              <FigureCard
+                label="Compliance"
+                help="Share of checked answers that were good answers."
+                value={compliance}
+                tone={figureToneOf(compliance)}
+                bar={compliance}
+                loading={loading}
+                format={pctFormat}
+                caption="Good answers"
+              />
+            </div>
+          )}
 
           {!noScores && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 px-4 pt-3 pb-1 sm:px-5">
               <h3 className="t-card font-display font-bold text-text">Lowest scores at the top</h3>
-              <span className="t-meta font-medium text-text-muted">{`Rank 1 is the best. ${GOOD_FROM} and up is good, ${FAIR_FROM} to ${GOOD_FROM - 1} fair. Tap a name to see their day.`}</span>
+              <span className="hidden t-meta font-medium text-text-muted sm:block">{`Rank 1 is the best. ${GOOD_FROM} and up is good, ${FAIR_FROM} to ${GOOD_FROM - 1} fair. Tap a name to see their day.`}</span>
             </div>
           )}
 
@@ -203,19 +215,11 @@ export const MyTeamCard = () => {
           )}
 
           <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
-            <Link
-              to={`/admin/scores?${new URLSearchParams({ view: 'person', from: win.from, to }).toString()}`}
-              viewTransition
-              className="inline-flex min-h-11 sm:min-h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
+            <Link to={`/admin/scores?${new URLSearchParams({ view: 'person', from: win.from, to }).toString()}`} viewTransition className={FOOT_LINK}>
               <BarChart3 className="size-4" aria-hidden />
-              {people.length ? `All ${people.length} scores` : "All scores"}
+              {people.length ? `All ${people.length} scores` : 'All scores'}
             </Link>
-            <Link
-              to="/team/fill"
-              viewTransition
-              className="inline-flex min-h-11 sm:min-h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
+            <Link to="/team/fill" viewTransition className={FOOT_LINK}>
               <Grid3x3 className="size-4" aria-hidden />
               Fill chart
             </Link>

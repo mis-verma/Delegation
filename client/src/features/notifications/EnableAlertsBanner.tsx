@@ -60,20 +60,20 @@ export const EnableAlertsBanner = () => {
   };
 
   return (
-    <div role="region" aria-label="Turn on alerts" className="flex items-center gap-3 rounded-xl border border-primary-500/30 bg-primary-500/8 p-3 sm:p-3.5">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
+    <div role="region" aria-label="Turn on alerts" className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-xl border border-primary-500/30 bg-primary-500/8 p-3 sm:flex">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-800 text-white" aria-hidden="true">
         <BellRing size={18} strokeWidth={2.25} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <p className="t-card font-display font-bold text-text">Get alerts on your phone</p>
-        <p className="t-meta font-display text-text-muted">Tickets, delegations and checklists that are due show up on your screen, even when the app is closed.</p>
+        <p className="line-clamp-2 t-card font-display font-bold text-text">Get alerts on your phone</p>
+        <p className="line-clamp-2 t-meta text-text-muted">Due tickets, delegations and checklists show up on your screen, even when the app is closed.</p>
       </div>
-      <Button size="sm" onClick={() => void turnOn()} isLoading={busy} className="shrink-0 pointer-coarse:h-11">Turn on</Button>
+      <Button size="sm" onClick={() => void turnOn()} isLoading={busy} className="shrink-0 justify-self-start pointer-coarse:h-11 max-sm:col-start-2 max-sm:row-start-2">Turn on</Button>
       <button
         type="button"
         onClick={dismiss}
         aria-label="Not now"
-        className="flex size-9 pointer-coarse:size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-text-muted outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-text-muted outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 max-sm:col-start-3 max-sm:row-start-1 pointer-fine:size-9"
       >
         <X size={16} aria-hidden />
       </button>

@@ -24,22 +24,18 @@ interface FigurePanelProps {
   phoneDense?: boolean;
 }
 
-const CELL = 'flex min-w-0 flex-col justify-center gap-0.5 rounded-xl bg-surface text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40';
-const CELL_SIZE = 'min-h-20 px-2.5 py-2.5 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
-const CELL_SIZE_COMPACT = 'min-h-16 px-3 py-2 sm:min-h-[4.5rem] sm:px-4 sm:py-3';
-const CELL_SIZE_PHONE_DENSE = 'min-h-14 px-2 py-1.5 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
-
-const valueClass = (compact: boolean, phoneDense: boolean, value: number | string | null) => {
-  if (compact) return 'text-2xl sm:text-3xl';
-  if (phoneDense) return 't-stat sm:text-4xl';
-  return cn('sm:text-4xl', typeof value === 'string' || (value ?? 0) < 1000 ? 'text-3xl' : 'text-2xl');
-};
+const CELL = 'flex min-w-0 flex-col justify-center gap-1 rounded-lg border border-border/60 bg-surface-hover/30 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const CELL_SIZE = 'min-h-16 p-2.5 sm:p-3';
+const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-1 sm:p-2.5';
+const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-1 sm:p-3';
+const ACTION = 'cursor-pointer hover:border-border-hover active:scale-[0.985]';
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
   const broken = failed && !loading;
   const cellSize = compact ? CELL_SIZE_COMPACT : phoneDense ? CELL_SIZE_PHONE_DENSE : CELL_SIZE;
+  const tightOnPhone = compact || phoneDense;
   return (
-    <div className={cn('grid w-full gap-1.5 sm:grid-cols-4 sm:gap-2', phoneColumns === 2 ? 'grid-cols-2' : 'grid-cols-4')} role="group" aria-label={label}>
+    <div className={cn('grid w-full gap-2 sm:grid-cols-4', phoneColumns === 2 ? 'grid-cols-2' : 'grid-cols-4')} role="group" aria-label={label}>
       {cells.map((cell) => {
         const retry = broken && !!onRetry;
         const interactive = retry || !!cell.onClick;
@@ -50,21 +46,21 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
               <span className="sm:hidden">{cell.short ?? cell.label}</span>
               <span className="hidden sm:inline">{cell.label}</span>
             </span>
-            <span className={cn('flex items-center', compact ? 'min-h-7 sm:min-h-8' : phoneDense ? 'min-h-6 sm:min-h-11' : 'min-h-9 sm:min-h-11')}>
+            <span className={cn('flex items-center', tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7')}>
               {loading ? (
-                <Skeleton className={cn('w-14', phoneDense ? 'h-5 sm:h-7' : 'h-7')} />
+                <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('font-display font-bold leading-none tabular-nums', valueClass(compact, phoneDense, cell.value), broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat font-display font-bold leading-tight tabular-nums', broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
                   {broken || cell.value === null ? '-' : cell.value}
                 </span>
               )}
             </span>
             {!loading && !broken && cell.note && (
-              <span className={cn('truncate t-meta', phoneDense && 'max-sm:hidden', cell.alert ? 'font-semibold text-danger' : 'text-text-light')}>{cell.note}</span>
+              <span className={cn('truncate t-meta', tightOnPhone && 'max-sm:hidden', cell.alert ? 'font-semibold text-danger' : 'text-text-light')}>{cell.note}</span>
             )}
           </>
         );
-        if (!interactive) return <div key={cell.key} title={cell.help} className={cn(CELL, cellSize)}>{body}</div>;
+        if (!interactive) return <div key={cell.key} title={cell.help} className={cn(CELL, cellSize, broken && 'border-danger/30')}>{body}</div>;
         return (
           <button
             key={cell.key}
@@ -73,7 +69,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             aria-pressed={retry ? undefined : cell.selected}
             aria-label={broken ? `${cell.label}, couldn't load. Tap to try again` : `${cell.label}${cell.value === null ? '' : `, ${cell.value}`}`}
             title={broken ? "Couldn't load. Tap to try again." : cell.help}
-            className={cn(CELL, cellSize, 'cursor-pointer hover:bg-surface-hover', selected && 'bg-primary-500/15 shadow-[inset_0_-3px_0_var(--color-gold)]')}
+            className={cn(CELL, cellSize, ACTION, broken && 'border-danger/30', selected && 'border-primary-500 bg-primary-500/10 hover:border-primary-500')}
           >
             {body}
           </button>

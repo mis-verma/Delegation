@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { CARD_TOP_BAR } from './cardAccent';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, Building, CalendarDays, Gauge, ListOrdered, RotateCcw, Store, Trophy, ChartColumn, ChevronLeft, ChevronRight, CircleGauge, User, Users, type LucideIcon } from 'lucide-react';
-import { Button, Combobox, CountUp, ExportMenu, IconChip, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
+import { ArrowDown, ArrowUp, Building, CalendarDays, Gauge, ListOrdered, RotateCcw, Store, ChartColumn, ChevronLeft, ChevronRight, CircleGauge, User, Users, type LucideIcon } from 'lucide-react';
+import { Button, Combobox, CountUp, ExportMenu, IconChip, Skeleton, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
+import { DashCardHeader } from './DashCardHeader';
+import { FIGURE_BOX_CLASS } from './FigureCard';
 import { rateWord } from '../checklist/checklistDisplay';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
@@ -22,8 +23,7 @@ import { LazyWhenVisible } from './LazyWhenVisible';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { ScoreHero } from './ScoreHero';
 import { ToneChip } from './ToneChip';
-import { TONE_BAR } from './scoreTone';
-import { CATEGORY_ICON, CATEGORY_TILE } from './categoryLook';
+import { CATEGORY_ICON, CATEGORY_PILL } from './categoryLook';
 import { heroFacts } from './heroFacts';
 import { SimpleScoresView } from './SimpleScoresView';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
@@ -119,13 +119,12 @@ const ScoreTile = ({ module, title, score, detail, loading, onOpen, change, inde
   const [from, to] = RING[tone];
   const Icon = CATEGORY_ICON[module];
   const rounded = roundPct(score);
-  const tileClass = 'stat-rise relative flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-xl border border-border bg-surface p-3 pt-3.5 text-center transition-colors duration-150 hover:border-border-hover active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+  const tileClass = cn(FIGURE_BOX_CLASS, 'stat-rise w-full cursor-pointer items-center gap-2 p-3 text-center outline-none transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40');
   const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}, ${rateWord(score)}${detail ? `, ${detail}` : ''}`;
   return (
     <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties} className={tileClass}>
-      <span className={cn('absolute inset-x-0 top-0 h-1', TONE_BAR[tone])} aria-hidden="true" />
       <span className="flex w-full min-w-0 items-center gap-2">
-        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', CATEGORY_TILE[module])} aria-hidden="true">
+        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', CATEGORY_PILL[module])} aria-hidden="true">
           <Icon className="size-4" strokeWidth={2.25} />
         </span>
         <span className="min-w-0 flex-1 text-left t-card font-display font-bold leading-snug text-text break-words">{title}</span>
@@ -138,11 +137,15 @@ const ScoreTile = ({ module, title, score, detail, loading, onOpen, change, inde
         endLabels={false}
         className="max-w-28 sm:max-w-32"
       />
-      <span className="t-stat font-display font-extrabold tabular-nums leading-none text-text">
-        {loading ? ' ' : rounded === null ? '-' : <CountUp value={rounded} decimals={1} fromZero format={(n) => `${n}%`} />}
-      </span>
+      {loading ? (
+        <Skeleton className="h-6 w-14" />
+      ) : (
+        <span className="t-stat font-display font-bold tabular-nums leading-none text-text">
+          {rounded === null ? '-' : <CountUp value={rounded} decimals={1} fromZero format={(n) => `${n}%`} />}
+        </span>
+      )}
       {!loading && score !== null && <ToneChip tone={tone} />}
-      {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
+      {!loading && score === null && <span className="t-meta font-display text-text-muted">Nothing due</span>}
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {change != null && change !== 0 && (
         <IconChip
@@ -185,7 +188,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
   const [scope, setScope] = useState<ScoreScope>(() => {
     if (initialScope === 'org' && !orgWide) return 'person';
-    if (initialScope === 'person' && isHod && !pageWindow) return 'department';
     return initialScope;
   });
   const prefsId = `${user?.id ?? 'anon'}${initialScope === 'org' ? '-admin' : ''}`;
@@ -451,230 +453,229 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             : `Showing ${data?.name ?? 'this store'}.`;
 
   return (
-    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} ${CARD_TOP_BAR.violet} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
-      <header className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between">
-        <div className="flex min-w-0 items-start justify-between gap-3 @2xl:flex-1">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white sm:flex"><Trophy className="size-5" strokeWidth={2.25} aria-hidden="true" /></span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <h2 className="line-clamp-2 t-section font-display font-bold tracking-tight text-text">{heading}</h2>
-                <HintPopover label="What do these scores mean?">
-                  <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
-                  <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
-                  <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
-                  <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
-                </HintPopover>
-              </div>
-              {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
-            </div>
+    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col overflow-hidden`} aria-labelledby="my-scores-heading">
+      <DashCardHeader
+        id="my-scores-heading"
+        title={heading}
+        action={
+          <div className="flex items-center gap-2">
+            <HintPopover label="What do these scores mean?">
+              <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
+              <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
+              <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
+              <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
+            </HintPopover>
+            {glance && canExport && exportMenu}
           </div>
-          {glance && canExport && exportMenu}
-        </div>
+        }
+      />
 
-        {!glance && (
-          <div className="flex flex-wrap items-center gap-2 @2xl:shrink-0 @2xl:justify-end">
-            {moreHref && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(moreHref, { viewTransition: true })}>
-                All scores
-                <ChevronRight size={14} aria-hidden="true" />
-              </Button>
-            )}
-            <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
-              {VIEWS.map((option) => {
-                const Icon = VIEW_ICON[option];
-                const active = activeView === option;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setView(option)}
-                    aria-pressed={active}
-                    aria-label={`${VIEW_LABEL[option]} view`}
-                    title={VIEW_LABEL[option]}
-                    className={cn(
-                      'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-2 t-meta font-display font-semibold outline-none transition-colors duration-150 pointer-coarse:min-h-11 pointer-coarse:min-w-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                      active ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted hover:bg-surface hover:text-text',
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" aria-hidden="true" />
-                    <span className="hidden @md:inline">{VIEW_LABEL[option]}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {canExport && exportMenu}
-          </div>
-        )}
-      </header>
+      <div className="flex min-w-0 flex-col gap-4 p-4">
+          {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
 
-      {glance ? null : pageWindow ? (
-        <div className="flex min-h-11 w-full flex-wrap items-center justify-center gap-x-2 rounded-xl border border-border bg-surface-hover/40 px-3 py-2">
-          <span className="t-card font-display font-semibold text-text">{range.label}</span>
-          <span className="shrink-0 t-meta text-text-muted">from the period above</span>
-        </div>
-      ) : (
-        <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
-          <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors duration-150 hover:bg-surface hover:text-text outline-none pointer-coarse:size-11 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-            <ChevronLeft className="size-4" aria-hidden="true" />
-          </button>
-          <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 text-center t-card font-display font-bold text-text">
-            <CalendarDays className="size-4 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
-            <span className="min-w-0 break-words">{activeView === 'trend' && period === 'day' ? (offset === 0 ? 'Last 7 days' : `7 days to ${range.label}`) : range.label}</span>
-          </span>
-          {offset < 0 && (
-            <button type="button" onClick={() => setOffset(0)} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 t-meta font-display font-semibold text-primary-600 transition-colors duration-150 hover:bg-surface outline-none pointer-coarse:min-h-11 dark:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <RotateCcw className="size-3.5" aria-hidden="true" />
-              Today
-            </button>
-          )}
-          <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors duration-150 hover:bg-surface hover:text-text outline-none pointer-coarse:size-11 focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
-            <ChevronRight className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
-      {!simple && !glance && (
-        <ScoreFilterShell
-          title={orgWide ? 'Who, when and which measure' : isHod ? 'Who, when and which measure' : 'When and which measure'}
-          summary={filterSummary}
-          open={moreOpen}
-          onToggle={toggleMore}
-          ready={everOpened}
-        >
-          <ScoreField label="Who" icon={Users} hint={whoHint}>
-            {scopes.length > 1 && (
-              <ScoreChoice
-                label="Who to show"
-                value={scope}
-                options={scopes}
-                labels={scopeLabels}
-                icons={SCOPE_ICON}
-                onChange={(next) => { setScope(next); setPicked(''); }}
-              />
-            )}
-            {showPicker && (
-              <Combobox
-                value={effectivePick}
-                onChange={setPicked}
-                options={options}
-                emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
-                placeholder={PICK_PLACEHOLDER[scope]}
-                isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-                className="h-11 w-full text-base sm:h-9 sm:text-sm"
-              />
-            )}
-          </ScoreField>
-
-          {!pageWindow && (
-            <ScoreField label="Period" icon={CalendarDays}>
-              <ScoreChoice label="Period" value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} />
-            </ScoreField>
-          )}
-
-          <ScoreField label="Measure" icon={Gauge} hint={METRIC_HINT[metric]}>
-            <ScoreChoice label="Measure" value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} />
-            {(activeView === 'numbers' || activeView === 'bars' || activeView === 'dials') && (
-              <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2">
-                <span className="min-w-0">
-                  <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
-                  <span className="block t-meta text-text-muted">Shows the change on the score and under each bar</span>
-                </span>
-                <Switch checked={compare} onChange={setCompare} />
-              </label>
-            )}
-          </ScoreField>
-        </ScoreFilterShell>
-      )}
-
-      <div className="min-w-0">
-        {!ready ? (
-          <div className="rounded-lg border border-border px-4 py-8 text-center t-card font-medium text-text-muted">
-            Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
-          </div>
-        ) : activeView === 'trend' ? (
-          <DayStrip scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
-        ) : query.isError && !data ? (
-          <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {query.isPlaceholderData && (
-              <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
-            )}
-            {activeView !== 'numbers' && metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
-              <ScoreHero
-                facts={heroFacts(data)}
-                loading={loading}
-                changePts={compare || glance ? heroChange : null}
-              />
-            )}
-            {activeView === 'numbers' ? (
-              <ScoreNumbers
-                scores={data}
-                loading={loading}
-                metric={metric}
-                previous={previous}
-                overall={metric === 'overview' ? { value: heroNow, change: compare || glance ? heroChange : null } : undefined}
-                trend={{ scope, id: targetId }}
-                onOpenModule={openDrill}
-                {...emptyProps}
-              />
-            ) : activeView === 'bars' ? (
-              <ScoreBars
-                scores={data}
-                loading={loading}
-                metric={metric}
-                previous={previous}
-                onOpenModule={openDrill}
-                {...emptyProps}
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-                {([
-                  { key: 'checklist', title: MODULE_LABEL.checklist },
-                  { key: 'ticket', title: MODULE_LABEL.ticket },
-                  { key: 'delegation', title: MODULE_LABEL.delegation },
-                ] as { key: ModuleKey; title: string }[]).map(({ key, title }, index) => {
-                  const now = data ? numbersFor(data, key) : null;
-                  const before = previous ? numbersFor(previous, key) : null;
-                  const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
-                    n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
-                  const headline = (d: typeof data) => (d ? moduleOverall(d, key) : null);
-                  const score = pick(now, headline(data));
-                  const priorScore = pick(before, headline(previous));
-                  const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
-                  const overviewDetail = !now ? '' : `${SCORE_LABEL.completion} ${formatPct(now.completion)}, ${complianceLabel(key).toLowerCase()} ${formatPct(now.compliance)}`;
+          {!glance && (
+            <div className="flex flex-wrap items-center gap-2 @2xl:justify-end">
+              {moreHref && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(moreHref, { viewTransition: true })} className="min-h-11 pointer-fine:min-h-8">
+                  All scores
+                  <ChevronRight size={14} aria-hidden="true" />
+                </Button>
+              )}
+              <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
+                {VIEWS.map((option) => {
+                  const Icon = VIEW_ICON[option];
+                  const active = activeView === option;
                   return (
-                    <ScoreTile
-                      key={key}
-                      module={key}
-                      index={index}
-                      loading={loading}
-                      title={title}
-                      score={score}
-                      onOpen={() => openDrill(key)}
-                      change={score !== null && priorScore !== null ? score - priorScore : null}
-                      detail={metric === 'overview' ? overviewDetail : note}
-                    />
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setView(option)}
+                      aria-pressed={active}
+                      aria-label={`${VIEW_LABEL[option]} view`}
+                      title={VIEW_LABEL[option]}
+                      className={cn(
+                        'inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 t-meta font-display font-semibold outline-none transition-colors duration-150 pointer-fine:min-h-8 pointer-fine:min-w-0 focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                        active ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted hover:bg-surface hover:text-text',
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="hidden @md:inline">{VIEW_LABEL[option]}</span>
+                    </button>
                   );
                 })}
               </div>
+              {canExport && exportMenu}
+            </div>
+          )}
+
+        {glance ? null : pageWindow ? (
+          <div className="flex min-h-11 w-full flex-wrap items-center justify-center gap-x-2 rounded-xl border border-border bg-surface-hover/40 px-3 py-2">
+            <span className="t-card font-display font-semibold text-text">{range.label}</span>
+            <span className="shrink-0 t-meta text-text-muted">from the period above</span>
+          </div>
+        ) : (
+          <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
+            <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors duration-150 hover:bg-surface hover:text-text outline-none pointer-fine:size-9 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+            <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 text-center t-card font-display font-bold text-text">
+              <CalendarDays className="size-4 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
+              <span className="min-w-0 break-words">{activeView === 'trend' && period === 'day' ? (offset === 0 ? 'Last 7 days' : `7 days to ${range.label}`) : range.label}</span>
+            </span>
+            {offset < 0 && (
+              <button type="button" onClick={() => setOffset(0)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 t-meta font-display font-semibold text-primary-600 transition-colors duration-150 hover:bg-surface outline-none pointer-fine:min-h-8 dark:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Today
+              </button>
             )}
+            <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors duration-150 hover:bg-surface hover:text-text outline-none pointer-fine:size-9 focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </button>
           </div>
         )}
-      </div>
 
-      {canExportReport && !hideRanking && !glance && (
-        <section aria-label="Ranking" className="flex flex-col gap-3 border-t border-border/60 pt-4">
-          <h3 className="flex items-center gap-2 t-card font-display font-bold text-text">
-            <ListOrdered className="size-4 text-text-light" aria-hidden="true" />
-            Ranking
-          </h3>
-          <LazyWhenVisible minHeight="12rem">
-            <ScoreRanking metric={metric} scope={rankingScope} from={range.from} to={range.to} onOpen={openRanked} canRemind={orgWide || isHod} />
-          </LazyWhenVisible>
-        </section>
-      )}
+        {!simple && !glance && (
+          <ScoreFilterShell
+            title={orgWide ? 'Who, when and which measure' : isHod ? 'Who, when and which measure' : 'When and which measure'}
+            summary={filterSummary}
+            open={moreOpen}
+            onToggle={toggleMore}
+            ready={everOpened}
+          >
+            <ScoreField label="Who" icon={Users} hint={whoHint}>
+              {scopes.length > 1 && (
+                <ScoreChoice
+                  label="Who to show"
+                  value={scope}
+                  options={scopes}
+                  labels={scopeLabels}
+                  icons={SCOPE_ICON}
+                  onChange={(next) => { setScope(next); setPicked(''); }}
+                />
+              )}
+              {showPicker && (
+                <Combobox
+                  value={effectivePick}
+                  onChange={setPicked}
+                  options={options}
+                  emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
+                  placeholder={PICK_PLACEHOLDER[scope]}
+                  isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
+                  className="h-11 w-full text-base sm:h-9 sm:text-sm"
+                />
+              )}
+            </ScoreField>
+
+            {!pageWindow && (
+              <ScoreField label="Period" icon={CalendarDays}>
+                <ScoreChoice label="Period" value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} />
+              </ScoreField>
+            )}
+
+            <ScoreField label="Measure" icon={Gauge} hint={METRIC_HINT[metric]}>
+              <ScoreChoice label="Measure" value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} />
+              {(activeView === 'numbers' || activeView === 'bars' || activeView === 'dials') && (
+                <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
+                    <span className="block t-meta text-text-muted">Shows the change on the score and under each bar</span>
+                  </span>
+                  <Switch checked={compare} onChange={setCompare} />
+                </label>
+              )}
+            </ScoreField>
+          </ScoreFilterShell>
+        )}
+
+        <div className="min-w-0">
+          {!ready ? (
+            <div className="rounded-lg border border-border px-4 py-8 text-center t-card font-medium text-text-muted">
+              Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
+            </div>
+          ) : activeView === 'trend' ? (
+            <DayStrip scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
+          ) : query.isError && !data ? (
+            <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {query.isPlaceholderData && (
+                <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+              )}
+              {activeView !== 'numbers' && metric === 'overview' && (loading || (!!data && !heroEmpty)) && (
+                <ScoreHero
+                  facts={heroFacts(data)}
+                  loading={loading}
+                  changePts={compare || glance ? heroChange : null}
+                />
+              )}
+              {activeView === 'numbers' ? (
+                <ScoreNumbers
+                  scores={data}
+                  loading={loading}
+                  metric={metric}
+                  previous={previous}
+                  overall={metric === 'overview' ? { value: heroNow, change: compare || glance ? heroChange : null } : undefined}
+                  trend={{ scope, id: targetId }}
+                  onOpenModule={openDrill}
+                  {...emptyProps}
+                />
+              ) : activeView === 'bars' ? (
+                <ScoreBars
+                  scores={data}
+                  loading={loading}
+                  metric={metric}
+                  previous={previous}
+                  onOpenModule={openDrill}
+                  {...emptyProps}
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+                  {([
+                    { key: 'checklist', title: MODULE_LABEL.checklist },
+                    { key: 'ticket', title: MODULE_LABEL.ticket },
+                    { key: 'delegation', title: MODULE_LABEL.delegation },
+                  ] as { key: ModuleKey; title: string }[]).map(({ key, title }, index) => {
+                    const now = data ? numbersFor(data, key) : null;
+                    const before = previous ? numbersFor(previous, key) : null;
+                    const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
+                      n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
+                    const headline = (d: typeof data) => (d ? moduleOverall(d, key) : null);
+                    const score = pick(now, headline(data));
+                    const priorScore = pick(before, headline(previous));
+                    const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
+                    const overviewDetail = !now ? '' : `${SCORE_LABEL.completion} ${formatPct(now.completion)}, ${complianceLabel(key).toLowerCase()} ${formatPct(now.compliance)}`;
+                    return (
+                      <ScoreTile
+                        key={key}
+                        module={key}
+                        index={index}
+                        loading={loading}
+                        title={title}
+                        score={score}
+                        onOpen={() => openDrill(key)}
+                        change={score !== null && priorScore !== null ? score - priorScore : null}
+                        detail={metric === 'overview' ? overviewDetail : note}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {canExportReport && !hideRanking && !glance && (
+          <section aria-label="Ranking" className="flex flex-col gap-3 border-t border-border/60 pt-4">
+            <h3 className="flex items-center gap-2 t-card font-display font-bold text-text">
+              <ListOrdered className="size-4 text-text-muted" aria-hidden="true" />
+              Ranking
+            </h3>
+            <LazyWhenVisible minHeight="12rem">
+              <ScoreRanking metric={metric} scope={rankingScope} from={range.from} to={range.to} onOpen={openRanked} canRemind={orgWide || isHod} />
+            </LazyWhenVisible>
+          </section>
+        )}
+      </div>
       {drillPopup}
       <PersonAttentionSheet userId={sheetId} onClose={() => setSheetId(null)} />
     </section>

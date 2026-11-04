@@ -17,10 +17,11 @@ interface HeatGridProps {
   lowestFirst: boolean;
   totalLabel: string;
   maxRows?: number;
+  showTotal?: boolean;
   onOpen: (row: DetailRow, bucketIndex: number | null) => void;
 }
 
-export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, maxRows, onOpen }: HeatGridProps) => {
+export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, maxRows, showTotal = true, onOpen }: HeatGridProps) => {
   const { period, buckets } = matrix;
 
   const rows = useMemo<HeatRow[]>(() => {
@@ -33,8 +34,8 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
       return (lowestFirst ? x - y : y - x) || cellDue(b.whole, module) - cellDue(a.whole, module) || a.name.localeCompare(b.name);
     }).filter((r) => cellValue(r.whole, module, measure) !== null).slice(0, maxRows ?? Infinity);
     const total: HeatRow = { id: 'total', name: totalLabel, kind: 'total', whole: matrix.total.whole, cells: matrix.total.cells };
-    return [total, ...sorted];
-  }, [matrix, module, measure, lowestFirst, totalLabel, maxRows]);
+    return showTotal ? [total, ...sorted] : sorted;
+  }, [matrix, module, measure, lowestFirst, totalLabel, maxRows, showTotal]);
 
   const noun = PERIOD_NOUN[period];
 

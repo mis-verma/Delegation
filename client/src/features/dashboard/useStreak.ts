@@ -162,5 +162,9 @@ export const useStreakDays = () => {
     [results],
   );
 
-  return { days, pending, failed };
+  const retry = () => {
+    for (const r of results) if (r.isError) void r.refetch();
+  };
+
+  return { days, pending, failed, retry };
 };

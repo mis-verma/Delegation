@@ -1,4 +1,5 @@
 import { rateTone, type RateTone } from './dashboardDisplay';
+import type { FigureTone } from './FigureCard';
 
 export const TONE_TEXT: Record<RateTone, string> = { success: 'text-vivid-green-text', warning: 'text-vivid-sky-text', danger: 'text-vivid-red-text', neutral: 'text-text-muted' };
 export const TONE_BAR: Record<RateTone, string> = { success: 'bg-vivid-green', warning: 'bg-vivid-sky', danger: 'bg-vivid-red', neutral: 'bg-border-hover' };
@@ -19,3 +20,9 @@ export const TONE_COLOR: Record<RateTone, string> = {
 export const TONE_SOLID: Record<RateTone, string> = { success: 'bg-vivid-green', warning: 'bg-vivid-sky', danger: 'bg-vivid-red', neutral: 'bg-vivid-blue' };
 
 export const toneOf = (v: number | null): RateTone => (v === null ? 'neutral' : rateTone(v, Number.MAX_SAFE_INTEGER));
+
+const FIGURE_TONE: Record<RateTone, FigureTone> = { success: 'good', warning: 'fair', danger: 'bad', neutral: 'plain' };
+export const figureToneOf = (v: number | null | undefined): FigureTone => FIGURE_TONE[toneOf(v ?? null)];
+
+export const FIGURE_TEXT: Record<FigureTone, string> = { good: TONE_TEXT.success, fair: TONE_TEXT.warning, bad: TONE_TEXT.danger, plain: 'text-text' };
+export const FIGURE_BAR: Record<FigureTone, string> = { good: TONE_BAR.success, fair: TONE_BAR.warning, bad: TONE_BAR.danger, plain: TONE_BAR.neutral };

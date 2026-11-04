@@ -34,28 +34,30 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
       <GripVertical size={16} aria-hidden="true" className="shrink-0" />
       <span className="t-meta font-display font-semibold text-text-secondary truncate min-w-0">{label}</span>
     </div>
-    <div className="shrink-0 flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-surface" role="group" aria-label={`${label} size`}>
+    <div className="shrink-0 flex items-center gap-2 p-0.5 rounded-lg border border-border bg-surface pointer-fine:gap-0.5" role="group" aria-label={`${label} size`}>
       <button
         type="button"
         onClick={() => onSizeChange('small')}
         aria-pressed={size === 'small'}
+        aria-label={`${label}, small size`}
         title="Small"
-        className={`flex items-center justify-center size-8 rounded-md transition-colors cursor-pointer ${
+        className={`flex items-center justify-center size-11 rounded-md outline-none transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:size-8 ${
           size === 'small' ? 'bg-vivid-blue text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
         }`}
       >
-        <Square size={12} strokeWidth={2.25} />
+        <Square size={12} strokeWidth={2.25} aria-hidden="true" />
       </button>
       <button
         type="button"
         onClick={() => onSizeChange('big')}
         aria-pressed={size === 'big'}
+        aria-label={`${label}, big size`}
         title="Big"
-        className={`flex items-center justify-center size-8 rounded-md transition-colors cursor-pointer ${
+        className={`flex items-center justify-center size-11 rounded-md outline-none transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:size-8 ${
           size === 'big' ? 'bg-vivid-blue text-white' : 'text-text-muted hover:text-text hover:bg-surface-hover'
         }`}
       >
-        <RectangleHorizontal size={14} strokeWidth={2.25} />
+        <RectangleHorizontal size={14} strokeWidth={2.25} aria-hidden="true" />
       </button>
     </div>
     <button
@@ -63,7 +65,7 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handlePr
       onClick={onHide}
       title={`Hide ${label}`}
       aria-label={`Hide ${label}`}
-      className="shrink-0 flex items-center justify-center size-9 rounded-lg border border-border bg-surface text-text-muted hover:text-text hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="shrink-0 flex items-center justify-center size-11 rounded-lg border border-border bg-surface text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:size-9"
     >
       <EyeOff size={14} strokeWidth={2.25} />
     </button>

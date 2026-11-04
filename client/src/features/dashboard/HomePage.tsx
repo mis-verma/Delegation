@@ -29,7 +29,6 @@ import { dashboardViewFor } from './dashboardView';
 import { MyTeamCard } from '../attention/MyTeamCard';
 import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
-import { useTeamReviewCount } from './useExceptionsQuery';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
@@ -68,7 +67,6 @@ export const HomePage = () => {
   } = useDashboardLayout(dashboardView);
 
   const summaries = useDashboardSummaries();
-  const reviewCount = useTeamReviewCount(!frontLine, !dashboardView.isHod);
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
@@ -147,12 +145,15 @@ export const HomePage = () => {
   const refresh = useCallback(() => void invalidateDashboardQueries(queryClient), [queryClient]);
 
   const staticGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3 lg:gap-4">
-      {visibleCardOrder.map((id) => (
-        <DashboardCardFrame key={id} size={cardSizes[id]}>
-          {LAZY_CARDS.has(id) ? <LazyWhenVisible>{renderCard(id)}</LazyWhenVisible> : renderCard(id)}
-        </DashboardCardFrame>
-      ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+      {visibleCardOrder.map((id) => {
+        const card = renderCard(id);
+        return (
+          <DashboardCardFrame key={id} size={cardSizes[id]}>
+            {LAZY_CARDS.has(id) && card ? <LazyWhenVisible>{card}</LazyWhenVisible> : card}
+          </DashboardCardFrame>
+        );
+      })}
     </div>
   );
 
@@ -173,7 +174,6 @@ export const HomePage = () => {
   const focusCard = !isCustomizing && (
       <FocusNowCard
         ownWorkOnly={!frontLine}
-        reviewCount={reviewCount}
         todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
         tasks={assignedTasks}
         tickets={myAssignedTickets}
@@ -190,7 +190,7 @@ export const HomePage = () => {
   );
 
   return (
-    <div className="flex flex-col gap-3 w-full pt-2.5 [--type-scale:0.9]">
+    <div className="flex flex-col gap-3 w-full pt-2.5">
       <h1 className="sr-only">Today, {heading}</h1>
 
       {!isCustomizing && <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />}

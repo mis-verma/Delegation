@@ -9,8 +9,8 @@ interface ApprovalSectionProps {
 }
 
 export const ApprovalSection = ({ title, hint, children, className }: ApprovalSectionProps) => (
-  <section aria-label={title} className={cn('flex flex-col gap-2.5 border-b border-border/40 px-4 py-4 sm:px-5', className)}>
-    <div className="flex items-baseline justify-between gap-3">
+  <section aria-label={title} className={cn('flex flex-col gap-2 border-b border-border/40 px-4 py-3 sm:px-5', className)}>
+    <div className="hidden items-baseline justify-between gap-3 sm:flex">
       <h3 className="t-meta font-display font-bold text-text">{title}</h3>
       {hint && <span className="t-meta text-text-muted">{hint}</span>}
     </div>

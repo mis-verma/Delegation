@@ -1,22 +1,18 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router';
-import { ChevronRight, CheckCheck, Inbox, ShieldQuestion } from 'lucide-react';
+import { CheckCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
 import { isDepartmentHeadOf } from '../../lib/ticketApproval';
 import { useApprovers } from '../checklist/useApprovalCover';
-import { IconChip } from '../../components/iconChip';
 import { Skeleton } from '../../components/skeleton';
-import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { CARD_HEAD_TINT, CARD_TOP_BAR } from './cardAccent';
+import { DashCardHeader, DashCardLink } from './DashCardHeader';
 import { useDepartmentsQuery, useTicketsAwaitingHeadQuery } from '../tickets/hook';
 import { HeadRequestRow } from '../tickets/approvals/HeadRequestRow';
 import { useAssignableUsersQuery, useTasksAwaitingHeadQuery } from '../tasks/hook';
 import { HeadTaskRequestRow } from '../tasks/HeadTaskRequestRow';
 import { awaitingRequests } from '../tasks/taskFlow';
-import { cardIconTile } from './dashboardDisplay';
 import { ApprovalLink, type ApprovalRow } from './NeedsApprovalCard';
 import { useApprovalSources } from './useApprovalSources';
 import type { Ticket } from '../../api/ticket';
@@ -77,15 +73,21 @@ export const TicketRequestsCard = () => {
   const finishedTotal = showFinished ? sources.total : 0;
   const everything = requests.length + finishedTotal;
   if (isAdmin && !pending && !failed && requests.length === 0) return null;
+  const title = showFinished ? 'Approvals' : 'Requests to decide';
   if (pending) {
     return (
       <section aria-label="Loading requests" role="status" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-        <div className="flex items-center gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40">
-          <Skeleton className="size-9 shrink-0 rounded-lg" />
-          <Skeleton className="h-5 w-40" />
+        <div className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-5">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-9 w-20 rounded-full" />
         </div>
-        <div className="flex flex-col gap-3 p-4 sm:p-5">
-          <Skeleton className="h-20 w-full rounded-xl" />
+        <div className="flex flex-col divide-y divide-border/60">
+          {Array.from({ length: 2 }, (_, i) => (
+            <div key={i} className="flex min-h-14 flex-col justify-center gap-1.5 px-4 py-3 sm:px-5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3.5 w-1/3" />
+            </div>
+          ))}
         </div>
       </section>
     );
@@ -99,47 +101,40 @@ export const TicketRequestsCard = () => {
   const oldestHours = requests.length ? Math.floor((now - requests[0].at) / 3_600_000) : 0;
   const ticketCount = requests.filter((r) => r.kind === 'ticket').length;
   const delegationCount = requests.length - ticketCount;
+  const breakdown = [
+    ticketCount > 0 && `${ticketCount} ${ticketCount === 1 ? 'ticket' : 'tickets'}`,
+    delegationCount > 0 && `${delegationCount} ${delegationCount === 1 ? 'delegation' : 'delegations'}`,
+    finishedTotal > 0 && `${finishedTotal} finished`,
+  ].filter(Boolean).join(', ');
+
+  if (!failed && everything === 0) {
+    return (
+      <section aria-labelledby="ticket-requests-heading" className={`${PANEL_CLASS} flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 sm:px-5`}>
+        <div className="flex min-w-0 items-center gap-2">
+          <CheckCheck className="size-4 shrink-0 text-success" strokeWidth={2.5} aria-hidden="true" />
+          <h2 id="ticket-requests-heading" className="t-card font-display font-bold text-text">{title}</h2>
+          <p className="t-meta font-medium text-text-muted">{showFinished ? 'Nothing waiting' : 'No requests waiting'}</p>
+        </div>
+        <DashCardLink to="/tickets/approvals" label="Open Team approvals">Team approvals</DashCardLink>
+      </section>
+    );
+  }
 
   return (
-    <section aria-labelledby="ticket-requests-heading" className={`${PANEL_CLASS} ${CARD_TOP_BAR.sky} flex h-full flex-col overflow-hidden ${everything > 0 ? 'border-warning/30' : ''}`}>
-      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-border/40 ${CARD_HEAD_TINT.sky}`}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cardIconTile('warning')}>
-            <ShieldQuestion className="size-4" strokeWidth={2.25} aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <h2 id="ticket-requests-heading" className="t-section font-display font-bold text-text tracking-tight">{showFinished ? 'Approvals' : 'Requests to decide'}</h2>
-            <p className="hidden sm:block t-meta font-medium text-text-muted">
-              {isAdmin ? 'Tickets and delegations waiting for a department head' : 'New requests to decide, then finished work to approve'}
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {ticketCount > 0 && <IconChip icon={Inbox} tone="bg-warning" label={`${ticketCount} ${ticketCount === 1 ? 'ticket' : 'tickets'}`} labelClassName="tabular-nums" />}
-          {delegationCount > 0 && <IconChip icon={Inbox} tone="bg-info" label={`${delegationCount} ${delegationCount === 1 ? 'delegation' : 'delegations'}`} labelClassName="tabular-nums" />}
-          {finishedTotal > 0 && <IconChip icon={Inbox} tone="bg-primary-600" label={`${finishedTotal} finished`} labelClassName="tabular-nums" />}
-          {everything > 0 && (
-            <Link
-              viewTransition
-              to={reviewHref}
-              className="inline-flex items-center gap-0.5 min-h-11 sm:min-h-9 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
-              Review all
-              <ChevronRight size={16} strokeWidth={2.25} aria-hidden="true" />
-            </Link>
-          )}
-        </div>
-      </div>
+    <section aria-labelledby="ticket-requests-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
+      <DashCardHeader
+        id="ticket-requests-heading"
+        title={title}
+        count={failed ? null : everything}
+        countLabel={breakdown || `${everything} waiting`}
+        alert={oldestHours >= 24}
+        subtitle={breakdown || (isAdmin ? 'Tickets and delegations waiting for a department head' : 'New requests to decide, then finished work to approve')}
+        action={everything > 0 ? <DashCardLink to={reviewHref}>Open all</DashCardLink> : undefined}
+      />
 
       {failed && (
         <div className="px-4 py-3 sm:px-5">
-          <InlineError message="Couldn't load the requests." onRetry={() => { void board.refetch(); void tasksQuery.refetch(); }} />
-        </div>
-      )}
-
-      {!failed && everything === 0 && (
-        <div className="flex flex-1 flex-col justify-center p-4 sm:p-5">
-          <EmptyState size="compact" tone="success" icon={CheckCheck} title={showFinished ? 'All caught up' : 'No requests waiting'} description={showFinished ? 'Nothing is waiting for your decision or approval right now.' : 'New tickets and delegations sent to your department show up here for your decision.'} />
+          <InlineError message="Couldn't load the requests." onRetry={() => { void board.refetch(); void tasksQuery.refetch(); if (showFinished) { void sources.tasks.refetch(); void sources.checklists.refetch(); } }} />
         </div>
       )}
 

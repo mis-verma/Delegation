@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckCheck, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/http';
@@ -15,12 +15,20 @@ import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/Attention
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
 import { agoLabel, remindedRecently } from '../attention/attentionDisplay';
+import { DashCardHeader, DashCardLink } from './DashCardHeader';
 
 const KIND_LABEL: Record<ExceptionKind, string> = {
   TICKET_OVERDUE: 'Ticket late',
   TICKET_STALE: 'Ticket stuck',
   TASK_OVERDUE: 'Delegation late',
   CHECKLIST_MISSED: 'Checklist missed',
+};
+
+const KIND_HREF: Record<ExceptionKind, string> = {
+  TICKET_OVERDUE: '/tickets',
+  TICKET_STALE: '/tickets',
+  TASK_OVERDUE: '/tasks',
+  CHECKLIST_MISSED: '/checklists/history',
 };
 
 const PREVIEW_LIMIT = 4;
@@ -74,14 +82,24 @@ export const ExceptionsCard = () => {
   const now = useNow();
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [showAllAlerts, setShowAllAlerts] = useState(false);
 
   const unavailable = query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
   if (!allowed || unavailable) return null;
+  const linked = user?.role !== 'OWNER';
   const peopleRows = people.data ?? [];
   const items = query.data ?? [];
-  const visible = showAllAlerts ? items : items.slice(0, PREVIEW_LIMIT);
-  const remaining = items.length - PREVIEW_LIMIT;
+  const visible = items.slice(0, PREVIEW_LIMIT);
+  const hiddenAlerts = items.slice(PREVIEW_LIMIT);
+  const remaining = hiddenAlerts.length;
+  const remainingHref = (() => {
+    if (remaining === 0) return null;
+    const tally = new Map<string, number>();
+    for (const item of hiddenAlerts) {
+      const href = KIND_HREF[item.kind];
+      tally.set(href, (tally.get(href) ?? 0) + 1);
+    }
+    return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+  })();
   const summaryParts = [
     items.length > 0 && `${items.length} ${items.length === 1 ? 'alert' : 'alerts'}`,
     peopleRows.length > 0 && `${peopleRows.length} ${peopleRows.length === 1 ? 'person' : 'people'}`,
@@ -95,12 +113,14 @@ export const ExceptionsCard = () => {
 
   return (
     <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-5">
-        <h2 id="exceptions-heading" className="t-section font-display font-bold tracking-tight text-text">Needs attention</h2>
-        {summaryParts.length > 0 && (
-          <StatusBadge variant="critical" icon={false} label={summaryParts.join(' · ')} />
-        )}
-      </div>
+      <DashCardHeader
+        id="exceptions-heading"
+        title="Needs attention"
+        count={items.length + peopleRows.length}
+        countLabel={summaryParts.join(', ')}
+        alert
+        subtitle={summaryParts.length > 0 ? summaryParts.join(', ') : undefined}
+      />
 
       {query.isPending ? (
         <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading alerts">
@@ -116,26 +136,24 @@ export const ExceptionsCard = () => {
           <InlineError message="Couldn't load alerts." onRetry={() => void query.refetch()} />
         </div>
       ) : nothingAtAll ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 py-8 text-center sm:px-5">
-          <p className="t-card font-display font-semibold text-text">All clear</p>
-          <p className="t-meta text-text-muted">Nothing is late or stuck, and everyone is on track.</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
+          <p className="flex min-w-0 items-center gap-2 t-meta font-medium text-text-secondary">
+            <CheckCheck className="size-4 shrink-0 text-success" strokeWidth={2.5} aria-hidden="true" />
+            All clear. Nothing is late or stuck, and everyone is on track.
+          </p>
+          {linked && <DashCardLink to="/tickets">Open tickets</DashCardLink>}
         </div>
       ) : items.length === 0 ? null : (
         <div className="flex flex-col divide-y divide-border/60">
-          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={user?.role !== 'OWNER'} />)}
+          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={linked} />)}
         </div>
       )}
 
       {remaining > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAllAlerts((v) => !v)}
-          aria-expanded={showAllAlerts}
-          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
-        >
-          {showAllAlerts ? 'Show fewer alerts' : `Show ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}
-          <ChevronDown className={cn('size-3.5 transition-transform duration-200', showAllAlerts && 'rotate-180')} aria-hidden />
-        </button>
+        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
+          <p className="t-meta font-medium text-text-secondary tabular-nums">{remaining} more {remaining === 1 ? 'alert' : 'alerts'}</p>
+          {linked && remainingHref && <DashCardLink to={remainingHref} label={`Open the full list, ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}>Open all</DashCardLink>}
+        </div>
       )}
 
       {peopleFailed && !query.isPending ? (

@@ -21,9 +21,9 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
           type="button"
           onClick={onStart}
           aria-label={hiddenCards.length > 0 ? `Customize Home, ${hiddenCards.length} hidden` : 'Customize Home'}
-          className="group inline-flex h-11 items-center justify-center gap-2.5 rounded-full border border-border bg-surface pl-1.5 pr-4 t-meta font-display font-bold text-text outline-none transition-all duration-200 cursor-pointer hover:border-vivid-blue/60 hover:bg-vivid-blue/5 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-10"
+          className="group inline-flex h-11 items-center justify-center gap-2.5 rounded-full border border-border bg-surface pl-1.5 pr-4 t-meta font-display font-bold text-text outline-none transition-all duration-200 cursor-pointer hover:border-vivid-blue/60 hover:bg-vivid-blue/5 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:h-10"
         >
-          <span className="flex size-8 items-center justify-center rounded-full bg-vivid-blue text-white transition-transform duration-300 group-hover:rotate-90 sm:size-7" aria-hidden="true">
+          <span className="flex size-8 items-center justify-center rounded-full bg-vivid-blue text-white transition-transform duration-300 group-hover:rotate-90 pointer-fine:size-7" aria-hidden="true">
             <SlidersHorizontal className="size-4" strokeWidth={2.5} />
           </span>
           Customize
@@ -71,7 +71,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
           <button
             type="button"
             onClick={reset}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-all duration-200 cursor-pointer hover:border-border-hover hover:text-text active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-10"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-all duration-200 cursor-pointer hover:border-border-hover hover:text-text active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:h-10"
           >
             <RotateCcw size={14} strokeWidth={2.25} aria-hidden="true" />
             Reset
@@ -79,7 +79,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
           <button
             type="button"
             onClick={onDone}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-vivid-green px-5 t-meta font-display font-bold text-on-vivid outline-none transition-all duration-200 cursor-pointer hover:brightness-105 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-10"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-vivid-green px-5 t-meta font-display font-bold text-on-vivid outline-none transition-all duration-200 cursor-pointer hover:brightness-105 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:h-10"
           >
             <Check size={15} strokeWidth={3} aria-hidden="true" />
             Done
@@ -99,7 +99,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
               type="button"
               onClick={() => onShow(card.id)}
               title={`Show ${card.label}`}
-              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-all duration-200 cursor-pointer hover:border-vivid-blue/50 hover:bg-vivid-blue/5 hover:text-text active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="inline-flex h-11 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-all duration-200 cursor-pointer hover:border-vivid-blue/50 hover:bg-vivid-blue/5 hover:text-text active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:h-10"
             >
               <Eye size={13} strokeWidth={2.25} aria-hidden="true" />
               {card.label}
@@ -109,9 +109,9 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
             <button
               type="button"
               onClick={() => hiddenCards.forEach((card) => onShow(card.id))}
-              className="inline-flex h-10 items-center rounded-lg px-2 t-meta font-display font-bold text-vivid-blue-text outline-none transition-colors cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="inline-flex h-11 items-center rounded-lg px-2 t-meta font-display font-bold text-vivid-blue-text outline-none transition-colors duration-150 cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:h-10"
             >
-              Show all
+              Bring all back
             </button>
           )}
         </div>

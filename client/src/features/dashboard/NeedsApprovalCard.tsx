@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { CheckCheck, ChevronRight, Undo2 } from 'lucide-react';
 import { WaitChip } from '../../components/dueChip';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
@@ -14,12 +14,12 @@ import { ApprovalStatsStrip, type ApprovalBucket } from './ApprovalStatsStrip';
 import { SendBackDialog } from './SendBackDialog';
 import { canDecideInline, rowKey, useInlineDecisions } from './useInlineDecisions';
 import { useQueueShortcuts } from '../verification/useQueueShortcuts';
-import { ActionPointsStrip } from './ActionPointsStrip';
 import { StatsBoundary } from './StatsBoundary';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { Segmented } from '../../components/segmented/Segmented';
 import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_PILL } from './categoryLook';
+import { DashCardHeader, DashCardLink } from './DashCardHeader';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
@@ -47,33 +47,32 @@ interface ApprovalLinkProps {
 export const ApprovalLink = memo(({ row, now, selected = false, actions }: ApprovalLinkProps) => (
   <div
     data-approval-key={rowKey(row)}
-    className={cn('group flex flex-col transition-colors duration-150 hover:bg-surface-hover/50 sm:flex-row sm:items-center', selected && 'bg-surface-hover/70 ring-2 ring-inset ring-vivid-blue/40')}
+    className={cn('group flex items-center transition-colors duration-150 hover:bg-surface-hover/50', selected && 'bg-surface-hover/70 ring-2 ring-inset ring-vivid-blue/40')}
   >
     <Link
       to={row.link}
       viewTransition
-      className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-3 outline-none transition-colors duration-150 active:bg-surface-hover focus-visible:bg-surface-hover sm:px-5"
+      className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-3 outline-none transition-colors duration-150 active:bg-surface-hover focus-visible:bg-surface-hover sm:py-3 sm:pl-5"
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="line-clamp-2 text-sm font-display font-semibold leading-snug text-text">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <p className="line-clamp-2 t-card font-display font-semibold leading-snug text-text">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-bold', CATEGORY_PILL[row.category])}>{ACTIVITY_CATEGORY_LABEL[row.category]}</span>
           <WaitChip since={row.waitingSince} now={now} plain />
-          {row.meta && <span className="min-w-0 truncate t-meta font-medium text-text-secondary">{row.meta}</span>}
+          {row.meta && <span className="min-w-0 truncate t-meta font-medium text-text-secondary max-sm:hidden">{row.meta}</span>}
         </div>
       </div>
       {!actions && <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />}
     </Link>
-    {actions && <div className="flex shrink-0 items-center gap-2 px-4 pb-3 sm:px-0 sm:pb-0 sm:pr-5">{actions}</div>}
+    {actions && <div className="flex shrink-0 items-center gap-2 pr-4 sm:pr-5">{actions}</div>}
   </div>
 ));
 ApprovalLink.displayName = 'ApprovalLink';
 
-export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: { hideStats?: boolean; hideOpenWork?: boolean }) => {
+export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; hideOpenWork?: boolean }) => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
   const now = useNow();
-  const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const { heldIds, approve, sendBack } = useInlineDecisions();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -82,7 +81,6 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
   const [filter, setFilter] = useState<'all' | ApprovalCategory>('all');
   const [bucket, setBucket] = useState<ApprovalBucket>('all');
   const reduceMotion = useReducedMotion();
-  const [moreOpen, setMoreOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const pickBucket = useCallback((next: ApprovalBucket) => {
     setBucket(next);
@@ -115,7 +113,7 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
   const rows = useMemo(() => (activeFilter === 'all' ? bucketRows : bucketRows.filter((r) => r.category === activeFilter)), [bucketRows, activeFilter]);
 
   const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
-  const visible = useMemo(() => (expanded ? rows : rows.slice(0, previewLimit)), [expanded, rows, previewLimit]);
+  const visible = useMemo(() => rows.slice(0, previewLimit), [rows, previewLimit]);
   const canDecide = reviewsAllWork;
 
   const selectedRow = useMemo(() => visible.find((r) => rowKey(r) === selectedKey) ?? null, [visible, selectedKey]);
@@ -145,8 +143,9 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
 
   if (!showsStats && !hasError && (isPending || total === 0)) return null;
 
-  const canExpand = rows.length > previewLimit;
-  const notLoaded = Math.max(0, total - allRows.length);
+  const unfiltered = bucket === 'all' && activeFilter === 'all';
+  const notLoaded = unfiltered ? Math.max(0, total - allRows.length) : 0;
+  const moreCount = rows.length - visible.length + notLoaded;
   const bucketExpected = bucket === 'late' ? buckets.total.old : bucket === 'fresh' ? buckets.total.fresh : 0;
   const partial = bucket !== 'all' && activeFilter === 'all' && bucketExpected > rows.length;
 
@@ -170,57 +169,17 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
       onFocusCapture={() => setEngaged(true)}
       onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEngaged(false); }}
       className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 id="needs-approval-heading" className="t-section font-display font-bold tracking-tight text-text">
-            Needs your approval
-          </h2>
-          {!hasError && total > 0 && (
-            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary-500/10 px-2 t-meta font-display font-bold tabular-nums text-primary-700 dark:text-primary-300" aria-label={`${total} waiting`}>{total}</span>
-          )}
-        </div>
-        {queueHref && !nothingToShow && (
-          <Link
-            viewTransition
-            to={queueHref}
-            className="inline-flex h-11 shrink-0 items-center rounded-full border border-border px-3.5 text-sm font-display font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-9"
-          >
-            Review all
-          </Link>
-        )}
-      </div>
+      <DashCardHeader
+        id="needs-approval-heading"
+        title="Needs your approval"
+        count={hasError ? null : total}
+        countLabel={`${total} waiting`}
+        alert={buckets.total.old > 0}
+        action={queueHref ? <DashCardLink to={queueHref} label={total > 0 ? `Open the approval queue, ${total} waiting` : 'Open the approval queue'}>Open queue</DashCardLink> : undefined}
+      />
 
-      {showsStats && !hideStats && (
-        <>
-          <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
-          {!hideOpenWork && (
-            <>
-              <button
-                type="button"
-                onClick={() => setMoreOpen((v) => !v)}
-                aria-expanded={moreOpen}
-                className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 border-b border-border/40 px-4 py-2.5 text-left t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover sm:px-5"
-              >
-                {moreOpen ? 'Hide open work figures' : 'Show open work figures'}
-                <ChevronDown className={cn('size-3.5 transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
-              </button>
-              <AnimatePresence initial={false}>
-                {moreOpen && (
-                  <motion.div
-                    key="open-work"
-                    initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="overflow-hidden"
-                  >
-                    <StatsBoundary label="Action points"><ActionPointsStrip /></StatsBoundary>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
-        </>
+      {showsStats && !hideStats && !allCaughtUp && (
+        <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
       )}
 
       {failedSources.length > 0 && (
@@ -234,24 +193,35 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
       {isPending && nothingToShow ? (
         <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading approvals">
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex min-h-14 flex-col justify-center gap-1.5 px-4 py-3 sm:px-5">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3.5 w-1/3" />
+            <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-5">
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3.5 w-1/3" />
+              </div>
+              {canDecide && <Skeleton className="h-9 w-20 shrink-0 rounded-full" />}
             </div>
           ))}
         </div>
       ) : allCaughtUp ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 py-8 text-center sm:px-5">
-          <p className="t-card font-display font-semibold text-text">All caught up</p>
-          <p className="t-meta text-text-muted">Nothing is waiting on your review right now.</p>
-        </div>
+        <p className="flex items-center gap-2 px-4 py-3 t-meta font-medium text-text-secondary sm:px-5">
+          <CheckCheck className="size-4 shrink-0 text-success" strokeWidth={2.5} aria-hidden="true" />
+          All caught up. New hand-ins show up here as they arrive.
+        </p>
       ) : (
         !nothingToShow && (
           <>
-            <div ref={listRef} className="flex scroll-mt-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2 sm:px-5">
+            <div
+              ref={listRef}
+              className={cn(
+                'scroll-mt-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-3 pb-1 sm:px-5',
+                bucket === 'all' && filterOptions.length <= 1 ? 'hidden sm:flex' : 'flex',
+              )}
+            >
               <h3 className="t-meta font-display font-bold text-text">{BUCKET_TITLE[bucket]}</h3>
               {filterOptions.length > 1 && (
-                <Segmented label="Filter approvals by type" value={activeFilter} onChange={(v) => setFilter(v === activeFilter ? 'all' : v)} options={filterOptions} />
+                <div className="max-sm:hidden">
+                  <Segmented label="Filter approvals by type" value={activeFilter} onChange={(v) => setFilter(v === activeFilter ? 'all' : v)} options={filterOptions} />
+                </div>
               )}
             </div>
 
@@ -277,16 +247,17 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
                         onClick={() => setSendBackRow(row)}
                         aria-label={`Send back ${row.title}`}
                         title="Send back (S)"
-                        className="inline-flex h-11 cursor-pointer items-center rounded-full border border-vivid-red/40 px-4 t-meta font-display font-bold text-vivid-red-text outline-none transition-colors duration-150 hover:bg-vivid-red/10 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] lg:h-9"
+                        className="inline-flex size-11 cursor-pointer items-center justify-center gap-1.5 rounded-full t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-vivid-red/10 hover:text-vivid-red-text focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 sm:w-auto sm:px-3 pointer-fine:h-9"
                       >
-                        Send back
+                        <Undo2 className="size-4 sm:hidden" aria-hidden="true" />
+                        <span className="max-sm:hidden">Send back</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => approve(row)}
                         aria-label={`Approve ${row.title}`}
                         title="Approve (A)"
-                        className="inline-flex h-11 cursor-pointer items-center rounded-full bg-vivid-green px-4 t-meta font-display font-bold text-on-vivid outline-none transition-colors duration-150 hover:bg-vivid-green/85 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] lg:h-9"
+                        className="inline-flex h-11 cursor-pointer items-center rounded-full bg-vivid-green px-4 t-meta font-display font-bold text-on-vivid outline-none transition-colors duration-150 hover:bg-vivid-green/85 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 pointer-fine:h-9"
                       >
                         Approve
                       </button>
@@ -297,14 +268,14 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
               ))}
               </AnimatePresence>
               {visible.length === 0 && (
-                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center sm:px-5">
+                <div className="flex flex-col items-center gap-2 px-4 py-6 text-center sm:px-5">
                   <p className="t-card font-display font-semibold text-text">Nothing in this view</p>
                   <button
                     type="button"
                     onClick={() => { setBucket('all'); setFilter('all'); }}
-                    className="inline-flex h-11 cursor-pointer items-center rounded-full border border-border px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-9"
+                    className="inline-flex h-11 cursor-pointer items-center rounded-full border border-border px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.985] pointer-fine:h-9"
                   >
-                    Show all
+                    Clear the filter
                   </button>
                 </div>
               )}
@@ -314,35 +285,23 @@ export const NeedsApprovalCard = ({ hideStats = false, hideOpenWork = false }: {
       )}
 
       <div className="mt-auto flex flex-col">
-      {canExpand && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover cursor-pointer"
-        >
-          {expanded ? 'Show fewer' : `Show all ${rows.length}`}
-          <ChevronDown className={cn('size-3.5 transition-transform duration-200', expanded && 'rotate-180')} aria-hidden="true" />
-        </button>
-      )}
-      {partial && (
+      {partial ? (
         <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">
-          Showing {rows.length} of {bucketExpected}.{queueHref ? ' ' : ''}
+          Showing {visible.length} of {bucketExpected}.{queueHref ? ' ' : ''}
           {queueHref && <Link to={queueHref} viewTransition className="font-semibold text-text-secondary underline underline-offset-2 hover:text-text">Open the queue for the rest</Link>}
         </p>
-      )}
-      {notLoaded > 0 && !partial && (
+      ) : moreCount > 0 && (
         queueHref ? (
           <Link
             to={queueHref}
             viewTransition
-            className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover"
+            className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 hover:text-text focus-visible:bg-surface-hover"
           >
-            Open the queue for {notLoaded} more
+            {moreCount} more in the queue
             <ChevronRight className="size-3.5" aria-hidden="true" />
           </Link>
         ) : (
-          <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">{notLoaded} more waiting</p>
+          <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">{moreCount} more waiting</p>
         )
       )}
       </div>

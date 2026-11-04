@@ -48,14 +48,11 @@ export const waitingFor = (isoDate: string, now: number): string => {
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 };
 
-const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg text-white';
+const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg';
 const CARD_TILE_TONE = {
-  primary: 'bg-linear-to-br from-primary-500 to-primary-600',
-  danger: 'bg-linear-to-br from-danger to-danger/70',
-  info: 'bg-linear-to-br from-primary-500 to-primary-600',
-  coral: 'bg-linear-to-br from-primary-500 to-primary-600',
-  success: 'bg-linear-to-br from-primary-500 to-primary-600',
-  warning: 'bg-linear-to-br from-primary-500 to-primary-600',
+  primary: 'bg-primary-500/12 text-primary-700 dark:text-primary-300',
+  warning: 'bg-warning/12 text-warning',
+  danger: 'bg-danger/12 text-danger',
 } as const;
 export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
 
