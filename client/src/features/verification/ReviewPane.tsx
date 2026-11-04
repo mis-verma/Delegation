@@ -4,15 +4,15 @@ import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-r
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
-import { IconChip, Modal, PANEL_CLASS, useConfirm } from '../../components';
+import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
 import { DetailItemRow } from '../checklist/instance/ChecklistDetailItemRow';
 import { ComplianceMeter } from './ComplianceMeter';
 import { PersonContext } from './PersonContext';
-import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
-import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
+import { ReviewActions } from '../checklist/instance/ReviewActions';
+import { CorrectionDialog } from './CorrectionDialog';
 import type { ReviewDraft } from './useReviewDraft';
 import type { ChecklistRow } from './verificationModel';
 
@@ -141,7 +141,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
       <PersonContext items={items} />
 
       <p className="t-meta font-display text-text-muted leading-relaxed">
-        Same view as the filled checklist. Tap Send back under a question to return only that one.
+        Same view as the filled checklist. Tap Send back under a question to pick it, then send it for correction.
       </p>
       <div className="flex flex-col gap-3">
         {items.map((item, idx) => (
@@ -179,59 +179,7 @@ interface FooterProps {
 }
 
 const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
-  const confirm = useConfirm();
-  const { pickedIds, picked, note, sending, setNote, setSending } = draft;
-  const items = row.instance.items;
-
-  const composed = useMemo(() => {
-    const labelById = new Map(items.map((i) => [i.id, i.label]));
-    return composeSendBackNote(note, pickedIds.map((id) => ({ label: labelById.get(id) ?? 'Question', note: picked[id] ?? '' })));
-  }, [items, note, pickedIds, picked]);
-
-  const tooLong = composed.length > SEND_BACK_NOTE_MAX;
-  const count = pickedIds.length;
-  const names = row.assigneeNames.length > 0 ? row.assigneeNames.join(', ') : 'the team';
-
-  const submitSendBack = async () => {
-    const hours = draft.fixByHours;
-    const deadline = hours ? ` within ${hours < 24 ? `${hours} hours` : `${Math.round(hours / 24)} ${hours === 24 ? 'day' : 'days'}`}` : '';
-    const ok = await confirm({
-      title: count > 0 ? `Send ${count} ${count === 1 ? 'question' : 'questions'} back?` : 'Send the whole checklist back?',
-      description: `${names} will see your note and must fix it and submit again${deadline}.`,
-      confirmLabel: 'Send back',
-      variant: 'danger',
-    });
-    if (ok) onSendBack(row, { itemIds: pickedIds, note: composed, fixByHours: draft.fixByHours, photoOnlyItemIds: draft.photoOnlyIds });
-  };
-
-  if (sending) {
-    return (
-      <div className="flex flex-col gap-3 w-full">
-        <div className="flex flex-col gap-0.5">
-          <p className="t-card font-display font-semibold text-text">
-            {count > 0 ? `Send back ${count} ${count === 1 ? 'question' : 'questions'}` : 'Send the whole checklist back'}
-          </p>
-          <p className="t-meta text-text-muted">To {names}</p>
-        </div>
-        <SendBackForm
-          autoFocus
-          quickReasons
-          note={note}
-          onNoteChange={setNote}
-          onCancel={() => setSending(false)}
-          onSubmit={() => void submitSendBack()}
-          fixBy={{ value: draft.fixByHours, onChange: draft.setFixBy }}
-          canSubmit={composed.length > 0 && !tooLong}
-          isSending={false}
-          busy={false}
-          submitLabel={count > 0 ? `Send back ${count}` : 'Send back all'}
-          placeholder={count > 0 ? 'What needs fixing?' : 'What needs fixing before this can be approved?'}
-          maxLength={SEND_BACK_NOTE_MAX}
-          helper={tooLong ? `The note is ${composed.length - SEND_BACK_NOTE_MAX} characters too long. Shorten a note.` : undefined}
-        />
-      </div>
-    );
-  }
+  const count = draft.pickedIds.length;
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
@@ -239,9 +187,9 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
         {count > 0 ? (
           <>
             <span className="sm:hidden">{count} picked</span>
-            <span className="hidden sm:inline">{`${count} ${count === 1 ? 'question' : 'questions'} picked. Send them back, or untick them to approve.`}</span>
+            <span className="hidden sm:inline">{`${count} ${count === 1 ? 'question' : 'questions'} picked. Send them for correction, or untick them to approve.`}</span>
           </>
-        ) : 'Approve it, or tick the questions that were not done properly.'}
+        ) : 'Approve it, or send it for correction.'}
       </p>
       <ReviewActions
         stretch
@@ -249,9 +197,10 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
         busy={false}
         approving={false}
         pickedCount={count}
-        onSendBack={() => setSending(true)}
+        onSendBack={() => draft.setSending(true)}
         onApprove={() => onApprove(row)}
       />
+      <CorrectionDialog row={row} draft={draft} onSend={onSendBack} />
     </div>
   );
 });
