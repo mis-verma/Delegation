@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheck, CheckCheck, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { EmptyState, InlineError, PageHeader, PANEL_CLASS, useConfirm } from '../../components';
+import { EmptyState, PageHeader, PANEL_CLASS, useConfirm } from '../../components';
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useTicketsByStatusQuery } from '../tickets/hook';
@@ -160,6 +160,12 @@ export const VerificationQueue = () => {
   const openRow = params.open ? (rowById.get(params.open) ?? null) : null;
   const activeId = openRow?.id ?? (cursor && rowById.has(cursor) ? cursor : null);
   const draft = useReviewDraft(openRow?.id ?? null);
+  const [pendingSend, setPendingSend] = useState<{ id: string; itemId: string | null } | null>(null);
+  if (pendingSend && openRow?.id === pendingSend.id) {
+    setPendingSend(null);
+    if (pendingSend.itemId) draft.startPickFor(pendingSend.id, pendingSend.itemId);
+    else draft.setSending(true);
+  }
   const [helpOpen, setHelpOpen] = useState(false);
 
   const autoOpened = useRef(false);
@@ -213,10 +219,14 @@ export const VerificationQueue = () => {
 
   const openRun = useCallback((id: string) => {
     setCursor(id);
+    setPendingSend(null);
     latest.current.patch({ open: id });
   }, []);
 
-  const closeRun = useCallback(() => latest.current.patch({ open: null }), []);
+  const closeRun = useCallback(() => {
+    setPendingSend(null);
+    latest.current.patch({ open: null });
+  }, []);
 
   const startSendBack = useCallback((id: string) => {
     const { openId, draft: current, patch: update } = latest.current;
@@ -225,15 +235,19 @@ export const VerificationQueue = () => {
       current.setSending(true);
     } else {
       current?.startSendBackFor(id);
+      setPendingSend({ id, itemId: null });
       update({ open: id });
     }
   }, []);
 
   const sendBackItem = useCallback((id: string, itemId: string) => {
-    const { draft: current, patch: update } = latest.current;
+    const { openId, draft: current, patch: update } = latest.current;
     setCursor(id);
     current?.startPickFor(id, itemId);
-    update({ open: id });
+    if (openId !== id) {
+      setPendingSend({ id, itemId });
+      update({ open: id });
+    }
   }, []);
 
   const move = useCallback((delta: number) => {
@@ -243,6 +257,7 @@ export const VerificationQueue = () => {
     const target = idx < 0 ? (delta > 0 ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, idx + delta));
     const id = rows[target].id;
     setCursor(id);
+    setPendingSend(null);
     if (desktop) update({ open: id });
     focusRow(id);
   }, []);
@@ -318,7 +333,7 @@ export const VerificationQueue = () => {
 
   const showChecklists = params.tab === 'all' || params.tab === 'checklists';
   const showTicketTask = params.tab !== 'checklists';
-  const ticketTaskFailed = ticketsQuery.isError || tasksQuery.isError;
+  const ticketTaskFailed = useMemo(() => ({ tickets: ticketsQuery.isError, tasks: tasksQuery.isError }), [ticketsQuery.isError, tasksQuery.isError]);
   const splitPane = checklistQuery.isPending || visibleRows.length > 0;
 
   const rootHref = useMemo(() => {
@@ -333,7 +348,11 @@ export const VerificationQueue = () => {
   const showDecided = useCallback(() => patch({ view: 'decided', open: null }, { replace: false }), [patch]);
   const openDepartment = useCallback((id: string) => patch({ dept: id }, { replace: false }), [patch]);
   const clearDepartment = useCallback(() => patch({ dept: null }), [patch]);
-  const retryAll = useCallback(() => { void ticketsQuery.refetch(); void tasksQuery.refetch(); }, [ticketsQuery, tasksQuery]);
+  const showAllSections = useCallback(() => patch({ tab: 'all', open: null }), [patch]);
+  const retryAll = useCallback(() => {
+    if (ticketsQuery.isError) void ticketsQuery.refetch();
+    if (tasksQuery.isError) void tasksQuery.refetch();
+  }, [ticketsQuery, tasksQuery]);
   const retryEverything = () => {
     if (checklistsFailed) void checklistQuery.refetch();
     if (ticketsFailed) void ticketsQuery.refetch();
@@ -342,7 +361,7 @@ export const VerificationQueue = () => {
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   return (
-    <div className="flex flex-col gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
+    <div className="flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
 
       {params.view === 'waiting' && (
@@ -446,27 +465,25 @@ export const VerificationQueue = () => {
           )}
 
           {showTicketTask && (
-            <>
-              {ticketTaskFailed && (
-                <InlineError message="We couldn't load the tickets and delegations waiting for review. Check your connection and try again." onRetry={retryAll} />
-              )}
-              <TicketTaskQueue
-                tab={params.tab}
-                tickets={filteredTickets}
-                tasks={filteredTasks}
-                isPending={ticketsQuery.isPending || tasksQuery.isPending}
-                departmentId={params.dept}
-                departmentNameOf={departmentNameOf}
-                filtersActive={filtersActive}
-                onOpenDepartment={openDepartment}
-                onClearDepartment={clearDepartment}
-                onClearFilters={clearFilters}
-                now={now}
-                personNameById={personNameById}
-                decisions={{ heldIds, schedule, hold, release }}
-                refresh={refresh}
-              />
-            </>
+            <TicketTaskQueue
+              tab={params.tab}
+              tickets={filteredTickets}
+              tasks={filteredTasks}
+              isPending={ticketsQuery.isPending || tasksQuery.isPending}
+              departmentId={params.dept}
+              departmentNameOf={departmentNameOf}
+              filtersActive={filtersActive}
+              failed={ticketTaskFailed}
+              onRetry={retryAll}
+              onShowAll={showAllSections}
+              onOpenDepartment={openDepartment}
+              onClearDepartment={clearDepartment}
+              onClearFilters={clearFilters}
+              now={now}
+              personNameById={personNameById}
+              decisions={{ heldIds, schedule, hold, release }}
+              refresh={refresh}
+            />
           )}
         </>
       )}

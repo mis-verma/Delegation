@@ -78,7 +78,7 @@ export const QueueOverview = memo(function QueueOverview({
     {
       key: 'avg',
       label: 'Avg compliance',
-      short: 'Compliance',
+      short: 'Avg',
       value: avg === null ? null : pct(avg),
       note: avg === null ? undefined : sortedLowest ? 'Lowest first' : 'Tap to sort',
       alert: avg !== null && avg < FAIR_FROM,
@@ -91,8 +91,8 @@ export const QueueOverview = memo(function QueueOverview({
   return (
     <section aria-label="Checklist checks" className="flex flex-col gap-2">
       <h2 className="t-meta font-display font-semibold text-text-secondary">Checklist checks</h2>
-      <FigurePanel cells={cells} label="Checklist checks" loading={loading} failed={failed} onRetry={onRetry} />
-      {partial && <p className="t-meta text-text-muted">The counts cover the checklists loaded so far. Load more below to include the rest.</p>}
+      <FigurePanel cells={cells} label="Checklist checks" loading={loading} failed={failed} onRetry={onRetry} phoneDense />
+      {partial && <p className="max-sm:hidden t-meta text-text-muted">The counts cover the checklists loaded so far. Load more below to include the rest.</p>}
     </section>
   );
 });

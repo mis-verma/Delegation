@@ -51,7 +51,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
 
   return (
     <nav aria-label="Review sections">
-      <FigurePanel cells={cells} label="Review sections" loading={loading} failed={anyFailed} onRetry={onRetry} />
+      <FigurePanel cells={cells} label="Review sections" loading={loading} failed={anyFailed} onRetry={onRetry} phoneDense />
     </nav>
   );
 });

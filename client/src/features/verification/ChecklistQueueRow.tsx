@@ -12,6 +12,43 @@ import { formatWaiting, type ChecklistRow } from './verificationModel';
 const SWIPE_TRIGGER_PX = 96;
 const SWIPE_LOCK_PX = 12;
 
+export const ROW_SURFACE = 'relative flex flex-col gap-2 p-2.5 sm:p-3.5 rounded-xl border bg-surface transition-[border-color,background-color] duration-150';
+export const ROW_TITLE = 't-card font-display text-text leading-snug line-clamp-2';
+export const ROW_META = 'flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted';
+export const ROW_LINK = 'inline-flex h-8 pointer-coarse:h-11 w-fit items-center gap-1 rounded-md t-meta font-display font-semibold text-primary-600 dark:text-primary-300 cursor-pointer outline-none transition-colors duration-150 hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40';
+
+export const WaitingTag = ({ label, title, tone = 'normal' }: { label: string; title: string; tone?: 'normal' | 'slow' | 'late' }) => (
+  <span
+    className={cn(
+      'inline-flex shrink-0 items-center gap-1 t-meta font-display font-semibold tabular-nums',
+      tone === 'late' ? 'text-danger' : tone === 'slow' ? 'text-warning' : 'text-text-muted',
+    )}
+    title={title}
+  >
+    <Clock3 className="size-3" aria-hidden="true" />
+    <span className="sr-only">{title}</span>
+    <span aria-hidden="true">{label}</span>
+  </span>
+);
+
+export const DecisionButtons = ({ onSendBack, onApprove, approveLabel = 'Approve', className }: { onSendBack: () => void; onApprove: () => void; approveLabel?: string; className?: string }) => (
+  <div className={cn('flex flex-wrap items-center justify-end gap-2', className)}>
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-11 px-4 t-meta border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+      onClick={onSendBack}
+    >
+      <CornerUpLeft size={14} aria-hidden />
+      Send back
+    </Button>
+    <Button size="sm" className="h-11 px-4 t-meta bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={onApprove}>
+      <Check size={14} aria-hidden />
+      {approveLabel}
+    </Button>
+  </div>
+);
+
 interface ChecklistQueueRowProps {
   row: ChecklistRow;
   now: number;
@@ -93,7 +130,8 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
         className={cn(
-          'relative flex flex-col gap-2 p-2.5 sm:p-3.5 rounded-xl border bg-surface touch-pan-y transition-[border-color,background-color] duration-150',
+          ROW_SURFACE,
+          'touch-pan-y',
           active ? 'border-border-hover' : 'border-border/60 hover:border-border-hover',
           risk.criticalFailed > 0 && !active && 'border-danger/40',
         )}
@@ -108,18 +146,12 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           <Repeat size={14} aria-hidden className="mt-0.5 shrink-0 text-text-light" />
           <span className="flex flex-col gap-1 min-w-0 flex-1">
             <span className="flex items-start justify-between gap-3">
-              <span className={cn('t-meta sm:t-card font-display text-text leading-snug line-clamp-2', active ? 'font-bold' : 'font-semibold')}>
+              <span className={cn(ROW_TITLE, active ? 'font-bold' : 'font-semibold')}>
                 {instance.title}
               </span>
-              <span
-                className={cn('inline-flex shrink-0 items-center gap-1 t-meta font-display font-semibold tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
-                title={`Waiting: ${waiting}`}
-              >
-                <Clock3 className="size-3" aria-hidden="true" />
-                {waiting}
-              </span>
+              <WaitingTag label={waiting} title={`Waiting ${waiting}`} tone={waitingDays >= 3 ? 'slow' : 'normal'} />
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
+            <span className={ROW_META}>
               {row.storeName && (
                 <span className="inline-flex items-center gap-1">
                   <Store size={11} aria-hidden /> {row.storeName}
@@ -143,7 +175,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
             type="button"
             aria-expanded={showQuestions}
             onClick={() => setShowQuestions((v) => !v)}
-            className="inline-flex h-8 pointer-coarse:h-11 w-fit items-center gap-1 rounded-md t-meta font-display font-semibold text-primary-600 dark:text-primary-300 cursor-pointer outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className={ROW_LINK}
           >
             <ChevronDown size={14} aria-hidden className={cn('transition-transform duration-150', showQuestions && 'rotate-180')} />
             {showQuestions ? 'Hide questions' : `Show ${instance.items.length} ${instance.items.length === 1 ? 'question' : 'questions'}`}
@@ -160,21 +192,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
         )}
 
         {inlineActions && (
-          <div className={cn('flex items-center justify-end gap-2', lgHidden)}>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-11 px-4 t-meta border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
-              onClick={() => onSendBack(id)}
-            >
-              <CornerUpLeft size={14} aria-hidden />
-              Send back
-            </Button>
-            <Button size="sm" className="h-11 px-4 t-meta bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
-              <Check size={14} aria-hidden />
-              Approve
-            </Button>
-          </div>
+          <DecisionButtons className={lgHidden} onSendBack={() => onSendBack(id)} onApprove={() => onApprove(id)} />
         )}
       </div>
     </li>

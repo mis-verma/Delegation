@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users, Hourglass, TicketCheck, ClipboardList } from 'lucide-react';
+import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users, Hourglass, TicketCheck, ClipboardList, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, EmptyState, IconChip, Skeleton, StatusBadge, useConfirm } from '../../components';
+import { Button, EmptyState, IconChip, InlineError, Skeleton, StatusBadge, useConfirm } from '../../components';
 import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun, type ChecklistCorrection } from './decisionRequests';
 import type { DecisionRequest } from './useDeferredDecisions';
 import { TicketRow, TaskRow } from './TicketTaskRows';
@@ -52,6 +52,26 @@ const DepartmentGroupCard = ({ group, now, onOpen }: { group: DepartmentGroup; n
   );
 };
 
+const RowSkeleton = () => (
+  <div className="flex flex-col gap-2 p-2.5 sm:p-3.5 rounded-xl border border-border/60 bg-surface" aria-hidden>
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+      <Skeleton className="h-3 w-12" />
+    </div>
+    <div className="flex gap-1.5">
+      <Skeleton className="h-6 w-20 rounded-full" />
+      <Skeleton className="h-6 w-24 rounded-full" />
+    </div>
+    <div className="flex justify-end gap-2">
+      <Skeleton className="h-11 w-28 rounded-lg" />
+      <Skeleton className="h-11 w-24 rounded-lg" />
+    </div>
+  </div>
+);
+
 const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
   <div className="flex items-center gap-2">
     <h2 className="t-section font-display font-bold text-text">{title}</h2>
@@ -69,6 +89,9 @@ interface TicketTaskQueueProps {
   departmentId: string | null;
   departmentNameOf: (id: string | null) => string;
   filtersActive: boolean;
+  failed: { tickets: boolean; tasks: boolean };
+  onRetry: () => void;
+  onShowAll: () => void;
   onOpenDepartment: (id: string) => void;
   onClearDepartment: () => void;
   onClearFilters: () => void;
@@ -84,7 +107,7 @@ interface TicketTaskQueueProps {
 }
 
 export const TicketTaskQueue = ({
-  tab, tickets: allTickets, tasks: allTasks, isPending, departmentId, departmentNameOf, filtersActive, onOpenDepartment, onClearDepartment, onClearFilters,
+  tab, tickets: allTickets, tasks: allTasks, isPending, departmentId, departmentNameOf, filtersActive, failed, onRetry, onShowAll, onOpenDepartment, onClearDepartment, onClearFilters,
   now, personNameById, decisions, refresh,
 }: TicketTaskQueueProps) => {
   const confirm = useConfirm();
@@ -173,7 +196,17 @@ export const TicketTaskQueue = ({
     else toast.error(`Approved ${results.length - failed} of ${results.length}. ${failed} failed, try those one by one.`);
   };
 
-  const emptyState = filtersActive ? (
+  const ticketsFailed = showTickets && failed.tickets;
+  const tasksFailed = showTasks && failed.tasks;
+  const loadError = ticketsFailed || tasksFailed ? (
+    <InlineError
+      message={`We couldn't load the ${ticketsFailed && tasksFailed ? 'tickets and delegations' : ticketsFailed ? 'tickets' : 'delegations'} waiting for review. Check your connection and try again.`}
+      onRetry={onRetry}
+    />
+  ) : null;
+  const caughtUpLabel = tab === 'tickets' ? 'tickets' : tab === 'delegations' ? 'delegations' : 'tickets or delegations';
+
+  const emptyState = loadError ? null : filtersActive ? (
     <EmptyState
       icon={SearchX}
       title="Nothing matches these filters"
@@ -181,39 +214,58 @@ export const TicketTaskQueue = ({
       action={{ label: 'Clear filters', onClick: onClearFilters }}
     />
   ) : (
-    <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="No tickets or delegations waiting for verification." />
+    <EmptyState
+      icon={CheckCircle2}
+      tone="success"
+      title="All caught up"
+      description={`No ${caughtUpLabel} waiting for verification. New hand-ins show up here on their own.`}
+      action={tab === 'all' ? undefined : { label: 'Show everything waiting', onClick: onShowAll, icon: Inbox }}
+    />
   );
 
   if (isPending) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" aria-hidden>
+    return departmentId ? (
+      <div className="flex flex-col gap-3" aria-busy="true">
+        <RowSkeleton />
+        <RowSkeleton />
+        <RowSkeleton />
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" aria-busy="true">
         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-xl" />)}
       </div>
     );
   }
 
   if (!departmentId) {
-    return groups.length === 0 ? emptyState : (
-      <section className="flex flex-col gap-3" aria-label="Tickets and delegations by department">
-        <SectionTitle title="Tickets and delegations by department" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {groups.map((g) => <DepartmentGroupCard key={g.id} group={g} now={now} onOpen={onOpenDepartment} />)}
-        </div>
-      </section>
+    return (
+      <>
+        {loadError}
+        {groups.length === 0 ? emptyState : (
+          <section className="flex flex-col gap-3" aria-label="Tickets and delegations by department">
+            <SectionTitle title="Tickets and delegations by department" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {groups.map((g) => <DepartmentGroupCard key={g.id} group={g} now={now} onOpen={onOpenDepartment} />)}
+            </div>
+          </section>
+        )}
+      </>
     );
   }
 
   if (!group) {
     return (
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col gap-3">
+        {loadError}
         {emptyState}
-        <Button variant="secondary" size="sm" onClick={onClearDepartment}>Back to all departments</Button>
+        <Button variant="secondary" size="sm" className="self-center" onClick={onClearDepartment}>Back to all departments</Button>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {loadError}
       {selectableIds.length > 0 && (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button size="sm" variant="ghost" onClick={toggleSelectAll}>{allSelected ? 'Clear selection' : 'Select all'}</Button>
@@ -233,7 +285,7 @@ export const TicketTaskQueue = ({
         <section className="flex flex-col gap-3" aria-label="Tickets">
           <SectionHeading section="tickets" stats={summarize(visibleTickets.map(ticketWaitingSince), now)} now={now} />
           <div className="flex flex-col gap-3">
-            {visibleTickets.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" />}
+            {visibleTickets.length === 0 && !ticketsFailed && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" />}
             {visibleTickets.map((t) => (
               <TicketRow
                 key={t.id}
@@ -255,7 +307,7 @@ export const TicketTaskQueue = ({
         <section className="flex flex-col gap-3" aria-label="Delegations">
           <SectionHeading section="delegations" stats={summarize(visibleTasks.map(taskWaitingSince), now)} now={now} />
           <div className="flex flex-col gap-3">
-            {visibleTasks.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" />}
+            {visibleTasks.length === 0 && !tasksFailed && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" />}
             {visibleTasks.map((t) => (
               <TaskRow
                 key={t.id}
