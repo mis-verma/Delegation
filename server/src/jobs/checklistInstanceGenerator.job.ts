@@ -284,8 +284,12 @@ export type RunScope = { key: string; assigneeIds: string[]; title: string }
 
 const scopedTitle = (name: string, label: string) => `${name} · ${label}`.slice(0, 191)
 
+export const peopleAtStore = <P extends { storeId: string | null }>(people: P[], storeId: string, storeIds: readonly string[]): P[] =>
+    storeIds.length > 1 ? people.filter((p) => !p.storeId || p.storeId === storeId || !storeIds.includes(p.storeId)) : people
+
 export const buildScopeResolver = async (definition: GenerationDefinition): Promise<(storeId: string) => RunScope[]> => {
-    if (definition.responseMode === "SHARED") {
+    const multiStore = definition.storeIds.length > 1
+    if (definition.responseMode === "SHARED" && !multiStore) {
         return () => [{ key: "", assigneeIds: definition.assigneeIds, title: definition.name }]
     }
     const people = definition.assigneeIds.length
@@ -299,7 +303,11 @@ export const buildScopeResolver = async (definition: GenerationDefinition): Prom
     const departmentName = new Map(departmentRows.map((d) => [d.id, d.name]))
 
     return (storeId) => {
-        const here = definition.storeIds.length > 1 ? people.filter((p) => !p.storeId || p.storeId === storeId) : people
+        const here = peopleAtStore(people, storeId, definition.storeIds)
+        if (definition.responseMode === "SHARED") {
+            const local = here.map((p) => p.id)
+            return [{ key: "", assigneeIds: local.length ? local : definition.assigneeIds, title: definition.name }]
+        }
         if (definition.responseMode === "PER_USER") {
             return here.map((p) => ({
                 key: `user:${p.id}`,
