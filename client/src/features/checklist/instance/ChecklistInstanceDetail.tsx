@@ -25,6 +25,7 @@ import { useRowActivity } from '../../../lib/useRowActivity';
 import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateWindowBanner } from './LateWindowBanner';
+import { isSendBackLocking } from './sendBackLock';
 import { useAuth } from '../../../context/AuthContext';
 
 
@@ -33,6 +34,13 @@ const NO_ITEMS: ChecklistInstanceItem[] = [];
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
 const rowDomId = (id: string) => `item-${id}`;
 const SETTLE_AND_MOVE_MS = 900;
+const focusRow = (id: string) => {
+  const row = document.getElementById(rowDomId(id));
+  if (!row) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  row.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  row.focus({ preventScroll: true });
+};
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-6 w-full" aria-hidden>
@@ -174,18 +182,42 @@ export const ChecklistInstanceDetail = () => {
     if (answered(i)) c.done += 1;
     sectionCounts.set(key, c);
   }
-  const goToNext = () => {
-    const next = instance.items.find((i) => !answered(i));
-    if (!next) return;
+  const goToItem = (target: ChecklistInstanceItem) => {
+    const move = () => requestAnimationFrame(() => focusRow(target.id));
     if (show === 'one') {
-      setOneIndex(instance.items.indexOf(next));
+      setOneIndex(instance.items.indexOf(target));
+      requestAnimationFrame(move);
       return;
     }
-    if (show === 'left' && !shownItems.includes(next)) setShow('all');
-    const scrollToNext = () => document.getElementById(`item-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (settling.size > 0) window.setTimeout(() => requestAnimationFrame(scrollToNext), SETTLE_AND_MOVE_MS);
-    else requestAnimationFrame(scrollToNext);
+    const switching = show === 'left' && !shownItems.includes(target);
+    if (switching) setShow('all');
+    if (settling.size > 0) window.setTimeout(move, SETTLE_AND_MOVE_MS);
+    else if (switching) requestAnimationFrame(move);
+    else move();
   };
+  const goToNext = () => {
+    const next = instance.items.find((i) => !answered(i));
+    if (next) goToItem(next);
+  };
+  const sentBackItems = instance.verificationStatus === 'REJECTED' ? instance.items.filter((i) => !i.isDone && !!i.sendBackNote) : [];
+  const fixByTime = instance.sentBackFixBy ? new Date(instance.sentBackFixBy).getTime() : null;
+  const fixBy = fixByTime !== null && Number.isFinite(fixByTime) ? fixByTime : null;
+  const sendBackDetail = (
+    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="min-w-0">
+        {sentBackItems.length > 0 && `${sentBackItems.length} ${sentBackItems.length === 1 ? 'question was' : 'questions were'} sent back. `}
+        Fix what's flagged, then submit it again.
+        {fixBy !== null && (now >= fixBy ? ' The fix time has passed.' : ` Fix by ${formatDateTime(new Date(fixBy).toISOString())}.`)}
+        {sentBackId && canWork && (isSendBackLocking(instance.sentBackAt, now) ? ' Your other checklists stay locked until this is fixed.' : ' Fix it soon, or your other checklists will lock.')}
+      </p>
+      {canWork && sentBackItems.length > 0 && (
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => goToItem(sentBackItems[0])}>
+          Go to first
+          <ArrowDown size={14} aria-hidden />
+        </Button>
+      )}
+    </div>
+  );
   const verificationNote = instance.verificationNote;
   const showBanners =
     inLateWindow ||
@@ -197,7 +229,7 @@ export const ChecklistInstanceDetail = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      <div className="flex items-center justify-between gap-3">
+      <div className={cn('flex items-center justify-between gap-3', !isAdminOrPC && 'max-md:hidden')}>
         <Button variant="ghost" size="sm" className="max-md:hidden" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/checklists', { replace: true }))} aria-label="Back">
           <ArrowLeft size={15} aria-hidden />
           Back
@@ -216,10 +248,10 @@ export const ChecklistInstanceDetail = () => {
         )}
       </div>
 
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[1.625rem] font-semibold leading-tight text-text sm:text-[2rem]">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="text-base text-text-muted sm:text-[1.0625rem]">
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-3.5 sm:gap-3 sm:p-5')}>
+        <div className="flex flex-col gap-0.5 sm:gap-1">
+          <h1 className="text-lg font-semibold leading-snug text-text sm:text-[2rem] sm:leading-tight">{instance.title.replace(/\.\s*$/, '')}</h1>
+          <p className="truncate text-sm text-text-muted sm:whitespace-normal sm:text-[1.0625rem]">
             {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
         </div>
@@ -245,7 +277,20 @@ export const ChecklistInstanceDetail = () => {
           )}
         </div>
 
-        <div className={cn('grid gap-px overflow-hidden rounded-lg border border-border bg-border', compliance !== null && 'sm:grid-cols-2')}>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums sm:hidden">
+          {compliance !== null && (
+            <span className="flex items-baseline gap-1.5">
+              <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
+              <span className="t-meta font-medium text-text-secondary">compliance</span>
+            </span>
+          )}
+          <span className="flex items-baseline gap-1.5">
+            <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
+            <span className="t-meta font-medium text-text-secondary">complete</span>
+          </span>
+        </div>
+
+        <div className={cn('hidden gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid', compliance !== null && 'sm:grid-cols-2')}>
           {compliance !== null && (
             <div className="flex flex-col gap-1.5 bg-surface p-4">
               <span className="t-meta font-display font-semibold text-text-muted">Compliance</span>
@@ -309,12 +354,15 @@ export const ChecklistInstanceDetail = () => {
               <>
                 <VerificationNoteBanner note={verificationNote} approved={false} />
                 <NoticeBanner tone="warning" icon={CornerUpLeft}>
-                  Fix what's flagged, then submit it again.
+                  {sendBackDetail}
                 </NoticeBanner>
               </>
             ) : (
               <NoticeBanner tone="danger" icon={ShieldAlert}>
-                Sent back for changes. Fix what's flagged, then submit it again.
+                <div className="flex flex-col gap-1">
+                  <p className="font-semibold">Sent back for changes.</p>
+                  {sendBackDetail}
+                </div>
               </NoticeBanner>
             )
           )}

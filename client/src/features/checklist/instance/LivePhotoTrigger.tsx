@@ -8,15 +8,17 @@ interface LivePhotoTriggerProps {
   children: ReactNode;
   accept?: string;
   multiple?: boolean;
+  disabled?: boolean;
+  ariaLabel?: string;
 }
 
-export const LivePhotoTrigger = ({ className, onFiles, children, accept = 'image/*', multiple = true }: LivePhotoTriggerProps) => {
+export const LivePhotoTrigger = ({ className, onFiles, children, accept = 'image/*', multiple = true, disabled = false, ariaLabel }: LivePhotoTriggerProps) => {
   const [open, setOpen] = useState(false);
 
   if (needsDesktopCamera(true, accept)) {
     return (
       <>
-        <button type="button" onClick={() => setOpen(true)} className={className}>
+        <button type="button" onClick={() => setOpen(true)} className={className} disabled={disabled} aria-label={ariaLabel}>
           {children}
         </button>
         {open && <LiveCameraDialog open onClose={() => setOpen(false)} onCapture={(file) => onFiles(toFileList(file))} />}
@@ -25,13 +27,15 @@ export const LivePhotoTrigger = ({ className, onFiles, children, accept = 'image
   }
 
   return (
-    <label className={className}>
+    <label className={className} aria-disabled={disabled || undefined}>
       {children}
       <input
         type="file"
         accept={accept}
         capture="environment"
         multiple={multiple}
+        disabled={disabled}
+        aria-label={ariaLabel}
         className="sr-only"
         onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
       />

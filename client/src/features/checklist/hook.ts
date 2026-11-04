@@ -18,6 +18,7 @@ import { weakPhotoMessage } from './photoQuality';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import { pushUndo } from '../../lib/undoRedo';
+import { useCanReopen } from './instance/useCanReopen';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -393,6 +394,7 @@ const restorableValues = (item: ChecklistInstanceItem) => ({
 
 export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   const queryClient = useQueryClient();
+  const canReopen = useCanReopen();
   const instanceKey = KEYS.instanceDetail(instanceId);
 
   const mutation = useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance; wasComplete: boolean }>({
@@ -427,7 +429,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
     },
     onSuccess: (_data, vars, context) => {
       const prevItem = context?.previous?.items.find((i) => i.id === vars.itemId);
-      if (prevItem && !prevItem.isNotApplicable) {
+      if (prevItem && !prevItem.isNotApplicable && (prevItem.isDone || canReopen)) {
         const { itemId, isDone, ...values } = vars;
         const refresh = () => {
           void queryClient.invalidateQueries({ queryKey: instanceKey });
@@ -630,6 +632,7 @@ export const useSubmitChecklistInstanceMutation = () =>
     invalidateKeys: [['checklist-instances']],
     successMessage: 'Submitted for approval',
     errorFallback: "Couldn't submit the checklist. Try again.",
+    errorToast: false,
   });
 
 export const useSendBackChecklistInstanceMutation = () =>

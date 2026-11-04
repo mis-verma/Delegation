@@ -23,6 +23,7 @@ import { toFilterPeople } from '../../../lib/filterPeople';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
+import { isSendBackLocking } from './sendBackLock';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
 import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceDoneRecently, isInstanceEnded, isInstanceEndedToday, isInstanceInLateWindow } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
@@ -61,7 +62,6 @@ const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
 
 const PAGE_SIZE = 50;
 const NO_INSTANCES: ChecklistInstance[] = [];
-const SEND_BACK_GRACE_MS = 2 * 60 * 60 * 1000;
 
 const NARROW_QUERY = '(max-width: 639px)';
 
@@ -284,7 +284,7 @@ export const MyChecklists = () => {
     const rejectedById = new Map<string, ChecklistInstance>();
     for (const i of [...(focusRuns ?? []), ...allInstances]) if (i.verificationStatus === 'REJECTED') rejectedById.set(i.id, i);
     const rejected = [...rejectedById.values()];
-    const locked = rejected.some((i) => !!i.sentBackAt && now - new Date(i.sentBackAt).getTime() >= SEND_BACK_GRACE_MS);
+    const locked = rejected.some((i) => isSendBackLocking(i.sentBackAt, now));
     const fixTimes = rejected.map((i) => (i.sentBackFixBy ? new Date(i.sentBackFixBy).getTime() : null)).filter((t): t is number => t !== null && Number.isFinite(t));
     const fixBy = fixTimes.length ? Math.min(...fixTimes) : null;
     return { count: rejected.length, firstId: rejected[0]?.id ?? '', locked, fixBy };

@@ -49,7 +49,7 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
       {fresh.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {fresh.map((img) => (
-            <EvidenceThumb key={img.id} image={img} siblings={fresh} onDelete={deleteImage.mutate} deleting={deleteImage.isPending} />
+            <EvidenceThumb key={img.id} image={img} siblings={fresh} onDelete={deleteImage.mutate} deleting={deleteImage.isPending && deleteImage.variables === img.id} />
           ))}
         </div>
       )}
@@ -59,14 +59,15 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={(files) => handleFiles(files, 'LIVE')} />
+          <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'LIVE')} />
           {!item.requiresLivePhoto && (
-            <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={(files) => handleFiles(files, 'GALLERY')} />
+            <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'GALLERY')} />
           )}
           {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
         </div>
         <ItemActionButton
           disabled={!ready || uploadImages.isPending}
+          aria-label={`Send new photo: ${item.label}`}
           onClick={() => { haptic('tap'); setItemDone.mutate({ itemId: item.id, isDone: true }); }}
           isLoading={setItemDone.isPending}
         >

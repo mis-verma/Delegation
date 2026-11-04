@@ -16,14 +16,13 @@ export const LateWindowBanner = ({ instance, now, onFill, className }: LateWindo
   const remaining = instanceClosing(instance) - now;
   return (
     <div
-      role="alert"
       className={cn('flex flex-col gap-3 rounded-xl border border-danger/40 bg-danger/10 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4', className)}
     >
       <div className="flex min-w-0 items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-danger text-white" aria-hidden="true">
           <AlarmClock className="size-5" strokeWidth={2.25} />
         </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
+        <div role="alert" className="flex min-w-0 flex-col gap-0.5">
           <p className="t-card font-display font-bold text-danger">Overdue. Please fill this in now.</p>
           <p className="t-meta font-display text-text-secondary">
             The closing time has passed, but you can still fill it in until {formatClockTime(instance.lateUntilTime)}. It will count as filled late.

@@ -9,18 +9,21 @@ interface CaptureButtonProps {
   live: boolean;
   accept: string;
   onFiles: (files: FileList | null) => void;
+  disabled?: boolean;
+  ariaLabel?: string;
 }
 
 const BUTTON_BASE = cn(
   'inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-md border t-meta font-medium whitespace-nowrap',
   'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
   'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
+  'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
 );
 
 const LIVE_LOOK = 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10';
 const PLAIN_LOOK = 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover';
 
-export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: CaptureButtonProps) => {
+export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabled = false, ariaLabel }: CaptureButtonProps) => {
   const content = (
     <>
       <Icon size={14} aria-hidden />
@@ -30,19 +33,21 @@ export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles }: Capt
 
   if (live) {
     return (
-      <LivePhotoTrigger className={cn(BUTTON_BASE, LIVE_LOOK)} accept={accept} onFiles={onFiles}>
+      <LivePhotoTrigger className={cn(BUTTON_BASE, LIVE_LOOK)} accept={accept} onFiles={onFiles} disabled={disabled} ariaLabel={ariaLabel}>
         {content}
       </LivePhotoTrigger>
     );
   }
 
   return (
-    <label className={cn(BUTTON_BASE, PLAIN_LOOK)}>
+    <label className={cn(BUTTON_BASE, PLAIN_LOOK)} aria-disabled={disabled || undefined}>
       {content}
       <input
         type="file"
         accept={accept}
         multiple
+        disabled={disabled}
+        aria-label={ariaLabel}
         className="sr-only"
         onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
       />

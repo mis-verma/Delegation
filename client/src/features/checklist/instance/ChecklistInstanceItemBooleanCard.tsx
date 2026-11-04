@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
-import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
-import { IconChip, Textarea } from '../../../components';
+import { Button, IconChip, Textarea } from '../../../components';
+import { ItemActionButton } from './ItemActionButton';
 import { cn } from '@/lib/utils';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
@@ -61,6 +62,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const isTriggering = (value: Answer) => actionsFor(value).length > 0;
 
   const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
+  const [editingSaved, setEditingSaved] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const typingRef = useRef(false);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
 
@@ -71,6 +76,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const conditionalPurpose = shownAnswer ? (`CONDITIONAL_${shownAnswer}` as const) : null;
   const images = (item.images ?? []).filter((img) => img.purpose === conditionalPurpose);
   const sessionPhotos = images.filter((img) => !baselinePhotos.current.has(img.id));
+  const sessionIds = new Set(sessionPhotos.map((img) => img.id));
   const reasonReady = !needsReason || reasonDraft.trim().length > 0;
   const photoReady = !needsPhoto || passingPhotos(images).length > 0;
   const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
@@ -88,26 +94,53 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const { mutate: mutateDone, isPending: saving } = setItemDone;
   const { isPending: uploading } = uploadImages;
   const itemId = item.id;
+  const closeEditor = useCallback(() => {
+    typingRef.current = false;
+    setTyping(false);
+    setEditingSaved(false);
+    setPendingAnswer(null);
+  }, []);
   const save = useCallback((answer: Answer, reason: string | undefined) => {
     mutateDone(
       { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
-      { onSuccess: () => { if (reason === undefined || latestReason.current.trim() === reason) setPendingAnswer(null); } },
+      { onSuccess: () => { if ((reason === undefined || latestReason.current.trim() === reason) && !typingRef.current) closeEditor(); } },
     );
-  }, [mutateDone, itemId]);
+  }, [mutateDone, itemId, closeEditor]);
+
+  const savedDone = item.isDone;
+  const savedAnswer = item.booleanAnswer;
+  const savedReasonText = (item.conditionalReasonValue ?? '').trim();
+  const commit = useCallback((answer: Answer, reason: string | undefined) => {
+    if (savedDone && savedAnswer === answer && (reason ?? '') === savedReasonText) {
+      closeEditor();
+      return;
+    }
+    save(answer, reason);
+  }, [savedDone, savedAnswer, savedReasonText, save, closeEditor]);
 
   useEffect(() => {
-    if (!readyToSave || !pendingAnswer || saving || uploading) return undefined;
+    if (!readyToSave || !pendingAnswer || saving || uploading || typing) return undefined;
     const wait = needsReason ? AUTO_SAVE_REASON_MS : AUTO_SAVE_PHOTO_MS;
-    const timer = setTimeout(() => save(pendingAnswer, needsReason ? reasonDraft.trim() : undefined), wait);
+    const timer = setTimeout(() => commit(pendingAnswer, needsReason ? reasonDraft.trim() : undefined), wait);
     return () => clearTimeout(timer);
-  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, uploading, save]);
+  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, uploading, typing, commit]);
+
+  const startEditReason = () => {
+    if (!interactive || !item.isDone || !item.booleanAnswer) return;
+    haptic('tap');
+    baselinePhotos.current = new Set(images.map((img) => img.id));
+    setReasonDraft(item.conditionalReasonValue ?? '');
+    setEditingSaved(true);
+    setPendingAnswer(item.booleanAnswer);
+    requestAnimationFrame(() => reasonRef.current?.focus());
+  };
 
   const pickAnswer = (value: Answer) => {
     if (!interactive || setItemDone.isPending) return;
     haptic('tap');
     if (pendingAnswer === value) {
       discardSession();
-      setPendingAnswer(null);
+      closeEditor();
       setReasonDraft(item.conditionalReasonValue ?? '');
       return;
     }
@@ -116,12 +149,13 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       if (pendingAnswer === null) baselinePhotos.current = new Set(images.map((img) => img.id));
       else discardSession();
       setReasonDraft(item.booleanAnswer === value ? item.conditionalReasonValue ?? '' : '');
+      setEditingSaved(false);
       setPendingAnswer(value);
       return;
     }
     if (pendingAnswer !== null) {
       discardSession();
-      setPendingAnswer(null);
+      closeEditor();
     }
     setReasonDraft('');
     save(value, undefined);
@@ -172,7 +206,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         item={item}
         interactive={interactive}
         reopenPending={setItemDone.isPending}
-        onReopen={() => { setPendingAnswer(null); setReasonDraft(''); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
+        onReopen={() => { closeEditor(); setReasonDraft(''); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
       />
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
@@ -213,18 +247,50 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
           {(needsReason || !!savedReason) && (
             pendingAnswer ? (
-              <Textarea
-                id={reasonId}
-                label="Reason"
-                labelClassName="font-display font-medium"
-                value={reasonDraft}
-                onChange={(e) => setReasonDraft(e.target.value)}
-                rows={2}
-                placeholder="Why? It saves by itself when you stop typing."
-                className="min-h-0 px-3 py-2 rounded-lg"
-              />
+              <div className="flex flex-col gap-2">
+                <Textarea
+                  ref={reasonRef}
+                  id={reasonId}
+                  label="Reason"
+                  labelClassName="font-display font-medium"
+                  value={reasonDraft}
+                  onChange={(e) => setReasonDraft(e.target.value)}
+                  onFocus={() => { typingRef.current = true; setTyping(true); }}
+                  onBlur={() => { typingRef.current = false; setTyping(false); }}
+                  rows={2}
+                  placeholder="Why? It saves when you tap Save or leave this box."
+                  className="min-h-0 px-3 py-2 rounded-lg"
+                />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {editingSaved && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { discardSession(); closeEditor(); setReasonDraft(item.conditionalReasonValue ?? ''); }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <ItemActionButton
+                    disabled={!readyToSave || uploading}
+                    isLoading={saving}
+                    aria-label={`Save reason: ${item.label}`}
+                    onClick={() => commit(pendingAnswer, reasonDraft.trim())}
+                  >
+                    Save
+                  </ItemActionButton>
+                </div>
+              </div>
             ) : (
-              <p className="t-meta font-display italic text-text"><span className="not-italic font-semibold text-text-muted">Reason: </span>"{item.conditionalReasonValue}"</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="min-w-0 flex-1 t-meta font-display italic text-text"><span className="not-italic font-semibold text-text-muted">Reason: </span>"{item.conditionalReasonValue}"</p>
+                {interactive && needsReason && !!savedReason && (
+                  <Button variant="ghost" size="sm" onClick={startEditReason} aria-label={`Edit reason: ${item.label}`}>
+                    <Pencil size={13} aria-hidden />
+                    Edit
+                  </Button>
+                )}
+              </div>
             )
           )}
 
@@ -233,16 +299,23 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               {images.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {images.map((img) => (
-                    <EvidenceThumb key={img.id} image={img} siblings={images} large={!pendingAnswer} onDelete={pendingAnswer ? deleteImage.mutate : undefined} deleting={deleteImage.isPending} />
+                    <EvidenceThumb
+                      key={img.id}
+                      image={img}
+                      siblings={images}
+                      large={!pendingAnswer}
+                      onDelete={pendingAnswer && (!editingSaved || sessionIds.has(img.id)) ? deleteImage.mutate : undefined}
+                      deleting={deleteImage.isPending && deleteImage.variables === img.id}
+                    />
                   ))}
                 </div>
               )}
               <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
               {pendingAnswer && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={(files) => handleFiles(files, 'LIVE')} />
+                  <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'LIVE')} />
                   {!item.requiresLivePhoto && (
-                    <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={(files) => handleFiles(files, 'GALLERY')} />
+                    <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
                   )}
                   {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
                 </div>

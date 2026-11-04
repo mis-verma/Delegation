@@ -140,7 +140,7 @@ export const DetailItemRow = memo(({
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div id={`item-${item.id}`} data-row-id={item.id} className="flex flex-col gap-1.5 scroll-mt-28">
+      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className="flex flex-col gap-1.5 scroll-mt-28 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
@@ -208,7 +208,7 @@ export const DetailItemRow = memo(({
           {item.isNotApplicable ? (
             <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
           ) : (
-            ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork: retaking ? false : canWork, isLocked: retaking || isLocked, currentUserId })
+            ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork: retaking ? false : canWork, isLocked, currentUserId })
           )}
           {retaking && <RetakePhotoPanel item={item} instanceId={instanceId} />}
           <div className="border-t border-border/50 px-3 py-2 sm:px-4 empty:hidden">
