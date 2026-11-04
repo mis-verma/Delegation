@@ -7,6 +7,7 @@ import { useOverviewScores } from './useOverviewScores';
 import { SCORE_LABEL } from '../../../lib/scoreLabels';
 import { orgDayWindow } from '../../dashboard/scoreDrill';
 import type { GroupBy } from './GroupByControl';
+import { useCanOpen } from '../../owner/useReadOnlyViewer';
 
 interface TicketKpiSectionProps {
   groupBy: GroupBy;
@@ -36,6 +37,7 @@ export const TicketKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOr
   const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
 
+  const canOpen = useCanOpen();
   const base = isOrgWideRole ? '/admin/tickets' : '/tickets';
   const slaHref = (sla: 'closed_late' | 'closed_on_time') => {
     let window: { from: string; to: string } | null = null;
@@ -55,8 +57,11 @@ export const TicketKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOr
     }
     return `${base}?${params.toString()}`;
   };
-  const lateHref = slaHref('closed_late');
-  const onTimeHref = slaHref('closed_on_time');
+  const linkable = canOpen(base);
+  const lateHref = linkable ? slaHref('closed_late') : undefined;
+  const onTimeHref = linkable ? slaHref('closed_on_time') : undefined;
+  const listHref = linkable ? base : undefined;
+  const delayedHref = linkable ? `${base}?quickFilter=delayed` : undefined;
 
   return (
     <KpiSectionShell
@@ -98,7 +103,7 @@ export const TicketKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOr
           noDataText: 'No tickets closed in this period',
           trend: avgTime.trend,
           lowerIsBetter: true,
-          href: base,
+          href: listHref,
         },
         {
           icon: AlertTriangle,
@@ -110,7 +115,7 @@ export const TicketKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOr
           trend: overdue.trend,
           lowerIsBetter: true,
           caption: 'Still open and past due',
-          href: `${base}?quickFilter=delayed`,
+          href: delayedHref,
         },
         {
           icon: Clock,

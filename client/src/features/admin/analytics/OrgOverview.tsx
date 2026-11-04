@@ -2,6 +2,7 @@ import { memo, useCallback, useId } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { AlertTriangle, ArrowRight, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { Button, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
@@ -14,7 +15,6 @@ import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { BiOverview } from './bi/BiOverview';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
-import { PhoneCollapse } from './PhoneCollapse';
 import { ExportRegistryProvider, OverviewExportMenu } from './ExportRegistry';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
@@ -158,16 +158,20 @@ export const OrgOverview = () => {
     [scoreWindow],
   );
   const openRankings = useCallback(() => navigate(scoresHref('department')), [navigate, scoresHref]);
+  const isOwner = user?.role === 'OWNER';
+  const reportsButton = orgWide && !isOwner ? (
+    <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')} className="pointer-coarse:min-h-11">
+      <FileDown size={14} aria-hidden="true" />
+      Reports
+    </Button>
+  ) : null;
   const linkButtons = orgWide ? (
     <>
       <Button variant="ghost" size="sm" onClick={openRankings} className="pointer-coarse:min-h-11">
         Scores
         <ArrowRight size={14} aria-hidden="true" />
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')} className="pointer-coarse:min-h-11">
-        <FileDown size={14} aria-hidden="true" />
-        Reports
-      </Button>
+      {reportsButton}
     </>
   ) : null;
 
@@ -181,14 +185,14 @@ export const OrgOverview = () => {
 
   const orgStrip = <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />;
   const leadersBlock = (
-    <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
-      <div className="@container">
-        <div className="grid grid-cols-1 items-stretch gap-3 @3xl:grid-cols-2">
-          <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
+    <div className="@container">
+      <div className="grid grid-cols-1 items-stretch gap-3 @3xl:grid-cols-2">
+        <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
+        <div className="hidden sm:contents">
           <TeamLeaderboardRail from={windowFrom} to={windowTo} />
         </div>
       </div>
-    </PhoneCollapse>
+    </div>
   );
 
   return (
@@ -218,20 +222,24 @@ export const OrgOverview = () => {
         onRefresh={() => void refresh()}
       />
 
-      <div className="flex flex-wrap items-center justify-end gap-1">
-        {!classic && linkButtons}
-        <Button variant="ghost" size="sm" onClick={() => patch({ classic: classic ? null : '1' })} className="pointer-coarse:min-h-11">
-          {classic ? 'Charts view' : 'Classic view'}
-        </Button>
+      <div className={cn('flex flex-wrap items-center justify-end gap-2', !classic && 'max-sm:order-6')}>
+        {!classic && reportsButton}
+        <button
+          type="button"
+          onClick={() => patch({ classic: classic ? null : '1' })}
+          className="inline-flex min-h-11 items-center rounded-md px-2 t-meta font-display font-medium text-text-muted underline-offset-4 outline-none transition-colors duration-150 ease-out cursor-pointer hover:text-text hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:min-h-8"
+        >
+          {classic ? 'Switch to charts view' : 'Switch to classic view'}
+        </button>
       </div>
 
       {orgWide && (
-        <PhoneCollapse title="Waiting for approval" defaultOpen>
+        <div className={classic ? undefined : 'max-sm:order-2'}>
           <ApprovalWaitingStrip from={windowFrom} to={windowTo} />
-        </PhoneCollapse>
+        </div>
       )}
 
-      {!classic && orgWide && orgStrip}
+      {!classic && orgWide && <div className="max-sm:order-3">{orgStrip}</div>}
 
       {classic ? (
         <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection}
@@ -248,11 +256,7 @@ export const OrgOverview = () => {
 
       {classic && <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />}
 
-      {classic && orgWide && (
-        <PhoneCollapse title="Your organisation" hint="Stores, departments and people">
-          {orgStrip}
-        </PhoneCollapse>
-      )}
+      {classic && orgWide && orgStrip}
 
     </div>
     </ExportRegistryProvider>

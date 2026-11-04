@@ -4,6 +4,7 @@ import { Store, Building2, Users, ShieldCheck, ChevronRight } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { InlineError, Skeleton } from '../../../components';
 import type { OrgCounts } from '../../../api/scores';
+import { useCanOpen } from '../../owner/useReadOnlyViewer';
 
 interface OrgSnapshotStripProps {
   counts: OrgCounts | undefined;
@@ -22,15 +23,13 @@ interface OrgTileProps {
   to: string;
 }
 
+const TILE_CLASS = 'group flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 text-left';
+
 const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }: OrgTileProps) => {
   const navigate = useNavigate();
-  return (
-    <button
-      type="button"
-      onClick={() => void navigate(to, { viewTransition: true })}
-      aria-label={`${label}: ${value}. ${caption}. Open the directory`}
-      className="group flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 text-left outline-none transition-colors duration-150 cursor-pointer hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.985]"
-    >
+  const canOpen = useCanOpen();
+  const body = (
+    <>
       <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl text-white', solid)} aria-hidden="true">
         <Icon className="size-5" strokeWidth={2.25} />
       </span>
@@ -41,6 +40,19 @@ const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }:
         </span>
         <span className={cn('line-clamp-1 t-meta font-medium text-text-muted', captionClass)}>{caption}</span>
       </span>
+    </>
+  );
+  if (!canOpen(to)) {
+    return <div role="group" aria-label={`${label}: ${value}. ${caption}`} className={TILE_CLASS}>{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void navigate(to, { viewTransition: true })}
+      aria-label={`${label}: ${value}. ${caption}. Open the directory`}
+      className={`${TILE_CLASS} outline-none transition-colors duration-150 cursor-pointer hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.985]`}
+    >
+      {body}
       <ChevronRight className="size-4 shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
     </button>
   );

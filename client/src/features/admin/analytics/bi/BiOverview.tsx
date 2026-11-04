@@ -58,25 +58,40 @@ export const BiOverview = ({ windowFrom, windowTo, orgWide, highlights }: BiOver
     patch({ from: zoomFrom, to: zoomTo, zf: null, zt: null, range: null });
   }, [patch, zoomFrom, zoomTo]);
 
+  const { refetch } = query;
+  const retry = useCallback(() => void refetch(), [refetch]);
+
   return (
-    <div className="flex flex-col gap-3">
-      <ModuleCarousel total={query.data?.total} selected={route.module} onSelect={route.setModule} updating={query.updating} />
-      {highlights}
-      {win && (
-        <BiPanel
-          route={route}
-          prefs={prefs}
-          query={query}
-          win={win}
-          orgWide={orgWide}
-          storeOptions={storeOptions}
-          departmentOptions={departmentOptions}
-          previous={previous}
-          zoomed={zoomed}
-          onZoom={onZoom}
-          onResetZoom={onResetZoom}
+    <>
+      <div className="max-sm:order-1">
+        <ModuleCarousel
+          total={query.data?.total}
+          selected={route.module}
+          onSelect={route.setModule}
+          updating={query.updating}
+          periodLabel={win?.label}
+          isError={query.isError}
+          onRetry={retry}
         />
+      </div>
+      {highlights && <div className="max-sm:order-4">{highlights}</div>}
+      {win && (
+        <div className="max-sm:order-5">
+          <BiPanel
+            route={route}
+            prefs={prefs}
+            query={query}
+            win={win}
+            orgWide={orgWide}
+            storeOptions={storeOptions}
+            departmentOptions={departmentOptions}
+            previous={previous}
+            zoomed={zoomed}
+            onZoom={onZoom}
+            onResetZoom={onResetZoom}
+          />
+        </div>
       )}
-    </div>
+    </>
   );
 };

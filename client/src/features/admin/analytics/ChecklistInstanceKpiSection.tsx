@@ -47,7 +47,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const itemsDoneCard = {
     icon: Repeat,
     iconTint: 'text-primary-600 dark:text-primary-400',
-    label: 'Items done',
+    label: SCORE_LABEL.itemsDone,
     caption: 'Counts questions, not whole checklists',
     how: { figure: 'itemsDone' as const },
     value: formatPercent(completion.value),
@@ -121,7 +121,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const completionCard = {
     icon: ListChecks,
     iconTint: 'text-primary-600 dark:text-primary-400',
-    label: `${MODULE_LABEL.checklist} ${SCORE_LABEL.completion.toLowerCase()}`,
+    label: `${SCORE_LABEL.completion}, ${MODULE_LABEL.checklist.toLowerCase()}`,
     how: { figure: 'completion' as const, module: 'checklist' as const },
     value: formatPercent(checklist?.completion),
     raw: checklist?.completion ?? null,
@@ -141,8 +141,8 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
       icon={Repeat}
       title={scopeLabel || 'Store checklists'}
       description={scopeLabel
-        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Items done counts questions on runs that are due, not whole checklists."
-        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Items done counts questions on runs that are due, not whole checklists."}
+        ? `Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. ${SCORE_LABEL.itemsDone} counts questions on runs that are due, not whole checklists.`
+        : `How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. ${SCORE_LABEL.itemsDone} counts questions on runs that are due, not whole checklists.`}
       isPending={isPending}
       isError={isError}
       errorMessage="Could not load the store checklist figures."
@@ -157,7 +157,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
         data: chartQuery.data ?? [],
         groupBy,
         series: [
-          { key: 'completionRate', label: 'Items done', color: 'var(--color-primary-500)' },
+          { key: 'completionRate', label: SCORE_LABEL.itemsDone, color: 'var(--color-primary-500)' },
           { key: 'complianceRate', label: complianceLabel('checklist'), color: 'var(--color-warning)' },
           { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
           { key: 'approvalRate', label: 'Approved first time', color: 'var(--color-coral-500)' },

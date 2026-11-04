@@ -40,7 +40,18 @@ interface DateRangePickerProps {
 const isEndOfDay = (d: Date) => (d.getHours() === 0 && d.getMinutes() === 0) || (d.getHours() === 23 && d.getMinutes() === 59);
 const endClock = (d: Date) => (isEndOfDay(d) ? 'End of day' : formatClock(d));
 
-const laterOf = (a: Date | null | undefined, b: Date | null | undefined) => {
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const compactSpan = (from: Date, to: Date): string => {
+  const dm = (d: Date) => `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  if (isSameDay(from, to)) return dm(to);
+  const sameYear = from.getFullYear() === to.getFullYear();
+  if (sameYear && from.getMonth() === to.getMonth()) return `${from.getDate()} to ${dm(to)}`;
+  if (sameYear) return `${dm(from)} to ${dm(to)}`;
+  return `${dm(from)} ${from.getFullYear()} to ${dm(to)} ${to.getFullYear()}`;
+};
+
+const laterOf =(a: Date | null | undefined, b: Date | null | undefined) => {
   if (a && b) return a.getTime() >= b.getTime() ? a : b;
   return a ?? b ?? null;
 };
@@ -215,12 +226,13 @@ export function DateRangePicker({
 
   const hasValue = !!value.from || !!value.to;
   const clock = (d: Date) => (showTime ? `, ${formatClock(d)}` : '');
-  const label = hasValue
+  const shortSpan = !showTime && !dueOnly && value.from && value.to ? compactSpan(value.from, value.to) : null;
+  const label = shortSpan ?? (hasValue
     ? [
         value.from && !dueOnly ? formatDay(value.from) + (endTimeOnly ? '' : clock(value.from)) : null,
         value.to ? formatDay(value.to) + clock(value.to) : null,
       ].filter(Boolean).join(' to ')
-    : placeholder;
+    : placeholder);
 
   const tileSlots = dueOnly
     ? [{ key: 'to' as const, label: 'Due', date: value.to }]
@@ -448,7 +460,7 @@ export function DateRangePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex items-center gap-2.5 w-full h-11 px-2.5 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
+            'flex items-center gap-2.5 w-full min-h-11 py-1 px-2.5 rounded-xl border bg-surface text-sm text-left transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
             open ? 'border-primary-500' : 'border-border/70 hover:border-primary-400/70',
             hasValue && !disabled && 'pr-10 pointer-coarse:pr-12',
@@ -456,7 +468,7 @@ export function DateRangePicker({
           )}
         >
           <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0"><CalendarIcon size={15} strokeWidth={2.4} /></span>
-          <span className={cn('truncate font-display', (hasValue || placeholderIsValue) ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+          <span className={cn('min-w-0 line-clamp-2 leading-snug font-display', (hasValue || placeholderIsValue) ? 'text-text font-medium' : 'text-text-muted font-medium')}>
             {label}
           </span>
         </button>

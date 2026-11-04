@@ -19,6 +19,7 @@ import { useNow, usePersonAttention, useRemindMutation } from './useAttention';
 import { LevelAvatar, WeekDots } from './AttentionParts';
 import { LEVEL_LOOK, RUN_LOOK, agoLabel, deadlineLabel, levelOfDetail, pctText, remindedRecently, scoreBar, scoreTone, whatsAppLink } from './attentionDisplay';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { useCanOpen, useIsReadOnlyViewer } from '../owner/useReadOnlyViewer';
 
 const gaugeColor = (v: number | null | undefined) =>
   v === null || v === undefined ? 'var(--color-border-hover)' : v >= GOOD_FROM ? 'var(--color-success)' : v >= FAIR_FROM ? 'var(--color-warning)' : 'var(--color-danger)';
@@ -39,7 +40,7 @@ const reasonsOf = (d: PersonAttentionDetail) => {
 const Gauge = ({ value, label, caption }: { value: number | null | undefined; label: string; caption?: string }) => (
   <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
     <RadialGauge percent={value ?? 0} size={76} variant="circle" thickness={8} gradientFrom={gaugeColor(value)} gradientTo={gaugeColor(value)} ariaLabel={`${label} ${pctText(value)}`}>
-      <span className={cn('t-card font-display font-extrabold tabular-nums', value === null || value === undefined ? 'text-text-light' : 'text-text')}>{pctText(value)}</span>
+      <span className={cn('t-card font-display font-extrabold tabular-nums', value === null || value === undefined ? 'text-text-muted' : 'text-text')}>{pctText(value)}</span>
     </RadialGauge>
     <span className="t-meta font-semibold text-text-secondary text-center">{label}</span>
     {caption && <span className="t-meta text-text-muted text-center line-clamp-1">{caption}</span>}
@@ -69,7 +70,11 @@ const Section = ({ icon: Icon, title, aside, children }: { icon: LucideIcon; tit
   </section>
 );
 
-const ROW_LINK = 'flex items-center gap-3 min-h-14 rounded-xl border border-border/60 bg-surface px-3 py-2.5 outline-none transition-colors duration-150 hover:border-primary-300 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const ROW_BOX = 'flex items-center gap-3 min-h-14 rounded-xl border border-border/60 bg-surface px-3 py-2.5';
+const ROW_LINK = `${ROW_BOX} outline-none transition-colors duration-150 hover:border-primary-300 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40`;
+
+const RowLink = ({ to, open, children }: { to: string; open: boolean; children: ReactNode }) =>
+  open ? <Link to={to} viewTransition className={ROW_LINK}>{children}</Link> : <div className={ROW_BOX}>{children}</div>;
 
 const DetailSkeleton = () => (
   <div className="flex flex-col gap-5 p-4 sm:p-6" role="status" aria-label="Loading">
@@ -101,6 +106,8 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
   const monthFrom = `${today.slice(0, 8)}01`;
   const detail = usePersonAttention(userId);
   const remind = useRemindMutation();
+  const readOnly = useIsReadOnlyViewer();
+  const canOpen = useCanOpen();
 
   const todayScore = useQuery({
     queryKey: ['scores', 'attention-person', userId, today, today],
@@ -253,7 +260,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
                       const pct = r.totalItems ? Math.round((r.doneItems / r.totalItems) * 100) : 0;
                       return (
                         <li key={r.id}>
-                          <Link to={`/checklists/${r.id}`} viewTransition className={ROW_LINK}>
+                          <RowLink to={`/checklists/${r.id}`} open={canOpen(`/checklists/${r.id}`)}>
                             <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl text-white', look.tone)}>
                               <look.icon className="size-4" strokeWidth={2.25} aria-hidden />
                             </span>
@@ -271,7 +278,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
                                 <span className="t-meta font-semibold tabular-nums text-text-secondary">{r.doneItems}/{r.totalItems}</span>
                               </span>
                             </span>
-                          </Link>
+                          </RowLink>
                         </li>
                       );
                     })}
@@ -284,24 +291,24 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
                   <ul className="flex flex-col gap-2">
                     {d.tickets.map((tk) => (
                       <li key={tk.id}>
-                        <Link to={`/tickets?open=${tk.id}`} viewTransition className={ROW_LINK}>
+                        <RowLink to={`/tickets?open=${tk.id}`} open={canOpen('/tickets')}>
                           <span className="flex min-w-0 flex-1 flex-col gap-1">
                             <span className="line-clamp-2 t-card font-display font-semibold text-text leading-snug">{tk.title}</span>
                             <span className="t-meta font-medium text-text-muted">Ticket{tk.tatDueAt ? ` · due ${new Date(tk.tatDueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</span>
                           </span>
                           {tk.isOverdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={false} label="Open" />}
-                        </Link>
+                        </RowLink>
                       </li>
                     ))}
                     {d.delegations.map((tk) => (
                       <li key={tk.id}>
-                        <Link to={`/tasks?open=${tk.id}`} viewTransition className={ROW_LINK}>
+                        <RowLink to={`/tasks?open=${tk.id}`} open={canOpen('/tasks')}>
                           <span className="flex min-w-0 flex-1 flex-col gap-1">
                             <span className="line-clamp-2 t-card font-display font-semibold text-text leading-snug">{tk.title}</span>
                             <span className="t-meta font-medium text-text-muted">Delegation{tk.dueDate ? ` · due ${new Date(tk.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</span>
                           </span>
                           {tk.overdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={false} label="Open" />}
-                        </Link>
+                        </RowLink>
                       </li>
                     ))}
                   </ul>
@@ -313,25 +320,28 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
 
         {d && (
           <footer className="flex items-center gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6">
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              className="flex-1 min-w-0 pointer-coarse:h-11"
-              onClick={() => remind.mutate([d.userId])}
-              isLoading={remind.isPending}
-              disabled={recently || !d.isActive}
-            >
-              <BellRing className="size-4" aria-hidden />
-              <span className="truncate">{recently && d.lastRemindedAt ? `Reminded ${agoLabel(d.lastRemindedAt, now)}` : 'Send reminder'}</span>
-            </Button>
-            {whatsApp && (
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                className="h-11 min-w-0 flex-1 pointer-fine:h-10"
+                onClick={() => remind.mutate([d.userId])}
+                isLoading={remind.isPending}
+                disabled={recently || !d.isActive}
+              >
+                <BellRing className="size-4" aria-hidden />
+                <span className="truncate">{recently && d.lastRemindedAt ? `Reminded ${agoLabel(d.lastRemindedAt, now)}` : 'Send reminder'}</span>
+              </Button>
+            )}
+            {readOnly && <span className="min-w-0 flex-1 t-meta font-medium text-text-muted">View only</span>}
+            {whatsApp && !readOnly && (
               <a
                 href={whatsApp}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`WhatsApp ${firstName}`}
-                className="inline-flex size-11 sm:size-auto sm:h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface sm:px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-success/50 hover:text-success focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                className="inline-flex h-11 min-w-11 pointer-fine:h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface sm:px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-success/50 hover:text-success focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
                 <MessageCircle className="size-4" aria-hidden />
                 <span className="max-sm:sr-only">WhatsApp</span>
@@ -341,7 +351,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
               to={scoresHref('person', d.userId, d.name, monthFrom, today)}
               viewTransition
               aria-label="Full score"
-              className="inline-flex size-11 sm:size-auto sm:h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface sm:px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex h-11 min-w-11 pointer-fine:h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface sm:px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <BarChart3 className="size-4" aria-hidden />
               <span className="max-sm:sr-only">Full score</span>

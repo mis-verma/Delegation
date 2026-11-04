@@ -12,10 +12,10 @@ export const parseBiModule = (v: string | null): BiModule => (v === 'checklist' 
 export const moduleTitle = (module: BiModule): string => (module === 'all' ? 'All modules' : MODULE_LABEL[module]);
 
 export const measureLabel = (measure: BiMeasure, module: BiModule): string => {
-  if (measure === 'score') return module === 'all' ? SCORE_LABEL.overall : 'Score';
+  if (measure === 'score') return module === 'all' ? SCORE_LABEL.overall : SCORE_LABEL.score;
   if (measure === 'completion') return SCORE_LABEL.completion;
   if (measure === 'onTime') return SCORE_LABEL.onTime;
-  return module === 'all' ? 'Compliance' : complianceLabel(module);
+  return module === 'all' ? SCORE_LABEL.compliance : complianceLabel(module);
 };
 
 export const blockValue = (b: ExplorerBlock, measure: BiMeasure): number | null => {

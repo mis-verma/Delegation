@@ -23,6 +23,7 @@ import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalytics
 import { countTone, countTrend, formatPercent, NO_TREND, pctTone, periodHeading, rateTrend, shiftDay, spanDays, statCaption, type ValueTone } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 import type { Ticket } from '../../../api/ticket';
+import { useCanOpen } from '../../owner/useReadOnlyViewer';
 
 export type SummarySection = 'delegations' | 'store-checklists';
 
@@ -165,6 +166,8 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const headingId = useId();
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const canOpen = useCanOpen();
+  const canOpenTickets = canOpen('/tickets');
   const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null);
 
   const overdue = useTicketOwnerStatsQuery('org');
@@ -281,7 +284,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             trend={overdueTicketsTrend}
             lowerIsBetter
             valueTone={overdue.isPending || overdue.isError ? undefined : countTone(overdueCount ?? 0)}
-            onClick={() => setDrilldownKind('overdue')}
+            onClick={canOpenTickets ? () => setDrilldownKind('overdue') : undefined}
           />
           <StatTile
             icon={Hourglass}
@@ -293,7 +296,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             trend={overdueDelegationsTrend}
             lowerIsBetter
             valueTone={overdueDelegations.isPending || overdueDelegations.isError ? undefined : countTone(overdueDelegationCount ?? 0)}
-            onClick={() => navigate(overdueDelegationsHref())}
+            onClick={canOpen(overdueDelegationsHref()) ? () => navigate(overdueDelegationsHref()) : undefined}
           />
           {checklistSubject && (
             <StatTile
@@ -306,9 +309,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
               trend={notDoneTrend}
               lowerIsBetter
               valueTone={scoresLoading || scoresFailed || !checklist ? undefined : countTone(missedCount)}
-              onClick={() => {
-                if (dayFrom && dayTo) navigate(checklistDrillHref(isOrgWideRole, checklistSubject, dayFrom, dayTo, 'notDone'));
-              }}
+              onClick={dayFrom && dayTo && canOpen(checklistDrillHref(isOrgWideRole, checklistSubject, dayFrom, dayTo, 'notDone'))
+                ? () => navigate(checklistDrillHref(isOrgWideRole, checklistSubject, dayFrom, dayTo, 'notDone'))
+                : undefined}
             />
           )}
           <StatTile
@@ -321,7 +324,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             trend={rateDelta(ticket?.onTimeOfFinishedPct, ticket?.done, prevTicket?.onTimeOfFinishedPct, prevTicket?.done)}
             caption={percentCaption(ticket?.onTimeOfFinishedPct, ticket?.done, 'No closed tickets with a deadline', 'Closed by their deadline')}
             valueTone={ticket?.done ? pctTone(ticket.onTimeOfFinishedPct) : undefined}
-            onClick={() => setDrilldownKind('on-time')}
+            onClick={canOpenTickets ? () => setDrilldownKind('on-time') : undefined}
           />
           <StatTile
             icon={ClipboardCheck}
@@ -365,7 +368,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
                 ? `Showing the newest ${drilldownRows.length} of ${drilldownTotal}`
                 : undefined
           }
-          viewAllHref={isOrgWideRole ? '/admin/tickets' : undefined}
+          viewAllHref={isOrgWideRole && canOpen('/admin/tickets') ? '/admin/tickets' : undefined}
           viewAllLabel="View all tickets"
         />
       )}

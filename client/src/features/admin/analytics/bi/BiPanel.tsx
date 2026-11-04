@@ -1,13 +1,15 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlignLeft, ArrowDownWideNarrow, ArrowLeft, ArrowUpNarrowWide, ChartColumn, ChevronRight, CircleGauge, ExternalLink, GitCompareArrows, Grid3x3, Maximize2, Minimize2, SearchX, ZoomOut,
+  AlignLeft, ArrowDownWideNarrow, ArrowLeft, ArrowUpNarrowWide, ChartColumn, ChevronRight, CircleGauge, GitCompareArrows, Grid3x3, Maximize2, Minimize2, SearchX, SlidersHorizontal, ZoomOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExplorerRow, ExplorerView, MatrixParams } from '../../../../api/scores';
 import { Button, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../../components';
+import { PickerShell } from '../../../../components/dateTime/PickerShell';
 import { exportTitle } from '../../../../lib/exportTable';
+import { DashCardHeader, DashCardLink } from '../../../dashboard/DashCardHeader';
 import { LazyWhenVisible } from '../../../dashboard/LazyWhenVisible';
 import { VIEW_LABEL, exportRowsFor, rankById, serializeTrail, sharingLine } from '../../../scores/scoresDisplay';
 import { scoreExplorerQuery, type useScoreExplorer } from '../../../scores/useScoreExplorer';
@@ -57,9 +59,9 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
   const { module, view, allowedViews, trail, parent, storeId, departmentId, ancestorStoreId, setView, setFilters, clearFilters, drill, goToCrumb, goBack, goRoot } = route;
   const headingId = useId();
   const fullButtonId = `${headingId}-full`;
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [full, setFull] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const data = query.data;
   const measure = module === 'all' ? 'score' : prefs.measure;
   const shownView: ExplorerView = data?.view ?? view;
@@ -147,8 +149,20 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
     { value: 'month', label: 'Month' },
   ];
 
+  const activeFilters = (storeId ? 1 : 0) + (departmentId ? 1 : 0);
+  const filters = (
+    <BiFilters
+      stores={showStoreFilter ? storeOptions : undefined}
+      departments={showDepartmentFilter ? departmentOptions : undefined}
+      storeId={storeId}
+      departmentId={departmentId}
+      onChange={setFilters}
+      onClear={clearFilters}
+    />
+  );
+
   const controls = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-start max-sm:gap-3">
       <Segmented label="Chart type" options={CHART_OPTIONS} value={chart} onChange={prefs.setChart} />
       {allowedViews.length > 1 && (
         <Segmented label="Group by" options={allowedViews.map((v) => ({ value: v, label: VIEW_LABEL[v] }))} value={shownView} onChange={setView} />
@@ -204,6 +218,7 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
       icon={SearchX}
       title="Nothing was due here"
       description={`No ${moduleTitle(module).toLowerCase()} fell due in ${win.label}. Pick another module or a wider period.`}
+      action={activeFilters > 0 ? { label: 'Clear filters', onClick: clearFilters } : undefined}
     />
   ) : (
     <div className={cn('flex flex-col gap-2', query.updating && 'opacity-70 transition-opacity')} aria-busy={query.updating}>
@@ -213,9 +228,17 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
         <BarRows rows={visible} module={module} measure={measure} onOpen={openRow} onIntent={prefetch} previous={previous} />
       )}
       {hiddenCount > 0 && (chart === 'bars' || chart === 'rings') && (
-        <Button type="button" variant="outline" size="sm" onClick={() => prefs.setTopN(0)} className="self-center pointer-coarse:min-h-11">
-          Show all {scored.length}
-        </Button>
+        <p className="flex flex-wrap items-center gap-x-1.5 t-meta font-medium text-text-muted">
+          <span>Showing {visible.length} of {scored.length}.</span>
+          <Link
+            to={scoresHref}
+            viewTransition
+            className="inline-flex min-h-11 items-center gap-1 rounded-md font-display font-semibold text-primary-700 outline-none transition-colors duration-150 hover:text-primary-800 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:min-h-8 dark:text-primary-300 dark:hover:text-primary-200"
+          >
+            Open Scores for the full list
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </p>
       )}
       {priorWindow && (
         <p className="t-meta font-medium text-text-muted">Arrows and the small marker compare with {windowLabel(priorWindow.from, priorWindow.to)}.</p>
@@ -264,130 +287,155 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
       aria-labelledby={headingId}
       role={full ? 'dialog' : undefined}
       aria-modal={full ? true : undefined}
-      className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4', full && 'fixed inset-0 z-50 overflow-y-auto rounded-none border-0 p-3 sm:p-6')}
+      className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', full && 'fixed inset-0 z-50 overflow-y-auto rounded-none border-0')}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
-          <p className="t-meta font-medium text-text-muted">{moduleTitle(module)} · {measureLabel(measure, module)}{full ? ` · ${win.label}` : ''}</p>
-        </div>
-        <div className="flex items-center gap-1">
-          <ExportMenu
-            disabled={sorted.length === 0}
-            aria-label={`Export ${title}`}
-            filename={`overview-${shownView}`}
-            sheetName="Overview"
-            title={exportTitle({ what: `Overview by ${VIEW_LABEL[shownView].toLowerCase()}${parent ? `, ${parent.name}` : ''}`, from: win.from, to: win.to, period: win.label, filters: { Module: module === 'all' ? null : moduleTitle(module) } })}
-            getRows={() => exportRowsFor(shownView, sorted, rankById(sorted), exportModules)}
-          />
-          <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(scoresHref, { viewTransition: true })} className="pointer-coarse:min-h-11">
-            Scores
-            <ExternalLink size={14} aria-hidden="true" />
-          </Button>
-          <Button
-            id={fullButtonId}
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setFull((v) => !v)}
-            aria-label={full ? 'Close the full screen view' : 'Open the full screen view'}
-            className="pointer-coarse:min-h-11"
-          >
-            {full ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
-            <span className="max-sm:sr-only">{full ? 'Close' : 'Full screen'}</span>
-          </Button>
-        </div>
-      </div>
-
-      {zoomed && (
-        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-2">
-          <p className="t-meta font-display font-semibold text-text">Zoomed in to {win.label}.</p>
-          <Button type="button" size="sm" variant="outline" onClick={onResetZoom} className="pointer-coarse:min-h-11">
-            <ZoomOut size={14} aria-hidden="true" />
-            Show the whole period
-          </Button>
-        </div>
-      )}
-
-      {trail.length > 0 && (
-        <nav aria-label="Where you are" className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={goBack} className="shrink-0 pointer-coarse:min-h-11" aria-label="Go up one level">
-            <ArrowLeft size={14} aria-hidden="true" />
-            Back
-          </Button>
-          <ol className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {crumbs.map((c, i) => {
-              const last = i === crumbs.length - 1;
-              return (
-                <li key={`${c.name}-${i}`} className="flex shrink-0 items-center gap-1">
-                  {i > 0 && <ChevronRight className="size-3.5 text-text-muted" aria-hidden="true" />}
-                  {last ? (
-                    <span aria-current="page" className="t-meta font-display font-bold text-text">{c.name}</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => (i === 0 ? goRoot() : goToCrumb(i - 1))}
-                      className="min-h-8 rounded-md px-1.5 t-meta font-display font-semibold text-primary-700 outline-none cursor-pointer hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11 dark:text-primary-300"
-                    >
-                      {c.name}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-      )}
-
-      <BiFilters
-        stores={showStoreFilter ? storeOptions : undefined}
-        departments={showDepartmentFilter ? departmentOptions : undefined}
-        storeId={storeId}
-        departmentId={departmentId}
-        onChange={setFilters}
-        onClear={clearFilters}
+      <DashCardHeader
+        id={headingId}
+        title={title}
+        action={
+          <div className="flex items-center gap-1.5">
+            <ExportMenu
+              disabled={sorted.length === 0}
+              aria-label={`Export ${title}`}
+              filename={`overview-${shownView}`}
+              sheetName="Overview"
+              title={exportTitle({ what: `Overview by ${VIEW_LABEL[shownView].toLowerCase()}${parent ? `, ${parent.name}` : ''}`, from: win.from, to: win.to, period: win.label, filters: { Module: module === 'all' ? null : moduleTitle(module) } })}
+              getRows={() => exportRowsFor(shownView, sorted, rankById(sorted), exportModules)}
+            />
+            <DashCardLink to={scoresHref} label="Open Scores with this view">Scores</DashCardLink>
+            <Button
+              id={fullButtonId}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setFull((v) => !v)}
+              aria-label={full ? 'Close the full screen view' : 'Open the full screen view'}
+              className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+            >
+              {full ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+              <span className="max-md:sr-only">{full ? 'Close' : 'Full screen'}</span>
+            </Button>
+          </div>
+        }
       />
 
-      {controls}
+      <div className="flex flex-col gap-3 p-4 sm:p-5">
+        <p className="t-meta font-medium text-text-muted">{moduleTitle(module)}, {measureLabel(measure, module).toLowerCase()}, {win.label}</p>
 
-      <div className={cn('grid gap-4', showTiles && listChart && 'xl:grid-cols-[minmax(0,1fr)_18rem]')}>
-        <div className="min-w-0">{body}</div>
-        {module !== 'all' && data && listChart && (
-          <div className="hidden flex-col gap-2 xl:flex" role="group" aria-label={`${moduleTitle(module)}, choose a measure`}>
-            <h3 className="t-meta font-display font-bold text-text-muted">{totalLabel}</h3>
-            {BI_MEASURES.map((m) => {
-              const value = blockValue(data.total[module], m);
-              const tone = toneOf(value);
-              const active = prefs.measure === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => prefs.setMeasure(m)}
-                  className={cn(
-                    'flex min-h-14 items-center justify-between gap-3 rounded-xl border bg-surface px-3.5 py-2.5 text-left outline-none transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                    active ? 'border-primary-500/60 ring-2 ring-primary-500/20' : 'border-border hover:border-border-hover',
-                  )}
-                >
-                  <span className="t-card font-display font-semibold text-text">{measureLabel(m, module)}</span>
-                  <span className={cn('t-stat font-display font-extrabold tabular-nums', TONE_TEXT[tone])}>
-                    {roundPct(value) === null ? 'N/A' : formatPct(value)}
-                  </span>
-                </button>
-              );
-            })}
+        {zoomed && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-2">
+            <p className="t-meta font-display font-semibold text-text">Zoomed in to {win.label}.</p>
+            <Button type="button" size="sm" variant="outline" onClick={onResetZoom} className="pointer-coarse:min-h-11">
+              <ZoomOut size={14} aria-hidden="true" />
+              Show the whole period
+            </Button>
           </div>
         )}
+
+        {trail.length > 0 && (
+          <nav aria-label="Where you are" className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={goBack} className="shrink-0 pointer-coarse:min-h-11" aria-label="Go up one level">
+              <ArrowLeft size={14} aria-hidden="true" />
+              Back
+            </Button>
+            <ol className="flex min-w-0 flex-wrap items-center gap-1">
+              {crumbs.map((c, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  <li key={`${c.name}-${i}`} className="flex min-w-0 items-center gap-1">
+                    {i > 0 && <ChevronRight className="size-3.5 text-text-muted" aria-hidden="true" />}
+                    {last ? (
+                      <span aria-current="page" className="t-meta font-display font-bold text-text">{c.name}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => (i === 0 ? goRoot() : goToCrumb(i - 1))}
+                        className="min-h-8 rounded-md px-1.5 t-meta font-display font-semibold text-primary-700 outline-none cursor-pointer hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11 dark:text-primary-300"
+                      >
+                        {c.name}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+        )}
+
+        <div className="sm:hidden">
+          <PickerShell
+            bare
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            title="Filters"
+            trigger={
+              <button
+                type="button"
+                aria-label={activeFilters > 0 ? `Filters, ${activeFilters} on` : 'Filters'}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out cursor-pointer hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]"
+              >
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                Filters
+                {activeFilters > 0 && (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-500/10 px-1.5 t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{activeFilters}</span>
+                )}
+              </button>
+            }
+            sheetFooter={
+              <Button type="button" variant="primary" onClick={() => setFiltersOpen(false)} className="h-11 w-full font-display">
+                Done
+              </Button>
+            }
+          >
+            {filters}
+            {controls}
+          </PickerShell>
+        </div>
+
+        <div className="hidden flex-col gap-3 sm:flex">
+          {filters}
+          {controls}
+        </div>
+
+        <div className={cn('grid gap-4', showTiles && listChart && 'xl:grid-cols-[minmax(0,1fr)_18rem]')}>
+          <div className="min-w-0">{body}</div>
+          {module !== 'all' && data && listChart && (
+            <div className="hidden flex-col gap-2 xl:flex" role="group" aria-label={`${moduleTitle(module)}, choose a measure`}>
+              <h3 className="t-meta font-display font-bold text-text-muted">{totalLabel}</h3>
+              {BI_MEASURES.map((m) => {
+                const value = blockValue(data.total[module], m);
+                const tone = toneOf(value);
+                const active = prefs.measure === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => prefs.setMeasure(m)}
+                    className={cn(
+                      'flex min-h-14 items-center justify-between gap-3 rounded-xl border bg-surface px-3.5 py-2.5 text-left outline-none transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/50',
+                      active ? 'border-primary-500/60 ring-2 ring-primary-500/20' : 'border-border hover:border-border-hover',
+                    )}
+                  >
+                    <span className="t-card font-display font-semibold text-text">{measureLabel(m, module)}</span>
+                    <span className={cn('t-stat font-display font-extrabold tabular-nums', TONE_TEXT[tone])}>
+                      {roundPct(value) === null ? 'N/A' : formatPct(value)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <BiDetailDialog
+          detail={detail}
+          win={win}
+          matrixParams={matrixParams}
+          onClose={() => setDetail(null)}
+          onDrill={drill}
+          onZoom={onZoom}
+        />
       </div>
-      <BiDetailDialog
-        detail={detail}
-        win={win}
-        matrixParams={matrixParams}
-        onClose={() => setDetail(null)}
-        onDrill={drill}
-        onZoom={onZoom}
-      />
     </section>
   );
 };

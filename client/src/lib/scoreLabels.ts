@@ -11,7 +11,8 @@ export const SCORE_LABEL = {
   onTime: 'On time',
   metDeadline: 'Met deadline',
   overall: 'Overall score',
-  itemsDone: 'Items done %',
+  score: 'Score',
+  itemsDone: 'Completion by question',
   notDone: 'Not done',
   late: 'Late',
   open: 'Open',
@@ -25,7 +26,8 @@ export const SCORE_LABEL_SHORT = {
   onTime: 'On time',
   metDeadline: 'Met',
   overall: 'Overall',
-  itemsDone: 'Items',
+  score: 'Score',
+  itemsDone: 'By question',
   notDone: 'Not done',
   late: 'Late',
   open: 'Open',
@@ -33,7 +35,9 @@ export const SCORE_LABEL_SHORT = {
   due: 'Due',
 } as const;
 
-export const complianceLabel = (module: ScoreModule): string => (module === 'checklist' ? 'Answers right' : SCORE_LABEL.metDeadline);
+export const WINDOW_LABEL = { live: 'Live now', last7: 'Last 7 days' } as const;
+
+export const complianceLabel =(module: ScoreModule): string => (module === 'checklist' ? 'Answers right' : SCORE_LABEL.metDeadline);
 export const complianceLabelShort = (module: ScoreModule): string => (module === 'checklist' ? 'Right' : SCORE_LABEL_SHORT.metDeadline);
 
 export const figureLabel = (figure: ScoreFigure, module?: ScoreModule): string =>

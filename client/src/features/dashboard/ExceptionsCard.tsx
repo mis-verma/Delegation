@@ -1,8 +1,7 @@
-import { memo, useState } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { CheckCheck, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/http';
 import type { ExceptionItem, ExceptionKind } from '../../api/exceptions';
 import { Skeleton } from '../../components/skeleton';
@@ -16,6 +15,7 @@ import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
 import { AttentionAllSheet } from '../attention/AttentionAllSheet';
 import { agoLabel, remindedRecently } from '../attention/attentionDisplay';
 import { DashCardHeader, DashCardLink } from './DashCardHeader';
+import { useCanOpen, useIsReadOnlyViewer } from '../owner/useReadOnlyViewer';
 
 const KIND_LABEL: Record<ExceptionKind, string> = {
   TICKET_OVERDUE: 'Ticket late',
@@ -72,10 +72,16 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
 });
 ExceptionRow.displayName = 'ExceptionRow';
 
-export const ExceptionsCard = () => {
-  const { user } = useAuth();
+interface ExceptionsCardProps {
+  limit?: number;
+  aside?: ReactNode;
+}
+
+export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardProps = {}) => {
   const allowed = useCanSeeExceptions();
   const query = useExceptionsQuery();
+  const readOnly = useIsReadOnlyViewer();
+  const canOpen = useCanOpen();
 
   const people = useAttentionPeople();
   const remind = useRemindMutation();
@@ -85,11 +91,11 @@ export const ExceptionsCard = () => {
 
   const unavailable = query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
   if (!allowed || unavailable) return null;
-  const linked = user?.role !== 'OWNER';
+  const peopleLimit = Math.min(limit, PEOPLE_PREVIEW_LIMIT);
   const peopleRows = people.data ?? [];
   const items = query.data ?? [];
-  const visible = items.slice(0, PREVIEW_LIMIT);
-  const hiddenAlerts = items.slice(PREVIEW_LIMIT);
+  const visible = items.slice(0, limit);
+  const hiddenAlerts = items.slice(limit);
   const remaining = hiddenAlerts.length;
   const remainingHref = (() => {
     if (remaining === 0) return null;
@@ -107,19 +113,32 @@ export const ExceptionsCard = () => {
   const redPeople = peopleRows.filter((p) => p.level === 'red');
   const orangeCount = peopleRows.length - redPeople.length;
   const repeatCount = peopleRows.filter((p) => p.missedStreak >= 2).length;
-  const redToRemind = redPeople.filter((p) => !remindedRecently(p.lastRemindedAt, now)).map((p) => p.userId);
+  const redToRemind = readOnly ? [] : redPeople.filter((p) => !remindedRecently(p.lastRemindedAt, now)).map((p) => p.userId);
   const peopleFailed = people.isError && !people.data;
+  const alertsFailed = query.isError && !query.data;
+  const countFailed = (alertsFailed || peopleFailed) && !query.isPending && !people.isPending;
   const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending && !peopleFailed;
+  const allTicketsHref = canOpen('/tickets') ? '/tickets' : null;
+  const openAllHref = remainingHref && canOpen(remainingHref) ? remainingHref : null;
+  const headerAside = countFailed || aside ? (
+    <span className="flex items-center gap-2">
+      {countFailed && (
+        <span role="status" aria-label="Count not loaded" className="t-stat font-display font-bold tabular-nums text-text-muted">-</span>
+      )}
+      {aside}
+    </span>
+  ) : undefined;
 
   return (
     <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
       <DashCardHeader
         id="exceptions-heading"
         title="Needs attention"
-        count={items.length + peopleRows.length}
+        count={countFailed ? null : items.length + peopleRows.length}
         countLabel={summaryParts.join(', ')}
         alert
         subtitle={summaryParts.length > 0 ? summaryParts.join(', ') : undefined}
+        action={headerAside}
       />
 
       {query.isPending ? (
@@ -131,7 +150,7 @@ export const ExceptionsCard = () => {
             </div>
           ))}
         </div>
-      ) : query.isError && !query.data ? (
+      ) : alertsFailed ? (
         <div className="px-4 py-3 sm:px-5">
           <InlineError message="Couldn't load alerts." onRetry={() => void query.refetch()} />
         </div>
@@ -141,18 +160,18 @@ export const ExceptionsCard = () => {
             <CheckCheck className="size-4 shrink-0 text-success" strokeWidth={2.5} aria-hidden="true" />
             All clear. Nothing is late or stuck, and everyone is on track.
           </p>
-          {linked && <DashCardLink to="/tickets">Open tickets</DashCardLink>}
+          {allTicketsHref && <DashCardLink to={allTicketsHref}>Open tickets</DashCardLink>}
         </div>
       ) : items.length === 0 ? null : (
         <div className="flex flex-col divide-y divide-border/60">
-          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={linked} />)}
+          {visible.map((item) => <ExceptionRow key={item.id} item={item} now={now} linked={canOpen(item.link)} />)}
         </div>
       )}
 
       {remaining > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
+        <div className="flex min-h-11 items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
           <p className="t-meta font-medium text-text-secondary tabular-nums">{remaining} more {remaining === 1 ? 'alert' : 'alerts'}</p>
-          {linked && remainingHref && <DashCardLink to={remainingHref} label={`Open the full list, ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}>Open all</DashCardLink>}
+          {openAllHref && <DashCardLink to={openAllHref} label={`Open the full list, ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}>Open all</DashCardLink>}
         </div>
       )}
 
@@ -180,7 +199,7 @@ export const ExceptionsCard = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="shrink-0 max-sm:hidden pointer-coarse:h-11"
+                className="h-11 shrink-0 max-sm:hidden pointer-fine:h-9"
                 onClick={() => remind.mutate(redToRemind)}
                 isLoading={remind.isPending}
                 aria-label={`Send a reminder to the ${redToRemind.length} ${redToRemind.length === 1 ? 'person' : 'people'} who need you now`}
@@ -195,19 +214,19 @@ export const ExceptionsCard = () => {
             {repeatCount > 0 && <StatusBadge variant="neutral" icon={false} label={`${repeatCount} repeat misses`} />}
           </div>
           <div className="flex flex-col divide-y divide-border/60">
-            {peopleRows.slice(0, PEOPLE_PREVIEW_LIMIT).map((p) => (
+            {peopleRows.slice(0, peopleLimit).map((p) => (
               <AttentionPersonRow
                 key={p.userId}
                 person={p}
                 onOpen={setOpenPerson}
-                onRemind={(userId) => remind.mutate([userId])}
+                onRemind={readOnly ? undefined : (userId) => remind.mutate([userId])}
                 reminding={remind.isPending}
                 reminded={remindedRecently(p.lastRemindedAt, now)}
                 minimal
               />
             ))}
           </div>
-          {peopleRows.length > PEOPLE_PREVIEW_LIMIT && (
+          {peopleRows.length > peopleLimit && (
             <button
               type="button"
               onClick={() => setShowAll(true)}

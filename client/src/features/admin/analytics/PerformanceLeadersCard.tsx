@@ -124,7 +124,7 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
                 <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
                   {preview.map((r) => (
                     <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <Link viewTransition to={hrefFor(r.id)} className="min-w-0 truncate t-card font-display font-semibold text-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40">{r.name}</Link>
+                      <Link viewTransition to={hrefFor(r.id)} className="flex min-h-11 min-w-0 items-center t-card font-display font-semibold text-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:min-h-8"><span className="truncate">{r.name}</span></Link>
                       <span className="flex shrink-0 items-center gap-2">
                         <IconChip icon={false} label={`${r.volume} items`} labelClassName="tabular-nums" />
                         <span className="t-card font-display font-bold tabular-nums text-text">{formatPercent(r.overall)}</span>

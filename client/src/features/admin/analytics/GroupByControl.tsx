@@ -146,9 +146,17 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
     const fallback = defaultWindow(hideGroupBy ? 'week' : groupBy, now);
     return { from: new Date(fallback.from), to: new Date(fallback.to) };
   }, [range.from, range.to, hideGroupBy, groupBy, now]);
-  const rangeText = `${shownWindow.from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short' })} to ${shownWindow.to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  const yearNote = !hasRange && !hideGroupBy && groupBy === 'year'
-    ? 'Charts cover the last 12 years. Scores, rankings and leaders cover the last 12 months.'
+  const spanText = (from: Date, to: Date) => `${from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', ...(from.getFullYear() !== to.getFullYear() ? { year: 'numeric' } : {}) })} to ${to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const splitWindows = !hasRange && !hideGroupBy && groupBy === 'year';
+  const scoresWindow = useMemo(() => {
+    const w = defaultWindow('month', now);
+    return { from: new Date(w.from), to: new Date(w.to) };
+  }, [now]);
+  const rangeText = splitWindows
+    ? `Charts: ${spanText(shownWindow.from, shownWindow.to)}`
+    : spanText(shownWindow.from, shownWindow.to);
+  const yearNote = splitWindows
+    ? `Scores, rankings and leaders: ${spanText(scoresWindow.from, scoresWindow.to)}`
     : null;
 
   const customPicker = (className: string, triggerClassName?: string) => (
@@ -189,20 +197,22 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3">
         <span className="inline-flex min-w-0 items-center gap-2 t-card font-display font-semibold text-text">
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
-          <span className="line-clamp-2">{rangeText}</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="line-clamp-2">{rangeText}</span>
+            {yearNote && <span className="t-meta font-medium text-text-muted">{yearNote}</span>}
+          </span>
         </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span aria-live="polite" className="hidden min-w-24 text-right sm:inline t-meta text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers" className="pointer-coarse:min-h-11 pointer-coarse:min-w-11">
             <RefreshCw size={14} aria-hidden="true" className={isRefreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
           {actions}
         </div>
       </div>
-      {yearNote && <p className="t-meta text-text-muted">{yearNote}</p>}
     </div>
   );
 };

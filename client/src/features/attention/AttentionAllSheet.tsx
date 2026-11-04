@@ -9,6 +9,7 @@ import type { PersonStatus } from '../../api/exceptions';
 import { useNow, useRemindMutation } from './useAttention';
 import { AttentionPersonRow } from './AttentionParts';
 import { remindedRecently } from './attentionDisplay';
+import { useIsReadOnlyViewer } from '../owner/useReadOnlyViewer';
 
 type Filter = 'all' | 'red' | 'orange' | 'repeat';
 
@@ -23,6 +24,7 @@ export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: Atten
   const isMobile = useIsMobile();
   const contentRef = useRef<HTMLDivElement>(null);
   const remind = useRemindMutation();
+  const readOnly = useIsReadOnlyViewer();
   const now = useNow();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -116,30 +118,30 @@ export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: Atten
           ) : (
             <div className="flex flex-col divide-y divide-border/60">
               {shown.map((p) => (
-                <AttentionPersonRow key={p.userId} person={p} onOpen={onOpenPerson} selectable={selecting} selected={selected.has(p.userId)} onToggle={toggle} />
+                <AttentionPersonRow key={p.userId} person={p} onOpen={onOpenPerson} selectable={selecting && !readOnly} selected={selected.has(p.userId)} onToggle={toggle} />
               ))}
             </div>
           )}
         </div>
 
-        {people.length > 0 && (
+        {people.length > 0 && !readOnly && (
           <footer className="flex items-center gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6">
             {selecting ? (
               <>
-                <Button type="button" variant="ghost" size="md" className="pointer-coarse:h-11" onClick={() => setSelected(allShownSelected ? new Set() : new Set(shown.map((p) => p.userId)))}>
+                <Button type="button" variant="ghost" size="md" className="h-11 pointer-fine:h-10" onClick={() => setSelected(allShownSelected ? new Set() : new Set(shown.map((p) => p.userId)))}>
                   {allShownSelected ? 'Clear' : 'Select all'}
                 </Button>
-                <Button type="button" variant="outline" size="md" className="pointer-coarse:h-11" onClick={() => { setSelecting(false); setSelected(new Set()); }}>
+                <Button type="button" variant="outline" size="md" className="h-11 pointer-fine:h-10" onClick={() => { setSelecting(false); setSelected(new Set()); }}>
                   Cancel
                 </Button>
               </>
             ) : (
-              <Button type="button" variant="outline" size="md" className="pointer-coarse:h-11" onClick={() => setSelecting(true)}>
+              <Button type="button" variant="outline" size="md" className="h-11 pointer-fine:h-10" onClick={() => setSelecting(true)}>
                 <ListChecks className="size-4" aria-hidden />
                 Select
               </Button>
             )}
-            <Button type="button" variant="primary" size="md" className="flex-1 pointer-coarse:h-11" onClick={send} isLoading={remind.isPending} disabled={targetIds.length === 0}>
+            <Button type="button" variant="primary" size="md" className="h-11 flex-1 pointer-fine:h-10" onClick={send} isLoading={remind.isPending} disabled={targetIds.length === 0}>
               <BellRing className="size-4" aria-hidden />
               {selecting ? `Remind ${selected.size || ''}`.trim() : `Remind ${remindable.length} shown`}
             </Button>
