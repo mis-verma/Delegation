@@ -131,7 +131,7 @@ const ScoresLayout = () => {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
   if (!user) return null;
-  if (ADMIN_AREA_ROLES.includes(user.role)) {
+  if (ADMIN_AREA_ROLES.includes(user.role) || user.role === 'OWNER') {
     return (
       <Suspense fallback={<RouteFallback />}>
         <AdminLayout />

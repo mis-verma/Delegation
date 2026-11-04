@@ -20,7 +20,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
         <button
           type="button"
           onClick={onStart}
-          aria-label={hiddenCards.length > 0 ? `Customize dashboard, ${hiddenCards.length} hidden` : 'Customize dashboard'}
+          aria-label={hiddenCards.length > 0 ? `Customize Home, ${hiddenCards.length} hidden` : 'Customize Home'}
           className="group inline-flex h-11 items-center justify-center gap-2.5 rounded-full border border-border bg-surface pl-1.5 pr-4 t-meta font-display font-bold text-text outline-none transition-all duration-200 cursor-pointer hover:border-vivid-blue/60 hover:bg-vivid-blue/5 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-10"
         >
           <span className="flex size-8 items-center justify-center rounded-full bg-vivid-blue text-white transition-transform duration-300 group-hover:rotate-90 sm:size-7" aria-hidden="true">
@@ -39,7 +39,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
 
   const reset = () => {
     onReset();
-    toast.success('Dashboard back to its default layout');
+    toast.success('Home is back to its default layout');
   };
 
   return (
@@ -50,7 +50,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
             <LayoutGrid size={20} strokeWidth={2.25} />
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="t-card font-display font-bold text-text">Customize your dashboard</span>
+            <span className="t-card font-display font-bold text-text">Customize your Home</span>
             <div className="flex flex-wrap gap-1.5">
               {touch ? (
                 <>

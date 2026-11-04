@@ -41,16 +41,24 @@ export const useTodayChecklistSummary = () => {
         overdue: todayRuns.data.overdue,
       }
     : undefined;
-  return { data: summary };
+  return { data: summary, isError: todayRuns.isError || open.isError };
+};
+
+type CountQuery = { data?: { due: number; overdue: number }; isError: boolean };
+
+export const settledCounts = <T>(query: { data?: T; isError: boolean }): T | undefined => (query.isError ? undefined : query.data);
+
+const pick = (query: CountQuery): NavBadge => {
+  const s = settledCounts(query);
+  return s ? { due: s.due, overdue: s.overdue } : EMPTY;
 };
 
 export const useNavBadges = (): NavBadgeMap => {
-  const { data: tasks } = useTaskSummaryQuery();
-  const { data: tickets } = useTicketSummaryQuery();
-  const { data: todos } = useTodoSummaryQuery();
-  const { data: checklists } = useTodayChecklistSummary();
+  const tasks = useTaskSummaryQuery();
+  const tickets = useTicketSummaryQuery();
+  const todos = useTodoSummaryQuery();
+  const checklists = useTodayChecklistSummary();
 
-  const pick = (s: { due: number; overdue: number } | undefined): NavBadge => (s ? { due: s.due, overdue: s.overdue } : EMPTY);
   return {
     '/tickets': pick(tickets),
     '/tasks': pick(tasks),

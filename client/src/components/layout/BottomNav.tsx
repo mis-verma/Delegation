@@ -3,6 +3,7 @@ import { Suspense, lazy, useRef, useState, type MouseEvent } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import { NavCountBadge } from './NavCountBadge';
+import { VerifyQueueBadge } from './VerifyQueueBadge';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { badgeSummary, useNavBadges, type NavBadgeMap } from './useNavBadges';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../ui/sheet';
@@ -17,6 +18,7 @@ import {
   TicketCheck,
   ClipboardCheck,
   Crown,
+  Grid3x3,
   LayoutDashboard,
   ListOrdered,
   ListTodo,
@@ -40,8 +42,13 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
 ];
 
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: false, tint: 'primary' },
+  ...NAV_ITEMS.slice(1),
+];
+
 const PC_NAV_ITEMS: NavItem[] = [
-  { to: '/pc', label: 'Desk', icon: UserCheck, exact: false, tint: 'primary' },
+  { to: '/pc', label: 'PC desk', icon: UserCheck, exact: false, tint: 'primary' },
   { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false, tint: 'coral' },
   { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, tint: 'info' },
   { to: '/verify', label: 'Queue', icon: ShieldQuestion, exact: false, tint: 'coral' },
@@ -49,10 +56,18 @@ const PC_NAV_ITEMS: NavItem[] = [
 ];
 
 const OWNER_NAV_ITEMS: NavItem[] = [
-  { to: '/admin/owner', label: 'Owner', icon: Crown, exact: true, tint: 'primary' },
+  { to: '/admin/owner', label: 'Owner view', icon: Crown, exact: true, tint: 'primary' },
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true, tint: 'info' },
   { to: '/admin/scores', label: 'Scores', icon: ListOrdered, exact: false, tint: 'success' },
+  { to: '/team/fill', label: 'Fill chart', icon: Grid3x3, exact: false, tint: 'success' },
 ];
+
+const PC_QUEUE_TABS: ReadonlySet<string> = new Set(['/pc', '/verify']);
+
+const GRID_COLS: Record<number, string> = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' };
+
+const matchesTab = (pathname: string, to: string, exact: boolean) =>
+  pathname === to || (!exact && pathname.startsWith(`${to}/`));
 
 const TINTS: Record<string, { pill: string; text: string }> = {
   primary: { pill: 'bg-primary-500/15', text: 'text-primary-600 dark:text-primary-300' },
@@ -78,20 +93,21 @@ export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isOwner = user?.role === 'OWNER';
-  const items = isOwner ? OWNER_NAV_ITEMS : user?.role === 'PC' ? PC_NAV_ITEMS : NAV_ITEMS;
+  const role = user?.role;
+  const items = role === 'OWNER' ? OWNER_NAV_ITEMS : role === 'PC' ? PC_NAV_ITEMS : role === 'ADMIN' ? ADMIN_NAV_ITEMS : NAV_ITEMS;
+  const isPc = role === 'PC';
   const [quickOpen, setQuickOpen] = useState(false);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState<{ module: QuickModule; summary: string; open: boolean } | null>(null);
   const pressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
 
-  const startPress = () => {
+  const startPress = (onLongPress: () => void) => {
     longPressed.current = false;
     pressTimer.current = window.setTimeout(() => {
       longPressed.current = true;
       haptic('success');
-      setQuickOpen(true);
+      onLongPress();
     }, LONG_PRESS_MS);
   };
   const endPress = () => {
@@ -115,23 +131,23 @@ export const BottomNav = () => {
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className={`relative h-16 max-w-lg mx-auto grid ${isOwner ? 'grid-cols-3' : 'grid-cols-5'} gap-1 rounded-3xl border border-border bg-surface px-1.5`}>
+      <div className={`relative h-16 max-w-lg mx-auto grid ${GRID_COLS[items.length] ?? 'grid-cols-5'} gap-1 rounded-3xl border border-border bg-surface px-1.5`}>
         {items.map(({ to, label, icon: Icon, exact, tint }) => {
           const look = TINTS[tint] ?? TINTS.primary;
-          const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
+          const isActive = matchesTab(location.pathname, to, exact);
           const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;
           const summary = badge ? badgeSummary(badge) : '';
-          const opensQuick = !isActive && !!summary && QUICK_MODULES.has(to);
           const holdsCreate = to === '/tasks';
+          const holdsQuick = !holdsCreate && QUICK_MODULES.has(to);
+          const showsQueue = isPc && PC_QUEUE_TABS.has(to);
+          const onLongPress = holdsCreate
+            ? () => setQuickOpen(true)
+            : holdsQuick
+              ? () => setQuick({ module: to as QuickModule, summary, open: true })
+              : null;
 
           const onTap = (e: MouseEvent) => {
-            if (holdsCreate && longPressed.current) { e.preventDefault(); longPressed.current = false; return; }
-            if (opensQuick) {
-              e.preventDefault();
-              haptic('tap');
-              setQuick({ module: to as QuickModule, summary, open: true });
-              return;
-            }
+            if (onLongPress && longPressed.current) { e.preventDefault(); longPressed.current = false; return; }
             retapTop(isActive);
           };
 
@@ -140,20 +156,20 @@ export const BottomNav = () => {
               viewTransition
               key={to}
               to={to}
-              onTouchStart={() => { prefetchRoute(to); if (opensQuick) void loadQuickSheet(); }}
+              end={exact}
+              onTouchStart={() => { prefetchRoute(to); if (holdsQuick) void loadQuickSheet(); }}
               onClick={onTap}
-              {...(holdsCreate
+              {...(onLongPress
                 ? {
-                    onPointerDown: startPress,
+                    onPointerDown: () => startPress(onLongPress),
                     onPointerUp: endPress,
                     onPointerLeave: endPress,
                     onPointerCancel: endPress,
                     onContextMenu: (e: MouseEvent) => e.preventDefault(),
                   }
                 : {})}
-              aria-label={summary ? `${label}, ${summary}` : label}
-              aria-haspopup={opensQuick ? 'dialog' : undefined}
-              className="group relative flex flex-col items-center justify-center gap-1 h-full min-w-0 cursor-pointer select-none outline-none active:scale-[0.94] motion-reduce:active:scale-100 transition-transform duration-150 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+              aria-label={showsQueue ? undefined : summary ? `${label}, ${summary}` : label}
+              className="group relative flex flex-col items-center justify-center gap-1 h-full min-w-0 rounded-2xl cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.94] motion-reduce:active:scale-100 transition-transform duration-150 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
             >
               <span
                 className={`relative flex items-center justify-center h-8 rounded-full transition-[width,background-color] duration-200 ease-out motion-reduce:transition-none ${
@@ -166,6 +182,7 @@ export const BottomNav = () => {
                   className={`relative transition-colors duration-200 ${isActive ? look.text : 'text-text-muted group-hover:text-text'}`}
                 />
                 {badge && <NavCountBadge badge={badge} className="-top-1.5 left-1/2 ml-1.5" />}
+                {showsQueue && <VerifyQueueBadge compact className="-top-1.5 left-1/2 ml-1.5" />}
               </span>
               <span
                 className={`relative max-w-full truncate text-xs leading-none font-display transition-colors duration-200 ${
@@ -174,6 +191,7 @@ export const BottomNav = () => {
               >
                 {label}
               </span>
+              {showsQueue && <VerifyQueueBadge srOnly />}
             </NavLink>
           );
         })}

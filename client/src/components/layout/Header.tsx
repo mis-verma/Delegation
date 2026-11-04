@@ -75,7 +75,7 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
 
   const isMobile = useIsMobile();
   const accountActions: DropdownAction[] = [
-    { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+    { label: 'Home', to: '/', icon: LayoutDashboard },
     ...(isMobile ? [{ label: theme === 'light' ? 'Dark mode' : 'Light mode', onClick: toggleTheme, icon: theme === 'light' ? Moon : Sun }] : []),
     { label: 'Settings', to: '/settings', icon: Settings },
     {
@@ -107,6 +107,7 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
               onClick={onToggleSidebar}
               className={cn(ICON_BUTTON_CLASS, 'md:hidden -ml-1 border-border/60 bg-surface-hover/50', showBack && 'max-md:hidden')}
               aria-label="Open menu"
+              data-app-menu-button=""
             >
               <Menu size={18} strokeWidth={2} />
             </button>

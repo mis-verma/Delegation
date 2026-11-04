@@ -1,7 +1,8 @@
 const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
-  { pattern: /^\/$/, label: 'Dashboard' },
+  { pattern: /^\/$/, label: 'Home' },
   { pattern: /^\/tasks\/smart/, label: 'Smart Delegations' },
   { pattern: /^\/tasks/, label: 'Delegation' },
+  { pattern: /^\/tickets\/approvals/, label: 'Team approvals' },
   { pattern: /^\/tickets/, label: 'Tickets' },
   { pattern: /^\/todo/, label: 'To-Do' },
   { pattern: /^\/events/, label: 'Events' },
@@ -15,6 +16,8 @@ const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/verify/, label: 'Verification Queue' },
   { pattern: /^\/team\/fill/, label: 'Fill chart' },
   { pattern: /^\/team/, label: 'Team Overview' },
+  { pattern: /^\/admin\/owner/, label: 'Owner view' },
+  { pattern: /^\/admin\/?$/, label: 'Overview' },
   { pattern: /^\/admin\/(scores|data-check)/, label: 'Scores' },
   { pattern: /^\/admin/, label: 'Admin' },
 ];

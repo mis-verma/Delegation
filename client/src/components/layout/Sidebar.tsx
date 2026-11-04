@@ -1,13 +1,13 @@
-import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePendingVerificationChecklistInstancesQuery } from '../../features/checklist/hook';
-import { NavLink, useLocation } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useTaskSummaryQuery } from '../../features/tasks/hook';
 import { useTicketSummaryQuery } from '../../features/tickets/hook';
 import { useTodoSummaryQuery } from '../../features/todo/hook';
-import { useTodayChecklistSummary } from './useNavBadges';
+import { badgeSummary, settledCounts, useTodayChecklistSummary } from './useNavBadges';
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import { NavCountBadge } from './NavCountBadge';
 import { VerifyQueueBadge } from './VerifyQueueBadge';
@@ -66,7 +66,7 @@ const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'H
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
 
 const NAV: NavItem[] = [
-  { to: '/', icon: LayoutGrid, label: 'Dashboard', tint: 'primary' },
+  { to: '/', icon: LayoutGrid, label: 'Home', tint: 'primary' },
   { to: '/tasks', icon: ClipboardList, label: 'Delegation', children: TASK_CHILDREN, tint: 'info' },
   { to: '/tickets', icon: TicketCheck, label: 'Tickets', tint: 'coral' },
   { to: '/todo', icon: ListTodo, label: 'To-Do', tint: 'success' },
@@ -148,10 +148,10 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     });
   };
 
-  const { data: taskSummary } = useTaskSummaryQuery();
-  const { data: ticketSummary } = useTicketSummaryQuery();
-  const { data: todoSummary } = useTodoSummaryQuery();
-  const { data: checklistSummary } = useTodayChecklistSummary();
+  const taskSummary = settledCounts(useTaskSummaryQuery());
+  const ticketSummary = settledCounts(useTicketSummaryQuery());
+  const todoSummary = settledCounts(useTodoSummaryQuery());
+  const checklistSummary = settledCounts(useTodayChecklistSummary());
   const SUMMARY_BY_LABEL: Partial<Record<string, SidebarSummaryData>> = {
     Delegation: taskSummary,
     Tickets: ticketSummary,
@@ -192,6 +192,42 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
     active?.scrollIntoView({ block: 'nearest' });
   }, [location.pathname, location.search, isOpen]);
+
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerWasOpen = useRef(false);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (isOpen) {
+      drawerWasOpen.current = true;
+      closeButtonRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (!drawerWasOpen.current) return;
+    drawerWasOpen.current = false;
+    const focused = document.activeElement;
+    if (!focused || focused === document.body || drawerRef.current?.contains(focused)) {
+      document.querySelector<HTMLElement>('[data-app-menu-button]')?.focus({ preventScroll: true });
+    }
+  }, [isOpen, isMobile]);
+
+  const trapDrawerFocus = (e: ReactKeyboardEvent<HTMLElement>) => {
+    if (e.key !== 'Tab' || !drawerRef.current) return;
+    const focusable = Array.from(
+      drawerRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+    ).filter((el) => !el.closest('[inert]') && el.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const navItems: NavItem[] = (isOwner ? [] : NAV).map((item) => {
     if (item.label === 'Checklists') {
@@ -242,11 +278,16 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),
     ...(isManager || isSenior || isAdmin || isPC ? [{ to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' }] : []),
-    ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Admin', tint: 'danger' }] : []),
+    ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Overview', tint: 'danger' }] : []),
   ];
 
+  const topPaths = [...navItems, ...adminNavItems, SETTINGS_ITEM].map((item) => item.to);
+  const matchesPath = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isShadowed = (to: string) => topPaths.some((path) => path !== to && path.startsWith(`${to}/`) && matchesPath(path));
+  const hasMainItems = navItems.length > 0;
+
   const NAV_GROUPS: { title: string; paths: readonly string[]; dot?: boolean }[] = isOwner
-    ? [{ title: 'Admin', paths: adminNavItems.map((i) => i.to), dot: true }]
+    ? [{ title: 'Owner', paths: adminNavItems.map((i) => i.to), dot: true }]
     : [
         { title: 'Approvals', paths: ['/tickets/approvals', '/pc', '/verify'] },
         { title: 'Team', paths: ['/analytics', '/admin/scores', '/team/fill', '/leave'] },
@@ -306,19 +347,20 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
 
     return (
       <div key={to} className={entranceProps.className} style={entranceProps.style}>
-        <div className="group/row flex items-center gap-1.5">
+        <div className="group/row flex items-center gap-1.5 pointer-coarse:gap-2">
           <RailTip label={label} show={!showLabel}>
           <NavLink
             viewTransition
             to={to}
-            end={to === '/'}
+            end={to === '/' || isShadowed(to)}
+            aria-current={hasActiveChild && showLabel && isExpanded ? 'false' : 'page'}
             onClick={handleNavClick}
             onMouseEnter={() => prefetchRoute(to)}
             onFocus={() => prefetchRoute(to)}
             onTouchStart={() => prefetchRoute(to)}
             className={({ isActive }) =>
               [
-                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm transition-colors duration-150 ease-out',
+                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40',
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
@@ -356,6 +398,10 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                 >
                   {label}
                 </span>
+                {SUMMARY_BY_LABEL[label] && badgeSummary(SUMMARY_BY_LABEL[label]) && (
+                  <span className="sr-only">, {badgeSummary(SUMMARY_BY_LABEL[label])}</span>
+                )}
+                {label === 'Verification Queue' && <VerifyQueueBadge srOnly />}
               </>
             )}
           </NavLink>
@@ -396,7 +442,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
               onClick={handleNavClick}
               title={`New ${label}`}
               aria-label={`New ${label}`}
-              className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:opacity-0 md:group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:pointer-fine:opacity-0 md:pointer-fine:group-hover/row:opacity-100 md:pointer-fine:group-focus-within/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <Plus size={16} strokeWidth={2.5} />
             </NavLink>
@@ -431,13 +477,14 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                   const isActiveChild = isChildActive(child, location);
 
                   return (
-                    <NavLink
+                    <Link
                       viewTransition
                       key={child.to}
                       to={child.to}
                       onClick={handleNavClick}
+                      aria-current={isActiveChild ? 'page' : undefined}
                       className={[
-                        'relative rounded-lg px-3 t-meta transition-all duration-200',
+                        'relative rounded-lg px-3 t-meta outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary-500/40',
                         isDrawer ? 'py-2.5' : 'py-1.5',
                         isActiveChild
                           ? 'bg-primary-50/50 text-primary-700 font-bold dark:bg-primary-500/10 dark:text-primary-300'
@@ -448,7 +495,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 -ml-[19px] size-1.5 rounded-full bg-primary-500 ring-4 ring-surface" />
                       )}
                       {child.label}
-                    </NavLink>
+                    </Link>
                   );
                 })}
               </div>
@@ -462,30 +509,36 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
   const renderContent = (isDrawer: boolean) => (
     <div className="flex flex-col h-full w-full justify-between">
       <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
+        {(hasMainItems || isDrawer) && (
         <div className="flex items-center justify-between px-3 mb-4 shrink-0">
-          <p
-            className={[
-              't-meta font-bold text-text-light tracking-wider',
-              'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
-              (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
-            ].join(' ')}
-          >
-            My work
-          </p>
+          {hasMainItems ? (
+            <p
+              className={[
+                't-meta font-bold text-text-light tracking-wider',
+                'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
+                (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
+              ].join(' ')}
+            >
+              My work
+            </p>
+          ) : <span aria-hidden="true" />}
           {isDrawer && (
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={onNavigate}
-              className="p-1.5 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+              className="flex items-center justify-center size-11 rounded-full text-text-muted outline-none hover:text-text hover:bg-surface-hover transition-colors focus-visible:ring-2 focus-visible:ring-primary-500/40"
               aria-label="Close menu"
             >
-              <X size={18} strokeWidth={2.5} />
+              <X size={18} strokeWidth={2.5} aria-hidden="true" />
             </button>
           )}
         </div>
+        )}
 
         <nav
           ref={isDrawer ? undefined : navRef}
+          aria-label="Main"
           className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto pr-1.5 -mr-1.5 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
@@ -496,13 +549,15 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             if (items.length === 0) return null;
             return (
               <div key={group.title} role="group" aria-label={group.title} className="flex flex-col gap-1">
-                <div
-                  className={[
-                    'border-t border-border transition-all duration-300 ease-in-out',
-                    (isDrawer || isOpen) ? 'mt-3 mb-2 mx-1' : 'mt-3 mb-2 mx-2',
-                  ].join(' ')}
-                  aria-hidden="true"
-                />
+                {hasMainItems && (
+                  <div
+                    className={[
+                      'border-t border-border transition-all duration-300 ease-in-out',
+                      (isDrawer || isOpen) ? 'mt-3 mb-2 mx-1' : 'mt-3 mb-2 mx-2',
+                    ].join(' ')}
+                    aria-hidden="true"
+                  />
+                )}
                 <p
                   className={[
                     'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
@@ -562,7 +617,12 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
 
       {isMobile && (
         <aside
+          ref={drawerRef}
           inert={!isOpen}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+          onKeyDown={trapDrawerFocus}
           onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
           onTouchEnd={(e) => {
             if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
@@ -592,7 +652,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             onClick={onToggleCollapse}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
+            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-border bg-surface text-text-muted outline-none transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-1 pointer-coarse:after:rounded-full"
           >
             {isOpen ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
           </button>

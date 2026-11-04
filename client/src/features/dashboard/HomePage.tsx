@@ -39,8 +39,6 @@ const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
 
 const LAZY_CARDS: ReadonlySet<DashboardCardId> = new Set(['exceptions', 'myTeam', 'myScores', 'teamHeat', 'streak']);
 
-const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['todayStrip']);
-
 const TEAM_TICKET_LIMIT = 250;
 const OWN_TICKET_LIMIT = 100;
 const NO_TASKS: Task[] = [];
@@ -137,14 +135,10 @@ export const HomePage = () => {
     }
   };
 
-  const eligibleCardOrder = useMemo(
-    () => (isMobile ? cardOrder.filter((id) => !MOBILE_HIDDEN_CARDS.has(id)) : cardOrder),
-    [isMobile, cardOrder],
-  );
-  const visibleCardOrder = useMemo(() => eligibleCardOrder.filter((id) => !hiddenIds.includes(id)), [eligibleCardOrder, hiddenIds]);
+  const visibleCardOrder = useMemo(() => cardOrder.filter((id) => !hiddenIds.includes(id)), [cardOrder, hiddenIds]);
   const hiddenCards = useMemo(
-    () => eligibleCardOrder.filter((id) => hiddenIds.includes(id)).map((id) => ({ id, label: CARD_LABEL[id] })),
-    [eligibleCardOrder, hiddenIds],
+    () => cardOrder.filter((id) => hiddenIds.includes(id)).map((id) => ({ id, label: CARD_LABEL[id] })),
+    [cardOrder, hiddenIds],
   );
 
   const isRefreshing = useIsFetching({
@@ -160,6 +154,18 @@ export const HomePage = () => {
         </DashboardCardFrame>
       ))}
     </div>
+  );
+
+  const layoutToolbar = (
+    <DashboardLayoutToolbar
+      isCustomizing={isCustomizing}
+      onStart={() => setIsCustomizing(true)}
+      onReset={resetLayout}
+      onDone={() => setIsCustomizing(false)}
+      hiddenCards={isCustomizing && isMobile ? [] : hiddenCards}
+      onShow={(id) => toggleHidden(id as DashboardCardId)}
+      touch={isMobile}
+    />
   );
 
   const heading = new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -189,15 +195,7 @@ export const HomePage = () => {
 
       {!isCustomizing && <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />}
 
-      <DashboardLayoutToolbar
-        isCustomizing={isCustomizing}
-        onStart={() => setIsCustomizing(true)}
-        onReset={resetLayout}
-        onDone={() => setIsCustomizing(false)}
-        hiddenCards={isCustomizing && isMobile ? [] : hiddenCards}
-        onShow={(id) => toggleHidden(id as DashboardCardId)}
-        touch={isMobile}
-      />
+      {(isCustomizing || !isMobile) && layoutToolbar}
 
       {!isCustomizing && <CoverBanner />}
       {!isCustomizing && <OvertimeNotice today={orgToday} />}
@@ -205,7 +203,7 @@ export const HomePage = () => {
       {!dashboardView.isPc && focusCard}
 
       {isCustomizing && isMobile ? (
-        <DashboardMobileCustomize order={eligibleCardOrder} hidden={hiddenIds} onMove={moveCard} onToggle={toggleHidden} />
+        <DashboardMobileCustomize order={cardOrder} hidden={hiddenIds} onMove={moveCard} onToggle={toggleHidden} />
       ) : isCustomizing ? (
         <Suspense fallback={staticGrid}>
           <DashboardSortableGrid order={visibleCardOrder} sizes={cardSizes} renderCard={renderCard} onMove={moveCard} onSizeChange={setCardSize} onHide={toggleHidden} />
@@ -215,6 +213,8 @@ export const HomePage = () => {
       )}
 
       {dashboardView.isPc && focusCard}
+
+      {!isCustomizing && isMobile && layoutToolbar}
     </div>
   );
 };

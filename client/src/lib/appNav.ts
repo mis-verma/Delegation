@@ -1,6 +1,18 @@
 export type NavDirection = 'forward' | 'back' | 'tab';
 
-export const TAB_PATHS: readonly string[] = ['/', '/tickets', '/tasks', '/todo', '/checklists'];
+export const TAB_PATHS: readonly string[] = [
+  '/',
+  '/tickets',
+  '/tasks',
+  '/todo',
+  '/checklists',
+  '/admin',
+  '/pc',
+  '/verify',
+  '/admin/owner',
+  '/admin/scores',
+  '/team/fill',
+];
 
 const NOT_DETAIL = new Set(['/checklists/approvals', '/checklists/history', '/checklists/weekly']);
 
@@ -18,7 +30,7 @@ export const isTabPath = (pathname: string) => TAB_PATHS.includes(pathname);
 
 export const isRunDetailPath = (pathname: string) => /^\/checklists\/[^/]+$/.test(pathname) && !NOT_DETAIL.has(pathname);
 
-export const hasBackArrow = (pathname: string) => segments(pathname).length > 1;
+export const hasBackArrow = (pathname: string) => segments(pathname).length > 1 && !isTabPath(pathname);
 
 export const parentPath = (pathname: string) => {
   const parts = segments(pathname).slice(0, -1);

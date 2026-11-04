@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef, type MouseEvent } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
@@ -73,7 +73,7 @@ export const Dashboard = () => {
   const pathname = location.pathname;
 
   const page = useMemo(() => (
-    <main className="flex-1 min-w-0 relative">
+    <main id="main-content" tabIndex={-1} inert={mobileDrawerOpen} className="flex-1 min-w-0 relative outline-none">
       <PullToRefresh onRefresh={handleRefresh} scrollKey={pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="min-h-full flex flex-col">
           <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(13rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full flex-1 flex flex-col`}>
@@ -102,13 +102,25 @@ export const Dashboard = () => {
         </div>
       </PullToRefresh>
     </main>
-  ), [handleRefresh, pathname, isHome, maintenanceMatch, isAdmin, enterClass, pageUnderMaintenance]);
+  ), [handleRefresh, pathname, isHome, maintenanceMatch, isAdmin, enterClass, pageUnderMaintenance, mobileDrawerOpen]);
+
+  const skipToContent = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    document.getElementById('main-content')?.focus();
+  };
 
   return (
     <div
       className="flex flex-col h-svh w-full overflow-hidden text-text"
       style={{ background: 'var(--color-background)' }}
     >
+      <a
+        href="#main-content"
+        onClick={skipToContent}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:inline-flex focus:min-h-11 focus:items-center focus:rounded-xl focus:border focus:border-border focus:bg-surface focus:px-4 t-card font-display font-semibold text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        Skip to content
+      </a>
       <ViewAsBanner />
       <Header onToggleSidebar={toggleSidebar} />
 

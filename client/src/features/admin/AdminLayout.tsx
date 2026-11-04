@@ -428,6 +428,13 @@ export const AdminLayout = () => {
     });
   return (
     <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans">
+      <a
+        href="#main-content"
+        onClick={(e) => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:inline-flex focus:min-h-11 focus:items-center focus:rounded-xl focus:border focus:border-border focus:bg-surface focus:px-4 t-card font-display font-semibold text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        Skip to content
+      </a>
       <ViewAsBanner />
       <div inert={mobileDrawerOpen}>
         <AdminHeader onToggleSidebar={() => setSidebarOpen(v => !v)} pageLabel={currentNav?.label ?? 'Overview'} />
@@ -553,7 +560,7 @@ export const AdminLayout = () => {
           )}
         </aside>
 
-        <main inert={mobileDrawerOpen} className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-background">
+        <main id="main-content" tabIndex={-1} inert={mobileDrawerOpen} className="flex-1 outline-none overflow-y-auto overflow-x-hidden min-w-0 bg-background">
           <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:px-0 sm:py-4 lg:py-5 pb-44 md:pb-6">
 
             {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}

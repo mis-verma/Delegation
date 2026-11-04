@@ -21,7 +21,7 @@ export type DashboardCardSize = 'small' | 'big';
 
 export const LAYOUT_VERSION = 17;
 
-export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
+export const NEW_IN_V3: readonly DashboardCardId[] = ['needsApproval', 'kpiStrip'];
 
 export const LEGACY_V12_DEFAULT_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
@@ -68,7 +68,6 @@ export const LEGACY_V16_DEFAULT_ORDER: readonly DashboardCardId[] = [
 
 export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'needsApproval',
-  'todayStrip',
   'kpiStrip',
   'streak',
   'teamHeat',

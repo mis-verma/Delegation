@@ -53,12 +53,8 @@ export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' 
         <span
           onMouseEnter={() => { cancelClose(); setOpen(true); }}
           onMouseLeave={scheduleClose}
-          onFocus={() => setOpen(true)}
-          onBlur={scheduleClose}
-          tabIndex={0}
-          role="button"
-          aria-label={`${label}: ${data.overdue} overdue, ${data.due} due`}
-          className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full t-meta font-display font-bold flex items-center justify-center tabular-nums cursor-default outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+          aria-hidden="true"
+          className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full t-meta font-display font-bold flex items-center justify-center tabular-nums cursor-default ${
             data.overdue > 0
               ? 'bg-danger text-white'
               : 'bg-primary-600 text-white dark:bg-primary-500'
