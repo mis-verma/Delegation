@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, Inbox, ShieldCheck, UserCheck } from 'lucide-react
 import { EmptyState, IconChip, InlineError, PageHeader, Skeleton } from '../../components';
 import { canApproveTicket, isDepartmentHeadOf, stageOf, taskApprovalSubject } from '../../lib/ticketApproval';
 import { useApprovers } from '../checklist/useApprovalCover';
-import { approveTaskRun, rejectTaskRun } from '../verification/decisionRequests';
+import { approveTaskRun, rejectTaskRun, type ChecklistCorrection } from '../verification/decisionRequests';
 import { TaskRow } from '../verification/TicketTaskRows';
 import { usePendingTasksQuery } from '../verification/usePendingTasksQuery';
 import { useDeferredDecisions } from '../verification/useDeferredDecisions';
@@ -68,8 +68,8 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const approveTask = useCallback((id: string, title: string) => {
     schedule({ id, verb: 'Approved, now with the final approver (PC)', label: title, run: approveTaskRun(id) });
   }, [schedule]);
-  const sendBackTask = useCallback((id: string, title: string, note: string) => {
-    schedule({ id, verb: 'Sent back', label: title, run: rejectTaskRun(id, note) });
+  const sendBackTask = useCallback((id: string, title: string, note: string, correction?: ChecklistCorrection) => {
+    schedule({ id, verb: 'Sent back', label: title, run: rejectTaskRun(id, note, correction) });
   }, [schedule]);
 
   return (

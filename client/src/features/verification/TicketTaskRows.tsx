@@ -1,9 +1,13 @@
 import { useAuth } from '../../context/AuthContext';
-import { memo, useState, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import { TicketForm } from '../tickets/TicketForm';
 import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronRight, ChevronDown, AlertTriangle, Clock, Paperclip, UserRound } from 'lucide-react';
 import { Button, IconChip, PriorityChip, DepartmentChip } from '../../components';
-import { SendBackForm } from '../checklist/instance/ReviewActions';
+import { CorrectionDialog } from './CorrectionDialog';
+import { previewCorrectionItems, type CorrectionItem, type SendBackPayload } from './correctionItems';
+import { useReviewDraft } from './useReviewDraft';
+import type { ChecklistCorrection } from './decisionRequests';
+import type { PreviewChecklist } from './checklistSummary';
 import { cn } from '@/lib/utils';
 import { PhotoThumbs } from './PhotoThumbs';
 import { useTaskQuery } from '../tasks/hook';
@@ -66,24 +70,35 @@ interface QueueRowProps {
   onOpen: () => void;
   onApprove: () => void;
   approveLabel?: string;
-  onSendBack: (note: string) => void;
+  onSendBack: (note: string, correction: ChecklistCorrection) => void;
+  rowId: string;
+  correctionItems: CorrectionItem[];
+  workerNames: string[];
   selection?: { checked: boolean; onToggle: () => void };
   expanded: boolean;
   onToggleExpanded: () => void;
-  preview: (flagForCorrection: (label: string) => void) => ReactNode;
+  preview: (flagForCorrection: (itemId: string) => void) => ReactNode;
   summary?: { total: number; done: number; missingPhotos: number };
   onWarm?: () => void;
 }
 
-const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
-  const [rejecting, setRejecting] = useState(false);
+const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon, title, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, rowId, correctionItems, workerNames, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
   const [raising, setRaising] = useState(false);
-  const [text, setText] = useState('');
+  const draft = useReviewDraft(rowId);
 
-  const flagForCorrection = (label: string) => {
-    setRejecting(true);
-    const line = `• ${label}: needs attention`;
-    setText((prev) => (prev.includes(line) ? prev : prev ? `${prev}\n${line}` : line));
+  const flagForCorrection = (itemId: string) => {
+    onWarm?.();
+    draft.startPickFor(rowId, itemId);
+  };
+
+  const startCorrection = () => {
+    onWarm?.();
+    draft.setSending(true);
+  };
+
+  const sendCorrection = ({ itemIds, note: text, photoOnlyItemIds = [] }: SendBackPayload) => {
+    onSendBack(text.trim(), { correctionItemIds: itemIds.filter((id) => !photoOnlyItemIds.includes(id)), photoOnlyItemIds });
+    draft.reset();
   };
 
   const complete = summary && summary.total > 0 && summary.done === summary.total && summary.missingPhotos === 0;
@@ -135,42 +150,40 @@ const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon, title, facts, chips,
           </button>
         </div>
 
-        {!rejecting && (
-          <div role="group" aria-label={`Actions for ${title}`} className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:self-start sm:shrink-0">
-            <Button size="sm" variant="ghost" className="col-span-2 h-11 sm:h-9 gap-1.5 sm:col-span-1" onClick={onToggleExpanded} aria-expanded={expanded}>
-              <ChevronDown size={15} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
-              {expanded ? 'Hide details' : 'Checklist'}
-            </Button>
-            {raiseTicketFrom && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-11 sm:h-9 gap-1.5 border-primary-500/30 text-primary-700 hover:border-primary-500/50 hover:bg-primary-500/10 dark:text-primary-300"
-                onClick={() => setRaising(true)}
-              >
-                <TicketPlus size={15} aria-hidden />
-                Raise ticket
-              </Button>
-            )}
+        <div role="group" aria-label={`Actions for ${title}`} className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:self-start sm:shrink-0">
+          <Button size="sm" variant="ghost" className="col-span-2 h-11 sm:h-9 gap-1.5 sm:col-span-1" onClick={onToggleExpanded} aria-expanded={expanded}>
+            <ChevronDown size={15} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
+            {expanded ? 'Hide details' : 'Checklist'}
+          </Button>
+          {raiseTicketFrom && (
             <Button
               size="sm"
               variant="outline"
-              className="h-11 sm:h-9 gap-1.5 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
-              onClick={() => setRejecting(true)}
+              className="h-11 sm:h-9 gap-1.5 border-primary-500/30 text-primary-700 hover:border-primary-500/50 hover:bg-primary-500/10 dark:text-primary-300"
+              onClick={() => setRaising(true)}
             >
-              <CornerUpLeft size={15} aria-hidden />
-              Send back
+              <TicketPlus size={15} aria-hidden />
+              Raise ticket
             </Button>
-            <Button
-              size="sm"
-              className={cn('h-11 sm:h-9 gap-1.5 bg-success-strong text-white hover:bg-success-strong/90 hover:text-white', !raiseTicketFrom && 'col-span-2 sm:col-span-1')}
-              onClick={onApprove}
-            >
-              <Check size={15} strokeWidth={2.75} aria-hidden />
-              {approveLabel}
-            </Button>
-          </div>
-        )}
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-11 sm:h-9 gap-1.5 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+            onClick={startCorrection}
+          >
+            <CornerUpLeft size={15} aria-hidden />
+            Send back
+          </Button>
+          <Button
+            size="sm"
+            className={cn('h-11 sm:h-9 gap-1.5 bg-success-strong text-white hover:bg-success-strong/90 hover:text-white', !raiseTicketFrom && 'col-span-2 sm:col-span-1')}
+            onClick={onApprove}
+          >
+            <Check size={15} strokeWidth={2.75} aria-hidden />
+            {approveLabel}
+          </Button>
+        </div>
       </div>
 
       {(note || evidence.length > 0) && (
@@ -195,26 +208,19 @@ const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon, title, facts, chips,
         />
       )}
 
-      {rejecting && (
-        <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
-          <SendBackForm
-            autoFocus
-            quickReasons
-            note={text}
-            onNoteChange={setText}
-            onCancel={() => { setRejecting(false); setText(''); }}
-            onSubmit={() => onSendBack(text.trim())}
-            canSubmit={text.trim().length > 0}
-            isSending={false}
-            busy={false}
-            submitLabel="Send back"
-            placeholder="Say what needs fixing before this can be approved"
-          />
-        </div>
-      )}
+      <CorrectionDialog
+        items={correctionItems}
+        assigneeNames={workerNames}
+        draft={draft}
+        onSend={sendCorrection}
+        allowFixBy={false}
+        wholeLabel="It goes back as a whole, nothing is reopened."
+      />
     </div>
   );
 };
+
+const flatItems = (checklists: PreviewChecklist[] | undefined) => (checklists ?? []).flatMap((c) => c.items);
 
 interface SelectableProps {
   selected?: boolean;
@@ -226,7 +232,7 @@ interface DecisionProps {
   departmentName: string | null;
   raisedByName: string | null;
   onApprove: (id: string, title: string) => void;
-  onSendBack: (id: string, title: string, note: string) => void;
+  onSendBack: (id: string, title: string, note: string, correction?: ChecklistCorrection) => void;
 }
 
 const asEvidence = (list: { id: string; url: string; mimeType: string; originalFilename: string | null }[]): EvidenceFile[] =>
@@ -236,6 +242,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
   const { user: signedIn } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const ticketCorrections = useMemo(() => previewCorrectionItems(flatItems(ticket.checklists)), [ticket.checklists]);
 
   const handIns = ticket.statusUpdates.filter((u) => u.toStatus === 'PENDING_APPROVAL');
   const latest = handIns.length ? handIns.reduce((a, b) => (new Date(b.createdAt) > new Date(a.createdAt) ? b : a)) : null;
@@ -267,13 +274,16 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         summary={summarizeChecklists(ticket.checklists)}
         preview={(flag) => (
           <PhotoReviewContext.Provider value={{ kind: 'ticket', ownerId: ticket.id }}>
-            <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />
+            <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.id)} />
           </PhotoReviewContext.Provider>
         )}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(ticket.id, ticket.title)}
         approveLabel={ticket.approvalStage === 'HOD' && ticket.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now' : 'Approve, send to PC') : 'Approve'}
-        onSendBack={(note) => onSendBack(ticket.id, ticket.title, note)}
+        onSendBack={(text, correction) => onSendBack(ticket.id, ticket.title, text, correction)}
+        rowId={ticket.id}
+        correctionItems={ticketCorrections}
+        workerNames={ticket.assignee ? [ticket.assignee.firstName] : []}
       />
       {showDetail && <TicketDetail ticket={ticket} onClose={() => setShowDetail(false)} />}
     </>
@@ -288,6 +298,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
   const [showDetail, setShowDetail] = useState(false);
 
   const source = fullTask ?? task;
+  const taskCorrections = useMemo(() => previewCorrectionItems(flatItems(fullTask?.checklists)), [fullTask?.checklists]);
   const handIns = (fullTask?.statusUpdates ?? []).filter((u) => u.toStatus === 'pending_approval');
   const latest = handIns.length ? handIns.reduce((a, b) => (new Date(b.createdAt) > new Date(a.createdAt) ? b : a)) : null;
   const since = new Date(task.submittedAt ?? latest?.createdAt ?? task.updatedAt).getTime();
@@ -318,13 +329,16 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         summary={expanded && fullTask ? summarizeChecklists(fullTask.checklists) : task.checklistSummary}
         preview={(flag) => (
           <PhotoReviewContext.Provider value={{ kind: 'task', ownerId: task.id }}>
-            <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />
+            <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.id)} />
           </PhotoReviewContext.Provider>
         )}
         onOpen={() => setShowDetail(true)}
         onApprove={() => onApprove(task.id, task.title)}
         approveLabel={task.approvalStage === 'HOD' && task.departmentId ? (signedIn?.role === 'ADMIN' ? 'Approve now (skips the head)' : headsStillWaiting(task) > 1 ? 'Approve for my department' : 'Approve, send to PC') : 'Approve'}
-        onSendBack={(note) => onSendBack(task.id, task.title, note)}
+        onSendBack={(text, correction) => onSendBack(task.id, task.title, text, correction)}
+        rowId={task.id}
+        correctionItems={taskCorrections}
+        workerNames={[]}
       />
       {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}
     </>

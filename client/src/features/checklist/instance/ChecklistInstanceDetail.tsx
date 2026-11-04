@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
@@ -10,6 +10,7 @@ import {
   Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
 } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
+import { useReviewDraft } from '../../verification/useReviewDraft';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { PhotoReviewContext } from './photoReviewContext';
@@ -70,17 +71,7 @@ export const ChecklistInstanceDetail = () => {
   useRefreshOnNewDay();
   const now = useNow();
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
-  const [selecting, setSelecting] = useState(false);
-  const [picked, setPicked] = useState<Set<string>>(() => new Set());
-  const togglePicked = useCallback((itemId: string) =>
-    setPicked(prev => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
-      return next;
-    }), []);
-  const startSelecting = useCallback(() => setSelecting(true), []);
-  const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
-  const selectedIds = useMemo(() => [...picked], [picked]);
+  const draft = useReviewDraft(instanceId || null);
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
@@ -146,7 +137,7 @@ export const ChecklistInstanceDetail = () => {
   const left = Math.max(0, total - done);
   const lastIndex = Math.max(0, instance.items.length - 1);
   const currentIndex = Math.min(oneIndex, lastIndex);
-  const reorder = canWork && !selecting && show === 'all';
+  const reorder = canWork && !canReview && show === 'all';
   const orderedItems = (() => {
     if (!reorder) return instance.items;
     if (!hasSections) return [...pendingItems, ...answeredItems];
@@ -382,9 +373,13 @@ export const ChecklistInstanceDetail = () => {
                 showHeader={false}
                 inSectionBox={hasSections}
                 isFirst={groupIndex === 0 && idx === 0}
-                selecting={selecting}
-                picked={picked.has(item.id)}
-                onTogglePicked={togglePicked}
+                selecting={canReview}
+                picked={draft.pickedSet.has(item.id)}
+                onTogglePicked={draft.togglePicked}
+                note={draft.picked[item.id] ?? ''}
+                onNoteChange={draft.setItemNote}
+                photoOnly={draft.photoOnlySet.has(item.id)}
+                onTogglePhotoOnly={draft.togglePhotoOnly}
                 canWaive={canWaive}
                 canRaiseTicket={canReview}
               />
@@ -429,16 +424,7 @@ export const ChecklistInstanceDetail = () => {
       )}
 
       {canReview && (
-        <ChecklistReviewBar
-          instanceId={instanceId}
-          selecting={selecting}
-          selectedCount={picked.size}
-          selectedIds={selectedIds}
-          onStartSelecting={startSelecting}
-          onStopSelecting={stopSelecting}
-          onSent={stopSelecting}
-          onDecided={goBackAfterDecision}
-        />
+        <ChecklistReviewBar instance={instance} draft={draft} onDecided={goBackAfterDecision} />
       )}
     </div>
   );

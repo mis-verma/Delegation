@@ -11,6 +11,7 @@ import {
 import { asc, eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
+import { reopenTicketChecklistItems } from "../../utils/checklistCorrections.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTicketInput, ListTicketsQuery, UpdateTicketInput, VerifyTicketInput, StatusUpdateInput } from "./ticket.validation.js"
 import { ticketBucketCondition, ticketListCounts, ticketListOrder, ticketOptionConditions, ticketScopeConditions } from "./ticketListQuery.js"
@@ -667,6 +668,7 @@ export const ticketService = {
       }
 
       if (input.action === "REJECT") {
+        await reopenTicketChecklistItems(tx, id, input, user.sub, new Date())
         await tx.insert(ticketStatusUpdates).values({
           id: createId(),
           ticketId: id,

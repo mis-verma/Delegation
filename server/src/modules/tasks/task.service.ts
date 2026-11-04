@@ -7,6 +7,7 @@ import { asc, eq, and, or, inArray, sql, isNull, isNotNull, ne } from "drizzle-o
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
+import { reopenTaskChecklistItems } from "../../utils/checklistCorrections.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { ConfirmSmartTaskInput, CreateTaskInput, ListTasksQuery, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
 import { bucketCondition, optionConditions, scopeConditions, taskListCounts, taskListOrder } from "./taskListQuery.js"
@@ -750,6 +751,7 @@ export const taskService = {
                 update.hodApprovedBy = null;
                 update.hodApprovedAt = null;
                 await clearCompletion(tx, id);
+                await reopenTaskChecklistItems(tx, id, input, user.sub, new Date());
             }
             const [result] = await tx.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
             if (result.affectedRows === 0) {

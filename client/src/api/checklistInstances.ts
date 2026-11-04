@@ -167,8 +167,8 @@ export type ChecklistInstance = {
   items:            ChecklistInstanceItem[];
 };
 
-export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string; photoOnlyItemIds?: string[] };
-export type VerifyChecklistInstancePayload = { action: 'APPROVE' | 'REJECT'; note?: string };
+export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string; photoOnlyItemIds?: string[]; fixByHours?: number };
+export type VerifyChecklistInstancePayload = { action: 'APPROVE' | 'REJECT'; note?: string; fixByHours?: number };
 
 export type ComplianceReportGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';
 

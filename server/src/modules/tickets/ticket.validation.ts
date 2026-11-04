@@ -86,6 +86,8 @@ export const approveAssignmentSchema = z.object({
 export const verifyTicketSchema = z.object({
     action : z.enum(["APPROVE", "REJECT"]),
     note : z.string().optional(),
+    correctionItemIds : z.array(z.string().min(1)).max(200).optional(),
+    photoOnlyItemIds : z.array(z.string().min(1)).max(200).optional(),
 }).refine(v => v.action === "APPROVE" || !!v.note?.trim(), {
     message : "A note is required when rejecting.",
     path : ["note"],

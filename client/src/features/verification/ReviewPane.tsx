@@ -13,15 +13,11 @@ import { ComplianceMeter } from './ComplianceMeter';
 import { PersonContext } from './PersonContext';
 import { ReviewActions } from '../checklist/instance/ReviewActions';
 import { CorrectionDialog } from './CorrectionDialog';
+import { runCorrectionItems, type SendBackPayload } from './correctionItems';
 import type { ReviewDraft } from './useReviewDraft';
 import type { ChecklistRow } from './verificationModel';
 
-export interface SendBackPayload {
-  itemIds: string[];
-  note: string;
-  fixByHours?: number | null;
-  photoOnlyItemIds?: string[];
-}
+export type { SendBackPayload } from './correctionItems';
 
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
@@ -180,6 +176,7 @@ interface FooterProps {
 
 const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
   const count = draft.pickedIds.length;
+  const items = useMemo(() => runCorrectionItems(row.instance.items), [row.instance.items]);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
@@ -200,7 +197,7 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
         onSendBack={() => draft.setSending(true)}
         onApprove={() => onApprove(row)}
       />
-      <CorrectionDialog row={row} draft={draft} onSend={onSendBack} />
+      <CorrectionDialog items={items} assigneeNames={row.assigneeNames} draft={draft} onSend={(payload) => onSendBack(row, payload)} />
     </div>
   );
 });

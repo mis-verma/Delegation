@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users, Hourglass, TicketCheck, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, EmptyState, IconChip, Skeleton, StatusBadge, useConfirm } from '../../components';
-import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun } from './decisionRequests';
+import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun, type ChecklistCorrection } from './decisionRequests';
 import type { DecisionRequest } from './useDeferredDecisions';
 import { TicketRow, TaskRow } from './TicketTaskRows';
 import { UNASSIGNED, formatWaiting, type QueueTab } from './verificationModel';
@@ -138,8 +138,8 @@ export const TicketTaskQueue = ({
   const approveItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string) => {
     schedule({ id, verb: 'Approved', label: title, run: kind === 'ticket' ? approveTicketRun(id) : approveTaskRun(id) });
   }, [schedule]);
-  const sendBackItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string, note: string) => {
-    schedule({ id, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note) : rejectTaskRun(id, note) });
+  const sendBackItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string, note: string, correction?: ChecklistCorrection) => {
+    schedule({ id, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note, correction) : rejectTaskRun(id, note, correction) });
   }, [schedule]);
   const approveTicket = useMemo(() => approveItem('ticket'), [approveItem]);
   const approveTask = useMemo(() => approveItem('task'), [approveItem]);
