@@ -89,20 +89,22 @@ const PILL_CLASS = 'flex items-center gap-2 min-h-11 sm:min-h-10 px-2.5 rounded-
 const pillState = (on: boolean) => (on ? 'border-primary-500 bg-primary-500/8 dark:bg-primary-500/15' : 'border-border bg-surface hover:border-primary-300');
 
 const RolePicker = ({ value, onChange, roles }: { value: Role; onChange: (role: Role) => void; roles: Role[] }) => (
-  <div role="radiogroup" aria-label="Role" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-    {roles.map((r) => {
-      const { icon: Icon, tone } = ROLE_LOOK[r];
-      const on = r === value;
-      return (
-        <button key={r} type="button" role="radio" aria-checked={on} onClick={() => onChange(r)} className={cn(PILL_CLASS, pillState(on))}>
-          <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-white', tone)}>
-            <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
-          </span>
-          <span className={cn('min-w-0 flex-1 truncate t-meta font-display font-semibold', on ? 'text-text' : 'text-text-secondary')}>{ROLE_META[r].label}</span>
-          {on && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" strokeWidth={3} aria-hidden />}
-        </button>
-      );
-    })}
+  <div className="@container">
+    <div role="radiogroup" aria-label="Role" className="grid grid-cols-2 gap-2 @[36rem]:grid-cols-4">
+      {roles.map((r) => {
+        const { icon: Icon, tone } = ROLE_LOOK[r];
+        const on = r === value;
+        return (
+          <button key={r} type="button" role="radio" aria-checked={on} onClick={() => onChange(r)} className={cn(PILL_CLASS, pillState(on))}>
+            <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-white', tone)}>
+              <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
+            </span>
+            <span className={cn('min-w-0 flex-1 break-words t-meta font-display font-semibold leading-tight', on ? 'text-text' : 'text-text-secondary')}>{ROLE_META[r].label}</span>
+            {on && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" strokeWidth={3} aria-hidden />}
+          </button>
+        );
+      })}
+    </div>
   </div>
 );
 
