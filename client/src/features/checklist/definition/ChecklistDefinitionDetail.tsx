@@ -152,7 +152,7 @@ export const ChecklistDefinitionDetail = () => {
     refetch: refetchInstances,
   } = useInstancesForDefinitionQuery(definitionId, { limit: INSTANCE_LIMIT });
   const { data: stores } = useStoresQuery();
-
+  
   const { user } = useAuth();
   const setActiveMutation = useSetChecklistDefinitionActiveMutation();
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
