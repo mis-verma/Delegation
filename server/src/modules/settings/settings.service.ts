@@ -1,6 +1,7 @@
 import { db } from "../../config/db.js"
 import { settings } from "../../db/schema/core.js"
-import { eq } from "drizzle-orm"
+import { tickets, tasks } from "../../db/schema/index.js"
+import { and, eq, isNull } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { UpdateSettingsInput } from "./settings.validation.js"
 import { env } from "../../config/env.js"
@@ -12,6 +13,12 @@ import fs from "node:fs";
 let cache: typeof settings.$inferSelect | null = null;
 
 const REFRESH_INTERVAL_MS = 30_000;
+
+const restartAutoCloseClock = async () => {
+    const now = new Date();
+    await db.update(tickets).set({ autoCloseFrom: now }).where(and(eq(tickets.status, "PENDING_APPROVAL"), isNull(tickets.deletedAt)));
+    await db.update(tasks).set({ autoCloseFrom: now }).where(and(eq(tasks.status, "pending_approval"), isNull(tasks.deletedAt)));
+};
 
 const loadOrCreate = async () => {
     const [existing] = await db.select().from(settings).limit(1);
@@ -54,6 +61,7 @@ export const settingsService = {
         await db.update(settings).set({ ...input, updatedAt: new Date() }).where(eq(settings.id, id));
         const [updated] = await db.select().from(settings).where(eq(settings.id, id)).limit(1);
         cache = updated!;
+        if (before.autoCloseDays === 0 && cache.autoCloseDays > 0) await restartAutoCloseClock();
         await auditService.record({ entityType: "Settings", entityId: id, action: "UPDATE", actorId, before, after: cache });
         return cache;
     },

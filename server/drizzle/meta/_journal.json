@@ -673,6 +673,20 @@
       "when": 1792960000000,
       "tag": "0095_ticket_auto_closed",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "5",
+      "when": 1792970000000,
+      "tag": "0096_auto_close_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "5",
+      "when": 1792980000000,
+      "tag": "0097_employee_id",
+      "breakpoints": true
     }
   ]
 }

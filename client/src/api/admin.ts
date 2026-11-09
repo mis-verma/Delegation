@@ -19,6 +19,7 @@ export type AdminUser = {
     dressTypeId?: string | null;
     reportsToId?: string | null;
     weekOffDays?: number[] | null;
+    employeeId?: string | null;
     createdAt: string;
 };
 
@@ -49,6 +50,7 @@ export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "de
     gender?: Gender | null;
     dressTypeId?: string | null;
     weekOffDays?: number[];
+    employeeId?: string;
 };
 export type BulkUpdateUsersPayload = {
     ids: string[];

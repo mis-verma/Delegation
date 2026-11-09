@@ -40,6 +40,7 @@ export const updateUserSchema = createUserSchema.omit({ password: true, departme
     gender: z.enum(GENDERS).nullable().optional(),
     weekOffDays: weekOffDays.optional(),
     rank: z.number().int().min(1).max(10).optional(),
+    employeeId: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,31}$/, "Use letters, numbers and dashes only, up to 32 characters.").optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

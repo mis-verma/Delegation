@@ -94,6 +94,10 @@ const UserRowComponent = ({
         </div>
       </td>
 
+      <td className={cn(CELL_CLASS, 'whitespace-nowrap tabular-nums')}>
+        {user.employeeId ? <span className="font-medium text-text">{user.employeeId}</span> : NOT_SET}
+      </td>
+
       <td className={CELL_CLASS}>
         <div className="flex flex-wrap items-center gap-1">
           <RoleChip role={user.role} />

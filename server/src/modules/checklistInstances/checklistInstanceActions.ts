@@ -26,6 +26,7 @@ import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { assertCoordinatorRunReviewer } from "./checklistCoordinatorRun.js"
 import { env } from "../../config/env.js"
 import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, assertInstanceOpen, assertInstanceEditable, auditItemSnapshot, assertCanAccess, getDepartmentIdsForUserIds, assertConditionalActionsSatisfied, applyConditionalSideEffects, deriveInstanceItemCompletion, syncVerificationStatus, assertNotOwnRun, assertCanVerify, countsAgainstCompliance, loadWaivable, dropChecklistSummaries } from "./checklistInstanceShared.js"
+import { loadAuditItemScore } from "./auditScore.js"
 
 export const setItemDone = async (itemId: string, isDone: boolean, user: AccessTokenPayload, values: ItemValueInput = {}) => {
     const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
@@ -380,7 +381,8 @@ export const raiseTicket = async (id: string, itemId: string, input: RaiseCheckl
 export const waiveItem = async (id: string, itemId: string, input: { reason: string }, user: AccessTokenPayload) => {
     const { instance, item } = await loadWaivable(id, itemId, user)
     if (item.waivedAt) throw AppError.badRequest("This question is already waived.")
-    if (!countsAgainstCompliance(item)) throw AppError.badRequest("This question does not count against compliance, so there is nothing to waive.")
+    const auditScore = item.itemType === "AUDIT" ? await loadAuditItemScore(item.id) : null
+    if (!countsAgainstCompliance(item, auditScore)) throw AppError.badRequest("This question does not count against compliance, so there is nothing to waive.")
     const reason = input.reason.trim()
     await db.update(checklistInstanceItems).set({ waivedAt: new Date(), waivedBy: user.sub, waiveReason: reason, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
     await auditService.record({

@@ -92,8 +92,22 @@ export const notifyTicketAutoClosed = async (entity: VerifiableEntity, days: num
   return notifyMany(recipientIds, {
     type: 'TICKET_AUTO_CLOSED',
     title: 'Closed automatically',
-    message: `"${entity.title}" was closed automatically. Nobody approved it within ${days} days of hand-in.`,
+    message: `"${entity.title}" was closed automatically. Nobody approved it within ${days} ${days === 1 ? 'day' : 'days'} of hand-in.`,
     ticketId: entity._id.toString(),
+  });
+}
+
+export const notifyTaskAutoClosed = async (entity: VerifiableEntity, days: number) => {
+  const recipientIds = new Set<string>();
+  if (entity.assigneeId) recipientIds.add(entity.assigneeId.toString());
+  for (const id of entity.additionalAssigneeIds ?? []) recipientIds.add(id.toString());
+  if (entity.userId) recipientIds.add(entity.userId.toString());
+  if (!recipientIds.size) return [];
+  return notifyMany([...recipientIds], {
+    type: 'TASK_AUTO_CLOSED',
+    title: 'Closed automatically',
+    message: `"${entity.title}" was closed automatically. Nobody approved it within ${days} ${days === 1 ? 'day' : 'days'} of hand-in.`,
+    taskId: entity._id.toString(),
   });
 }
 

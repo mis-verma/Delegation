@@ -82,6 +82,8 @@ export const tasks = mysqlTable(
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
+    autoClosedAt: datetime('autoClosedAt', { mode: 'date' }),
+    autoCloseFrom: datetime('autoCloseFrom', { mode: 'date' }),
     submittedAt: datetime('submittedAt', { mode: 'date' }),
     submissionNote: text('submissionNote'),
     aiMeta: json('aiMeta').$type<TaskAiMeta>(),

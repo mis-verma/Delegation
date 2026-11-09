@@ -1,5 +1,5 @@
 import { memo, useEffect, useId, useRef, useState } from 'react';
-import { Ban, Camera, Check, CheckCheck, ImageUp, RotateCcw, X } from 'lucide-react';
+import { Ban, Camera, Check, CheckCheck, ImageUp, RotateCcw, TriangleAlert, X } from 'lucide-react';
 import { Button, ChecklistProgressBar, Textarea } from '../../../components';
 import { Badge } from '../../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
@@ -23,6 +23,8 @@ import { auditStatus, dressTypeChoices, uniformLabel, type AuditPerson } from '.
 import { AuditCaptureButton, AuditDressTypePicker, AuditSectionHeader, AuditTickRow, AuditUniformChip } from './ChecklistAuditTicks';
 import { useCanReopen } from './useCanReopen';
 import { formatDateTime } from '../checklistDisplay';
+import { AUDIT_PASS_PCT, auditItemScore, auditPasses, auditPct, personAuditScore } from '../auditScore';
+import { NoticeBanner } from '../../../components/noticeBanner';
 import type {
   ChecklistInstanceItem,
   ChecklistInstanceItemSubmission,
@@ -87,15 +89,50 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
     store:  storeName(s.userId?.storeId ?? null),
     status: auditStatus(s),
     dressType: uniformLabel(s),
+    score: personAuditScore(s),
   }));
+  const itemScore = auditItemScore(submissions);
+  const belowPass = submissions
+    .map((s) => ({ s, score: personAuditScore(s) }))
+    .filter((p): p is { s: ChecklistInstanceItemSubmission; score: number } => p.score !== null && !auditPasses(p.score));
 
   return (
     <ItemCardShell isLocked={isLocked} className="gap-4">
       <ChecklistItemCardHeader
         item={item}
         interactive={false}
-        subtitle={submissions.length > 0 && <AuditProgress done={submittedCount} total={submissions.length} />}
+        subtitle={submissions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <AuditProgress done={submittedCount} total={submissions.length} />
+            {itemScore !== null && <AuditScoreBadge score={itemScore} />}
+          </div>
+        )}
       />
+
+      {belowPass.length > 0 && (
+        <NoticeBanner tone="danger" icon={TriangleAlert}>
+          <p className="font-semibold">
+            {belowPass.length === 1 ? '1 person is' : `${belowPass.length} people are`} below the {AUDIT_PASS_PCT}% pass line
+          </p>
+          <ul className="flex flex-col gap-1 pt-1">
+            {belowPass.map(({ s, score }) => {
+              const missing = s.accessories.filter((a) => !a.checked).map((a) => a.name);
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(s.id)}
+                    className="min-h-11 sm:min-h-8 pointer-coarse:min-h-11 text-left underline-offset-2 hover:underline cursor-pointer outline-none rounded-sm focus-visible:ring-2 focus-visible:ring-danger/40"
+                  >
+                    <span className="font-semibold">{personName(s)}, {auditPct(score)}%</span>
+                    {missing.length > 0 && <span>. Missing: {missing.join(', ')}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </NoticeBanner>
+      )}
 
       {submissions.length === 0 ? (
         <p className="text-sm text-text-muted">
@@ -135,6 +172,15 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
     </ItemCardShell>
   );
 });
+
+const AuditScoreBadge = ({ score }: { score: number }) => {
+  const pass = auditPasses(score);
+  return (
+    <Badge variant={pass ? 'success' : 'destructive'} title={`Average of each checked person's ticked items. Pass is ${AUDIT_PASS_PCT}% or more.`}>
+      <span className="tabular-nums">{auditPct(score)}%</span>, {pass ? 'Pass' : 'Fail'}
+    </Badge>
+  );
+};
 
 const AuditProgress = ({ done, total }: { done: number; total: number }) => (
   <div className="flex items-center gap-2">

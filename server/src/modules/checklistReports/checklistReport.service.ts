@@ -16,6 +16,7 @@ import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletion
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
+import { auditFractionSql, auditPassSql } from "../checklistInstances/auditScore.js"
 
 export type ReportMetrics = {
     assigned: number
@@ -86,6 +87,7 @@ export const REPORT_NOTES = [
     "On time % = completed before the cutoff / completed. Met deadline % = completed before the cutoff / due, so a missed checklist counts against it. A checklist with no cutoff is due at the end of its day.",
     "Compliance % is pooled: the weighted good answers divided by the weighted checked answers (Answers checked counts each question once). A critical question counts double, for or against. It is never an average of people's percentages.",
     "Only completed questions with an accepted-answer rule are checked. A question a reviewer sent back counts as a failed check for the person who had done it, even if it was redone well, and even if it has no accepted-answer rule. Not applicable and waived questions are left out.",
+    "An audit counts as one checked answer worth its audit score: each person's ticked items divided by the items on their list, averaged across the people checked (people marked not applicable are left out). 80% or more is a pass and counts as an answer right; in Compliance % a 64% audit adds 0.64 of a good answer.",
     "A person's Compliance % covers the answers credited to them on the checklists assigned to them (the same on their own card and in every list), a department's the answers credited to its people, and a store's and the overall total every checked answer on those checklists, whoever gave it.",
     "This report covers every kind of checklist (daily, weekly, monthly and one-time), so its totals can be higher than the daily-only Fill report. A checklist that has not opened yet, has no questions, or is a daily one left unfinished on a holiday (with no extra working day covering it) is not counted.",
 ]
@@ -107,7 +109,10 @@ const numScored = sql`(${item.itemType} IN ('NUMBER_ENTRY','RATING') AND (${item
 const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL)`
 const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL AND (${boolScored} OR ${textScored} OR ${numScored}))`
 
-const scoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN 1 WHEN ${ruleScored} THEN 1 ELSE 0 END)`
+const auditFraction = auditFractionSql(sql`${item.id}`)
+const auditScored = sql`(CASE WHEN ${item.itemType} = 'AUDIT' AND ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL THEN ${auditFraction} IS NOT NULL ELSE 0 END)`
+
+const scoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN 1 WHEN ${ruleScored} THEN 1 WHEN ${auditScored} THEN 1 ELSE 0 END)`
 const goodExpr = sql<number>`SUM(CASE
     WHEN ${item.waivedAt} IS NOT NULL THEN 0
     WHEN ${sentBack} THEN 0
@@ -116,10 +121,11 @@ const goodExpr = sql<number>`SUM(CASE
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${numScored}
         AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
+    WHEN ${auditScored} AND ${auditPassSql(auditFraction)} THEN 1
     ELSE 0 END)`
 
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
-const weightedScoredBody = sql`(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
+const weightedScoredBody = sql`(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} WHEN ${auditScored} THEN ${weightExpr} ELSE 0 END)`
 const weightedGoodBody = sql`(CASE
     WHEN ${item.waivedAt} IS NOT NULL THEN 0
     WHEN ${sentBack} THEN 0
@@ -128,6 +134,7 @@ const weightedGoodBody = sql`(CASE
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${numScored}
         AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN ${weightExpr}
+    WHEN ${auditScored} THEN ${weightExpr} * ${auditFraction}
     ELSE 0 END)`
 export const weightedScoredExpr = sql<number>`SUM(${weightedScoredBody})`
 export const weightedGoodExpr = sql<number>`SUM(${weightedGoodBody})`

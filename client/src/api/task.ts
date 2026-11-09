@@ -79,6 +79,7 @@ export type Task = {
     additionalAssigneePeople?: TaskPerson[];
     verifier?:        { id: string; firstName: string; lastName: string | null } | null;
     verificationNote: string | null;
+    autoClosedAt?: string | null;
     aiMeta?: {
         rawInput : string;
         inputMode : "voice" | "text";

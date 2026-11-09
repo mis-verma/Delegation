@@ -11,6 +11,8 @@ import { createRedisRateLimitStoreFactory, disconnectRedisClients } from "./src/
 import { disconnectQueryCache, warmQueryCache } from "./src/config/queryCache.js";
 import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
 import { startTicketAutoClose } from "./src/jobs/ticketAutoClose.job.js";
+import { startTaskAutoClose } from "./src/jobs/taskAutoClose.job.js";
+import { backfillEmployeeIds } from "./src/modules/users/employeeId.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
 import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
 import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
@@ -61,6 +63,8 @@ class ServerBootstrap {
     if (isCronOwner) {
       startSlaSweep();
       startTicketAutoClose();
+      startTaskAutoClose();
+      backfillEmployeeIds().catch((err) => console.error("Employee ID backfill failed:", err));
       startChecklistInstanceGenerator();
       startChecklistOverdueNotifier();
       startChecklistDraftReminder();

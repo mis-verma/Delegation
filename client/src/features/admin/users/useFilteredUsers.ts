@@ -132,7 +132,7 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
       if (filters.noStore && u.storeId) return false;
       if (filters.heads && !isDepartmentHead(u.role)) return false;
       if (tokens.length === 0) return true;
-      const haystack = `${fullName(u)} ${u.email} ${u.phone ?? ''} ${ROLE_LABEL[u.role]}`.toLowerCase();
+      const haystack = `${fullName(u)} ${u.email} ${u.phone ?? ''} ${u.employeeId ?? ''} ${ROLE_LABEL[u.role]}`.toLowerCase();
       return tokens.every((t) => haystack.includes(t));
     });
   }, [users, filters]);

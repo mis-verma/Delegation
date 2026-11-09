@@ -7,23 +7,21 @@ import { emitTicketEvent } from '../sockets/ticketEvent.js';
 import { notificationService, notifySafely } from '../modules/notifications/notification.service.js';
 import { getPopulatedTicket } from '../modules/tickets/ticketRelations.js';
 import { dropTicketSummaries } from '../modules/tickets/ticketReports.js';
+import { settingsService } from '../modules/settings/settings.service.js';
+import { autoCloseCutoff, autoCloseDaysFrom, autoCloseNote, dayCount } from './autoCloseRules.js';
 
-export const AUTO_CLOSE_AFTER_DAYS = 3;
 const BATCH_SIZE = 200;
-const DAY_MS = 86_400_000;
 
-export const autoCloseCutoff = (now: Date, days = AUTO_CLOSE_AFTER_DAYS): Date => new Date(now.getTime() - days * DAY_MS);
+export const configuredAutoCloseDays = (): number | null => autoCloseDaysFrom(settingsService.getCached().autoCloseDays);
 
-export const autoCloseNote = (days = AUTO_CLOSE_AFTER_DAYS): string =>
-  `Closed automatically. Nobody approved it within ${days} days.`;
-
-export const closeStaleApprovals = async (now: Date = new Date()): Promise<number> => {
+export const closeStaleApprovals = async (now: Date = new Date(), days: number | null = configuredAutoCloseDays()): Promise<number> => {
+  if (!days) return 0;
   const handedIn = sql`COALESCE(${tickets.submittedAt}, ${tickets.updatedAt})`;
   const clockStart = sql`GREATEST(${handedIn}, COALESCE(${tickets.autoCloseFrom}, ${handedIn}))`;
   const stale = await db.select().from(tickets).where(and(
     eq(tickets.status, 'PENDING_APPROVAL'),
     isNull(tickets.deletedAt),
-    lte(clockStart, autoCloseCutoff(now)),
+    lte(clockStart, autoCloseCutoff(now, days)),
   )).orderBy(asc(clockStart)).limit(BATCH_SIZE);
 
   if (!stale.length) return 0;
@@ -31,7 +29,7 @@ export const closeStaleApprovals = async (now: Date = new Date()): Promise<numbe
     console.warn(`Ticket auto-close: hit the ${BATCH_SIZE}-ticket batch cap, the rest close on the next run.`);
   }
 
-  const note = autoCloseNote();
+  const note = autoCloseNote(days);
   let closed = 0;
   for (const ticket of stale) {
     const [result] = await db.update(tickets).set({
@@ -75,12 +73,12 @@ export const closeStaleApprovals = async (now: Date = new Date()): Promise<numbe
       title: ticket.title,
       userId: ticket.userId,
       assigneeId: ticket.assigneeId,
-    }, AUTO_CLOSE_AFTER_DAYS));
+    }, days));
   }
 
   if (closed > 0) {
     await dropTicketSummaries();
-    console.log(`Ticket auto-close: closed ${closed} ticket(s) waiting over ${AUTO_CLOSE_AFTER_DAYS} days for approval`);
+    console.log(`Ticket auto-close: closed ${closed} ticket(s) waiting over ${dayCount(days)} for approval`);
   }
   return closed;
 };

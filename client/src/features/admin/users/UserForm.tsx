@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network, Check, AlertCircle } from 'lucide-react';
+import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network, Check, AlertCircle, IdCard } from 'lucide-react';
 import { Input, Button, Modal, Combobox, Avatar, AvatarUpload, WeekdayPicker, InlineError, Switch, useConfirm, RoleChip, ROLE_LOOK, DepartmentChip, StoreChip, IconChip, formatWeekdays } from '../../../components';
 import { cn } from '@/lib/utils';
 import {
@@ -41,6 +41,7 @@ const buildUserSchema = (isEditing: boolean) =>
         .refine((v) => !v || /^\d{10,15}$/.test(v.replace(/[\s\-().[\]{}]/g, '').replace(/^\+/, '')), 'Enter a valid phone number (10 to 15 digits)')
         .optional(),
       password: z.string().optional(),
+      employeeId: z.string().trim().refine((v) => !v || /^[A-Za-z0-9][A-Za-z0-9-]{0,31}$/.test(v), 'Use letters, numbers and dashes only, up to 32 characters').optional(),
       role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC', 'OWNER'] as const),
       departmentId: z.string().optional(),
       storeId: z.string().optional(),
@@ -172,6 +173,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       lastName: user?.lastName ?? prefill?.lastName ?? '',
       email: user?.email ?? '',
       phone: user?.phone ?? '',
+      employeeId: user?.employeeId ?? '',
       role: user?.role ?? 'USER',
       departmentId: user?.departmentId ?? prefill?.departmentId ?? '',
       storeId: user?.storeId ?? '',
@@ -275,6 +277,8 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if (dressTypeId !== (user.dressTypeId ?? null)) payload.dressTypeId = dressTypeId;
       if (reportsToId !== (user.reportsToId ?? null)) payload.reportsToId = reportsToId;
       if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
+      const employeeId = data.employeeId?.trim().toUpperCase() ?? '';
+      if (me?.role === 'ADMIN' && employeeId && employeeId !== (user.employeeId ?? '')) payload.employeeId = employeeId;
 
       if (Object.keys(payload).length === 0) {
         onClose();
@@ -322,6 +326,11 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   };
 
   function handleSaveError(err: unknown) {
+    if (err instanceof Error && /employee id/i.test(err.message)) {
+      setError('employeeId', { type: 'server', message: err.message });
+      setFocus('employeeId');
+      return;
+    }
     if (isDuplicateEmail(err) && err instanceof Error && /phone/i.test(err.message)) {
       setError('phone', { type: 'server', message: 'Someone already uses this phone number' });
       setFocus('phone');
@@ -434,6 +443,21 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 <Input id="email" label="Email address" type="email" icon={Mail} autoComplete="off" readOnly={isPcEditing} error={errors.email?.message} {...register('email')} />
 
                 <Input id="phone" label="Phone (optional)" type="tel" inputMode="tel" icon={Phone} autoComplete="off" error={errors.phone?.message} {...register('phone')} />
+
+                {isEditing ? (
+                  <Input
+                    id="employeeId"
+                    label="Employee ID"
+                    icon={IdCard}
+                    autoComplete="off"
+                    readOnly={me?.role !== 'ADMIN'}
+                    placeholder={user?.employeeId ? undefined : 'Given automatically'}
+                    error={errors.employeeId?.message}
+                    {...register('employeeId')}
+                  />
+                ) : (
+                  <p className="flex items-center gap-1.5 t-meta text-text-muted"><IdCard size={14} aria-hidden />An employee ID is given automatically when you create this person.</p>
+                )}
               </FormSection>
 
               {!isPcEditing && (

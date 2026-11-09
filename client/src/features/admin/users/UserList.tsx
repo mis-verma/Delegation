@@ -121,19 +121,30 @@ export const UserList = () => {
       ? (deleteMut.variables ?? null)
       : null;
 
-  const exportRows = (): TableRows => [
-    ['Name', 'Email', 'Phone', 'Role', 'Department', 'Store', 'Status', 'Joined'],
-    ...filtered.map((u) => [
-      fullName(u),
-      u.email,
-      u.phone ?? '',
-      ROLE_LABEL[u.role],
-      u.departmentId ? departmentNames.get(u.departmentId) ?? '' : '',
-      u.storeId ? storeNames.get(u.storeId) ?? '' : '',
-      u.isActive ? 'Active' : 'Deactivated',
-      u.createdAt.slice(0, 10),
-    ]),
-  ];
+  const exportRows = (): TableRows => {
+    const rows = filtered.map((u) => ({
+      name: fullName(u),
+      store: u.storeId ? storeNames.get(u.storeId) ?? '' : '',
+      department: u.departmentId ? departmentNames.get(u.departmentId) ?? '' : '',
+      user: u,
+    }));
+    const byText = (a: string, b: string) => (a === b ? 0 : !a ? 1 : !b ? -1 : a.localeCompare(b));
+    rows.sort((a, b) => byText(a.store, b.store) || byText(a.department, b.department) || a.name.localeCompare(b.name));
+    return [
+      ['Store', 'Department', 'Name', 'Employee ID', 'Email', 'Phone', 'Role', 'Status', 'Joined'],
+      ...rows.map(({ name, store, department, user: u }) => [
+        store,
+        department,
+        name,
+        u.employeeId ?? '',
+        u.email,
+        u.phone ?? '',
+        ROLE_LABEL[u.role],
+        u.isActive ? 'Active' : 'Deactivated',
+        u.createdAt.slice(0, 10),
+      ]),
+    ];
+  };
 
   const canSelect = useCallback((u: AdminUser) => u.id !== me?.id && !(me?.role === 'PC' && (u.role === 'ADMIN' || u.role === 'OWNER')), [me?.id, me?.role]);
   const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && canSelect(u)), [filtered, selectedIds, canSelect]);

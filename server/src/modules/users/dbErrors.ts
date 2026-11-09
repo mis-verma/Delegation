@@ -4,7 +4,8 @@ import { PHONE_TAKEN_MESSAGE } from "./phone.js"
 
 export const mapDuplicateUserError = (err: unknown): unknown => {
     if (!isDuplicateEntryError(err)) return err
-    return driverError(err).message.includes("User_phone_key")
-        ? AppError.conflict(PHONE_TAKEN_MESSAGE)
-        : AppError.conflict("Email already registered")
+    const message = driverError(err).message
+    if (message.includes("User_phone_key")) return AppError.conflict(PHONE_TAKEN_MESSAGE)
+    if (message.includes("User_employeeId_key")) return AppError.conflict("That employee ID is already used by someone else.")
+    return AppError.conflict("Email already registered")
 }

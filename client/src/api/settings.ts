@@ -22,6 +22,8 @@ export type Settings = {
     checklistAuditRetentionDays : number;
     notificationRetentionDays : number;
     inboundMessageRetentionDays : number;
+    autoCloseDays : number;
+    employeeIdPrefix : string;
 }
 
 export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl' | 'liveOnlyAttachments'>

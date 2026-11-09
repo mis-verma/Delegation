@@ -567,7 +567,7 @@ const TaskEditLayout = ({
   const onTitleDirty = useCallback((d: boolean) => onDirtyChange('title', d), [onDirtyChange]);
   const onDescriptionDirty = useCallback((d: boolean) => onDirtyChange('description', d), [onDirtyChange]);
   const approvedOrSentBack = task.verificationNote
-    ? (task.status === 'done' && task.verifiedBy ? 'approved' : task.status !== 'done' ? 'sentBack' : null)
+    ? (task.status === 'done' && task.autoClosedAt ? 'autoClosed' : task.status === 'done' && task.verifiedBy ? 'approved' : task.status !== 'done' ? 'sentBack' : null)
     : null;
 
   const propertiesBlock = (
@@ -677,8 +677,8 @@ const TaskEditLayout = ({
           {!task.declinedAt && (task.status === 'pending_approval' || (task.status === 'done' && !!task.verifiedAt)) && <TaskApprovalTrail task={task} />}
 
           {approvedOrSentBack && (
-            <NoticeBanner tone={approvedOrSentBack === 'approved' ? 'success' : 'warning'} icon={approvedOrSentBack === 'approved' ? ShieldCheck : ShieldX}>
-              <p className="font-bold">{approvedOrSentBack === 'approved' ? 'Approved' : 'Sent back for changes'}</p>
+            <NoticeBanner tone={approvedOrSentBack === 'sentBack' ? 'warning' : 'success'} icon={approvedOrSentBack === 'sentBack' ? ShieldX : ShieldCheck}>
+              <p className="font-bold">{approvedOrSentBack === 'autoClosed' ? 'Closed automatically' : approvedOrSentBack === 'approved' ? 'Approved' : 'Sent back for changes'}</p>
               <p className="whitespace-pre-wrap break-words">{task.verificationNote}</p>
             </NoticeBanner>
           )}

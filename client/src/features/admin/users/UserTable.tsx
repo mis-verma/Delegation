@@ -66,7 +66,7 @@ const UserTableComponent = ({
 
   return (
     <div className={TABLE_FRAME_CLASS}>
-      <table className="w-full min-w-[60rem] border-collapse">
+      <table className="w-full min-w-[66rem] border-collapse">
         <caption className="sr-only">People</caption>
         <thead>
           <tr>
@@ -85,6 +85,7 @@ const UserTableComponent = ({
             <th scope="col" aria-sort={ariaSort('name')} className={cn(HEAD_CLASS, 'left-14 z-30')}>
               <SortHeader label="Name" active={sort === 'name'} dir={dir} onClick={() => onSort('name')} />
             </th>
+            <th scope="col" className={HEAD_CLASS}>Employee ID</th>
             {COLUMNS.map((c) => (
               <th key={c.key} scope="col" aria-sort={ariaSort(c.key)} className={HEAD_CLASS}>
                 <SortHeader label={c.label} active={sort === c.key} dir={dir} onClick={() => onSort(c.key)} />

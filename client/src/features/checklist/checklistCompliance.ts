@@ -1,18 +1,25 @@
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 import { modelOf, type AnswerVerdict } from './questionTypes/model';
+import { AUDIT_PASS_PCT, auditItemScore, auditPasses, auditPct, type AuditPerson } from './auditScore';
 
 export type { AnswerVerdict };
 
 type Scorable = Pick<
   ChecklistInstanceItem,
   'itemType' | 'isDone' | 'isNotApplicable' | 'sendBackCount' | 'booleanAnswer' | 'textValue' | 'numericValue' | 'acceptableAnswers' | 'acceptableMin' | 'acceptableMax'
-> & { isCritical?: boolean; waivedAt?: string | null; waiveReason?: string | null };
+> & { isCritical?: boolean; waivedAt?: string | null; waiveReason?: string | null; submissions?: readonly AuditPerson[] };
+
+const auditScoreOf = (item: Scorable): number | null => (item.itemType === 'AUDIT' ? auditItemScore(item.submissions) : null);
 
 export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
   if (item.isNotApplicable) return null;
   if (item.waivedAt) return null;
   if (item.sendBackCount > 0) return 'bad';
   if (!item.isDone) return null;
+  if (item.itemType === 'AUDIT') {
+    const score = auditScoreOf(item);
+    return score === null ? null : auditPasses(score) ? 'good' : 'bad';
+  }
   const accepted = item.acceptableAnswers ?? [];
   const kind = modelOf(item.itemType).scoring;
   if (kind === 'boolean') {
@@ -40,6 +47,10 @@ export const complianceReason = (item: Scorable): string | null => {
   if (item.isNotApplicable || item.waivedAt) return null;
   if (item.sendBackCount > 0) return item.isDone ? 'Sent back by the reviewer earlier, so it still counts against compliance.' : null;
   if (answerVerdict(item) !== 'bad') return null;
+  if (item.itemType === 'AUDIT') {
+    const score = auditScoreOf(item);
+    return score === null ? null : `Counts against compliance. The audit scored ${auditPct(score)}%, below the ${AUDIT_PASS_PCT}% pass line.`;
+  }
   const accepted = item.acceptableAnswers ?? [];
   if (modelOf(item.itemType).scoring === 'range') {
     const { acceptableMin: min, acceptableMax: max } = item;
@@ -54,8 +65,15 @@ export const complianceReason = (item: Scorable): string | null => {
 export const waiveNotice = (item: Scorable): string | null =>
   item.waivedAt ? `Waived by a reviewer, so it does not count against compliance.${item.waiveReason ? ` Reason: ${item.waiveReason}` : ''}` : null;
 
-export const countsAgainstCompliance = (item: Scorable): boolean =>
-  !item.isNotApplicable && !item.waivedAt && (item.sendBackCount > 0 || answerVerdict(item) === 'bad');
+export const countsAgainstCompliance = (item: Scorable): boolean => {
+  if (item.isNotApplicable || item.waivedAt) return false;
+  if (item.sendBackCount > 0) return true;
+  if (item.itemType === 'AUDIT') {
+    const score = item.isDone ? auditScoreOf(item) : null;
+    return score !== null && score < 1;
+  }
+  return answerVerdict(item) === 'bad';
+};
 
 export type RunScores = {
   done: number;
@@ -85,7 +103,12 @@ export const runScores = (items: Scorable[]): RunScores => {
       const weight = item.isCritical ? 2 : 1;
       scored += 1;
       weightedScored += weight;
-      if (verdict === 'good') {
+      const auditScore = item.sendBackCount === 0 ? auditScoreOf(item) : null;
+      if (auditScore !== null) {
+        weightedGood += weight * auditScore;
+        if (verdict === 'good') good += 1;
+        else if (item.isCritical) criticalFailed += 1;
+      } else if (verdict === 'good') {
         good += 1;
         weightedGood += weight;
       } else if (item.isCritical) {

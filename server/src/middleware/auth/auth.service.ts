@@ -13,6 +13,7 @@ import { adminCodeRequired, isTrustedDevice, issueLoginCode, maskEmail, readChal
 import { passwordChangeStamp } from './auth.js';
 import { auditService } from '../../modules/audit/audit.service.js';
 import { mapDuplicateUserError } from '../../modules/users/dbErrors.js';
+import { assignEmployeeId } from '../../modules/users/employeeId.js';
 import { disconnectUserSockets } from '../../sockets/socket.js';
 import { invalidateAuthUsers } from './authCache.js';
 
@@ -109,6 +110,7 @@ export const authService = {
     } catch (err) {
       throw mapDuplicateUserError(err);
     }
+    await assignEmployeeId(newId).catch((err) => console.error('Employee ID could not be assigned at sign-up:', err));
     const user: UserRow = {
       id: newId, email, passwordHash, role,
       firstName: input.firstName, departmentId: null, storeId: null, isActive: true,

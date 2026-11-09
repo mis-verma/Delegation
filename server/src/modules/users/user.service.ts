@@ -26,6 +26,7 @@ import { userOffboardingService } from "./userOffboarding.service.js";
 import { notificationService, notifySafely } from "../notifications/notification.service.js";
 import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
+import { assignEmployeeId } from "./employeeId.js";
 
 export { assertCanDeactivate, revokeSessions };
 
@@ -55,6 +56,7 @@ const publicUserColumns = {
     avatarUrl: users.avatarUrl,
     weekOffDays: users.weekOffDays,
     deactivatedAt: users.deactivatedAt,
+    employeeId: users.employeeId,
     mustChangePassword: users.mustChangePassword,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
@@ -67,7 +69,7 @@ const getSafeById = async (id: string) => {
 
 const userSnapshot = (u: {
     email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
-    phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
+    phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null; employeeId?: string | null;
 }) => ({
     email: u.email,
     role: u.role,
@@ -82,6 +84,7 @@ const userSnapshot = (u: {
     storeId: u.storeId,
     weekOffDays: u.weekOffDays,
     rank: u.rank ?? null,
+    employeeId: u.employeeId ?? null,
 });
 
 const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined) =>
@@ -203,6 +206,7 @@ export const userService = {
         } catch (err) {
             throw mapDuplicateUserError(err);
         }
+        await assignEmployeeId(id);
 
         const user = await getSafeById(id);
         assertFound(user);
@@ -218,9 +222,18 @@ export const userService = {
         return user;
     },
 
-    async update(id: string, input: UpdateUserInput, actorId: string) {
+    async update(id: string, input: UpdateUserInput, actorId: string, actorRole?: string) {
         const before = await getSafeById(id);
         assertFound(before);
+
+        const nextEmployeeId = input.employeeId !== undefined ? input.employeeId.trim().toUpperCase() : undefined;
+        const employeeIdChanged = nextEmployeeId !== undefined && nextEmployeeId !== before.employeeId;
+        if (employeeIdChanged) {
+            if (actorRole !== 'ADMIN') throw AppError.forbidden("Only an admin can change an employee ID.");
+            const [owner] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users)
+                .where(and(eq(users.employeeId, nextEmployeeId), ne(users.id, id))).limit(1);
+            if (owner) throw AppError.conflict(`Employee ID ${nextEmployeeId} already belongs to ${[owner.firstName, owner.lastName].filter(Boolean).join(' ')}.`);
+        }
 
         const newRole = input.role ?? before.role;
         const roleChanged = newRole !== before.role;
@@ -255,6 +268,7 @@ export const userService = {
         if (input.weekOffDays !== undefined) set.weekOffDays = input.weekOffDays;
         if (input.phone !== undefined) set.phone = input.phone;
         if (input.isActive !== undefined) set.isActive = input.isActive;
+        if (employeeIdChanged) set.employeeId = nextEmployeeId;
         if (roleChanged) {
             set.role = newRole;
             set.rank = deriveDefaultRank(newRole, input.rank);

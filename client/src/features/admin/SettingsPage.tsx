@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, type LucideIcon } from 'lucide-react';
+import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, IdCard, type LucideIcon } from 'lucide-react';
 import { useBlocker } from 'react-router';
 import { Input, Button, Skeleton, PageHeader, Textarea, Switch, BrandLogo, InlineError, useConfirm } from '../../components';
 import { Loader } from '../../components/loaders';
@@ -35,6 +35,8 @@ const settingsSchema = z.object({
   checklistAuditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   notificationRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   inboundMessageRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
+  autoCloseDays: z.number().int().min(0, 'Use 0 to turn it off').max(30, 'Must be 30 days or less'),
+  employeeIdPrefix: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, 'Use 1 to 12 letters or numbers'),
   androidAppUrl: z.string().trim().max(500).refine((v) => !v || /^https:\/\/\S+$/.test(v), 'Paste a full link starting with https://'),
   iosAppUrl: z.string().trim().max(500).refine((v) => !v || /^https:\/\/\S+$/.test(v), 'Paste a full link starting with https://'),
 });
@@ -343,8 +345,32 @@ export const SettingsPage = () => {
                   </div>
                 )}
               />
+
+              <Input
+                id="autoCloseDays"
+                label="Close waiting approvals after"
+                type="number"
+                step="1"
+                suffix={<span className="t-meta text-text-light">days</span>}
+                error={errors.autoCloseDays?.message}
+                {...register('autoCloseDays', { valueAsNumber: true })}
+              />
+              <p className="t-meta text-text-muted">A ticket or delegation that was handed in and nobody approved closes by itself after this many days. Set 0 to turn it off.</p>
               </AdminOnly>
             </SettingsCard>
+
+            <AdminOnly show={isAdmin}>
+            <SettingsCard icon={IdCard} title="Employee IDs" hint="Every person gets an ID like EMP-0001 when they are added. Changing the prefix only applies to people added after the change. Existing IDs stay as they are.">
+              <Input
+                id="employeeIdPrefix"
+                label="ID prefix"
+                placeholder="EMP"
+                autoComplete="off"
+                error={errors.employeeIdPrefix?.message}
+                {...register('employeeIdPrefix', { setValueAs: (v: string) => (typeof v === 'string' ? v.trim().toUpperCase() : v) })}
+              />
+            </SettingsCard>
+            </AdminOnly>
 
             <AdminOnly show={isAdmin}>
             <SettingsCard icon={Database} title="Data retention" hint="How long each type of record is kept before a nightly sweep deletes it. Set any of these to 0 to keep that record forever, the right choice if you must retain audit history indefinitely.">

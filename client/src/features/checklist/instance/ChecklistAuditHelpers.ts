@@ -12,6 +12,7 @@ export interface AuditPerson {
   store:  string | null;
   status: AuditStatus;
   dressType: string | null;
+  score: number | null;
 }
 
 export const auditStatus = (s: ChecklistInstanceItemSubmission): AuditStatus => {

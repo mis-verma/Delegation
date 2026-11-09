@@ -15,6 +15,8 @@ export const ADMIN_ONLY_SETTINGS = [
     "checklistAuditRetentionDays",
     "notificationRetentionDays",
     "inboundMessageRetentionDays",
+    "autoCloseDays",
+    "employeeIdPrefix",
 ] as const
 
 export const adminOnlySettingsIn = (body: unknown): string[] => {

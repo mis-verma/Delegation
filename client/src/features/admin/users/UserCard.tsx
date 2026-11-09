@@ -79,6 +79,7 @@ const UserCardComponent = ({
                 {name}
               </button>
             </h3>
+            {user.employeeId && <p className="t-meta font-display font-semibold text-text-secondary tabular-nums">{user.employeeId}</p>}
             <p className="t-meta font-display text-text-muted truncate" title={user.email}>{user.email}</p>
           </div>
         </div>

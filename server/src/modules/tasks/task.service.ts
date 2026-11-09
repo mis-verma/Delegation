@@ -514,6 +514,7 @@ export const taskService = {
             update.verifiedBy = null;
             update.verifiedAt = null;
             update.verificationNote = null;
+            update.autoClosedAt = null;
         }
 
         const nextDepartmentId = rest.departmentId !== undefined ? rest.departmentId : existing.departmentId;
@@ -1013,6 +1014,7 @@ export const taskService = {
                 verifiedBy: null,
                 verifiedAt: null,
                 verificationNote: null,
+                autoClosedAt: null,
                 reminderSentAt: null,
                 overdueNotifiedAt: null,
                 overdueEscalatedAt: null,

@@ -16,6 +16,8 @@ const ADMIN_ONLY_SETTINGS = [
     "maxUploadSizeMb",
     "maxUploadFiles",
     "allowedImageTypes",
+    "autoCloseDays",
+    "employeeIdPrefix",
 ] as const
 
 export const settingsController = {

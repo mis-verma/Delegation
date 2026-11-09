@@ -451,12 +451,14 @@ export const assertCanVerify = async (assigneeDepartmentIds: Set<string>, review
     throw AppError.forbidden()
 }
 
-export const countsAgainstCompliance = (item: typeof checklistInstanceItems.$inferSelect): boolean => {
+export const countsAgainstCompliance = (item: typeof checklistInstanceItems.$inferSelect, auditScore: number | null = null): boolean => {
     if (item.isNotApplicable) return false
     if (item.sendBackCount > 0) return true
     if (!item.isDone) return false
     const accepted = item.acceptableAnswers ?? []
     switch (item.itemType) {
+        case "AUDIT":
+            return auditScore !== null && auditScore < 1
         case "YES_NO":
         case "PASS_FAIL":
             return accepted.length > 0 && item.booleanAnswer != null && !accepted.includes(item.booleanAnswer)

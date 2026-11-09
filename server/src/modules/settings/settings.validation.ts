@@ -21,6 +21,8 @@ export const updateSettingsSchema = z.object({
     checklistAuditRetentionDays : z.number().int().min(0).max(3650).optional(),
     notificationRetentionDays : z.number().int().min(0).max(3650).optional(),
     inboundMessageRetentionDays : z.number().int().min(0).max(3650).optional(),
+    autoCloseDays : z.number().int().min(0).max(30).optional(),
+    employeeIdPrefix : z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,12}$/, "Use 1 to 12 letters or numbers.").optional(),
 })
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>

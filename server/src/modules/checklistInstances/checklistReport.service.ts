@@ -20,6 +20,7 @@ import { AppError } from "../../utils/AppError.js"
 import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.js"
 import { isRankable, pooledCompliancePct, round1 } from "../scores/scoreFormulas.js"
 import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
+import { auditFractionSql, auditPassSql } from "./auditScore.js"
 
 const ROUND = (n: number, d: number) => (d ? round1((n / d) * 100) : null)
 
@@ -45,9 +46,15 @@ const RULE_OK = sql`(CASE
     ELSE (cii.acceptableMin IS NULL OR cii.numericValue >= cii.acceptableMin) AND (cii.acceptableMax IS NULL OR cii.numericValue <= cii.acceptableMax)
 END)`
 
+const AUDIT_FRACTION = auditFractionSql(sql`cii.id`)
+const AUDIT_SCORED = sql`(CASE WHEN cii.itemType = 'AUDIT' AND ${ANSWERED} AND cii.waivedAt IS NULL THEN ${AUDIT_FRACTION} IS NOT NULL ELSE 0 END)`
+const AUDIT_UNSENT = sql`(${AUDIT_SCORED} AND cii.sendBackCount = 0)`
+
 const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0 AND cii.waivedAt IS NULL)`
-const SCORED = sql`(${RULE_SCORED} OR ${SENT_BACK})`
-const GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
+const SCORED = sql`(${RULE_SCORED} OR ${AUDIT_SCORED} OR ${SENT_BACK})`
+const RULE_GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
+const GOOD = sql`(${RULE_GOOD} OR (${AUDIT_UNSENT} AND ${auditPassSql(AUDIT_FRACTION)}))`
+const GOOD_VALUE = sql`(CASE WHEN ${RULE_GOOD} THEN 1 WHEN ${AUDIT_UNSENT} THEN ${AUDIT_FRACTION} ELSE 0 END)`
 const WEIGHT = sql`(CASE WHEN cii.isCritical = 1 THEN 2 ELSE 1 END)`
 
 const ITEM_PHOTO_COUNT = sql`(
@@ -123,7 +130,7 @@ const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string, perDepa
         SUM(CASE WHEN ${SCORED} THEN 1 ELSE 0 END) AS scoredItems,
         SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems,
         SUM(CASE WHEN ${SCORED}${creditFilter(creditDepartmentId, perDepartment)} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
-        SUM(CASE WHEN ${GOOD}${creditFilter(creditDepartmentId, perDepartment)} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
+        SUM(CASE WHEN ${SCORED}${creditFilter(creditDepartmentId, perDepartment)} THEN ${WEIGHT} * ${GOOD_VALUE} ELSE 0 END) AS weightedGoodItems
     FROM ${checklistInstances} ci
     JOIN ${checklistInstanceItems} cii ON cii.instanceId = ci.id
     ${perDepartment ? sql`JOIN (

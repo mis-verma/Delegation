@@ -19,6 +19,6 @@ export const TaskApprovalTrail = ({ task }: { task: Task }) => (
     hodName={name(task.hodApprover)}
     hodProgress={headProgress(task)}
     finalAt={task.verifiedAt}
-    finalName={name(task.verifier)}
+    finalName={task.autoClosedAt ? 'Closed automatically' : name(task.verifier)}
   />
 );

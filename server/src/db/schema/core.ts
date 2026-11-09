@@ -128,6 +128,7 @@ export const users = mysqlTable(
     passwordChangedAt: datetime('passwordChangedAt', { mode: 'date' }),
     mustChangePassword: boolean('mustChangePassword').notNull().default(false),
     deactivatedAt: datetime('deactivatedAt', { mode: 'date' }),
+    employeeId: varchar('employeeId', { length: 32 }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -135,6 +136,7 @@ export const users = mysqlTable(
     index('User_role_isActive_idx').on(table.role, table.isActive),
     uniqueIndex('User_email_key').on(table.email),
     uniqueIndex('User_phone_key').on(table.phone),
+    uniqueIndex('User_employeeId_key').on(table.employeeId),
   ],
 );
 
@@ -231,6 +233,9 @@ export const settings = mysqlTable('Settings', {
   checklistAuditRetentionDays: int('checklistAuditRetentionDays').notNull().default(0),
   notificationRetentionDays: int('notificationRetentionDays').notNull().default(90),
   inboundMessageRetentionDays: int('inboundMessageRetentionDays').notNull().default(7),
+  autoCloseDays: int('autoCloseDays').notNull().default(3),
+  employeeIdPrefix: varchar('employeeIdPrefix', { length: 16 }).notNull().default('EMP'),
+  employeeIdNext: int('employeeIdNext').notNull().default(1),
   createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
 });

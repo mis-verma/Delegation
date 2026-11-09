@@ -71,7 +71,7 @@ export const userController = {
 
     update : asyncHandler(async (req : Request , res : Response) => {
         const input = updateUserSchema.parse(req.body);
-        const user = await userService.update(routeParam(req, "id") , input , req.user!.sub);
+        const user = await userService.update(routeParam(req, "id") , input , req.user!.sub, req.user!.role);
         res.json({ success : true , data : user})
     }),
 

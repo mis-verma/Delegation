@@ -107,8 +107,8 @@ export const UserToolbar = ({
         <SearchField
           value={searchText}
           onChange={onSearchText}
-          label="Search people by name, email or phone"
-          placeholder="Search name, email or phone"
+          label="Search people by name, email, phone or employee ID"
+          placeholder="Search name, email, phone or ID"
           className="basis-40 sm:basis-64 sm:max-w-sm"
         />
 
