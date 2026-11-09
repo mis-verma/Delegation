@@ -1,5 +1,5 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, Camera, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { Switch } from '../../../components/switch';
@@ -7,6 +7,7 @@ import { RetakePhotoPanel } from './RetakePhotoPanel';
 import { itemFlags, photoBreakdown } from './reviewFlags';
 import { PreviousAnswerPanel } from './PreviousAnswerPanel';
 import { PhotoThumbs } from '../../verification/PhotoThumbs';
+import { itemProblems } from '../../verification/correctionItems';
 import { hasItemReason, orderedItemReasons, toggleItemReason } from './sendBackNote';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
@@ -103,10 +104,15 @@ export interface DetailItemRowProps {
   onNoteChange?: (itemId: string, note: string) => void;
   photoOnly?: boolean;
   onTogglePhotoOnly?: (itemId: string) => void;
+  looksRight?: boolean;
+  onToggleLooksRight?: (itemId: string) => void;
 }
 
+const DECISION_PILL =
+  'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 sm:pointer-coarse:min-h-11';
+
 export const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
@@ -116,20 +122,14 @@ export const DetailItemRow = memo(({
   const hasPhotos = item.itemType !== 'AUDIT' && (item.requiredImageCount > 0 || (item.images ?? []).some((i) => i.purpose === 'GENERAL'));
   const retaking = !!item.sendBackPhotoOnly && !item.isDone && canEdit;
   const showPhotoRule = item.requiredImageCount > 0 && !item.isNotApplicable && (!canEdit || item.isDone);
-  const suggestedReasons = [
-    ...(flags.notLive ? ['Not live'] : []),
-    ...(flags.reusedPhoto ? ['Old photo'] : []),
-    ...(flags.oldPhoto ? ['Old photo'] : []),
-    ...(flags.weakPhoto ? ['Weak photo'] : []),
-    ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []),
-    ...(flags.bad ? ['Answer not matching'] : []),
-  ];
+  const suggestedReasons = itemProblems(item);
+  const showPickedPanel = selecting && picked && !!onNoteChange;
   return (
     <>
       {showHeader && (
         <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-3'}`}>
           <Layers size={14} className="text-text-muted shrink-0" aria-hidden />
-          <h2 className="t-section font-semibold text-text">
+          <h2 className="t-section font-display font-bold text-text">
             {item.section ?? 'Ungrouped'}
           </h2>
           {sectionCount && (
@@ -140,11 +140,11 @@ export const DetailItemRow = memo(({
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className="flex flex-col gap-1.5 scroll-mt-28 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className="flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
-            <span className="truncate">{item.section}</span>
+            <span className="line-clamp-2 break-words">{item.section}</span>
           </span>
         )}
         {item.referenceImageUrl && !item.isNotApplicable && (
@@ -216,15 +216,33 @@ export const DetailItemRow = memo(({
           </div>
           {(selecting || canRaiseTicket || item.reviewTicketId) && (
             <div className="flex items-center justify-between gap-2 border-t border-border/50 px-3 py-1.5 sm:px-4">
-              {selecting ? (
+              {selecting && onToggleLooksRight ? (
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Your check of: ${item.label}`}>
+                  <button
+                    type="button"
+                    aria-pressed={looksRight}
+                    onClick={() => onToggleLooksRight(item.id)}
+                    className={cn(DECISION_PILL, looksRight ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
+                  >
+                    <Check size={13} strokeWidth={2.75} aria-hidden />
+                    Looks right
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={picked}
+                    onClick={() => onTogglePicked(item.id)}
+                    className={cn(DECISION_PILL, picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
+                  >
+                    <CornerUpLeft size={13} strokeWidth={2.5} aria-hidden />
+                    {picked ? 'Sending back' : 'Send back'}
+                  </button>
+                </div>
+              ) : selecting ? (
                 <button
                   type="button"
                   aria-pressed={picked}
                   onClick={() => onTogglePicked(item.id)}
-                  className={cn(
-                    'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8',
-                    picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text',
-                  )}
+                  className={cn(DECISION_PILL, picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
                 >
                   {picked ? 'Sending back' : 'Send back'}
                 </button>
@@ -232,10 +250,19 @@ export const DetailItemRow = memo(({
               {(canRaiseTicket || item.reviewTicketId) && <RaiseTicketAction item={item} canRaise={canRaiseTicket} />}
             </div>
           )}
-          {selecting && picked && onNoteChange && (
+          {selecting && onNoteChange && (
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
+                showPickedPanel ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+              )}
+              inert={!showPickedPanel}
+              aria-hidden={!showPickedPanel}
+            >
+            <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col gap-2 border-t border-border/50 px-3 py-2.5 sm:px-4">
               {hasPhotos && onTogglePhotoOnly && (
-                <label htmlFor={`photo-only-${item.id}`} className="flex min-h-11 cursor-pointer items-center justify-between gap-3 sm:min-h-9">
+                <label htmlFor={`photo-only-${item.id}`} className="flex min-h-11 cursor-pointer items-center justify-between gap-3 sm:min-h-9 sm:pointer-coarse:min-h-11">
                   <span className="flex min-w-0 flex-col">
                     <span className="t-card font-display font-semibold text-text">New photo only</span>
                     <span className="t-meta text-text-muted">The answer stays. The team only retakes the photo.</span>
@@ -243,7 +270,7 @@ export const DetailItemRow = memo(({
                   <Switch id={`photo-only-${item.id}`} checked={photoOnly} onChange={() => onTogglePhotoOnly(item.id)} />
                 </label>
               )}
-              <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
+              <div className="flex flex-wrap gap-2" role="group" aria-label={`Reasons for: ${item.label}`}>
                 {orderedItemReasons(suggestedReasons).map((option) => (
                   <ToggleChip key={option} on={hasItemReason(note, option)} onClick={() => onNoteChange(item.id, toggleItemReason(note, option, QUESTION_NOTE_MAX))}>
                     {option}
@@ -257,8 +284,10 @@ export const DetailItemRow = memo(({
                 onChange={(e) => onNoteChange(item.id, e.target.value)}
                 placeholder="Note for this question (optional)"
                 aria-label={`Note for: ${item.label}`}
-                className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
+                className="w-full h-11 sm:h-9 sm:pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30"
               />
+            </div>
+            </div>
             </div>
           )}
         </div>

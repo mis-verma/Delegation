@@ -238,11 +238,24 @@ export const itemPrevious = async (id: string, itemId: string, user: AccessToken
     }
 }
 
+const runLabels = async (storeId: string | null, assigneeIds: string[]) => {
+    const [storeRows, peopleRows] = await Promise.all([
+        storeId ? db.select({ name: stores.name }).from(stores).where(eq(stores.id, storeId)).limit(1) : Promise.resolve([]),
+        assigneeIds.length
+            ? db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, assigneeIds)).orderBy(asc(users.firstName))
+            : Promise.resolve([]),
+    ])
+    return {
+        storeName: storeRows[0]?.name ?? null,
+        assigneeNames: peopleRows.map((u) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ""}`),
+    }
+}
+
 export const getById = async (id: string, user: AccessTokenPayload) => {
     const instance = await getPopulatedInstanceById(id)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     await assertCanView(instance, user)
-    return instance
+    return { ...instance, ...(await runLabels(instance.storeId, instance.assigneeIds)) }
 }
 
 export const listPendingVerification = async (user: AccessTokenPayload, page?: number, limit?: number) => {

@@ -45,6 +45,8 @@ const personName = (submission: ChecklistInstanceItemSubmission) => {
 
 const firstName = (submission: ChecklistInstanceItemSubmission) => submission.userId?.firstName?.trim() || 'person';
 
+const PANEL_SCROLL_OFFSET_PX = 112;
+
 export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceItemAuditCard({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) {
   const peopleLabelId = useId();
   const { data: stores } = useStoresQuery();
@@ -75,7 +77,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
     const el = detailRef.current;
-    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' });
+    if (el && el.getBoundingClientRect().top < PANEL_SCROLL_OFFSET_PX) el.scrollIntoView({ block: 'start' });
   }, [selectedKey]);
 
   const people: AuditPerson[] = submissions.map(s => ({
@@ -107,13 +109,13 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
           <div
             role="group"
             aria-labelledby={peopleLabelId}
-            className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]"
+            className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-10rem)]"
           >
             <p id={peopleLabelId} className="t-meta font-semibold text-text-secondary">People</p>
             <AuditPeopleList people={people} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
           </div>
 
-          <div ref={detailRef} className="min-w-0 scroll-mt-3 lg:pl-5 lg:border-l lg:border-border/60">
+          <div ref={detailRef} className="min-w-0 scroll-mt-28 lg:pl-5 lg:border-l lg:border-border/60">
             {selected && (
               <SubmissionPanel
                 key={selected.id}
@@ -135,7 +137,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
 });
 
 const AuditProgress = ({ done, total }: { done: number; total: number }) => (
-  <div className="flex items-center gap-2.5">
+  <div className="flex items-center gap-2">
     <ChecklistProgressBar done={done} total={total} bare thin className="w-full max-w-48" />
     <span className="t-meta text-text-muted tabular-nums whitespace-nowrap">{done} of {total} checked</span>
   </div>
@@ -145,21 +147,21 @@ export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }:
   name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;
 }) => {
   const className = cn(
-    'inline-flex items-center gap-2 h-11 sm:h-9 pl-2.5 pr-3.5 rounded-lg border text-sm sm:text-xs font-medium select-none',
+    'inline-flex items-center gap-2 h-11 sm:h-9 pointer-coarse:h-11 pl-2.5 pr-3.5 rounded-lg border t-meta font-medium select-none',
     'transition-[background-color,border-color,color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
     checked
       ? 'border-success/50 bg-success/10 dark:bg-success/15 text-text'
       : missing
         ? 'border-danger/30 bg-surface text-text-secondary'
         : 'border-border/60 bg-surface text-text-secondary',
-    interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]',
+    interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]',
     interactive && !checked && 'hover:border-border-hover hover:bg-surface-hover',
   );
   const box = (
     <span
       aria-hidden
       className={cn(
-        'flex items-center justify-center size-[18px] rounded-[5px] border shrink-0 transition-colors duration-150',
+        'flex items-center justify-center size-4.5 rounded-sm border shrink-0 transition-colors duration-150',
         checked ? 'bg-success border-success text-white' : missing ? 'border-danger/40 text-danger' : 'border-border-hover bg-surface',
       )}
     >
@@ -305,7 +307,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         ? `${unticked} not ticked. Those will be recorded as missing.`
         : '';
 
-  const actionBar = 'sticky z-10 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 lg:static flex flex-col gap-2 bg-surface -mx-3.5 px-3.5 sm:-mx-4 sm:px-4 lg:mx-0 lg:px-0 py-3 border-t border-border/60 lg:border-t-0 lg:py-0';
+  const actionBar = 'sticky z-10 bottom-[calc(4rem+env(safe-area-inset-bottom))] [:root[data-keyboard=open]_&]:bottom-0 md:bottom-0 lg:static flex flex-col gap-2 bg-surface -mx-3.5 px-3.5 sm:-mx-4 sm:px-4 lg:mx-0 lg:px-0 py-3 border-t border-border/60 lg:border-t-0 lg:py-0';
 
   return (
     <section
@@ -315,12 +317,12 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       <div className="flex items-center gap-3 min-h-11">
         <AuditAvatar name={name} size="panel" status={status} />
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <p className="text-sm font-semibold leading-snug text-text break-words">
+          <p className="t-card font-display font-semibold leading-snug text-text break-words">
             {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {uniform && !typeShownInPicker && <AuditUniformChip label={uniform} />}
-            {storeName && <span className="t-meta text-text-muted truncate">{storeName}</span>}
+            {storeName && <span className="t-meta text-text-muted line-clamp-2 leading-snug">{storeName}</span>}
             {submission.isDone && isNa ? (
               <Badge variant="neutral">
                 <Ban strokeWidth={2.5} aria-hidden />
@@ -441,6 +443,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             labelClassName="sr-only"
             value={remarksDraft}
             onChange={e => setRemarksDraft(e.target.value)}
+            onBlur={() => { if (remarksDirty && !updateRemarks.isPending && !setDone.isPending) saveRemarks(); }}
             placeholder="Were they present today? Note anything missing or out of place…"
             rows={3}
             className="min-h-[5.5rem] px-3 py-2.5 rounded-lg text-base resize-y"
@@ -449,18 +452,18 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       ) : submission.remarks ? (
         <div className="flex flex-col gap-1 max-w-2xl">
           <p className="t-meta font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
-          <p className="t-card sm:text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
+          <p className="t-card text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
         </div>
       ) : null}
 
       {editable && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border-hover px-3 py-2.5">
-          <p className="text-sm sm:text-xs text-text-muted">Absent or on leave? You can skip this person.</p>
+          <p className="t-meta text-text-muted">Absent or on leave? You can skip this person.</p>
           <Button
             variant="outline"
             onClick={openNa}
             disabled={submitting}
-            className="w-full sm:w-auto h-11 sm:h-9 text-text-secondary"
+            className="w-full sm:w-auto h-11 sm:h-9 pointer-coarse:h-11 text-text-secondary"
           >
             <Ban size={16} aria-hidden />
             Not applicable
@@ -478,7 +481,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
               onClick={handleSubmit}
               isLoading={submitting}
               disabled={photosNeeded > 0}
-              className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-sm"
+              className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 pointer-coarse:h-12 text-sm"
             >
               Submit {firstName(submission)}
             </Button>
@@ -494,14 +497,14 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
                 variant="outline"
                 onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
                 isLoading={setDone.isPending}
-                className="w-full sm:w-auto h-12 sm:h-10"
+                className="w-full sm:w-auto h-12 sm:h-10 pointer-coarse:h-12"
               >
                 {!setDone.isPending && <RotateCcw size={16} aria-hidden />}
                 Reopen
               </Button>
             )}
             {onNext && (
-              <Button variant="primary" onClick={onNext} className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-sm">
+              <Button variant="primary" onClick={onNext} className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 pointer-coarse:h-12 text-sm">
                 Next person
               </Button>
             )}

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button, Textarea } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
+import { hasInlineNa } from './fill/inlineNa';
 
 interface ItemRemarksFieldProps {
   item: ChecklistInstanceItem;
@@ -13,7 +14,8 @@ interface ItemRemarksFieldProps {
   canEdit: boolean;
 }
 
-type Mode = 'remark' | 'na';
+export type RemarkMode = 'remark' | 'na';
+type Mode = RemarkMode;
 
 const COPY: Record<Mode, { title: string; hint: string; placeholder: string; save: string }> = {
   remark: {
@@ -44,7 +46,7 @@ interface RemarkDialogProps {
   onClose: () => void;
 }
 
-const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: RemarkDialogProps) => {
+export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: RemarkDialogProps) => {
   const [value, setValue] = useState(saved);
   const mutation = useSetChecklistInstanceItemDoneMutation(instanceId);
   const confirm = useConfirm();
@@ -129,7 +131,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
   const saved = item.remarks?.trim() ?? '';
   const missing = required && !item.isDone && !saved;
   const auditStarted = item.itemType === 'AUDIT' && item.submissions.some((s) => s.isDone);
-  const canMarkNa = canEdit && !item.isDone && !auditStarted;
+  const canMarkNa = canEdit && !item.isDone && !auditStarted && !hasInlineNa(item);
 
   if (item.isNotApplicable) return null;
   if (!canEdit && !saved) return null;
@@ -161,7 +163,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
               <button
                 type="button"
                 onClick={() => setMode('remark')}
-                className={`inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
+                className={`inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 pointer-coarse:min-h-11 px-3 rounded-full t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
                   missing
                     ? 'bg-danger/10 text-danger hover:bg-danger/15 border border-danger/25'
                     : 'bg-surface-hover/70 text-text-muted hover:text-text hover:bg-surface-hover border border-transparent'
@@ -175,7 +177,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
               <button
                 type="button"
                 onClick={() => setMode('na')}
-                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border border-border-hover t-meta font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 pointer-coarse:min-h-11 px-3 rounded-full border border-border-hover t-meta font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
               >
                 <Ban size={13} />
                 Not applicable

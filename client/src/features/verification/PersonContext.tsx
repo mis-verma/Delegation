@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useScoreExplorer } from '../scores/useScoreExplorer';
 import { formatPct } from '../../lib/percent';
+import { Skeleton } from '../../components';
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 
 const WINDOW_DAYS = 30;
@@ -23,7 +24,16 @@ export const PersonContext = ({ items }: { items: ChecklistInstanceItem[] }) => 
   const query = useScoreExplorer(canSee && ids.length > 0 ? { from: dayKey(today, WINDOW_DAYS - 1), to: today, view: 'person' } : null, canSee && ids.length > 0);
 
   const rows = useMemo(() => (query.data?.rows ?? []).filter((r) => r.kind === 'person' && ids.includes(r.id)), [query.data, ids]);
-  if (!canSee || rows.length === 0) return null;
+  if (!canSee || ids.length === 0) return null;
+  if (query.isLoading) {
+    return (
+      <section aria-label="Who filled this in" aria-busy="true" className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface-hover/30 p-3">
+        <Skeleton className="h-3.5 w-48" />
+        {ids.map((id) => <Skeleton key={id} className="h-3.5 w-full max-w-md" />)}
+      </section>
+    );
+  }
+  if (rows.length === 0) return null;
 
   return (
     <section aria-label="Who filled this in" className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 p-3">

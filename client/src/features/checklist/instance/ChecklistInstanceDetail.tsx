@@ -2,34 +2,42 @@ import { Fragment, useEffect, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowDown, ArrowLeft, CheckCheck, ShieldAlert, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldAlert, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
+  Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
 } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
+import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
+import { canWaiveRun } from './canWaive';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { PhotoReviewContext } from './photoReviewContext';
 import { DetailItemRow } from './ChecklistDetailItemRow';
-import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import {
   complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRowActivity } from '../../../lib/useRowActivity';
+import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { LateWindowBanner } from './LateWindowBanner';
+import { LateCountdownChip, LateWindowBanner } from './LateWindowBanner';
 import { isSendBackLocking } from './sendBackLock';
 import { useAuth } from '../../../context/AuthContext';
-
+import { useSubmitRun } from './fill/useSubmitRun';
+import { FillBottomBar } from './fill/FillBottomBar';
+import { FillAside } from './fill/FillAside';
+import { auditPeopleProgress, sectionKeyOf, sectionsOf, type FillProgress } from './fill/fillProgress';
 
 const NO_ITEMS: ChecklistInstanceItem[] = [];
+
+type ShowMode = 'section' | 'all' | 'left' | 'one';
+type RunLabels = { storeName?: string | null; assigneeNames?: string[] };
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
 const rowDomId = (id: string) => `item-${id}`;
@@ -42,8 +50,13 @@ const focusRow = (id: string) => {
   row.focus({ preventScroll: true });
 };
 
+const namesLine = (names: string[] | undefined) => {
+  if (!names?.length) return null;
+  return names.length <= 2 ? names.join(' and ') : `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+};
+
 const DetailSkeleton = () => (
-  <div className="flex flex-col gap-6 w-full" aria-hidden>
+  <div className="flex flex-col gap-6 w-full" role="status" aria-label="Loading checklist">
     <div className="flex items-center justify-between gap-3">
       <Skeleton className="h-8 pointer-coarse:h-11 w-20 rounded-md" />
     </div>
@@ -78,13 +91,18 @@ export const ChecklistInstanceDetail = () => {
   const { user } = useAuth();
   useRefreshOnNewDay();
   const now = useNow();
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   const draft = useReviewDraft(instanceId || null);
+  const submit = useSubmitRun(instanceId);
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
-  const [show, setShow] = useState<'all' | 'left' | 'one'>('all');
+  const [pickedShow, setShow] = useState<ShowMode | null>(null);
   const [oneIndex, setOneIndex] = useState(0);
+  const [pickedSection, setPickedSection] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set());
+  const [editAnswers, setEditAnswers] = useState(false);
   const goBackAfterDecision = () => {
     const hasHistory = typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0;
     if (hasHistory) navigate(-1);
@@ -103,7 +121,7 @@ export const ChecklistInstanceDetail = () => {
         <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
           <ClipboardX className="size-6" strokeWidth={2.25} aria-hidden />
         </span>
-        <h1 className="text-base font-display font-bold text-text">This checklist run is no longer available</h1>
+        <h1 className="t-section font-display font-bold text-text">This checklist run is no longer available</h1>
         <p className="text-sm font-display text-text-muted max-w-sm">
           It may have been part of a checklist that's since been deleted.
         </p>
@@ -124,41 +142,62 @@ export const ChecklistInstanceDetail = () => {
   }
 
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
+  const labels = instance as typeof instance & RunLabels;
   const inLateWindow = isInstanceInLateWindow(instance, isComplete, now);
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const isMissed = instance.isMissed === true || isInstanceEnded(instance, now);
   const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceClosing(instance));
-  const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
+  const canWorkRaw = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
-  const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id) && !(user.role === 'PC' && instance.coordinatorRun);
+  const canWaive = canWaiveRun(user, instance);
+  const correctionById = new Map(runCorrectionItems(instance.items).map((c) => [c.id, c]));
+  const togglePick = (id: string) => {
+    if (draft.pickedSet.has(id)) draft.togglePicked(id);
+    else draft.pickWith(id, pickDefaults(correctionById.get(id) ?? { problems: [], canPhotoOnly: false }));
+  };
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
     !(user?.role === 'PC' && instance.coordinatorRun) &&
     !!user && (user.role === 'ADMIN' || !instance.assigneeIds.includes(user.id)) && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
+  const canWork = canWorkRaw && (!canReview || editAnswers);
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
     canWork && isComplete && !notYetOpen &&
     (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
+  const resubmit = instance.verificationStatus === 'REJECTED';
   const hasSections = instance.items.some(i => i.section);
+  const sections = hasSections ? sectionsOf(instance.items, isAnswered) : [];
   const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
+  const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items) };
+  const filling = canWork && !isLocked && total > 0 && !canReview;
+  const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
+  const show: ShowMode = canReview ? 'all' : pickedShow === 'section' && !hasSections ? 'all' : pickedShow ?? autoShow;
   const lastIndex = Math.max(0, instance.items.length - 1);
   const currentIndex = Math.min(oneIndex, lastIndex);
+  const sentBackItems = instance.verificationStatus === 'REJECTED' ? instance.items.filter((i) => !i.isDone && !!i.sendBackNote) : [];
+  const defaultSectionKey = (sentBackItems[0] && sectionKeyOf(sentBackItems[0]))
+    ?? sections.find((s) => s.done < s.total)?.key
+    ?? sections[0]?.key
+    ?? '';
+  const activeSectionKey = pickedSection !== null && sections.some((s) => s.key === pickedSection) ? pickedSection : defaultSectionKey;
+  const activeSectionIndex = Math.max(0, sections.findIndex((s) => s.key === activeSectionKey));
   const reorder = canWork && !canReview && show === 'all';
   const orderedItems = (() => {
+    if (show === 'section') return instance.items;
     if (!reorder) return instance.items;
     if (!hasSections) return [...pendingItems, ...answeredItems];
     const sectionOrder: string[] = [];
     for (const i of instance.items) {
-      const key = i.section ?? '';
+      const key = sectionKeyOf(i);
       if (!sectionOrder.includes(key)) sectionOrder.push(key);
     }
-    const sectionFinished = (key: string) => !pendingItems.some((i) => (i.section ?? '') === key);
+    const sectionFinished = (key: string) => !pendingItems.some((i) => sectionKeyOf(i) === key);
     const orderedKeys = [...sectionOrder.filter((key) => !sectionFinished(key)), ...sectionOrder.filter(sectionFinished)];
     return orderedKeys.flatMap((key) => [
-      ...pendingItems.filter((i) => (i.section ?? '') === key),
-      ...answeredItems.filter((i) => (i.section ?? '') === key),
+      ...pendingItems.filter((i) => sectionKeyOf(i) === key),
+      ...answeredItems.filter((i) => sectionKeyOf(i) === key),
     ]);
   })();
   const shownItems = show === 'left'
@@ -167,21 +206,36 @@ export const ChecklistInstanceDetail = () => {
       ? instance.items.slice(currentIndex, currentIndex + 1)
       : orderedItems;
   const itemGroups = hasSections
-    ? shownItems.reduce<{ section: string | null; items: typeof shownItems }[]>((groups, item) => {
-        const last = groups[groups.length - 1];
-        if (last && last.section === (item.section ?? null)) last.items.push(item);
-        else groups.push({ section: item.section ?? null, items: [item] });
-        return groups;
-      }, [])
+    ? show === 'section'
+      ? sections.map((s) => ({ section: s.key === '' ? null : s.key, items: shownItems.filter((i) => sectionKeyOf(i) === s.key) }))
+      : shownItems.reduce<{ section: string | null; items: typeof shownItems }[]>((groups, item) => {
+          const last = groups[groups.length - 1];
+          if (last && last.section === (item.section ?? null)) last.items.push(item);
+          else groups.push({ section: item.section ?? null, items: [item] });
+          return groups;
+        }, [])
     : [{ section: null as string | null, items: shownItems }];
-  const sectionCounts = new Map<string, { done: number; total: number }>();
-  for (const i of instance.items) {
-    const key = i.section ?? '';
-    const c = sectionCounts.get(key) ?? { done: 0, total: 0 };
-    c.total += 1;
-    if (answered(i)) c.done += 1;
-    sectionCounts.set(key, c);
-  }
+  const sectionCounts = new Map(sections.map((s) => [s.key, s]));
+  const isCollapsed = (key: string, items: ChecklistInstanceItem[]) => {
+    if (show !== 'all' || canReview || openSections.has(key)) return false;
+    const counts = sectionCounts.get(key);
+    return !!counts && counts.done === counts.total && !items.some((i) => settling.has(i.id));
+  };
+  const toggleSection = (key: string) => setOpenSections((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const pickSection = (key: string) => {
+    if (show === 'section') {
+      setPickedSection(key);
+      requestAnimationFrame(() => document.getElementById(`section-${key || 'none'}`)?.scrollIntoView({ block: 'start' }));
+      return;
+    }
+    if (show !== 'all') setShow('all');
+    setOpenSections((prev) => new Set([...prev, key]));
+    requestAnimationFrame(() => document.getElementById(`section-${key || 'none'}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
   const goToItem = (target: ChecklistInstanceItem) => {
     const move = () => requestAnimationFrame(() => focusRow(target.id));
     if (show === 'one') {
@@ -189,17 +243,30 @@ export const ChecklistInstanceDetail = () => {
       requestAnimationFrame(move);
       return;
     }
+    if (show === 'section') {
+      const key = sectionKeyOf(target);
+      if (key !== activeSectionKey) {
+        setPickedSection(key);
+        requestAnimationFrame(move);
+        return;
+      }
+      move();
+      return;
+    }
+    const key = sectionKeyOf(target);
+    const collapsed = hasSections && isCollapsed(key, instance.items.filter((i) => sectionKeyOf(i) === key));
+    if (collapsed) setOpenSections((prev) => new Set([...prev, key]));
     const switching = show === 'left' && !shownItems.includes(target);
     if (switching) setShow('all');
     if (settling.size > 0) window.setTimeout(move, SETTLE_AND_MOVE_MS);
-    else if (switching) requestAnimationFrame(move);
+    else if (switching || collapsed) requestAnimationFrame(move);
     else move();
   };
   const goToNext = () => {
-    const next = instance.items.find((i) => !answered(i));
+    const inSection = show === 'section' ? instance.items.find((i) => !answered(i) && sectionKeyOf(i) === activeSectionKey) : undefined;
+    const next = inSection ?? instance.items.find((i) => !answered(i));
     if (next) goToItem(next);
   };
-  const sentBackItems = instance.verificationStatus === 'REJECTED' ? instance.items.filter((i) => !i.isDone && !!i.sendBackNote) : [];
   const fixByTime = instance.sentBackFixBy ? new Date(instance.sentBackFixBy).getTime() : null;
   const fixBy = fixByTime !== null && Number.isFinite(fixByTime) ? fixByTime : null;
   const sendBackDetail = (
@@ -211,7 +278,7 @@ export const ChecklistInstanceDetail = () => {
         {sentBackId && canWork && (isSendBackLocking(instance.sentBackAt, now) ? ' Your other checklists stay locked until this is fixed.' : ' Fix it soon, or your other checklists will lock.')}
       </p>
       {canWork && sentBackItems.length > 0 && (
-        <Button variant="outline" size="sm" className="shrink-0" onClick={() => goToItem(sentBackItems[0])}>
+        <Button variant="outline" size="sm" className="shrink-0 pointer-coarse:h-11" onClick={() => goToItem(sentBackItems[0])}>
           Go to first
           <ArrowDown size={14} aria-hidden />
         </Button>
@@ -226,6 +293,18 @@ export const ChecklistInstanceDetail = () => {
     (instance.verificationStatus === 'PENDING_APPROVAL' && !canReview) ||
     (instance.verificationStatus === 'APPROVED' && !!verificationNote) ||
     instance.verificationStatus === 'REJECTED';
+  const metaParts = [
+    labels.storeName,
+    namesLine(labels.assigneeNames),
+    `${RECURRENCE_LABEL[instance.recurrence]}, ${formatPeriodSpan(instance)}`,
+  ].filter(Boolean);
+  const modeOptions = hasSections ? (['section', 'all', 'left', 'one'] as const) : (['all', 'left', 'one'] as const);
+  const changeShow = (next: ShowMode) => {
+    if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i))));
+    setShow(next);
+  };
+  const lateChip = inLateWindow ? <LateCountdownChip instance={instance} now={now} /> : null;
+  const activeSection = sections[activeSectionIndex];
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -248,12 +327,10 @@ export const ChecklistInstanceDetail = () => {
         )}
       </div>
 
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-3.5 sm:gap-3 sm:p-5')}>
-        <div className="flex flex-col gap-0.5 sm:gap-1">
-          <h1 className="text-lg font-semibold leading-snug text-text sm:text-[2rem] sm:leading-tight">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="truncate text-sm text-text-muted sm:whitespace-normal sm:text-[1.0625rem]">
-            {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
-          </p>
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-5')}>
+        <div className="flex flex-col gap-1">
+          <h1 className="t-title font-display font-bold leading-snug text-text break-words">{instance.title.replace(/\.\s*$/, '')}</h1>
+          <p className="t-meta font-display text-text-muted line-clamp-2">{metaParts.join(' · ')}</p>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -290,12 +367,12 @@ export const ChecklistInstanceDetail = () => {
           </span>
         </div>
 
-        <div className={cn('hidden gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid', compliance !== null && 'sm:grid-cols-2')}>
+        <div className={cn('hidden gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid lg:hidden', compliance !== null && 'sm:grid-cols-2')}>
           {compliance !== null && (
             <div className="flex flex-col gap-1.5 bg-surface p-4">
               <span className="t-meta font-display font-semibold text-text-muted">Compliance</span>
               <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 tabular-nums">
-                <span className={`text-3xl font-display font-bold leading-none ${complianceToneClass(compliance)}`}>{compliance}%</span>
+                <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
                 <span className="t-meta font-medium text-text-secondary">{good} of {scored} answered well</span>
               </span>
               <ChecklistProgressBar done={good} total={scored} tone="auto" bare />
@@ -304,12 +381,36 @@ export const ChecklistInstanceDetail = () => {
           <div className="flex flex-col gap-1.5 bg-surface p-4">
             <span className="t-meta font-display font-semibold text-text-muted">Completion</span>
             <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 tabular-nums">
-              <span className={`text-3xl font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
+              <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
               <span className="t-meta font-medium text-text-secondary">{done} of {total} done</span>
             </span>
             <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
           </div>
         </div>
+
+        {filling && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+            <span className="t-meta font-display font-semibold text-text-muted">Show</span>
+            <PeriodTabControl
+              value={show}
+              options={modeOptions}
+              labels={{ section: 'Sections', all: 'All', left: `Left ${left}`, one: 'One by one' }}
+              onChange={changeShow}
+            />
+          </div>
+        )}
+
+        {canReview && canWorkRaw && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+            <p className="t-meta font-display text-text-muted">
+              {editAnswers ? 'You are changing the answers. Changes save straight away.' : 'Answers are read-only while you review.'}
+            </p>
+            <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => setEditAnswers((v) => !v)} aria-pressed={editAnswers}>
+              {editAnswers ? <Eye size={13} aria-hidden /> : <Pencil size={13} aria-hidden />}
+              {editAnswers ? 'Done editing' : 'Edit answers'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {showBanners && (
@@ -369,111 +470,184 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      {canWork && !isLocked && total > 0 && (
-        <div className="sticky top-0 z-20 -mt-3">
-          <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 bg-surface px-3 py-2.5 sm:px-4')}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="t-card font-display font-semibold text-text tabular-nums">
-                {left === 0 ? (
-                  <span className="inline-flex items-center gap-1.5 text-success"><CheckCheck className="size-4" aria-hidden /> All {total} done{canSubmit ? '. Submit it below.' : ''}</span>
-                ) : (
-                  <>
-                    <span className="text-success">{done} done</span>
-                    <span className="text-text-light"> · </span>
-                    <span className={overdue ? 'text-danger' : 'text-text'}>{left} left</span>
-                    <span className="t-meta font-medium text-text-muted"> of {total}</span>
-                  </>
-                )}
-              </p>
-              <div className="flex items-center gap-2">
-                {left > 0 && (
-                  <Button variant="outline" size="sm" onClick={goToNext}>
-                    Next question
-                    <ArrowDown size={14} aria-hidden />
-                  </Button>
-                )}
-                <PeriodTabControl value={show} options={['all', 'left', 'one'] as const} labels={{ all: 'All', left: `Left ${left}`, one: 'Single' }} onChange={(next) => { if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i)))); setShow(next); }} />
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-8">
+          {instance.items.length === 0 && (
+            <EmptyState
+              icon={ListTodo}
+              title="No questions in this checklist"
+              description={isAdminOrPC ? 'Add questions to the template. New runs pick them up.' : 'There is nothing to fill in here. Ask your coordinator if that looks wrong.'}
+              action={isAdminOrPC ? { label: 'Edit template', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`) } : undefined}
+            />
+          )}
+
+          {show === 'section' && activeSection && sections.length > 1 && (
+            <div className={cn(PANEL_CLASS, 'flex items-center gap-2 p-2')}>
+              <Button
+                variant="outline"
+                size="md"
+                className="size-11 shrink-0 p-0"
+                disabled={activeSectionIndex <= 0}
+                onClick={() => pickSection(sections[activeSectionIndex - 1]!.key)}
+                aria-label="Previous section"
+              >
+                <ChevronLeft size={18} aria-hidden />
+              </Button>
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 text-center">
+                <span className="t-meta font-display font-medium text-text-muted tabular-nums">Section {activeSectionIndex + 1} of {sections.length} · {activeSection.done}/{activeSection.total} done</span>
+                <span className="t-card font-display font-bold text-text line-clamp-2 leading-snug break-words">{activeSection.label}</span>
               </div>
+              <Button
+                variant={activeSection.done === activeSection.total ? 'primary' : 'outline'}
+                size="md"
+                className="size-11 shrink-0 p-0"
+                disabled={activeSectionIndex >= sections.length - 1}
+                onClick={() => pickSection(sections[activeSectionIndex + 1]!.key)}
+                aria-label="Next section"
+              >
+                <ChevronRight size={18} aria-hidden />
+              </Button>
             </div>
-            <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
-          </div>
-        </div>
-      )}
+          )}
 
-      <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instanceId } : null}>
-      <div className="flex flex-col gap-3">
-        {show === 'left' && shownItems.length === 0 && (
-          <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4')}>
-            <CheckCheck className="size-5 text-success shrink-0" aria-hidden />
-            <p className="t-card font-display font-semibold text-text">Every question is answered.{canSubmit ? ' Submit it below.' : ''}</p>
-          </div>
+          <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instanceId } : null}>
+            <div className="flex flex-col gap-3">
+              {show === 'left' && shownItems.length === 0 && (
+                <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4')}>
+                  <CheckCheck className="size-5 text-success shrink-0" aria-hidden />
+                  <p className="t-card font-display font-semibold text-text">Every question is answered.{canSubmit ? ' Submit it below.' : ''}</p>
+                </div>
+              )}
+              {itemGroups.map((group, groupIndex) => {
+                const key = group.section ?? '';
+                const rows = group.items.map((item, idx) => (
+                  <SmoothItem key={item.id} active={reorder || show === 'left'}>
+                    <DetailItemRow
+                      item={item}
+                      instanceId={instanceId}
+                      canWork={canWork}
+                      isLocked={isLocked}
+                      currentUserId={user?.id}
+                      overdue={overdue}
+                      showHeader={false}
+                      inSectionBox={hasSections}
+                      isFirst={groupIndex === 0 && idx === 0}
+                      selecting={canReview}
+                      picked={draft.pickedSet.has(item.id)}
+                      onTogglePicked={togglePick}
+                      note={draft.picked[item.id] ?? ''}
+                      onNoteChange={draft.setItemNote}
+                      photoOnly={draft.photoOnlySet.has(item.id)}
+                      onTogglePhotoOnly={draft.togglePhotoOnly}
+                      canWaive={canWaive}
+                      canRaiseTicket={canReview}
+                    />
+                  </SmoothItem>
+                ));
+                if (!hasSections) return <Fragment key="all">{rows}</Fragment>;
+                const counts = sectionCounts.get(key);
+                const finished = !!counts && counts.done === counts.total;
+                const collapsed = isCollapsed(key, group.items);
+                const inactive = show === 'section' && key !== activeSectionKey;
+                const bodyId = `section-body-${key || 'none'}-${groupIndex}`;
+                return (
+                  <section
+                    key={`${key || 'none'}-${groupIndex}`}
+                    id={groupIndex === itemGroups.findIndex((g) => (g.section ?? '') === key) ? `section-${key || 'none'}` : undefined}
+                    aria-label={group.section ?? 'Other questions'}
+                    className={cn('flex scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-transparent p-3 sm:p-4', inactive && 'hidden')}
+                  >
+                    <header className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <h2 className="min-w-0 break-words t-section font-display font-bold text-text">{group.section ?? 'Other questions'}</h2>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {counts && (
+                            <span className={cn('rounded-sm border px-2 py-0.5 t-meta font-display font-semibold tabular-nums', finished ? 'border-success/40 bg-success/10 text-success-strong' : 'border-border bg-surface text-text-secondary')}>
+                              {counts.done} / {counts.total}
+                            </span>
+                          )}
+                          {show === 'all' && finished && !canReview && (
+                            <button
+                              type="button"
+                              onClick={() => toggleSection(key)}
+                              aria-expanded={!collapsed}
+                              aria-controls={bodyId}
+                              aria-label={collapsed ? `Show ${group.section ?? 'other questions'}` : `Hide ${group.section ?? 'other questions'}`}
+                              className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-text-muted outline-none transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                            >
+                              <ChevronDown size={16} aria-hidden className={cn('transition-transform duration-200 ease-out motion-reduce:transition-none', collapsed ? '' : 'rotate-180')} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {counts && counts.total > 0 && <ChecklistProgressBar done={counts.done} total={counts.total} tone="auto" bare thin />}
+                    </header>
+                    <div id={bodyId} className={cn('flex flex-col gap-3', collapsed && 'hidden')}>
+                      {rows}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </PhotoReviewContext.Provider>
+
+          {show === 'section' && activeSection && activeSection.done === activeSection.total && activeSectionIndex < sections.length - 1 && (
+            <Button variant="primary" size="md" className="h-11 self-end font-display" onClick={() => pickSection(sections[activeSectionIndex + 1]!.key)}>
+              Next section
+              <ChevronRight size={15} aria-hidden />
+            </Button>
+          )}
+
+          {show === 'one' && instance.items.length > 1 && (
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="outline" size="md" disabled={currentIndex <= 0} onClick={() => setOneIndex(currentIndex - 1)} className="pointer-coarse:h-11">
+                <ArrowLeft size={15} aria-hidden />
+                Back
+              </Button>
+              <span className="t-meta font-display font-semibold tabular-nums text-text-secondary">Question {currentIndex + 1} of {instance.items.length}</span>
+              <Button variant="primary" size="md" disabled={currentIndex >= lastIndex} onClick={() => setOneIndex(currentIndex + 1)} className="pointer-coarse:h-11">
+                Next
+                <ArrowDown size={15} className="-rotate-90" aria-hidden />
+              </Button>
+            </div>
+          )}
+
+          {filling && (
+            <FillBottomBar
+              progress={fillProgress}
+              canSubmit={canSubmit}
+              resubmit={resubmit}
+              submit={submit}
+              onNext={left > 0 ? goToNext : undefined}
+              late={lateChip}
+            />
+          )}
+
+          {canReview && (
+            <ChecklistReviewBar instance={instance} draft={draft} onDecided={goBackAfterDecision} />
+          )}
+        </div>
+
+        {(filling || canReview) && (
+          <FillAside
+            title={canReview ? 'Review summary' : 'Your progress'}
+            progress={fillProgress}
+            completion={progress}
+            isComplete={isComplete}
+            compliance={compliance}
+            good={good}
+            scored={scored}
+            sections={sections}
+            activeSection={show === 'section' ? activeSectionKey : null}
+            onPickSection={pickSection}
+            late={lateChip}
+            canSubmit={canSubmit && !canReview}
+            resubmit={resubmit}
+            submit={submit}
+            onNext={filling && left > 0 ? goToNext : undefined}
+          />
         )}
-        {itemGroups.map((group, groupIndex) => {
-          const rows = group.items.map((item, idx) => (
-            <SmoothItem key={item.id} active={reorder || show === 'left'}>
-              <DetailItemRow
-                item={item}
-                instanceId={instanceId}
-                canWork={canWork}
-                isLocked={isLocked}
-                currentUserId={user?.id}
-                overdue={overdue}
-                showHeader={false}
-                inSectionBox={hasSections}
-                isFirst={groupIndex === 0 && idx === 0}
-                selecting={canReview}
-                picked={draft.pickedSet.has(item.id)}
-                onTogglePicked={draft.togglePicked}
-                note={draft.picked[item.id] ?? ''}
-                onNoteChange={draft.setItemNote}
-                photoOnly={draft.photoOnlySet.has(item.id)}
-                onTogglePhotoOnly={draft.togglePhotoOnly}
-                canWaive={canWaive}
-                canRaiseTicket={canReview}
-              />
-            </SmoothItem>
-          ));
-          if (!hasSections) return <Fragment key="all">{rows}</Fragment>;
-          const counts = sectionCounts.get(group.section ?? '');
-          const finished = !!counts && counts.done === counts.total;
-          return (
-            <section key={`${group.section ?? 'none'}-${groupIndex}`} aria-label={group.section ?? 'Ungrouped'} className="flex flex-col gap-3 rounded-lg border border-border bg-transparent p-3 sm:p-4">
-              <header className="flex items-center justify-between gap-3">
-                <h2 className="min-w-0 break-words t-section font-display font-bold text-text">{group.section ?? 'Ungrouped'}</h2>
-                {counts && (
-                  <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 t-meta font-display font-semibold tabular-nums', finished ? 'border-success/40 bg-success/10 text-success-strong' : 'border-border bg-surface text-text-secondary')}>
-                    {counts.done} / {counts.total} {counts.total === 1 ? 'question' : 'questions'}
-                  </span>
-                )}
-              </header>
-              {rows}
-            </section>
-          );
-        })}
       </div>
-      </PhotoReviewContext.Provider>
-
-      {show === 'one' && instance.items.length > 1 && (
-        <div className="flex items-center justify-between gap-3">
-          <Button variant="outline" size="md" disabled={currentIndex <= 0} onClick={() => setOneIndex(currentIndex - 1)} className="pointer-coarse:h-11">
-            <ArrowLeft size={15} aria-hidden />
-            Back
-          </Button>
-          <span className="t-meta font-display font-semibold tabular-nums text-text-secondary">Question {currentIndex + 1} of {instance.items.length}</span>
-          <Button variant="primary" size="md" disabled={currentIndex >= lastIndex} onClick={() => setOneIndex(currentIndex + 1)} className="pointer-coarse:h-11">
-            Next
-            <ArrowDown size={15} className="-rotate-90" aria-hidden />
-          </Button>
-        </div>
-      )}
-
-      {canSubmit && (
-        <ChecklistSubmitBar instanceId={instanceId} total={total} resubmit={instance.verificationStatus === 'REJECTED'} />
-      )}
-
-      {canReview && (
-        <ChecklistReviewBar instance={instance} draft={draft} onDecided={goBackAfterDecision} />
-      )}
     </div>
   );
 };

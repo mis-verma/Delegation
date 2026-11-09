@@ -11,6 +11,19 @@ interface LateWindowBannerProps {
   className?: string;
 }
 
+export const LateCountdownChip = ({ instance, now }: Pick<LateWindowBannerProps, 'instance' | 'now'>) => {
+  if (!instance.lateUntilTime) return null;
+  return (
+    <IconChip
+      icon={AlarmClock}
+      tone="bg-danger"
+      label={`${formatCountdown(instanceClosing(instance) - now)} left`}
+      labelClassName="tabular-nums text-danger"
+      title={`Fill by ${formatClockTime(instance.lateUntilTime)}`}
+    />
+  );
+};
+
 export const LateWindowBanner = ({ instance, now, onFill, className }: LateWindowBannerProps) => {
   if (!instance.lateUntilTime) return null;
   const remaining = instanceClosing(instance) - now;
@@ -35,7 +48,7 @@ export const LateWindowBanner = ({ instance, now, onFill, className }: LateWindo
           <button
             type="button"
             onClick={onFill}
-            className="inline-flex h-11 cursor-pointer items-center rounded-lg bg-danger px-4 t-meta font-display font-semibold text-white outline-none transition-colors hover:bg-danger/90 focus-visible:ring-2 focus-visible:ring-danger/40 sm:h-9"
+            className="inline-flex h-11 sm:h-9 pointer-coarse:h-11 cursor-pointer items-center rounded-lg bg-danger px-4 t-meta font-display font-semibold text-white outline-none transition-colors duration-150 ease-out hover:bg-danger/90 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-danger/40"
           >
             Fill it now
           </button>

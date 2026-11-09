@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
-import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Ban, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -17,6 +17,7 @@ import { FailedPhotoNote } from './FailedPhotoNote';
 import { isFailedPhoto, passingPhotos } from '../photoQuality';
 import { CaptureButton, UploadingHint } from './CaptureButton';
 import { isFlaggedAnswer } from '../checklistDisplay';
+import { RemarkDialog } from './ItemRemarksField';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 import type { CaptureMethod } from '../../../api/ticket';
@@ -43,7 +44,18 @@ const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: Lucid
 };
 
 const ANSWER_BASE =
-  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-11 px-4 rounded-xl border-2 t-card sm:text-sm font-display font-bold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
+  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-11 pointer-coarse:min-h-12 px-4 rounded-xl border-2 t-card font-display font-bold transition-colors duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]';
+
+type Tone = 'good' | 'bad' | 'plain';
+
+const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string }> = {
+  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border text-text hover:border-success/60 hover:bg-success/5' },
+  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border text-text hover:border-danger/60 hover:bg-danger/5' },
+  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border text-text hover:border-primary-400/60 hover:bg-primary-500/5' },
+};
+
+const toneFor = (accepted: readonly string[], value: Answer): Tone =>
+  accepted.length ? (accepted.includes(value) ? 'good' : 'bad') : 'plain';
 
 const AUTO_SAVE_REASON_MS = 800;
 const AUTO_SAVE_PHOTO_MS = 1500;
@@ -68,6 +80,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
+  const [naOpen, setNaOpen] = useState(false);
+  const accepted = item.acceptableAnswers ?? [];
 
   const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
   const activeActions = shownAnswer ? actionsFor(shownAnswer) : [];
@@ -171,12 +185,14 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto)) || !!savedReason;
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
   const flagged = item.isDone && isFlaggedAnswer(item);
+  const canFollowUp = yesActions.length > 0 || noActions.length > 0 || !!item.conditionalReasonValue;
+  const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending;
 
   const answerButton = (value: Answer) => {
     const label = value === 'YES' ? labels.yes : labels.no;
     const on = shownAnswer === value;
-    const good = value === 'YES';
-    const Icon = good ? Check : X;
+    const look = TONE_LOOK[toneFor(accepted, value)];
+    const Icon = value === 'YES' ? Check : X;
     return (
       <button
         key={value}
@@ -186,11 +202,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         aria-pressed={on}
         className={cn(
           ANSWER_BASE,
-          on && item.isDone && !pendingAnswer
-            ? good ? 'border-success-strong bg-success-strong text-white' : 'border-danger bg-danger text-white'
-            : on
-              ? good ? 'border-success bg-success/10 text-success' : 'border-danger bg-danger/10 text-danger'
-              : good ? 'border-border text-text hover:border-success/60 hover:bg-success/5' : 'border-border text-text hover:border-danger/60 hover:bg-danger/5',
+          on && item.isDone && !pendingAnswer ? look.saved : on ? look.picked : look.idle,
           interactive ? 'cursor-pointer' : cn('cursor-not-allowed', !on && 'opacity-50'),
         )}
       >
@@ -218,7 +230,28 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       <div className="flex items-center gap-2 sm:max-w-md">
         {answerButton('YES')}
         {answerButton('NO')}
+        {canMarkNa && (
+          <button
+            type="button"
+            onClick={() => { haptic('tap'); setNaOpen(true); }}
+            aria-label={`Mark not applicable: ${item.label}`}
+            className={cn(ANSWER_BASE, 'flex-none border-border text-text-muted hover:border-border-hover hover:text-text cursor-pointer')}
+          >
+            <Ban size={16} strokeWidth={2.5} aria-hidden="true" />
+            N/A
+          </button>
+        )}
       </div>
+      {naOpen && (
+        <RemarkDialog
+          item={item}
+          instanceId={instanceId}
+          mode="na"
+          saved=""
+          missing={false}
+          onClose={() => setNaOpen(false)}
+        />
+      )}
 
       {!shownAnswer && interactive && (yesActions.length > 0 || noActions.length > 0) && (
         <ul className="flex flex-wrap gap-1.5" aria-label="What each answer asks for">
@@ -230,7 +263,16 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </ul>
       )}
 
-      {showFollowUp && (
+      {canFollowUp && (
+        <div
+          inert={!showFollowUp}
+          aria-hidden={!showFollowUp}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
+            showFollowUp ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+          )}
+        >
+        <div className="min-h-0 overflow-hidden">
         <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3">
           <ul className="flex flex-wrap gap-1.5" aria-label="Needed for this answer">
             {activeActions.map((action) => {
@@ -325,6 +367,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
           {pendingAnswer && needsPhoto && photoReady && !needsReason && !saving && <p className="t-meta font-display text-text-muted">Saving in a moment. Add another photo now if you need one.</p>}
           {waitingOnFollowUp && <p className="t-meta font-display text-text-muted">Tap the {shownAnswer === 'YES' ? labels.yes : labels.no} button again to go back.</p>}
+        </div>
+        </div>
         </div>
       )}
 

@@ -5,10 +5,9 @@ import { Button, Modal, Textarea, ToggleChip } from '../../components';
 import { EvidenceThumb } from '../checklist/instance/EvidenceThumb';
 import { QUICK_REASONS, SEND_BACK_NOTE_MAX, composeSendBackNote, hasItemReason, hasReason, orderedItemReasons, toggleItemReason, toggleReason } from '../checklist/instance/sendBackNote';
 import type { ReviewDraft } from './useReviewDraft';
-import type { CorrectionItem, SendBackPayload } from './correctionItems';
+import { pickDefaults, type CorrectionItem, type SendBackPayload } from './correctionItems';
 
 const QUESTION_NOTE_MAX = 200;
-const PHOTO_PROBLEMS = new Set(['Photo not clear', 'Old photo']);
 
 const FIX_BY_OPTIONS: { label: string; hours: number | null }[] = [
   { label: 'No deadline', hours: null },
@@ -45,12 +44,8 @@ export const CorrectionDialog = ({ items, assigneeNames, draft, onSend, busy = f
   const photoCount = pickedIds.filter((id) => photoOnlySet.has(id)).length;
 
   const toggle = (item: CorrectionItem) => {
-    const adding = !pickedSet.has(item.id);
-    draft.togglePicked(item.id);
-    if (!adding) return;
-    if (item.canPhotoOnly && item.problems.some((p) => PHOTO_PROBLEMS.has(p))) draft.togglePhotoOnly(item.id);
-    const reasons = item.problems.filter((p) => p !== 'Not done');
-    if (reasons.length) draft.setItemNote(item.id, reasons.slice(0, 2).join('; '));
+    if (pickedSet.has(item.id)) draft.togglePicked(item.id);
+    else draft.pickWith(item.id, pickDefaults(item));
   };
 
   const send = () => {
@@ -162,7 +157,7 @@ export const CorrectionDialog = ({ items, assigneeNames, draft, onSend, busy = f
                           })}
                         </div>
                       )}
-                      <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label={`Reasons for: ${item.label}`}>
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={`Reasons for: ${item.label}`}>
                         {orderedItemReasons(item.problems).map((reason) => (
                           <ToggleChip key={reason} on={hasItemReason(itemNote, reason)} disabled={busy} onClick={() => draft.setItemNote(item.id, toggleItemReason(itemNote, reason, QUESTION_NOTE_MAX))}>
                             {reason}
@@ -177,7 +172,7 @@ export const CorrectionDialog = ({ items, assigneeNames, draft, onSend, busy = f
                         onChange={(e) => draft.setItemNote(item.id, e.target.value)}
                         placeholder="Remark for this question"
                         aria-label={`Remark for: ${item.label}`}
-                        className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-sm font-display text-text outline-none placeholder:text-text-light hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30 disabled:opacity-60 sm:h-9"
+                        className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-sm font-display text-text outline-none placeholder:text-text-light hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30 disabled:opacity-60 sm:h-9 sm:pointer-coarse:h-11"
                       />
                     </div>
                   )}
@@ -190,7 +185,7 @@ export const CorrectionDialog = ({ items, assigneeNames, draft, onSend, busy = f
 
       <section aria-labelledby="correction-remarks" className="flex flex-col gap-3">
         <h3 id="correction-remarks" className="t-card font-display font-bold text-text">Remarks for the team</h3>
-        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label="Quick reasons">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
           {QUICK_REASONS.map((reason) => (
             <ToggleChip key={reason} on={hasReason(note, reason)} disabled={busy} onClick={() => draft.setNote(toggleReason(note, reason))}>
               {reason}

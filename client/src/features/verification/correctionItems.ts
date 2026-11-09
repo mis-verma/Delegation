@@ -19,24 +19,40 @@ export interface CorrectionItem {
   canPhotoOnly: boolean;
 }
 
+const PHOTO_PROBLEMS = new Set(['Photo not clear', 'Old photo']);
+
+export const itemProblems = (item: ChecklistInstanceItem): string[] => {
+  const flags = itemFlags(item);
+  return [
+    ...(flags.weakPhoto ? ['Photo not clear'] : []),
+    ...(flags.notLive ? ['Not live'] : []),
+    ...(flags.reusedPhoto || flags.oldPhoto ? ['Old photo'] : []),
+    ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []),
+    ...(flags.bad ? ['Answer not matching'] : []),
+  ];
+};
+
+export const canRetakePhotoOnly = (item: ChecklistInstanceItem): boolean =>
+  item.itemType !== 'AUDIT' && ((item.images ?? []).some((img) => (img.purpose ?? 'GENERAL') === 'GENERAL') || item.requiredImageCount > 0);
+
+export interface PickDefaults {
+  photoOnly: boolean;
+  note: string;
+}
+
+export const pickDefaults = (item: Pick<CorrectionItem, 'problems' | 'canPhotoOnly'>): PickDefaults => ({
+  photoOnly: item.canPhotoOnly && item.problems.some((p) => PHOTO_PROBLEMS.has(p)),
+  note: item.problems.filter((p) => p !== 'Not done').slice(0, 2).join('; '),
+});
+
 export const runCorrectionItems = (items: readonly ChecklistInstanceItem[]): CorrectionItem[] =>
-  [...items].sort((a, b) => a.order - b.order).map((item) => {
-    const flags = itemFlags(item);
-    const photos = (item.images ?? []).filter((img) => (img.purpose ?? 'GENERAL') === 'GENERAL');
-    return {
-      id: item.id,
-      label: item.label,
-      photos,
-      canPhotoOnly: item.itemType !== 'AUDIT' && (photos.length > 0 || item.requiredImageCount > 0),
-      problems: [
-        ...(flags.weakPhoto ? ['Photo not clear'] : []),
-        ...(flags.notLive ? ['Not live'] : []),
-        ...(flags.reusedPhoto || flags.oldPhoto ? ['Old photo'] : []),
-        ...(flags.missingPhotos && !flags.notLive ? ['Missing photo'] : []),
-        ...(flags.bad ? ['Answer not matching'] : []),
-      ],
-    };
-  });
+  [...items].sort((a, b) => a.order - b.order).map((item) => ({
+    id: item.id,
+    label: item.label,
+    photos: (item.images ?? []).filter((img) => (img.purpose ?? 'GENERAL') === 'GENERAL'),
+    canPhotoOnly: canRetakePhotoOnly(item),
+    problems: itemProblems(item),
+  }));
 
 export const previewCorrectionItems = (items: readonly PreviewItem[]): CorrectionItem[] =>
   items.map((item) => {

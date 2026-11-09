@@ -35,7 +35,7 @@ interface EvidenceThumbProps {
 }
 
 const REVIEW_BUTTON =
-  'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8';
+  'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 sm:pointer-coarse:min-h-11';
 
 const PhotoReviewActions = ({ image, state }: { image: EvidenceImage; state: PhotoReviewState }) => {
   const review = usePhotoReviewMutation(state);

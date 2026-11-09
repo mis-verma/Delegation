@@ -23,7 +23,7 @@ export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, d
   const chips: { id: string | null; name: string }[] = [{ id: null, name: 'Usual' }, ...options];
   return (
     <div className="flex flex-col gap-2">
-      <p id={labelId} className="text-sm sm:text-xs font-semibold text-text-secondary">What are they wearing?</p>
+      <p id={labelId} className="t-meta font-semibold text-text-secondary">What are they wearing?</p>
       <div role="group" aria-labelledby={labelId} aria-busy={pending} className="flex flex-wrap gap-2">
         {chips.map(chip => {
           const active = chip.id === currentId;
@@ -36,7 +36,7 @@ export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, d
               disabled={disabled || (pending && !saving)}
               onClick={() => { if (!active && !pending) onPick(chip.id); }}
               className={cn(
-                'inline-flex items-center justify-center gap-1.5 h-11 sm:h-9 px-3.5 sm:px-3 rounded-lg border t-card sm:text-sm font-medium select-none',
+                'inline-flex items-center justify-center gap-1.5 h-11 sm:h-9 pointer-coarse:h-11 px-3.5 sm:px-3 rounded-lg border t-card font-medium select-none',
                 'cursor-pointer outline-none transition-[background-color,border-color,color,opacity] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
                 'focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50',
                 active || saving
@@ -61,7 +61,7 @@ export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, d
 
 export const AuditSectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNode; action?: ReactNode }) => (
   <div className="flex items-center justify-between gap-3 min-h-8 pointer-coarse:min-h-11">
-    <p className="flex items-center gap-1.5 text-sm sm:text-xs font-semibold text-text-secondary">
+    <p className="flex items-center gap-1.5 t-meta font-semibold text-text-secondary">
       {label}
       {meta && <span className="flex items-center gap-1 font-medium text-text-muted tabular-nums">{meta}</span>}
     </p>
@@ -79,14 +79,14 @@ interface AuditTickRowProps {
 
 export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: AuditTickRowProps) => {
   const className = cn(
-    'flex w-full items-center gap-3 min-h-13 sm:min-h-11 px-3 py-2 rounded-lg border text-left select-none',
+    'flex w-full items-center gap-3 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 py-2 rounded-lg border text-left select-none',
     'transition-[background-color,border-color,color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
     checked
       ? 'border-success/50 bg-success/10 dark:bg-success/15 text-text'
       : missing
         ? 'border-danger/30 bg-surface text-text-secondary'
         : 'border-border/60 bg-surface text-text-secondary',
-    interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99]',
+    interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985]',
     interactive && !checked && 'hover:border-border-hover hover:bg-surface-hover',
   );
   const circle = (
@@ -107,7 +107,7 @@ export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: 
       )}
     </span>
   );
-  const label = <span className="flex-1 min-w-0 t-card sm:text-sm font-medium leading-snug break-words">{name}</span>;
+  const label = <span className="flex-1 min-w-0 t-card font-medium leading-snug break-words">{name}</span>;
 
   if (!interactive) {
     return (
@@ -136,8 +136,8 @@ interface AuditCaptureButtonProps {
 
 export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }: AuditCaptureButtonProps) => {
   const className = cn(
-    'flex flex-1 sm:flex-none sm:min-w-32 items-center justify-center gap-2 h-12 sm:h-10 px-4 rounded-lg border t-card sm:text-xs font-medium whitespace-nowrap',
-    'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
+    'flex flex-1 sm:flex-none sm:min-w-32 items-center justify-center gap-2 h-12 sm:h-10 pointer-coarse:h-12 px-4 rounded-lg border t-card font-medium whitespace-nowrap',
+    'cursor-pointer select-none transition-colors duration-200 ease-out active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
     'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
     live
       ? 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10'
@@ -145,7 +145,7 @@ export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }:
   );
   const content = (
     <>
-      <Icon className="size-[18px] sm:size-3.5" aria-hidden />
+      <Icon className="size-4.5 sm:size-4" aria-hidden />
       {label}
     </>
   );

@@ -53,7 +53,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
                 onClick={() => submit(value)}
                 onMouseEnter={() => interactive && setHovered(value)}
                 aria-label={`Rate ${value} out of ${scale}`}
-                className={`flex items-center justify-center size-11 sm:size-8 rounded-md transition-transform outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'}`}
+                className={`flex items-center justify-center size-11 sm:size-8 pointer-coarse:size-11 rounded-md transition-[background-color,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${interactive ? 'cursor-pointer hover:bg-warning/10 active:scale-[0.985]' : 'cursor-not-allowed'}`}
               >
                 <Star
                   size={22}

@@ -24,7 +24,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
     <div className="flex items-start gap-3">
       <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <p className="text-base font-semibold leading-snug text-text sm:text-[1.0625rem]">{item.label}</p>
+        <p className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {item.isCritical && (
             <IconChip icon={Flag} tone="bg-danger" label="Critical" title="Critical question: a bad answer counts double against compliance" />
@@ -43,7 +43,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
           type="button"
           onClick={onReopen}
           disabled={reopenPending}
-          className="shrink-0 flex items-center justify-center size-11 sm:size-8 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
+          className="shrink-0 flex items-center justify-center size-11 sm:size-8 pointer-coarse:size-11 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
           aria-label="Reopen item"
           title="Reopen (admin only)"
         >

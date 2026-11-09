@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ban, Check, ChevronsUpDown, Search, Users } from 'lucide-react';
+import { Ban, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Search, Users } from 'lucide-react';
 import { Modal } from '../../../components';
 import { Badge } from '../../../components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,13 @@ import { getInitials } from '../../../lib/getInitials';
 import type { AuditPerson, AuditStatus } from './ChecklistAuditHelpers';
 
 const SEARCH_FROM = 8;
+
+const STEP_BUTTON = cn(
+  'flex w-11 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-surface text-text-secondary cursor-pointer outline-none',
+  'transition-[background-color,border-color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
+  'hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+  'disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100',
+);
 
 export const AuditStatusChip = ({ status }: { status: AuditStatus }) => {
   switch (status) {
@@ -34,7 +41,7 @@ export const AuditAvatar = ({ name, size, status }: { name: string; size: 'row' 
         className={cn(
           'flex items-center justify-center rounded-full font-bold text-white',
           avatarColorClass(name),
-          size === 'row' ? 'size-9 t-meta' : 'size-11 sm:size-10 text-sm sm:text-xs',
+          size === 'row' ? 'size-9 t-meta' : 'size-11 sm:size-10 t-meta',
         )}
       >
         {getInitials(name)}
@@ -60,7 +67,7 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
     aria-current={active ? 'true' : undefined}
     onClick={onSelect}
     className={cn(
-      'flex w-full items-center gap-3 h-14 px-2.5 rounded-lg border text-left cursor-pointer outline-none',
+      'flex w-full items-center gap-3 min-h-14 py-2 px-2.5 rounded-lg border text-left cursor-pointer outline-none',
       'transition-[background-color,border-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
       'focus-visible:ring-2 focus-visible:ring-primary-500/40 active:bg-surface-hover',
       active
@@ -70,11 +77,11 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
   >
     <AuditAvatar name={person.name} size="row" />
     <span className="flex-1 min-w-0 flex flex-col">
-      <span className="t-card sm:text-sm font-semibold leading-snug text-text truncate">
+      <span className="t-card font-semibold leading-snug text-text line-clamp-2 break-words">
         {person.name}{person.isMe && <span className="font-medium text-text-muted"> (You)</span>}
       </span>
       {(person.store || person.dressType) && (
-        <span className="t-meta text-text-muted truncate">{[person.store, person.dressType].filter(Boolean).join(' · ')}</span>
+        <span className="t-meta text-text-muted line-clamp-2 leading-snug">{[person.store, person.dressType].filter(Boolean).join(' · ')}</span>
       )}
     </span>
     <AuditStatusChip status={person.status} />
@@ -105,7 +112,7 @@ export const AuditPeopleList = ({ people, selectedId, onSelect, className }: Aud
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by name"
-            className="w-full h-11 sm:h-10 pl-9 pr-3 rounded-lg border border-border bg-surface text-sm text-text placeholder:text-text-light outline-none transition-colors duration-150 hover:border-border-hover focus:border-primary-500"
+            className="w-full h-11 sm:h-10 pointer-coarse:h-11 pl-9 pr-3 rounded-lg border border-border bg-surface text-sm text-text placeholder:text-text-light outline-none transition-colors duration-150 hover:border-border-hover focus:border-primary-500"
           />
         </label>
       )}
@@ -137,26 +144,47 @@ export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: A
   const current = people[index];
   if (!current) return null;
 
+  const prev = index > 0 ? people[index - 1] : undefined;
+  const next = index < people.length - 1 ? people[index + 1] : undefined;
+
   return (
-    <>
+    <div className="flex items-stretch gap-2">
+      <button
+        type="button"
+        onClick={() => prev && onSelect(prev.id)}
+        disabled={!prev}
+        aria-label={prev ? `Previous person: ${prev.name}` : 'No previous person'}
+        className={STEP_BUTTON}
+      >
+        <ChevronLeft size={20} aria-hidden />
+      </button>
       <button
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex w-full items-center gap-3 h-14 px-2.5 rounded-lg border border-border/60 bg-surface text-left cursor-pointer outline-none',
+          'flex flex-1 min-w-0 items-center gap-3 min-h-14 py-2 px-2.5 rounded-lg border border-border/60 bg-surface text-left cursor-pointer outline-none',
           'transition-[background-color,border-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
           'hover:border-border-hover active:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40',
         )}
       >
         <AuditAvatar name={current.name} size="row" />
         <span className="flex-1 min-w-0 flex flex-col">
-          <span className="t-card font-semibold leading-snug text-text truncate">
+          <span className="t-card font-semibold leading-snug text-text line-clamp-2 break-words">
             {current.name}{current.isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </span>
           <span className="t-meta text-text-muted tabular-nums">Person {index + 1} of {people.length}. Tap to switch.</span>
         </span>
         <ChevronsUpDown size={18} className="shrink-0 text-text-muted" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => next && onSelect(next.id)}
+        disabled={!next}
+        aria-label={next ? `Next person: ${next.name}` : 'No next person'}
+        className={STEP_BUTTON}
+      >
+        <ChevronRight size={20} aria-hidden />
       </button>
 
       <Modal
@@ -174,6 +202,6 @@ export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: A
           onSelect={id => { onSelect(id); setOpen(false); }}
         />
       </Modal>
-    </>
+    </div>
   );
 };
