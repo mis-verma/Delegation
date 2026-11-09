@@ -29,7 +29,7 @@ const ICON_BUTTON_CLASS =
   'inline-flex items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
   'hover:text-text hover:bg-surface-hover hover:border-border-hover border border-transparent ' +
-  'active:scale-95 ' +
+  'active:scale-[0.985] ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
 const titleCase = (value: string) =>
@@ -156,7 +156,7 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >
-              <span className={`inline-flex transition-transform duration-500 ${theme === 'light' ? 'rotate-0' : 'rotate-180'}`}>
+              <span className={`inline-flex transition-transform duration-200 ease-out ${theme === 'light' ? 'rotate-0' : 'rotate-180'}`}>
                 {theme === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
               </span>
             </button>
@@ -172,7 +172,7 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
                 <button
                   title={user.name}
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
                   <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-800 text-white font-display font-bold t-meta shrink-0 ring-2 ring-surface">
                     {initials || <User size={14} strokeWidth={2.5} />}

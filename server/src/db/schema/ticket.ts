@@ -45,6 +45,8 @@ export const tickets = mysqlTable(
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
+    autoClosedAt: datetime('autoClosedAt', { mode: 'date' }),
+    autoCloseFrom: datetime('autoCloseFrom', { mode: 'date' }),
     dueSoonNotifiedAt: datetime('dueSoonNotifiedAt', { mode: 'date' }),
     overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
     approvalReminderSentAt: datetime('approvalReminderSentAt', { mode: 'date' }),

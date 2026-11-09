@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Activity, History, Camera, Eye, Hourglass, Send, ShieldCheck, Undo2, type LucideIcon } from 'lucide-react';
+import { Activity, History, Hourglass, Send, ShieldCheck, Undo2, type LucideIcon } from 'lucide-react';
+import { PhotoTile } from '../../../components/thumbImage';
 import { isProgressUpdate } from '../../../lib/ticketProgress';
 import { UPLOADS_BASE, DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from './detailConstants';
 import { Avatar } from '../../../components/avatar';
@@ -14,7 +15,7 @@ import type { Role } from '../../../api/auth';
 interface TicketStatusHistoryProps {
   ticket: Ticket;
   departmentName?: string;
-  onPreview: (url: string) => void;
+  onPreview: (url: string, group?: string[]) => void;
 }
 
 type Person = { firstName: string; lastName?: string | null; role?: string | null };
@@ -145,7 +146,7 @@ const buildSteps = (ticket: Ticket, departmentName?: string): Step[] => {
       id: 'closed',
       icon: getStatusChipMeta('closed').icon,
       tone: 'success',
-      chip: <StatusChip status="closed" label="Approved and closed" />,
+      chip: <StatusChip status="closed" label={ticket.autoClosedAt ? 'Closed automatically' : 'Approved and closed'} />,
       who: ticket.verifier ?? null,
       at: (ticket.verifiedAt ?? ticket.closedAt) as string,
       remark: ticket.verificationNote,
@@ -224,26 +225,16 @@ export const TicketStatusHistory = ({ ticket, departmentName, onPreview }: Ticke
 
                 {step.photos && step.photos.length > 0 && (
                   <div className="grid grid-cols-4 gap-1.5 max-w-xs">
-                    {step.photos.map((photo) => {
-                      const imageUrl = `${UPLOADS_BASE}${photo.url}`;
+                    {step.photos.map((photo, i, all) => {
+                      const group = all.map((p) => `${UPLOADS_BASE}${p.url}`);
                       return (
-                        <button
+                        <PhotoTile
                           key={photo.id}
-                          type="button"
-                          onClick={() => onPreview(imageUrl)}
-                          className="group/photo relative aspect-square w-full rounded-md border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                          aria-label={photo.captureMethod === 'LIVE' ? 'Open photo taken with the camera' : 'Open photo'}
-                        >
-                          <img src={imageUrl} alt="Proof photo" loading="lazy" className="size-full object-cover" />
-                          {photo.captureMethod === 'LIVE' && (
-                            <span className="absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded bg-black/55 text-white" title="Taken with the camera">
-                              <Camera size={10} aria-hidden />
-                            </span>
-                          )}
-                          <span className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-200 flex items-center justify-center text-white" aria-hidden>
-                            <Eye size={16} strokeWidth={2.5} />
-                          </span>
-                        </button>
+                          src={group[i]!}
+                          alt={`proof photo ${i + 1} of ${group.length}`}
+                          live={photo.captureMethod === 'LIVE'}
+                          onOpen={() => onPreview(group[i]!, group)}
+                        />
                       );
                     })}
                   </div>

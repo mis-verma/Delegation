@@ -38,6 +38,8 @@ export const settingsController = {
                 androidAppUrl: settings!.androidAppUrl,
                 iosAppUrl: settings!.iosAppUrl,
                 liveOnlyAttachments: settings!.liveOnlyAttachments,
+                maxUploadSizeMb: settings!.maxUploadSizeMb,
+                maxUploadFiles: settings!.maxUploadFiles,
             },
         })
     }),

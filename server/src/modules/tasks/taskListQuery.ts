@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lt, notInArray, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, TASK_PRIORITIES, TASK_STATUSES } from "../../db/schema/index.js"
 import type { TaskListBucket, TaskListCategory, TaskListSla, TaskListSort } from "./taskListParams.js"
@@ -22,6 +22,7 @@ export type TaskListOptions = {
     assigneeIds?: string[]
     raisedByIds?: string[]
     status?: (typeof TASK_STATUSES)[number]
+    search?: string
 }
 
 export type TaskListCounts = {
@@ -35,6 +36,8 @@ export type TaskListCounts = {
 }
 
 const HANDED_IN = ["done", "pending_approval"] as const
+
+const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => "\\" + c)
 
 const involvesPerson = (ids: string[]): SQL =>
     or(
@@ -98,6 +101,11 @@ export const optionConditions = (options: TaskListOptions): (SQL | undefined)[] 
     if (options.assigneeIds?.length) conditions.push(involvesPerson(options.assigneeIds))
     if (options.raisedByIds?.length) conditions.push(inArray(tasks.userId, options.raisedByIds))
     if (options.status) conditions.push(eq(tasks.status, options.status))
+    const term = options.search?.trim()
+    if (term) {
+        const pattern = `%${escapeLike(term)}%`
+        conditions.push(or(like(tasks.title, pattern), like(tasks.description, pattern)))
+    }
     return conditions
 }
 

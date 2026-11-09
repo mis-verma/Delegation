@@ -1,7 +1,7 @@
 import { notifyMany, notifySafely } from './notificationCore.js';
 import { notifyAssigneeMovedTeam, notifyTicketRedirected, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
 import { notifyTaskAwaitingHead, notifyTaskHeadDecisionReminder, notifyTaskHeadDecisionEscalation, notifyTaskHeadApproved, notifyTaskPartlyApproved, notifyTaskTeamRemoved, notifyTaskDeclined, notifyTaskAssigned, notifyTaskUnassigned, notifyTaskOverdue, notifyTaskDueSoon } from './taskNotifications.js';
-import { notifyAdminsOfRisk, notifyBackupFailed, notifyPendingVerification, notifyVerificationResult, notifyApprovalEscalation, notifyOverdueEscalation, notifyOverdueHeadChase, notifyUnassignedReminder, notifyStageHandOff, notifyCompletionPartlyApproved, notifyCommentAdded, notifyReviewerAdded, notifyStatusMoved } from './workflowNotifications.js';
+import { notifyAdminsOfRisk, notifyBackupFailed, notifyPendingVerification, notifyVerificationResult, notifyTicketAutoClosed, notifyApprovalEscalation, notifyOverdueEscalation, notifyOverdueHeadChase, notifyUnassignedReminder, notifyStageHandOff, notifyCompletionPartlyApproved, notifyCommentAdded, notifyReviewerAdded, notifyStatusMoved } from './workflowNotifications.js';
 import { notifyChecklistPendingVerification, notifyChecklistApprovalReminder, notifyChecklistApprovalEscalation, notifyChecklistVerificationResult, notifyAreaManagersOfChecklistFlag, notifyChecklistOverdue, notifyChecklistLateWindowClosing, notifyChecklistOpened, notifyChecklistDueSoon, notifyChecklistUpcoming, notifyChecklistDraftReminder, notifyChecklistSubmitReminder } from './checklistNotifications.js';
 import { listForUser, markRead, markUnread, markAllRead } from './notificationInbox.js';
 
@@ -38,6 +38,7 @@ export const notificationService = {
   notifyBackupFailed,
   notifyPendingVerification,
   notifyVerificationResult,
+  notifyTicketAutoClosed,
   notifyApprovalEscalation,
   notifyOverdueEscalation,
   notifyOverdueHeadChase,

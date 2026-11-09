@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
 import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock } from 'lucide-react';
-import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, SearchField, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { ticketMatchesDrill, useScoreDrill } from '../../lib/scoreDrill';
@@ -77,12 +77,16 @@ export const TicketList = () => {
     () => new Map((assignableUsers ?? []).map(u => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])),
     [assignableUsers],
   );
+  const labelNames = useMemo(
+    () => new Map((tags ?? []).map(t => [t.id, t.name])),
+    [tags],
+  );
 
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
   const selfLink = !!assigneeIdFilter && assigneeIdFilter === user?.id;
   const viewState = useTicketViewState(user);
-  const paged = viewState.view === 'list';
+  const paged = viewState.view === 'list' || viewState.view === 'table';
   const personId = selfLink ? undefined : assigneeIdFilter;
   const boardQuery = useTicketsBoardQuery(!paged, personId);
   const createdRange = useCreatedRange();
@@ -207,10 +211,17 @@ export const TicketList = () => {
           onRetry={() => void refetch()}
         />
 
-        <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap min-w-0">
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap min-w-0">
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} storageKey={`view:tickets:${user?.id ?? 'anon'}`} />
           </div>
+          <SearchField
+            value={organizer.search}
+            onChange={(v) => { organizer.setSearch(v); organizer.setPage(1); }}
+            label="Search tickets by title or description"
+            placeholder="Search tickets"
+            className="basis-full sm:basis-auto"
+          />
           <PhoneScopeSwitch
             options={[
               { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck },
@@ -220,9 +231,8 @@ export const TicketList = () => {
             allValue="ALL"
             onChange={(v) => { organizer.setScopeFilter(v); organizer.setPage(1); }}
           />
-          <TicketActiveTags organizer={organizer} allTickets={loadedTickets ?? []} />
 
-          <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
+          <div className="flex items-center gap-x-3 gap-y-2 flex-wrap shrink-0 ml-auto">
             <div className="hidden sm:contents">
               <SavedViewsMenu
                 views={savedViews.views}
@@ -240,6 +250,18 @@ export const TicketList = () => {
                 <span className="t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{draftCount}</span>
               </Button>
             )}
+            <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
+              <TicketSettingsMenu
+                isOpen={showOptions}
+                setIsOpen={setShowOptions}
+                organizer={organizer}
+                departments={ownScopeOnly ? undefined : departments}
+                assignableUsers={ownScopeOnly ? undefined : assignableUsers}
+                tags={tags}
+                canExport={canExport}
+                onExport={() => setShowExport(true)}
+              />
+            </div>
             <CreateButton
               label="New ticket"
               onClick={() => setShowForm(true)}
@@ -247,19 +269,6 @@ export const TicketList = () => {
               menu={isVerifier ? [{ key: 'bulk', label: 'Bulk import', hint: 'Add many from an Excel sheet', icon: Upload, onSelect: () => setShowBulkImport(true) }] : undefined}
               menuLabel="More ways to add tickets"
             />
-
-            <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
-            <TicketSettingsMenu
-              isOpen={showOptions}
-              setIsOpen={setShowOptions}
-              organizer={organizer}
-              departments={ownScopeOnly ? undefined : departments}
-              assignableUsers={ownScopeOnly ? undefined : assignableUsers}
-              tags={tags}
-              canExport={canExport}
-              onExport={() => setShowExport(true)}
-            />
-            </div>
             <Fab
               sheetTitle="Create"
               actions={[
@@ -269,6 +278,13 @@ export const TicketList = () => {
             />
           </div>
         </div>
+        <TicketActiveTags
+          organizer={organizer}
+          allTickets={loadedTickets ?? []}
+          departmentNames={departmentNames}
+          personNames={assigneeNames}
+          labelNames={labelNames}
+        />
       </div>
 
       <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden />
@@ -333,7 +349,7 @@ export const TicketList = () => {
         <TicketTimeline tickets={organizer.sorted} onOpen={setSelectedTicket} />
       )}
 
-      {organizer.view === 'list' && organizer.totalPages > 1 && (
+      {paged && organizer.totalPages > 1 && (
         <div className="pt-4 border-t border-border/40 flex justify-center">
           <PageNav page={organizer.safePage} totalPages={organizer.totalPages} onPageChange={changePage} />
         </div>

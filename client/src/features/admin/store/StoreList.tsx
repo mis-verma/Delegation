@@ -228,11 +228,13 @@ export const StoreList = () => {
           memberCounts={memberCounts}
           membersFailed={usersError}
           departmentCountByStore={departmentCountByStore}
+          scoreById={scores.byId}
+          scoreWindow={scoreWindow}
           updatingId={updateMut.isPending ? updateMut.variables?.id : undefined}
           deletingId={deleteMut.isPending ? deleteMut.variables : undefined}
           onToggleActive={toggleActive}
           onEdit={setEditingStore}
-          onDelete={handleDelete}
+          onDelete={isAdminUser ? handleDelete : undefined}
         />
       );
     }

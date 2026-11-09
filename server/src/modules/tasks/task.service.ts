@@ -113,6 +113,7 @@ export const taskService = {
             assigneeIds: query.assigneeIds,
             raisedByIds: query.raisedByIds,
             status: query.filterStatus,
+            search: query.q,
         }).filter(Boolean);
         const optionWhere = optionList.length ? and(...optionList) : undefined;
         const bucketWhere = bucket ? bucketCondition(bucket, now) : undefined;

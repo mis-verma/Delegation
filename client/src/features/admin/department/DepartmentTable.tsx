@@ -1,15 +1,21 @@
-import { memo, type KeyboardEvent } from 'react';
+import { memo } from 'react';
 import { Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ColorIconTile, EntityCardActions, Skeleton, StatusPill, StateChip } from '../../../components';
 import type { Department } from '../../../api/departments';
 import type { PeopleCount } from '../orgCounts';
+import type { ExplorerRow } from '../../../api/scores';
+import { ScoreCell } from '../directory/orgScores';
+import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TR_CLASS, TD_STICKY_CLASS, NUM_CLASS, FIRST_COL_WIDTH_CLASS, activateOnKey } from '../../../components/dataTable';
 
 interface DepartmentTableProps {
   departments: Department[];
   storeNameById: Map<string, string> | undefined;
   memberCounts: Map<string, PeopleCount> | undefined;
   membersFailed: boolean;
+  headByDepartment: Map<string, string> | undefined;
+  scoreById: Map<string, ExplorerRow> | undefined;
+  scoreWindow: { from: string; to: string; failed: boolean };
   updatingId: string | undefined;
   deletingId: string | undefined;
   onToggleActive: (department: Department) => void;
@@ -17,31 +23,22 @@ interface DepartmentTableProps {
   onDelete?: (department: Department) => void;
 }
 
-const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary';
-
 const DepartmentTableComponent = ({
-  departments, storeNameById, memberCounts, membersFailed, updatingId, deletingId, onToggleActive, onEdit, onDelete,
+  departments, storeNameById, memberCounts, membersFailed, headByDepartment, scoreById, scoreWindow, updatingId, deletingId, onToggleActive, onEdit, onDelete,
 }: DepartmentTableProps) => {
-  const handleKeyDown = (e: KeyboardEvent<HTMLTableRowElement>, department: Department) => {
-    if (e.target !== e.currentTarget) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onEdit(department);
-    }
-  };
-
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border/60">
-      <table className="w-full min-w-[44rem] border-collapse">
-        <thead className={HEAD_ROW_CLASS}>
+    <div className={TABLE_FRAME_CLASS}>
+      <table className="w-full min-w-[54rem] border-collapse">
+        <caption className="sr-only">Departments</caption>
+        <thead>
           <tr>
-            <th scope="col" className={cn(HEAD_CLASS, 'sticky left-0 z-10', HEAD_ROW_CLASS)}>Department</th>
-            <th scope="col" className={HEAD_CLASS}>Store</th>
-            <th scope="col" className={HEAD_CLASS}>Members</th>
-            <th scope="col" className={HEAD_CLASS}>Status</th>
-            <th scope="col" className={HEAD_CLASS}><span className="sr-only">Actions</span></th>
+            <th scope="col" className={cn(TH_CLASS, TH_CORNER_CLASS)}>Department</th>
+            <th scope="col" className={TH_CLASS}>Store</th>
+            <th scope="col" className={TH_CLASS}>Head</th>
+            <th scope="col" className={cn(TH_CLASS, 'text-right')}>Members</th>
+            <th scope="col" className={cn(TH_CLASS, 'text-right')}>Score this month</th>
+            <th scope="col" className={TH_CLASS}>Status</th>
+            <th scope="col" className={TH_CLASS}><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -51,23 +48,21 @@ const DepartmentTableComponent = ({
             const active = memberCounts ? (count?.active ?? 0) : membersFailed ? null : undefined;
             const inactive = count?.inactive ?? 0;
             const isDeleting = deletingId === d.id;
+            const head = headByDepartment ? (headByDepartment.get(d.id) ?? null) : undefined;
 
             return (
               <tr
                 key={d.id}
                 onClick={() => onEdit(d)}
                 tabIndex={0}
-                onKeyDown={(e) => handleKeyDown(e, d)}
-                className={cn(
-                  'border-b border-border/40 last:border-b-0 hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none cursor-pointer transition-colors duration-200 ease-in-out',
-                  isDeleting && 'opacity-50 pointer-events-none',
-                )}
+                onKeyDown={activateOnKey(() => onEdit(d))}
+                className={cn(TR_CLASS, isDeleting && 'opacity-50 pointer-events-none')}
               >
-                <td className={cn(CELL_CLASS, 'sticky left-0 bg-surface z-10 max-w-[22rem]')}>
-                  <div className="flex items-center gap-2.5 min-w-0">
+                <td className={cn(TD_CLASS, TD_STICKY_CLASS, FIRST_COL_WIDTH_CLASS)}>
+                  <div className="flex items-center gap-2 min-w-0">
                     <ColorIconTile icon={Building2} name={d.name} size="sm" />
                     <span
-                      className={cn('text-sm font-display font-bold truncate', d.isActive ? 'text-text' : 'text-text-secondary')}
+                      className={cn('text-sm font-display font-bold line-clamp-2 leading-snug break-words min-w-0', d.isActive ? 'text-text' : 'text-text-secondary')}
                       title={d.name}
                     >
                       {d.name}
@@ -78,7 +73,7 @@ const DepartmentTableComponent = ({
                   </div>
                 </td>
 
-                <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
+                <td className={cn(TD_CLASS, 'whitespace-nowrap')}>
                   {store === undefined ? (
                     <Skeleton className="h-3 w-24" />
                   ) : store ? (
@@ -88,9 +83,19 @@ const DepartmentTableComponent = ({
                   )}
                 </td>
 
-                <td className={cn(CELL_CLASS, 'whitespace-nowrap tabular-nums')}>
+                <td className={cn(TD_CLASS, 'whitespace-nowrap')}>
+                  {head === undefined ? (
+                    <Skeleton className="h-3 w-24" />
+                  ) : head ? (
+                    <span className="font-medium text-text">{head}</span>
+                  ) : (
+                    <span className="text-text-light">{d.headOptional ? 'Not needed' : 'No head'}</span>
+                  )}
+                </td>
+
+                <td className={cn(TD_CLASS, 'whitespace-nowrap', NUM_CLASS)}>
                   {active === undefined ? (
-                    <Skeleton className="h-3 w-10" />
+                    <Skeleton className="h-3 w-10 ml-auto" />
                   ) : active === null ? (
                     <span className="text-text-light">Count unavailable</span>
                   ) : (
@@ -98,7 +103,19 @@ const DepartmentTableComponent = ({
                   )}
                 </td>
 
-                <td className={CELL_CLASS} onClick={(e) => e.stopPropagation()}>
+                <td className={cn(TD_CLASS, 'whitespace-nowrap text-right')}>
+                  <ScoreCell
+                    kind="department"
+                    id={d.id}
+                    name={d.name}
+                    row={scoreById ? (scoreById.get(d.id) ?? null) : scoreWindow.failed ? null : undefined}
+                    from={scoreWindow.from}
+                    to={scoreWindow.to}
+                    failed={scoreWindow.failed}
+                  />
+                </td>
+
+                <td className={TD_CLASS} onClick={(e) => e.stopPropagation()}>
                   <StatusPill
                     active={d.isActive}
                     isUpdating={updatingId === d.id}
@@ -107,7 +124,7 @@ const DepartmentTableComponent = ({
                   />
                 </td>
 
-                <td className={cn(CELL_CLASS, 'w-24')} onClick={(e) => e.stopPropagation()}>
+                <td className={cn(TD_CLASS, 'w-24')} onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end">
                     <EntityCardActions
                       onEdit={() => onEdit(d)}

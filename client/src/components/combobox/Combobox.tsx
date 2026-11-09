@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronDown, Plus, Search, SearchX } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -96,8 +96,8 @@ export const Combobox = ({
     ? allOptions.some((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase())
     : false;
 
-  const optionId = (option: ComboboxOption) =>
-    `${id ?? 'combobox'}-option-${option.value ? option.value : '__empty__'}`;
+  const optionId = useCallback((option: ComboboxOption) =>
+    `${id ?? 'combobox'}-option-${option.value ? option.value : '__empty__'}`, [id]);
 
   const commit = (option: ComboboxOption) => {
     onChange(option.value);
@@ -123,7 +123,7 @@ export const Combobox = ({
     const active = shown[safeHighlightedIndex];
     const row = active ? listRef.current?.querySelector<HTMLElement>(`[id="${optionId(active)}"]`) : null;
     row?.scrollIntoView({ block: 'nearest' });
-  }, [open]);
+  }, [open, safeHighlightedIndex, shown, optionId]);
 
   const triggerButton = (
     <button

@@ -104,6 +104,23 @@ const RangeLine = ({ value, tone, size = 'md', delay = 0 }: { value: number; ton
   </span>
 );
 
+export const ScoreCell = ({ kind, id, name, row, from, to, failed }: ScoreStripProps) => {
+  if (row === undefined && !failed) return <Skeleton className="h-4 w-10 ml-auto" />;
+  const overall = row?.overall ?? null;
+  const tone = overall === null ? 'neutral' : rateTone(overall, row?.totalDue ?? 0);
+  return (
+    <Link
+      viewTransition
+      to={scoresHref(kind, id, name, from, to)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={overall === null ? `Open ${name}'s scores` : `${name} scores ${Math.round(overall)}% this month. Open scores`}
+      className="inline-flex min-h-8 pointer-coarse:min-h-11 items-center justify-end rounded-md px-1.5 t-card font-display font-bold tabular-nums transition-colors duration-150 ease-out hover:bg-primary-500/10 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      <span className={overall === null ? 'text-text-light' : TONE_TEXT[tone]}>{overall === null ? '-' : `${Math.round(overall)}%`}</span>
+    </Link>
+  );
+};
+
 interface ScoreStripProps {
   kind: ScoreKind;
   id: string;

@@ -12,13 +12,10 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { haptic } from '../../lib/haptics';
 import { cn } from '@/lib/utils';
 import {
-  ShieldAlert,
   Activity,
   Briefcase,
   LayoutGrid,
   Zap,
-  SlidersHorizontal,
-  Flame,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 

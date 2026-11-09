@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { ADMIN_AREA_ROLES } from '../../../api/auth';
 import { UPLOADS_BASE } from '../../../lib/uploadsBase';
+import { PhotoTile } from '../../../components/thumbImage';
 import { useAuditHistoryQuery, useChecklistInstancesBoardQuery, useStoresQuery } from '../hook';
 import { useAssignableUsersQuery } from '../../tickets/hook';
 import { AccessoryTile } from './ChecklistInstanceItemAuditCard';
@@ -49,6 +50,7 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
   const missing = row.accessories.filter(a => !a.checked).length;
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const closePreview = useCallback(() => setPreviewSrc(null), []);
+  const rowGallery = useMemo(() => row.images.map((img) => `${UPLOADS_BASE}${img.url}`), [row.images]);
   return (
     <article className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-4')}>
       <div className="flex items-start justify-between gap-3">
@@ -90,21 +92,15 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
 
       {row.images.length > 0 && (
         <ul className="flex flex-wrap gap-2">
-          {row.images.map(img => (
-            <li key={img.id}>
-              <button
-                type="button"
-                onClick={() => setPreviewSrc(`${UPLOADS_BASE}${img.url}`)}
-                aria-label="View photo larger"
-                className="block rounded-lg outline-none cursor-pointer transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary-500/40"
-              >
-                <img
-                  src={`${UPLOADS_BASE}${img.url}`}
-                  alt={img.originalFilename ?? `Photo from the audit of ${personName(row)}`}
-                  loading="lazy"
-                  className="size-16 rounded-lg border border-border object-cover bg-surface-hover"
-                />
-              </button>
+          {row.images.map((img, i) => (
+            <li key={img.id} className="size-16">
+              <PhotoTile
+                src={`${UPLOADS_BASE}${img.url}`}
+                alt={img.originalFilename ?? `photo ${i + 1} from the audit of ${personName(row)}`}
+                live={img.captureMethod === 'LIVE'}
+                onOpen={() => setPreviewSrc(`${UPLOADS_BASE}${img.url}`)}
+                className="rounded-lg"
+              />
             </li>
           ))}
         </ul>
@@ -116,7 +112,7 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{row.remarks}</p>
         </div>
       )}
-      {previewSrc && createPortal(<ImageLightbox src={previewSrc} onClose={closePreview} />, document.body)}
+      {previewSrc && createPortal(<ImageLightbox src={previewSrc} onClose={closePreview} images={rowGallery} onChange={setPreviewSrc} />, document.body)}
     </article>
   );
 });

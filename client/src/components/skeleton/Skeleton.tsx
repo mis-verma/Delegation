@@ -13,16 +13,13 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
     return (
       <div
         ref={ref}
-        role="status"
-        aria-label="Loading"
+        aria-hidden="true"
         className={cn(
           "skeleton-shimmer rounded-md bg-surface-active transition-colors duration-300",
           className
         )}
         {...props}
-      >
-        <span className="sr-only">Loading...</span>
-      </div>
+      />
     );
   }
 );

@@ -5,6 +5,8 @@ import { PRIORITY_CONFIG, formatDueLabel, formatShortDateTime } from './ticketDi
 import { TicketFlowChips } from './TicketFlowChips';
 import type { StatusChipStatus } from '../../components/statusChip';
 import type { Ticket } from '../../api/ticket';
+import { cn } from '@/lib/utils';
+import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TR_CLASS, TD_STICKY_CLASS, activateOnKey } from '../../components/dataTable';
 
 interface TicketTableProps {
   tickets: Ticket[];
@@ -15,9 +17,8 @@ interface TicketTableProps {
   onOpen: (ticket: Ticket) => void;
 }
 
-const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 pointer-coarse:py-3 align-middle t-meta text-text-secondary';
+const HEAD_CLASS = TH_CLASS;
+const CELL_CLASS = TD_CLASS;
 
 const FROM_LG = 'hidden lg:table-cell';
 const FROM_XL = 'hidden xl:table-cell';
@@ -26,11 +27,12 @@ const FROM_2XL = 'hidden 2xl:table-cell';
 const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNames, assigneeNames, onOpen }: TicketTableProps) => {
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border/60">
+    <div className={TABLE_FRAME_CLASS}>
       <table className="w-full min-w-[36rem] md:min-w-[40rem] lg:min-w-[44rem] xl:min-w-[58rem] 2xl:min-w-[64rem] border-collapse">
-        <thead className={HEAD_ROW_CLASS}>
+        <caption className="sr-only">Tickets</caption>
+        <thead>
           <tr>
-            <th scope="col" className={`${HEAD_CLASS} sticky left-0 ${HEAD_ROW_CLASS} z-10`}>Ticket</th>
+            <th scope="col" className={cn(HEAD_CLASS, TH_CORNER_CLASS)}>Ticket</th>
             <th scope="col" className={HEAD_CLASS}>Status</th>
             <th scope="col" className={HEAD_CLASS}>Priority</th>
             <th scope="col" className={`${HEAD_CLASS} ${FROM_LG}`}>Department</th>
@@ -57,17 +59,12 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
                 key={ticket.id}
                 onClick={() => onOpen(ticket)}
                 tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onOpen(ticket);
-                  }
-                }}
-                className="group border-b border-border/40 last:border-b-0 hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none transition-colors duration-200 ease-in-out cursor-pointer"
+                onKeyDown={activateOnKey(() => onOpen(ticket))}
+                className={TR_CLASS}
               >
-                <td className={`${CELL_CLASS} sticky left-0 bg-surface group-hover:bg-surface-hover group-focus-visible:bg-surface-hover transition-colors duration-200 z-10 min-w-44 max-w-56 sm:max-w-72 xl:max-w-md`}>
+                <td className={cn(CELL_CLASS, TD_STICKY_CLASS, 'min-w-44 max-w-56 sm:max-w-72 xl:max-w-md')}>
                   <div className="flex flex-col gap-1 min-w-0">
-                    <span className="font-semibold text-text-secondary leading-snug line-clamp-2 break-words">{ticket.title}</span>
+                    <span className="t-card font-display font-semibold text-text leading-snug line-clamp-2 break-words">{ticket.title}</span>
                     {ticket.tags.length > 0 && (
                       <div className="flex items-center gap-1 flex-wrap">
                         {ticket.tags.map((tag) => <TagChip key={tag.id} tag={tag} />)}
@@ -126,7 +123,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
         </tbody>
       </table>
 
-      <p className="sr-only" aria-live="polite">{tickets.length} tickets, sorted.</p>
+      <p className="sr-only" aria-live="polite">{tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'} shown.</p>
     </div>
   );
 };

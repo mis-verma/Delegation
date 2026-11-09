@@ -1,9 +1,13 @@
 import { memo, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { IconChip, PANEL_CLASS, Skeleton, StatusChip } from '../../../components';
+import { AlarmClock, AlarmClockOff, CalendarClock, Clock } from 'lucide-react';
+import { IconChip, Skeleton, StatusChip } from '../../../components';
+import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TD_STICKY_CLASS, NUM_CLASS } from '../../../components/dataTable';
+import { cn } from '@/lib/utils';
 import {
-  getInstanceView,
+  getInstanceView, formatClockTime,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
+import { useSharedNow } from '../../../lib/useSharedNow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceTableProps {
@@ -13,9 +17,8 @@ interface ChecklistInstanceTableProps {
   lookupsPending?: boolean;
 }
 
-const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary transition-colors duration-200 ease-in-out group-hover:bg-surface-hover';
+const HEAD_CLASS = TH_CLASS;
+const CELL_CLASS = cn(TD_CLASS, 'transition-colors duration-200 ease-out group-hover:bg-surface-hover group-focus-within:bg-surface-hover');
 
 interface TableRowProps {
   instance: ChecklistInstance;
@@ -28,7 +31,8 @@ interface TableRowProps {
 
 const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePending, assigneesPending }: TableRowProps) => {
   const navigate = useNavigate();
-  const { done, total, isComplete, chipStatus, deadlineTime, verification } = getInstanceView(instance);
+  const now = useSharedNow();
+  const { done, total, isComplete, chipStatus, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
   const href = `/checklists/${instance.id}`;
 
   const onRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
@@ -38,14 +42,20 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
 
   return (
     <tr onClick={onRowClick} className="group cursor-pointer border-b border-border/40 last:border-b-0">
-      <td className={`${CELL_CLASS} sticky left-0 bg-surface z-10 max-w-[20rem]`}>
-        <Link to={href} className="font-semibold text-text-secondary group-hover:text-primary-600 dark:group-hover:text-primary-400 truncate block transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
+      <td className={cn(CELL_CLASS, TD_STICKY_CLASS, 'group-focus-within:bg-surface-hover')}>
+        <Link to={href} className="t-card font-display font-semibold text-text group-hover:text-primary-600 dark:group-hover:text-primary-400 line-clamp-2 leading-snug break-words transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
           {instance.title}
         </Link>
       </td>
 
       <td className={CELL_CLASS}>
-        <StatusChip status={chipStatus} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          {!closed && <StatusChip status={chipStatus} />}
+          {opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
+          {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
+          {inLateWindow && instance.lateUntilTime && <IconChip icon={AlarmClock} tone="bg-danger" label={`Fill by ${formatClockTime(instance.lateUntilTime)}`} />}
+          {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
+        </div>
       </td>
 
       <td className={CELL_CLASS}>
@@ -63,7 +73,7 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
         )}
       </td>
 
-      <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
+      <td className={cn(CELL_CLASS, 'whitespace-nowrap', NUM_CLASS)}>
         {done}/{total}
       </td>
 
@@ -89,12 +99,12 @@ TableRow.displayName = 'ChecklistInstanceTableRow';
 
 export const ChecklistInstanceTable = ({ instances, storeNameById, peopleNameById, lookupsPending = false }: ChecklistInstanceTableProps) => {
   return (
-    <div className={`${PANEL_CLASS} w-full overflow-x-auto`}>
-      <table className="w-full min-w-[60rem] border-collapse table-fixed">
+    <div className={TABLE_FRAME_CLASS}>
+      <table className="w-full min-w-[64rem] border-collapse table-fixed">
         <caption className="sr-only">{instances.length} {instances.length === 1 ? 'checklist' : 'checklists'}</caption>
         <colgroup>
           <col className="w-[20rem]" />
-          <col className="w-[7rem]" />
+          <col className="w-[11rem]" />
           <col className="w-[10rem]" />
           <col className="w-[8rem]" />
           <col className="w-[11rem]" />
@@ -102,14 +112,14 @@ export const ChecklistInstanceTable = ({ instances, storeNameById, peopleNameByI
           <col className="w-[14rem]" />
           <col className="w-[7rem]" />
         </colgroup>
-        <thead className={HEAD_ROW_CLASS}>
+        <thead>
           <tr>
-            <th scope="col" className={`${HEAD_CLASS} sticky left-0 ${HEAD_ROW_CLASS} z-10`}>Checklist</th>
+            <th scope="col" className={cn(HEAD_CLASS, TH_CORNER_CLASS)}>Checklist</th>
             <th scope="col" className={HEAD_CLASS}>Status</th>
             <th scope="col" className={HEAD_CLASS}>Verification</th>
             <th scope="col" className={HEAD_CLASS}>Store</th>
             <th scope="col" className={HEAD_CLASS}>Period</th>
-            <th scope="col" className={HEAD_CLASS}>Progress</th>
+            <th scope="col" className={cn(HEAD_CLASS, 'text-right')}>Progress</th>
             <th scope="col" className={HEAD_CLASS}>Assignees</th>
             <th scope="col" className={HEAD_CLASS}>Recurrence</th>
           </tr>

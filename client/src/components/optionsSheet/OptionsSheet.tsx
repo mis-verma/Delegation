@@ -78,7 +78,7 @@ export const OptionSelect = <K extends string>({ labels, icons, value, onChange 
   value: K;
   onChange: (key: K) => void;
 }) => (
-  <div className="flex flex-wrap gap-2 pointer-coarse:gap-2.5" role="group">
+  <div className="flex flex-wrap gap-2" role="group">
     {(Object.keys(labels) as K[]).map((key, index) => (
       <ChoiceChip
         key={key}
@@ -97,7 +97,7 @@ export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolea
     type="button"
     aria-pressed={active}
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border t-meta font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] ${
+    className={`inline-flex items-center gap-1.5 h-8 pointer-coarse:h-11 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border t-meta font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] [-webkit-tap-highlight-color:transparent] ${
       active
         ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
         : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60'
@@ -115,7 +115,7 @@ export const ChoiceIcon = ({ icon: Icon, tone }: { icon: LucideIcon; tone: strin
   </span>
 );
 
-export const ChoiceWrap = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap gap-2 pointer-coarse:gap-2.5">{children}</div>;
+export const ChoiceWrap = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap gap-2">{children}</div>;
 
 export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
   <button

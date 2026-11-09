@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
+import { useSwipeToClose } from '../../lib/useSwipeToClose';
 import { useTaskSummaryQuery } from '../../features/tasks/hook';
 import { useTicketSummaryQuery } from '../../features/tickets/hook';
 import { useTodoSummaryQuery } from '../../features/todo/hook';
@@ -123,7 +124,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
   const location = useLocation();
   const prefetchRoute = usePrefetchRoute();
   const isMobile = useIsMobile();
-  const swipeStartX = useRef<number | null>(null);
+  const swipe = useSwipeToClose(onNavigate);
   const isAdmin = user?.role === 'ADMIN';
   const isPC = user?.role === 'PC';
   const isManager = user?.role === 'MANAGER';
@@ -360,7 +361,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             onTouchStart={() => prefetchRoute(to)}
             className={({ isActive }) =>
               [
-                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
@@ -392,8 +393,9 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                 </span>
                 <span
                   className={[
-                    'relative z-10 truncate leading-none min-w-0 transition-all duration-300 ease-in-out',
-                    showLabel ? 'max-w-[10rem] opacity-100 ml-3' : 'max-w-0 opacity-0 ml-0',
+                    'relative z-10 min-w-0 transition-all duration-300 ease-in-out',
+                    isDrawer ? 'line-clamp-2 leading-tight break-words' : 'truncate leading-none',
+                    showLabel ? `${isDrawer ? 'max-w-none' : 'max-w-[10rem]'} opacity-100 ml-3` : 'max-w-0 opacity-0 ml-0',
                   ].join(' ')}
                 >
                   {label}
@@ -417,7 +419,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             />
           )}
 
-          {!hasChildren && showLabel && <span aria-hidden="true" className="shrink-0 size-8 pointer-coarse:size-11" />}
+          {!hasChildren && showLabel && !isDrawer && <span aria-hidden="true" className="shrink-0 size-8 pointer-coarse:size-11" />}
 
           {hasChildren && showLabel && (
             <button
@@ -425,7 +427,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
               onClick={() => toggleExpanded(to)}
               aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
               aria-expanded={isExpanded}
-              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50"
             >
               <ChevronDown
                 size={16}
@@ -442,7 +444,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
               onClick={handleNavClick}
               title={`New ${label}`}
               aria-label={`New ${label}`}
-              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:pointer-fine:opacity-0 md:pointer-fine:group-hover/row:opacity-100 md:pointer-fine:group-focus-within/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:pointer-fine:opacity-0 md:pointer-fine:group-hover/row:opacity-100 md:pointer-fine:group-focus-within/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
             >
               <Plus size={16} strokeWidth={2.5} />
             </NavLink>
@@ -458,13 +460,13 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             }`}
           >
             <div className="min-h-0">
-              <div className="flex flex-col gap-1 mt-1 mb-2 ml-4 pl-4 ">
+              <div className="flex flex-col gap-1 pt-1 pb-2 pl-8">
                 {children!.map((child) => {
                   if (child.soon) {
                     return (
                       <span
                         key={child.to}
-                        className={`flex items-center justify-between gap-2 rounded-lg px-3 t-meta font-medium text-text-muted/70 cursor-not-allowed select-none ${isDrawer ? 'py-2.5' : 'py-1.5'}`}
+                        className={`flex items-center justify-between gap-2 rounded-lg px-3 t-meta font-medium text-text-muted/70 cursor-not-allowed select-none ${isDrawer ? 'min-h-11 py-2.5' : 'py-1.5'}`}
                       >
                         {child.label}
                         <span className="t-meta font-bold capitalize tracking-wide px-2 py-0.5 rounded-full bg-surface-hover/80 border border-border text-text-muted">
@@ -484,8 +486,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                       onClick={handleNavClick}
                       aria-current={isActiveChild ? 'page' : undefined}
                       className={[
-                        'relative rounded-lg px-3 t-meta outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                        isDrawer ? 'py-2.5' : 'py-1.5',
+                        'relative rounded-lg px-3 t-meta outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+                        isDrawer ? 'flex min-h-11 items-center py-2.5' : 'py-1.5',
                         isActiveChild
                           ? 'bg-primary-50/50 text-primary-700 font-bold dark:bg-primary-500/10 dark:text-primary-300'
                           : 'text-text-secondary font-medium hover:bg-surface-hover hover:text-text',
@@ -508,9 +510,9 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
 
   const renderContent = (isDrawer: boolean) => (
     <div className="flex flex-col h-full w-full justify-between">
-      <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
         {(hasMainItems || isDrawer) && (
-        <div className="flex items-center justify-between px-3 mb-4 shrink-0">
+        <div className="flex items-center justify-between px-3 shrink-0">
           {hasMainItems ? (
             <p
               className={[
@@ -549,25 +551,33 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             if (items.length === 0) return null;
             return (
               <div key={group.title} role="group" aria-label={group.title} className="flex flex-col gap-1">
-                {hasMainItems && (
-                  <div
-                    className={[
-                      'border-t border-border transition-all duration-300 ease-in-out',
-                      (isDrawer || isOpen) ? 'mt-3 mb-2 mx-1' : 'mt-3 mb-2 mx-2',
-                    ].join(' ')}
-                    aria-hidden="true"
-                  />
-                )}
-                <p
+                <div
                   className={[
-                    'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
-                    'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
-                    (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-1.5' : 'max-h-0 opacity-0 mb-0',
+                    'flex flex-col gap-3 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none',
+                    hasMainItems ? 'pt-3' : '',
+                    (isDrawer || isOpen) ? 'pb-1.5' : 'pb-0',
                   ].join(' ')}
                 >
-                  {group.dot && <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />}
-                  {group.title}
-                </p>
+                  {hasMainItems && (
+                    <div
+                      className={[
+                        'border-t border-border transition-all duration-300 ease-in-out',
+                        (isDrawer || isOpen) ? 'mx-1' : 'mx-2',
+                      ].join(' ')}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <p
+                    className={[
+                      'flex items-center gap-1.5 t-meta font-bold text-text-light tracking-wider px-3',
+                      'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
+                      (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
+                    ].join(' ')}
+                  >
+                    {group.dot && <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />}
+                    {group.title}
+                  </p>
+                </div>
                 {items.map((item) => renderNavItem(item, isDrawer))}
               </div>
             );
@@ -589,10 +599,10 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
         )}
       </div>
 
-      <div className="shrink-0 pt-3 border-t border-border">
+      <div className="shrink-0 flex flex-col gap-1 pt-3 border-t border-border">
         <p
           className={[
-            't-meta font-bold text-text-light tracking-wider px-3 mb-1',
+            't-meta font-bold text-text-light tracking-wider px-3',
             'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
             (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
           ].join(' ')}
@@ -610,7 +620,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
       <div
         onClick={onNavigate}
         aria-hidden="true"
-        className={`md:hidden fixed inset-0 z-40 bg-black/50 touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+        className={`md:hidden fixed inset-0 z-40 bg-black/50 motion-safe:backdrop-blur-[2px] touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -623,12 +633,9 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
           aria-modal="true"
           aria-label="Menu"
           onKeyDown={trapDrawerFocus}
-          onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
-          onTouchEnd={(e) => {
-            if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
-            swipeStartX.current = null;
-          }}
-          className={`fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
+          {...swipe.handlers}
+          style={swipe.dragStyle}
+          className={`fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] bg-surface border-r border-border transition-[translate] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
             isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
           }`}
         >

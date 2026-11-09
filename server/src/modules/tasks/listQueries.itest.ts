@@ -125,6 +125,13 @@ describe("delegation list", () => {
         expect(res.body.meta.counts.options).toBe(1)
     })
 
+    it("searches the title, keeps the scope count and treats percent signs literally", async () => {
+        const res = await get("/tasks?q=open%20la")
+        expect(titles(res).sort()).toEqual(["Open late", "Open later"])
+        expect(res.body.meta.counts.scope).toBe(8)
+        expect(titles(await get("/tasks?q=%25"))).toEqual([])
+    })
+
     it("rejects an unknown sort instead of ignoring it", async () => {
         const res = await get("/tasks?sort=nonsense")
         expect(res.status).toBe(400)

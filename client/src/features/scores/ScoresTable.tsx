@@ -123,7 +123,7 @@ export const ScoresTable = memo(({ view, rows, ranks, modules, sortKey, ascendin
 ScoresTable.displayName = 'ScoresTable';
 
 export const ScoresMobileList = ({ view, rows, ranks, modules, onOpen, scope }: { view: ExplorerView; rows: readonly ExplorerRow[]; ranks: ReadonlyMap<string, number>; modules: readonly ScoreModule[]; onOpen: (row: ExplorerRow) => void; scope?: ScoreScope }) => (
-  <ol className="flex flex-col gap-2 md:hidden">
+  <ol className="flex flex-col gap-2 lg:hidden">
     {rows.map((r) => (
       <MobileScoreRow
         key={`${r.kind}:${r.id}`}

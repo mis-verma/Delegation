@@ -36,7 +36,7 @@ export const ScoresFilterBar = ({ stores, departments, storeId, departmentId, mo
   const fieldCount = [!!stores, !!departments, true, showRecurrence].filter(Boolean).length;
   return (
     <section aria-label="Filters" className={cn(PANEL_CLASS, 'flex flex-col gap-3', CARD_PAD)}>
-      <div className={cn('grid grid-cols-2 gap-3', fieldCount >= 4 ? 'lg:grid-cols-4' : fieldCount === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2')}>
+      <div className={cn('grid grid-cols-2 gap-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2', fieldCount >= 4 ? 'lg:grid-cols-4' : fieldCount === 3 ? 'sm:grid-cols-3' : 'lg:grid-cols-2')}>
         {stores && (
           <Field label="Store">
             <SelectDropdown label="Store" aria-label="Store" triggerClassName={FIELD_TRIGGER} value={storeId} onChange={(v) => onChange({ store: v })} options={[{ value: '', label: 'All stores' }, ...stores.map((o) => ({ value: o.value, label: o.label }))]} />

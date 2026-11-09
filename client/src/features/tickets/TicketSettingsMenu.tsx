@@ -19,6 +19,9 @@ import type { Ticket } from '../../api/ticket';
 import type { Department } from '../../api/departments';
 import type { AssignableUser } from '../../api/users';
 import type { Tag } from '../../api/tags';
+import { UserMultiSelect } from '../../components/userMultiSelect';
+
+const PEOPLE_CHIP_LIMIT = 12;
 
 const SCOPE_ICON: Record<ScopeFilter, LucideIcon> = {
   ALL: LayoutGrid,
@@ -51,7 +54,9 @@ export const TicketSettingsMenu = ({
   const people = (assignableUsers ?? []).map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName ?? ''}`.trim(), first: u.firstName }));
   const resultCount = organizer.resultTotal;
 
-  const personChips = (selected: string[], onChange: (ids: string[]) => void) => (
+  const personChips = (selected: string[], onChange: (ids: string[]) => void) => people.length > PEOPLE_CHIP_LIMIT ? (
+    <UserMultiSelect all selected={selected} onChange={onChange} />
+  ) : (
     <ChoiceWrap>
       {people.map((p) => (
         <ChoiceChip

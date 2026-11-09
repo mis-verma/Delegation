@@ -5,7 +5,9 @@ import { useSearchParams } from "react-router";
 import { readKept, writeKept } from "../../lib/keptForm";
 import { toast } from "sonner";
 import { Wand2, Save, Inbox, X, Plus, Upload, UserCheck, PenLine } from "lucide-react";
-import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
+import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, SearchField, type ViewTab } from "../../components";
+import { useDebouncedValue } from "../../lib/useDebouncedValue";
+import { TableSkeleton } from "../../components/dataTable";
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { taskMatchesDrill, useScoreDrill } from "../../lib/scoreDrill";
@@ -270,6 +272,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     persistFiltersIfSaved(next);
     setQuickFilter(null);
     setScopeKey('all');
+    setSearch('');
   };
 
   const toggleQuickFilter = (key: QuickFilterKey) => {
@@ -325,6 +328,18 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     [departments, filters.storeId],
   );
 
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const searchTerm = debouncedSearch.trim();
+  useEffect(() => {
+    if ((searchParams.get('q') ?? '') === searchTerm) return;
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (searchTerm) params.set('q', searchTerm); else params.delete('q');
+      return params;
+    }, { replace: true });
+  }, [searchTerm, searchParams, setSearchParams]);
+
   const mineOnly = searchParams.get('mine') === '1';
   const createdRange = useCreatedRange();
   const scoreDrill = useScoreDrill(false);
@@ -350,7 +365,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     dueFrom: scoreDrill.due?.from,
     dueTo: scoreDrill.due?.to,
     sla: dueSla,
-  }), [userId, sort, quickFilter, filters, mineOnly, isAssignedToMe, isAssignedByMe, createdRange.range, scoreDrill.due, dueSla]);
+    search: searchTerm || undefined,
+  }), [userId, sort, quickFilter, filters, mineOnly, isAssignedToMe, isAssignedByMe, createdRange.range, scoreDrill.due, dueSla, searchTerm]);
 
   const fullQuery = useTasksQuery(userId, !paged, filters.tagIds);
   const { data: listMeta } = useTasksMetaQuery(userId, !paged, filters.tagIds);
@@ -423,8 +439,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       ? assigneeFiltered
       : assigneeFiltered.filter(t => filters.raisedByIds.includes(t.userId));
     const statusFiltered = filters.status === 'all' ? raisedByFiltered : raisedByFiltered.filter(t => t.status === filters.status);
-    return statusFiltered;
-  }, [scopeFiltered, filters]);
+    const query = searchTerm.toLowerCase();
+    return query
+      ? statusFiltered.filter(t => t.title.toLowerCase().includes(query) || (t.description ?? '').toLowerCase().includes(query))
+      : statusFiltered;
+  }, [scopeFiltered, filters, searchTerm]);
 
   const filtered = useMemo(
     () => (quickFilter ? optionFiltered.filter(QUICK_FILTER_PREDICATES[quickFilter]) : optionFiltered),
@@ -493,39 +512,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
   const filterChips = activeChips.filter((chip) => !chip.scope);
   const activeCount = filterChips.length;
+  const shownChips = searchTerm
+    ? [{ key: 'search', label: `Search: ${searchTerm}`, onClear: () => setSearch('') }, ...filterChips]
+    : filterChips;
 
   const isEmpty = sorted.length === 0;
-  const isFiltered = activeCount > 0 || quickFilter !== null || isAssignedToMe || isAssignedByMe;
+  const isFiltered = activeCount > 0 || quickFilter !== null || isAssignedToMe || isAssignedByMe || !!searchTerm;
 
   const headerActions = (
     <>
-          
-            {!userId && (
-              <>
-                <CreateButton
-                  label="New delegation"
-                  onClick={() => setShowForm(true)}
-                  className="hidden md:inline-flex"
-                  menu={isVerifier ? [
-                    { key: 'smart', label: 'Smart Add', hint: 'Type it in plain words, the form fills itself', icon: Wand2, onSelect: () => setShowSmartModal(true) },
-                    { key: 'bulk', label: 'Bulk import', hint: 'Upload a sheet, create many at once', icon: Upload, onSelect: () => setShowBulkImport(true) },
-                  ] : undefined}
-                />
-
-                <Fab
-                  sheetTitle="Create"
-                  actions={[
-                    { key: 'new', label: 'New delegation', description: 'Give someone a piece of work', icon: Plus, onClick: () => setShowForm(true) },
-                    ...(isVerifier ? [
-                      { key: 'smart', label: 'Smart Add', description: 'Type or say it, the details fill in', icon: Wand2, onClick: () => setShowSmartModal(true) },
-                      { key: 'bulk-import', label: 'Bulk import', description: 'Add many from an Excel sheet', icon: Upload, onClick: () => setShowBulkImport(true) },
-                    ] : []),
-                  ]}
-                />
-              </>
-            )}
-
-      
             <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TaskOptionsDialog
               isOpen={showOptions}
@@ -554,6 +549,30 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               scope={scope}
             />
             </div>
+            {!userId && (
+              <>
+                <CreateButton
+                  label="New delegation"
+                  onClick={() => setShowForm(true)}
+                  className="hidden md:inline-flex"
+                  menu={isVerifier ? [
+                    { key: 'smart', label: 'Smart Add', hint: 'Type it in plain words, the form fills itself', icon: Wand2, onSelect: () => setShowSmartModal(true) },
+                    { key: 'bulk', label: 'Bulk import', hint: 'Upload a sheet, create many at once', icon: Upload, onSelect: () => setShowBulkImport(true) },
+                  ] : undefined}
+                />
+
+                <Fab
+                  sheetTitle="Create"
+                  actions={[
+                    { key: 'new', label: 'New delegation', description: 'Give someone a piece of work', icon: Plus, onClick: () => setShowForm(true) },
+                    ...(isVerifier ? [
+                      { key: 'smart', label: 'Smart Add', description: 'Type or say it, the details fill in', icon: Wand2, onClick: () => setShowSmartModal(true) },
+                      { key: 'bulk-import', label: 'Bulk import', description: 'Add many from an Excel sheet', icon: Upload, onClick: () => setShowBulkImport(true) },
+                    ] : []),
+                  ]}
+                />
+              </>
+            )}
     </>
   );
 
@@ -594,9 +613,17 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} storageKey={`view:tasks:${user?.id ?? "anon"}`} />
           </div>
 
-          {filterChips.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap min-w-0 max-sm:order-last max-sm:basis-full">
-              {filterChips.map(chip => (
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            label="Search delegations by title or description"
+            placeholder="Search delegations"
+            className="basis-full sm:basis-auto"
+          />
+
+          {shownChips.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap min-w-0 order-last basis-full">
+              {shownChips.map(chip => (
                 <span
                   key={chip.key}
                   className="flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 t-meta font-display font-medium rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20"
@@ -613,6 +640,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 </span>
               ))}
 
+              {filterChips.length > 0 && (
               <button
                 type="button"
                 onClick={saveFilters}
@@ -622,6 +650,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 <Save size={13} />
                 Save view
               </button>
+              )}
             </div>
           )}
 
@@ -656,7 +685,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       </div>
 
       {isPending && (
-        <ul className="sm:hidden flex flex-col gap-3" aria-hidden>
+        <ul className="sm:hidden flex flex-col gap-3" role="status" aria-label="Loading delegations">
           {Array.from({ length: 5 }).map((_, i) => (
             <li key={i} className="flex flex-col gap-2 p-3 rounded-2xl border border-border/60 bg-surface">
               <div className="flex items-start gap-2">
@@ -673,24 +702,45 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           ))}
         </ul>
       )}
-      {isPending && (
-          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
-              {Array.from({ length: 4 }).map((_, col) => (
-                  <div key={col} className="flex flex-col gap-3 p-3 bg-surface-hover/30 border border-border/60 rounded-2xl">
-                      <Skeleton className="h-6 w-32 rounded-md mx-2 mt-2" />
-                      {Array.from({ length: 3 }).map((_, i) => (
-                          <div key={i} className="flex flex-col gap-3 p-3.5 rounded-2xl border border-border/60 bg-surface">
-                              <Skeleton className="h-5 w-3/4 rounded-md" />
-                              <Skeleton className="h-4 w-1/2 rounded-md" />
-                              <div className="flex justify-between items-center mt-2">
-                                  <Skeleton className="h-5 w-16 rounded-md" />
-                                  <Skeleton className="w-7 h-7 rounded-full" />
-                              </div>
-                          </div>
-                      ))}
+      {isPending && (view === 'table' || view === 'timeline') && (
+        <div className="hidden sm:block">
+          <TableSkeleton label="Loading delegations" />
+        </div>
+      )}
+      {isPending && view === 'list' && (
+        <ul className="hidden sm:flex flex-col gap-3" role="status" aria-label="Loading delegations">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-border/60 bg-surface">
+              <div className="flex flex-1 min-w-0 flex-col gap-2">
+                <Skeleton className="h-4 w-2/3 rounded-md" />
+                <Skeleton className="h-3 w-1/3 rounded-md" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full shrink-0" />
+              <Skeleton className="size-7 rounded-full shrink-0" />
+            </li>
+          ))}
+        </ul>
+      )}
+      {isPending && view === 'board' && (
+        <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start" role="status" aria-label="Loading delegations">
+          {Array.from({ length: 4 }).map((_, col) => (
+            <div key={col} className="flex flex-col gap-3 p-3 bg-surface-hover/30 border border-border/60 rounded-2xl">
+              <div className="px-2 pt-2">
+                <Skeleton className="h-6 w-32 rounded-md" />
+              </div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex flex-col gap-3 p-3.5 rounded-2xl border border-border/60 bg-surface">
+                  <Skeleton className="h-5 w-3/4 rounded-md" />
+                  <Skeleton className="h-4 w-1/2 rounded-md" />
+                  <div className="flex justify-between items-center pt-2">
+                    <Skeleton className="h-5 w-16 rounded-md" />
+                    <Skeleton className="w-7 h-7 rounded-full" />
                   </div>
+                </div>
               ))}
-          </div>
+            </div>
+          ))}
+        </div>
       )}
 
       

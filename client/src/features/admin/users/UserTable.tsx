@@ -6,6 +6,7 @@ import { presenceLabel } from '../presenceDisplay';
 import { UserRow } from './UserRow';
 import type { UserActionHandlers } from './UserActionsMenu';
 import type { SortDir, UserSortKey } from './useFilteredUsers';
+import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS } from '../../../components/dataTable';
 
 interface UserTableProps extends UserActionHandlers {
   users: AdminUser[];
@@ -23,8 +24,7 @@ interface UserTableProps extends UserActionHandlers {
   onTogglePage: (ids: string[], select: boolean) => void;
 }
 
-const HEAD_ROW_CLASS = 'bg-surface-hover';
-const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-display font-semibold text-text-muted tracking-tight whitespace-nowrap';
+const HEAD_CLASS = TH_CLASS;
 
 const COLUMNS: { key: UserSortKey; label: string }[] = [
   { key: 'role', label: 'Role' },
@@ -40,7 +40,7 @@ const SortHeader = ({ label, active, dir, onClick }: { label: string; active: bo
     <button
       type="button"
       onClick={onClick}
-      className={cn('inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 pointer-coarse:min-h-11 rounded transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50', active ? 'text-text' : 'text-text-muted hover:text-text')}
+      className={cn('inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 pointer-coarse:min-h-11 rounded transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70', active ? 'text-white' : 'text-white/75 hover:text-white')}
     >
       {label}
       <Icon className={cn('size-3.5 shrink-0', !active && 'opacity-50')} aria-hidden />
@@ -65,11 +65,12 @@ const UserTableComponent = ({
   const ariaSort = (key: UserSortKey) => (sort === key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-border/60 bg-surface">
+    <div className={TABLE_FRAME_CLASS}>
       <table className="w-full min-w-[60rem] border-collapse">
-        <thead className={cn(HEAD_ROW_CLASS, 'border-b border-border/60')}>
+        <caption className="sr-only">People</caption>
+        <thead>
           <tr>
-            <th scope="col" className={cn(HEAD_CLASS, 'w-14 min-w-14 sticky left-0 z-10', HEAD_ROW_CLASS)}>
+            <th scope="col" className={cn(HEAD_CLASS, TH_CORNER_CLASS, 'w-14 min-w-14')}>
               <label className="flex items-center justify-center size-8 pointer-coarse:size-11 cursor-pointer">
                 <input
                   ref={headCheckbox}
@@ -81,7 +82,7 @@ const UserTableComponent = ({
                 />
               </label>
             </th>
-            <th scope="col" aria-sort={ariaSort('name')} className={cn(HEAD_CLASS, 'sticky left-14 z-10', HEAD_ROW_CLASS)}>
+            <th scope="col" aria-sort={ariaSort('name')} className={cn(HEAD_CLASS, 'left-14 z-30')}>
               <SortHeader label="Name" active={sort === 'name'} dir={dir} onClick={() => onSort('name')} />
             </th>
             {COLUMNS.map((c) => (

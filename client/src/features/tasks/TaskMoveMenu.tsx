@@ -31,7 +31,7 @@ export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => {
           onClick={(e) => e.stopPropagation()}
           aria-label={`Move ${task.title} to another status`}
           title="Move to another status"
-          className="flex items-center justify-center size-8 rounded-md text-text-light hover:text-primary-600 hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 ease-in-out cursor-pointer outline-none"
+          className="flex items-center justify-center size-8 pointer-coarse:size-11 rounded-md text-text-light hover:text-primary-600 hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-200 ease-out cursor-pointer outline-none"
         >
           <MoveRight size={15} strokeWidth={2.5} />
         </button>

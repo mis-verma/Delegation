@@ -18,7 +18,7 @@ import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
 import { PUBLISH_REMARK } from "./taskStatusModel";
 import type { TaskBulkImportPublishPayload } from "../../api/taskBulkImport";
-import type { SummaryScope } from "../../api/http";
+import type { SummaryScope, UploadProgress } from "../../api/http";
 import type { DashboardQueryOptions } from "../../lib/dashboardQuery";
 
 const TASK_KEYS = {
@@ -531,11 +531,12 @@ export const useDeleteAllSmartTaskConversationsMutation = () => {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: SMART_TASK_CONVERSATION_KEYS.all }),
     });
 };
-export const useUploadTaskAttachmentsMutation = (taskId: string) =>
+export const useUploadTaskAttachmentsMutation = (taskId: string, onProgress?: UploadProgress) =>
     useEntityMutation({
-        mutationFn: (files: File[]) => taskApi.uploadAttachments(taskId, files),
+        mutationFn: (files: File[]) => taskApi.uploadAttachments(taskId, files, onProgress),
         invalidateKeys: [['tasks']],
         successMessage: null,
+        retryable: true,
         errorFallback: "Couldn't add the file. Try again.",
     });
 

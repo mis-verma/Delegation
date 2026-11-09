@@ -28,6 +28,8 @@ import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyCheckli
 import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceDoneRecently, isInstanceEnded, isInstanceEndedToday, isInstanceInLateWindow } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { windowLabel } from '../../scores/useScoreWindow';
+import { UserMultiSelect } from '../../../components/userMultiSelect';
+import { readCsv, readOneOf, useUrlSync } from '../../../lib/useUrlSync';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
@@ -52,6 +54,8 @@ const isRunDone = (i: ChecklistInstance) => i.items.length > 0 && i.items.every(
 type GroupByKey = 'recurrence' | 'store' | 'person';
 const GROUP_BY_LABEL: Record<GroupByKey, string> = { recurrence: 'Recurrence', store: 'Store', person: 'Person' };
 const GROUP_BY_ICON: Record<GroupByKey, typeof Repeat> = { recurrence: Repeat, store: Store, person: User };
+const SORT_KEYS = Object.keys(SORT_LABEL) as SortKey[];
+const GROUP_KEYS = Object.keys(GROUP_BY_LABEL) as GroupByKey[];
 
 const RECURRENCES = Object.keys(RECURRENCE_LABEL) as ChecklistRecurrence[];
 const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerificationStatus[];
@@ -122,7 +126,7 @@ const InstancesSkeleton = ({ view }: { view: View }) => {
 
 export const MyChecklists = () => {
   const [page, setPage] = useState(1);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [quickFilter, setQuickFilter] = useState<MyChecklistsQuickFilterKey | null>(() => {
     const sf = searchParams.get('status');
     return sf === 'pending' || sf === 'due' || sf === 'completed' || sf === 'overdue' ? sf : null;
@@ -142,14 +146,24 @@ export const MyChecklists = () => {
   const [pickedView, setView] = useState<View>('board');
   const isNarrow = useMediaQuery(NARROW_QUERY);
   const view: View = isNarrow ? 'board' : pickedView;
-  const [sort, setSort] = useState<SortKey>('recent');
-  const [groupBy, setGroupBy] = useState<GroupByKey>('recurrence');
-  const [recurrence, setRecurrence] = useState<ChecklistRecurrence | ''>('');
-  const [verificationStatus, setVerificationStatus] = useState<ChecklistVerificationStatus | ''>('');
-  const [departmentId, setDepartmentId] = useState('');
+  const [sort, setSort] = useState<SortKey>(() => readOneOf(searchParams, 'sort', SORT_KEYS) ?? 'recent');
+  const [groupBy, setGroupBy] = useState<GroupByKey>(() => readOneOf(searchParams, 'group', GROUP_KEYS) ?? 'recurrence');
+  const [recurrence, setRecurrence] = useState<ChecklistRecurrence | ''>(() => readOneOf(searchParams, 'repeat', RECURRENCES) ?? '');
+  const [verificationStatus, setVerificationStatus] = useState<ChecklistVerificationStatus | ''>(() => readOneOf(searchParams, 'review', VERIFICATIONS) ?? '');
+  const [departmentId, setDepartmentId] = useState(() => searchParams.get('dept') ?? '');
   const { data: allDepartments } = useDepartmentsQuery();
   const departmentOptions = useMemo(() => (allDepartments ?? []).filter((d) => d.isActive), [allDepartments]);
-  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(() => readCsv(searchParams, 'people'));
+  useUrlSync({
+    status: quickFilter,
+    store: storeId || null,
+    sort: sort === 'recent' ? null : sort,
+    group: groupBy === 'recurrence' ? null : groupBy,
+    repeat: recurrence || null,
+    review: verificationStatus || null,
+    dept: departmentId || null,
+    people: assigneeIds,
+  });
   const [showOptions, setShowOptions] = useState(false);
 
   const { user } = useAuth();
@@ -186,15 +200,13 @@ export const MyChecklists = () => {
   const changeStore = (id: string) => {
     setStoreId(id);
     setPage(1);
-    setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('store'); return p; });
   };
   const clearOptions = () => { setSort('recent'); setRecurrence(''); setVerificationStatus(''); setDepartmentId(''); setAssigneeIds([]); setPage(1); changeStore(''); };
 
   const toggleQuickFilter = useCallback((key: MyChecklistsQuickFilterKey) => {
     setQuickFilter((prev) => (prev === key ? null : key));
     setPage(1);
-    setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; });
-  }, [setSearchParams]);
+  }, []);
   const clearQuickFilter = useCallback(() => setQuickFilter(null), []);
 
   const clearAllFilters = () => { clearOptions(); setQuickFilter(null); };
@@ -467,6 +479,9 @@ export const MyChecklists = () => {
 
             {!!people.length && (
               <OptionSection icon={Users} label="Shared with" aside={assigneeIds.length > 0 && <ChoiceClear onClick={() => { setAssigneeIds([]); setPage(1); }} />}>
+                {people.length > 12 ? (
+                  <UserMultiSelect all selected={assigneeIds} onChange={(ids) => { setAssigneeIds(ids); setPage(1); }} />
+                ) : (
                 <ChoiceWrap>
                   {people.map((p) => (
                     <ChoiceChip
@@ -483,6 +498,7 @@ export const MyChecklists = () => {
                     </ChoiceChip>
                   ))}
                 </ChoiceWrap>
+                )}
               </OptionSection>
             )}
           </OptionsSheet>

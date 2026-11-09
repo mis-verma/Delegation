@@ -1,5 +1,5 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
+import { apiFetch, type SummaryScope, type PendingApprovalPreview, type UploadProgress } from './http';
 import { fileParts, uploadKeepingCopy } from '../lib/persistentUpload';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
@@ -201,6 +201,7 @@ export type TaskListQuery = {
     dueTo?: number;
     sla?: "not_done" | "done_late";
     userId?: string;
+    search?: string;
 };
 
 const taskListParams = (query: TaskListQuery) => {
@@ -220,6 +221,7 @@ const taskListParams = (query: TaskListQuery) => {
     set("handledBy", query.handledBy);
     set("sla", query.sla);
     set("userId", query.userId);
+    set("q", query.search?.trim());
     if (query.mine) params.set("mine", "1");
     const iso = (at: number | undefined) => (at === undefined ? undefined : new Date(at).toISOString());
     set("createdFrom", iso(query.createdFrom));
@@ -354,9 +356,9 @@ export const taskApi = {
         return apiFetch<ApiResponse<TaskOwnerStatsRow[]>>(`/tasks/reports/by-owner?${params.toString()}`);
     },
 
-    uploadAttachments: async (taskId: string, files: File[]) => {
+    uploadAttachments: async (taskId: string, files: File[], onProgress?: UploadProgress) => {
         const shrunk = await shrinkImages(files);
-        return uploadKeepingCopy<ApiResponse<TaskAttachment[]>>(files, { path: `/tasks/${taskId}/attachments`, files: fileParts(shrunk, 'files'), fields: [] });
+        return uploadKeepingCopy<ApiResponse<TaskAttachment[]>>(files, { path: `/tasks/${taskId}/attachments`, files: fileParts(shrunk, 'files'), fields: [] }, onProgress);
     },
 
     deleteAttachment: (id: string) =>

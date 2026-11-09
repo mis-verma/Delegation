@@ -43,6 +43,7 @@ import {
   type InstanceProgressStatus,
 } from '../checklistDisplay';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
+import { StoreCompletionList } from './StoreCompletionList';
 import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from './form/formConstants';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 import type { ChecklistDefinition } from '../../../api/checklistDefinitions';
@@ -157,11 +158,11 @@ export const ChecklistDefinitionDetail = () => {
   const setActiveMutation = useSetChecklistDefinitionActiveMutation();
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
 
+  const storeNameById = useMemo(() => (stores ? new Map(stores.map((s) => [s.id, s.name])) : null), [stores]);
   const storeNames = useMemo(() => {
-    if (!definition || !stores) return null;
-    const nameById = new Map(stores.map((s) => [s.id, s.name]));
-    return definition.storeIds.map((id) => nameById.get(id) ?? 'Unknown store').join(', ');
-  }, [definition, stores]);
+    if (!definition || !storeNameById) return null;
+    return definition.storeIds.map((id) => storeNameById.get(id) ?? 'Unknown store').join(', ');
+  }, [definition, storeNameById]);
 
   const groups = useMemo(() => groupByStatus(instances ?? []), [instances]);
 
@@ -189,6 +190,7 @@ export const ChecklistDefinitionDetail = () => {
   }
 
   const ResponseIcon = RESPONSE_MODE_ICON[definition.responseMode];
+  const multiStore = definition.storeIds.length > 1;
 
   return (
     <div className="flex flex-col gap-6 w-full py-2 sm:py-4">
@@ -304,6 +306,7 @@ export const ChecklistDefinitionDetail = () => {
           <RateTile
             icon={Gauge}
             label={definition.recurrence === 'DAILY' ? 'Today' : 'This run'}
+            caption={multiStore ? 'All stores together. See each store below' : undefined}
             rate={definition.currentRate}
             emptyLabel=""
             live
@@ -312,7 +315,7 @@ export const ChecklistDefinitionDetail = () => {
         <RateTile
           icon={Gauge}
           label="All time"
-          caption="Every run since it started"
+          caption={multiStore ? 'Every run since it started, all stores together' : 'Every run since it started'}
           rate={definition.completionRate}
           emptyLabel="Nothing's been completed yet"
         />
@@ -330,6 +333,10 @@ export const ChecklistDefinitionDetail = () => {
           invert
         />
       </div>
+
+      {multiStore && instances && (
+        <StoreCompletionList storeIds={definition.storeIds} storeNameById={storeNameById} instances={instances} />
+      )}
 
       <section className="flex flex-col gap-4" aria-labelledby="runs-heading">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -380,7 +387,11 @@ export const ChecklistDefinitionDetail = () => {
 
                 <div className="flex flex-col gap-2">
                   {group.instances.map((instance) => (
-                    <ChecklistInstanceRow key={instance.id} instance={instance} />
+                    <ChecklistInstanceRow
+                      key={instance.id}
+                      instance={instance}
+                      storeName={multiStore ? (instance.storeId ? storeNameById?.get(instance.storeId) ?? '' : '') : undefined}
+                    />
                   ))}
                 </div>
               </div>

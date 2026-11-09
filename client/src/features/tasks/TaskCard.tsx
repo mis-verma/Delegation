@@ -26,6 +26,7 @@ import { TaskFlowChips } from "./TaskFlowChips";
 import { taskFlowState } from "./taskFlow";
 import { coverPhotoFor } from "./taskAttachmentDisplay";
 import { UPLOADS_BASE } from "../../lib/uploadsBase";
+import { ThumbImage } from "../../components/thumbImage";
 import { avatarColorClass } from "../../lib/avatarColors";
 import { StatusChip } from "../../components/statusChip";
 import { PriorityChip } from "../../components/priorityChip";
@@ -189,10 +190,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       </div>
 
       {coverPhoto && (
-        <img
+        <ThumbImage
           src={`${UPLOADS_BASE}${coverPhoto.url}`}
           alt=""
-          loading="lazy"
+          width={640}
           className="w-full aspect-[5/2] rounded-xl object-cover"
         />
       )}

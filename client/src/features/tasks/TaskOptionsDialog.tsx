@@ -20,6 +20,9 @@ import { getInitials } from '../../lib/getInitials';
 import type { Task } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import type { Tag } from '../../api/tags';
+import { UserMultiSelect } from '../../components/userMultiSelect';
+
+const PEOPLE_CHIP_LIMIT = 12;
 
 const UserForm = lazy(() =>
   import('../admin/users/UserForm').then((m) => ({ default: m.UserForm })),
@@ -86,7 +89,9 @@ export const TaskOptionsDialog = ({
 
   const scopeValue: TaskScopeKey = scope?.value ?? 'all';
 
-  const personChips = (selected: string[], onPick: (ids: string[]) => void) => (
+  const personChips = (selected: string[], onPick: (ids: string[]) => void) => people.length > PEOPLE_CHIP_LIMIT ? (
+    <UserMultiSelect all selected={selected} onChange={onPick} />
+  ) : (
     <ChoiceWrap>
       {people.map((p) => (
         <ChoiceChip
@@ -156,7 +161,7 @@ export const TaskOptionsDialog = ({
             <button
               type="button"
               onClick={() => CARD_FIELD_CONFIG.forEach(({ key }) => { if (!fieldVisibility[key]) onToggleField(key); })}
-              className="t-meta font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="t-meta font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               Show all
             </button>
@@ -289,7 +294,7 @@ export const TaskOptionsDialog = ({
                   <button
                     type="button"
                     onClick={() => { setShowAddUser(true); setIsOpen(false); }}
-                    className="inline-flex items-center gap-1 t-meta font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                    className="inline-flex items-center gap-1 t-meta font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
                     <UserPlus size={12} strokeWidth={2.5} />
                     Add user

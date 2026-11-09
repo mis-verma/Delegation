@@ -14,7 +14,7 @@ export const TicketApprovalTrail = ({ ticket }: { ticket: Ticket }) => (
     hodApprovedAt={ticket.hodApprovedAt}
     hodName={personName(ticket.hodApprover)}
     finalAt={ticket.verifiedAt ?? ticket.closedAt}
-    finalName={personName(ticket.verifier)}
+    finalName={ticket.autoClosedAt ? 'Closed automatically' : personName(ticket.verifier)}
     hideHead
   />
 );

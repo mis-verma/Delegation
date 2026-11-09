@@ -10,6 +10,7 @@ import { initSocket } from "./src/sockets/socket.js";
 import { createRedisRateLimitStoreFactory, disconnectRedisClients } from "./src/config/redis.js";
 import { disconnectQueryCache, warmQueryCache } from "./src/config/queryCache.js";
 import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
+import { startTicketAutoClose } from "./src/jobs/ticketAutoClose.job.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
 import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
 import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
@@ -59,6 +60,7 @@ class ServerBootstrap {
     const isCronOwner = !cluster.isWorker || process.env.CRON_OWNER === "1";
     if (isCronOwner) {
       startSlaSweep();
+      startTicketAutoClose();
       startChecklistInstanceGenerator();
       startChecklistOverdueNotifier();
       startChecklistDraftReminder();

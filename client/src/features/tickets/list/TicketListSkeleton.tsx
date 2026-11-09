@@ -1,5 +1,6 @@
 import { Skeleton } from '../../../components';
 import { TICKET_GRID_CLASS } from './ticketLayout';
+import { TableSkeleton } from '../../../components/dataTable';
 
 type SkeletonView = 'list' | 'board' | 'table' | 'timeline';
 
@@ -54,22 +55,6 @@ const BoardSkeleton = () => (
   </div>
 );
 
-const TableSkeleton = () => (
-  <div className="w-full overflow-hidden rounded-lg border border-border/60 bg-surface">
-    <div className="h-10 bg-primary-800" />
-    {Array.from({ length: 8 }).map((_, i) => (
-      <div key={i} className="flex items-center gap-4 px-3 py-3 border-t border-border/40">
-        <Skeleton className="h-4 flex-1 min-w-0 rounded-md" />
-        <Skeleton className="h-5 w-20 rounded-full shrink-0" />
-        <Skeleton className="hidden sm:block h-5 w-16 rounded-full shrink-0" />
-        <Skeleton className="hidden md:block h-4 w-20 rounded-md shrink-0" />
-        <Skeleton className="hidden lg:block h-4 w-24 rounded-md shrink-0" />
-        <Skeleton className="hidden xl:block h-4 w-24 rounded-md shrink-0" />
-      </div>
-    ))}
-  </div>
-);
-
 const TimelineSkeleton = () => (
   <div className="w-full overflow-hidden rounded-lg border border-border/60 bg-surface">
     <div className="h-10 bg-primary-800" />
@@ -88,8 +73,10 @@ const TimelineSkeleton = () => (
 );
 
 export const TicketListSkeleton = ({ view = 'list' }: { view?: SkeletonView }) => {
-  if (view === 'board') return <BoardSkeleton />;
-  if (view === 'table') return <TableSkeleton />;
-  if (view === 'timeline') return <TimelineSkeleton />;
-  return <ListSkeleton />;
+  if (view === 'table') return <TableSkeleton label="Loading tickets" />;
+  return (
+    <div role="status" aria-label="Loading tickets">
+      {view === 'board' ? <BoardSkeleton /> : view === 'timeline' ? <TimelineSkeleton /> : <ListSkeleton />}
+    </div>
+  );
 };

@@ -4,9 +4,10 @@ interface VerificationNoteBannerProps {
   note: string | null | undefined;
   approved: boolean;
   verifiedBy?: string | null;
+  title?: string;
 }
 
-export const VerificationNoteBanner = ({ note, approved, verifiedBy }: VerificationNoteBannerProps) => {
+export const VerificationNoteBanner = ({ note, approved, verifiedBy, title }: VerificationNoteBannerProps) => {
   if (!note) return null;
 
   const isVerified = approved && !!verifiedBy;
@@ -22,7 +23,7 @@ export const VerificationNoteBanner = ({ note, approved, verifiedBy }: Verificat
 
       <div className="flex flex-col pt-0.5 min-w-0">
         <p className={`t-card font-bold ${tone.title}`}>
-          {isVerified ? 'Approved' : 'Sent back for changes'}
+          {title ?? (isVerified ? 'Approved' : 'Sent back for changes')}
         </p>
         <p className={`mt-1 text-sm leading-relaxed break-words ${tone.body}`}>{note}</p>
       </div>

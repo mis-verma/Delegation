@@ -1,5 +1,5 @@
 import { shrinkImages } from '../lib/compressImage';
-import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
+import { apiFetch, type SummaryScope, type PendingApprovalPreview, type UploadProgress } from './http';
 import { fileParts, uploadKeepingCopy } from '../lib/persistentUpload';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 import type { Tag } from './tags';
@@ -150,6 +150,7 @@ export type Ticket = {
   verifiedBy:       string | null;
   verifiedAt:       string | null;
   verificationNote: string | null;
+  autoClosedAt?:   string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
   awaitingHeadApproval?: boolean;
   assignmentApprovedAt?: string | null;
@@ -389,9 +390,9 @@ export const ticketApi = {
   deleteChecklistImage: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-images/${id}`, { method: 'DELETE' }),
 
-  uploadAttachments: async (ticketId: string, files: File[]) => {
+  uploadAttachments: async (ticketId: string, files: File[], onProgress?: UploadProgress) => {
     const shrunk = await shrinkImages(files);
-    return uploadKeepingCopy<ApiResponse<TicketAttachment[]>>(files, { path: `/tickets/${ticketId}/attachments`, files: fileParts(shrunk, 'images'), fields: [] });
+    return uploadKeepingCopy<ApiResponse<TicketAttachment[]>>(files, { path: `/tickets/${ticketId}/attachments`, files: fileParts(shrunk, 'images'), fields: [] }, onProgress);
   },
 
   deleteAttachment: (id: string) =>

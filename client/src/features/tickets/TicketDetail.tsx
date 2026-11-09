@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
@@ -15,6 +15,7 @@ import {
   useReopenDeclinedMutation,
 } from './hook';
 import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components';
+import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../components/imageLightbox';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
 import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
@@ -120,10 +121,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     : raisedByUser ? `${raisedByUser.firstName} ${raisedByUser.lastName ?? ''}`.trim() : null;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const previewGallery = useMemo(() => {
-    const urls = ticket.attachments.filter((a) => a.mimeType.startsWith('image/')).map((a) => `${UPLOADS_BASE}${a.url}`);
-    return previewImage && urls.includes(previewImage) ? urls : undefined;
-  }, [ticket.attachments, previewImage]);
+  const [previewGroup, setPreviewGroup] = useState<string[] | undefined>(undefined);
+  const openPreview = useCallback((url: string, group?: string[]) => {
+    setPreviewGroup(group);
+    setPreviewImage(url);
+  }, []);
+  const previewItems = useMemo<LightboxItem[]>(() => {
+    if (previewImage && previewGroup?.includes(previewImage)) return previewGroup.map((src) => ({ src, kind: 'image' as const }));
+    return ticket.attachments.flatMap((a) => {
+      const kind = mediaKindFromMime(a.mimeType);
+      return isViewableKind(kind) ? [{ src: `${UPLOADS_BASE}${a.url}`, kind, name: a.originalFilename }] : [];
+    });
+  }, [ticket.attachments, previewImage, previewGroup]);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
@@ -395,7 +404,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 />
               )}
               {!ticket.declinedAt && <TicketApprovalTrail ticket={ticket} />}
-              {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />}
+              {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} title={ticket.autoClosedAt ? 'Closed automatically' : undefined} />}
 
               {editing && canEdit ? (
                 <TicketEditForm
@@ -431,7 +440,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
 
               {ticket.status === 'IN_PROGRESS' && !ticket.declinedAt && !awaitingHead && !editing && (
-                <ProgressUpdatesPanel ticket={ticket} canPost={workerCanMove} onPreview={setPreviewImage} />
+                <ProgressUpdatesPanel ticket={ticket} canPost={workerCanMove} onPreview={openPreview} />
               )}
 
               <TicketAttachments
@@ -450,7 +459,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </div>
 
               <div className="flex flex-col gap-4 sm:gap-5 min-w-0 max-lg:order-3">
-              <TicketStatusHistory ticket={ticket} departmentName={departmentName} onPreview={setPreviewImage} />
+              <TicketStatusHistory ticket={ticket} departmentName={departmentName} onPreview={openPreview} />
               </div>
             </div>
           </div>
@@ -552,7 +561,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           )
         )}
 
-        <ImageLightbox src={previewImage} images={previewGallery} onChange={setPreviewImage} onClose={() => setPreviewImage(null)} />
+        <ImageLightbox src={previewImage} items={previewItems} onChange={setPreviewImage} onClose={() => setPreviewImage(null)} />
 
         <TicketActivitySheet ticketId={ticket.id} open={activityOpen} onOpenChange={setActivityOpen} />
 

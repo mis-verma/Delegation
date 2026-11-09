@@ -22,9 +22,9 @@ export const Footer = () => {
           className="flex items-center shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-lg p-0.5"
         >
           {customLogoSrc ? (
-            <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
+            <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain transition-opacity duration-150 ease-out group-hover:opacity-80" />
           ) : (
-            <span className="inline-flex group-hover:scale-105 transition-transform">
+            <span className="inline-flex transition-opacity duration-150 ease-out group-hover:opacity-80">
               <BrandLogo className="size-7" textClassName="text-base" tagline />
             </span>
           )}

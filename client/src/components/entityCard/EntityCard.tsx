@@ -46,7 +46,7 @@ interface StatusPillProps {
 }
 
 export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLabel = 'Inactive' }: StatusPillProps) => (
-  <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
+  <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pointer-coarse:min-h-11 shrink-0 cursor-pointer">
     <StateChip active={active} label={active ? 'Active' : inactiveLabel} />
     {isUpdating ? (
       <span className="flex h-6 w-11 items-center justify-center">
@@ -86,7 +86,7 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
         type="button"
         disabled={isDeleting}
         aria-label={`More actions: ${editLabel}`}
-        className="flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center size-11 sm:size-9 pointer-coarse:size-11 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isDeleting ? <Loader size="sm" variant="rose" className="size-4" /> : <MoreVertical className="size-4" strokeWidth={2.25} aria-hidden />}
       </button>

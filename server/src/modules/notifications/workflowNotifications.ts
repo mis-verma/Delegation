@@ -84,6 +84,19 @@ export const notifyVerificationResult = async (entity: VerifiableEntity, action:
   });
 }
 
+export const notifyTicketAutoClosed = async (entity: VerifiableEntity, days: number) => {
+  const recipientIds: string[] = [];
+  if (entity.assigneeId) recipientIds.push(entity.assigneeId.toString());
+  if (entity.userId && entity.userId.toString() !== entity.assigneeId?.toString()) recipientIds.push(entity.userId.toString());
+  if (!recipientIds.length) return [];
+  return notifyMany(recipientIds, {
+    type: 'TICKET_AUTO_CLOSED',
+    title: 'Closed automatically',
+    message: `"${entity.title}" was closed automatically. Nobody approved it within ${days} days of hand-in.`,
+    ticketId: entity._id.toString(),
+  });
+}
+
 export const notifyApprovalEscalation = async (entity: { _id: string; title: string }, kind: 'TICKET' | 'TASK', hoursWaiting: number) => {
   const recipientIds = await activeEscalationIds();
   const idField = kind === 'TICKET' ? { ticketId: entity._id } : { taskId: entity._id };

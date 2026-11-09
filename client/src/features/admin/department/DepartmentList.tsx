@@ -234,6 +234,9 @@ export const DepartmentList = () => {
           storeNameById={stores ? storeNameById : undefined}
           memberCounts={memberCounts}
           membersFailed={usersError}
+          headByDepartment={headByDepartment}
+          scoreById={scores.byId}
+          scoreWindow={scoreWindow}
           updatingId={updateMut.isPending ? updateMut.variables?.id : undefined}
           deletingId={deleteMut.isPending ? deleteMut.variables : undefined}
           onToggleActive={toggleActive}

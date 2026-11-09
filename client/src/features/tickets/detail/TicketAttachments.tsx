@@ -2,9 +2,14 @@ import { useRef, useState } from 'react';
 import { LiveCameraDialog } from '../../checklist/instance/LiveCameraDialog';
 import { needsDesktopCamera } from '../../checklist/instance/cameraSupport';
 import { useLiveOnlyAttachments } from '../../../lib/useLiveOnlyAttachments';
-import { Camera, ImagePlus, Loader2, Plus, X } from 'lucide-react';
+import { usePublicSettingsQuery } from '../../../lib/maintenance';
+import { reportDropped, screenFiles, ticketPhotoRule } from '../../../lib/attachmentRules';
+import { useFileDrop } from '../../../lib/useFileDrop';
+import { Camera, ImagePlus, Loader2, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirmDialog';
-import { ThumbImage } from '@/components/thumbImage';
+import { AttachmentGrid, ATTACHMENT_TILE_CLASS, type AttachmentGridItem } from '@/components/attachmentGrid';
+import { UploadProgress } from '@/components/uploadProgress';
 import { useUploadTicketAttachmentsMutation, useDeleteTicketAttachmentMutation } from '../hook';
 import { UPLOADS_BASE, DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from './detailConstants';
 import type { TicketAttachment } from '../../../api/ticket';
@@ -17,20 +22,40 @@ interface TicketAttachmentsProps {
   onPreview: (url: string) => void;
 }
 
+const PHOTO_NOUN = { one: 'photo', many: 'photos' };
+
 export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, onPreview }: TicketAttachmentsProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const upload = useUploadTicketAttachmentsMutation(ticketId);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [sending, setSending] = useState(0);
+  const upload = useUploadTicketAttachmentsMutation(ticketId, setProgress);
   const remove = useDeleteTicketAttachmentMutation();
   const confirm = useConfirm();
   const liveOnly = useLiveOnlyAttachments();
+  const { data: publicSettings } = usePublicSettingsQuery();
+  const rule = ticketPhotoRule(publicSettings);
   const [cameraOpen, setCameraOpen] = useState(false);
+
+  const send = (list: File[]) => {
+    if (upload.isPending) return;
+    const files = screenFiles(list, rule);
+    if (!files.length) return;
+    setSending(files.length);
+    setProgress(0);
+    upload.mutate(files, {
+      onSuccess: (res) => reportDropped(files.length, res.data.length, rule),
+      onSettled: () => setProgress(null),
+    });
+  };
+
+  const drop = useFileDrop(send, canEdit && !liveOnly && !upload.isPending);
 
   if (attachments.length === 0 && !canEdit) return null;
 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = '';
-    if (files.length) upload.mutate(files);
+    if (files.length) send(files);
   };
 
   const handleRemove = async (attachment: TicketAttachment) => {
@@ -44,10 +69,26 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
     if (ok) remove.mutate(attachment.id);
   };
 
+  const gridItems: AttachmentGridItem[] = attachments.map((a) => ({
+    id: a.id,
+    url: `${UPLOADS_BASE}${a.url}`,
+    mimeType: a.mimeType,
+    name: a.originalFilename,
+    live: a.captureMethod === 'LIVE',
+  }));
+  const byId = new Map(attachments.map((a) => [a.id, a]));
+
   const openPicker = () => (liveOnly && needsDesktopCamera(true, 'image/*') ? setCameraOpen(true) : inputRef.current?.click());
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Photos">
+    <section
+      className={cn(
+        'flex flex-col gap-2 rounded-xl transition-colors duration-150 ease-out',
+        drop.active && 'bg-primary-500/5 outline-2 outline-dashed outline-offset-4 outline-primary-400',
+      )}
+      aria-label="Photos"
+      {...drop.bind}
+    >
       <h3 className={DETAIL_SECTION_HEADING}>
         <span className={DETAIL_SECTION_TILE} aria-hidden="true"><Camera size={14} strokeWidth={2.25} /></span>
         Photos
@@ -59,72 +100,48 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
       </h3>
 
       {canEdit && <input ref={inputRef} type="file" accept="image/*" capture={liveOnly ? 'environment' : undefined} multiple className="hidden" onChange={handleFiles} />}
-      {cameraOpen && <LiveCameraDialog open onClose={() => setCameraOpen(false)} onCapture={(file) => upload.mutate([file])} />}
+      {cameraOpen && <LiveCameraDialog open onClose={() => setCameraOpen(false)} onCapture={(file) => send([file])} />}
 
       {attachments.length === 0 ? (
         <button
           type="button"
           onClick={openPicker}
           disabled={upload.isPending}
-          className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border-hover bg-surface-hover/30 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-500/5 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
+          className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border-hover bg-surface-hover/30 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-500/5 active:scale-[0.985] transition-[border-color,background-color,transform] duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300" aria-hidden="true">
             {upload.isPending ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} strokeWidth={2.25} />}
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="t-meta font-display font-semibold text-text">{upload.isPending ? 'Adding photos…' : 'Add photo'}</span>
-            <span className="t-meta text-text-muted">{liveOnly ? 'Take one with the camera' : 'Take one or pick from the gallery'}</span>
+            <span className="t-meta text-text-muted">
+              {liveOnly ? 'Take one with the camera' : 'Take one, pick from the gallery, or drop photos here'}
+            </span>
           </span>
         </button>
       ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-2">
-          {attachments.map((a) => {
-            const url = `${UPLOADS_BASE}${a.url}`;
-            return (
-              <div key={a.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border/60 bg-surface-hover">
-                <button
-                  type="button"
-                  onClick={() => onPreview(url)}
-                  className="size-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                  aria-label={`Open photo ${a.originalFilename ?? ''}`.trim()}
-                >
-                  <ThumbImage src={url} alt={a.originalFilename ?? 'Ticket photo'} className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
-                </button>
-                {a.captureMethod === 'LIVE' && (
-                  <span className="pointer-events-none absolute bottom-1 left-1 flex size-5 items-center justify-center rounded-md bg-black/55 text-white" title="Taken with the camera">
-                    <Camera size={11} aria-hidden />
-                    <span className="sr-only">Taken with the camera</span>
-                  </span>
-                )}
-                {canRemove(a) && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(a)}
-                    disabled={remove.isPending}
-                    aria-label="Remove photo"
-                    className="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-black/55 text-white hover:bg-danger opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100 transition-[opacity,background-color] duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger after:absolute after:-inset-2"
-                  >
-                    <X size={12} strokeWidth={2.75} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          {canEdit && (
+        <AttachmentGrid
+          items={gridItems}
+          onOpen={(item) => onPreview(item.url)}
+          canRemove={(item) => { const a = byId.get(item.id); return !!a && canRemove(a); }}
+          onRemove={(item) => { const a = byId.get(item.id); if (a) void handleRemove(a); }}
+          removing={remove.isPending}
+          trailing={canEdit ? (
             <button
               type="button"
               onClick={openPicker}
               disabled={upload.isPending}
               aria-label="Add photo"
-              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-hover bg-surface-hover/30 text-text-muted hover:border-primary-400 hover:text-primary-600 hover:bg-primary-500/5 t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
+              className={`flex ${ATTACHMENT_TILE_CLASS} flex-col items-center justify-center gap-1 border border-dashed border-border-hover bg-surface-hover/30 text-text-muted hover:border-primary-400 hover:text-primary-600 hover:bg-primary-500/5 active:scale-[0.985] t-meta font-display font-semibold transition-[border-color,background-color,color,transform] duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait`}
             >
-              {upload.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={2.5} />}
+              {upload.isPending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Plus size={16} strokeWidth={2.5} aria-hidden />}
               {upload.isPending ? 'Adding' : 'Add'}
             </button>
-          )}
-        </div>
+          ) : undefined}
+        />
       )}
+
+      {upload.isPending && <UploadProgress count={sending} fraction={progress} noun={PHOTO_NOUN} />}
     </section>
   );
 };

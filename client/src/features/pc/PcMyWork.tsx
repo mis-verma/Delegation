@@ -119,7 +119,6 @@ export const PcMyWork = () => {
         </div>
       ) : (
         <>
-          {/* Mobile Card Grid (< sm) */}
           <div className="flex flex-col gap-3 p-3 sm:hidden">
             {rows.map(({ key, name, icon: Icon, tileClass, cells }) => (
               <div
@@ -139,13 +138,13 @@ export const PcMyWork = () => {
                       to={cell.to}
                       viewTransition
                       className={cn(
-                        'flex min-h-12 flex-col items-center justify-center rounded-lg border border-border/50 bg-surface px-2 py-1.5 text-center transition-all active:scale-95',
+                        'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border border-border/50 bg-surface px-2 py-1.5 text-center transition-[border-color,transform] duration-150 ease-out hover:border-border-hover active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                         cell.late && 'border-danger/30 bg-danger/5'
                       )}
                     >
-                      <span className="text-[11px] font-display font-medium text-text-muted">{cell.shortLabel}</span>
+                      <span className="t-meta font-display font-medium text-text-muted">{cell.shortLabel}</span>
                       {mine.isPending ? (
-                        <Skeleton className="h-4 w-6 rounded-sm mt-0.5" />
+                        <Skeleton className="h-4 w-6 rounded-sm" />
                       ) : (
                         <span
                           className={cn(
@@ -167,7 +166,6 @@ export const PcMyWork = () => {
             ))}
           </div>
 
-          {/* Desktop / Tablet Table (sm:) */}
           <table className="hidden w-full table-fixed border-collapse sm:table">
             <thead>
               <tr className="border-b border-border/40 bg-surface-hover/20">
@@ -200,7 +198,6 @@ export const PcMyWork = () => {
             </tbody>
           </table>
 
-          {/* Bottom Summary Badges */}
           <div className="flex flex-wrap items-center gap-2 border-t border-border/40 bg-surface-hover/10 px-4 py-3 sm:px-5">
             {mine.isPending || mine.approvalPending ? (
               <Skeleton className="h-6 w-56 rounded-md" />

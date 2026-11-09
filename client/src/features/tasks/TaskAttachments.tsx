@@ -1,9 +1,14 @@
-import { Paperclip, Loader2, X, Download } from 'lucide-react';
-import { ThumbImage, useConfirm } from '../../components';
+import { useState } from 'react';
+import { Paperclip } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useConfirm } from '../../components';
+import { AttachmentGrid, type AttachmentGridItem } from '../../components/attachmentGrid';
+import { UploadProgress } from '../../components/uploadProgress';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
+import { TASK_FILE_RULE, reportDropped, screenFiles } from '../../lib/attachmentRules';
+import { useFileDrop } from '../../lib/useFileDrop';
 import { useUploadTaskAttachmentsMutation, useDeleteTaskAttachmentMutation } from './hook';
 import { AttachFilesToolbar } from './AttachFilesToolbar';
-import { attachmentIconFor, attachmentTypeLabel, formatFileSize, isImageAttachment } from './taskAttachmentDisplay';
 import type { TaskAttachment } from '../../api/task';
 import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/detailConstants';
 
@@ -15,18 +20,37 @@ interface TaskAttachmentsProps {
   onPreview: (url: string) => void;
 }
 
-const REMOVE_BUTTON =
-  'flex items-center justify-center size-8 rounded-full bg-surface text-text-muted hover:text-danger border border-border/50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-50 after:absolute after:-inset-1.5';
-
 export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canEdit, onPreview }: TaskAttachmentsProps) => {
-  const upload = useUploadTaskAttachmentsMutation(taskId);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [sending, setSending] = useState(0);
+  const upload = useUploadTaskAttachmentsMutation(taskId, setProgress);
   const remove = useDeleteTaskAttachmentMutation();
   const confirm = useConfirm();
 
+  const send = (list: File[]) => {
+    if (upload.isPending) return;
+    const files = screenFiles(list, TASK_FILE_RULE);
+    if (!files.length) return;
+    setSending(files.length);
+    setProgress(0);
+    upload.mutate(files, {
+      onSuccess: (res) => reportDropped(files.length, res.data.length, TASK_FILE_RULE),
+      onSettled: () => setProgress(null),
+    });
+  };
+
+  const drop = useFileDrop(send, canEdit && !upload.isPending);
+
   if (attachments.length === 0 && !canEdit) return null;
 
-  const images = attachments.filter((a) => isImageAttachment(a.mimeType));
-  const files = attachments.filter((a) => !isImageAttachment(a.mimeType));
+  const gridItems: AttachmentGridItem[] = attachments.map((a) => ({
+    id: a.id,
+    url: `${UPLOADS_BASE}${a.url}`,
+    mimeType: a.mimeType,
+    name: a.originalFilename,
+    sizeBytes: a.sizeBytes,
+  }));
+  const byId = new Map(attachments.map((a) => [a.id, a]));
 
   const handleRemove = async (attachment: TaskAttachment) => {
     const ok = await confirm({
@@ -40,90 +64,37 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
   };
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Files">
+    <section
+      className={cn(
+        'relative flex flex-col gap-2 rounded-xl transition-colors duration-150 ease-out',
+        drop.active && 'bg-primary-500/5 outline-2 outline-dashed outline-offset-4 outline-primary-400',
+      )}
+      aria-label="Files"
+      {...drop.bind}
+    >
       <h3 className={DETAIL_SECTION_HEADING}>
         <span className={DETAIL_SECTION_TILE} aria-hidden="true"><Paperclip size={14} strokeWidth={2.25} /></span>
         Files
         {attachments.length > 0 && <span className="tabular-nums font-semibold text-text-light">({attachments.length})</span>}
       </h3>
 
-      {images.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {images.map((a) => {
-            const url = `${UPLOADS_BASE}${a.url}`;
-            return (
-              <div key={a.id} className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-surface-hover">
-                <button
-                  type="button"
-                  onClick={() => onPreview(url)}
-                  className="size-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                  aria-label={`Open photo ${a.originalFilename ?? ''}`.trim()}
-                >
-                  <ThumbImage src={url} alt={a.originalFilename ?? 'Delegation photo'} className="size-full object-cover" />
-                </button>
-                {canRemove && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(a)}
-                    disabled={remove.isPending}
-                    aria-label="Remove photo"
-                    className={`${REMOVE_BUTTON} absolute top-1 right-1 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100 transition-opacity duration-150`}
-                  >
-                    <X size={14} strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {files.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {files.map((a) => {
-            const Icon = attachmentIconFor(a.mimeType);
-            return (
-              <li key={a.id} className="relative flex items-center gap-2 rounded-lg border border-border/70 bg-surface-hover/40 px-3 py-2">
-                <Icon size={18} className="shrink-0 text-text-light" aria-hidden />
-                <div className="flex-1 min-w-0">
-                  <p className="t-card font-display font-semibold text-text truncate" title={a.originalFilename ?? undefined}>
-                    {a.originalFilename ?? 'Untitled file'}
-                  </p>
-                  <p className="t-meta text-text-muted tabular-nums">{attachmentTypeLabel(a.mimeType)}, {formatFileSize(a.sizeBytes)}</p>
-                </div>
-                <a
-                  href={`${UPLOADS_BASE}${a.url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Open ${a.originalFilename ?? 'file'}`}
-                  className="relative flex items-center justify-center size-8 shrink-0 rounded-full text-text-muted hover:text-primary-700 dark:hover:text-primary-300 hover:bg-surface-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-1.5"
-                >
-                  <Download size={15} />
-                </a>
-                {canRemove && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(a)}
-                    disabled={remove.isPending}
-                    aria-label={`Remove ${a.originalFilename ?? 'file'}`}
-                    className={`${REMOVE_BUTTON} relative shrink-0`}
-                  >
-                    <X size={14} strokeWidth={2.5} />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+      {gridItems.length > 0 && (
+        <AttachmentGrid
+          items={gridItems}
+          onOpen={(item) => onPreview(item.url)}
+          onRemove={canRemove ? (item) => { const a = byId.get(item.id); if (a) void handleRemove(a); } : undefined}
+          removing={remove.isPending}
+        />
       )}
 
       {canEdit && (
-        <div className="flex items-center gap-2">
-          <AttachFilesToolbar bordered onFiles={(list) => upload.mutate(Array.from(list))} disabled={upload.isPending} />
-          {upload.isPending && (
-            <span className="inline-flex items-center gap-1.5 t-meta font-display text-text-muted" role="status">
-              <Loader2 size={14} className="animate-spin" aria-hidden />
-              Adding…
+        <div className="flex flex-wrap items-center gap-2">
+          <AttachFilesToolbar bordered onFiles={(list) => send(Array.from(list))} disabled={upload.isPending} />
+          {upload.isPending ? (
+            <UploadProgress count={sending} fraction={progress} />
+          ) : (
+            <span className="t-meta text-text-muted max-sm:hidden">
+              Drop files here. {TASK_FILE_RULE.summary}
             </span>
           )}
         </div>

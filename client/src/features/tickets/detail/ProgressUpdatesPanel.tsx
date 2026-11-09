@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Activity, Camera, ChevronDown, Eye, History, MessageSquarePlus, Send } from 'lucide-react';
+import { Activity, ChevronDown, History, MessageSquarePlus, Send } from 'lucide-react';
+import { PhotoTile } from '../../../components/thumbImage';
 import { Button, IconChip } from '../../../components';
 import { Avatar } from '../../../components/avatar';
 import { CountBadge } from '../../../components/countBadge';
@@ -13,38 +14,28 @@ import type { CaptureMethod, Ticket, TicketStatusUpdate } from '../../../api/tic
 interface ProgressUpdatesPanelProps {
   ticket: Ticket;
   canPost: boolean;
-  onPreview: (url: string) => void;
+  onPreview: (url: string, group?: string[]) => void;
 }
 
 const MAX_LENGTH = 1000;
 const VISIBLE_UPDATES = 3;
 const QUICK_UPDATES = ['Started working on it', 'About half done', 'Waiting for a reply', 'Almost finished', 'Need some help'];
 
-const UpdateBody = ({ update, onPreview }: { update: TicketStatusUpdate; onPreview: (url: string) => void }) => (
+const UpdateBody = ({ update, onPreview }: { update: TicketStatusUpdate; onPreview: (url: string, group?: string[]) => void }) => (
   <>
     {update.remark && <p className="t-card font-medium leading-relaxed text-text whitespace-pre-wrap break-words">{update.remark}</p>}
     {update.photos.length > 0 && (
       <div className="grid max-w-xs grid-cols-4 gap-1.5">
-        {update.photos.map((photo) => {
-          const url = `${UPLOADS_BASE}${photo.url}`;
+        {update.photos.map((photo, i) => {
+          const group = update.photos.map((p) => `${UPLOADS_BASE}${p.url}`);
           return (
-            <button
+            <PhotoTile
               key={photo.id}
-              type="button"
-              onClick={() => onPreview(url)}
-              className="group/photo relative aspect-square w-full cursor-pointer overflow-hidden rounded-md border border-border/60 bg-surface-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-              aria-label="Open photo"
-            >
-              <img src={url} alt="Progress photo" loading="lazy" className="size-full object-cover" />
-              {photo.captureMethod === 'LIVE' && (
-                <span className="absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded bg-black/55 text-white" title="Taken with the camera">
-                  <Camera size={10} aria-hidden />
-                </span>
-              )}
-              <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity duration-200 group-hover/photo:opacity-100" aria-hidden>
-                <Eye size={16} strokeWidth={2.5} />
-              </span>
-            </button>
+              src={group[i]!}
+              alt={`progress photo ${i + 1} of ${group.length}`}
+              live={photo.captureMethod === 'LIVE'}
+              onOpen={() => onPreview(group[i]!, group)}
+            />
           );
         })}
       </div>

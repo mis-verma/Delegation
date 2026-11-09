@@ -77,6 +77,7 @@ export const listTasksQuerySchema = z.object({
     dueFrom : z.coerce.date().optional(),
     dueTo : z.coerce.date().optional(),
     sla : z.enum(TASK_LIST_SLAS).optional(),
+    q : z.string().trim().max(100).optional(),
 })
 
 export const taskSummaryQuerySchema = z.object({

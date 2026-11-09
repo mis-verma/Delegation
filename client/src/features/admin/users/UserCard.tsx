@@ -71,7 +71,7 @@ const UserCardComponent = ({
                 onClick={() => onEdit(user)}
                 title={name}
                 className={cn(
-                  'text-left t-card font-display font-bold tracking-tight truncate max-w-full cursor-pointer outline-none transition-colors duration-200',
+                  'text-left t-card font-display font-bold tracking-tight line-clamp-2 leading-snug break-words max-w-full cursor-pointer outline-none transition-colors duration-200',
                   'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/50',
                   user.isActive ? 'text-text group-hover:text-primary-600 dark:group-hover:text-primary-400' : 'text-text-muted',
                 )}

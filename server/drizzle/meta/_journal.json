@@ -666,6 +666,13 @@
       "when": 1792950000000,
       "tag": "0094_task_ticket_photo_review",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "5",
+      "when": 1792960000000,
+      "tag": "0095_ticket_auto_closed",
+      "breakpoints": true
     }
   ]
 }

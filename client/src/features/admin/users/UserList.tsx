@@ -25,15 +25,14 @@ import { presenceLabel } from '../presenceDisplay';
 import { useMonthScores } from '../directory/orgScoreData';
 import { ROLE_LABEL, ROLE_META, isDepartmentHead } from '../roleBadge';
 import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { TableSkeleton } from '../../../components/dataTable';
 import {
   EmptyState,
   ExportMenu,
   FormChunkFallback,
   FormLoadError,
   InlineError,
-  PANEL_CLASS,
   PageNav,
-  Skeleton,
   useConfirm,
 } from '../../../components';
 
@@ -48,16 +47,12 @@ const UserForm = lazy(() =>
 );
 
 const UserGridSkeleton = () => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3" aria-hidden>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3" role="status" aria-label="Loading people">
     {Array.from({ length: 6 }).map((_, i) => <UserCardSkeleton key={i} />)}
   </div>
 );
 
-const UserTableSkeleton = () => (
-  <div className={`${PANEL_CLASS} flex flex-col gap-3 p-4`} aria-hidden>
-    {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
-  </div>
-);
+const UserTableSkeleton = () => <TableSkeleton label="Loading people" />;
 
 export const UserList = () => {
   useEffect(() => preloadWhenIdle(loadUserForm), []);

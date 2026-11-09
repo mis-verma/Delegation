@@ -1,35 +1,66 @@
-import { X } from 'lucide-react';
+import { AppliedFilters, type AppliedFilter } from '../../components';
+import { STATUS_CONFIG, PRIORITY_CONFIG } from './ticketDisplay';
 import type { useTicketOrganizer } from './useTicketOrganizer';
 import type { Ticket } from '../../api/ticket';
 
 interface TicketActiveTagsProps {
   organizer: ReturnType<typeof useTicketOrganizer>;
   allTickets: Ticket[];
+  departmentNames: Map<string, string>;
+  personNames: Map<string, string>;
+  labelNames: Map<string, string>;
 }
 
-const CHIP_CLASS = 'flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 t-meta font-display font-medium rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20';
-const REMOVE_CLASS = 'relative flex items-center justify-center size-6 shrink-0 rounded-full after:absolute after:-inset-2.5 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-primary-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const listLabel = (prefix: string, ids: string[], names: Map<string, string>, fallback: string) => {
+  const first = names.get(ids[0]) ?? fallback;
+  return ids.length === 1 ? `${prefix}: ${first}` : `${prefix}: ${first} +${ids.length - 1}`;
+};
 
-export const TicketActiveTags = ({ organizer, allTickets }: TicketActiveTagsProps) => {
-  if (!organizer.assigneeIdFilter) return null;
+export const TicketActiveTags = ({ organizer, allTickets, departmentNames, personNames, labelNames }: TicketActiveTagsProps) => {
+  const { filters, search } = organizer;
+  const patch = (next: Partial<typeof filters>) => {
+    organizer.setFilters((prev) => ({ ...prev, ...next }));
+    organizer.setPage(1);
+  };
+  const clearPersonLink = () =>
+    organizer.setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('assigneeIds'); return p; });
 
-  return (
-    <div className="flex items-center gap-2 flex-wrap min-w-0">
-      {organizer.assigneeIdFilter && (
-        <span className={CHIP_CLASS}>
-          <span className="min-w-0 truncate">
-            Showing tickets for {allTickets[0]?.assignee?.firstName ?? 'this person'}
-          </span>
-          <button
-            type="button"
-            onClick={() => organizer.setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('assigneeIds'); return p; })}
-            aria-label="Clear person filter"
-            className={REMOVE_CLASS}
-          >
-            <X size={13} />
-          </button>
-        </span>
-      )}
-    </div>
-  );
+  const items: AppliedFilter[] = [];
+  if (organizer.assigneeIdFilter) {
+    items.push({ key: 'person-link', label: `Tickets for ${allTickets[0]?.assignee?.firstName ?? 'this person'}`, onRemove: clearPersonLink });
+  }
+  if (search.trim()) {
+    items.push({ key: 'search', label: `Search: ${search.trim()}`, onRemove: () => { organizer.setSearch(''); organizer.setPage(1); } });
+  }
+  if (filters.status !== 'all') {
+    items.push({ key: 'status', label: STATUS_CONFIG[filters.status].label, onRemove: () => patch({ status: 'all' }) });
+  }
+  if (filters.priority.length > 0) {
+    items.push({
+      key: 'priority',
+      label: filters.priority.map((p) => PRIORITY_CONFIG[p].label).join(', '),
+      onRemove: () => patch({ priority: [] }),
+    });
+  }
+  if (filters.departmentId) {
+    items.push({ key: 'department', label: departmentNames.get(filters.departmentId) ?? 'Department', onRemove: () => patch({ departmentId: '' }) });
+  }
+  if (filters.assigneeIds.length > 0) {
+    items.push({ key: 'assignees', label: listLabel('Assigned to', filters.assigneeIds, personNames, 'Person'), onRemove: () => patch({ assigneeIds: [] }) });
+  }
+  if (filters.raisedByIds.length > 0) {
+    items.push({ key: 'raisedBy', label: listLabel('Sent by', filters.raisedByIds, personNames, 'Person'), onRemove: () => patch({ raisedByIds: [] }) });
+  }
+  if (filters.labelIds.length > 0) {
+    items.push({ key: 'labels', label: listLabel('Label', filters.labelIds, labelNames, 'Label'), onRemove: () => patch({ labelIds: [] }) });
+  }
+
+  const clearAll = () => {
+    organizer.setSearch('');
+    organizer.setFilters((prev) => ({ ...prev, status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] }));
+    organizer.setPage(1);
+    if (organizer.assigneeIdFilter) clearPersonLink();
+  };
+
+  return <AppliedFilters items={items} onClearAll={clearAll} />;
 };

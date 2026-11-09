@@ -24,7 +24,8 @@ export type Settings = {
     inboundMessageRetentionDays : number;
 }
 
-export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl' | 'liveOnlyAttachments'>;
+export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl' | 'liveOnlyAttachments'>
+    & Partial<Pick<Settings, 'maxUploadSizeMb' | 'maxUploadFiles'>>;
 
 export type ApiResponse<T> = { success : boolean; data : T};
 export type UpdateSettingsPayload = Partial<Settings>;

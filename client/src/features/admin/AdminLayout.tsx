@@ -1,4 +1,5 @@
-import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useSwipeToClose } from '../../lib/useSwipeToClose';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNotice';
 import {
@@ -153,6 +154,8 @@ export const AdminLayout = () => {
   );
   const mobileDrawerOpen = isMobileViewport && sidebarOpen;
   const mobileDrawerRef = useRef<HTMLElement>(null);
+  const closeMobileDrawer = useCallback(() => setSidebarOpen(false), []);
+  const drawerSwipe = useSwipeToClose(closeMobileDrawer);
   const wasMobileDrawerOpenRef = useRef(false);
 
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
@@ -427,7 +430,7 @@ export const AdminLayout = () => {
       );
     });
   return (
-    <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans">
+    <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <a
         href="#main-content"
         onClick={(e) => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}
@@ -445,20 +448,22 @@ export const AdminLayout = () => {
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
           className={cn(
-            'md:hidden fixed inset-0 z-30 bg-black/50 touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none',
+            'md:hidden fixed inset-0 z-30 bg-black/50 motion-safe:backdrop-blur-[2px] touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none',
             sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         />
 
         <aside
           ref={mobileDrawerRef}
+          {...drawerSwipe.handlers}
+          style={drawerSwipe.dragStyle}
           tabIndex={-1}
           role="dialog"
           aria-modal={sidebarOpen}
           inert={!sidebarOpen}
           aria-label="Navigation menu"
           className={cn(
-            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate] duration-300 ease-in-out focus:outline-none",
+            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-[translate] duration-300 ease-in-out focus:outline-none",
             sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
@@ -561,7 +566,7 @@ export const AdminLayout = () => {
         </aside>
 
         <main id="main-content" tabIndex={-1} inert={mobileDrawerOpen} className="flex-1 outline-none overflow-y-auto overflow-x-hidden min-w-0 bg-background">
-          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:px-0 sm:py-4 lg:py-5 pb-44 md:pb-6">
+          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 pb-44 md:pb-6">
 
             {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Flag, ArrowUpDown, Plus, Search, SquarePen, X } from 'lucide-react';
-import { Button, Fab } from '../../components';
+import { Flag, ArrowUpDown, Plus, SquarePen, X } from 'lucide-react';
+import { Button, Fab, SearchField } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -17,7 +17,7 @@ import { CreateTodoModal } from './CreateTodoModal';
 import { TodoQuickAdd } from './TodoQuickAdd';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
-import { SEARCH_INPUT_CLASS } from '../scores/controlStyles';
+import { readOneOf, useUrlSync } from '../../lib/useUrlSync';
 import type { Todo, TodoPriority } from '../../api/todos';
 
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
@@ -31,9 +31,15 @@ export const TodoPage = () => {
   const [quickFilter, setQuickFilter] = useState<TodoQuickFilterKey | null>(
     () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
   );
-  const [priority, setPriority] = useState<TodoPriorityFilter>('all');
-  const [sort, setSort] = useState<TodoSortKey>('created');
-  const [search, setSearch] = useState('');
+  const [priority, setPriority] = useState<TodoPriorityFilter>(() => readOneOf(searchParams, 'priority', PRIORITIES) ?? 'all');
+  const [sort, setSort] = useState<TodoSortKey>(() => readOneOf(searchParams, 'sort', SORT_KEYS) ?? 'created');
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  useUrlSync({
+    q: search,
+    priority: priority === 'all' ? null : priority,
+    sort: sort === 'created' ? null : sort,
+    quickFilter,
+  });
   const { data: allTodos = [], isPending, isError, refetch, dataUpdatedAt } = useTodosQuery();
   const createdRange = useCreatedRange();
   const dueRange = useDueRange();
@@ -119,17 +125,15 @@ export const TodoPage = () => {
         </div>
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-          <label className="relative block min-w-0 flex-1 max-sm:hidden sm:max-w-64 sm:flex-none sm:basis-64">
-            <span className="sr-only">Search your to-dos</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search to-dos"
-              className={SEARCH_INPUT_CLASS}
-            />
-          </label>
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            label="Search your to-dos"
+            placeholder="Search to-dos"
+            className="sm:max-w-64 sm:flex-none sm:basis-64"
+          />
+
+          <CreatedRangePicker createdRange={dueRange} label="Due date" className="hidden sm:inline-flex shrink-0" />
 
           <OptionsSheet
             isOpen={showOptions}
@@ -164,7 +168,6 @@ export const TodoPage = () => {
             </OptionSection>
           </OptionsSheet>
 
-          <CreatedRangePicker createdRange={dueRange} label="Due date" className="hidden sm:inline-flex shrink-0" />
         </div>
       </div>
 
@@ -173,7 +176,7 @@ export const TodoPage = () => {
           <button
             type="button"
             onClick={dueRange.clear}
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 t-meta font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+            className="inline-flex w-fit min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 ease-out hover:bg-primary-500/15 active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer dark:text-primary-300"
             aria-label={`Clear the due date filter: ${dueRange.range.label}`}
           >
             Due {dueRange.range.label}

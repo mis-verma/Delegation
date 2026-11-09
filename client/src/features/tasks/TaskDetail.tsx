@@ -3,6 +3,7 @@ import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { toast } from 'sonner';
 import { Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2 } from 'lucide-react';
 import { Button, DateRangePicker, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
+import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../components/imageLightbox';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ActivitySheet } from '../../components/activitySheet';
 import type { DateRangeValue } from '../../components';
@@ -559,10 +560,10 @@ const TaskEditLayout = ({
   const raisedBy = task.userId === currentUserId ? 'You' : nameOf(task.userId);
   const created = new Date(task.createdAt);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const previewGallery = useMemo(() => {
-    const urls = (task.attachments ?? []).filter((a) => a.mimeType.startsWith('image/')).map((a) => `${UPLOADS_BASE}${a.url}`);
-    return previewImage && urls.includes(previewImage) ? urls : undefined;
-  }, [task.attachments, previewImage]);
+  const previewItems = useMemo<LightboxItem[]>(() => (task.attachments ?? []).flatMap((a) => {
+    const kind = mediaKindFromMime(a.mimeType);
+    return isViewableKind(kind) ? [{ src: `${UPLOADS_BASE}${a.url}`, kind, name: a.originalFilename }] : [];
+  }), [task.attachments]);
   const onTitleDirty = useCallback((d: boolean) => onDirtyChange('title', d), [onDirtyChange]);
   const onDescriptionDirty = useCallback((d: boolean) => onDirtyChange('description', d), [onDirtyChange]);
   const approvedOrSentBack = task.verificationNote
@@ -713,7 +714,7 @@ const TaskEditLayout = ({
         </div>
       </div>
 
-      <ImageLightbox src={previewImage} images={previewGallery} onChange={setPreviewImage} onClose={() => setPreviewImage(null)} />
+      <ImageLightbox src={previewImage} items={previewItems} onChange={setPreviewImage} onClose={() => setPreviewImage(null)} />
     </>
   );
 };

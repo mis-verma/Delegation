@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { CreateButton } from '../../../components/createButton';
-import { CheckCircle2, CircleOff, LayoutGrid, ListFilter, Search, Table2, X } from 'lucide-react';
+import { CheckCircle2, CircleOff, LayoutGrid, ListFilter, Table2, X } from 'lucide-react';
 import {
   Button,
-  Input,
+  SearchField,
   Skeleton,
   ViewToggle,
   type EntityStatusFilterValue,
@@ -46,32 +46,17 @@ export const OrgToolbar = ({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex-1 basis-36 sm:basis-56 min-w-0">
-          <Input
-            type="text"
-            aria-label={searchLabel}
-            placeholder={searchPlaceholder}
-            autoComplete="off"
-            value={searchText}
-            onChange={(e) => onSearchText(e.target.value)}
-            suffix={
-              searchText ? (
-                <button
-                  type="button"
-                  onClick={() => onSearchText('')}
-                  aria-label="Clear search"
-                  className="flex items-center justify-center size-8 -mr-2 rounded-md text-text-light hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-                >
-                  <X size={15} />
-                </button>
-              ) : (
-                <Search size={15} aria-hidden />
-              )
-            }
-          />
-        </div>
+        <SearchField
+          value={searchText}
+          onChange={onSearchText}
+          label={searchLabel}
+          placeholder={searchPlaceholder}
+          className="basis-40 sm:basis-56 sm:max-w-sm"
+        />
 
-        <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} storageKey="view:directory" />
+        <div className="hidden sm:block">
+          <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} storageKey="view:directory" />
+        </div>
 
         <OptionsSheet
           isOpen={showOptions}
@@ -92,7 +77,7 @@ export const OrgToolbar = ({
       {resultText && (
         <div className="flex items-center gap-2">
           <span aria-hidden className="t-meta font-display text-text-muted">{resultText}</span>
-          <Button variant="ghost" size="sm" onClick={onClearFilters}>
+          <Button variant="ghost" size="sm" onClick={onClearFilters} className="pointer-coarse:min-h-11">
             <X className="size-3.5" aria-hidden />
             Clear filters
           </Button>
@@ -121,8 +106,8 @@ export const OrgStatusSection = ({ value, onChange, counts }: {
 );
 
 export const OrgTableSkeleton = ({ rows = 5 }: { rows?: number }) => (
-  <div className="w-full overflow-hidden rounded-lg border border-border/60" aria-busy="true">
-    <div className="h-10 bg-primary-800" />
+  <div className="w-full overflow-hidden rounded-lg border border-border/60" role="status" aria-label="Loading">
+    <div className="h-10 bg-primary-800" aria-hidden="true" />
     {Array.from({ length: rows }).map((_, i) => (
       <div key={i} className="flex items-center gap-4 px-3 py-3 border-b border-border/40 last:border-b-0">
         <Skeleton className="size-8 rounded-lg shrink-0" />

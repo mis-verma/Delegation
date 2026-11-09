@@ -22,7 +22,7 @@ import { storeApi } from "../../api/stores";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { handleQueryRetry, useEntityMutation, patchEntityInCache, notifyError, invalidateScoreCaches } from '../../lib/queryHelpers';
 import { describeFields, fieldsBefore, findCachedEntity } from '../../lib/undoFields';
-import type { SummaryScope } from '../../api/http';
+import type { SummaryScope, UploadProgress } from '../../api/http';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -455,11 +455,12 @@ export const useTicketBulkImportPublishMutation = () => {
   });
 };
 
-export const useUploadTicketAttachmentsMutation = (ticketId: string) =>
+export const useUploadTicketAttachmentsMutation = (ticketId: string, onProgress?: UploadProgress) =>
   useEntityMutation({
-    mutationFn: (files: File[]) => ticketApi.uploadAttachments(ticketId, files),
+    mutationFn: (files: File[]) => ticketApi.uploadAttachments(ticketId, files, onProgress),
     invalidateKeys: [['tickets']],
     successMessage: null,
+    retryable: true,
     errorFallback: "Couldn't add the photo. Try again.",
   });
 

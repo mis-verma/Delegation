@@ -6,7 +6,9 @@ import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
 import { TaskMoveMenu } from './TaskMoveMenu';
 import { useTaskStatusMove } from './useTaskStatusMove';
-import { PRIORITY_MAP, STATUS_LABEL } from './taskDisplay';
+import { PRIORITY_MAP } from './taskDisplay';
+import { cn } from '@/lib/utils';
+import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TR_CLASS, TD_STICKY_CLASS, NUM_CLASS, FIRST_COL_WIDTH_CLASS, activateOnKey } from '../../components/dataTable';
 import { isOverdueTask } from './taskFilters';
 import {
   taskAssigneeIds,
@@ -37,10 +39,8 @@ const dueText = (iso: string, overdue: boolean) => {
 
 const MAX_TABLE_LABELS = 2;
 
-const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS =
-  'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary';
+const HEAD_CLASS = TH_CLASS;
+const CELL_CLASS = TD_CLASS;
 
 const namesFor = (task: Task, assigneeNames: Map<string, string>) =>
   taskAssigneeIds(task)
@@ -59,11 +59,12 @@ const TaskTableComponent = ({
 
   return (
     <>
-      <div className="w-full overflow-x-auto rounded-lg border border-border/60 bg-surface">
+      <div className={TABLE_FRAME_CLASS}>
         <table className="w-full min-w-[52rem] border-collapse">
-          <thead className={HEAD_ROW_CLASS}>
+          <caption className="sr-only">Delegations</caption>
+          <thead>
             <tr>
-              <th scope="col" className={`${HEAD_CLASS} sticky left-0 ${HEAD_ROW_CLASS} z-10`}>
+              <th scope="col" className={cn(HEAD_CLASS, TH_CORNER_CLASS)}>
                 Delegation
               </th>
               {fields.status && <th scope="col" className={HEAD_CLASS}>Status</th>}
@@ -74,10 +75,10 @@ const TaskTableComponent = ({
               {fields.department && <th scope="col" className={HEAD_CLASS}>Department</th>}
               <th scope="col" className={HEAD_CLASS}>Labels</th>
               {fields.raisedBy && <th scope="col" className={HEAD_CLASS}>Raised by</th>}
-              {fields.subtasks && <th scope="col" className={HEAD_CLASS}>Subtasks</th>}
+              {fields.subtasks && <th scope="col" className={cn(HEAD_CLASS, 'text-right')}>Subtasks</th>}
               {fields.created && <th scope="col" className={HEAD_CLASS}>Created</th>}
               {fields.updated && <th scope="col" className={HEAD_CLASS}>Updated</th>}
-              <th scope="col" className={`${HEAD_CLASS} text-right`}>
+              <th scope="col" className={cn(HEAD_CLASS, 'text-right')}>
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -96,16 +97,10 @@ const TaskTableComponent = ({
                   key={task.id}
                   onClick={() => onOpen(task)}
                   tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onOpen(task);
-                    }
-                  }}
-                  className="border-b border-border/40 last:border-b-0 hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none transition-colors duration-200 ease-in-out cursor-pointer"
+                  onKeyDown={activateOnKey(() => onOpen(task))}
+                  className={TR_CLASS}
                 >
-                  <td className={`${CELL_CLASS} sticky left-0 bg-surface z-10 max-w-[22rem]`}>
+                  <td className={cn(CELL_CLASS, TD_STICKY_CLASS, FIRST_COL_WIDTH_CLASS)}>
                     <div className="flex items-center gap-2">
                       {isNew && (
                         <span
@@ -113,7 +108,7 @@ const TaskTableComponent = ({
                           title="Newly assigned to you"
                         />
                       )}
-                      <span className="t-card font-display font-semibold text-text truncate" title={task.title}>{task.title}</span>
+                      <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug break-words min-w-0" title={task.title}>{task.title}</span>
                     </div>
                   </td>
 
@@ -197,7 +192,7 @@ const TaskTableComponent = ({
                   )}
 
                   {fields.subtasks && (
-                    <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
+                    <td className={cn(CELL_CLASS, 'whitespace-nowrap', NUM_CLASS)}>
                       {progress ? `${progress.done}/${progress.total}` : <span className="text-text-light">None</span>}
                     </td>
                   )}
@@ -229,7 +224,7 @@ const TaskTableComponent = ({
       {statusRemarkDialog}
 
       <p className="sr-only" aria-live="polite">
-        {tasks.length} delegations, sorted. Statuses: {Object.values(STATUS_LABEL).join(', ')}.
+        {tasks.length} {tasks.length === 1 ? 'delegation' : 'delegations'} shown.
       </p>
     </>
   );

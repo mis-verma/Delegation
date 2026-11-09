@@ -6,6 +6,10 @@ import { SORT_COMPARATORS, type TicketSortKey } from './list/ticketSort';
 import { groupByDepartment, groupByAssignee } from './list/ticketGrouping';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
 import { clearKept, readKept, writeKept } from '../../lib/keptForm';
+import { hasAnyParam, readCsv, readOneOf, useUrlSync } from '../../lib/useUrlSync';
+import { STATUS_CONFIG, PRIORITY_CONFIG } from './ticketDisplay';
+import { SORT_LABEL } from './list/ticketSort';
+import { SCOPE_FILTERS } from './list/ticketFilters';
 import type { Ticket, TicketListCounts, TicketListQuery } from '../../api/ticket';
 import type { TicketQuickFilterKey, TicketQuickFilterCounts } from './list/TicketQuickStats';
 import type { TicketFilters } from './list/TicketFilterFields';
@@ -24,6 +28,28 @@ export interface TicketViewSnapshot {
   quickFilter: TicketQuickFilterKey | null;
 }
 const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
+
+const URL_KEYS = ['q', 'status', 'priority', 'dept', 'assignees', 'raisedBy', 'labels', 'scope', 'sort', 'group'] as const;
+const STATUS_VALUES = Object.keys(STATUS_CONFIG) as Ticket['status'][];
+const PRIORITY_VALUES = Object.keys(PRIORITY_CONFIG) as Ticket['priority'][];
+const SORT_VALUES = Object.keys(SORT_LABEL) as TicketSortKey[];
+const SCOPE_VALUES = SCOPE_FILTERS.map((f) => f.key);
+const GROUP_VALUES = ['department', 'assignee'] as const;
+
+const snapshotFromUrl = (params: URLSearchParams): Partial<TicketViewSnapshot> => ({
+  search: params.get('q') ?? '',
+  filters: {
+    status: readOneOf(params, 'status', STATUS_VALUES) ?? 'all',
+    priority: readCsv(params, 'priority').filter((p): p is Ticket['priority'] => (PRIORITY_VALUES as string[]).includes(p)),
+    departmentId: params.get('dept') ?? '',
+    assigneeIds: readCsv(params, 'assignees'),
+    raisedByIds: readCsv(params, 'raisedBy'),
+    labelIds: readCsv(params, 'labels'),
+  },
+  scopeFilter: readOneOf(params, 'scope', SCOPE_VALUES) ?? 'ALL',
+  ...(readOneOf(params, 'sort', SORT_VALUES) ? { sort: readOneOf(params, 'sort', SORT_VALUES)! } : {}),
+  ...(readOneOf(params, 'group', GROUP_VALUES) ? { groupBy: readOneOf(params, 'group', GROUP_VALUES)! } : {}),
+});
 
 const QUICK_FILTER_PREDICATES: Record<TicketQuickFilterKey, (t: Ticket) => boolean> = {
   pending: (t) => !isTicketHandedIn(t),
@@ -47,9 +73,13 @@ export const useTicketViewState = (user: AuthUser) => {
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
 
   const keptKey = `tickets-view:${user?.id ?? 'anon'}`;
-  const [restored] = useState(() =>
-    readQuickFilterParam(searchParams, QUICK_FILTER_VALUES) || assigneeIdFilter ? null : readKept<Partial<TicketViewSnapshot>>(keptKey),
-  );
+  const [restored] = useState<Partial<TicketViewSnapshot> | null>(() => {
+    if (hasAnyParam(searchParams, URL_KEYS)) {
+      const kept = readKept<Partial<TicketViewSnapshot>>(keptKey);
+      return { view: kept?.view, sort: kept?.sort, groupBy: kept?.groupBy, ...snapshotFromUrl(searchParams) };
+    }
+    return readQuickFilterParam(searchParams, QUICK_FILTER_VALUES) || assigneeIdFilter ? null : readKept<Partial<TicketViewSnapshot>>(keptKey);
+  });
 
   const [view, setView] = useState<TicketView>(restored?.view ?? 'list');
   const [filters, setFilters] = useState<TicketFilters>({ ...DEFAULT_TICKET_FILTERS, ...restored?.filters });
@@ -105,6 +135,20 @@ export const useTicketViewState = (user: AuthUser) => {
   useEffect(() => {
     writeKept(keptKey, { view, filters, sort, scopeFilter, search, groupBy, quickFilter });
   }, [keptKey, view, filters, sort, scopeFilter, search, groupBy, quickFilter]);
+
+  useUrlSync({
+    q: search,
+    status: filters.status === 'all' ? null : filters.status,
+    priority: filters.priority,
+    dept: filters.departmentId || null,
+    assignees: filters.assigneeIds,
+    raisedBy: filters.raisedByIds,
+    labels: filters.labelIds,
+    scope: scopeFilter === 'ALL' ? null : scopeFilter,
+    sort: sort === 'tatDueAt' ? null : sort,
+    group: groupBy === 'department' ? null : groupBy,
+    quickFilter,
+  });
 
   const hasActiveFilters = search.length > 0 || activeCount > 0 || scopeFilter !== 'ALL' || quickFilter !== null;
 

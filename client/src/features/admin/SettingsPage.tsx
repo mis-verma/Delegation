@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, type LucideIcon } from 'lucide-react';
@@ -158,17 +158,17 @@ export const SettingsPage = () => {
     handleSubmit,
     reset,
     control,
-    watch,
     formState: { errors, isDirty },
   } = useForm<SettingsFields>({
     resolver: zodResolver(settingsSchema),
   });
 
-  const maintenanceMode = watch('maintenanceMode');
+  const maintenanceMode = useWatch({ control, name: 'maintenanceMode' });
 
   useEffect(() => {
     if (settings) {
       reset({ ...settings, maintenanceMessage: settings.maintenanceMessage ?? '', androidAppUrl: settings.androidAppUrl ?? '', iosAppUrl: settings.iosAppUrl ?? '' }, { keepDirtyValues: true });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogoUrl(settings.logoUrl);
     }
   }, [settings, reset]);

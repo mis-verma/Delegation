@@ -27,7 +27,7 @@ const NOT_SET = <span className="text-text-light">Not set</span>;
 
 const REACH_EDGE = { all: 'border-l-primary-500', department: 'border-l-coral-500', own: 'border-l-transparent' } as const;
 
-const STICKY_BG = 'bg-surface group-hover/row:bg-surface-hover';
+const STICKY_BG = 'bg-surface group-hover/row:bg-surface-hover group-focus-visible/row:bg-surface-hover';
 const STICKY_SELECTED = 'bg-[color-mix(in_oklab,var(--color-primary-500)_8%,var(--color-surface))]';
 
 const Place = ({ icon: Icon, name, tone }: { icon: typeof Building2; name?: string; tone: string }) =>
@@ -60,7 +60,7 @@ const UserRowComponent = ({
         }
       }}
       className={cn(
-        'group/row border-b border-border/40 last:border-b-0 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none',
+        'group/row border-b border-border/40 last:border-b-0 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-surface-hover focus-visible:bg-surface-hover outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500',
         selected && 'bg-primary-500/5 dark:bg-primary-500/10',
         !user.isActive && 'opacity-80',
         busy && 'pointer-events-none',
@@ -70,7 +70,7 @@ const UserRowComponent = ({
         className={cn(CELL_CLASS, 'w-14 min-w-14 sticky left-0 z-10 border-l-[3px]', selected ? STICKY_SELECTED : STICKY_BG, user.isActive ? REACH_EDGE[ROLE_META[user.role].scope] : 'border-l-transparent')}
         onClick={(e) => e.stopPropagation()}
       >
-        <label className={cn('flex items-center justify-center size-8', selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
+        <label className={cn('flex items-center justify-center size-8 pointer-coarse:size-11', selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
           <input
             type="checkbox"
             checked={selected && selectable}

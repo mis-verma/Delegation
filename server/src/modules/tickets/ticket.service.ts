@@ -271,6 +271,7 @@ export const ticketService = {
       patch.verifiedBy = null;
       patch.verifiedAt = null;
       patch.verificationNote = null;
+      patch.autoClosedAt = null;
     }
 
     if (input.startDate !== undefined) {
@@ -441,6 +442,7 @@ export const ticketService = {
       patch.verifiedBy = null;
       patch.verifiedAt = null;
       patch.verificationNote = null;
+      patch.autoClosedAt = null;
     }
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       patch.isOverdue = overdueAtHandOver(before.isOverdue, before.tatDueAt, new Date())
@@ -578,6 +580,7 @@ export const ticketService = {
       verifiedBy: null,
       verifiedAt: null,
       verificationNote: null,
+      autoClosedAt: null,
       awaitingHeadApproval: false,
       assignmentApprovedBy: user.sub,
       assignmentApprovedAt: now,
