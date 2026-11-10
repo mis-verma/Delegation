@@ -14,4 +14,7 @@ categoryRouter.get("/:id", categoryController.getOne)
 
 categoryRouter.post("/", requireRole("ADMIN", "PC"), categoryController.create)
 categoryRouter.patch("/:id", requireRole("ADMIN", "PC"), categoryController.update)
+categoryRouter.post("/:id/subcategories", requireRole("ADMIN", "PC"), categoryController.createSubcategory)
+categoryRouter.patch("/:id/subcategories/:subId", requireRole("ADMIN", "PC"), categoryController.updateSubcategory)
+categoryRouter.delete("/:id/subcategories/:subId", requireRole("ADMIN", "PC"), categoryController.removeSubcategory)
 categoryRouter.delete("/:id", requireRole("ADMIN"), categoryController.remove)

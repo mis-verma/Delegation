@@ -12,6 +12,8 @@ import {
   checklistImages,
   users,
   departments,
+  categories,
+  categorySubcategories,
 } from "../../db/schema/index.js"
 import { eq, and, inArray, desc, asc } from "drizzle-orm"
 import { type TicketRow, NOT_DELETED, userCols, groupBy, type Executor } from "./ticketShared.js"
@@ -104,6 +106,18 @@ export const populateTickets = async (ticketRows: TicketRow[]) => {
   const raiserDepartments = !raiserIds.length ? [] : await db.select({ id: users.id, name: departments.name }).from(users).innerJoin(departments, eq(users.departmentId, departments.id)).where(inArray(users.id, raiserIds))
   const departmentOfRaiser = new Map(raiserDepartments.map((r) => [r.id, r.name]))
 
+  const subcategoryIds = [...new Set(ticketRows.map((t) => t.subcategoryId).filter((v): v is string => Boolean(v)))]
+  const subcategoryRows = subcategoryIds.length
+    ? await db.select({ id: categorySubcategories.id, name: categorySubcategories.name }).from(categorySubcategories).where(inArray(categorySubcategories.id, subcategoryIds))
+    : []
+  const subcategoryById = new Map(subcategoryRows.map((s) => [s.id, s]))
+
+  const categoryIds = [...new Set(ticketRows.map((t) => t.categoryId).filter((v): v is string => Boolean(v)))]
+  const categoryRows = categoryIds.length
+    ? await db.select({ id: categories.id, name: categories.name }).from(categories).where(inArray(categories.id, categoryIds))
+    : []
+  const categoryById = new Map(categoryRows.map((c) => [c.id, c]))
+
   const tagsByTicketMap = await tagsByTicket(ticketIds)
   const reviewersByTicketMap = await reviewersByTicket(ticketIds)
 
@@ -158,6 +172,8 @@ export const populateTickets = async (ticketRows: TicketRow[]) => {
   return ticketRows.map((t) => ({
     ...t,
     assignee: t.assigneeId ? userById.get(t.assigneeId) ?? null : null,
+    category: t.categoryId ? categoryById.get(t.categoryId) ?? null : null,
+    subcategory: t.subcategoryId ? subcategoryById.get(t.subcategoryId) ?? null : null,
     raisedBy: userById.get(t.userId) ?? null,
     raisedByDepartment: departmentOfRaiser.get(t.userId) ?? null,
     verifier: t.verifiedBy ? userById.get(t.verifiedBy) ?? null : null,

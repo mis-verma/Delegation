@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Clock, ListPlus } from 'lucide-react';
+import { Check, Clock, ListPlus, ListTree } from 'lucide-react';
 import { Button, Modal, SelectDropdown, Skeleton } from '../../components';
 import { useCategoriesQuery, useCreateManyCategoriesMutation, useDepartmentsQuery } from './hook';
 import { STARTER_CATEGORIES, normalizeCategoryName, suggestDepartmentId } from './starterCategories';
@@ -17,22 +17,30 @@ export const StarterCategoriesModal = ({ onClose }: StarterCategoriesModalProps)
   const createMany = useCreateManyCategoriesMutation();
   const [picked, setPicked] = useState<Record<string, string>>({});
 
-  const existing = useMemo(() => new Set(categories.map((category) => normalizeCategoryName(category.name))), [categories]);
+  const existing = useMemo(() => new Map(categories.map((category) => [normalizeCategoryName(category.name), category])), [categories]);
   const options = useMemo(
     () => [{ value: SKIP, label: 'Skip this one' }, ...departments.map((department) => ({ value: department.id, label: department.name }))],
     [departments],
   );
 
   const rows = STARTER_CATEGORIES.map((starter) => {
-    const exists = existing.has(normalizeCategoryName(starter.name));
+    const found = existing.get(normalizeCategoryName(starter.name));
+    const have = new Set((found?.subcategories ?? []).map((sub) => normalizeCategoryName(sub.name)));
+    const missingSubcategories = (starter.subcategories ?? []).filter((sub) => !have.has(normalizeCategoryName(sub.name)));
     const departmentId = picked[starter.name] ?? suggestDepartmentId(starter.hints, departments);
-    return { ...starter, exists, departmentId };
+    return { ...starter, exists: !!found, existingId: found?.id, missingSubcategories, departmentId };
   });
-  const ready = rows.filter((row) => !row.exists && row.departmentId !== SKIP);
+  const ready = rows.filter((row) => (row.exists ? row.missingSubcategories.length > 0 : row.departmentId !== SKIP));
 
   const submit = () => {
     createMany.mutate(
-      ready.map((row) => ({ name: row.name, departmentId: row.departmentId, tatHours: row.tatHours })),
+      ready.map((row) => ({
+        name: row.name,
+        departmentId: row.departmentId,
+        tatHours: row.tatHours,
+        existingCategoryId: row.existingId,
+        subcategories: row.missingSubcategories.map((sub) => ({ name: sub.name, tatHours: sub.tatHours })),
+      })),
       { onSuccess: ({ failed }) => { if (failed.length === 0) onClose(); } },
     );
   };
@@ -72,11 +80,19 @@ export const StarterCategoriesModal = ({ onClose }: StarterCategoriesModalProps)
                   <Clock className="size-3" aria-hidden />
                   Due in {formatTatHours(row.tatHours)}
                 </span>
+                {(row.subcategories?.length ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 t-meta font-display text-text-muted tabular-nums">
+                    <ListTree className="size-3" aria-hidden />
+                    {row.subcategories!.length} {row.subcategories!.length === 1 ? 'subcategory' : 'subcategories'}
+                  </span>
+                )}
               </div>
               {row.exists ? (
                 <span className="inline-flex items-center gap-1 t-meta font-display font-semibold text-vivid-green-text">
                   <Check className="size-3.5" aria-hidden />
-                  Already added
+                  {row.missingSubcategories.length > 0
+                    ? `Already added, adding ${row.missingSubcategories.length} ${row.missingSubcategories.length === 1 ? 'subcategory' : 'subcategories'}`
+                    : 'Already added'}
                 </span>
               ) : (
                 <div className="sm:w-56">

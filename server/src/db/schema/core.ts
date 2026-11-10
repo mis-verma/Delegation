@@ -189,6 +189,26 @@ export const categories = mysqlTable(
   (table) => [uniqueIndex('Category_name_key').on(table.name)],
 );
 
+export const categorySubcategories = mysqlTable(
+  'CategorySubcategory',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    categoryId: varchar('categoryId', { length: 191 }).notNull().references(() => categories.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 191 }).notNull(),
+    priority: mysqlEnum('priority', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+    tatHours: float('tatHours'),
+    assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
+    isActive: boolean('isActive').notNull().default(true),
+    sortOrder: int('sortOrder').notNull().default(0),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('CategorySubcategory_categoryId_name_key').on(table.categoryId, table.name),
+    index('CategorySubcategory_categoryId_sortOrder_idx').on(table.categoryId, table.sortOrder),
+  ],
+);
+
 export const categoryAssignees = mysqlTable(
   'CategoryAssignee',
   {

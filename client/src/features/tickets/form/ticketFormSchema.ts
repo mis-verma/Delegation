@@ -2,10 +2,11 @@ import { z } from 'zod';
 
 const baseTicketSchema = z.object({
   title: z.string().trim().min(5, 'Add a short title (at least 5 characters)'),
-  description: z.string().trim().min(10, 'Say a bit more about it (at least 10 characters)'),
+  description: z.string().trim(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
   assignmentMode: z.enum(['AUTO', 'MANUAL'], { error: 'Choose Auto or Manual to continue' }),
   categoryId: z.string().optional().or(z.literal('')),
+  subcategoryId: z.string().optional().or(z.literal('')),
   departmentId: z.string().optional().or(z.literal('')),
   assigneeId: z.string().optional().or(z.literal('')),
   dueDate: z.string().optional().or(z.literal('')),
@@ -15,11 +16,19 @@ const baseTicketSchema = z.object({
   teamEmpty: z.boolean().optional(),
 });
 
-export const buildTicketSchema = ({ requirePerson, headCanPick }: { requirePerson: boolean; headCanPick: (departmentId: string | undefined) => boolean }) =>
+export const buildTicketSchema = ({ requirePerson, headCanPick, subcategoryRequired }: { requirePerson: boolean; headCanPick: (departmentId: string | undefined) => boolean; subcategoryRequired: (categoryId: string | undefined) => boolean }) =>
   baseTicketSchema
+    .refine(
+      (data) => data.assignmentMode !== 'MANUAL' || data.description.length >= 10,
+      { message: 'Say a bit more about it (at least 10 characters)', path: ['description'] },
+    )
     .refine(
       (data) => data.assignmentMode !== 'AUTO' || !!data.categoryId,
       { message: 'Choose a category', path: ['categoryId'] },
+    )
+    .refine(
+      (data) => data.assignmentMode !== 'AUTO' || !!data.subcategoryId || !subcategoryRequired(data.categoryId || undefined),
+      { message: 'Choose a subcategory', path: ['subcategoryId'] },
     )
     .refine(
       (data) => data.assignmentMode !== 'MANUAL' || !!data.categoryId || !!data.departmentId,

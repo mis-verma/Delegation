@@ -1,6 +1,6 @@
 import { type Request, type Response } from "express";
 import { categoryService } from "./category.service.js";
-import { createCategorySchema , updateCategorySchema } from "./category.validation.js";
+import { createCategorySchema , updateCategorySchema, createSubcategorySchema, updateSubcategorySchema } from "./category.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { isOwnScopeRole } from "../../utils/roles.js";
 import { routeParam } from "../../utils/routeParam.js"
@@ -50,6 +50,23 @@ export const categoryController = {
         const input = updateCategorySchema.parse(req.body)
         const category = await categoryService.update(routeParam(req, "id"), input, req.user!.sub)
         res.json({ success : true , data : category})
+    }),
+
+    createSubcategory : asyncHandler(async (req : Request, res : Response) => {
+        const input = createSubcategorySchema.parse(req.body)
+        const sub = await categoryService.createSubcategory(routeParam(req, "id"), input, req.user!.sub)
+        res.status(201).json({ success : true, data : sub })
+    }),
+
+    updateSubcategory : asyncHandler(async (req : Request, res : Response) => {
+        const input = updateSubcategorySchema.parse(req.body)
+        const sub = await categoryService.updateSubcategory(routeParam(req, "id"), routeParam(req, "subId"), input, req.user!.sub)
+        res.json({ success : true, data : sub })
+    }),
+
+    removeSubcategory : asyncHandler(async (req : Request, res : Response) => {
+        await categoryService.removeSubcategory(routeParam(req, "id"), routeParam(req, "subId"), req.user!.sub)
+        res.json({ success : true, data : { deleted : true } })
     }),
 
     remove : asyncHandler(async (req : Request , res : Response) => {

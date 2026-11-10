@@ -77,6 +77,10 @@ export const TicketList = () => {
     () => new Map((assignableUsers ?? []).map(u => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])),
     [assignableUsers],
   );
+  const subcategoryNames = useMemo(
+    () => new Map((categories ?? []).flatMap(c => c.subcategories.map(s => [s.id, s.name] as const))),
+    [categories],
+  );
   const labelNames = useMemo(
     () => new Map((tags ?? []).map(t => [t.id, t.name])),
     [tags],
@@ -257,6 +261,7 @@ export const TicketList = () => {
                 organizer={organizer}
                 departments={ownScopeOnly ? undefined : departments}
                 assignableUsers={ownScopeOnly ? undefined : assignableUsers}
+                categories={categories}
                 tags={tags}
                 canExport={canExport}
                 onExport={() => setShowExport(true)}
@@ -284,6 +289,8 @@ export const TicketList = () => {
           departmentNames={departmentNames}
           personNames={assigneeNames}
           labelNames={labelNames}
+          categoryNames={categoryNames}
+          subcategoryNames={subcategoryNames}
         />
       </div>
 

@@ -8,7 +8,8 @@ import { LabelsField } from '../tags/LabelsField';
 import { useTagsQuery } from '../tags/hook';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { cn } from '@/lib/utils';
-import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery } from './hook';
+import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery, useCategoriesQuery } from './hook';
+import { SubcategoriesEditor } from './SubcategoriesEditor';
 import type { Category } from '@/api/categories';
 
 const categorySchema = z.object({
@@ -68,6 +69,8 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
 
   const { data: departments, isPending: isDepartmentsLoading } = useDepartmentsQuery();
   const { data: tags } = useTagsQuery();
+  const { data: allCategories } = useCategoriesQuery(isEditing);
+  const liveSubcategories = allCategories?.find((c) => c.id === category?.id)?.subcategories ?? category?.subcategories ?? [];
 
   const {
     register,
@@ -236,6 +239,14 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             {pickedTags.map(t => <TagChip key={t.id} tag={t} />)}
           </div>
         </div>
+
+        {isEditing && category ? (
+          <SubcategoriesEditor categoryId={category.id} departmentId={departmentId} subcategories={liveSubcategories} />
+        ) : (
+          <p className="rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 t-meta text-text-muted">
+            Save the category first, then open it again to add subcategories.
+          </p>
+        )}
 
         {mutation.isError && (
           <p role="alert" className="t-meta font-medium text-danger">

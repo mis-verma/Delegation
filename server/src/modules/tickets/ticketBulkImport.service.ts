@@ -24,6 +24,7 @@ export type TicketBulkImportRawRow = {
     departmentName?: string
     storeName?: string
     categoryName?: string
+    subcategoryName?: string
     tatHours?: string
     dueDate?: string
     labelNames: string[]
@@ -39,6 +40,7 @@ export type TicketBulkImportMatchedRow = {
         departmentName?: string
         storeName?: string
         categoryName?: string
+        subcategoryName?: string
         tatHours?: string
         dueDate?: string
         labelNames: string[]
@@ -51,6 +53,9 @@ export type TicketBulkImportMatchedRow = {
     storeMatchConfidence: MatchConfidence
     categoryId: string | null
     categoryMatchConfidence: MatchConfidence
+    subcategoryId: string | null
+    subcategoryMatchConfidence: MatchConfidence
+    subcategoryRequired: boolean
     priority: TicketPriority
     priorityMatched: boolean
     tatHours: number | null
@@ -64,7 +69,7 @@ export type TicketBulkImportPreviewResult = {
     assignableUsers: { id: string; name: string; email: string }[]
     departments: { id: string; name: string }[]
     stores: { id: string; name: string }[]
-    categories: { id: string; name: string }[]
+    categories: { id: string; name: string; subcategories: { id: string; name: string }[] }[]
     tags: { id: string; name: string }[]
 }
 
@@ -77,6 +82,7 @@ export type TicketBulkImportApplyRow = {
     departmentId?: string
     storeId?: string
     categoryId?: string
+    subcategoryId?: string
     tatHours?: number
     tagIds?: string[]
 }
@@ -86,7 +92,7 @@ export type TicketBulkImportSummary = {
     failed: { rowIndex: number; message: string }[]
 }
 
-type CanonicalField = "title" | "description" | "assigneeName" | "priority" | "departmentName" | "storeName" | "categoryName" | "tatHours" | "dueDate" | "labels"
+type CanonicalField = "title" | "description" | "assigneeName" | "priority" | "departmentName" | "storeName" | "categoryName" | "subcategoryName" | "tatHours" | "dueDate" | "labels"
 
 const HEADER_ALIASES: Record<string, CanonicalField> = {
     "title": "title",
@@ -109,6 +115,9 @@ const HEADER_ALIASES: Record<string, CanonicalField> = {
     "location": "storeName",
     "category": "categoryName",
     "ticket category": "categoryName",
+    "subcategory": "subcategoryName",
+    "sub category": "subcategoryName",
+    "sub-category": "subcategoryName",
     "tat hours": "tatHours",
     "tat": "tatHours",
     "turnaround hours": "tatHours",
@@ -156,6 +165,7 @@ const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): T
         departmentName: mapped.departmentName,
         storeName: mapped.storeName,
         categoryName: mapped.categoryName,
+        subcategoryName: mapped.subcategoryName,
         tatHours: mapped.tatHours,
         dueDate: mapped.dueDate,
         labelNames: mapped.labels ? splitLabels(mapped.labels) : [],
@@ -287,6 +297,10 @@ export const ticketBulkImportService = {
             const categoryMatch = raw.categoryName
                 ? matchExactOrFuzzy(raw.categoryName, allCategories, (c) => c.name)
                 : { match: null, confidence: "none" as MatchConfidence }
+            const activeSubcategories = (allCategories.find((c) => c.id === categoryMatch.match?.id)?.subcategories ?? []).filter((s) => s.isActive)
+            const subcategoryMatch = raw.subcategoryName && activeSubcategories.length
+                ? matchExactOrFuzzy(raw.subcategoryName, activeSubcategories, (s) => s.name)
+                : { match: null, confidence: "none" as MatchConfidence }
             const { priority, matched: priorityMatched } = resolvePriority(raw.priority)
             const explicitTat = resolveTatHours(raw.tatHours)
             const fromDue = !raw.tatHours && raw.dueDate ? resolveDueHours(raw.dueDate) : null
@@ -307,6 +321,7 @@ export const ticketBulkImportService = {
                     departmentName: raw.departmentName,
                     storeName: raw.storeName,
                     categoryName: raw.categoryName,
+                    subcategoryName: raw.subcategoryName,
                     tatHours: raw.tatHours,
                     dueDate: raw.dueDate,
                     labelNames: raw.labelNames,
@@ -319,6 +334,9 @@ export const ticketBulkImportService = {
                 storeMatchConfidence: storeMatch.confidence,
                 categoryId: categoryMatch.match?.id ?? null,
                 categoryMatchConfidence: categoryMatch.confidence,
+                subcategoryId: subcategoryMatch.match?.id ?? null,
+                subcategoryMatchConfidence: subcategoryMatch.confidence,
+                subcategoryRequired: activeSubcategories.length > 0,
                 priority,
                 priorityMatched,
                 tatHours,
@@ -333,7 +351,7 @@ export const ticketBulkImportService = {
             assignableUsers: assignableUsers.map((u) => ({ id: u.id, name: userLabel(u), email: u.email })),
             departments: departments.map((d) => ({ id: d.id, name: d.name })),
             stores: allStores,
-            categories: allCategories.map((c) => ({ id: c.id, name: c.name })),
+            categories: allCategories.map((c) => ({ id: c.id, name: c.name, subcategories: c.subcategories.filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name })) })),
             tags: allTags,
         }
     },
@@ -354,6 +372,7 @@ export const ticketBulkImportService = {
                     departmentId: row.departmentId,
                     storeId: row.storeId,
                     categoryId: row.categoryId,
+                    subcategoryId: row.subcategoryId,
                     tatHours: row.tatHours,
                     tagIds: row.tagIds,
                 }

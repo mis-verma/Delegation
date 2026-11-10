@@ -6,6 +6,7 @@ import {
 
   ticketStatusUpdates,
   ticketAttachments,
+  categories,
 
 } from "../../db/schema/index.js"
 import { asc, eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
@@ -27,6 +28,8 @@ import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, ass
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
 import { categoryDefaults, mergeTagIds } from "../categories/categoryDefaults.js"
+import { resolveDescription } from "./ticketDescription.js"
+import { activeSubcategoryCount, checkSubcategoryChoice, loadSubcategory, mergeSubcategory } from "../categories/subcategoryDefaults.js"
 export { visibilityFilter, assertCanMutate } from "./ticketAccess.js"
 export type { OwnerStatsRow, TicketPendingApprovalRow, TicketSummaryRow, TicketSummaryScope } from "./ticketReports.js"
 
@@ -89,6 +92,8 @@ export const ticketService = {
       status: query.filterStatus,
       priority: query.priority,
       departmentId: query.filterDepartmentId,
+      categoryId: query.filterCategoryId,
+      subcategoryId: query.filterSubcategoryId,
       assigneeIds: query.assigneeIds,
       raisedByIds: query.raisedByIds,
       labelIds: query.labelIds,
@@ -129,10 +134,17 @@ export const ticketService = {
 
   async create(input: CreateTicketInput, user: AccessTokenPayload, hooks?: { inTransaction?: (tx: DbTransaction, ticketId: string) => Promise<void>; skipHeadGate?: boolean }) {
     assertCanSetReviewers(input.reviewerIds, user)
-    const defaults = await categoryDefaults(input.categoryId)
-    if (input.categoryId && (!defaults.found || !defaults.isActive)) {
+    const categoryOnly = await categoryDefaults(input.categoryId)
+    if (input.categoryId && (!categoryOnly.found || !categoryOnly.isActive)) {
       throw AppError.badRequest("That category is not available any more. Pick another one.")
     }
+    const chosenSubcategory = await loadSubcategory(input.subcategoryId)
+    const subcategoryCheck = checkSubcategoryChoice(input.categoryId, chosenSubcategory, input.subcategoryId, input.categoryId ? await activeSubcategoryCount(input.categoryId) : 0)
+    if (!subcategoryCheck.ok) throw AppError.badRequest(subcategoryCheck.message)
+    const defaults = mergeSubcategory(categoryOnly, chosenSubcategory)
+    const categoryName = input.categoryId ? (await db.select({ name: categories.name }).from(categories).where(eq(categories.id, input.categoryId)).limit(1))[0]?.name : undefined
+    const resolvedDescription = resolveDescription({ description: input.description, title: input.title, assignmentMode: input.assignmentMode, categoryName, subcategoryName: chosenSubcategory?.name })
+    if (!resolvedDescription.ok) throw AppError.badRequest(resolvedDescription.message)
     if (input.assignmentMode === "AUTO" && !input.categoryId && !input.departmentId && !input.assigneeId) {
       throw AppError.badRequest("Pick a category or a department.")
     }
@@ -149,12 +161,13 @@ export const ticketService = {
       await tx.insert(tickets).values({
         id,
         title: input.title,
-        description: input.description,
+        description: resolvedDescription.text,
         priority: input.priority ?? defaults.priority ?? undefined,
         assignmentMode: input.assignmentMode,
         assigneeId: assigneeId ?? null,
         storeId: input.storeId ?? null,
         categoryId: input.categoryId ?? null,
+        subcategoryId: input.subcategoryId ?? null,
         departmentId,
         tatHours: tatHours ?? null,
         tatDueAt: deriveTatDueAt(tatHours ?? null, now),
@@ -252,6 +265,15 @@ export const ticketService = {
     if (input.assigneeId !== undefined) patch.assigneeId = input.assigneeId
     if (input.storeId !== undefined) patch.storeId = input.storeId
     if (input.categoryId !== undefined) patch.categoryId = input.categoryId
+    const categoryChanged = input.categoryId !== undefined && input.categoryId !== ticket.categoryId
+    if (categoryChanged || input.subcategoryId !== undefined) {
+      const effectiveCategory = input.categoryId !== undefined ? input.categoryId : ticket.categoryId
+      const effectiveSubcategory = input.subcategoryId !== undefined ? input.subcategoryId : (categoryChanged ? null : ticket.subcategoryId)
+      const chosen = await loadSubcategory(effectiveSubcategory)
+      const check = checkSubcategoryChoice(effectiveCategory, chosen, effectiveSubcategory, effectiveCategory ? await activeSubcategoryCount(effectiveCategory) : 0)
+      if (!check.ok) throw AppError.badRequest(check.message)
+      patch.subcategoryId = effectiveSubcategory
+    }
     if (input.departmentId !== undefined) patch.departmentId = input.departmentId
     if (input.status !== undefined) patch.status = input.status
     if (input.status !== undefined && (before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "CLOSED" && input.status !== "PENDING_APPROVAL") {

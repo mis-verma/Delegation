@@ -70,6 +70,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </span>
           ))}
         </div>
+        {ticket.category?.name && (
+          <p className="t-meta font-display font-medium text-text-muted leading-snug line-clamp-1 break-words">
+            {ticket.subcategory?.name ? `${ticket.category.name} / ${ticket.subcategory.name}` : ticket.category.name}
+          </p>
+        )}
         {ticket.description?.trim() && (
           <p className="max-sm:hidden text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
         )}

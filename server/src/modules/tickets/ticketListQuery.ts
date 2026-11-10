@@ -18,6 +18,8 @@ export type TicketListOptions = {
     status?: (typeof TICKET_STATUSES)[number]
     priority?: (typeof TICKET_PRIORITIES)[number][]
     departmentId?: string
+    categoryId?: string
+    subcategoryId?: string
     assigneeIds?: string[]
     raisedByIds?: string[]
     labelIds?: string[]
@@ -65,6 +67,8 @@ export const ticketOptionConditions = (options: TicketListOptions): (SQL | undef
     if (options.status) conditions.push(eq(tickets.status, options.status))
     if (options.priority?.length) conditions.push(inArray(tickets.priority, options.priority))
     if (options.departmentId) conditions.push(eq(tickets.departmentId, options.departmentId))
+    if (options.categoryId) conditions.push(eq(tickets.categoryId, options.categoryId))
+    if (options.subcategoryId) conditions.push(eq(tickets.subcategoryId, options.subcategoryId))
     if (options.assigneeIds?.length) conditions.push(inArray(tickets.assigneeId, options.assigneeIds))
     if (options.raisedByIds?.length) conditions.push(inArray(tickets.userId, options.raisedByIds))
     if (options.labelIds?.length) {

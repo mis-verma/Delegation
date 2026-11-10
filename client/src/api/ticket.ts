@@ -128,6 +128,9 @@ export type Ticket = {
   assigneeId:     string | null;
   storeId:        string | null;
   categoryId:     string | null;
+  subcategoryId?: string | null;
+  category?:      { id: string; name: string } | null;
+  subcategory?:   { id: string; name: string } | null;
   departmentId:   string | null;
   createdAt:      string;
   updatedAt:      string;
@@ -180,6 +183,8 @@ export type TicketListQuery = {
   status?: TicketStatus;
   priority?: Priority[];
   departmentId?: string;
+  categoryId?: string;
+  subcategoryId?: string;
   assigneeIds?: string[];
   raisedByIds?: string[];
   labelIds?: string[];
@@ -204,6 +209,8 @@ const ticketListParams = (query: TicketListQuery) => {
   set("filterStatus", query.status);
   set("priority", query.priority?.join(","));
   set("filterDepartmentId", query.departmentId);
+  set("filterCategoryId", query.categoryId);
+  set("filterSubcategoryId", query.subcategoryId);
   set("assigneeIds", query.assigneeIds?.join(","));
   set("raisedByIds", query.raisedByIds?.join(","));
   set("labelIds", query.labelIds?.join(","));
@@ -226,12 +233,13 @@ export type ApiResponse<T> = {
 
 export type CreateTicketPayload = {
   title:           string;
-  description:     string;
+  description?:    string;
   priority?:       Priority;
   assignmentMode?: AssignmentMode;
   assigneeId?:     string;
   storeId?:        string;
   categoryId?:     string;
+  subcategoryId?:  string;
   departmentId?:   string;
   tatHours?:       number;
   startDate?:      string;

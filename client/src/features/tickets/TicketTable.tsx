@@ -94,6 +94,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
 
                 <td className={`${CELL_CLASS} ${FROM_XL} whitespace-nowrap`}>
                   {category ?? <span className="text-text-light">Not set</span>}
+                  {ticket.subcategory?.name && <span className="block t-meta text-text-muted line-clamp-1">{ticket.subcategory.name}</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} whitespace-nowrap`}>

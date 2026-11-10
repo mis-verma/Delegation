@@ -11,7 +11,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
-import { users, stores, categories, departments } from './core.js';
+import { users, stores, categories, categorySubcategories, departments } from './core.js';
 import { CAPTURE_METHODS, tags } from './task.js';
 
 export const TICKET_STATUSES = ['OPEN', 'IN_PROGRESS', 'PENDING_APPROVAL', 'CLOSED', 'ON_HOLD'] as const;
@@ -41,6 +41,7 @@ export const tickets = mysqlTable(
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
     categoryId: varchar('categoryId', { length: 191 }).references(() => categories.id),
+    subcategoryId: varchar('subcategoryId', { length: 191 }).references(() => categorySubcategories.id, { onDelete: 'set null' }),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
@@ -79,6 +80,7 @@ export const tickets = mysqlTable(
     index('Ticket_deletedAt_idx').on(table.deletedAt),
     index('Ticket_closedAt_idx').on(table.closedAt),
     index('Ticket_createdAt_idx').on(table.createdAt),
+    index('Ticket_subcategoryId_idx').on(table.subcategoryId),
     index('Ticket_storeId_closedAt_idx').on(table.storeId, table.closedAt),
     index('Ticket_departmentId_closedAt_idx').on(table.departmentId, table.closedAt),
     index('Ticket_tatDueAt_idx').on(table.tatDueAt),
@@ -111,6 +113,20 @@ export const categoryTags = mysqlTable(
   (table) => [
     uniqueIndex('CategoryTag_categoryId_tagId_key').on(table.categoryId, table.tagId),
     index('CategoryTag_tagId_idx').on(table.tagId),
+  ],
+);
+
+export const categorySubcategoryTags = mysqlTable(
+  'CategorySubcategoryTag',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    subcategoryId: varchar('subcategoryId', { length: 191 }).notNull().references(() => categorySubcategories.id, { onDelete: 'cascade' }),
+    tagId: varchar('tagId', { length: 191 }).notNull().references(() => tags.id, { onDelete: 'cascade' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('CategorySubcategoryTag_subcategoryId_tagId_key').on(table.subcategoryId, table.tagId),
+    index('CategorySubcategoryTag_tagId_idx').on(table.tagId),
   ],
 );
 

@@ -105,6 +105,15 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
           {c.priority ? <PriorityChip meta={PRIORITY_CONFIG[c.priority]} /> : <span className="t-meta font-display font-semibold text-text-muted">Not set</span>}
         </dd>
 
+        {c.subcategories.length > 0 && (
+          <>
+            <dt className={ROW_LABEL}>Types</dt>
+            <dd className="min-w-0 t-meta font-display font-semibold text-text-secondary line-clamp-2 leading-snug">
+              {c.subcategories.filter((sub) => sub.isActive).map((sub) => sub.name).join(", ") || "All turned off"}
+            </dd>
+          </>
+        )}
+
         <dt className={ROW_LABEL}>Goes to</dt>
         <dd className="flex min-w-0 items-center gap-2">
           {people.length > 0 ? (
@@ -219,8 +228,13 @@ export const CategoryList = () => {
   const headPicksCount = useMemo(() => categories.filter((c) => c.isActive && (c.assigneeIds?.length ?? 0) === 0).length, [categories]);
   const defaultDueCount = useMemo(() => categories.filter((c) => c.isActive && !c.tatHours).length, [categories]);
   const missingStarter = useMemo(() => {
-    const have = new Set(categories.map((c) => normalizeCategoryName(c.name)));
-    return STARTER_CATEGORIES.filter((s) => !have.has(normalizeCategoryName(s.name))).length;
+    const have = new Map(categories.map((c) => [normalizeCategoryName(c.name), c]));
+    return STARTER_CATEGORIES.filter((s) => {
+      const found = have.get(normalizeCategoryName(s.name));
+      if (!found) return true;
+      const names = new Set(found.subcategories.map((sub) => normalizeCategoryName(sub.name)));
+      return (s.subcategories ?? []).some((sub) => !names.has(normalizeCategoryName(sub.name)));
+    }).length;
   }, [categories]);
 
   const toggleActive = (c: Category) => updateMut.mutate({ id: c.id, payload: { isActive: !c.isActive } });

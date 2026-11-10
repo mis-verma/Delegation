@@ -1,6 +1,6 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays } from "@/api/categories";
+import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload } from "@/api/categories";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
@@ -103,18 +103,35 @@ export const useCreateCategoryMutation = () => {
     })
 }
 
+export type CategoryJob = CreateCategoryPayload & {
+    existingCategoryId?: string;
+    subcategories?: { name: string; tatHours?: number }[];
+};
+
 export const useCreateManyCategoriesMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn : async (payloads : CreateCategoryPayload[]) => {
+        mutationFn : async (jobs : CategoryJob[]) => {
             const failed : string[] = [];
             let created = 0;
-            for (const payload of payloads) {
-                try {
-                    await categoryApi.create(payload);
-                    created += 1;
-                } catch {
-                    failed.push(payload.name);
+            for (const { existingCategoryId, subcategories, ...payload } of jobs) {
+                let categoryId = existingCategoryId;
+                if (!categoryId) {
+                    try {
+                        const made = await categoryApi.create(payload);
+                        categoryId = made.data.id;
+                        created += 1;
+                    } catch {
+                        failed.push(payload.name);
+                        continue;
+                    }
+                }
+                for (const subcategory of subcategories ?? []) {
+                    try {
+                        await categoryApi.createSubcategory(categoryId, { name: subcategory.name, tatHours: subcategory.tatHours ?? null });
+                    } catch {
+                        failed.push(`${payload.name} / ${subcategory.name}`);
+                    }
                 }
             }
             return { created, failed };
@@ -122,6 +139,7 @@ export const useCreateManyCategoriesMutation = () => {
         onSuccess : ({ created, failed }) => {
             queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
             if (created > 0) toast.success(`${created} ${created === 1 ? "category" : "categories"} added`);
+            else if (failed.length === 0) toast.success("Subcategories added");
             if (failed.length > 0) toast.error(`Couldn't add: ${failed.join(", ")}`);
         },
     })
@@ -153,6 +171,33 @@ export const useDeleteCategoryMutation = () => {
         },
         onError : (err) => toast.error(errorMessage(err, "Failed to delete category")),
 
+    })
+}
+
+export const useSaveSubcategoryMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : ({ categoryId, id, payload }: { categoryId: string; id?: string; payload: SubcategoryPayload & { name?: string } }) =>
+            id
+                ? categoryApi.updateSubcategory(categoryId, id, payload)
+                : categoryApi.createSubcategory(categoryId, { ...payload, name: payload.name ?? "" }),
+        onSuccess : (_data, vars) => {
+            queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
+            toast.success(vars.id ? "Subcategory updated" : "Subcategory added");
+        },
+        onError : (err) => toast.error(errorMessage(err, "Couldn't save the subcategory")),
+    })
+}
+
+export const useDeleteSubcategoryMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : ({ categoryId, id }: { categoryId: string; id: string }) => categoryApi.deleteSubcategory(categoryId, id),
+        onSuccess : () => {
+            queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
+            toast.success("Subcategory deleted");
+        },
+        onError : (err) => toast.error(errorMessage(err, "Couldn't delete the subcategory")),
     })
 }
 

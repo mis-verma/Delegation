@@ -11,12 +11,13 @@ const priorityCsv = z.string().optional().transform(splitCsv).pipe(z.array(z.enu
 
 export const createTicketSchema = z.object({
     title : z.string().min(1),
-    description : z.string().min(1),
+    description : z.string().optional(),
     priority :  z.enum(TICKET_PRIORITIES).optional(),
     assignmentMode : z.enum(ASSIGNMENT_MODES).optional(),
     assigneeId : objectId.optional(),
     storeId : objectId.optional(),
     categoryId : objectId.optional(),
+    subcategoryId : objectId.optional(),
     departmentId : objectId.optional(),
     tatHours : tatHoursSchema.optional(),
     startDate : z.string().datetime({ offset: true }).optional(),
@@ -24,8 +25,10 @@ export const createTicketSchema = z.object({
     reviewerIds : z.array(objectId).max(20).optional()
 })
 export const updateTicketSchema = createTicketSchema.partial().extend({
+    description : z.string().min(1).optional(),
     status : z.enum(TICKET_STATUSES).optional(),
     assigneeId : objectId.nullable().optional(),
+    subcategoryId : objectId.nullable().optional(),
     startDate : z.string().datetime({ offset: true }).nullable().optional(),
     expectedUpdatedAt : z.string().datetime({ offset: true }).optional()
 })
@@ -52,6 +55,8 @@ export const paginatioinSchema = z.object({
     storeId : objectId.optional(),
     filterStatus : z.enum(TICKET_STATUSES).optional(),
     filterDepartmentId : objectId.optional(),
+    filterCategoryId : objectId.optional(),
+    filterSubcategoryId : objectId.optional(),
     priority : priorityCsv,
     assigneeIds : idCsv(50),
     raisedByIds : idCsv(50),

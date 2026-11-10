@@ -31,6 +31,8 @@ type ReviewRow = {
   storeConfidence: BulkImportMatchConfidence;
   categoryId: string;
   categoryConfidence: BulkImportMatchConfidence;
+  subcategoryId: string;
+  subcategoryConfidence: BulkImportMatchConfidence;
   priority: Priority;
   tatHours: string;
   tatHoursInvalid: boolean;
@@ -66,6 +68,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
   const [departmentOptions, setDepartmentOptions] = useState<{ value: string; label: string }[]>([]);
   const [storeOptions, setStoreOptions] = useState<{ value: string; label: string }[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<{ value: string; label: string }[]>([]);
+  const [subcategoryOptions, setSubcategoryOptions] = useState<Map<string, { value: string; label: string }[]>>(new Map());
   const [tagNameById, setTagNameById] = useState<Map<string, string>>(new Map());
   const [summary, setSummary] = useState<TicketBulkImportSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +96,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
         setDepartmentOptions(data.departments.map((d) => ({ value: d.id, label: d.name })));
         setStoreOptions(data.stores.map((s) => ({ value: s.id, label: s.name })));
         setCategoryOptions(data.categories.map((c) => ({ value: c.id, label: c.name })));
+        setSubcategoryOptions(new Map(data.categories.filter((c) => c.subcategories.length).map((c) => [c.id, c.subcategories.map((s) => ({ value: s.id, label: s.name }))])));
         setTagNameById(new Map(data.tags.map((t) => [t.id, t.name])));
         setRows(data.rows.map((r) => ({
           rowIndex: r.rowIndex,
@@ -107,6 +111,8 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
           storeConfidence: r.storeMatchConfidence,
           categoryId: r.categoryId ?? '',
           categoryConfidence: r.categoryMatchConfidence,
+          subcategoryId: r.subcategoryId ?? '',
+          subcategoryConfidence: r.subcategoryMatchConfidence,
           priority: r.priority,
           tatHours: r.tatHours != null ? String(r.tatHours) : '',
           tatHoursInvalid: r.tatHoursInvalid,
@@ -155,6 +161,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
     && (!r.raw.departmentName || !!r.departmentId)
     && (!r.raw.storeName || !!r.storeId)
     && (!r.raw.categoryName || !!r.categoryId)
+    && (!r.categoryId || !subcategoryOptions.has(r.categoryId) || !!r.subcategoryId)
     && routeOf(r) !== 'none'
     && !r.tatHoursInvalid
     && !tatBad(r.tatHours);
@@ -176,6 +183,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
           departmentId: r.departmentId || undefined,
           storeId: r.storeId || undefined,
           categoryId: r.categoryId || undefined,
+          subcategoryId: r.subcategoryId || undefined,
           tatHours: r.tatHours.trim() ? Number(r.tatHours) : undefined,
           tagIds: r.tagIds.length ? r.tagIds : undefined,
         })),
@@ -367,15 +375,28 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                       />
                     </td>
                     <td className="px-3 py-2">
-                      <Combobox
-                        value={row.categoryId}
-                        onChange={(v) => updateRow(row.rowIndex, { categoryId: v, categoryConfidence: 'exact' })}
-                        options={categoryOptions}
-                        emptyOptionLabel="No category"
-                        placeholder={row.raw.categoryName || 'No category'}
-                        disabled={row.excluded}
-                        className={`t-meta ${optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}`}
-                      />
+                      <div className="flex flex-col gap-1">
+                        <Combobox
+                          value={row.categoryId}
+                          onChange={(v) => updateRow(row.rowIndex, { categoryId: v, categoryConfidence: 'exact', subcategoryId: '', subcategoryConfidence: 'none' })}
+                          options={categoryOptions}
+                          emptyOptionLabel="No category"
+                          placeholder={row.raw.categoryName || 'No category'}
+                          disabled={row.excluded}
+                          className={`t-meta ${optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}`}
+                        />
+                        {row.categoryId && subcategoryOptions.has(row.categoryId) && (
+                          <Combobox
+                            value={row.subcategoryId}
+                            onChange={(v) => updateRow(row.rowIndex, { subcategoryId: v, subcategoryConfidence: 'exact' })}
+                            options={subcategoryOptions.get(row.categoryId) ?? []}
+                            emptyOptionLabel="Choose a subcategory"
+                            placeholder={row.raw.subcategoryName || 'Choose a subcategory'}
+                            disabled={row.excluded}
+                            className={`t-meta ${row.subcategoryId ? (row.subcategoryConfidence === 'fuzzy' ? 'ring-2 ring-warning/40' : '') : 'ring-2 ring-danger/40'}`}
+                          />
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       <Combobox

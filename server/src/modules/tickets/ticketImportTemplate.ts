@@ -6,7 +6,7 @@ import { departmentService } from "../departments/department.service.js"
 import { categoryService } from "../categories/category.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
-const HEADERS = ["Title", "Description", "Category", "Department", "Person", "Due date", "Priority", "Store", "Labels"] as const
+const HEADERS = ["Title", "Description", "Category", "Department", "Person", "Due date", "Priority", "Store", "Labels", "Subcategory"] as const
 const FIRST_ROW = 2
 const LAST_ROW = 301
 const PRIORITIES = ["Low", "Medium", "High", "Critical"]
@@ -21,6 +21,7 @@ const HOW_TO_FILL: [string, string][] = [
     ["Priority", "Optional. Low, Medium, High or Critical. Empty means Medium."],
     ["Store", "Optional. Pick the store the problem is at."],
     ["Labels", "Optional. Type several labels separated by commas."],
+    ["Subcategory", "Needed when the category has subcategories. Type the subcategory name exactly as it shows on the New ticket form."],
 ]
 
 export const buildTicketImportTemplate = async (actor: AccessTokenPayload): Promise<Buffer> => {
@@ -53,7 +54,7 @@ export const buildTicketImportTemplate = async (actor: AccessTokenPayload): Prom
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF003860" } }
         cell.alignment = { vertical: "middle" }
     })
-    const widths = [34, 46, 26, 24, 34, 14, 12, 22, 22]
+    const widths = [34, 46, 26, 24, 34, 14, 12, 22, 22, 26]
     widths.forEach((w, i) => { sheet.getColumn(i + 1).width = w })
 
     lists.forEach((values, col) => {

@@ -9,6 +9,8 @@ interface TicketActiveTagsProps {
   departmentNames: Map<string, string>;
   personNames: Map<string, string>;
   labelNames: Map<string, string>;
+  categoryNames: Map<string, string>;
+  subcategoryNames: Map<string, string>;
 }
 
 const listLabel = (prefix: string, ids: string[], names: Map<string, string>, fallback: string) => {
@@ -16,7 +18,7 @@ const listLabel = (prefix: string, ids: string[], names: Map<string, string>, fa
   return ids.length === 1 ? `${prefix}: ${first}` : `${prefix}: ${first} +${ids.length - 1}`;
 };
 
-export const TicketActiveTags = ({ organizer, allTickets, departmentNames, personNames, labelNames }: TicketActiveTagsProps) => {
+export const TicketActiveTags = ({ organizer, allTickets, departmentNames, personNames, labelNames, categoryNames, subcategoryNames }: TicketActiveTagsProps) => {
   const { filters, search } = organizer;
   const patch = (next: Partial<typeof filters>) => {
     organizer.setFilters((prev) => ({ ...prev, ...next }));
@@ -45,6 +47,12 @@ export const TicketActiveTags = ({ organizer, allTickets, departmentNames, perso
   if (filters.departmentId) {
     items.push({ key: 'department', label: departmentNames.get(filters.departmentId) ?? 'Department', onRemove: () => patch({ departmentId: '' }) });
   }
+  if (filters.categoryId) {
+    items.push({ key: 'category', label: categoryNames.get(filters.categoryId) ?? 'Category', onRemove: () => patch({ categoryId: '', subcategoryId: '' }) });
+  }
+  if (filters.categoryId && filters.subcategoryId) {
+    items.push({ key: 'subcategory', label: subcategoryNames.get(filters.subcategoryId) ?? 'Subcategory', onRemove: () => patch({ subcategoryId: '' }) });
+  }
   if (filters.assigneeIds.length > 0) {
     items.push({ key: 'assignees', label: listLabel('Assigned to', filters.assigneeIds, personNames, 'Person'), onRemove: () => patch({ assigneeIds: [] }) });
   }
@@ -57,7 +65,7 @@ export const TicketActiveTags = ({ organizer, allTickets, departmentNames, perso
 
   const clearAll = () => {
     organizer.setSearch('');
-    organizer.setFilters((prev) => ({ ...prev, status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] }));
+    organizer.setFilters((prev) => ({ ...prev, status: 'all', priority: [], departmentId: '', categoryId: '', subcategoryId: '', assigneeIds: [], raisedByIds: [], labelIds: [] }));
     organizer.setPage(1);
     if (organizer.assigneeIdFilter) clearPersonLink();
   };

@@ -701,6 +701,20 @@
       "when": 1793000000000,
       "tag": "0099_audit_points_photo_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "5",
+      "when": 1793010000000,
+      "tag": "0100_ticket_subcategory",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "5",
+      "when": 1793020000000,
+      "tag": "0101_subcategory_tags",
+      "breakpoints": true
     }
   ]
 }

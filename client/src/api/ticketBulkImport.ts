@@ -17,6 +17,7 @@ export type TicketBulkImportMatchedRow = {
     departmentName?: string;
     storeName?: string;
     categoryName?: string;
+    subcategoryName?: string;
     tatHours?: string;
     dueDate?: string;
     labelNames: string[];
@@ -29,6 +30,9 @@ export type TicketBulkImportMatchedRow = {
   storeMatchConfidence: BulkImportMatchConfidence;
   categoryId: string | null;
   categoryMatchConfidence: BulkImportMatchConfidence;
+  subcategoryId: string | null;
+  subcategoryMatchConfidence: BulkImportMatchConfidence;
+  subcategoryRequired: boolean;
   priority: Priority;
   priorityMatched: boolean;
   tatHours: number | null;
@@ -42,7 +46,7 @@ export type TicketBulkImportPreviewResponse = {
   assignableUsers: { id: string; name: string; email: string }[];
   departments: { id: string; name: string }[];
   stores: { id: string; name: string }[];
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; subcategories: { id: string; name: string }[] }[];
   tags: { id: string; name: string }[];
 };
 
@@ -55,6 +59,7 @@ export type TicketBulkImportApplyRow = {
   departmentId?: string;
   storeId?: string;
   categoryId?: string;
+  subcategoryId?: string;
   tatHours?: number;
   tagIds?: string[];
 };

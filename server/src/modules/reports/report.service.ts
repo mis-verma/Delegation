@@ -2,7 +2,7 @@ import { db } from "../../config/db.js";
 import { tickets } from "../../db/schema/ticket.js";
 import { tasks, taskAdditionalAssignees } from "../../db/schema/task.js";
 import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from "../../db/schema/checklistInstance.js";
-import { users, departments, stores } from "../../db/schema/core.js";
+import { users, departments, stores, categories, categorySubcategories } from "../../db/schema/core.js";
 import { and, gte, lte, eq, ne, or, inArray, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import type { CsvColumn } from "../../utils/csv.js";
@@ -37,6 +37,8 @@ export const TICKET_COLUMNS: CsvColumn[] = [
     { key: "closedAt", label: "Closed At", width: 25 },
     { key: "tatHours", label: "TAT (hrs)", width: 12, align: "right" },
     { key: "isOverdue", label: "Overdue", width: 12 },
+    { key: "category", label: "Category", width: 24 },
+    { key: "subcategory", label: "Subcategory", width: 24 },
 ];
 
 export const TASK_COLUMNS: CsvColumn[] = [
@@ -77,6 +79,7 @@ type TicketReportRow = {
     id: string; title: string; status: string; priority: string;
     createdAt: Date; closedAt: Date | null; tatHours: number | null; isOverdue: boolean;
     departmentName: string | null;
+    categoryName: string | null; subcategoryName: string | null;
     assigneeFirstName: string | null; assigneeLastName: string | null;
     raisedByFirstName: string | null; raisedByLastName: string | null;
 };
@@ -158,6 +161,8 @@ export const reportService = {
                     tatHours: tickets.tatHours,
                     isOverdue: tickets.isOverdue,
                     departmentName: departments.name,
+                    categoryName: categories.name,
+                    subcategoryName: categorySubcategories.name,
                     assigneeFirstName: assigneeUsers.firstName,
                     assigneeLastName: assigneeUsers.lastName,
                     raisedByFirstName: raisedByUsers.firstName,
@@ -165,6 +170,8 @@ export const reportService = {
                 })
                 .from(tickets)
                 .leftJoin(departments, eq(departments.id, tickets.departmentId))
+                .leftJoin(categories, eq(categories.id, tickets.categoryId))
+                .leftJoin(categorySubcategories, eq(categorySubcategories.id, tickets.subcategoryId))
                 .leftJoin(assigneeUsers, eq(assigneeUsers.id, tickets.assigneeId))
                 .leftJoin(raisedByUsers, eq(raisedByUsers.id, tickets.userId))
                 .where(and(where, cursorCondition))
@@ -186,6 +193,8 @@ export const reportService = {
                     closedAt: isoOrEmpty(t.closedAt),
                     tatHours: t.tatHours ?? "",
                     isOverdue: t.isOverdue ? "Yes" : "No",
+                    category: t.categoryName ?? "",
+                    subcategory: t.subcategoryName ?? "",
                 };
             }
 

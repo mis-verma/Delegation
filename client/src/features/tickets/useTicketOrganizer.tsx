@@ -27,9 +27,9 @@ export interface TicketViewSnapshot {
   groupBy: 'department' | 'assignee';
   quickFilter: TicketQuickFilterKey | null;
 }
-const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
+const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', categoryId: '', subcategoryId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
 
-const URL_KEYS = ['q', 'status', 'priority', 'dept', 'assignees', 'raisedBy', 'labels', 'scope', 'sort', 'group'] as const;
+const URL_KEYS = ['q', 'status', 'priority', 'dept', 'cat', 'sub', 'assignees', 'raisedBy', 'labels', 'scope', 'sort', 'group'] as const;
 const STATUS_VALUES = Object.keys(STATUS_CONFIG) as Ticket['status'][];
 const PRIORITY_VALUES = Object.keys(PRIORITY_CONFIG) as Ticket['priority'][];
 const SORT_VALUES = Object.keys(SORT_LABEL) as TicketSortKey[];
@@ -42,6 +42,8 @@ const snapshotFromUrl = (params: URLSearchParams): Partial<TicketViewSnapshot> =
     status: readOneOf(params, 'status', STATUS_VALUES) ?? 'all',
     priority: readCsv(params, 'priority').filter((p): p is Ticket['priority'] => (PRIORITY_VALUES as string[]).includes(p)),
     departmentId: params.get('dept') ?? '',
+    categoryId: params.get('cat') ?? '',
+    subcategoryId: params.get('cat') ? (params.get('sub') ?? '') : '',
     assigneeIds: readCsv(params, 'assignees'),
     raisedByIds: readCsv(params, 'raisedBy'),
     labelIds: readCsv(params, 'labels'),
@@ -116,6 +118,8 @@ export const useTicketViewState = (user: AuthUser) => {
     (filters.status !== 'all' ? 1 : 0) +
     (filters.priority.length > 0 ? 1 : 0) +
     (filters.departmentId ? 1 : 0) +
+    (filters.categoryId ? 1 : 0) +
+    (filters.subcategoryId ? 1 : 0) +
     (filters.assigneeIds.length > 0 ? 1 : 0) +
     (filters.raisedByIds.length > 0 ? 1 : 0) +
     (filters.labelIds.length > 0 ? 1 : 0);
@@ -141,6 +145,8 @@ export const useTicketViewState = (user: AuthUser) => {
     status: filters.status === 'all' ? null : filters.status,
     priority: filters.priority,
     dept: filters.departmentId || null,
+    cat: filters.categoryId || null,
+    sub: filters.categoryId ? (filters.subcategoryId || null) : null,
     assignees: filters.assigneeIds,
     raisedBy: filters.raisedByIds,
     labels: filters.labelIds,
@@ -182,6 +188,8 @@ export const ticketServerQuery = (
   status: state.filters.status === 'all' ? undefined : state.filters.status,
   priority: state.filters.priority.length ? state.filters.priority : undefined,
   departmentId: state.filters.departmentId || undefined,
+  categoryId: state.filters.categoryId || undefined,
+  subcategoryId: state.filters.categoryId ? (state.filters.subcategoryId || undefined) : undefined,
   assigneeIds: state.filters.assigneeIds.length ? state.filters.assigneeIds : undefined,
   raisedByIds: state.filters.raisedByIds.length ? state.filters.raisedByIds : undefined,
   labelIds: state.filters.labelIds.length ? state.filters.labelIds : undefined,
@@ -214,7 +222,9 @@ export const useTicketOrganizer = (
     const statusFiltered = filters.status === 'all' ? scopeFiltered : scopeFiltered.filter(t => t.status === filters.status);
     const priorityFiltered = filters.priority.length === 0 ? statusFiltered : statusFiltered.filter(t => filters.priority.includes(t.priority));
     const departmentFiltered = filters.departmentId ? priorityFiltered.filter(t => t.departmentId === filters.departmentId) : priorityFiltered;
-    const assigneeFiltered = filters.assigneeIds.length === 0 ? departmentFiltered : departmentFiltered.filter(t => !!t.assigneeId && filters.assigneeIds.includes(t.assigneeId));
+    const categoryFiltered = filters.categoryId ? departmentFiltered.filter(t => t.categoryId === filters.categoryId) : departmentFiltered;
+    const subcategoryFiltered = filters.categoryId && filters.subcategoryId ? categoryFiltered.filter(t => t.subcategoryId === filters.subcategoryId) : categoryFiltered;
+    const assigneeFiltered = filters.assigneeIds.length === 0 ? subcategoryFiltered : subcategoryFiltered.filter(t => !!t.assigneeId && filters.assigneeIds.includes(t.assigneeId));
     const raisedByFiltered = filters.raisedByIds.length === 0 ? assigneeFiltered : assigneeFiltered.filter(t => filters.raisedByIds.includes(t.userId));
     const labelFiltered = filters.labelIds.length === 0 ? raisedByFiltered : raisedByFiltered.filter(t => t.tags.some(tag => filters.labelIds.includes(tag.id)));
     const query = search.trim().toLowerCase();

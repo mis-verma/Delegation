@@ -10,6 +10,28 @@ export type CategoryAssignee = {
     email: string
 };
 
+export type Subcategory = {
+    id: string;
+    categoryId: string;
+    name: string;
+    isActive: boolean;
+    priority: CategoryPriority | null;
+    tatHours: number | null;
+    assigneeId: string | null;
+    sortOrder: number;
+    tags: Tag[];
+    tagIds: string[];
+};
+
+export type SubcategoryPayload = {
+    name?: string;
+    priority?: CategoryPriority | null;
+    tatHours?: number | null;
+    assigneeId?: string | null;
+    tagIds?: string[];
+    isActive?: boolean;
+};
+
 export type Category = {
     id: string;
     name: string;
@@ -19,6 +41,7 @@ export type Category = {
     tatHours: number | null;
     priority: CategoryPriority | null;
     tags: Tag[];
+    subcategories: Subcategory[];
 }
 
 export type ApiResponse<T> = { success: boolean; data: T };
@@ -97,6 +120,7 @@ type CategoryRow = {
     department?: { id: string; name: string } | null;
     assigneeIds?: Array<string | CategoryAssignee>;
     assignees?: CategoryAssignee[];
+    subcategories?: Subcategory[];
 };
 
 const normalizeCategory = (raw: CategoryRow): Category => {
@@ -105,7 +129,7 @@ const normalizeCategory = (raw: CategoryRow): Category => {
         : (raw.department ?? { id: String(raw.departmentId ?? ""), name: "" });
     const assigneeIds = raw.assignees
         ?? (raw.assigneeIds ?? []).filter((a): a is CategoryAssignee => typeof a === "object");
-    return { id: raw.id, name: raw.name, isActive: raw.isActive, tatHours: raw.tatHours ?? null, priority: raw.priority ?? null, tags: raw.tags ?? [], departmentId, assigneeIds };
+    return { id: raw.id, name: raw.name, isActive: raw.isActive, tatHours: raw.tatHours ?? null, priority: raw.priority ?? null, tags: raw.tags ?? [], departmentId, assigneeIds, subcategories: raw.subcategories ?? [] };
 };
 
 export const categoryApi = {
@@ -123,6 +147,12 @@ export const categoryApi = {
     tatReport: (days: TatWindowDays, tagId?: string) =>
         apiFetch<ApiResponse<CategoryTatReport>>(`/categories/tat-report?days=${days}${tagId ? `&tagId=${encodeURIComponent(tagId)}` : ""}`),
     delete: (id: string) =>
-        apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}`, { method: "DELETE" })
+        apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}`, { method: "DELETE" }),
+    createSubcategory: (categoryId: string, payload: SubcategoryPayload & { name: string }) =>
+        apiFetch<ApiResponse<Subcategory>>(`/categories/${categoryId}/subcategories`, { method: "POST", body: JSON.stringify(payload) }).then((r) => r.data),
+    updateSubcategory: (categoryId: string, id: string, payload: SubcategoryPayload) =>
+        apiFetch<ApiResponse<Subcategory>>(`/categories/${categoryId}/subcategories/${id}`, { method: "PATCH", body: JSON.stringify(payload) }).then((r) => r.data),
+    deleteSubcategory: (categoryId: string, id: string) =>
+        apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${categoryId}/subcategories/${id}`, { method: "DELETE" }),
 
 }

@@ -1,6 +1,6 @@
 import {
   Eye, LayoutGrid, UserPen, UserCheck, Rows3, ArrowUpDown, Building2, User,
-  CircleDot, Flag, Tag as TagIcon, Users, type LucideIcon,
+  CircleDot, Flag, Tag as TagIcon, Users, Layers, type LucideIcon,
 } from 'lucide-react';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect,
@@ -19,6 +19,7 @@ import type { Ticket } from '../../api/ticket';
 import type { Department } from '../../api/departments';
 import type { AssignableUser } from '../../api/users';
 import type { Tag } from '../../api/tags';
+import type { Category } from '../../api/categories';
 import { UserMultiSelect } from '../../components/userMultiSelect';
 
 const PEOPLE_CHIP_LIMIT = 12;
@@ -39,14 +40,18 @@ interface TicketSettingsMenuProps {
   departments?: Department[];
   assignableUsers?: AssignableUser[];
   tags?: Tag[];
+  categories?: Category[];
   canExport: boolean;
   onExport: () => void;
 }
 
 export const TicketSettingsMenu = ({
-  isOpen, setIsOpen, organizer, departments, assignableUsers, tags, canExport, onExport,
+  isOpen, setIsOpen, organizer, departments, assignableUsers, tags, categories, canExport, onExport,
 }: TicketSettingsMenuProps) => {
   const { filters } = organizer;
+  const activeCategories = (categories ?? []).filter((c) => c.isActive || c.id === filters.categoryId);
+  const pickedCategory = activeCategories.find((c) => c.id === filters.categoryId);
+  const activeSubcategories = (pickedCategory?.subcategories ?? []).filter((s) => s.isActive || s.id === filters.subcategoryId);
   const patch = (next: Partial<typeof filters>) => {
     organizer.setFilters((prev) => ({ ...prev, ...next }));
     organizer.setPage(1);
@@ -160,6 +165,40 @@ export const TicketSettingsMenu = ({
                 lead={<span className="flex items-center justify-center size-5 sm:size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag)}`} /></span>}
               >
                 {tag.name}
+              </ChoiceChip>
+            ))}
+          </ChoiceWrap>
+        </OptionSection>
+      )}
+
+      {activeCategories.length > 0 && (
+        <OptionSection icon={Layers} label="Category" aside={!!filters.categoryId && <ChoiceClear onClick={() => patch({ categoryId: '', subcategoryId: '' })} />}>
+          <ChoiceWrap>
+            {activeCategories.map((c) => (
+              <ChoiceChip
+                key={c.id}
+                active={filters.categoryId === c.id}
+                onClick={() => patch(filters.categoryId === c.id ? { categoryId: '', subcategoryId: '' } : { categoryId: c.id, subcategoryId: '' })}
+                lead={<ChoiceIcon icon={Layers} tone="bg-primary-600 dark:bg-primary-400" />}
+              >
+                {c.name}
+              </ChoiceChip>
+            ))}
+          </ChoiceWrap>
+        </OptionSection>
+      )}
+
+      {activeSubcategories.length > 0 && (
+        <OptionSection icon={Layers} label="Subcategory" aside={!!filters.subcategoryId && <ChoiceClear onClick={() => patch({ subcategoryId: '' })} />}>
+          <ChoiceWrap>
+            {activeSubcategories.map((s) => (
+              <ChoiceChip
+                key={s.id}
+                active={filters.subcategoryId === s.id}
+                onClick={() => patch({ subcategoryId: filters.subcategoryId === s.id ? '' : s.id })}
+                lead={<ChoiceIcon icon={Layers} tone="bg-primary-600 dark:bg-primary-400" />}
+              >
+                {s.name}
               </ChoiceChip>
             ))}
           </ChoiceWrap>

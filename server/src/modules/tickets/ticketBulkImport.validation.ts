@@ -13,6 +13,7 @@ export const ticketBulkImportPublishSchema = z.object({
         departmentId: objectId.optional(),
         storeId: objectId.optional(),
         categoryId: objectId.optional(),
+        subcategoryId: objectId.optional(),
         tatHours: tatHoursSchema.optional(),
         tagIds: z.array(objectId).max(12).optional(),
     })).min(1, "At least one row is required"),

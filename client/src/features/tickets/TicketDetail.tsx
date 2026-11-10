@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
-import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
+import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ListTree, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -305,6 +305,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   {categoryName && (
                     <TicketPropertyRow label="Category" wide phoneHidden={!moreOpen}>
                       <IconChip icon={Layers} tone="bg-success" label={categoryName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                    </TicketPropertyRow>
+                  )}
+
+                  {ticket.subcategory?.name && (
+                    <TicketPropertyRow label="Subcategory" wide phoneHidden={!moreOpen}>
+                      <IconChip icon={ListTree} tone="bg-primary-600" label={ticket.subcategory.name} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
                     </TicketPropertyRow>
                   )}
 

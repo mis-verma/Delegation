@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion, ListTree } from 'lucide-react';
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip, TagChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
@@ -18,7 +18,7 @@ import { LabelsField } from '../tags/LabelsField';
 import { DepartmentField } from '../departments/DepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { ticketApi } from '../../api/ticket';
-import type { Category } from '../../api/categories';
+import type { Category, Subcategory } from '../../api/categories';
 import type { AssignableUser } from '../../api/users';
 import { buildTicketSchema, type TicketFields } from './form/ticketFormSchema';
 import { CategoryForm } from '../settings/CategoryForm';
@@ -47,7 +47,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateInput = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const toTimeInput = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-const FIELD_ORDER = ['title', 'description', 'categoryId', 'departmentId', 'assigneeId', 'dueDate', 'dueTime', 'startDate'] as const;
+const FIELD_ORDER = ['title', 'description', 'categoryId', 'subcategoryId', 'departmentId', 'assigneeId', 'dueDate', 'dueTime', 'startDate'] as const;
 const anchorFor = (field: (typeof FIELD_ORDER)[number]) => (field === 'dueTime' || field === 'startDate' ? 'dueDate' : field);
 
 interface TicketFormProps {
@@ -76,7 +76,11 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     (departmentId: string | undefined) => !!departmentId && departmentId !== user?.departmentId && !!headDepartmentIds?.has(departmentId),
     [headDepartmentIds, user?.departmentId],
   );
-  const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly, headCanPick }), [ownScopeOnly, headCanPick]);
+  const subcategoryRequired = useCallback(
+    (id: string | undefined) => !!id && !!categories?.find((c) => c.id === id)?.subcategories.some((s) => s.isActive),
+    [categories],
+  );
+  const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly, headCanPick, subcategoryRequired }), [ownScopeOnly, headCanPick, subcategoryRequired]);
   const formRef = useRef<HTMLFormElement>(null);
 
   const [autoFocusTitle] = useState(() => !window.matchMedia('(pointer: coarse)').matches);
@@ -158,6 +162,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('teamEmpty', !!emptyTeamId);
   }, [emptyTeamId, setValue]);
 
+  const subcategoryId = useWatch({ control, name: 'subcategoryId' });
   const [justCreated, setJustCreated] = useState<Category | null>(null);
   const selectedCategory = categories?.find(c => c.id === categoryId) ?? (justCreated && justCreated.id === categoryId ? justCreated : undefined);
 
@@ -197,9 +202,26 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     autoDescription.current = '';
   };
 
+  const applyOverrides = useCallback((category: Category, subcategory: Subcategory | null) => {
+    const opts = { shouldValidate: true, shouldDirty: true };
+    swapCategoryLabels([...new Set([...(category.tags ?? []).map(t => t.id), ...(subcategory?.tags ?? []).map(t => t.id)])]);
+    const priority = subcategory?.priority ?? category.priority;
+    if (priority) setValue('priority', priority, opts);
+    setValue('assigneeId', subcategory?.assigneeId ?? category.assigneeIds?.[0]?.id ?? '', opts);
+    const tatHours = subcategory?.tatHours ?? category.tatHours;
+    if (tatHours) {
+      const due = new Date(Date.now() + tatHours * 60 * 60 * 1000);
+      setValue('dueDate', toDateInput(due), opts);
+      setValue('dueTime', toTimeInput(due), opts);
+    }
+  }, [setValue, swapCategoryLabels]);
+
   const applyCategory = useCallback((category: Category) => {
     const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
     const opts = { shouldValidate: true, shouldDirty: true };
+    const sameCategory = getValues('categoryId') === category.id;
+    if (!sameCategory) setValue('subcategoryId', '', { shouldDirty: true });
+    const keptSubcategory = sameCategory ? category.subcategories.find((s) => s.id === getValues('subcategoryId') && s.isActive) ?? null : null;
     swapCategoryLabels((category.tags ?? []).map(t => t.id));
     const currentTitle = getValues('title') ?? '';
     if (!currentTitle.trim() || currentTitle === autoTitle.current) {
@@ -211,22 +233,26 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       autoDescription.current = `Problem: ${category.name}\nWhere: \nSince when: \nWho is affected: `;
       setValue('description', autoDescription.current, opts);
     }
-    if (category.priority) setValue('priority', category.priority, opts);
     setValue('categoryId', category.id, opts);
     setValue('departmentId', deptId, opts);
-    setValue('assigneeId', category.assigneeIds?.[0]?.id ?? '', opts);
-    if (category.tatHours) {
-      const due = new Date(Date.now() + category.tatHours * 60 * 60 * 1000);
-      setValue('dueDate', toDateInput(due), opts);
-      setValue('dueTime', toTimeInput(due), opts);
-    }
-  }, [getValues, setValue, swapCategoryLabels]);
+    applyOverrides(category, keptSubcategory);
+  }, [getValues, setValue, swapCategoryLabels, applyOverrides]);
+
+  useEffect(() => {
+    if (getValues('assignmentMode') !== 'AUTO' || getValues('categoryId')) return;
+    const timer = window.setTimeout(() => {
+      formRef.current?.querySelector<HTMLElement>('[data-field="categoryId"] button')?.focus();
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const seededAutoFill = useRef(false);
   useEffect(() => {
     if (seededAutoFill.current || !selectedCategory) return;
     seededAutoFill.current = true;
-    autoLabelIds.current = (selectedCategory.tags ?? []).map(t => t.id);
+    const seededSubcategory = selectedCategory.subcategories.find((s) => s.id === getValues('subcategoryId'));
+    autoLabelIds.current = [...new Set([...(selectedCategory.tags ?? []).map(t => t.id), ...(seededSubcategory?.tags ?? []).map(t => t.id)])];
     if (getValues('title') === selectedCategory.name) autoTitle.current = selectedCategory.name;
     const template = `Problem: ${selectedCategory.name}
 Where: 
@@ -235,10 +261,23 @@ Who is affected: `;
     if (getValues('description') === template) autoDescription.current = template;
   }, [selectedCategory, getValues]);
 
+  const focusField = (field: string, delay = 60) => {
+    window.setTimeout(() => {
+      formRef.current?.querySelector<HTMLElement>(`[data-field="${field}"] button`)?.focus();
+    }, delay);
+  };
+
+  const selectSubcategory = (id: string) => {
+    setValue('subcategoryId', id, { shouldValidate: true, shouldDirty: true });
+    if (selectedCategory) applyOverrides(selectedCategory, selectedCategory.subcategories.find((s) => s.id === id && s.isActive) ?? null);
+  };
+
   const selectCategory = (id: string) => {
     const category = categories?.find(c => c.id === id);
-    if (category) applyCategory(category);
-    else {
+    if (category) {
+      applyCategory(category);
+      if (category.subcategories.some((s) => s.isActive) && getValues('subcategoryId') === '') focusField('subcategoryId');
+    } else {
       swapCategoryLabels([]);
       setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
     }
@@ -250,6 +289,7 @@ Who is affected: `;
     clearAutoFill();
     setValue('assignmentMode', yes ? 'MANUAL' : 'AUTO', opts);
     setValue('categoryId', '', opts);
+    setValue('subcategoryId', '', opts);
     setValue('departmentId', '', opts);
     setValue('assigneeId', '', opts);
   };
@@ -284,13 +324,14 @@ Who is affected: `;
     try {
       const created = await mutation.mutateAsync({
         title: data.title,
-        description: data.description,
+        description: data.description || undefined,
         priority: data.priority,
         assignmentMode: data.assignmentMode,
         categoryId: data.categoryId !== '' ? data.categoryId : undefined,
+        subcategoryId: data.assignmentMode === 'AUTO' && data.subcategoryId ? data.subcategoryId : undefined,
         departmentId: data.departmentId !== '' ? data.departmentId : undefined,
         assigneeId: data.assigneeId || undefined,
-        tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? undefined) : undefined),
+        tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedSubcategory?.tatHours ?? selectedCategory?.tatHours ?? undefined) : undefined),
         startDate: data.assignmentMode === 'MANUAL' && !ownScopeOnly && data.startDate ? new Date(data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00`).toISOString() : undefined,
         tagIds: !ownScopeOnly && data.tagIds?.length ? data.tagIds : undefined,
       });
@@ -384,6 +425,9 @@ Who is affected: `;
     </div>
   );
 
+  const activeSubcategories = useMemo(() => (selectedCategory?.subcategories ?? []).filter((s) => s.isActive || s.id === subcategoryId), [selectedCategory, subcategoryId]);
+  const selectedSubcategory = activeSubcategories.find((s) => s.id === subcategoryId) ?? null;
+
   const categorySummary = selectedCategory && (
     <div className={INFO_BOX_CLASS}>
       <p className="flex items-center gap-1.5 t-meta font-display font-semibold text-text">
@@ -402,8 +446,9 @@ Who is affected: `;
         ) : (
           <IconChip icon={UserCheck} tone="bg-warning" label="Nobody set yet" />
         ))}
-        <IconChip icon={Clock} tone="bg-text-muted" label={selectedCategory.tatHours ? `Due in ${selectedCategory.tatHours} hours` : 'Due in the standard time'} />
-        {selectedCategory.priority && <PriorityChip meta={PRIORITY_CONFIG[selectedCategory.priority]} />}
+        {selectedSubcategory && <IconChip icon={ListTree} tone="bg-primary-600" label={selectedSubcategory.name} />}
+        <IconChip icon={Clock} tone="bg-text-muted" label={(selectedSubcategory?.tatHours ?? selectedCategory.tatHours) ? `Due in ${selectedSubcategory?.tatHours ?? selectedCategory.tatHours} hours` : 'Due in the standard time'} />
+        {(selectedSubcategory?.priority ?? selectedCategory.priority) && <PriorityChip meta={PRIORITY_CONFIG[(selectedSubcategory?.priority ?? selectedCategory.priority)!]} />}
         {selectedCategory.tags.map(t => <TagChip key={t.id} tag={t} />)}
       </div>
       <p className="t-meta font-display text-text-muted">
@@ -482,6 +527,27 @@ Who is affected: `;
     </div>
   );
 
+  const subcategoryField = activeSubcategories.length > 0 ? (
+    <div data-field="subcategoryId">
+      <FormField
+        label="Subcategory"
+        icon={<ListTree size={14} className="text-text-light" />}
+        required
+        hint="What kind of problem it is. It can set its own priority, due time and person."
+        error={errors.subcategoryId?.message}
+      >
+        <Combobox
+          value={subcategoryId ?? ''}
+          onChange={selectSubcategory}
+          placeholder="Search the list..."
+          emptyOptionLabel="Choose one"
+          options={activeSubcategories.map((s) => ({ value: s.id, label: s.name }))}
+          className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.subcategoryId ? 'border-danger/60' : ''}`}
+        />
+      </FormField>
+    </div>
+  ) : null;
+
   const departmentField = (hint: string) => (
     <div data-field="departmentId">
       <FormField
@@ -528,6 +594,7 @@ Who is affected: `;
               assignmentMode === 'AUTO' ? (
                 <>
                   {categoryField('What is it about?', 'Pick the closest match. Not listed? Switch to Manual.', true)}
+                  {subcategoryField}
                   {categorySummary}
                   {selectedCategory ? null : autoDueNote}
                 </>
@@ -546,6 +613,8 @@ Who is affected: `;
                     : "Sends the ticket to the right team and sets the due time. Can't find yours? Ask an admin to add it.",
                   true,
                 )}
+
+                {assignmentMode === 'AUTO' && subcategoryField}
 
                 {assignmentMode === 'AUTO' && categorySummary}
 
@@ -596,11 +665,14 @@ Who is affected: `;
         if (m === assignmentMode) return;
         if (ownScopeOnly) {
           sendToDepartment(m === 'MANUAL');
+          if (m === 'AUTO') focusField('categoryId');
           return;
         }
         setValue('assignmentMode', m, { shouldDirty: true });
+        if (m === 'AUTO') focusField('categoryId');
         if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
         if (m === 'MANUAL') {
+          setValue('subcategoryId', '', { shouldDirty: true });
           swapCategoryLabels([]);
           setValue('categoryId', '', { shouldDirty: true });
           setValue('assigneeId', '', { shouldDirty: true });
@@ -674,7 +746,8 @@ Who is affected: `;
                 label="Description"
                 htmlFor="description"
                 icon={<AlignLeft size={14} className="text-text-light" />}
-                required
+                required={assignmentMode === 'MANUAL'}
+                optional={assignmentMode !== 'MANUAL'}
                 hint="What happened, when it started, and who it affects. Tap the camera to add a photo."
                 error={errors.description?.message}
               >
