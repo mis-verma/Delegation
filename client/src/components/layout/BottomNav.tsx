@@ -22,8 +22,6 @@ import {
   LayoutDashboard,
   ListOrdered,
   ListTodo,
-  ShieldQuestion,
-  UserCheck,
 } from 'lucide-react';
 
 interface NavItem {
@@ -42,19 +40,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
 ];
 
-const ADMIN_NAV_ITEMS: NavItem[] = [
-  { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: false, tint: 'primary' },
-  ...NAV_ITEMS.slice(1),
-];
-
-const PC_NAV_ITEMS: NavItem[] = [
-  { to: '/pc', label: 'PC desk', icon: UserCheck, exact: false, tint: 'primary' },
-  { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false, tint: 'coral' },
-  { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, tint: 'info' },
-  { to: '/verify', label: 'Queue', icon: ShieldQuestion, exact: false, tint: 'coral' },
-  { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false, tint: 'primary' },
-];
-
 const OWNER_NAV_ITEMS: NavItem[] = [
   { to: '/admin/owner', label: 'Owner view', icon: Crown, exact: true, tint: 'primary' },
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true, tint: 'info' },
@@ -62,7 +47,7 @@ const OWNER_NAV_ITEMS: NavItem[] = [
   { to: '/team/fill', label: 'Fill chart', icon: Grid3x3, exact: false, tint: 'success' },
 ];
 
-const PC_QUEUE_TABS: ReadonlySet<string> = new Set(['/pc', '/verify']);
+const APPROVAL_BADGE_TAB = '/';
 
 const GRID_COLS: Record<number, string> = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' };
 
@@ -94,8 +79,8 @@ export const BottomNav = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role;
-  const items = role === 'OWNER' ? OWNER_NAV_ITEMS : role === 'PC' ? PC_NAV_ITEMS : role === 'ADMIN' ? ADMIN_NAV_ITEMS : NAV_ITEMS;
-  const isPc = role === 'PC';
+  const items = role === 'OWNER' ? OWNER_NAV_ITEMS : NAV_ITEMS;
+  const reviewsAll = role === 'PC' || role === 'ADMIN';
   const [quickOpen, setQuickOpen] = useState(false);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState<{ module: QuickModule; summary: string; open: boolean } | null>(null);
@@ -139,7 +124,7 @@ export const BottomNav = () => {
           const summary = badge ? badgeSummary(badge) : '';
           const holdsCreate = to === '/tasks';
           const holdsQuick = !holdsCreate && QUICK_MODULES.has(to);
-          const showsQueue = isPc && PC_QUEUE_TABS.has(to);
+          const showsQueue = reviewsAll && to === APPROVAL_BADGE_TAB;
           const onLongPress = holdsCreate
             ? () => setQuickOpen(true)
             : holdsQuick

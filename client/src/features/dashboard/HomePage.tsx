@@ -1,9 +1,11 @@
-import { Suspense, lazy, useCallback, useMemo, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
+import { Skeleton } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { useDashboardMyTasksQuery, useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
@@ -11,32 +13,26 @@ import { useMyFocusChecklistsQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TicketRequestsCard } from './TicketRequestsCard';
-import { ExceptionsCard } from './ExceptionsCard';
 import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
 import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { MyScoresCard } from './MyScoresCard';
-import { TeamWeekHeat } from './TeamWeekHeat';
 import { StreakGoalCard } from './StreakGoalCard';
-import { DashboardCardFrame } from './DashboardCardFrame';
-import { LazyWhenVisible } from './LazyWhenVisible';
-import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
 import { CoverBanner } from './CoverBanner';
-import { DashboardMobileCustomize } from './DashboardMobileCustomize';
+import { PeriodTabControl } from './PeriodTabControl';
 import { dashboardViewFor } from './dashboardView';
-import { MyTeamCard } from '../attention/MyTeamCard';
-import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
-import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
+import { useExceptionTotalsQuery } from './useExceptionsQuery';
+import { usePcApprovalBuckets } from '../pc/usePcApprovalBuckets';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import type { Ticket } from '../../api/ticket';
 
-const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
-
-const LAZY_CARDS: ReadonlySet<DashboardCardId> = new Set(['exceptions', 'myTeam', 'myScores', 'teamHeat', 'streak']);
+const ExceptionsCard = lazy(() => import('./ExceptionsCard').then((m) => ({ default: m.ExceptionsCard })));
+const TeamWeekHeat = lazy(() => import('./TeamWeekHeat').then((m) => ({ default: m.TeamWeekHeat })));
+const MyTeamCard = lazy(() => import('../attention/MyTeamCard').then((m) => ({ default: m.MyTeamCard })));
+const PcOrgFigures = lazy(() => import('../pc/PcOrgFigures').then((m) => ({ default: m.PcOrgFigures })));
 
 const TEAM_TICKET_LIMIT = 250;
 const OWN_TICKET_LIMIT = 100;
@@ -44,27 +40,44 @@ const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];
 const NO_RUNS: ChecklistInstance[] = [];
 
+type HomeTab = 'work' | 'team' | 'attention' | 'approvals';
+
+const HOME_TABS: readonly HomeTab[] = ['work', 'team', 'attention', 'approvals'];
+const TAB_NAME: Record<HomeTab, { full: string; short: string }> = {
+  work: { full: 'My work', short: 'My work' },
+  team: { full: 'My team', short: 'My team' },
+  attention: { full: 'Needs attention', short: 'Attention' },
+  approvals: { full: 'Approval pending', short: 'Approvals' },
+};
+
+const isHomeTab = (value: string | null): value is HomeTab => !!value && (HOME_TABS as readonly string[]).includes(value);
+
+const withCount = (label: string, count: number) => (count > 0 ? `${label} (${count > 99 ? '99+' : count})` : label);
+
+const PANEL_FALLBACK = <Skeleton className="h-64 rounded-2xl" />;
+
 export const HomePage = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const dashboardView = useMemo(() => dashboardViewFor(user?.role), [user?.role]);
   const frontLine = dashboardView.frontLine;
+  const hasTabs = dashboardView.orgWide || dashboardView.isHod;
   const orgToday = useOrgToday();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const now = useNow();
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab');
+  const tab: HomeTab = hasTabs && isHomeTab(requested) ? requested : 'work';
 
-  const {
-    order: cardOrder,
-    sizes: cardSizes,
-    hidden: hiddenIds,
-    isCustomizing,
-    setIsCustomizing,
-    moveCard,
-    setCardSize,
-    toggleHidden,
-    reset: resetLayout,
-  } = useDashboardLayout(dashboardView);
+  const changeTab = (next: HomeTab) => {
+    setParams((prev) => {
+      const out = new URLSearchParams(prev);
+      if (next === 'work') out.delete('tab');
+      else out.set('tab', next);
+      return out;
+    }, { replace: true });
+  };
 
   const summaries = useDashboardSummaries();
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
@@ -73,6 +86,8 @@ export const HomePage = () => {
   const myTasksQuery = useDashboardMyTasksQuery(!frontLine, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
   const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
+  const approvalBuckets = usePcApprovalBuckets();
+  const exceptionTotals = useExceptionTotalsQuery();
 
   const ticketPage = ticketsQuery.data;
   const allTasks = tasksQuery.data;
@@ -101,120 +116,101 @@ export const HomePage = () => {
     [frontLine, visibleTickets, ownTicketPage, userId],
   );
 
-  const renderCard = (id: DashboardCardId): ReactNode => {
-    switch (id) {
-      case 'exceptions':
-        return <ExceptionsCard />;
-      case 'ticketRequests':
-        return dashboardView.reviewsTicketRequests ? <TicketRequestsCard /> : null;
-      case 'needsApproval':
-        return <NeedsApprovalCard />;
-      case 'myTeam':
-        return dashboardView.isHod ? <MyTeamCard /> : null;
-      case 'kpiStrip':
-        return (
-          <DashboardOverview
-            summaries={summaries.kpi}
-            taskList={frontLine ? assignedTasks : visibleTasks}
-            ticketList={visibleTickets}
-            todoList={todos}
-            checklistList={focusChecklists}
-            simple={frontLine}
-          />
-        );
-      case 'myScores':
-        return <MyScoresCard />;
-      case 'teamHeat':
-        return <TeamWeekHeat />;
-      case 'streak':
-        return <StreakGoalCard />;
-      default:
-        return null;
-    }
-  };
-
-  const visibleCardOrder = useMemo(() => cardOrder.filter((id) => !hiddenIds.includes(id)), [cardOrder, hiddenIds]);
-  const hiddenCards = useMemo(
-    () => cardOrder.filter((id) => hiddenIds.includes(id)).map((id) => ({ id, label: CARD_LABEL[id] })),
-    [cardOrder, hiddenIds],
-  );
-
   const isRefreshing = useIsFetching({
     predicate: (query) => typeof query.queryKey[0] === 'string' && DASHBOARD_QUERY_ROOTS.includes(query.queryKey[0]),
   }) > 0;
   const refresh = useCallback(() => void invalidateDashboardQueries(queryClient), [queryClient]);
 
-  const staticGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
-      {visibleCardOrder.map((id) => {
-        const card = renderCard(id);
-        return (
-          <DashboardCardFrame key={id} size={cardSizes[id]}>
-            {LAZY_CARDS.has(id) && card ? <LazyWhenVisible>{card}</LazyWhenVisible> : card}
-          </DashboardCardFrame>
-        );
-      })}
-    </div>
-  );
+  const heading = new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const layoutToolbar = (
-    <DashboardLayoutToolbar
-      isCustomizing={isCustomizing}
-      onStart={() => setIsCustomizing(true)}
-      onReset={resetLayout}
-      onDone={() => setIsCustomizing(false)}
-      hiddenCards={isCustomizing && isMobile ? [] : hiddenCards}
-      onShow={(id) => toggleHidden(id as DashboardCardId)}
-      touch={isMobile}
+  const attentionCount = exceptionTotals.data
+    ? exceptionTotals.data.tickets + exceptionTotals.data.delegations + exceptionTotals.data.missedRuns
+    : 0;
+  const approvalCount = approvalBuckets.total.pending;
+  const tabLabels: Record<HomeTab, string> = {
+    work: TAB_NAME.work[isMobile ? 'short' : 'full'],
+    team: TAB_NAME.team[isMobile ? 'short' : 'full'],
+    attention: withCount(TAB_NAME.attention[isMobile ? 'short' : 'full'], attentionCount),
+    approvals: withCount(TAB_NAME.approvals[isMobile ? 'short' : 'full'], approvalCount),
+  };
+
+  const focusCard = (
+    <FocusNowCard
+      ownWorkOnly={!frontLine}
+      todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
+      tasks={assignedTasks}
+      tickets={myAssignedTickets}
+      checklists={focusChecklists}
+      todos={todos}
+      now={now}
+      isPending={focusPending}
+      isError={focusFailed}
+      onRetry={retryFocus}
+      updatedAt={summaries.updatedAt}
+      onRefresh={refresh}
+      isRefreshing={isRefreshing}
     />
   );
 
-  const heading = new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const overview = (
+    <DashboardOverview
+      summaries={summaries.kpi}
+      taskList={frontLine ? assignedTasks : visibleTasks}
+      ticketList={visibleTickets}
+      todoList={todos}
+      checklistList={focusChecklists}
+      simple={frontLine}
+    />
+  );
 
-  const focusCard = !isCustomizing && (
-      <FocusNowCard
-        ownWorkOnly={!frontLine}
-        todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
-        tasks={assignedTasks}
-        tickets={myAssignedTickets}
-        checklists={focusChecklists}
-        todos={todos}
-        now={now}
-        isPending={focusPending}
-        isError={focusFailed}
-        onRetry={retryFocus}
-        updatedAt={summaries.updatedAt}
-        onRefresh={refresh}
-        isRefreshing={isRefreshing}
-      />
+  const workPanel = (
+    <>
+      {focusCard}
+      {overview}
+      <StreakGoalCard />
+    </>
   );
 
   return (
     <div className="flex flex-col gap-3 w-full pt-2.5">
       <h1 className="sr-only">Today, {heading}</h1>
 
-      {!isCustomizing && <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />}
+      <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />
+      <CoverBanner />
+      <OvertimeNotice today={orgToday} />
+      <EnableAlertsBanner />
 
-      {(isCustomizing || !isMobile) && layoutToolbar}
-
-      {!isCustomizing && <CoverBanner />}
-      {!isCustomizing && <OvertimeNotice today={orgToday} />}
-      {!isCustomizing && <EnableAlertsBanner />}
-      {!dashboardView.isPc && focusCard}
-
-      {isCustomizing && isMobile ? (
-        <DashboardMobileCustomize order={cardOrder} hidden={hiddenIds} onMove={moveCard} onToggle={toggleHidden} />
-      ) : isCustomizing ? (
-        <Suspense fallback={staticGrid}>
-          <DashboardSortableGrid order={visibleCardOrder} sizes={cardSizes} renderCard={renderCard} onMove={moveCard} onSizeChange={setCardSize} onHide={toggleHidden} />
-        </Suspense>
+      {hasTabs ? (
+        <>
+          <PeriodTabControl value={tab} options={HOME_TABS} labels={tabLabels} onChange={changeTab} className="w-full sm:w-fit" columns={isMobile} />
+          <div className="flex flex-col gap-3">
+            {tab === 'work' && workPanel}
+            {tab === 'team' && (
+              <Suspense fallback={PANEL_FALLBACK}>
+                {dashboardView.isHod ? <MyTeamCard /> : <PcOrgFigures />}
+                <TeamWeekHeat />
+              </Suspense>
+            )}
+            {tab === 'attention' && (
+              <Suspense fallback={PANEL_FALLBACK}>
+                <ExceptionsCard />
+              </Suspense>
+            )}
+            {tab === 'approvals' && (
+              <>
+                {dashboardView.reviewsTicketRequests && <TicketRequestsCard />}
+                <NeedsApprovalCard />
+              </>
+            )}
+          </div>
+        </>
       ) : (
-        staticGrid
+        <>
+          {!frontLine && <NeedsApprovalCard />}
+          {workPanel}
+          {frontLine && <NeedsApprovalCard />}
+        </>
       )}
-
-      {dashboardView.isPc && focusCard}
-
-      {!isCustomizing && isMobile && layoutToolbar}
     </div>
   );
 };

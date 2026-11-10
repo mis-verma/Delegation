@@ -7,7 +7,6 @@ export const TAB_PATHS: readonly string[] = [
   '/todo',
   '/checklists',
   '/admin',
-  '/pc',
   '/verify',
   '/admin/owner',
   '/admin/scores',

@@ -26,7 +26,6 @@ import {
   ShieldCheck,
   ClipboardCheck,
   ShieldQuestion,
-  UserCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -275,8 +274,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' }] : []),
     ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' }] : []),
     ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals', tint: 'coral' }] : []),
-    ...(isAdmin || isPC ? [{ to: '/pc', icon: UserCheck, label: 'PC desk', tint: 'primary' }] : []),
-    ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
+    ...(user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),
     ...(isManager || isSenior || isAdmin || isPC ? [{ to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' }] : []),
@@ -291,7 +289,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
   const NAV_GROUPS: { title: string; paths: readonly string[]; dot?: boolean }[] = isOwner
     ? [{ title: 'Owner', paths: adminNavItems.map((i) => i.to), dot: true }]
     : [
-        { title: 'Approvals', paths: ['/tickets/approvals', '/pc', '/verify'] },
+        { title: 'Approvals', paths: ['/tickets/approvals', '/verify'] },
         { title: 'Team', paths: ['/analytics', '/admin/scores', '/team/fill', '/leave'] },
         { title: 'Admin', paths: ['/admin'], dot: true },
       ];
