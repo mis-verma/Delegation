@@ -22,7 +22,7 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { usePcApprovalBuckets } from './usePcApprovalBuckets';
 import { haptic } from '../../lib/haptics';
 
-const LINKS: { to: string; label: string; icon: LucideIcon; badge?: string }[] = [
+const LINKS: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/admin/scores', label: 'Scores', icon: ListOrdered },
   { to: '/team/fill', label: 'Fill chart', icon: Grid3x3 },
   { to: '/admin/reports', label: 'Reports', icon: FileSpreadsheet },
@@ -30,7 +30,10 @@ const LINKS: { to: string; label: string; icon: LucideIcon; badge?: string }[] =
 ];
 
 const QUICK_LINK =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface px-3.5 py-2 t-meta font-display font-semibold text-text-secondary outline-none transition-all duration-150 hover:border-primary-500/30 hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] sm:min-h-9 sm:justify-start';
+  'group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface px-3.5 py-2 t-meta font-display font-semibold text-text-secondary outline-none transition-[border-color,background-color,color,transform] duration-150 ease-out hover:border-primary-500/30 hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] sm:min-h-9 sm:pointer-coarse:min-h-11 sm:justify-start';
+
+const BREAKDOWN_LINK =
+  'inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg border px-2.5 t-meta font-display font-semibold outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 interface PcStatusBarProps {
   onRefreshAll?: () => Promise<void> | void;
@@ -41,6 +44,12 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
   const { approvals, ticket, delegation, checklist, total } = usePcApprovalBuckets();
   const loading = approvals.isPending;
   const failed = approvals.hasError && total.pending === 0;
+  const partial = approvals.hasError && total.pending > 0;
+  const retryCounts = () => {
+    void approvals.tasks.refetch();
+    void approvals.tickets.refetch();
+    void approvals.checklists.refetch();
+  };
   const [refreshing, setRefreshing] = useState(false);
 
   const lastOld = useRef<number | null>(null);
@@ -60,16 +69,18 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
       if (onRefreshAll) {
         await onRefreshAll();
       } else {
-        await Promise.all([
+        const results = await Promise.all([
           approvals.tasks.refetch(),
           approvals.tickets.refetch(),
           approvals.checklists.refetch(),
         ]);
+        if (results.some((r) => r.isError)) throw new Error('refresh failed');
       }
       haptic('success');
-      toast.success('PC desk refreshed');
+      toast.success('PC desk is up to date');
     } catch {
-      toast.error('Could not refresh PC desk');
+      haptic('error');
+      toast.error("Some figures didn't load. Check your connection, then tap Retry on them.");
     } finally {
       setTimeout(() => setRefreshing(false), 400);
     }
@@ -83,7 +94,7 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
 
   return (
     <section
-      aria-label="PC Desk Status"
+      aria-label="Your approvals today"
       className={cn(
         PANEL_CLASS,
         'relative flex flex-col overflow-hidden border-border/70 bg-linear-to-r from-primary-500/[0.07] via-surface to-primary-500/[0.02] dark:from-primary-500/[0.12] dark:via-surface dark:to-surface'
@@ -96,12 +107,12 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
               {total.pending > 0 ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-500/25 bg-primary-500/10 px-2.5 py-0.5 t-meta font-display font-bold text-primary-700 dark:text-primary-300">
                   <span className="live-dot size-2 rounded-full bg-primary-500 dark:bg-primary-400" aria-hidden="true" />
-                  Active Queue
+                  Waiting on you
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 t-meta font-display font-bold text-success">
                   <CheckCheck className="size-3.5" aria-hidden="true" />
-                  Queue Cleared
+                  All clear
                 </span>
               )}
               <span className="t-meta font-medium text-text-muted">{day}</span>
@@ -114,7 +125,7 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
                 {failed ? (
                   "Couldn't count your approvals"
                 ) : total.pending === 0 ? (
-                  'All caught up — no decisions waiting'
+                  'All caught up. Nothing is waiting for you'
                 ) : (
                   <span className="flex flex-wrap items-baseline gap-x-2">
                     <span>
@@ -123,12 +134,33 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
                     {total.old > 0 && (
                       <span className="inline-flex items-center gap-1 text-danger font-semibold">
                         <Clock className="size-4 shrink-0" aria-hidden="true" />
-                        <span className="tabular-nums">{total.old}</span> over 24h
+                        <span className="tabular-nums">{total.old}</span> over 24 hours
                       </span>
                     )}
                   </span>
                 )}
               </h2>
+            )}
+            {partial && !loading && (
+              <p className="flex flex-wrap items-center gap-x-2 t-meta font-medium text-danger" role="status">
+                Some counts didn't load, so this may be low.
+                <button
+                  type="button"
+                  onClick={retryCounts}
+                  className="min-h-9 pointer-coarse:min-h-11 rounded-md px-1.5 font-semibold underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                >
+                  Try again
+                </button>
+              </p>
+            )}
+            {failed && !loading && (
+              <button
+                type="button"
+                onClick={retryCounts}
+                className="w-fit min-h-9 pointer-coarse:min-h-11 rounded-md t-meta font-semibold text-primary-700 underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer dark:text-primary-300"
+              >
+                Try again
+              </button>
             )}
           </div>
 
@@ -139,10 +171,10 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
               disabled={refreshing}
               aria-label="Refresh PC desk"
               title="Refresh PC desk"
-              className="inline-flex size-11 items-center justify-center rounded-xl border border-border/80 bg-surface text-text-secondary transition-all duration-200 hover:border-border-hover hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer sm:size-10"
+              className="inline-flex size-11 items-center justify-center rounded-xl border border-border/80 bg-surface text-text-secondary transition-[border-color,background-color,color,transform] duration-150 ease-out hover:border-border-hover hover:bg-surface-hover hover:text-text active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-wait cursor-pointer sm:size-10 sm:pointer-coarse:size-11"
             >
               <RotateCw
-                className={cn('size-4 transition-transform duration-500', refreshing && 'animate-spin text-primary-600 dark:text-primary-400')}
+                className={cn('size-4', refreshing && 'animate-spin text-primary-600 motion-reduce:animate-none dark:text-primary-400')}
                 aria-hidden="true"
               />
             </button>
@@ -150,11 +182,11 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
             <Link
               to="/verify"
               viewTransition
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-800 px-5 text-sm font-display font-semibold text-white shadow-xs outline-none transition-all duration-150 hover:bg-primary-900 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.985] dark:bg-primary-500 dark:hover:bg-primary-400 sm:h-10 cursor-pointer"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-800 px-5 text-sm font-display font-semibold text-white outline-none transition-[background-color,transform] duration-150 ease-out hover:bg-primary-900 focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.985] dark:bg-primary-500 dark:hover:bg-primary-400 sm:h-10 sm:pointer-coarse:h-11 cursor-pointer"
             >
               <span>Open queue</span>
               {total.pending > 0 && (
-                <span className="rounded-full bg-white/20 px-1.5 py-0.2 t-meta font-bold tabular-nums">
+                <span className="rounded-full bg-white/20 px-1.5 t-meta font-bold tabular-nums">
                   {total.pending}
                 </span>
               )}
@@ -165,12 +197,13 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
 
         {total.pending > 0 && !loading && (
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
-            <span className="t-meta font-display font-medium text-text-muted">Breakdown:</span>
+            <span className="t-meta font-display font-medium text-text-muted">By type</span>
             {ticket.pending > 0 && (
               <Link
-                to="/tickets?status=pending_approval"
+                to="/verify?tab=tickets"
                 viewTransition
-                className="inline-flex items-center gap-1.5 rounded-lg border border-coral-500/20 bg-coral-500/8 px-2.5 py-1 t-meta font-display font-semibold text-coral-700 transition-colors hover:bg-coral-500/15 dark:text-coral-300"
+                aria-label={`${ticket.pending} tickets waiting${ticket.old > 0 ? `, ${ticket.old} over 24 hours` : ''}. Open them in the queue`}
+                className={cn(BREAKDOWN_LINK, 'border-coral-500/20 bg-coral-500/8 text-coral-700 hover:bg-coral-500/15 dark:text-coral-300')}
               >
                 <TicketCheck className="size-3.5" aria-hidden="true" />
                 <span className="tabular-nums">{ticket.pending}</span> tickets
@@ -178,9 +211,10 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
             )}
             {delegation.pending > 0 && (
               <Link
-                to="/tasks?status=pending_approval"
+                to="/verify?tab=delegations"
                 viewTransition
-                className="inline-flex items-center gap-1.5 rounded-lg border border-vivid-sky/20 bg-vivid-sky/8 px-2.5 py-1 t-meta font-display font-semibold text-vivid-sky-text transition-colors hover:bg-vivid-sky/15"
+                aria-label={`${delegation.pending} delegations waiting${delegation.old > 0 ? `, ${delegation.old} over 24 hours` : ''}. Open them in the queue`}
+                className={cn(BREAKDOWN_LINK, 'border-vivid-sky/20 bg-vivid-sky/8 text-vivid-sky-text hover:bg-vivid-sky/15')}
               >
                 <ClipboardList className="size-3.5" aria-hidden="true" />
                 <span className="tabular-nums">{delegation.pending}</span> delegations
@@ -188,9 +222,10 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
             )}
             {checklist.pending > 0 && (
               <Link
-                to="/checklists/approvals"
+                to="/verify?tab=checklists"
                 viewTransition
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/20 bg-primary-500/8 px-2.5 py-1 t-meta font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+                aria-label={`${checklist.pending} checklists waiting${checklist.old > 0 ? `, ${checklist.old} over 24 hours` : ''}. Open them in the queue`}
+                className={cn(BREAKDOWN_LINK, 'border-primary-500/20 bg-primary-500/8 text-primary-700 hover:bg-primary-500/15 dark:text-primary-300')}
               >
                 <ClipboardCheck className="size-3.5" aria-hidden="true" />
                 <span className="tabular-nums">{checklist.pending}</span> checklists
@@ -206,7 +241,7 @@ export const PcStatusBar = ({ onRefreshAll }: PcStatusBarProps) => {
       >
         {LINKS.map(({ to, label, icon: Icon }) => (
           <Link key={to} to={to} viewTransition className={QUICK_LINK}>
-            <Icon className="size-4 shrink-0 text-text-muted transition-colors group-hover:text-primary-600" aria-hidden="true" />
+            <Icon className="size-4 shrink-0 text-text-muted transition-colors duration-150 group-hover:text-primary-600 dark:group-hover:text-primary-300" aria-hidden="true" />
             <span>{label}</span>
           </Link>
         ))}

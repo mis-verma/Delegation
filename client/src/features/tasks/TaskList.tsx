@@ -618,7 +618,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             onChange={setSearch}
             label="Search delegations by title or description"
             placeholder="Search delegations"
-            className="basis-full sm:basis-auto"
+            className="basis-full sm:basis-48 lg:max-w-xs"
           />
 
           {shownChips.length > 0 && (

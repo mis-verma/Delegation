@@ -14,7 +14,7 @@ import { runDeadlineMs } from "../checklistInstances/checklistRunEnd.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistPeriodQuery, ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
-import { buildBuckets, percentOf, type PeriodBucket } from "./reportPeriods.js"
+import { buildBuckets, percentOf, type PeriodBucket, type PeriodBucketKind } from "./reportPeriods.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
 import { auditFractionSql, auditPassSql } from "../checklistInstances/auditScore.js"
@@ -124,7 +124,7 @@ export type PeriodRow = {
 
 export type ChecklistPeriodReport = {
     by: "person" | "checklist"
-    bucket: "week" | "month"
+    bucket: PeriodBucketKind
     from: string
     to: string
     buckets: PeriodBucket[]
@@ -138,7 +138,7 @@ export const PERIOD_NOTES = [
     "Questions due counts every question in the checklists that ran in the period, so a daily checklist with 8 questions over 7 days is 56. A checklist that has not opened yet, has no questions, or is a daily one left on a holiday is not counted.",
     "Questions done counts answered questions and questions marked not applicable. Completion % = questions done / questions due.",
     "By person: a checklist only one person fills counts in full for them. A shared checklist is split: each person gets the questions they answered, plus an equal share of the ones still open or answered by someone not on the checklist, so the people add up to the checklist total (shown to one decimal). Compliance % uses the same rule as the Scores page and the other reports: pooled weighted good answers over checked answers, critical questions count double, sent-back questions count as failed, waived and not applicable ones are left out, and an audit adds its audit score.",
-    "Weeks run Monday to Sunday in the organisation's time zone. A checklist is placed in the week or month its period starts in.",
+    "Weeks run Monday to Sunday, quarters are calendar quarters (Q1 is January to March) and years are calendar years, all in the organisation's time zone. A checklist is placed in the week, month, quarter or year its period starts in.",
 ]
 
 const cellOf = (m: ReportMetrics): PeriodCell => ({

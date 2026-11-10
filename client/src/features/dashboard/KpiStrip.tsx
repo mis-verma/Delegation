@@ -8,7 +8,6 @@ import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
 import { IconChip, InlineError, RadialGauge } from '../../components';
 import { FigureCard } from './FigureCard';
-import { DashCardLink } from './DashCardHeader';
 import { CATEGORY_ACCENT, CATEGORY_ICON, CATEGORY_PILL } from './categoryLook';
 import { useQuery } from '@tanstack/react-query';
 import { scoreApi, type ScoreScope, type ScoreTrend, type Scores } from '../../api/scores';
@@ -279,14 +278,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
 
         {failed ? (
           <InlineError message={`Couldn't load ${view.noun}.`} onRetry={view.onRetry} />
-        ) : idle ? (
-          <div className="flex min-h-28 flex-1 flex-col items-start justify-center gap-2 rounded-lg border border-border/60 px-3 py-4">
-            <p className="t-card font-display font-semibold text-text-secondary">{NOTHING_DUE}</p>
-            <DashCardLink to={view.href} label={`Open ${PAGE_NAME[view.key]}`}>Open {PAGE_NAME[view.key]}</DashCardLink>
-          </div>
         ) : (
           <>
-            <div className="grid min-h-[7.75rem] grid-cols-2 items-center gap-2">
+            <div className="grid min-h-24 grid-cols-2 items-center gap-2">
               <div className="flex min-w-0 flex-col items-start gap-1.5">
                 <button type="button" onClick={() => onOpen('pending')} className="flex min-h-11 flex-col items-start rounded-lg px-1 py-0.5 text-left outline-none transition-colors duration-150 ease-out hover:bg-surface-hover/60 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/40">
                   <span className="t-stat font-display font-bold leading-none tabular-nums text-text">
@@ -294,7 +288,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
                   </span>
                   <span className="t-meta font-semibold text-text-muted">Pending now</span>
                 </button>
-                {view.overdue > 0 ? (
+                {idle ? (
+                  <span className="t-meta font-semibold text-text-muted">{NOTHING_DUE}</span>
+                ) : view.overdue > 0 ? (
                   <button type="button" onClick={() => onOpen('overdue')} className={cn(TAP_PILL, 'focus-visible:ring-danger/40')}>
                     <IconChip icon={AlertTriangle} tone="bg-vivid-red" label={`${view.overdue} overdue`} labelClassName="tabular-nums text-vivid-red-text" className="border-vivid-red/40 bg-vivid-red/10" />
                   </button>
@@ -303,13 +299,13 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
                 )}
               </div>
               {score.value === null ? (
-                <div className="flex h-full min-h-24 flex-col items-center justify-center gap-1 border-l border-border/60 px-2 text-center">
+                <div className="flex h-full min-h-20 flex-col items-center justify-center gap-1 border-l border-border/60 px-2 text-center">
                   <span className="t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'No to-dos yet' : 'No score yet today'}</span>
                   <span className="t-meta text-text-muted">{score.label === 'Done' ? 'Add one on the To-do page' : 'It shows once work comes due'}</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-1 border-l border-border/60">
-                  <RadialGauge percent={score.value} size={84} variant="circle" ariaLabel={`${gaugeName} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                  <RadialGauge percent={score.value} size={72} variant="circle" ariaLabel={`${gaugeName} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                     <span className="t-stat font-display font-bold tabular-nums text-text">{formatPct(score.value)}</span>
                   </RadialGauge>
                   <span className="flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">

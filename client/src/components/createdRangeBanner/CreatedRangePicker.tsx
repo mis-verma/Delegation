@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { DateRangePicker, type DateRangeValue } from '../dateRangePicker';
 import type { useCreatedRange } from '../../lib/createdRange';
 
@@ -29,7 +30,10 @@ export const CreatedRangePicker = ({ createdRange, className, label = 'Created o
       placeholder={label}
       placeholderIsValue
       className={className}
-      triggerClassName="h-9 min-h-9 py-0 pl-1 rounded-lg whitespace-nowrap pointer-coarse:h-11 pointer-coarse:min-h-11"
+      triggerClassName={cn(
+        'h-9 min-h-9 py-0 rounded-lg whitespace-nowrap pointer-coarse:h-11 pointer-coarse:min-h-11',
+        range ? 'pl-1' : 'w-auto px-1 [&>span:nth-child(2)]:sr-only',
+      )}
     />
   );
 };

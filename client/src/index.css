@@ -69,14 +69,6 @@
 
   --font-sans: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
   --color-gold: #d1ad53;
-  --heat-low: #dbe6f1;
-  --heat-low-ink: #002f52;
-  --heat-fair: #a3bfdb;
-  --heat-fair-ink: #001f35;
-  --heat-good: #3f6f9e;
-  --heat-good-ink: #ffffff;
-  --heat-high: #001f35;
-  --heat-high-ink: #ffffff;
   --color-gold-leaf: #e5c982;
   --color-gold-deep: #765a00;
   --font-display: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
@@ -222,6 +214,17 @@ body {
     line-height: 1.5;
     letter-spacing: 0.005em;
   }
+}
+
+:root {
+  --heat-low: #dbe6f1;
+  --heat-low-ink: #002f52;
+  --heat-fair: #a3bfdb;
+  --heat-fair-ink: #001f35;
+  --heat-good: #3f6f9e;
+  --heat-good-ink: #ffffff;
+  --heat-high: #001f35;
+  --heat-high-ink: #ffffff;
 }
 
 @font-face {

@@ -9,7 +9,7 @@ interface PhoneScopeSwitchProps<T extends string> {
 }
 
 export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, onChange }: PhoneScopeSwitchProps<T>) => (
-  <div role="group" aria-label="Show" className="grid min-w-0 flex-1 grid-cols-2 gap-0.5 rounded-md border border-border bg-surface p-0.5 sm:w-auto sm:min-w-[18rem] sm:max-w-sm sm:flex-none">
+  <div role="group" aria-label="Show" className="grid min-w-0 flex-1 grid-cols-2 gap-0.5 rounded-md border border-border bg-surface p-0.5 sm:w-auto sm:max-w-sm sm:flex-none">
     {options.map((o) => {
       const active = value === o.value;
       const Icon = o.icon;
@@ -29,8 +29,8 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
           <span className="truncate">
             {o.shortLabel ? (
               <>
-                <span className="sm:hidden">{o.shortLabel}</span>
-                <span className="hidden sm:inline">{o.label}</span>
+                <span className="2xl:hidden">{o.shortLabel}</span>
+                <span className="hidden 2xl:inline">{o.label}</span>
               </>
             ) : o.label}
           </span>

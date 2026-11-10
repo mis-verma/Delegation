@@ -34,7 +34,7 @@ const KIND_HREF: Record<ExceptionKind, string> = {
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
 
-const ROW_CLASS = 'group relative flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150';
+const ROW_CLASS = 'group relative flex items-center gap-3 min-h-14 px-4 py-2.5 outline-none transition-colors duration-150';
 
 const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: number; linked: boolean }) => {
   const high = item.severity === 'high';

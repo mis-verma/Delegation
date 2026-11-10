@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { env } from "../../config/env.js"
-import { MAX_BUCKETS, PERIOD_BUCKETS, buildBuckets, defaultPeriodRange } from "./reportPeriods.js"
+import { BUCKET_NOUN, MAX_BUCKETS, PERIOD_BUCKETS, buildBuckets, defaultPeriodRange } from "./reportPeriods.js"
 
 export const MAX_RANGE_DAYS = 366
 const DAY_MS = 86_400_000
@@ -78,7 +78,7 @@ export const checklistPeriodQuerySchema = z.object({
     }
     const count = buildBuckets(q.bucket, from, to).length
     if (count > MAX_BUCKETS[q.bucket]) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: q.bucket === "week" ? `Pick ${MAX_BUCKETS.week} weeks or fewer` : `Pick ${MAX_BUCKETS.month} months or fewer` })
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: `Pick ${MAX_BUCKETS[q.bucket]} ${BUCKET_NOUN[q.bucket].many} or fewer` })
         return z.NEVER
     }
     return { ...q, from, to }

@@ -54,11 +54,11 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
         subtitle="Approvals are promised within 24 hours"
         action={canOpen('/verify') ? <DashCardLink to="/verify">Open queue</DashCardLink> : undefined}
       />
-      <div className="p-4 sm:p-5">
+      <div className="p-4">
         {failed ? (
           <InlineError message="Couldn't load the approval figures." onRetry={() => void query.refetch()} />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
             <FigureCard
               label="Waiting now"
               value={data?.waiting.total.now ?? null}

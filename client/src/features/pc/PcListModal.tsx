@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Avatar } from '../../components/avatar';
 import { Button } from '../../components/button';
 import { EmptyState } from '../../components/emptyState';
+import { InlineError } from '../../components/inlineError';
 import { Modal } from '../../components/modal';
 import { Skeleton } from '../../components/skeleton';
 import { StatusBadge, type StatusVariant } from '../../components/statusBadge';
@@ -42,7 +43,7 @@ const KIND_LOOK: Record<PcItemKind, { label: string; icon: LucideIcon; tile: str
   leave: { label: 'Leave', icon: CalendarOff, tile: 'bg-vivid-green/10 text-vivid-green-text' },
 };
 
-const ROW_CLASS = 'flex items-stretch gap-1 rounded-lg border bg-surface transition-colors duration-150 hover:border-border-hover';
+const ROW_CLASS = 'flex items-stretch gap-1 rounded-lg border bg-surface transition-colors duration-150 ease-out hover:border-border-hover';
 
 interface PcRowProps {
   item: PcListItem;
@@ -59,7 +60,7 @@ const PcRow = ({ item, now, onOpen, onOpenPerson }: PcRowProps) => {
       <button
         type="button"
         onClick={() => onOpen(item.link)}
-        className="flex min-h-14 min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="flex min-h-14 min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-transform duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
       >
         <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', look.tile)}>
           <Icon className="size-5" aria-hidden="true" />
@@ -74,7 +75,7 @@ const PcRow = ({ item, now, onOpen, onOpenPerson }: PcRowProps) => {
           </span>
           {item.detail && <span className="t-meta text-text-muted line-clamp-2">{item.detail}</span>}
         </span>
-        <ChevronRight className="mt-3 size-4 shrink-0 text-text-muted" aria-hidden="true" />
+        <ChevronRight className="size-4 shrink-0 self-center text-text-muted" aria-hidden="true" />
       </button>
       {item.person && (
         item.personId ? (
@@ -82,7 +83,7 @@ const PcRow = ({ item, now, onOpen, onOpenPerson }: PcRowProps) => {
             type="button"
             onClick={() => onOpenPerson(item.personId!)}
             aria-label={`Open ${item.person}`}
-            className="flex min-h-11 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-r-lg border-l border-border/60 px-1 py-2 outline-none transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:w-24"
+            className="flex min-h-11 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-r-lg border-l border-border/60 px-1 py-2 outline-none transition-colors duration-150 ease-out hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:w-24"
           >
             <Avatar name={item.person} size="sm" />
             <span className="t-meta w-full text-center font-medium text-text-secondary line-clamp-1">{item.person.split(' ')[0]}</span>
@@ -108,6 +109,9 @@ interface PcListModalProps {
   filters?: PcFilter[];
   defaultFilter?: string;
   isLoading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+  errorMessage?: string;
   viewAllHref?: string;
   viewAllLabel?: string;
   emptyTitle: string;
@@ -116,7 +120,7 @@ interface PcListModalProps {
   summary?: ReactNode;
 }
 
-export const PcListModal = ({ open, onClose, title, description, icon: Icon, items, filters = [], defaultFilter, isLoading = false, viewAllHref, viewAllLabel = 'View all', emptyTitle, emptyDescription, onOpenPerson, summary }: PcListModalProps) => {
+export const PcListModal = ({ open, onClose, title, description, icon: Icon, items, filters = [], defaultFilter, isLoading = false, error = false, onRetry, errorMessage = "This list didn't load. Check your connection and try again.", viewAllHref, viewAllLabel = 'View all', emptyTitle, emptyDescription, onOpenPerson, summary }: PcListModalProps) => {
   const navigate = useNavigate();
   const now = useNow();
   const [activeKey, setActiveKey] = useState(defaultFilter ?? 'all');
@@ -179,6 +183,8 @@ export const PcListModal = ({ open, onClose, title, description, icon: Icon, ite
         <div className="flex flex-col gap-2" role="status" aria-label="Loading">
           {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
+      ) : error && items.length === 0 ? (
+        <InlineError message={errorMessage} onRetry={onRetry} />
       ) : shown.length === 0 ? (
         <EmptyState icon={Icon} title={emptyTitle} description={emptyDescription} tone="success" size="compact" />
       ) : (

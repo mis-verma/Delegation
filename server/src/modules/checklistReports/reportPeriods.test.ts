@@ -32,6 +32,30 @@ describe("report periods", () => {
         expect(defaultPeriodRange("month", "2026-02-10")).toEqual({ from: "2025-11-01", to: "2026-02-10" })
     })
 
+    it("builds calendar quarters labelled Q1 to Q4", () => {
+        const quarters = buildBuckets("quarter", "2026-02-10", "2026-11-09")
+        expect(quarters.map((q) => [q.key, q.from, q.to, q.label])).toEqual([
+            ["2026-01-01", "2026-02-10", "2026-03-31", "Q1 2026"],
+            ["2026-04-01", "2026-04-01", "2026-06-30", "Q2 2026"],
+            ["2026-07-01", "2026-07-01", "2026-09-30", "Q3 2026"],
+            ["2026-10-01", "2026-10-01", "2026-11-09", "Q4 2026"],
+        ])
+    })
+
+    it("builds calendar years", () => {
+        const years = buildBuckets("year", "2025-06-01", "2026-11-09")
+        expect(years.map((y) => [y.key, y.from, y.to, y.label])).toEqual([
+            ["2025-01-01", "2025-06-01", "2025-12-31", "2025"],
+            ["2026-01-01", "2026-01-01", "2026-11-09", "2026"],
+        ])
+    })
+
+    it("defaults to three quarters plus this one, and two years plus this one", () => {
+        expect(defaultPeriodRange("quarter", "2026-11-09")).toEqual({ from: "2026-01-01", to: "2026-11-09" })
+        expect(buildBuckets("quarter", ...Object.values(defaultPeriodRange("quarter", "2026-02-10")) as [string, string]).map((q) => q.label)).toEqual(["Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026"])
+        expect(defaultPeriodRange("year", "2026-11-09")).toEqual({ from: "2024-01-01", to: "2026-11-09" })
+    })
+
     it("returns nothing for a reversed range", () => {
         expect(buildBuckets("week", "2026-11-10", "2026-11-01")).toEqual([])
     })

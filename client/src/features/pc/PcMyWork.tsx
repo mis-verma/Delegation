@@ -5,6 +5,7 @@ import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { useMySummaries } from './useMySummaries';
+import { useAuth } from '../../context/AuthContext';
 
 interface Cell {
   value: number | null;
@@ -25,7 +26,10 @@ interface Row {
 const COLUMNS = ['Today', 'Open', 'Late'] as const;
 
 const CELL_LINK =
-  'flex min-h-11 w-full items-center justify-end px-4 font-display font-bold tabular-nums outline-none transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:bg-surface-hover sm:px-5';
+  'flex min-h-11 w-full items-center justify-end px-4 font-display font-bold tabular-nums outline-none transition-colors duration-150 ease-out hover:bg-surface-hover/60 focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:px-5';
+
+const CHIP_LINK =
+  'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 t-meta font-display font-semibold outline-none transition-[border-color,color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-9 sm:pointer-coarse:min-h-11';
 
 const NumberCell = ({ cell, loading }: { cell: Cell; loading: boolean }) => (
   <td className="p-0 text-right">
@@ -56,7 +60,10 @@ const NumberCell = ({ cell, loading }: { cell: Cell; loading: boolean }) => (
 
 export const PcMyWork = () => {
   const mine = useMySummaries();
+  const { user } = useAuth();
   const failed = mine.isError && !mine.tickets && !mine.tasks && !mine.checklists;
+  const myTickets = '/tickets?scope=ASSIGNED_TO_ME';
+  const myTasks = `/tasks?category=work${user ? `&assigneeIds=${user.id}` : ''}`;
 
   const rows: Row[] = [
     {
@@ -65,9 +72,9 @@ export const PcMyWork = () => {
       icon: TicketCheck,
       tileClass: 'bg-coral-500/10 text-coral-600 dark:text-coral-300',
       cells: [
-        { value: mine.tickets?.newToday ?? null, to: '/tickets', label: 'Tickets raised today', shortLabel: 'Today' },
-        { value: mine.tickets?.pending ?? null, to: '/tickets?quickFilter=pending', label: 'Open tickets', shortLabel: 'Open' },
-        { value: mine.tickets?.overdue ?? null, to: '/tickets?quickFilter=delayed', label: 'Late tickets', shortLabel: 'Late', late: (mine.tickets?.overdue ?? 0) > 0 },
+        { value: mine.tickets?.newToday ?? null, to: myTickets, label: 'Tickets given to you today', shortLabel: 'Today' },
+        { value: mine.tickets?.pending ?? null, to: `${myTickets}&quickFilter=pending`, label: 'Your open tickets', shortLabel: 'Open' },
+        { value: mine.tickets?.overdue ?? null, to: `${myTickets}&quickFilter=delayed`, label: 'Your late tickets', shortLabel: 'Late', late: (mine.tickets?.overdue ?? 0) > 0 },
       ],
     },
     {
@@ -76,9 +83,9 @@ export const PcMyWork = () => {
       icon: ClipboardList,
       tileClass: 'bg-vivid-sky/10 text-vivid-sky-text',
       cells: [
-        { value: mine.tasks?.newToday ?? null, to: '/tasks', label: 'Delegations created today', shortLabel: 'Today' },
-        { value: mine.tasks?.pending ?? null, to: '/tasks?quickFilter=pending', label: 'Open delegations', shortLabel: 'Open' },
-        { value: mine.tasks?.overdue ?? null, to: '/tasks?quickFilter=delayed', label: 'Late delegations', shortLabel: 'Late', late: (mine.tasks?.overdue ?? 0) > 0 },
+        { value: mine.tasks?.newToday ?? null, to: myTasks, label: 'Delegations given to you today', shortLabel: 'Today' },
+        { value: mine.tasks?.pending ?? null, to: `${myTasks}&quickFilter=pending`, label: 'Your open delegations', shortLabel: 'Open' },
+        { value: mine.tasks?.overdue ?? null, to: `${myTasks}&quickFilter=delayed`, label: 'Your late delegations', shortLabel: 'Late', late: (mine.tasks?.overdue ?? 0) > 0 },
       ],
     },
     {
@@ -87,15 +94,16 @@ export const PcMyWork = () => {
       icon: ClipboardCheck,
       tileClass: 'bg-primary-500/10 text-primary-600 dark:text-primary-300',
       cells: [
-        { value: mine.checklists?.total ?? null, to: '/checklists', label: 'Checklist runs today', shortLabel: 'Today' },
-        { value: mine.checklists?.pending ?? null, to: '/checklists', label: 'Checklist runs not finished', shortLabel: 'Open' },
-        { value: mine.checklists?.overdue ?? null, to: '/checklists', label: 'Checklist runs past their deadline', shortLabel: 'Late', late: (mine.checklists?.overdue ?? 0) > 0 },
+        { value: mine.checklists?.total ?? null, to: '/checklists', label: 'Your checklists today', shortLabel: 'Today' },
+        { value: mine.checklists?.pending ?? null, to: '/checklists?status=pending', label: 'Your checklists not finished', shortLabel: 'Open' },
+        { value: mine.checklists?.overdue ?? null, to: '/checklists?status=overdue', label: 'Your checklists past their deadline', shortLabel: 'Late', late: (mine.checklists?.overdue ?? 0) > 0 },
       ],
     },
   ];
 
-  const done = mine.checklists?.completed ?? 0;
-  const runs = mine.checklists?.total ?? 0;
+  const done = mine.checklists?.completed ?? null;
+  const runs = mine.checklists?.total ?? null;
+  const approvalFailed = mine.approvalError && !mine.approval;
   const withApprover = mine.approval?.withApprover ?? 0;
   const sentBack = mine.approval?.sentBack ?? 0;
   const approverNames = mine.approval?.heads.length
@@ -109,7 +117,7 @@ export const PcMyWork = () => {
           <h2 id="pc-my-work-heading" className="t-section font-display font-bold text-text">
             My own work
           </h2>
-          <p className="t-meta text-text-muted">Work assigned to you directly</p>
+          <p className="t-meta text-text-muted">Work given to you, not your team. Tap a number to open that list.</p>
         </div>
       </div>
 
@@ -137,6 +145,7 @@ export const PcMyWork = () => {
                       key={cell.label}
                       to={cell.to}
                       viewTransition
+                      aria-label={`${cell.label}: ${mine.isPending ? 'loading' : cell.value ?? 'not loaded'}`}
                       className={cn(
                         'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg border border-border/50 bg-surface px-2 py-1.5 text-center transition-[border-color,transform] duration-150 ease-out hover:border-border-hover active:scale-[0.985] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                         cell.late && 'border-danger/30 bg-danger/5'
@@ -187,7 +196,7 @@ export const PcMyWork = () => {
                       <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md', tileClass)}>
                         <Icon className="size-3.5" aria-hidden="true" />
                       </span>
-                      <span className="truncate">{name}</span>
+                      <span>{name}</span>
                     </span>
                   </th>
                   {cells.map((cell) => (
@@ -204,35 +213,51 @@ export const PcMyWork = () => {
             ) : (
               <>
                 <Link
-                  to="/checklists"
+                  to="/checklists?status=completed"
                   viewTransition
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-9"
+                  className={cn(CHIP_LINK, 'border-border/80 bg-surface text-text-secondary hover:border-border-hover hover:text-text')}
                 >
                   <span className="tabular-nums font-bold text-text">
-                    {done}/{runs}
-                  </span>{' '}
+                    {done ?? '-'}/{runs ?? '-'}
+                  </span>
                   checklists done today
                 </Link>
-                <Link
-                  to="/checklists"
-                  viewTransition
-                  title={`Your finished checklists go to ${approverNames}. They do not come to you.`}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-9"
-                >
-                  <span className="tabular-nums font-bold text-text">{withApprover}</span> with approver
-                </Link>
-                <Link
-                  to="/checklists"
-                  viewTransition
-                  className={cn(
-                    'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-9',
-                    sentBack > 0
-                      ? 'border-danger/40 bg-danger/10 text-danger hover:border-danger/70 font-bold'
-                      : 'border-border/80 bg-surface text-text-secondary hover:border-border-hover hover:text-text'
-                  )}
-                >
-                  <span className="tabular-nums font-bold">{sentBack}</span> sent back
-                </Link>
+                {approvalFailed ? (
+                  <p className="flex flex-wrap items-center gap-x-2 t-meta font-medium text-text-muted" role="status">
+                    Approval status didn't load.
+                    <button
+                      type="button"
+                      onClick={mine.retry}
+                      className="min-h-9 pointer-coarse:min-h-11 rounded-md px-1 font-semibold text-primary-700 underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer dark:text-primary-300"
+                    >
+                      Try again
+                    </button>
+                  </p>
+                ) : (
+                  <>
+                    <Link
+                      to="/checklists?review=PENDING_APPROVAL"
+                      viewTransition
+                      title={`Your finished checklists go to ${approverNames}. They do not come to you.`}
+                      aria-label={`${withApprover} of your checklists waiting with ${approverNames}`}
+                      className={cn(CHIP_LINK, 'border-border/80 bg-surface text-text-secondary hover:border-border-hover hover:text-text')}
+                    >
+                      <span className="tabular-nums font-bold text-text">{withApprover}</span> with approver
+                    </Link>
+                    <Link
+                      to="/checklists?review=REJECTED"
+                      viewTransition
+                      className={cn(
+                        CHIP_LINK,
+                        sentBack > 0
+                          ? 'border-danger/40 bg-danger/10 text-danger hover:border-danger/70 font-bold'
+                          : 'border-border/80 bg-surface text-text-secondary hover:border-border-hover hover:text-text'
+                      )}
+                    >
+                      <span className="tabular-nums font-bold">{sentBack}</span> sent back
+                    </Link>
+                  </>
+                )}
               </>
             )}
           </div>

@@ -46,21 +46,21 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: 
   );
   const content = row ? (
     <>
-      <ScoreRing value={value} size={84} stroke={9} label={row.name} />
-      <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+      <ScoreRing value={value} size={56} stroke={7} label={row.name} />
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
         {badge}
-        <span className="block line-clamp-2 t-section font-display font-bold leading-snug text-text">{row.name}</span>
+        <span className="block line-clamp-2 t-card font-display font-bold leading-snug text-text">{row.name}</span>
         <span className="block t-meta font-medium text-text-muted tabular-nums">{row.volume} items counted</span>
       </span>
     </>
   ) : (
-    <span className="flex min-w-0 flex-col items-start gap-2">
+    <span className="flex min-w-0 flex-wrap items-center gap-2">
       {badge}
-      <span className="block t-meta font-medium text-text-muted">{emptyText}</span>
+      <span className="t-meta font-medium text-text-muted">{emptyText}</span>
     </span>
   );
 
-  const base = cn('flex min-w-0 items-center gap-4 rounded-xl border bg-surface p-4', row ? EDGE[tone] : 'border-border');
+  const base = cn('flex min-w-0 items-center gap-3 rounded-xl border bg-surface p-3', row ? EDGE[tone] : 'border-border');
   if (!row) return <div className={base}>{content}</div>;
   return (
     <Link
@@ -108,8 +108,8 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
         <InlineError message="Could not load this ranking." onRetry={onRetry} />
       ) : isPending ? (
         <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2" role="status" aria-label="Loading the ranking">
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
         </div>
       ) : (
         <div className="grid flex-1 grid-cols-1 gap-3 @xl:grid-cols-2">
@@ -140,6 +140,10 @@ const DimensionColumn = ({ icon: Icon, title, rows, untagged, noun, isPending, i
                   : 'Nothing was due in this period'}
               </p>
             )
+          ) : !top && !low ? (
+            <p className="rounded-lg border border-border px-3 py-2.5 t-meta text-text-muted @xl:col-span-2">
+              {hasEligible ? `Needs at least two ${noun}s to compare. None is below ${NEEDS_ATTENTION_BELOW}%.` : 'Not enough data to compare yet.'}
+            </p>
           ) : (
             <>
               <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" hrefFor={hrefFor} />

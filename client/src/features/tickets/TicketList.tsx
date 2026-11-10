@@ -220,7 +220,7 @@ export const TicketList = () => {
             onChange={(v) => { organizer.setSearch(v); organizer.setPage(1); }}
             label="Search tickets by title or description"
             placeholder="Search tickets"
-            className="basis-full sm:basis-auto"
+            className="basis-full sm:basis-48 lg:max-w-xs"
           />
           <PhoneScopeSwitch
             options={[

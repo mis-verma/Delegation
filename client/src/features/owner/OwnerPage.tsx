@@ -65,7 +65,7 @@ export const OwnerPage = () => {
   ].filter((l) => canOpen(l.to));
 
   return (
-    <div className="flex w-full flex-col gap-6 pt-2.5">
+    <div className="flex w-full flex-col gap-4 pt-2.5">
       <PageHeader
         icon={Crown}
         title="Owner view"
@@ -104,7 +104,7 @@ export const OwnerPage = () => {
         detailHref={scoresHref('module')}
       />
 
-      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <DepartmentHeadsCard
           departments={nowFresh?.rows}
           loading={!nowFresh && !now.isError}
@@ -117,7 +117,7 @@ export const OwnerPage = () => {
         <PerformanceLeadersCard from={current.from} to={current.to} onViewFull={() => void navigate(scoresHref('department'), { viewTransition: true })} />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ExceptionsCard limit={3} aside={<PeriodTag label="Live now" />} />
         <OwnerApprovalsCard from={current.from} to={current.to} periodLabel={periodLabel} />
       </div>

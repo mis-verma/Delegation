@@ -10,7 +10,7 @@ import type { TodoPriority } from '../../api/todos';
 
 const MAX_LENGTH = 200;
 
-const CHIP_CLASS = 'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-surface px-2.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 cursor-pointer hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:h-11';
+const CHIP_CLASS = 'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-surface px-2.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 cursor-pointer hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:h-11';
 
 export const TodoQuickAdd = () => {
   const [text, setText] = useState('');
@@ -41,7 +41,7 @@ export const TodoQuickAdd = () => {
       <label
         htmlFor="todo-quick-add"
         className={cn(
-          'flex flex-1 min-w-0 items-center gap-3 h-12 px-3.5 rounded-xl border bg-surface cursor-text transition-colors duration-150',
+          'flex flex-1 min-w-0 items-center gap-3 h-11 px-3.5 rounded-xl border bg-surface cursor-text transition-colors duration-150',
           'border-border/60 hover:border-border-hover focus-within:border-primary-400',
         )}
       >
@@ -71,7 +71,7 @@ export const TodoQuickAdd = () => {
           isLoading={createMut.isPending}
           disabled={!trimmed}
           aria-label="Add the to-do"
-          className="h-12 shrink-0 rounded-xl px-4 font-display sm:hidden"
+          className="h-11 shrink-0 rounded-xl px-4 font-display sm:hidden"
         >
           Add
         </Button>
@@ -108,7 +108,7 @@ export const TodoQuickAdd = () => {
           size="sm"
           isLoading={createMut.isPending}
           disabled={!trimmed}
-          className="ml-auto h-9 shrink-0 rounded-lg px-4 font-display pointer-coarse:h-11 max-sm:hidden sm:ml-0"
+          className="ml-auto h-11 shrink-0 rounded-xl px-4 font-display max-sm:hidden sm:ml-0"
         >
           Add
         </Button>

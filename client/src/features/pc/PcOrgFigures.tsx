@@ -44,7 +44,9 @@ const DeskSection = ({ title, hint, columns, children }: { title: string; hint?:
       <h2 className="t-section font-display font-bold text-text">{title}</h2>
       {hint && <p className="hidden t-meta text-text-muted sm:block">{hint}</p>}
     </div>
-    <div className={cn('@container grid grid-cols-2 gap-2', columns === 4 && 'min-[36rem]:grid-cols-4')}>{children}</div>
+    <div className="@container">
+      <div className={cn('grid grid-cols-2 gap-2', columns === 4 && '@min-[36rem]:grid-cols-4')}>{children}</div>
+    </div>
   </section>
 );
 
@@ -96,7 +98,7 @@ export const PcOrgFigures = () => {
         title: l.userName,
         link: '/leave',
         late: false,
-        detail: [l.reason, l.startDate === l.endDate ? shortDay(l.startDate) : `${shortDay(l.startDate)} to ${shortDay(l.endDate)}`].filter(Boolean).join(' · '),
+        detail: [l.reason, l.startDate === l.endDate ? shortDay(l.startDate) : `${shortDay(l.startDate)} to ${shortDay(l.endDate)}`].filter(Boolean).join(', '),
         person: l.userName,
         personId: l.userId,
         tags: [
@@ -148,7 +150,7 @@ export const PcOrgFigures = () => {
               error={kpi.tasks.isError}
               onRetry={kpi.tasks.onRetry}
               compact
-              to="/tasks?quickFilter=pending"
+              to="/tasks?category=work&quickFilter=pending"
             />
             <FigureCard
               label="Overdue and missed"
@@ -229,6 +231,9 @@ export const PcOrgFigures = () => {
             emptyTitle="Nothing is late"
             emptyDescription="No overdue or missed work right now."
             isLoading={exceptions.isPending}
+            error={exceptions.isError && !exceptions.data}
+            onRetry={() => void exceptions.refetch()}
+            errorMessage="The overdue list didn't load. Check your connection and try again."
             onOpenPerson={setOpenPerson}
           />
         </PopupBoundary>
@@ -248,6 +253,9 @@ export const PcOrgFigures = () => {
             emptyTitle="Everyone is in"
             emptyDescription="Nobody is on leave today."
             isLoading={leave.isPending}
+            error={leave.isError && !leave.data}
+            onRetry={() => void leave.refetch()}
+            errorMessage="The leave list didn't load. Check your connection and try again."
             onOpenPerson={setOpenPerson}
           />
         </PopupBoundary>

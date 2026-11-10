@@ -24,7 +24,7 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const CELL = 'flex min-h-20 min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-xl bg-surface px-2.5 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-24 sm:gap-1 sm:px-6 sm:py-4';
+const CELL = 'flex min-h-16 min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-xl border border-border/60 bg-surface px-2.5 py-2 text-left outline-none transition-colors duration-150 hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5';
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
@@ -45,20 +45,22 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
             title={failed ? "Couldn't load. Tap to try again." : item.help}
             className={cn(CELL, selected && 'bg-primary-500/15 shadow-[inset_0_-3px_0_var(--color-gold)]')}
           >
-            <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
-              <span className="sm:hidden">{item.short ?? item.label}</span>
-              <span className="hidden sm:inline">{item.label}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
+                <span className="sm:hidden">{item.short ?? item.label}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </span>
+              {item.note && <span className="truncate t-meta text-text-light">{item.note}</span>}
             </span>
-            <span className="flex min-h-9 items-center sm:min-h-11">
+            <span className="flex min-h-7 shrink-0 items-center">
               {isLoading ? (
-                <Skeleton className="h-7 w-14" />
+                <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('font-display font-bold leading-none tabular-nums sm:text-4xl', count >= 1000 ? 'text-2xl' : 'text-3xl', failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat font-display font-bold leading-none tabular-nums', failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
                   {failed ? '-' : count}
                 </span>
               )}
             </span>
-            {item.note && <span className="truncate t-meta text-text-light">{item.note}</span>}
           </button>
         );
       })}

@@ -362,7 +362,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             className={({ isActive }) =>
               [
                 'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
-                isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
+                isDrawer ? 'px-3 py-3' : 'px-2.5 py-1.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
                   ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold'
@@ -394,8 +394,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                 <span
                   className={[
                     'relative z-10 min-w-0 transition-all duration-300 ease-in-out',
-                    isDrawer ? 'line-clamp-2 leading-tight break-words' : 'truncate leading-none',
-                    showLabel ? `${isDrawer ? 'max-w-none' : 'max-w-[10rem]'} opacity-100 ml-3` : 'max-w-0 opacity-0 ml-0',
+                    showLabel ? 'line-clamp-2 leading-tight break-words' : 'truncate leading-none',
+                    showLabel ? `${isDrawer ? 'max-w-none' : 'max-w-[11rem]'} opacity-100 ml-3` : 'max-w-0 opacity-0 ml-0',
                   ].join(' ')}
                 >
                   {label}
@@ -509,8 +509,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
   };
 
   const renderContent = (isDrawer: boolean) => (
-    <div className="flex flex-col h-full w-full justify-between">
-      <div className="relative flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col gap-3 h-full w-full justify-between">
+      <div className="relative flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
         {(hasMainItems || isDrawer) && (
         <div className="flex items-center justify-between px-3 shrink-0">
           {hasMainItems ? (

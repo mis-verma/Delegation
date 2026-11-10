@@ -66,7 +66,7 @@ export interface ChecklistReport {
 }
 
 export type PeriodRowKind = 'person' | 'checklist';
-export type PeriodBucketKind = 'week' | 'month';
+export type PeriodBucketKind = 'week' | 'month' | 'quarter' | 'year';
 
 export interface ChecklistPeriodParams {
   by: PeriodRowKind;

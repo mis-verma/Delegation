@@ -24,7 +24,7 @@ import { PERIOD_LABEL, PERIODS, windowFor, type ScorePeriod } from '../../dashbo
 
 type ReportView = 'checklists' | 'departments' | 'stores' | 'periods';
 const VIEW_KEYS: readonly ReportView[] = ['checklists', 'departments', 'stores', 'periods'];
-const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores', periods: 'Week / month' };
+const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores', periods: 'Week to year' };
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 

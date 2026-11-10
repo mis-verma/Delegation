@@ -99,7 +99,7 @@ export const TodoPage = () => {
         onRetry={() => void refetch()}
       />
 
-      <div className="flex items-start gap-2 max-sm:hidden">
+      <div className="flex items-center gap-2 max-sm:hidden">
         <div className="min-w-0 flex-1">
           <TodoQuickAdd />
         </div>
@@ -107,7 +107,7 @@ export const TodoPage = () => {
           type="button"
           variant="outline"
           onClick={() => setShowForm(true)}
-          className="h-12 shrink-0 gap-1.5 rounded-xl px-4 font-display max-md:hidden"
+          className="h-11 shrink-0 gap-1.5 rounded-xl px-4 font-display max-md:hidden"
           aria-label="Add a to-do with details"
         >
           <SquarePen size={16} aria-hidden="true" />

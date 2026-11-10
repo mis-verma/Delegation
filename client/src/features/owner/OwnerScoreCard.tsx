@@ -61,7 +61,7 @@ const LastSevenDays = () => {
   const buckets = trend.data?.buckets ?? [];
 
   return (
-    <section aria-labelledby="owner-week-heading" className="flex flex-col gap-2 border-t border-border/40 pt-4">
+    <section aria-labelledby="owner-week-heading" className="flex flex-col gap-2 border-t border-border/40 pt-3">
       <div className="flex items-center justify-between gap-2">
         <h3 id="owner-week-heading" className="t-card font-display font-bold text-text">Day by day</h3>
         <PeriodTag label="Last 7 days" />
@@ -117,7 +117,7 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
         <InlineError message="Couldn't load the company score." onRetry={onRetry} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {TILES.map(({ key, label }) => {
               const now = figureOf(total, key);
               return (
