@@ -18,6 +18,7 @@ import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
 import { EvidenceThumb } from './EvidenceThumb';
 import { UploadingHint } from './CaptureButton';
+import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { AuditAvatar, AuditPeopleList, AuditPersonPicker, AuditStatusChip } from './ChecklistAuditPeople';
 import { auditStatus, dressTypeChoices, uniformLabel, type AuditPerson } from './ChecklistAuditHelpers';
 import { AuditCaptureButton, AuditDressTypePicker, AuditSectionHeader, AuditTickRow, AuditUniformChip, CriticalMark } from './ChecklistAuditTicks';
@@ -482,7 +483,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           {editable && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <AuditCaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
+                <AuditCaptureButton icon={Camera} label="Take photo" live burst limit={Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - images.length)} accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
                 {!item.requiresLivePhoto && (
                   <AuditCaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
                 )}

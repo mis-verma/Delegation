@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Alert, Modal } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
@@ -12,6 +12,67 @@ import { formatDateShort, formatDeadlineTime } from "../../../lib/checklist/disp
 // "finish this on the web" notice instead of a broken control.
 const SUPPORTED_TYPES = new Set(["STANDARD", "YES_NO", "PASS_FAIL", "TEXT_BOX", "NUMBER_ENTRY", "RATING"]);
 
+const MAX_PHOTOS = 25;
+
+const askForAnother = (count: number, max: number) =>
+  new Promise<boolean>((resolve) => {
+    Alert.alert(
+      `Photo added (${count} of ${max})`,
+      "Take another?",
+      [
+        { text: "Done", style: "cancel", onPress: () => resolve(false) },
+        { text: "Take another", onPress: () => resolve(true) },
+      ],
+      { cancelable: false },
+    );
+  });
+
+const ReasonModal = ({
+  title,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  title: string;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (reason: string) => void;
+}) => {
+  const [reason, setReason] = useState("");
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onCancel}>
+      <View className="flex-1 items-center justify-center bg-black/50 px-6">
+        <View className="w-full rounded-2xl bg-surface p-4">
+          <Text className="text-base font-semibold text-text">{title}</Text>
+          <Text className="mt-1 text-sm text-text-muted">The reviewer sees your reason.</Text>
+          <TextInput
+            value={reason}
+            onChangeText={setReason}
+            multiline
+            autoFocus
+            maxLength={1000}
+            placeholder="Type the reason"
+            placeholderTextColor="#94a3b8"
+            className="mt-3 min-h-20 rounded-lg border border-border px-3 py-2 text-text"
+          />
+          <View className="mt-3 flex-row justify-end gap-2">
+            <Pressable onPress={onCancel} disabled={busy} className="rounded-lg border border-border px-4 py-3">
+              <Text className="text-text">Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onSave(reason.trim())}
+              disabled={busy || !reason.trim()}
+              className={`rounded-lg px-4 py-3 ${busy || !reason.trim() ? "bg-primary-700/50" : "bg-primary-700"}`}
+            >
+              <Text className="font-medium text-white">Save answer</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const useInstance = (id: string) =>
   useQuery({
     queryKey: ["checklist-instance", id],
@@ -23,15 +84,33 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
   const [text, setText] = useState(item.textValue ?? "");
   const [number, setNumber] = useState(item.numericValue != null ? String(item.numericValue) : "");
   const [isUploading, setIsUploading] = useState(false);
+  const [askingWhyNo, setAskingWhyNo] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["checklist-instance", instanceId] });
 
   const setDone = useMutation({
     mutationFn: (values: Parameters<typeof checklistInstanceApi.setItemDone>[2]) =>
       checklistInstanceApi.setItemDone(item.id, true, values),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setAskingWhyNo(false);
+      invalidate();
+    },
     onError: () => Alert.alert("Couldn't save", "Check your connection and try again."),
   });
+
+  const maxPhotos = Math.min(item.maxImageCount ?? MAX_PHOTOS, MAX_PHOTOS);
+  const photoRoom = Math.max(0, maxPhotos - item.images.length);
+  const noAsksReason = (item.noActions ?? []).includes("ASK_REASON");
+
+  const saveNo = (reason: string) =>
+    setDone.mutate({ booleanAnswer: "NO", remarks: reason, ...(noAsksReason ? { conditionalReasonValue: reason } : {}) });
+
+  const uploadAsset = (asset: ImagePicker.ImagePickerAsset, source: "camera" | "gallery") =>
+    checklistInstanceApi.uploadImage(
+      item.id,
+      { uri: asset.uri, name: asset.fileName ?? "photo.jpg", type: asset.mimeType ?? "image/jpeg" },
+      source === "camera" ? "LIVE" : "GALLERY",
+    );
 
   const pickImage = async (source: "camera" | "gallery") => {
     const permission =
@@ -43,24 +122,30 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
       return;
     }
 
-    const result = await (source === "camera"
-      ? ImagePicker.launchCameraAsync({ quality: 0.7 })
-      : ImagePicker.launchImageLibraryAsync({ quality: 0.7 }));
-    if (result.canceled || !result.assets[0]) return;
+    let taken = 0;
+    let keepGoing = true;
+    while (keepGoing && taken < photoRoom) {
+      const room = photoRoom - taken;
+      const result = await (source === "camera"
+        ? ImagePicker.launchCameraAsync({ quality: 0.7 })
+        : ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsMultipleSelection: true, selectionLimit: room }));
+      if (result.canceled || result.assets.length === 0) break;
 
-    const asset = result.assets[0];
-    setIsUploading(true);
-    try {
-      await checklistInstanceApi.uploadImage(
-        item.id,
-        { uri: asset.uri, name: asset.fileName ?? "photo.jpg", type: asset.mimeType ?? "image/jpeg" },
-        source === "camera" ? "LIVE" : "GALLERY",
-      );
-      invalidate();
-    } catch {
-      Alert.alert("Upload failed", "Check your connection and try again.");
-    } finally {
-      setIsUploading(false);
+      setIsUploading(true);
+      try {
+        for (const asset of result.assets.slice(0, room)) {
+          await uploadAsset(asset, source);
+          taken += 1;
+        }
+        invalidate();
+      } catch {
+        Alert.alert("Upload failed", "Check your connection and try again.");
+        break;
+      } finally {
+        setIsUploading(false);
+      }
+
+      keepGoing = source === "camera" && taken < photoRoom && (await askForAnother(item.images.length + taken, maxPhotos));
     }
   };
 
@@ -92,19 +177,20 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
         <View className="flex-row items-center gap-2 flex-wrap">
           <Pressable
             onPress={() => pickImage("camera")}
-            disabled={isUploading}
+            disabled={isUploading || photoRoom === 0}
             className="border border-border rounded-lg px-3 py-2 mr-2 mb-2"
           >
             <Text className="text-sm text-text">📷 Camera</Text>
           </Pressable>
           <Pressable
             onPress={() => pickImage("gallery")}
-            disabled={isUploading}
+            disabled={isUploading || photoRoom === 0}
             className="border border-border rounded-lg px-3 py-2 mr-2 mb-2"
           >
             <Text className="text-sm text-text">🖼 Gallery</Text>
           </Pressable>
           {isUploading && <ActivityIndicator size="small" />}
+          <Text className="text-xs text-text-muted mb-2">{item.images.length} of {maxPhotos} photos</Text>
           {!needsMorePhotos && !item.isDone && (
             <Pressable
               onPress={() => setDone.mutate(undefined)}
@@ -130,7 +216,7 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
             return (
               <Pressable
                 key={ans}
-                onPress={() => setDone.mutate({ booleanAnswer: ans as "YES" | "NO" })}
+                onPress={() => (ans === "NO" ? setAskingWhyNo(true) : setDone.mutate({ booleanAnswer: "YES" }))}
                 disabled={setDone.isPending}
                 className={`flex-1 rounded-lg py-2.5 items-center border ${selected ? "bg-primary-700 border-primary-700" : "border-border"}`}
               >
@@ -139,6 +225,15 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
             );
           })}
         </View>
+      )}
+
+      {askingWhyNo && (
+        <ReasonModal
+          title={item.itemType === "PASS_FAIL" ? "Why did it fail?" : "Why is it No?"}
+          busy={setDone.isPending}
+          onCancel={() => setAskingWhyNo(false)}
+          onSave={saveNo}
+        />
       )}
 
       {item.itemType === "TEXT_BOX" && (

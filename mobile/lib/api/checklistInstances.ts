@@ -43,6 +43,8 @@ export type ChecklistInstanceItem = {
   gpsLng: number | null;
   gpsAccuracy: number | null;
   remarks: string | null;
+  noActions?: string[] | null;
+  allowNotApplicable?: boolean;
   instanceId: string;
   images: ChecklistInstanceImage[];
 };
@@ -92,6 +94,7 @@ export const checklistInstanceApi = {
       gpsLng?: number;
       gpsAccuracy?: number;
       remarks?: string;
+      conditionalReasonValue?: string;
     },
   ) =>
     apiFetch<ApiResponse<ChecklistInstanceItem>>(`/checklist-instance-items/${itemId}`, {

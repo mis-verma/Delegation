@@ -30,6 +30,7 @@ export type ChecklistDefinitionItem = {
   requiresLivePhoto: boolean;
   referenceImageUrl?: string | null;
   isCritical: boolean;
+  allowNotApplicable?: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
@@ -99,6 +100,7 @@ export type CreateChecklistDefinitionItemPayload = {
   requiresLivePhoto?: boolean;
   referenceImageUrl?: string | null;
   isCritical?: boolean;
+  allowNotApplicable?: boolean;
   itemType?: ChecklistItemType;
   auditUserIds?: string[];
   accessories?: string[];

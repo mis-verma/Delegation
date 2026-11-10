@@ -16,6 +16,7 @@ export const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   requiresLivePhoto: item.requiresLivePhoto,
   referenceImageUrl: item.referenceImageUrl ?? '',
   isCritical: item.isCritical ?? false,
+  allowNotApplicable: item.allowNotApplicable ?? true,
   itemType: item.itemType,
   auditUserIds: item.auditUserIds,
   accessories: item.accessories,
@@ -60,6 +61,7 @@ export const buildItemPayloads = (
       requiresLivePhoto: d.requiresLivePhoto,
       referenceImageUrl: d.referenceImageUrl || null,
       isCritical: d.isCritical,
+      allowNotApplicable: d.allowNotApplicable,
       itemType: d.itemType,
       ...draftPayload(d, { storePersonIds }),
     }));

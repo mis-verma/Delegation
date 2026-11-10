@@ -121,6 +121,7 @@ export const DetailItemRow = memo(({
   const photos = photoBreakdown(item);
   const hasPhotos = item.itemType !== 'AUDIT' && (item.requiredImageCount > 0 || (item.images ?? []).some((i) => i.purpose === 'GENERAL'));
   const retaking = !!item.sendBackPhotoOnly && !item.isDone && canEdit;
+  const sentBack = !item.isDone && !!item.sendBackNote;
   const showPhotoRule = item.requiredImageCount > 0 && !item.isNotApplicable && (!canEdit || item.isDone);
   const suggestedReasons = itemProblems(item);
   const showPickedPanel = selecting && picked && !!onNoteChange;
@@ -140,7 +141,7 @@ export const DetailItemRow = memo(({
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className="flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className={cn('flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background', sentBack && 'border border-danger/50 bg-danger/10 p-2 ring-1 ring-danger/20')}>
         {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
@@ -204,7 +205,7 @@ export const DetailItemRow = memo(({
             <WaiveAction instanceId={instanceId} item={item} />
           </div>
         )}
-        <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0">
+        <div className={cn('overflow-hidden rounded-2xl border bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0', sentBack ? 'border-danger/60' : 'border-border/60')}>
           {item.isNotApplicable ? (
             <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
           ) : (

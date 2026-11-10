@@ -29,6 +29,7 @@ checklistInstanceRouter.get("/:id/item-history", checklistInstanceController.ite
 checklistInstanceRouter.get("/:id/items/:itemId/previous", checklistInstanceController.itemPrevious)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
 checklistInstanceRouter.patch("/:id/submit", checklistInstanceController.submit)
+checklistInstanceRouter.post("/:id/revoke", checklistInstanceController.revoke)
 checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
 checklistInstanceRouter.patch("/:id/items/:itemId/waive", checklistInstanceController.waiveItem)

@@ -157,9 +157,11 @@ interface AuditCaptureButtonProps {
   live:    boolean;
   accept:  string;
   onFiles: (files: FileList | null) => void;
+  burst?:  boolean;
+  limit?:  number;
 }
 
-export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }: AuditCaptureButtonProps) => {
+export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles, burst = false, limit }: AuditCaptureButtonProps) => {
   const className = cn(
     'flex flex-1 sm:flex-none sm:min-w-32 items-center justify-center gap-2 h-12 sm:h-10 pointer-coarse:h-12 px-4 rounded-lg border t-card font-medium whitespace-nowrap',
     'cursor-pointer select-none transition-colors duration-200 ease-out active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
@@ -175,7 +177,7 @@ export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles }:
     </>
   );
   if (live) {
-    return <LivePhotoTrigger className={className} accept={accept} onFiles={onFiles}>{content}</LivePhotoTrigger>;
+    return <LivePhotoTrigger className={className} accept={accept} onFiles={onFiles} burst={burst} limit={limit}>{content}</LivePhotoTrigger>;
   }
   return (
     <label className={className}>

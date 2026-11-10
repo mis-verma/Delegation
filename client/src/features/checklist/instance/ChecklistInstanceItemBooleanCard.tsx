@@ -16,6 +16,7 @@ import { EvidenceThumb } from './EvidenceThumb';
 import { FailedPhotoNote } from './FailedPhotoNote';
 import { isFailedPhoto, passingPhotos } from '../photoQuality';
 import { CaptureButton, UploadingHint } from './CaptureButton';
+import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { isFlaggedAnswer } from '../checklistDisplay';
 import { RemarkDialog } from './ItemRemarksField';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
@@ -81,6 +82,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
   const [naOpen, setNaOpen] = useState(false);
+  const [noOpen, setNoOpen] = useState(false);
   const accepted = item.acceptableAnswers ?? [];
 
   const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
@@ -92,6 +94,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const sessionPhotos = images.filter((img) => !baselinePhotos.current.has(img.id));
   const sessionIds = new Set(sessionPhotos.map((img) => img.id));
   const reasonReady = !needsReason || reasonDraft.trim().length > 0;
+  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - passingPhotos(images).length);
   const photoReady = !needsPhoto || passingPhotos(images).length > 0;
   const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
 
@@ -159,6 +162,14 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       return;
     }
     if (!pendingAnswer && item.isDone && item.booleanAnswer === value) return;
+    if (value === 'NO' && !isTriggering('NO')) {
+      if (pendingAnswer !== null) {
+        discardSession();
+        closeEditor();
+      }
+      setNoOpen(true);
+      return;
+    }
     if (isTriggering(value)) {
       if (pendingAnswer === null) baselinePhotos.current = new Set(images.map((img) => img.id));
       else discardSession();
@@ -186,7 +197,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
   const flagged = item.isDone && isFlaggedAnswer(item);
   const canFollowUp = yesActions.length > 0 || noActions.length > 0 || !!item.conditionalReasonValue;
-  const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending;
+  const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending && item.allowNotApplicable !== false;
 
   const answerButton = (value: Answer) => {
     const label = value === 'YES' ? labels.yes : labels.no;
@@ -250,6 +261,17 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           saved=""
           missing={false}
           onClose={() => setNaOpen(false)}
+        />
+      )}
+
+      {noOpen && (
+        <RemarkDialog
+          item={item}
+          instanceId={instanceId}
+          mode="no"
+          saved=""
+          missing={false}
+          onClose={() => setNoOpen(false)}
         />
       )}
 
@@ -355,7 +377,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
               {pendingAnswer && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'LIVE')} />
+                  <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={(files) => handleFiles(files, 'LIVE')} />
                   {!item.requiresLivePhoto && (
                     <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
                   )}

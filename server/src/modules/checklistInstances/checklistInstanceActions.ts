@@ -27,6 +27,7 @@ import { assertCoordinatorRunReviewer } from "./checklistCoordinatorRun.js"
 import { env } from "../../config/env.js"
 import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, assertInstanceOpen, assertInstanceEditable, auditItemSnapshot, assertCanAccess, getDepartmentIdsForUserIds, assertConditionalActionsSatisfied, applyConditionalSideEffects, deriveInstanceItemCompletion, syncVerificationStatus, assertNotOwnRun, assertCanVerify, countsAgainstCompliance, loadWaivable, dropChecklistSummaries } from "./checklistInstanceShared.js"
 import { loadAuditItemScore } from "./auditScore.js"
+import { revokeWindowOpen } from "./checklistRevokeWindow.js"
 
 export const setItemDone = async (itemId: string, isDone: boolean, user: AccessTokenPayload, values: ItemValueInput = {}) => {
     const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
@@ -98,6 +99,10 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
         if (alreadyChecked) {
             throw AppError.badRequest("Some people are already checked on this audit, so it can't be marked not applicable.")
         }
+    }
+
+    if (markingNotApplicable && !item.allowNotApplicable) {
+        throw AppError.badRequest("Not applicable isn't allowed on this question.")
     }
 
     if (markingNotApplicable) {
@@ -228,6 +233,66 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
         entityType: "ChecklistInstance", entityId: id, action: "SUBMIT", actorId: user.sub,
         before: { verificationStatus: instance.verificationStatus },
         after: { verificationStatus: "PENDING_APPROVAL", submittedAt: now },
+    })
+    await dropChecklistSummaries(assigneeIds)
+    emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+    return getPopulatedInstanceById(id)
+}
+
+const RESET_ITEM_VALUES = {
+    booleanAnswer: null, textValue: null, numericValue: null, dateValue: null,
+    gpsLat: null, gpsLng: null, gpsAccuracy: null, gpsCapturedAt: null,
+    signatureValue: null, secondSignatureValue: null, conditionalReasonValue: null,
+} as const
+
+export const revokeSubmission = async (id: string, input: { itemId?: string }, user: AccessTokenPayload) => {
+    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    if (!instance) throw AppError.notFound("Checklist instance not found")
+    const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+    const assigneeIds = assigneeLinks.map((l) => l.userId)
+    assertCanAccess({ assigneeIds }, user)
+
+    if (instance.verificationStatus !== "PENDING_APPROVAL") {
+        throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved, so it can't be taken back." : "This checklist isn't waiting for approval.")
+    }
+    if (instance.submittedBy !== user.sub && user.role !== "ADMIN") {
+        throw AppError.forbidden("Only the person who submitted this checklist can take it back.")
+    }
+    if (!revokeWindowOpen(instance.submittedAt) && user.role !== "ADMIN") {
+        throw AppError.badRequest("The 10 minutes to take this back are over.")
+    }
+    await assertRunOpenForUser(id, user)
+
+    const items = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, id))
+    const targets = input.itemId ? items.filter((i) => i.id === input.itemId) : items
+    if (input.itemId && targets.length === 0) throw AppError.badRequest("That question isn't on this checklist.")
+    const targetIds = targets.map((i) => i.id)
+    const auditIds = targets.filter((i) => i.itemType === "AUDIT").map((i) => i.id)
+    const now = new Date()
+
+    await db.transaction(async (tx) => {
+        const [claimed] = await tx.update(checklistInstances).set({
+            verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null,
+            approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now,
+        }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+        if (claimed.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
+        if (targetIds.length) {
+            await tx.update(checklistInstanceItems).set(
+                input.itemId
+                    ? { isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, updatedAt: now }
+                    : { ...RESET_ITEM_VALUES, remarks: null, isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, updatedAt: now },
+            ).where(inArray(checklistInstanceItems.id, targetIds))
+        }
+        if (auditIds.length) {
+            await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, isNotApplicable: false, completedAt: null, updatedAt: now })
+                .where(inArray(checklistInstanceItemSubmissions.itemId, auditIds))
+        }
+    })
+
+    await auditService.record({
+        entityType: "ChecklistInstance", entityId: id, action: input.itemId ? "RECORRECT" : "REVOKE", actorId: user.sub,
+        before: { verificationStatus: "PENDING_APPROVAL", submittedAt: instance.submittedAt },
+        after: { verificationStatus: "NOT_SUBMITTED", itemIds: input.itemId ? [input.itemId] : "all" },
     })
     await dropChecklistSummaries(assigneeIds)
     emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })

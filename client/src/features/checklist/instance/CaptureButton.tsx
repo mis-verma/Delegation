@@ -11,6 +11,8 @@ interface CaptureButtonProps {
   onFiles: (files: FileList | null) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  burst?: boolean;
+  limit?: number;
 }
 
 const BUTTON_BASE = cn(
@@ -23,7 +25,7 @@ const BUTTON_BASE = cn(
 const LIVE_LOOK = 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10';
 const PLAIN_LOOK = 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover';
 
-export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabled = false, ariaLabel }: CaptureButtonProps) => {
+export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabled = false, ariaLabel, burst = false, limit }: CaptureButtonProps) => {
   const content = (
     <>
       <Icon size={14} aria-hidden />
@@ -33,7 +35,7 @@ export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabl
 
   if (live) {
     return (
-      <LivePhotoTrigger className={cn(BUTTON_BASE, LIVE_LOOK)} accept={accept} onFiles={onFiles} disabled={disabled} ariaLabel={ariaLabel}>
+      <LivePhotoTrigger className={cn(BUTTON_BASE, LIVE_LOOK)} accept={accept} onFiles={onFiles} disabled={disabled} ariaLabel={ariaLabel} burst={burst} limit={limit}>
         {content}
       </LivePhotoTrigger>
     );

@@ -19,6 +19,7 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 import { formatDateTime } from '../checklistDisplay';
 import { passingPhotos } from '../photoQuality';
+import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { FailedPhotoNote } from './FailedPhotoNote';
 
 interface ChecklistInstanceItemCardProps {
@@ -40,6 +41,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
   const images = (item.images ?? []).filter(i => i.purpose === 'GENERAL');
   const clearImages = passingPhotos(images);
   const failedCount = images.length - clearImages.length;
+  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - clearImages.length);
   const qualifying = item.requiresLivePhoto
     ? clearImages.filter(i => i.captureMethod === 'LIVE').length
     : clearImages.length;
@@ -176,8 +178,10 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
                 label={isVideoItem ? 'Record video' : 'Take photo'}
                 ariaLabel={`${isVideoItem ? 'Record video' : 'Take photo'}: ${item.label}`}
                 live
+                burst
+                limit={photoRoom}
                 accept={isVideoItem ? 'video/*' : 'image/*'}
-                disabled={uploadImages.isPending}
+                disabled={uploadImages.isPending || (!isVideoItem && photoRoom <= 0)}
                 onFiles={files => handleFiles(files, 'LIVE')}
               />
               {!item.requiresLivePhoto && (

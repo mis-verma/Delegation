@@ -48,6 +48,7 @@ type GenerationItem = {
     requiresLivePhoto: boolean
     referenceImageUrl: string | null
     isCritical: boolean
+    allowNotApplicable: boolean
     itemType: (typeof checklistDefinitionItems.$inferSelect)["itemType"]
     accessories: string[] | null
     accessoriesFemale: string[] | null
@@ -183,6 +184,7 @@ const definitionConfig = (item: GenerationItem) => ({
     requiresLivePhoto: item.requiresLivePhoto,
     referenceImageUrl: item.referenceImageUrl ?? null,
     isCritical: item.isCritical,
+    allowNotApplicable: item.allowNotApplicable,
     auditPhotoOnlyOnMiss: item.itemType === "AUDIT" && item.auditPhotoOnlyOnMiss,
     accessories: item.accessories ?? [],
     numberEntryUnit: item.numberEntryUnit,

@@ -635,6 +635,16 @@ export const useSubmitChecklistInstanceMutation = () =>
     errorToast: false,
   });
 
+export const useRevokeChecklistSubmissionMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, itemId }: { id: string; itemId?: string }) => checklistInstanceApi.revoke(id, itemId).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances']],
+    successMessage: (_updated, vars) => (vars.itemId ? 'Question reopened. Fix it, then submit again.' : 'Taken back. Answer it again, then submit.'),
+    errorFallback: "Couldn't take it back. Try again.",
+    errorToast: false,
+  });
+
 export const useSendBackChecklistInstanceMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, payload }: { id: string; payload: SendBackChecklistInstancePayload }) =>

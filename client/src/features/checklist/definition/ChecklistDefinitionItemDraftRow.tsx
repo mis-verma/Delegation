@@ -19,6 +19,7 @@ export type ItemDraft = {
   requiresLivePhoto: boolean;
   referenceImageUrl: string;
   isCritical: boolean;
+  allowNotApplicable: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
@@ -55,6 +56,7 @@ export const emptyItemDraft = (): ItemDraft => ({
   requiresLivePhoto: false,
   referenceImageUrl: '',
   isCritical: false,
+  allowNotApplicable: true,
   itemType: 'STANDARD',
   auditUserIds: [],
   accessories: [],

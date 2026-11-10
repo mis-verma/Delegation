@@ -14,7 +14,7 @@ interface ItemRemarksFieldProps {
   canEdit: boolean;
 }
 
-export type RemarkMode = 'remark' | 'na';
+export type RemarkMode = 'remark' | 'na' | 'no';
 type Mode = RemarkMode;
 
 const COPY: Record<Mode, { title: string; hint: string; placeholder: string; save: string }> = {
@@ -23,6 +23,12 @@ const COPY: Record<Mode, { title: string; hint: string; placeholder: string; sav
     hint: 'A note for whoever reviews this checklist.',
     placeholder: 'e.g. Shelf 3 restocked from the back store',
     save: 'Save remark',
+  },
+  no: {
+    title: 'Why is it No?',
+    hint: 'Say why the answer is No. The reviewer sees your reason.',
+    placeholder: 'e.g. The shelf was empty when I checked',
+    save: 'Save answer',
   },
   na: {
     title: 'Mark as not applicable',
@@ -76,6 +82,13 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
       );
       return;
     }
+    if (mode === 'no') {
+      mutation.mutate(
+        { itemId: item.id, isDone: true, booleanAnswer: 'NO', remarks: text },
+        { onSuccess: onClose },
+      );
+      return;
+    }
     mutation.mutate(
       { itemId: item.id, isDone: item.isDone, remarks: text || null },
       { onSuccess: onClose },
@@ -83,8 +96,11 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
   };
 
   const baseCopy = COPY[mode];
-  const copy = mode === 'na' && item.itemType === 'AUDIT' ? { ...baseCopy, ...AUDIT_NA_COPY } : baseCopy;
-  const saveDisabled = mode === 'na' ? !value.trim() : value.trim() === saved;
+  const failWording = item.itemType === 'PASS_FAIL' && mode === 'no'
+    ? { ...baseCopy, title: 'Why did it fail?', hint: 'Say why it failed. The reviewer sees your reason.' }
+    : baseCopy;
+  const copy = mode === 'na' && item.itemType === 'AUDIT' ? { ...baseCopy, ...AUDIT_NA_COPY } : failWording;
+  const saveDisabled = mode === 'na' || mode === 'no' ? !value.trim() : value.trim() === saved;
   const removing = mode === 'remark' && !!saved && !value.trim();
 
   return (
@@ -131,7 +147,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
   const saved = item.remarks?.trim() ?? '';
   const missing = required && !item.isDone && !saved;
   const auditStarted = item.itemType === 'AUDIT' && item.submissions.some((s) => s.isDone);
-  const canMarkNa = canEdit && !item.isDone && !auditStarted && !hasInlineNa(item);
+  const canMarkNa = canEdit && !item.isDone && !auditStarted && !hasInlineNa(item) && item.allowNotApplicable !== false;
 
   if (item.isNotApplicable) return null;
   if (!canEdit && !saved) return null;

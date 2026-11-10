@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Video, MapPin, Info, Star, X, AlertTriangle, Check, Flag } from 'lucide-react';
+import { Video, MapPin, Info, Star, X, AlertTriangle, Check, Flag, Ban } from 'lucide-react';
 import { AccessoriesListEditor, AddChip, Button, Input, ToggleChip } from '../../../../components';
 import { AuditUniformLists } from './AuditUniformLists';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -386,7 +386,23 @@ const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
   </div>
 );
 
+const NotApplicableField = ({ draft, onChange }: ItemTypeFieldsProps) => (
+  <div className="flex flex-col gap-1.5">
+    <div className="w-fit">
+      <ToggleChip on={draft.allowNotApplicable} onClick={() => onChange({ allowNotApplicable: !draft.allowNotApplicable })}>
+        {draft.allowNotApplicable ? <Check size={13} strokeWidth={2.75} /> : <Ban size={13} />}
+        Allow not applicable
+      </ToggleChip>
+    </div>
+    <span className="t-meta font-display text-text-muted">
+      {draft.allowNotApplicable
+        ? 'Staff can mark this question not applicable, with a reason'
+        : 'Staff must answer this question. There is no N/A button'}
+    </span>
+  </div>
+);
+
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   const Renderer = FIELDS_BY_TYPE[props.draft.itemType];
-  return <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /></>;
+  return <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /><NotApplicableField {...props} /></>;
 };

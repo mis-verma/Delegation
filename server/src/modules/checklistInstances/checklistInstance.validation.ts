@@ -70,6 +70,10 @@ export const sendBackChecklistInstanceSchema = z.object({
     photoOnlyItemIds: z.array(z.string().min(1)).max(200).optional(),
 })
 
+export const revokeChecklistInstanceSchema = z.object({
+    itemId: z.string().min(1).optional(),
+})
+
 export const raiseChecklistTicketSchema = z.object({
     note: z.string().trim().min(5, "Say what is wrong and what to fix.").max(2000),
     tatHours: z.number().positive().max(24 * 30),

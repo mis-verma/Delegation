@@ -715,6 +715,13 @@
       "when": 1793020000000,
       "tag": "0101_subcategory_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "5",
+      "when": 1793030000000,
+      "tag": "0102_allow_not_applicable",
+      "breakpoints": true
     }
   ]
 }

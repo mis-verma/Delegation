@@ -11,6 +11,7 @@ import { ItemError } from './ItemError';
 import { ItemActionButton } from './ItemActionButton';
 import { EvidenceThumb } from './EvidenceThumb';
 import { CaptureButton, UploadingHint } from './CaptureButton';
+import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 
@@ -59,7 +60,7 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'LIVE')} />
+          <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - fresh.length)} accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'LIVE')} />
           {!item.requiresLivePhoto && (
             <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'GALLERY')} />
           )}

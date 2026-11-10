@@ -182,6 +182,8 @@ const buildImageUpload = ( storageEngine : multer.StorageEngine, extraMimeTypes:
     })
 }
 
+const MAX_LIVE_PHOTO_FILES = 25
+
 export const taskImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
     return buildImageUpload(storage).array("images" , settingsService.getCached().maxUploadFiles)(req, res, next)
@@ -211,12 +213,12 @@ const dropOversizedImages = (req: Request, next: NextFunction) => (err?: unknown
 
 export const checklistInstanceImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, dropOversizedImages(req, next))
+    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, dropOversizedImages(req, next))
 }
 
 export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, dropOversizedImages(req, next))
+    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, dropOversizedImages(req, next))
 }
 
 export const checklistReferenceUpload = (req : Request , res : Response , next : NextFunction) => {

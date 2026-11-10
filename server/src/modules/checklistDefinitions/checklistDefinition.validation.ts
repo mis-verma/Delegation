@@ -80,6 +80,7 @@ const definitionItemShape = z.object({
     requiresLivePhoto: z.boolean().optional(),
     referenceImageUrl,
     isCritical: z.boolean().optional(),
+    allowNotApplicable: z.boolean().optional(),
     itemType: z.enum(CHECKLIST_ITEM_TYPES).optional(),
     auditUserIds: dedupedIdArray.optional(),
     accessories: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),

@@ -88,6 +88,7 @@ export type ChecklistInstanceItem = {
   maxImageCount:      number | null;
   requiresLivePhoto:  boolean;
   isCritical:         boolean;
+  allowNotApplicable?: boolean;
   auditPhotoOnlyOnMiss?: boolean;
   itemType:           ChecklistItemType;
   accessories:        string[];
@@ -552,6 +553,8 @@ export const checklistInstanceApi = {
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
+  revoke: (id: string, itemId?: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: 'POST', body: JSON.stringify(itemId ? { itemId } : {}) }),
   submit: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/submit`, { method: 'PATCH' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
