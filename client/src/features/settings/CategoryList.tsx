@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
   Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
-import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
+import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
 import type { Category, CategoryTatRow } from "../../api/categories";
 import { CardChip } from "../admin/directory/orgScores";
 import { getInitials } from "../../lib/getInitials";
@@ -184,6 +184,7 @@ export const CategoryList = () => {
   const [showForm, setShowForm] = useState(false);
   const [showStarter, setShowStarter] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const exportFile = useDownloadCategoriesMutation();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -314,6 +315,12 @@ export const CategoryList = () => {
           Import from file
         </Button>
       )}
+      {tab === "list" && categories.length > 0 && (
+        <Button variant="outline" size="sm" isLoading={exportFile.isPending} onClick={() => exportFile.mutate("xlsx")} className="hidden h-9 md:inline-flex font-display font-semibold">
+          <Download size={15} aria-hidden />
+          Export
+        </Button>
+      )}
       {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />}
     </div>
   );
@@ -373,7 +380,8 @@ export const CategoryList = () => {
           sheetTitle="Create"
           actions={[
             { key: "new", label: "New category", description: "Set the team, people, priority and due time", icon: Plus, onClick: () => setShowForm(true) },
-            { key: "import", label: "Import from a file", description: "Add categories from your old ticket file", icon: FileUp, onClick: () => setShowImport(true) },
+            { key: "import", label: "Import from a file", description: "Add categories and sub categories from Excel or CSV", icon: FileUp, onClick: () => setShowImport(true) },
+            ...(categories.length > 0 ? [{ key: "export", label: "Export to Excel", description: "Download every category in the same format the import reads", icon: Download, onClick: () => exportFile.mutate("xlsx") }] : []),
             ...(missingStarter > 0 ? [{ key: "usual", label: "Add the usual categories", description: `${missingStarter} ready to add, pick the team for each`, icon: ListPlus, onClick: () => setShowStarter(true) }] : []),
           ]}
         />

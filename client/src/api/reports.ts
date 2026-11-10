@@ -58,7 +58,7 @@ const exportQuery = (params: ReportExportParams) => {
   return query;
 };
 
-const downloadReport = async (path: string, query: URLSearchParams, fallbackName: string) => {
+export const downloadReport = async (path: string, query: URLSearchParams, fallbackName: string) => {
   const token = tokenStore.get();
   const res = await fetch(`${BASE}${path}?${query.toString()}`, {
     credentials: 'include',

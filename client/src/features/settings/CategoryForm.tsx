@@ -2,7 +2,7 @@ import { DepartmentField } from '../departments/DepartmentField';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Tag, Building2, Users, Clock, Route, Flag, type LucideIcon } from 'lucide-react';
+import { Tag, Building2, Users, Clock, Route, Flag, ListTree, type LucideIcon } from 'lucide-react';
 import { Input, Button, UserMultiSelect, Modal, DepartmentChip, IconChip, PriorityChip, TagChip } from '../../components';
 import { LabelsField } from '../tags/LabelsField';
 import { useTagsQuery } from '../tags/hook';
@@ -10,7 +10,9 @@ import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { cn } from '@/lib/utils';
 import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery, useCategoriesQuery } from './hook';
 import { SubcategoriesEditor } from './SubcategoriesEditor';
-import type { Category } from '@/api/categories';
+import { categoryApi, type Category } from '@/api/categories';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const categorySchema = z.object({
   name: z.string().trim().min(1, 'Give the category a name'),
@@ -18,6 +20,7 @@ const categorySchema = z.object({
   assigneeIds: z.array(z.string()).optional(),
   priority: z.enum(['', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
   tagIds: z.array(z.string()),
+  subcategory: z.string().trim().optional(),
   tatHours: z
     .string()
     .optional()
@@ -65,6 +68,7 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
   const isEditing = !!category;
   const createMutation = useCreateCategoryMutation();
   const updateMutation = useUpdateCategoryMutation();
+  const queryClient = useQueryClient();
   const mutation = isEditing ? updateMutation : createMutation;
 
   const { data: departments, isPending: isDepartmentsLoading } = useDepartmentsQuery();
@@ -87,6 +91,7 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
       priority: category?.priority ?? '',
       tagIds: category?.tags?.map(t => t.id) ?? [],
       tatHours: category?.tatHours ? String(category.tatHours) : '',
+      subcategory: '',
     },
   });
 
@@ -109,7 +114,17 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
     if (isEditing) {
       updateMutation.mutate({ id: category.id, payload }, { onSuccess: () => onClose() });
     } else {
-      createMutation.mutate(payload, { onSuccess: (created) => { onCreated?.(created); onClose(); } });
+      createMutation.mutate(payload, {
+        onSuccess: async (created) => {
+          const first = data.subcategory?.trim();
+          if (first) {
+            try { await categoryApi.createSubcategory(created.id, { name: first }); } catch { toast.error("Category saved, but the subcategory wasn't. Add it from Edit."); }
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+          }
+          onCreated?.(created);
+          onClose();
+        },
+      });
     }
   };
 
@@ -138,6 +153,16 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
           <FieldLabel icon={Tag} htmlFor="category-name">Name</FieldLabel>
           <Input id="category-name" placeholder="e.g. Fan not working" autoComplete="off" error={errors.name?.message} {...register('name')} />
         </div>
+
+        {isEditing && category ? (
+          <SubcategoriesEditor categoryId={category.id} subcategories={liveSubcategories} />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel icon={ListTree} htmlFor="category-subcategory" optional>Subcategory</FieldLabel>
+            <Input id="category-subcategory" placeholder="e.g. Ceiling fan" autoComplete="off" {...register('subcategory')} />
+            <span className="t-meta text-text-muted">Add more from Edit after saving.</span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <FieldLabel icon={Building2} htmlFor="departmentId">Handled by</FieldLabel>
@@ -170,6 +195,17 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
           <span className="t-meta text-text-muted">The first person is picked on the ticket. Leave empty and the department head picks someone.</span>
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <Controller
+            control={control}
+            name="tagIds"
+            render={({ field }) => (
+              <LabelsField tags={tags ?? []} selectedIds={field.value ?? []} onChange={field.onChange} canCreate />
+            )}
+          />
+          <span className="t-meta text-text-muted">Added to every new ticket in this category. A label on a ticket cannot be removed later.</span>
+        </div>
+
         <div className="flex flex-col gap-2">
           <FieldLabel icon={Flag} optional>Usual priority</FieldLabel>
           <div role="radiogroup" aria-label="Usual priority" className="flex flex-wrap gap-1.5">
@@ -186,17 +222,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             })}
           </div>
           <span className="t-meta text-text-muted">Filled in on new tickets for this category. The person raising it can still change it.</span>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Controller
-            control={control}
-            name="tagIds"
-            render={({ field }) => (
-              <LabelsField tags={tags ?? []} selectedIds={field.value ?? []} onChange={field.onChange} canCreate />
-            )}
-          />
-          <span className="t-meta text-text-muted">Added to every new ticket in this category. A label on a ticket cannot be removed later.</span>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -239,14 +264,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             {pickedTags.map(t => <TagChip key={t.id} tag={t} />)}
           </div>
         </div>
-
-        {isEditing && category ? (
-          <SubcategoriesEditor categoryId={category.id} departmentId={departmentId} subcategories={liveSubcategories} />
-        ) : (
-          <p className="rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 t-meta text-text-muted">
-            Save the category first, then open it again to add subcategories.
-          </p>
-        )}
 
         {mutation.isError && (
           <p role="alert" className="t-meta font-medium text-danger">

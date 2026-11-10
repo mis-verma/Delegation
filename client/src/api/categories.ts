@@ -1,4 +1,5 @@
 import { apiFetch } from "./http";
+import { downloadReport } from "./reports";
 import type { Tag } from "./tags";
 
 export type CategoryPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -85,12 +86,19 @@ export type CategoryProposal = {
     departmentId: string | null;
     departmentSource: "person" | "column" | "none";
     exists: boolean;
+    existingCategoryId: string | null;
+    subcategories: { name: string; exists: boolean }[];
+    priority: CategoryPriority | null;
+    labels: { name: string; tagId: string | null }[];
+    warnings: string[];
 };
 
 export type CategoryHistoryPreview = {
     columns: string[];
     nameColumn: string;
     totalRows: number;
+    isList: boolean;
+    tags: { id: string; name: string }[];
     proposals: CategoryProposal[];
     departments: { id: string; name: string }[];
     people: { id: string; name: string; email: string }[];
@@ -132,7 +140,11 @@ const normalizeCategory = (raw: CategoryRow): Category => {
     return { id: raw.id, name: raw.name, isActive: raw.isActive, tatHours: raw.tatHours ?? null, priority: raw.priority ?? null, tags: raw.tags ?? [], departmentId, assigneeIds, subcategories: raw.subcategories ?? [] };
 };
 
+export type CategoryFileFormat = "xlsx" | "csv";
+
 export const categoryApi = {
+    downloadFile: (format: CategoryFileFormat) =>
+        downloadReport("/categories/export", new URLSearchParams({ format }), `categories.${format}`),
     historyPreview: (file: File, nameColumn?: string) => {
         const formData = new FormData();
         formData.append("file", file);

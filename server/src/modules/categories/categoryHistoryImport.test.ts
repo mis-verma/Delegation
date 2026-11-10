@@ -99,3 +99,43 @@ describe("buildCategoryProposals", () => {
         expect(proposals[0]!.name).toBe("Printer not working / setup")
     })
 })
+
+describe("category file with sub category, labels and priority", () => {
+    const tags = [{ id: "t1", name: "Hardware" }]
+    const existing = new Map([["printer not working", { id: "c1", subcategoryKeys: new Set(["toner"]) }]])
+    const file = [
+        { Category: "Printer not working", "Sub Category": "Toner", Department: "IT Department", "Assigned To": "nitin@x.in", Labels: "Hardware, Urgent", Priority: "high", "Due Hours": "24" },
+        { Category: "Printer not working", "Sub Category": "Paper jam", Department: "IT Department", "Assigned To": "", Labels: "", Priority: "", "Due Hours": "" },
+        { Category: "Bank change", "Sub Category": "", Department: "Accounts Department", "Assigned To": "ghost@x.in", Labels: "", Priority: "urgent", "Due Hours": "48" },
+    ]
+    const proposals = buildCategoryProposals(file, "Category", { people, departments, existingNames: new Set(["printer not working"]), existing, tags })
+    const printer = proposals.find((p) => p.name === "Printer not working")!
+    const bank = proposals.find((p) => p.name === "Bank change")!
+
+    it("collects each sub category once and marks the ones already saved", () => {
+        expect(printer.subcategories).toEqual([{ name: "Toner", exists: true }, { name: "Paper jam", exists: false }])
+        expect(printer.existingCategoryId).toBe("c1")
+        expect(bank.subcategories).toEqual([])
+    })
+    it("matches labels to saved ones and keeps unknown names", () => {
+        expect(printer.labels).toEqual([{ name: "Hardware", tagId: "t1" }, { name: "Urgent", tagId: null }])
+    })
+    it("reads priority and warns about a value it cannot use", () => {
+        expect(printer.priority).toBe("HIGH")
+        expect(bank.priority).toBeNull()
+        expect(bank.warnings.some((w) => w.includes("urgent"))).toBe(true)
+    })
+    it("warns when the person is not found", () => {
+        expect(bank.assigneeId).toBeNull()
+        expect(bank.warnings.some((w) => w.includes("ghost@x.in"))).toBe(true)
+    })
+    it("trusts an exact department column over the person's own department", () => {
+        const odd = buildCategoryProposals(
+            [{ Category: "Billing", Department: "Accounts Department", "Assigned To": "nitin@x.in", "Due Hours": "" }],
+            "Category",
+            { people, departments, existingNames: new Set() },
+        )[0]!
+        expect(odd.departmentId).toBe("d-acc")
+        expect(odd.assigneeId).toBe("u1")
+    })
+})

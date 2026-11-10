@@ -1,6 +1,6 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload } from "@/api/categories";
+import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload, type CategoryFileFormat } from "@/api/categories";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
@@ -102,6 +102,13 @@ export const useCreateCategoryMutation = () => {
         onError : (err) => toast.error(errorMessage(err, "Failed to create category")),
     })
 }
+
+export const useDownloadCategoriesMutation = () =>
+    useMutation({
+        mutationFn : (format : CategoryFileFormat) => categoryApi.downloadFile(format),
+        onSuccess : () => toast.success("Categories downloaded"),
+        onError : (err) => toast.error(errorMessage(err, "Couldn't download the categories")),
+    })
 
 export type CategoryJob = CreateCategoryPayload & {
     existingCategoryId?: string;

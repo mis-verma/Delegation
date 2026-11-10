@@ -8,6 +8,7 @@ export const categoryRouter = Router()
 categoryRouter.use(authenticate)
 
 categoryRouter.get("/", categoryController.list)
+categoryRouter.get("/export", requireRole("ADMIN", "PC"), categoryController.export)
 categoryRouter.get("/tat-report", requireRole("ADMIN", "PC"), categoryController.tatReport)
 categoryRouter.post("/history-import/preview", requireRole("ADMIN", "PC"), checklistBulkImportUpload, categoryController.historyPreview)
 categoryRouter.get("/:id", categoryController.getOne)
