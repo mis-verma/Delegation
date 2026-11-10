@@ -84,7 +84,7 @@ export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
         <ul className="flex flex-wrap gap-2">
           {row.accessories.map(a => (
             <li key={a.name}>
-              <AccessoryTile name={a.name} checked={a.checked} missing={!a.checked} interactive={false} onToggle={noop} />
+              <AccessoryTile name={a.name} checked={a.checked} missing={!a.checked} interactive={false} onToggle={noop} critical={!!a.isCritical} />
             </li>
           ))}
         </ul>

@@ -67,6 +67,7 @@ export const sum = <T,>(rows: readonly T[], pick: (r: T) => number) => rows.redu
 export const EMPTY_METRICS: ReportMetrics = {
     assigned: 0, completed: 0, completionPct: null, onTime: 0, onTimePct: null, onTimeOfFinishedPct: null, metDeadlinePct: null, due: 0, open: 0, missed: 0,
     submitted: 0, approved: 0, sentBack: 0, questionsDone: 0, notApplicable: 0, answersChecked: 0, compliancePct: null, weightedGood: 0, weightedScored: 0,
+    itemsDue: 0, itemsDone: 0,
 }
 
 export const foldChecklist = (m: ReportMetrics | null | undefined): ChecklistScore => {

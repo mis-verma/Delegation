@@ -36,6 +36,9 @@ export type ChecklistDefinitionItem = {
   accessoriesFemale: string[];
   accessoriesMale: string[];
   accessoriesByType: Record<string, string[]> | null;
+  criticalAccessories: string[];
+  accessoryPoints?: Record<string, number> | null;
+  auditPhotoOnlyOnMiss?: boolean;
   numberEntryUnit: string | null;
   numberEntryMin: number | null;
   numberEntryMax: number | null;
@@ -102,6 +105,9 @@ export type CreateChecklistDefinitionItemPayload = {
   accessoriesFemale?: string[];
   accessoriesMale?: string[];
   accessoriesByType?: Record<string, string[]>;
+  criticalAccessories?: string[];
+  accessoryPoints?: Record<string, number>;
+  auditPhotoOnlyOnMiss?: boolean;
   numberEntryUnit?: string;
   numberEntryMin?: number;
   numberEntryMax?: number;
@@ -172,6 +178,7 @@ const definitionItemDefaults = withArrayDefaults({
   accessoriesFemale: arrayField(n.string()),
   accessoriesMale: arrayField(n.string()),
   accessoriesByType: n.record(n.array(n.string())).nullable().catch(null),
+  criticalAccessories: arrayField(n.string()),
   options: arrayField(n.string()),
   signatureLabels: arrayField(n.string()),
   yesActions: arrayField(n.string()),

@@ -8,12 +8,15 @@ import { getInitials } from '../../../lib/getInitials';
 import type { AuditPerson, AuditStatus } from './ChecklistAuditHelpers';
 import { auditPasses, auditPct } from '../auditScore';
 
-export const AuditPersonScore = ({ score }: { score: number | null }) => {
+export const AuditPersonScore = ({ score, missedCritical = false }: { score: number | null; missedCritical?: boolean }) => {
   if (score === null) return null;
-  const pass = auditPasses(score);
+  const pass = auditPasses(score, missedCritical);
   return (
-    <span className={cn('t-meta font-display font-bold tabular-nums', pass ? 'text-success' : 'text-danger')} aria-label={`Score ${auditPct(score)}%, ${pass ? 'pass' : 'fail'}`}>
-      {auditPct(score)}%
+    <span
+      className={cn('t-meta font-display font-bold tabular-nums', pass ? 'text-success' : 'text-danger')}
+      aria-label={missedCritical ? `Score ${auditPct(score)}%, critical item missed` : `Score ${auditPct(score)}%, ${pass ? 'pass' : 'fail'}`}
+    >
+      {auditPct(score)}%{missedCritical ? ', critical missed' : ''}
     </span>
   );
 };
@@ -97,7 +100,7 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
     </span>
     <span className="flex shrink-0 flex-col items-end gap-1">
       <AuditStatusChip status={person.status} />
-      <AuditPersonScore score={person.score} />
+      <AuditPersonScore score={person.score} missedCritical={person.missedCritical} />
     </span>
   </button>
 );
@@ -189,7 +192,7 @@ export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: A
           </span>
           <span className="t-meta text-text-muted tabular-nums">Person {index + 1} of {people.length}. Tap to switch.</span>
         </span>
-        <AuditPersonScore score={current.score} />
+        <AuditPersonScore score={current.score} missedCritical={current.missedCritical} />
         <ChevronsUpDown size={18} className="shrink-0 text-text-muted" aria-hidden />
       </button>
       <button

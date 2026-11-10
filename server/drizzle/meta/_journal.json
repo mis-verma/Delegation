@@ -687,6 +687,20 @@
       "when": 1792980000000,
       "tag": "0097_employee_id",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "5",
+      "when": 1792990000000,
+      "tag": "0098_audit_critical_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "5",
+      "when": 1793000000000,
+      "tag": "0099_audit_points_photo_rule",
+      "breakpoints": true
     }
   ]
 }

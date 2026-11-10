@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react';
-import { Check, Loader2, Shirt, X, type LucideIcon } from 'lucide-react';
+import { Check, Loader2, ShieldAlert, Shirt, X, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { LivePhotoTrigger } from './LivePhotoTrigger';
@@ -69,15 +69,30 @@ export const AuditSectionHeader = ({ label, meta, action }: { label: string; met
   </div>
 );
 
+export const CriticalMark = ({ compact = false }: { compact?: boolean }) => (
+  <span
+    className={cn(
+      'inline-flex shrink-0 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 t-meta font-display font-semibold text-danger',
+      compact ? 'px-1.5' : 'px-2 py-0.5',
+    )}
+    title="Critical item: missing it fails this person"
+  >
+    <ShieldAlert size={12} strokeWidth={2.5} aria-hidden />
+    Critical
+  </span>
+);
+
 interface AuditTickRowProps {
   name:        string;
   checked:     boolean;
   missing:     boolean;
   interactive: boolean;
   onToggle:    () => void;
+  critical?:   boolean;
+  points?:     number | null;
 }
 
-export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: AuditTickRowProps) => {
+export const AuditTickRow = ({ name, checked, missing, interactive, onToggle, critical = false, points = null }: AuditTickRowProps) => {
   const className = cn(
     'flex w-full items-center gap-3 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 py-2 rounded-lg border text-left select-none',
     'transition-[background-color,border-color,color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
@@ -107,14 +122,24 @@ export const AuditTickRow = ({ name, checked, missing, interactive, onToggle }: 
       )}
     </span>
   );
-  const label = <span className="flex-1 min-w-0 t-card font-medium leading-snug break-words">{name}</span>;
+  const label = (
+    <>
+      <span className="flex-1 min-w-0 t-card font-medium leading-snug break-words">{name}</span>
+      {points != null && (
+        <span className="shrink-0 rounded-full border border-border/70 px-1.5 t-meta font-display font-semibold tabular-nums text-text-secondary">
+          {points} {points === 1 ? 'pt' : 'pts'}
+        </span>
+      )}
+      {critical && <CriticalMark />}
+    </>
+  );
 
   if (!interactive) {
     return (
       <div className={className}>
         {circle}
         {label}
-        <span className="sr-only">{checked ? ', has it' : missing ? ', missing' : ', not checked yet'}</span>
+        <span className="sr-only">{checked ? ', has it' : missing ? ', missing' : ', not checked yet'}{critical ? ', critical item' : ''}</span>
       </div>
     );
   }

@@ -28,6 +28,8 @@ export const cloneItemDraft = (draft: ItemDraft, patch: Partial<ItemDraft> = {})
   accessoriesFemale: [...draft.accessoriesFemale],
   accessoriesMale: [...draft.accessoriesMale],
   accessoriesByType: Object.fromEntries(Object.entries(draft.accessoriesByType).map(([id, list]) => [id, [...list]])),
+  criticalAccessories: [...draft.criticalAccessories],
+  accessoryPoints: { ...draft.accessoryPoints },
   options: [...draft.options],
   acceptableAnswers: [...draft.acceptableAnswers],
   yesActions: [...draft.yesActions],

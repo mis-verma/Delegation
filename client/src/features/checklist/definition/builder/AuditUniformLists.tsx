@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Copy, Shirt, X } from 'lucide-react';
-import { AccessoriesListEditor, Button, Combobox, Dropdown, IconChip, InlineError, useConfirm } from '../../../../components';
+import { Camera, Check, Copy, Shirt, X } from 'lucide-react';
+import { AccessoriesListEditor, Button, Combobox, Dropdown, IconChip, InlineError, ToggleChip, useConfirm } from '../../../../components';
 import { useDressTypesQuery } from '../../../admin/dressTypes/hook';
 import { DressTypeFormDialog } from '../../../admin/dressTypes/DressTypeFormDialog';
 import type { DressType } from '../../../../api/dressTypes';
@@ -72,6 +72,18 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
     onChange({ accessoriesByType: next });
   };
 
+  const toggleCritical = (name: string) => {
+    const set = draft.criticalAccessories;
+    onChange({ criticalAccessories: set.includes(name) ? set.filter((n) => n !== name) : [...set, name] });
+  };
+  const setPoints = (name: string, value: number) => {
+    const next = { ...draft.accessoryPoints };
+    if (value === 1) delete next[name];
+    else next[name] = value;
+    onChange({ accessoryPoints: next });
+  };
+  const criticalProps = { critical: draft.criticalAccessories, onToggleCritical: toggleCritical, points: draft.accessoryPoints, onPointsChange: setPoints };
+
   const sources: CopySource[] = [
     { id: MAIN, label: 'Everyone (main list)', items: draft.accessories },
     { id: FEMALE, label: 'Women (default)', items: draft.accessoriesFemale },
@@ -90,7 +102,29 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
         accessories={draft.accessories}
         onChange={(accessories) => onChange({ accessories })}
         labelAction={copyMenu(MAIN, (accessories) => onChange({ accessories }))}
+        {...criticalProps}
       />
+
+      <p className="t-meta font-display text-text-muted leading-relaxed">
+        Tap the shield on an item to make it critical. A person missing a critical item scores 0% and the audit fails,
+        whatever the rest of the score. The mark applies to that item name in every list.
+      </p>
+      <p className="t-meta font-display text-text-muted leading-relaxed">
+        Each item is worth 1 point unless you change it. A person&rsquo;s score is points kept &divide; total points,
+        so a missing 5-point item costs more than a missing 1-point item.
+      </p>
+
+      <div className="flex flex-col gap-1.5 p-3 rounded-lg border border-border bg-surface">
+        <ToggleChip on={draft.auditPhotoOnlyOnMiss} onClick={() => onChange({ auditPhotoOnlyOnMiss: !draft.auditPhotoOnlyOnMiss })}>
+          {draft.auditPhotoOnlyOnMiss ? <Check size={13} strokeWidth={2.75} /> : <Camera size={13} />}
+          Photo only when something is missing
+        </ToggleChip>
+        <p className="t-meta font-display text-text-muted leading-relaxed">
+          {draft.auditPhotoOnlyOnMiss
+            ? 'People with every item ticked can submit without a photo. People missing anything still need the photo. This gives you less proof that the check really happened.'
+            : 'Off: every person needs a photo before they can be submitted.'}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface-hover/30">
         <p className="t-meta font-display text-text-muted leading-relaxed">
@@ -104,6 +138,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
           accessories={draft.accessoriesFemale}
           onChange={(accessoriesFemale) => onChange({ accessoriesFemale })}
           labelAction={copyMenu(FEMALE, (accessoriesFemale) => onChange({ accessoriesFemale }))}
+          {...criticalProps}
         />
         <AccessoriesListEditor
           label="Men (default)"
@@ -111,6 +146,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
           accessories={draft.accessoriesMale}
           onChange={(accessoriesMale) => onChange({ accessoriesMale })}
           labelAction={copyMenu(MALE, (accessoriesMale) => onChange({ accessoriesMale }))}
+          {...criticalProps}
         />
 
         <div className="flex flex-col gap-2.5 pt-3 border-t border-border/60">
@@ -144,6 +180,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
                   accessories={byType[id]}
                   onChange={(items) => setTypeList(id, items)}
                   labelAction={copyMenu(id, (items) => setTypeList(id, items))}
+                  {...criticalProps}
                 />
               </div>
             );

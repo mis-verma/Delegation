@@ -138,7 +138,17 @@ const ratingProblem = (d: ItemDraft): string | null => {
   return null;
 };
 
-export const QUESTION_MODELS: Record<ChecklistItemType, QuestionTypeModel> = {
+export const listedCritical = (d: Pick<ItemDraft, 'accessories' | 'accessoriesFemale' | 'accessoriesMale' | 'accessoriesByType' | 'criticalAccessories'>): string[] => {
+  const listed = new Set([...d.accessories, ...d.accessoriesFemale, ...d.accessoriesMale, ...Object.values(d.accessoriesByType).flat()]);
+  return d.criticalAccessories.filter((name) => listed.has(name));
+};
+
+export const listedPoints = (d: Pick<ItemDraft, 'accessories' | 'accessoriesFemale' | 'accessoriesMale' | 'accessoriesByType' | 'accessoryPoints'>): Record<string, number> => {
+  const listed = new Set([...d.accessories, ...d.accessoriesFemale, ...d.accessoriesMale, ...Object.values(d.accessoriesByType).flat()]);
+  return Object.fromEntries(Object.entries(d.accessoryPoints).filter(([name, points]) => listed.has(name) && points !== 1));
+};
+
+const QUESTION_MODELS: Record<ChecklistItemType, QuestionTypeModel> = {
   STANDARD: { scoring: null, booleanRules: false, photo: { minRequired: 0, noun: 'photo' }, answerText: () => null, problem: photoProblem('photo', 0) },
   VIDEO_UPLOAD: { scoring: null, booleanRules: false, photo: { minRequired: 1, noun: 'video' }, answerText: () => null, problem: photoProblem('video', 1) },
   YES_NO: booleanModel('Answered Yes', 'Answered No'),
@@ -210,6 +220,9 @@ export const QUESTION_MODELS: Record<ChecklistItemType, QuestionTypeModel> = {
       accessoriesFemale: d.accessoriesFemale,
       accessoriesMale: d.accessoriesMale,
       accessoriesByType: storedTypeLists(d.accessoriesByType),
+      criticalAccessories: listedCritical(d),
+      accessoryPoints: listedPoints(d),
+      auditPhotoOnlyOnMiss: d.auditPhotoOnlyOnMiss,
     }),
   },
 };

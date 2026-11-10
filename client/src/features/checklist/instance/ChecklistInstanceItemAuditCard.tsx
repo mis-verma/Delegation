@@ -20,10 +20,10 @@ import { EvidenceThumb } from './EvidenceThumb';
 import { UploadingHint } from './CaptureButton';
 import { AuditAvatar, AuditPeopleList, AuditPersonPicker, AuditStatusChip } from './ChecklistAuditPeople';
 import { auditStatus, dressTypeChoices, uniformLabel, type AuditPerson } from './ChecklistAuditHelpers';
-import { AuditCaptureButton, AuditDressTypePicker, AuditSectionHeader, AuditTickRow, AuditUniformChip } from './ChecklistAuditTicks';
+import { AuditCaptureButton, AuditDressTypePicker, AuditSectionHeader, AuditTickRow, AuditUniformChip, CriticalMark } from './ChecklistAuditTicks';
 import { useCanReopen } from './useCanReopen';
 import { formatDateTime } from '../checklistDisplay';
-import { AUDIT_PASS_PCT, auditItemScore, auditPasses, auditPct, personAuditScore } from '../auditScore';
+import { AUDIT_PASS_PCT, accessoryPoints, auditItemScore, auditMissedCritical, auditPasses, auditPct, hasCustomPoints, missedCriticalItems, personAuditScore } from '../auditScore';
 import { NoticeBanner } from '../../../components/noticeBanner';
 import type {
   ChecklistInstanceItem,
@@ -90,11 +90,16 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
     status: auditStatus(s),
     dressType: uniformLabel(s),
     score: personAuditScore(s),
+    missedCritical: missedCriticalItems(s).length > 0,
   }));
   const itemScore = auditItemScore(submissions);
+  const showPoints = hasCustomPoints(submissions);
+  const itemMissedCritical = auditMissedCritical(submissions);
   const belowPass = submissions
-    .map((s) => ({ s, score: personAuditScore(s) }))
-    .filter((p): p is { s: ChecklistInstanceItemSubmission; score: number } => p.score !== null && !auditPasses(p.score));
+    .map((s) => ({ s, score: personAuditScore(s), critical: missedCriticalItems(s) }))
+    .filter((p): p is { s: ChecklistInstanceItemSubmission; score: number; critical: string[] } => p.score !== null && !auditPasses(p.score, p.critical.length > 0))
+    .sort((a, b) => b.critical.length - a.critical.length);
+  const criticalCount = belowPass.filter((p) => p.critical.length > 0).length;
 
   return (
     <ItemCardShell isLocked={isLocked} className="gap-4">
@@ -104,7 +109,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
         subtitle={submissions.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <AuditProgress done={submittedCount} total={submissions.length} />
-            {itemScore !== null && <AuditScoreBadge score={itemScore} />}
+            {itemScore !== null && <AuditScoreBadge score={itemScore} missedCritical={itemMissedCritical} />}
           </div>
         )}
       />
@@ -112,11 +117,13 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
       {belowPass.length > 0 && (
         <NoticeBanner tone="danger" icon={TriangleAlert}>
           <p className="font-semibold">
-            {belowPass.length === 1 ? '1 person is' : `${belowPass.length} people are`} below the {AUDIT_PASS_PCT}% pass line
+            {criticalCount > 0
+              ? `${criticalCount === 1 ? '1 person' : `${criticalCount} people`} missed a critical item${belowPass.length > criticalCount ? `, ${belowPass.length - criticalCount} more below the ${AUDIT_PASS_PCT}% pass line` : ''}`
+              : `${belowPass.length === 1 ? '1 person is' : `${belowPass.length} people are`} below the ${AUDIT_PASS_PCT}% pass line`}
           </p>
           <ul className="flex flex-col gap-1 pt-1">
-            {belowPass.map(({ s, score }) => {
-              const missing = s.accessories.filter((a) => !a.checked).map((a) => a.name);
+            {belowPass.map(({ s, score, critical }) => {
+              const missing = s.accessories.filter((a) => !a.checked && !a.isCritical).map((a) => (showPoints ? `${a.name} (${accessoryPoints(a)} ${accessoryPoints(a) === 1 ? 'pt' : 'pts'})` : a.name));
               return (
                 <li key={s.id}>
                   <button
@@ -125,7 +132,8 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
                     className="min-h-11 sm:min-h-8 pointer-coarse:min-h-11 text-left underline-offset-2 hover:underline cursor-pointer outline-none rounded-sm focus-visible:ring-2 focus-visible:ring-danger/40"
                   >
                     <span className="font-semibold">{personName(s)}, {auditPct(score)}%</span>
-                    {missing.length > 0 && <span>. Missing: {missing.join(', ')}</span>}
+                    {critical.length > 0 && <span>. Critical missed: {critical.join(', ')}</span>}
+                    {missing.length > 0 && <span>. {critical.length > 0 ? 'Also missing' : 'Missing'}: {missing.join(', ')}</span>}
                   </button>
                 </li>
               );
@@ -173,11 +181,14 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
   );
 });
 
-const AuditScoreBadge = ({ score }: { score: number }) => {
-  const pass = auditPasses(score);
+const AuditScoreBadge = ({ score, missedCritical }: { score: number; missedCritical: boolean }) => {
+  const pass = auditPasses(score, missedCritical);
   return (
-    <Badge variant={pass ? 'success' : 'destructive'} title={`Average of each checked person's ticked items. Pass is ${AUDIT_PASS_PCT}% or more.`}>
-      <span className="tabular-nums">{auditPct(score)}%</span>, {pass ? 'Pass' : 'Fail'}
+    <Badge
+      variant={pass ? 'success' : 'destructive'}
+      title={`Average of each checked person's ticked items. Pass is ${AUDIT_PASS_PCT}% or more, and nobody may miss a critical item.`}
+    >
+      <span className="tabular-nums">{auditPct(score)}%</span>, {pass ? 'Pass' : missedCritical ? 'Fail, critical item missed' : 'Fail'}
     </Badge>
   );
 };
@@ -189,8 +200,8 @@ const AuditProgress = ({ done, total }: { done: number; total: number }) => (
   </div>
 );
 
-export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
-  name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;
+export const AccessoryTile = ({ name, checked, missing, interactive, onToggle, critical = false }: {
+  name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void; critical?: boolean;
 }) => {
   const className = cn(
     'inline-flex items-center gap-2 h-11 sm:h-9 pointer-coarse:h-11 pl-2.5 pr-3.5 rounded-lg border t-meta font-medium select-none',
@@ -228,7 +239,8 @@ export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }:
       <span className={className}>
         {box}
         {name}
-        <span className="sr-only">{checked ? ', has it' : missing ? ', missing' : ', not checked yet'}</span>
+        {critical && <CriticalMark compact />}
+        <span className="sr-only">{checked ? ', has it' : missing ? ', missing' : ', not checked yet'}{critical ? ', critical item' : ''}</span>
       </span>
     );
   }
@@ -236,6 +248,7 @@ export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }:
     <button type="button" aria-pressed={checked} onClick={onToggle} className={className}>
       {box}
       {name}
+      {critical && <CriticalMark compact />}
     </button>
   );
 };
@@ -278,10 +291,12 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const showTypePicker = editable && !submission.isNotApplicable && typeChoices.length > 0;
   const typeShownInPicker = showTypePicker && (typeId === null || typeChoices.some(o => o.id === typeId));
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
-  const requiredPhotos = Math.max(1, item.requiredImageCount);
-  const photosNeeded = Math.max(requiredPhotos - qualifying, 0);
   const checkedCount = accessoriesDraft.filter(a => a.checked).length;
   const allChecked = checkedCount === accessoriesDraft.length;
+  const photoWaived = !!item.auditPhotoOnlyOnMiss && allChecked;
+  const requiredPhotos = photoWaived ? 0 : Math.max(1, item.requiredImageCount);
+  const photosNeeded = Math.max(requiredPhotos - qualifying, 0);
+  const showItemPoints = accessoriesDraft.some(a => accessoryPoints(a) !== 1);
 
   const saveAccessories = (next: ChecklistInstanceItemSubmissionAccessory[]) => {
     setAccessoriesDraft(next);
@@ -339,14 +354,15 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const error = uploadImages.error ?? setDone.error ?? updateRemarks.error;
   const errorText = error ? (error instanceof Error ? error.message : "Couldn't save that. Try again.") : null;
 
-  const showPhotos = editable || images.length > 0;
+  const showPhotos = editable || images.length > 0 || photoWaived;
   const liveWord = item.requiresLivePhoto ? 'live ' : '';
   const unticked = accessoriesDraft.length - checkedCount;
 
+  const photoReason = item.auditPhotoOnlyOnMiss ? 'Something is missing, so ' : '';
   const helper = photosNeeded > 0
     ? (qualifying === 0 && photosNeeded === 1
-      ? `Add a ${liveWord}photo to submit.`
-      : `Add ${photosNeeded} more ${liveWord}photo${photosNeeded === 1 ? '' : 's'} to submit.`)
+      ? `${photoReason}${photoReason ? 'add' : 'Add'} a ${liveWord}photo to submit.`
+      : `${photoReason}${photoReason ? 'add' : 'Add'} ${photosNeeded} more ${liveWord}photo${photosNeeded === 1 ? '' : 's'} to submit.`)
     : accessoriesDraft.length > 0 && checkedCount === 0
       ? 'Nothing ticked yet. Tick the items, or mark them not applicable.'
       : unticked > 0
@@ -426,6 +442,8 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
                   missing={submission.isDone && !a.checked}
                   interactive={editable}
                   onToggle={() => toggleAccessory(a.name)}
+                  critical={!!a.isCritical}
+                  points={showItemPoints ? accessoryPoints(a) : null}
                 />
               </li>
             ))}
@@ -440,7 +458,9 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             meta={(
               <>
                 {photosNeeded === 0 && <Check size={12} strokeWidth={3} className="text-success" aria-hidden />}
-                Required: {qualifying} of {requiredPhotos}{item.requiresLivePhoto ? ', live only' : ''}
+                {photoWaived
+                  ? 'No photo needed: everything present'
+                  : `Required: ${qualifying} of ${requiredPhotos}${item.requiresLivePhoto ? ', live only' : ''}`}
               </>
             )}
           />

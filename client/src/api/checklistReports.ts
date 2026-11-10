@@ -65,6 +65,60 @@ export interface ChecklistReport {
   notes: string[];
 }
 
+export type PeriodRowKind = 'person' | 'checklist';
+export type PeriodBucketKind = 'week' | 'month';
+
+export interface ChecklistPeriodParams {
+  by: PeriodRowKind;
+  bucket: PeriodBucketKind;
+  from?: string;
+  to?: string;
+  storeId?: string;
+  departmentId?: string;
+}
+
+export interface PeriodCell {
+  itemsDue: number;
+  itemsDone: number;
+  completionPct: number | null;
+  compliancePct: number | null;
+  answersChecked: number;
+  runsDue: number;
+  runsDone: number;
+  runsMissed: number;
+  runsOpen: number;
+  weightedGood: number;
+  weightedScored: number;
+}
+
+export interface PeriodBucket {
+  key: string;
+  label: string;
+  from: string;
+  to: string;
+}
+
+export interface PeriodRow {
+  id: string;
+  name: string;
+  detail: string;
+  left: boolean;
+  cells: Record<string, PeriodCell>;
+  total: PeriodCell;
+}
+
+export interface ChecklistPeriodReport {
+  by: PeriodRowKind;
+  bucket: PeriodBucketKind;
+  from: string;
+  to: string;
+  buckets: PeriodBucket[];
+  rows: PeriodRow[];
+  totals: { cells: Record<string, PeriodCell>; total: PeriodCell };
+  departmentLocked: boolean;
+  notes: string[];
+}
+
 const buildQuery = (params: Record<string, string | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -95,6 +149,9 @@ const parseFilename =(contentDisposition: string | null, fallback: string) =>
   contentDisposition?.match(/filename="([^"]+)"/)?.[1] ?? fallback;
 
 export const checklistReportApi = {
+  periods: (params: ChecklistPeriodParams) =>
+    apiFetch<{ success: boolean; data: ChecklistPeriodReport }>(`/checklist-reports/periods?${buildQuery({ ...params })}`).then((r) => r.data),
+
   preview: (params: ChecklistReportParams) =>
     apiFetch<{ success: boolean; data: ChecklistReport }>(`/checklist-reports/people?${toQuery(params)}`).then((r) => r.data),
 

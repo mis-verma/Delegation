@@ -10,13 +10,12 @@ import {
     users,
 } from "../../db/schema/index.js"
 import { and, eq, sql } from "drizzle-orm"
-import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { auditService } from "../audit/audit.service.js"
-import { accessoriesForPerson, loadAuditListSource, typeHasList } from "../../jobs/checklistInstanceGenerator.job.js"
+import { accessoriesForPerson, loadAuditListSource, typeHasList, accessoryRowFor } from "../../jobs/checklistInstanceGenerator.job.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
 import { isAdminOrPc } from "../../utils/roles.js"
@@ -51,6 +50,16 @@ const assertPhotosSatisfied = async (submission: { id: string }, item: { require
         const kind = item.requiresLivePhoto ? "live photo(s)" : "photo(s)"
         throw AppError.badRequest(`Upload ${missing} more ${kind} before this submission can be marked done`)
     }
+}
+
+export const everythingPresent = (accessories: readonly { checked: boolean }[]): boolean => accessories.every((a) => a.checked)
+
+const photoWaivedForSubmission = async (submission: { id: string }, item: { auditPhotoOnlyOnMiss: boolean }): Promise<boolean> => {
+    if (!item.auditPhotoOnlyOnMiss) return false
+    const rows = await db.select({ checked: checklistInstanceItemSubmissionAccessories.checked })
+        .from(checklistInstanceItemSubmissionAccessories)
+        .where(eq(checklistInstanceItemSubmissionAccessories.submissionId, submission.id))
+    return everythingPresent(rows)
 }
 
 const loadSubmissionAndItem = async (submissionId: string) => {
@@ -124,7 +133,7 @@ export const checklistInstanceItemSubmissionService = {
             await tx.update(checklistInstanceItemSubmissions).set({ dressTypeId: type?.id ?? null, updatedAt: new Date() }).where(eq(checklistInstanceItemSubmissions.id, id))
             await tx.delete(checklistInstanceItemSubmissionAccessories).where(eq(checklistInstanceItemSubmissionAccessories.submissionId, id))
             if (names.length) {
-                await tx.insert(checklistInstanceItemSubmissionAccessories).values(names.map((name) => ({ id: createId(), submissionId: id, name, checked: false })))
+                await tx.insert(checklistInstanceItemSubmissionAccessories).values(names.map((name) => accessoryRowFor(source, id, name)))
             }
             await auditService.recordInTx(tx, {
                 entityType: "ChecklistInstanceItem",
@@ -143,7 +152,7 @@ export const checklistInstanceItemSubmissionService = {
             ...submission,
             dressTypeId: type?.id ?? null,
             dressType: type,
-            accessories: rows.map((a) => ({ id: a.id, name: a.name, checked: a.checked })),
+            accessories: rows.map((a) => ({ id: a.id, name: a.name, checked: a.checked, isCritical: a.isCritical, points: a.points })),
         }
     },
 
@@ -192,8 +201,9 @@ export const checklistInstanceItemSubmissionService = {
            
             if (instance) assertInstanceOpen(instance)
 
-           
-            if (!markingNotApplicable) await assertPhotosSatisfied(submission, { ...item, requiredImageCount: Math.max(1, item.requiredImageCount) })
+            if (!markingNotApplicable && !(await photoWaivedForSubmission(submission, item))) {
+                await assertPhotosSatisfied(submission, { ...item, requiredImageCount: Math.max(1, item.requiredImageCount) })
+            }
         }
 
         const completion = deriveSubmissionCompletion(isDone)

@@ -9,3 +9,4 @@ checklistReportRouter.use(requireRole("ADMIN", "PC", "MANAGER", "SENIOR"))
 
 checklistReportRouter.get("/people", checklistReportController.preview)
 checklistReportRouter.get("/export", checklistReportController.export)
+checklistReportRouter.get("/periods", checklistReportController.periods)

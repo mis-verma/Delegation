@@ -13,6 +13,7 @@ export interface AuditPerson {
   status: AuditStatus;
   dressType: string | null;
   score: number | null;
+  missedCritical: boolean;
 }
 
 export const auditStatus = (s: ChecklistInstanceItemSubmission): AuditStatus => {

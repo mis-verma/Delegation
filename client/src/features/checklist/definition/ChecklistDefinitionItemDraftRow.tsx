@@ -25,6 +25,9 @@ export type ItemDraft = {
   accessoriesFemale: string[];
   accessoriesMale: string[];
   accessoriesByType: Record<string, string[]>;
+  criticalAccessories: string[];
+  accessoryPoints: Record<string, number>;
+  auditPhotoOnlyOnMiss: boolean;
   numberEntryUnit: string;
   numberEntryMin: string;
   numberEntryMax: string;
@@ -58,6 +61,9 @@ export const emptyItemDraft = (): ItemDraft => ({
   accessoriesFemale: [],
   accessoriesMale: [],
   accessoriesByType: {},
+  criticalAccessories: [],
+  accessoryPoints: {},
+  auditPhotoOnlyOnMiss: false,
   numberEntryUnit: '',
   numberEntryMin: '',
   numberEntryMax: '',

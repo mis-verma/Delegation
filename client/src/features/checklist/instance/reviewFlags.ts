@@ -38,7 +38,7 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
   const sentBack = item.sendBackCount > 0 && !waived;
   const bad = verdict === 'bad' && !sentBack;
   const photos = photoBreakdown(item);
-  const missingPhotos = !item.isNotApplicable && item.requiredImageCount > 0 && photos.qualifying < item.requiredImageCount;
+  const missingPhotos = item.itemType !== 'AUDIT' && !item.isNotApplicable && item.requiredImageCount > 0 && photos.qualifying < item.requiredImageCount;
   const notLive = missingPhotos && item.requiresLivePhoto && photos.gallery > 0;
   const reusedPhoto = !item.isNotApplicable && (item.images ?? []).some((img) => img.reusedFromEarlier === true);
   const oldPhoto = !item.isNotApplicable && !reusedPhoto && (item.images ?? []).some((img) => img.takenBeforeRun === true);

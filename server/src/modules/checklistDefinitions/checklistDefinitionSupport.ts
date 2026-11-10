@@ -225,6 +225,8 @@ export const toItemInput = (item: StoredDefinitionItem): UpdateChecklistDefiniti
         accessoriesFemale: item.accessoriesFemale ?? undefined,
         accessoriesMale: item.accessoriesMale ?? undefined,
         accessoriesByType: item.accessoriesByType ?? undefined,
+        criticalAccessories: item.criticalAccessories ?? undefined,
+        accessoryPoints: item.accessoryPoints ?? undefined,
         options: item.options ?? undefined,
         signatureLabels: item.signatureLabels ?? undefined,
         yesActions: item.yesActions ?? undefined,

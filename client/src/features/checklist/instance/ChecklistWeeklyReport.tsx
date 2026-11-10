@@ -10,6 +10,7 @@ import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
 import { FillMatrix } from './FillMatrix';
+import { ChecklistPeriodReport } from './ChecklistPeriodReport';
 import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
 import { rankScoreboard } from './reportScoreboardRank';
 import { rateToneClass } from '../checklistDisplay';
@@ -21,9 +22,9 @@ import { SCORE_LABEL, complianceLabel } from '../../../lib/scoreLabels';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { PERIOD_LABEL, PERIODS, windowFor, type ScorePeriod } from '../../dashboard/scorePeriods';
 
-type ReportView = 'checklists' | 'departments' | 'stores';
-const VIEW_KEYS: readonly ReportView[] = ['checklists', 'departments', 'stores'];
-const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores' };
+type ReportView = 'checklists' | 'departments' | 'stores' | 'periods';
+const VIEW_KEYS: readonly ReportView[] = ['checklists', 'departments', 'stores', 'periods'];
+const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores', periods: 'Week / month' };
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 
@@ -91,7 +92,7 @@ export const ChecklistWeeklyReport = () => {
   const range = windowFor(period, offset, today);
   const appliedStoreId = view === 'stores' ? undefined : storeId || undefined;
   const appliedDepartmentId = canPickDepartment ? departmentId || undefined : undefined;
-  const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(range.from, range.to, appliedStoreId, appliedDepartmentId);
+  const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(range.from, range.to, appliedStoreId, appliedDepartmentId, view !== 'periods');
 
   const departmentScores = useDepartmentScoresQuery(range.from, range.to, storeId || undefined, view === 'departments');
   const departmentItems = useMemo<ScoreboardItem[] | undefined>(
@@ -157,7 +158,7 @@ export const ChecklistWeeklyReport = () => {
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex w-full flex-col gap-3 sm:w-auto">
+        <div className={cn('flex w-full flex-col gap-3 sm:w-auto', view === 'periods' && 'hidden')}>
           <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
           <PeriodStepper
             label={range.label}
@@ -207,7 +208,7 @@ export const ChecklistWeeklyReport = () => {
             storeName={stores.find(s => s.id === storeId)?.name}
             departmentName={canPickDepartment ? departments.find(d => d.id === departmentId)?.name : user?.role ? 'your department' : undefined}
           />}
-          {view !== 'checklists' && (
+          {(view === 'departments' || view === 'stores') && (
             <ExportMenu
               disabled={!boardItems?.length}
               aria-label={`Export the ${view} scoreboard`}
@@ -227,7 +228,16 @@ export const ChecklistWeeklyReport = () => {
         </div>
       </div>
 
-      <p className="t-meta font-display text-text-muted">
+      {view === 'periods' && (
+        <ChecklistPeriodReport
+          storeId={storeId || undefined}
+          departmentId={appliedDepartmentId}
+          storeName={storeName}
+          departmentName={departmentName}
+        />
+      )}
+
+      <p className={cn('t-meta font-display text-text-muted', view === 'periods' && 'hidden')}>
         {range.label}: {view === 'stores' ? 'every store' : storeName ?? 'all stores'}, {view === 'departments' ? (canPickDepartment ? 'every department' : 'your department') : canPickDepartment ? departmentName ?? 'all departments' : 'your department'}.
       </p>
 

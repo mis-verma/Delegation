@@ -13,10 +13,15 @@ import { streamCsv, type CsvColumn } from "../../utils/csv.js"
 import { runDeadlineMs } from "../checklistInstances/checklistRunEnd.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
-import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
+import type { ChecklistPeriodQuery, ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
+import { buildBuckets, percentOf, type PeriodBucket } from "./reportPeriods.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
 import { auditFractionSql, auditPassSql } from "../checklistInstances/auditScore.js"
+import { mapLimit } from "../../utils/mapLimit.js"
+import { personItemShare } from "./personItemShare.js"
+
+const PERIOD_CONCURRENCY = 4
 
 export type ReportMetrics = {
     assigned: number
@@ -38,6 +43,8 @@ export type ReportMetrics = {
     compliancePct: number | null
     weightedGood: number
     weightedScored: number
+    itemsDue: number
+    itemsDone: number
 }
 
 export type PersonRow = ReportMetrics & {
@@ -92,6 +99,87 @@ export const REPORT_NOTES = [
     "This report covers every kind of checklist (daily, weekly, monthly and one-time), so its totals can be higher than the daily-only Fill report. A checklist that has not opened yet, has no questions, or is a daily one left unfinished on a holiday (with no extra working day covering it) is not counted.",
 ]
 
+export type PeriodCell = {
+    itemsDue: number
+    itemsDone: number
+    completionPct: number | null
+    compliancePct: number | null
+    answersChecked: number
+    runsDue: number
+    runsDone: number
+    runsMissed: number
+    runsOpen: number
+    weightedGood: number
+    weightedScored: number
+}
+
+export type PeriodRow = {
+    id: string
+    name: string
+    detail: string
+    left: boolean
+    cells: Record<string, PeriodCell>
+    total: PeriodCell
+}
+
+export type ChecklistPeriodReport = {
+    by: "person" | "checklist"
+    bucket: "week" | "month"
+    from: string
+    to: string
+    buckets: PeriodBucket[]
+    rows: PeriodRow[]
+    totals: { cells: Record<string, PeriodCell>; total: PeriodCell }
+    departmentLocked: boolean
+    notes: string[]
+}
+
+export const PERIOD_NOTES = [
+    "Questions due counts every question in the checklists that ran in the period, so a daily checklist with 8 questions over 7 days is 56. A checklist that has not opened yet, has no questions, or is a daily one left on a holiday is not counted.",
+    "Questions done counts answered questions and questions marked not applicable. Completion % = questions done / questions due.",
+    "By person: a checklist only one person fills counts in full for them. A shared checklist is split: each person gets the questions they answered, plus an equal share of the ones still open or answered by someone not on the checklist, so the people add up to the checklist total (shown to one decimal). Compliance % uses the same rule as the Scores page and the other reports: pooled weighted good answers over checked answers, critical questions count double, sent-back questions count as failed, waived and not applicable ones are left out, and an audit adds its audit score.",
+    "Weeks run Monday to Sunday in the organisation's time zone. A checklist is placed in the week or month its period starts in.",
+]
+
+const cellOf = (m: ReportMetrics): PeriodCell => ({
+    itemsDue: m.itemsDue,
+    itemsDone: m.itemsDone,
+    completionPct: percentOf(m.itemsDone, m.itemsDue),
+    compliancePct: m.compliancePct,
+    answersChecked: m.answersChecked,
+    runsDue: m.due,
+    runsDone: m.completed,
+    runsMissed: m.missed,
+    runsOpen: m.open,
+    weightedGood: m.weightedGood,
+    weightedScored: m.weightedScored,
+})
+
+const emptyCell = (): PeriodCell => ({
+    itemsDue: 0, itemsDone: 0, completionPct: null, compliancePct: null, answersChecked: 0,
+    runsDue: 0, runsDone: 0, runsMissed: 0, runsOpen: 0, weightedGood: 0, weightedScored: 0,
+})
+
+export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
+    const t = emptyCell()
+    for (const c of cells) {
+        t.itemsDue += c.itemsDue
+        t.itemsDone += c.itemsDone
+        t.answersChecked += c.answersChecked
+        t.runsDue += c.runsDue
+        t.runsDone += c.runsDone
+        t.runsMissed += c.runsMissed
+        t.runsOpen += c.runsOpen
+        t.weightedGood += c.weightedGood
+        t.weightedScored += c.weightedScored
+    }
+    t.itemsDue = Math.round(t.itemsDue * 10) / 10
+    t.itemsDone = Math.round(t.itemsDone * 10) / 10
+    t.completionPct = percentOf(t.itemsDone, t.itemsDue)
+    t.compliancePct = pooledCompliancePct([{ weightedGood: t.weightedGood, weightedScored: t.weightedScored }])
+    return t
+}
+
 const NO_DEPARTMENT_KEY = "__none__"
 const NO_DEPARTMENT_LABEL = "No department"
 
@@ -121,7 +209,7 @@ const goodExpr = sql<number>`SUM(CASE
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${numScored}
         AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
-    WHEN ${auditScored} AND ${auditPassSql(auditFraction)} THEN 1
+    WHEN ${auditScored} AND ${auditPassSql(sql`${item.id}`, auditFraction)} THEN 1
     ELSE 0 END)`
 
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
@@ -170,7 +258,7 @@ export type RunRow = {
     departmentSpan: number
 }
 
-export type RunFlags = RunOutcome & { skip: boolean; storeId: string; definitionId: string; title: string; recurrence: string; assigneeCount: number; departmentSpan: number }
+export type RunFlags = RunOutcome & { skip: boolean; storeId: string; definitionId: string; title: string; recurrence: string; assigneeCount: number; departmentSpan: number; itemsTotal: number; itemsDone: number }
 
 export const runSelect = {
     id: checklistInstances.id,
@@ -223,6 +311,8 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
         recurrence: r.recurrence,
         assigneeCount: Number(r.assigneeCount),
         departmentSpan: Number(r.departmentSpan),
+        itemsTotal: total,
+        itemsDone: done,
         skip,
         complete,
         onTime: complete && (() => { const doneAt = r.completedFirstAt ?? r.lastDoneAt; return !doneAt || doneAt.getTime() <= deadline })(),
@@ -263,7 +353,22 @@ const addItems = (into: ItemAcc, from: ItemAcc) => {
     into.wGood += from.wGood
 }
 
-const toMetrics = (r: RunTally, i: ItemAcc): ReportMetrics => ({
+export const runItemCounts = (runs: Iterable<Pick<RunFlags, "id" | "itemsTotal" | "itemsDone">>): { itemsDue: number; itemsDone: number } => {
+    const seen = new Set<string>()
+    let itemsDue = 0
+    let itemsDone = 0
+    for (const r of runs) {
+        if (seen.has(r.id)) continue
+        seen.add(r.id)
+        itemsDue += r.itemsTotal
+        itemsDone += r.itemsDone
+    }
+    return { itemsDue, itemsDone }
+}
+
+const toMetrics = (runs: readonly RunFlags[], i: ItemAcc): ReportMetrics => ({ ...tallyMetrics(tallyRuns(runs), i), ...runItemCounts(runs) })
+
+const tallyMetrics = (r: RunTally, i: ItemAcc): Omit<ReportMetrics, "itemsDue" | "itemsDone"> => ({
     assigned: r.assigned,
     completed: r.completed,
     completionPct: runCompletionPct(r),
@@ -297,6 +402,51 @@ const resolveDepartmentScope = (user: AccessTokenPayload, requested?: string): {
 }
 
 export const checklistReportService = {
+
+    async periods(user: AccessTokenPayload, query: ChecklistPeriodQuery): Promise<ChecklistPeriodReport> {
+        const buckets = buildBuckets(query.bucket, query.from, query.to)
+        const byChecklist = query.by === "checklist"
+        const rows = new Map<string, Omit<PeriodRow, "total">>()
+        const bucketTotals: Record<string, PeriodCell> = {}
+        let departmentLocked = false
+        const reports = await mapLimit(buckets, PERIOD_CONCURRENCY, (b) => checklistReportService.build(
+            user,
+            { from: b.from, to: b.to, storeId: query.storeId, departmentId: query.departmentId, groupBy: byChecklist ? "department" : "person" },
+            undefined,
+            { byDefinition: byChecklist },
+        ))
+        for (const [index, b] of buckets.entries()) {
+            const report = reports[index]!
+            departmentLocked = report.departmentLocked
+            bucketTotals[b.key] = cellOf(report.totals)
+            const add = (id: string, name: string, detail: string, left: boolean, m: ReportMetrics) => {
+                const row = rows.get(id) ?? { id, name, detail, left, cells: {} }
+                row.name = name
+                row.detail = detail
+                row.cells[b.key] = cellOf(m)
+                rows.set(id, row)
+            }
+            if (byChecklist) {
+                for (const d of report.definitions ?? []) add(d.definitionId, d.title, d.recurrence, false, d)
+            } else {
+                for (const p of report.people) add(p.userId, p.name, [p.department, p.store].filter(Boolean).join(", "), p.status === "Left", p)
+            }
+        }
+        const out: PeriodRow[] = [...rows.values()]
+            .map((r) => ({ ...r, total: sumCells(Object.values(r.cells)) }))
+            .sort((a, b) => (a.total.completionPct ?? 101) - (b.total.completionPct ?? 101) || a.name.localeCompare(b.name))
+        return {
+            by: query.by,
+            bucket: query.bucket,
+            from: query.from,
+            to: query.to,
+            buckets,
+            rows: out,
+            totals: { cells: bucketTotals, total: sumCells(Object.values(bucketTotals)) },
+            departmentLocked,
+            notes: PERIOD_NOTES,
+        }
+    },
 
     async build(
         user: AccessTokenPayload,
@@ -396,9 +546,9 @@ export const checklistReportService = {
 
         const assignedKeys = new Set(assigneeRows.map((a) => `${a.instanceId}|${a.userId}`))
 
-        type Person = { row: (typeof assigneeRows)[number]; runs: RunOutcome[]; items: ItemAcc; shared: Set<string> }
+        type Person = { row: (typeof assigneeRows)[number]; runs: RunFlags[]; items: ItemAcc; shared: Set<string> }
         const peopleById = new Map<string, Person>()
-        type Dept = { runs: RunOutcome[]; items: ItemAcc; people: Set<string>; shared: Set<string> }
+        type Dept = { runs: RunFlags[]; items: ItemAcc; people: Set<string>; shared: Set<string> }
         const deptByKey = new Map<string, Dept>()
 
         for (const a of assigneeRows) {
@@ -423,9 +573,9 @@ export const checklistReportService = {
             if (flags.departmentSpan > 1) dept.shared.add(flags.id)
         }
 
-        type StorePerson = { userId: string; storeId: string; runs: RunOutcome[]; items: ItemAcc }
+        type StorePerson = { userId: string; storeId: string; runs: RunFlags[]; items: ItemAcc }
         const storePeople = new Map<string, StorePerson>()
-        const storeRuns = new Map<string, RunOutcome[]>()
+        const storeRuns = new Map<string, RunFlags[]>()
         const storeTotalItems = new Map<string, ItemAcc>()
         if (wantStores) {
             for (const f of countedRuns) {
@@ -446,7 +596,7 @@ export const checklistReportService = {
             }
         }
 
-        type DefinitionAcc = { title: string; recurrence: string; runs: RunOutcome[] }
+        type DefinitionAcc = { title: string; recurrence: string; runs: RunFlags[] }
         const definitionRuns = new Map<string, DefinitionAcc>()
         const definitionItems = new Map<string, ItemAcc>()
         if (wantDefinitions) {
@@ -459,11 +609,19 @@ export const checklistReportService = {
 
         const totalItems = emptyItemAcc()
         const unassignedItems = emptyItemAcc()
+        const answeredByPerson = new Map<string, number>()
+        const answeredByAssignees = new Map<string, number>()
         for (const r of itemRows) {
             const flags = flagsByRun.get(r.instanceId)
             if (!flags || flags.skip) continue
             const acc = itemAcc(r)
             const assignedHere = !!r.userId && assignedKeys.has(`${r.instanceId}|${r.userId}`)
+            if (assignedHere) {
+                const answered = acc.done + acc.na
+                const key = `${r.instanceId}|${r.userId}`
+                answeredByPerson.set(key, (answeredByPerson.get(key) ?? 0) + answered)
+                answeredByAssignees.set(r.instanceId, (answeredByAssignees.get(r.instanceId) ?? 0) + answered)
+            }
             const inTotals = departmentId ? r.deptId === departmentId : onlyUserId ? r.userId === onlyUserId : true
             if (inTotals) {
                 addItems(totalItems, acc)
@@ -494,7 +652,12 @@ export const checklistReportService = {
                 store: p.row.storeId ? storeNames.get(p.row.storeId) ?? "" : "",
                 status: p.row.isActive ? "Active" : "Left",
                 sharedRuns: p.shared.size,
-                ...toMetrics(tallyRuns(p.runs), p.items),
+                ...toMetrics(p.runs, p.items),
+                ...personItemShare(
+                    p.runs,
+                    (runId) => answeredByPerson.get(`${runId}|${p.row.userId}`) ?? 0,
+                    (runId) => answeredByAssignees.get(runId) ?? 0,
+                ),
             })).sort((a, b) => byCompletionThenName(a, b, a.name, b.name))
             : []
 
@@ -504,7 +667,7 @@ export const checklistReportService = {
                 department: key === NO_DEPARTMENT_KEY ? NO_DEPARTMENT_LABEL : departmentNames.get(key) ?? NO_DEPARTMENT_LABEL,
                 people: d.people.size,
                 sharedRuns: d.shared.size,
-                ...toMetrics(tallyRuns(d.runs), d.items),
+                ...toMetrics(d.runs, d.items),
             })).sort((a, b) => byCompletionThenName(a, b, a.department, b.department))
             : []
 
@@ -518,18 +681,18 @@ export const checklistReportService = {
             people,
             departments: departmentsOut,
             storePeople: wantStores
-                ? [...storePeople.values()].map((p): StorePersonRow => ({ userId: p.userId, storeId: p.storeId, ...toMetrics(tallyRuns(p.runs), p.items) }))
+                ? [...storePeople.values()].map((p): StorePersonRow => ({ userId: p.userId, storeId: p.storeId, ...toMetrics(p.runs, p.items) }))
                 : undefined,
             storeTotals: wantStores
-                ? [...storeRuns.entries()].map(([id, runs]): StoreTotalRow => ({ storeId: id, ...toMetrics(tallyRuns(runs), storeTotalItems.get(id) ?? emptyItemAcc()) }))
+                ? [...storeRuns.entries()].map(([id, runs]): StoreTotalRow => ({ storeId: id, ...toMetrics(runs, storeTotalItems.get(id) ?? emptyItemAcc()) }))
                 : undefined,
             definitions: wantDefinitions
                 ? [...definitionRuns.entries()]
-                    .map(([id, d]): DefinitionRow => ({ definitionId: id, title: d.title, recurrence: d.recurrence, ...toMetrics(tallyRuns(d.runs), definitionItems.get(id) ?? emptyItemAcc()) }))
+                    .map(([id, d]): DefinitionRow => ({ definitionId: id, title: d.title, recurrence: d.recurrence, ...toMetrics(d.runs, definitionItems.get(id) ?? emptyItemAcc()) }))
                     .sort((a, b) => a.title.localeCompare(b.title))
                 : undefined,
-            totals: toMetrics(tallyRuns(countedRuns), totalItems),
-            unassigned: toMetrics(tallyRuns(countedRuns.filter((f) => f.assigneeCount === 0)), unassignedItems),
+            totals: toMetrics(countedRuns, totalItems),
+            unassigned: toMetrics(countedRuns.filter((f) => f.assigneeCount === 0), unassignedItems),
             sharing: {
                 runsWithSeveralAssignees: countedRuns.filter((f) => f.assigneeCount > 1).length,
                 runsAcrossDepartments: countedRuns.filter((f) => f.departmentSpan > 1).length,

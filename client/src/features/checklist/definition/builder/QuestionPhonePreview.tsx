@@ -99,7 +99,24 @@ const Body = ({ draft }: { draft: ItemDraft }) => {
     case 'DUAL_SIGNATURE':
       return <span className={cn(FIELD, 'min-h-24 justify-center gap-2')}><Pencil size={14} aria-hidden />{draft.itemType === 'DUAL_SIGNATURE' ? 'Two people sign here' : 'Sign here'}</span>;
     case 'AUDIT':
-      return <span className={FIELD}>Tick each person and their uniform items</span>;
+      return (
+        <span className={cn(FIELD, 'flex-col items-start gap-1')}>
+          Tick each person and their uniform items
+          {draft.criticalAccessories.length > 0 && (
+            <span className="t-meta font-display font-semibold text-danger">
+              Critical: {draft.criticalAccessories.join(', ')}
+            </span>
+          )}
+          {Object.keys(draft.accessoryPoints).length > 0 && (
+            <span className="t-meta font-display text-text-muted">
+              Points: {Object.entries(draft.accessoryPoints).map(([name, value]) => `${name} ${value}`).join(', ')}
+            </span>
+          )}
+          {draft.auditPhotoOnlyOnMiss && (
+            <span className="t-meta font-display text-text-muted">Photo only when something is missing</span>
+          )}
+        </span>
+      );
     default:
       return (
         <div className="flex flex-col gap-3">

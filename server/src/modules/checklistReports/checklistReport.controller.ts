@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { asyncHandler } from "../../utils/asyncHandler.js"
-import { checklistReportExportQuerySchema, checklistReportQuerySchema } from "./checklistReport.validation.js"
+import { checklistPeriodQuerySchema, checklistReportExportQuerySchema, checklistReportQuerySchema } from "./checklistReport.validation.js"
 import { checklistReportService, csvGrouping, streamReportCsv, writeReportXlsx } from "./checklistReport.service.js"
 import { cachedReport } from "../../utils/reportCache.js"
 
@@ -13,6 +13,12 @@ export const checklistReportController = {
     preview: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistReportQuerySchema.parse(req.query)
         const report = await cachedReport("people", req, () => checklistReportService.build(req.user!, query))
+        res.json({ success: true, data: report })
+    }),
+
+    periods: asyncHandler(async (req: Request, res: Response) => {
+        const query = checklistPeriodQuerySchema.parse(req.query)
+        const report = await cachedReport("periods", req, () => checklistReportService.periods(req.user!, query))
         res.json({ success: true, data: report })
     }),
 

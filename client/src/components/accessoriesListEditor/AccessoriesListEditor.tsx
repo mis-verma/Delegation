@@ -1,5 +1,8 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Plus, X } from 'lucide-react';
+import { ChevronDown, Plus, ShieldAlert, X } from 'lucide-react';
+import { Dropdown } from '../dropdown';
+
+const POINT_CHOICES = [1, 2, 3, 4, 5, 10, 15, 20, 25, 50, 100];
 
 interface AccessoriesListEditorProps {
   label?:       string;
@@ -7,6 +10,10 @@ interface AccessoriesListEditorProps {
   accessories:  string[];
   onChange:     (accessories: string[]) => void;
   labelAction?: ReactNode;
+  critical?:    readonly string[];
+  onToggleCritical?: (name: string) => void;
+  points?:      Readonly<Record<string, number>>;
+  onPointsChange?: (name: string, points: number) => void;
 }
 
 export const AccessoriesListEditor = ({
@@ -15,6 +22,10 @@ export const AccessoriesListEditor = ({
   accessories,
   onChange,
   labelAction,
+  critical,
+  onToggleCritical,
+  points,
+  onPointsChange,
 }: AccessoriesListEditorProps) => {
   const [draft, setDraft] = useState('');
   const trimmed = draft.trim();
@@ -47,12 +58,46 @@ export const AccessoriesListEditor = ({
         <span className="t-meta font-display font-medium text-text-muted">{label}</span>
       )}
       <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
-        {accessories.map((name) => (
+        {accessories.map((name) => {
+          const isCritical = !!critical?.includes(name);
+          return (
           <span
             key={name}
-            className="inline-flex items-center gap-1 h-7 pointer-coarse:h-11 pl-2.5 pr-1 rounded-full bg-surface-hover t-meta font-display font-medium text-text"
+            className={`inline-flex items-center gap-1 h-7 pointer-coarse:h-11 pl-2.5 pr-1 rounded-full t-meta font-display font-medium transition-colors duration-150 ${isCritical ? 'bg-danger/10 text-danger border border-danger/30' : 'bg-surface-hover text-text'}`}
           >
             {name}
+            {onPointsChange && (
+              <Dropdown
+                align="start"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={`${name} is worth ${points?.[name] ?? 1} ${(points?.[name] ?? 1) === 1 ? 'point' : 'points'}. Change points`}
+                    title="Points for this item"
+                    className="inline-flex items-center gap-0.5 h-5 pointer-coarse:h-11 px-1.5 rounded-full bg-surface border border-border/70 t-meta font-display font-semibold tabular-nums text-text-secondary cursor-pointer transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  >
+                    {points?.[name] ?? 1} pt
+                    <ChevronDown size={10} aria-hidden />
+                  </button>
+                }
+                items={POINT_CHOICES.map((value) => ({
+                  label: `${value} ${value === 1 ? 'point' : 'points'}`,
+                  onClick: () => onPointsChange(name, value),
+                }))}
+              />
+            )}
+            {onToggleCritical && (
+              <button
+                type="button"
+                onClick={() => onToggleCritical(name)}
+                aria-pressed={isCritical}
+                aria-label={isCritical ? `${name} is critical. Tap to make it normal` : `Mark ${name} as critical`}
+                title={isCritical ? 'Critical: missing it fails the person' : 'Mark as critical'}
+                className={`flex items-center justify-center size-5 pointer-coarse:size-11 rounded-full cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40 ${isCritical ? 'text-danger hover:bg-danger/15' : 'text-text-light hover:bg-danger/10 hover:text-danger'}`}
+              >
+                <ShieldAlert size={12} strokeWidth={isCritical ? 2.75 : 2} />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => remove(name)}
@@ -62,7 +107,8 @@ export const AccessoriesListEditor = ({
               <X size={11} />
             </button>
           </span>
-        ))}
+          );
+        })}
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

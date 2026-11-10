@@ -8,6 +8,7 @@ import {
     checklistInstanceImages,
     checklistInstanceItemSubmissions,
     checklistInstanceItemSubmissionImages,
+    checklistInstanceItemSubmissionAccessories,
     checklistDefinitions,
     users,
     stores,
@@ -53,7 +54,7 @@ const AUDIT_UNSENT = sql`(${AUDIT_SCORED} AND cii.sendBackCount = 0)`
 const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0 AND cii.waivedAt IS NULL)`
 const SCORED = sql`(${RULE_SCORED} OR ${AUDIT_SCORED} OR ${SENT_BACK})`
 const RULE_GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
-const GOOD = sql`(${RULE_GOOD} OR (${AUDIT_UNSENT} AND ${auditPassSql(AUDIT_FRACTION)}))`
+const GOOD = sql`(${RULE_GOOD} OR (${AUDIT_UNSENT} AND ${auditPassSql(sql`cii.id`, AUDIT_FRACTION)}))`
 const GOOD_VALUE = sql`(CASE WHEN ${RULE_GOOD} THEN 1 WHEN ${AUDIT_UNSENT} THEN ${AUDIT_FRACTION} ELSE 0 END)`
 const WEIGHT = sql`(CASE WHEN cii.isCritical = 1 THEN 2 ELSE 1 END)`
 
@@ -66,7 +67,12 @@ const ITEM_PHOTO_COUNT = sql`(
             WHERE su.itemId = cii.id AND (cii.requiresLivePhoto = 0 OR si.captureMethod = 'LIVE'))
        ELSE 0 END)
 )`
-const PHOTO_ITEM = sql`(${ANSWERED} AND cii.requiredImageCount > 0)`
+const AUDIT_PHOTO_WAIVED = sql`(cii.itemType = 'AUDIT' AND cii.auditPhotoOnlyOnMiss = 1 AND NOT EXISTS (
+    SELECT 1 FROM ${checklistInstanceItemSubmissions} msu
+    JOIN ${checklistInstanceItemSubmissionAccessories} mac ON mac.submissionId = msu.id
+    WHERE msu.itemId = cii.id AND msu.isDone = 1 AND msu.isNotApplicable = 0 AND mac.checked = 0
+))`
+const PHOTO_ITEM = sql`(${ANSWERED} AND cii.requiredImageCount > 0 AND NOT ${AUDIT_PHOTO_WAIVED})`
 const PHOTO_OK = sql`(CASE WHEN ${PHOTO_ITEM} AND ${ITEM_PHOTO_COUNT} >= cii.requiredImageCount THEN 1 ELSE 0 END)`
 
 export type ChecklistReportQuery = {

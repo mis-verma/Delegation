@@ -27,6 +27,40 @@ const accessoriesByTypeSchema = z
         return kept.length ? Object.fromEntries(kept) : null
     })
 
+type AccessoryLists = {
+    itemType?: string | null
+    accessories?: string[] | null
+    accessoriesFemale?: string[] | null
+    accessoriesMale?: string[] | null
+    accessoriesByType?: Record<string, string[]> | null
+    criticalAccessories?: string[] | null
+    accessoryPoints?: Record<string, number> | null
+}
+
+export const criticalAccessoriesFor = (item: AccessoryLists): string[] | null => {
+    if (item.itemType !== "AUDIT" || !item.criticalAccessories?.length) return null
+    const listed = new Set([
+        ...(item.accessories ?? []),
+        ...(item.accessoriesFemale ?? []),
+        ...(item.accessoriesMale ?? []),
+        ...Object.values(item.accessoriesByType ?? {}).flat(),
+    ])
+    const kept = item.criticalAccessories.filter((name) => listed.has(name))
+    return kept.length ? kept : null
+}
+
+export const accessoryPointsFor = (item: AccessoryLists): Record<string, number> | null => {
+    if (item.itemType !== "AUDIT" || !item.accessoryPoints) return null
+    const listed = new Set([
+        ...(item.accessories ?? []),
+        ...(item.accessoriesFemale ?? []),
+        ...(item.accessoriesMale ?? []),
+        ...Object.values(item.accessoriesByType ?? {}).flat(),
+    ])
+    const kept = Object.entries(item.accessoryPoints).filter(([name, points]) => listed.has(name) && points !== 1)
+    return kept.length ? Object.fromEntries(kept) : null
+}
+
 const CHOICE_RULE_TYPES: string[] = ["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN"]
 const RANGE_RULE_TYPES: string[] = ["NUMBER_ENTRY", "RATING"]
 
@@ -52,6 +86,11 @@ const definitionItemShape = z.object({
     accessoriesFemale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
     accessoriesMale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
     accessoriesByType: accessoriesByTypeSchema.nullable().optional().transform((v) => v ?? undefined),
+    criticalAccessories: z.array(accessoryName).max(200).nullable().optional().transform((v) => (v ? [...new Set(v.filter((n) => n !== ""))] : undefined)),
+    accessoryPoints: z.record(z.string().trim().min(1).max(191), z.number().int().min(1, "Points start at 1").max(100, "Keep points at 100 or less"))
+        .refine((m) => Object.keys(m).length <= 200, "Too many items")
+        .nullable().optional().transform((v) => v ?? undefined),
+    auditPhotoOnlyOnMiss: z.boolean().optional(),
     numberEntryUnit: z.string().trim().min(1).max(191).nullable().optional(),
     numberEntryMin: z.number().nullable().optional(),
     numberEntryMax: z.number().nullable().optional(),

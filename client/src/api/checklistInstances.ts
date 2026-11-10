@@ -47,7 +47,7 @@ export type ChecklistInstanceItemSubmissionImage = {
   createdAt:      string;
 };
 
-export type ChecklistInstanceItemSubmissionAccessory = { name: string; checked: boolean };
+export type ChecklistInstanceItemSubmissionAccessory = { name: string; checked: boolean; isCritical?: boolean; points?: number };
 
 export type ChecklistInstanceItemSubmissionUser = {
   id:        string;
@@ -88,6 +88,7 @@ export type ChecklistInstanceItem = {
   maxImageCount:      number | null;
   requiresLivePhoto:  boolean;
   isCritical:         boolean;
+  auditPhotoOnlyOnMiss?: boolean;
   itemType:           ChecklistItemType;
   accessories:        string[];
   numberEntryUnit:    string | null;

@@ -1,6 +1,6 @@
 import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 import { modelOf, type AnswerVerdict } from './questionTypes/model';
-import { AUDIT_PASS_PCT, auditItemScore, auditPasses, auditPct, type AuditPerson } from './auditScore';
+import { AUDIT_PASS_PCT, auditItemScore, auditMissedCritical, auditPasses, auditPct, type AuditPerson } from './auditScore';
 
 export type { AnswerVerdict };
 
@@ -18,7 +18,7 @@ export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
   if (!item.isDone) return null;
   if (item.itemType === 'AUDIT') {
     const score = auditScoreOf(item);
-    return score === null ? null : auditPasses(score) ? 'good' : 'bad';
+    return score === null ? null : auditPasses(score, auditMissedCritical(item.submissions)) ? 'good' : 'bad';
   }
   const accepted = item.acceptableAnswers ?? [];
   const kind = modelOf(item.itemType).scoring;
@@ -49,7 +49,10 @@ export const complianceReason = (item: Scorable): string | null => {
   if (answerVerdict(item) !== 'bad') return null;
   if (item.itemType === 'AUDIT') {
     const score = auditScoreOf(item);
-    return score === null ? null : `Counts against compliance. The audit scored ${auditPct(score)}%, below the ${AUDIT_PASS_PCT}% pass line.`;
+    if (score === null) return null;
+    return auditMissedCritical(item.submissions)
+      ? `Counts against compliance. A critical item was missed, so the audit fails (score ${auditPct(score)}%).`
+      : `Counts against compliance. The audit scored ${auditPct(score)}%, below the ${AUDIT_PASS_PCT}% pass line.`;
   }
   const accepted = item.acceptableAnswers ?? [];
   if (modelOf(item.itemType).scoring === 'range') {

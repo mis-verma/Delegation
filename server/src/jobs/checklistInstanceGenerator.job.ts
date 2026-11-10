@@ -53,6 +53,9 @@ type GenerationItem = {
     accessoriesFemale: string[] | null
     accessoriesMale: string[] | null
     accessoriesByType: Record<string, string[]> | null
+    criticalAccessories: string[] | null
+    accessoryPoints: Record<string, number> | null
+    auditPhotoOnlyOnMiss: boolean
     numberEntryUnit: string | null
     numberEntryMin: number | null
     numberEntryMax: number | null
@@ -180,6 +183,7 @@ const definitionConfig = (item: GenerationItem) => ({
     requiresLivePhoto: item.requiresLivePhoto,
     referenceImageUrl: item.referenceImageUrl ?? null,
     isCritical: item.isCritical,
+    auditPhotoOnlyOnMiss: item.itemType === "AUDIT" && item.auditPhotoOnlyOnMiss,
     accessories: item.accessories ?? [],
     numberEntryUnit: item.numberEntryUnit,
     numberEntryMin: item.numberEntryMin,
@@ -211,6 +215,23 @@ export const accessoriesForPerson = (
 
 type PersonLook = { gender: Gender | null; dressTypeId: string | null }
 
+export const isCriticalAccessory = (item: { criticalAccessories?: string[] | null }, name: string): boolean =>
+    !!item.criticalAccessories?.includes(name)
+
+export const accessoryPointsFor = (item: { accessoryPoints?: Record<string, number> | null }, name: string): number => {
+    const value = item.accessoryPoints?.[name]
+    return typeof value === "number" && Number.isInteger(value) && value >= 1 ? Math.min(value, 100) : 1
+}
+
+export const accessoryRowFor = (item: { criticalAccessories?: string[] | null; accessoryPoints?: Record<string, number> | null }, submissionId: string, name: string) => ({
+    id: createId(),
+    submissionId,
+    name,
+    checked: false,
+    isCritical: isCriticalAccessory(item, name),
+    points: accessoryPointsFor(item, name),
+})
+
 type ListSource = Parameters<typeof accessoriesForPerson>[0]
 
 export const typeHasList = (item: Pick<ListSource, "accessoriesByType">, dressTypeId: string | null | undefined): dressTypeId is string => {
@@ -219,12 +240,14 @@ export const typeHasList = (item: Pick<ListSource, "accessoriesByType">, dressTy
     return Array.isArray(list) && list.length > 0
 }
 
-export const loadAuditListSource = async (definitionItemId: string, executor: Pick<typeof db, "select"> = db): Promise<ListSource | null> => {
+export const loadAuditListSource = async (definitionItemId: string, executor: Pick<typeof db, "select"> = db): Promise<(ListSource & { criticalAccessories: string[] | null; accessoryPoints: Record<string, number> | null }) | null> => {
     const [row] = await executor.select({
         accessories: checklistDefinitionItems.accessories,
         accessoriesFemale: checklistDefinitionItems.accessoriesFemale,
         accessoriesMale: checklistDefinitionItems.accessoriesMale,
         accessoriesByType: checklistDefinitionItems.accessoriesByType,
+        criticalAccessories: checklistDefinitionItems.criticalAccessories,
+        accessoryPoints: checklistDefinitionItems.accessoryPoints,
     }).from(checklistDefinitionItems).where(eq(checklistDefinitionItems.id, definitionItemId)).limit(1)
     return row ?? null
 }
@@ -245,7 +268,7 @@ const stampAuditPeople = async (tx: Tx, itemId: string, userIds: string[], item:
     })
     await tx.insert(checklistInstanceItemSubmissions).values(drafts.map(({ look: _look, ...row }) => row))
     const accessoryRows = drafts.flatMap((d) =>
-        accessoriesForPerson(item, d.look).map((name) => ({ id: createId(), submissionId: d.id, name, checked: false })),
+        accessoriesForPerson(item, d.look).map((name) => accessoryRowFor(item, d.id, name)),
     )
     if (accessoryRows.length) {
         await tx.insert(checklistInstanceItemSubmissionAccessories).values(accessoryRows)
@@ -589,7 +612,7 @@ const syncAuditPeople = async (
     itemId: string,
     def: GenerationItem,
     submissions: SubmissionRow[],
-    accessoriesBySubmission: Map<string, { id: string; name: string }[]>,
+    accessoriesBySubmission: Map<string, { id: string; name: string; isCritical: boolean; points: number }[]>,
 ): Promise<boolean> => {
     const wanted = new Set(def.auditUserIds)
     const haveUsers = new Set(submissions.map((s) => s.userId))
@@ -617,8 +640,21 @@ const syncAuditPeople = async (
         const missing = accessoryNames.filter((name) => !haveNames.has(name))
         if (missing.length) {
             await tx.insert(checklistInstanceItemSubmissionAccessories).values(
-                missing.map((name) => ({ id: createId(), submissionId: submission.id, name, checked: false })),
+                missing.map((name) => accessoryRowFor(def, submission.id, name)),
             )
+        }
+        for (const flip of [true, false]) {
+            const ids = rows.filter((r) => accessoryNames.includes(r.name) && r.isCritical !== flip && isCriticalAccessory(def, r.name) === flip).map((r) => r.id)
+            if (ids.length) {
+                await tx.update(checklistInstanceItemSubmissionAccessories).set({ isCritical: flip, updatedAt: new Date() }).where(inArray(checklistInstanceItemSubmissionAccessories.id, ids))
+            }
+        }
+        for (const r of rows) {
+            if (!accessoryNames.includes(r.name)) continue
+            const points = accessoryPointsFor(def, r.name)
+            if (r.points !== points) {
+                await tx.update(checklistInstanceItemSubmissionAccessories).set({ points, updatedAt: new Date() }).where(eq(checklistInstanceItemSubmissionAccessories.id, r.id))
+            }
         }
         const stale = rows.filter((r) => !accessoryNames.includes(r.name)).map((r) => r.id)
         if (stale.length) {
@@ -653,7 +689,7 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
 
     const submissionsByItem = new Map<string, SubmissionRow[]>()
     for (const s of submissions) submissionsByItem.set(s.itemId, [...(submissionsByItem.get(s.itemId) ?? []), s])
-    const accessoriesBySubmission = new Map<string, { id: string; name: string; checked: boolean }[]>()
+    const accessoriesBySubmission = new Map<string, { id: string; name: string; checked: boolean; isCritical: boolean; points: number }[]>()
     for (const a of accessoryRows) accessoriesBySubmission.set(a.submissionId, [...(accessoriesBySubmission.get(a.submissionId) ?? []), a])
     const submissionsWithImages = new Set(submissionImages.map((r) => r.submissionId))
 

@@ -15,6 +15,7 @@ import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
+import { accessoryPointsFor, criticalAccessoriesFor } from "./checklistDefinition.validation.js"
 import { clearSummariesForDefinition, dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, type ListChecklistDefinitionsFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid } from "./checklistDefinitionSupport.js"
@@ -163,6 +164,9 @@ export const checklistDefinitionService = {
                     accessoriesFemale: item.accessoriesFemale ?? null,
                     accessoriesMale: item.accessoriesMale ?? null,
                     accessoriesByType: item.accessoriesByType ?? null,
+                    criticalAccessories: criticalAccessoriesFor(item),
+                    accessoryPoints: accessoryPointsFor(item),
+                    auditPhotoOnlyOnMiss: item.itemType === "AUDIT" && (item.auditPhotoOnlyOnMiss ?? false),
                     numberEntryUnit: item.numberEntryUnit ?? null,
                     numberEntryMin: item.numberEntryMin ?? null,
                     numberEntryMax: item.numberEntryMax ?? null,
@@ -304,6 +308,9 @@ export const checklistDefinitionService = {
                     accessoriesFemale: item.accessoriesFemale ?? null,
                     accessoriesMale: item.accessoriesMale ?? null,
                     accessoriesByType: item.accessoriesByType ?? null,
+                    criticalAccessories: criticalAccessoriesFor(item),
+                    accessoryPoints: accessoryPointsFor(item),
+                    auditPhotoOnlyOnMiss: item.itemType === "AUDIT" && (item.auditPhotoOnlyOnMiss ?? false),
                     numberEntryUnit: item.numberEntryUnit ?? null,
                     numberEntryMin: item.numberEntryMin ?? null,
                     numberEntryMax: item.numberEntryMax ?? null,

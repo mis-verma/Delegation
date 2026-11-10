@@ -69,7 +69,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTi
       const rb = fb.needsLook ? needsLookRank(fb) : 9;
       return ra - rb || a.order - b.order;
     });
-    const needPhotos = items.filter((i) => !i.isNotApplicable && i.requiredImageCount > 0);
+    const needPhotos = items.filter((i) => i.itemType !== 'AUDIT' && !i.isNotApplicable && i.requiredImageCount > 0);
     return {
       sorted,
       answered: items.filter((i) => i.isDone || i.isNotApplicable).length,

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { env } from "../../config/env.js"
+import { MAX_BUCKETS, PERIOD_BUCKETS, buildBuckets, defaultPeriodRange } from "./reportPeriods.js"
 
 export const MAX_RANGE_DAYS = 366
 const DAY_MS = 86_400_000
@@ -56,4 +57,32 @@ export const checklistReportExportQuerySchema = baseSchema
     .transform(resolveRange)
 
 export type ChecklistReportQuery = z.output<typeof checklistReportQuerySchema>
+
+export const PERIOD_ROW_KINDS = ["person", "checklist"] as const
+
+export const checklistPeriodQuerySchema = z.object({
+    by: z.enum(PERIOD_ROW_KINDS).default("person"),
+    bucket: z.enum(PERIOD_BUCKETS).default("week"),
+    from: optionalDate,
+    to: optionalDate,
+    storeId: optionalId,
+    departmentId: optionalId,
+}).transform((q, ctx) => {
+    const today = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10)
+    const fallback = defaultPeriodRange(q.bucket, today)
+    const to = q.to ? toLocalDay(q.to)! : fallback.to
+    const from = q.from ? toLocalDay(q.from)! : q.to ? defaultPeriodRange(q.bucket, to).from : fallback.from
+    if (from > to) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["from"], message: "The start date must be on or before the end date" })
+        return z.NEVER
+    }
+    const count = buildBuckets(q.bucket, from, to).length
+    if (count > MAX_BUCKETS[q.bucket]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: q.bucket === "week" ? `Pick ${MAX_BUCKETS.week} weeks or fewer` : `Pick ${MAX_BUCKETS.month} months or fewer` })
+        return z.NEVER
+    }
+    return { ...q, from, to }
+})
+
+export type ChecklistPeriodQuery = z.output<typeof checklistPeriodQuerySchema>
 export type ChecklistReportExportQuery = z.output<typeof checklistReportExportQuerySchema>
