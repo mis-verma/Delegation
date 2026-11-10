@@ -174,38 +174,42 @@ const CompactTile = ({ view, failed, idle, refreshFailed }: { view: ModuleView; 
   const category = CATEGORY_OF[view.key];
   const Icon = CATEGORY_ICON[category];
   const late = view.overdue;
+  const pending = view.pending ?? 0;
+  const done = view.completed ?? 0;
   const spoken = failed
     ? `${view.title}, couldn't load`
     : idle
       ? `${view.title}, ${NOTHING_DUE.toLowerCase()}`
-      : `${view.title}, ${view.pending ?? 0} pending, ${late > 0 ? `${late} late` : 'nothing late'}`;
+      : `${view.title}, ${pending} pending, ${late > 0 ? `${late} late` : 'nothing late'}, ${done} done`;
   return (
-    <div className="relative flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/60 bg-surface p-3 transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985] sm:hidden">
+    <div className="relative flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-surface p-3 transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985] sm:hidden">
       <Link viewTransition to={view.href} aria-label={`Open ${PAGE_NAME[view.key]}: ${spoken}`} className="absolute inset-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40" />
       <span className="pointer-events-none relative flex min-w-0 items-center gap-1.5" aria-hidden="true">
         <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', CATEGORY_PILL[category])}>
           <Icon className="size-4" strokeWidth={2.25} />
         </span>
-        <span className="min-w-0 line-clamp-2 break-words leading-snug t-card font-display font-bold text-text">{view.title}</span>
+        <span className="min-w-0 flex-1 line-clamp-1 break-words leading-snug t-card font-display font-bold text-text">{view.title}</span>
+        <ChevronRight className="size-4 shrink-0 text-text-light" />
       </span>
       {failed ? (
         <>
           <span className="pointer-events-none relative t-meta text-text-muted" aria-hidden="true">Couldn't load.</span>
           <button type="button" onClick={view.onRetry} className={RETRY_LINE}>Retry</button>
         </>
-      ) : idle ? (
-        <span className="pointer-events-none relative flex flex-col gap-0.5" aria-hidden="true">
-          <span className="t-meta font-semibold text-text-muted">{NOTHING_DUE}</span>
-          <span className="t-meta font-display font-semibold text-primary-700 dark:text-primary-300">Open {PAGE_NAME[view.key]}</span>
-        </span>
       ) : (
         <>
-          <span className="pointer-events-none relative flex items-baseline gap-1" aria-hidden="true">
-            <span className="t-stat font-display font-bold leading-none tabular-nums text-text"><CountUp value={view.pending ?? 0} fromZero /></span>
-            <span className="t-meta text-text-muted">pending</span>
+          <span className="pointer-events-none relative flex items-baseline gap-1.5" aria-hidden="true">
+            <span className="t-stat font-display font-bold leading-none tabular-nums text-text"><CountUp value={pending} fromZero /></span>
+            <span className="t-meta font-medium text-text-muted">pending</span>
           </span>
-          <span className={cn('pointer-events-none relative t-meta font-semibold', late > 0 ? 'text-danger' : 'text-text-muted')} aria-hidden="true">
-            {late > 0 ? `${late} late` : 'Nothing late'}
+          <span className="pointer-events-none relative" aria-hidden="true">
+            <ProgressBar done={done} overdue={late} open={pending} openClass={CATEGORY_ACCENT[category]} />
+          </span>
+          <span className="pointer-events-none relative flex items-center justify-between gap-2 t-meta font-semibold tabular-nums" aria-hidden="true">
+            <span className={late > 0 ? 'text-danger' : idle ? 'text-text-muted' : 'text-success'}>
+              {late > 0 ? `${late} late` : idle ? 'Nothing due' : 'On track'}
+            </span>
+            <span className="font-medium text-text-muted">{done} done</span>
           </span>
         </>
       )}
@@ -416,7 +420,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
 
   const remoteDrill = useQuery({
     queryKey: ['dashboard-drill', openDrill?.key, openDrill?.kind] as const,
-    enabled: !!openDrill && (openDrill.key === 'tickets' || openDrill.key === 'delegation') && user?.role !== 'USER' && user?.role !== 'AGENT',
+    enabled: !simple && !!openDrill && (openDrill.key === 'tickets' || openDrill.key === 'delegation') && user?.role !== 'USER' && user?.role !== 'AGENT',
     staleTime: 15_000,
     queryFn: async () => {
       const { key, kind } = openDrill!;

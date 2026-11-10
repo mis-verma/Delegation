@@ -32,10 +32,10 @@ const useSource = <T,>(query: QueryLike<T>): SummarySource<T> => {
   return useMemo(() => ({ data, isPending, isError, onRetry: () => void refetch() }), [data, isPending, isError, refetch]);
 };
 
-export const useDashboardSummaries = () => {
+export const useDashboardSummaries = (scopeOverride?: SummaryScope) => {
   const { user, token } = useAuth();
   const isOwnScopeRole = !!user && OWN_SCOPE_ROLES.includes(user.role);
-  const kpiScope: SummaryScope = isOwnScopeRole ? 'mine' : 'visible';
+  const kpiScope: SummaryScope = isOwnScopeRole ? 'mine' : (scopeOverride ?? 'visible');
   const todayBound = todayPeriodBoundIso();
 
   const query = useQuery({

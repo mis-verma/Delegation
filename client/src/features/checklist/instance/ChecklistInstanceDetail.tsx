@@ -30,8 +30,6 @@ import { LateCountdownChip, LateWindowBanner } from './LateWindowBanner';
 import { isSendBackLocking } from './sendBackLock';
 import { useAuth } from '../../../context/AuthContext';
 import { useSubmitRun } from './fill/useSubmitRun';
-import { SubmissionPreviewDialog } from './SubmissionPreviewDialog';
-import { revokeMsLeft } from './revokeWindow';
 import { FillBottomBar } from './fill/FillBottomBar';
 import { FillAside } from './fill/FillAside';
 import { auditPeopleProgress, sectionKeyOf, sectionsOf, type FillProgress } from './fill/fillProgress';
@@ -93,7 +91,6 @@ export const ChecklistInstanceDetail = () => {
   const { user } = useAuth();
   useRefreshOnNewDay();
   const now = useNow();
-  const [previewOpen, setPreviewOpen] = useState(false);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   const draft = useReviewDraft(instanceId || null);
@@ -289,8 +286,6 @@ export const ChecklistInstanceDetail = () => {
     </div>
   );
   const verificationNote = instance.verificationNote;
-  const submittedByMe = !!user && instance.submittedBy === user.id;
-  const showPreview = submittedByMe && instance.verificationStatus === 'PENDING_APPROVAL' && !!instance.submittedAt && !canReview;
   const showBanners =
     inLateWindow ||
     isMissed ||
@@ -332,10 +327,6 @@ export const ChecklistInstanceDetail = () => {
         )}
       </div>
 
-      {previewOpen && showPreview && (
-        <SubmissionPreviewDialog instance={instance} now={now} canRevoke={submittedByMe} onClose={() => setPreviewOpen(false)} />
-      )}
-
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-5')}>
         <div className="flex flex-col gap-1">
           <h1 className="t-title font-display font-bold leading-snug text-text break-words">{instance.title.replace(/\.\s*$/, '')}</h1>
@@ -357,13 +348,6 @@ export const ChecklistInstanceDetail = () => {
             <span className="t-meta font-medium text-text-muted">
               Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
             </span>
-          )}
-          {showPreview && (
-            <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)} aria-label="Preview what you submitted" className="pointer-coarse:h-11">
-              <Eye size={13} aria-hidden />
-              Preview
-              {revokeMsLeft(instance.submittedAt, now) > 0 && <span className="t-meta font-medium tabular-nums text-text-muted">{Math.ceil(revokeMsLeft(instance.submittedAt, now) / 60_000)} min to change</span>}
-            </Button>
           )}
           {isLocked && instance.verifiedAt && (
             <span className="t-meta font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>

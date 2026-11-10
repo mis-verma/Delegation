@@ -1,9 +1,4 @@
 import { Fragment, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { TeamWorkPanel } from './TeamWorkPanel';
-import { useFocusView } from './useFocusView';
-import { WorkTeamSwitch } from './WorkTeamSwitch';
-import { useAttentionPeople } from '../attention/useAttention';
 import { Link } from 'react-router';
 import { AlarmClockOff, CheckCheck, Clock3, RotateCw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -71,6 +66,7 @@ const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeri
 
 interface FocusNowCardProps {
   ownWorkOnly?: boolean;
+  hideApprovals?: boolean;
   todayChecklist?: { total: number; completed: number } | null;
   tasks: Task[];
   tickets: Ticket[];
@@ -106,7 +102,7 @@ const FocusSkeleton = () => (
   </section>
 );
 
-const FocusWorkCard = ({ ownWorkOnly = false, todayChecklist = null, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+export const FocusNowCard = ({ ownWorkOnly = false, hideApprovals = false, todayChecklist = null, tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const taskMove = useTaskStatusMove();
   const ticketMove = useTicketStatusMove();
   const todoUpdate = useUpdateTodoMutation();
@@ -193,7 +189,7 @@ const FocusWorkCard = ({ ownWorkOnly = false, todayChecklist = null, tasks, tick
   const nextUp = items.filter((i) => i.reason === 'dueToday' && i.at > now).sort((a, b) => a.at - b.at)[0];
   const nextUpHidden = nextUp && !shown.includes(nextUp) ? nextUp : null;
 
-  const approvalsLine = ownWorkOnly && approvals.queueHref && approvals.total > 0 && (
+  const approvalsLine = ownWorkOnly && !hideApprovals && approvals.queueHref && approvals.total > 0 && (
     <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
       <p className="t-meta font-medium text-text-secondary tabular-nums">
         {approvals.total} {approvals.total === 1 ? 'approval' : 'approvals'} waiting
@@ -328,19 +324,5 @@ const FocusWorkCard = ({ ownWorkOnly = false, todayChecklist = null, tasks, tick
       )}
       {approvalsLine}
     </section>
-  );
-};
-
-
-export const FocusNowCard = (props: FocusNowCardProps) => {
-  const { user } = useAuth();
-  const [view, setView] = useFocusView(user?.id);
-  const people = useAttentionPeople();
-  if (!props.ownWorkOnly) return <FocusWorkCard {...props} />;
-  return (
-    <div className="flex flex-col gap-2">
-      <WorkTeamSwitch value={view} onChange={setView} teamCount={people.data?.length ?? 0} />
-      {view === 'team' ? <TeamWorkPanel /> : <FocusWorkCard {...props} />}
-    </div>
   );
 };

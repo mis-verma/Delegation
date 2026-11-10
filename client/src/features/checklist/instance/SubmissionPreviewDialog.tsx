@@ -24,6 +24,7 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
   const confirm = useConfirm();
   const revoke = useRevokeChecklistSubmissionMutation();
   const [pickedId, setPickedId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const msLeft = revokeMsLeft(instance.submittedAt, now);
   const open = canRevoke && msLeft > 0;
   const busy = revoke.isPending;
@@ -85,7 +86,7 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
                   </p>
                   {item.remarks && <p className="t-meta text-text-muted break-words">"{item.remarks}"</p>}
                 </div>
-                {open && (
+                {open && picking && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -104,6 +105,12 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
           })}
         </ul>
 
+        {open && (
+          <p className="t-meta font-display text-text-muted">
+            {picking ? 'Tap Correct on the question you want to change.' : 'Recorrection reopens one question. Revoke clears every answer.'}
+          </p>
+        )}
+
         {revoke.isError && (
           <p role="alert" className="t-meta font-display font-semibold text-danger">
             {revoke.error instanceof Error ? revoke.error.message : "Couldn't take it back. Try again."}
@@ -115,9 +122,15 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
             <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-11">Close</Button>
           </DialogClose>
           {open && (
+            <Button type="button" variant={picking ? 'primary' : 'outline'} size="sm" disabled={busy} aria-pressed={picking} onClick={() => setPicking((on) => !on)} className="pointer-coarse:h-11">
+              <PencilLine size={14} aria-hidden />
+              Recorrection
+            </Button>
+          )}
+          {open && (
             <Button type="button" variant="danger" size="sm" disabled={busy} isLoading={busy && pickedId === null} onClick={() => void revokeAll()} className="pointer-coarse:h-11">
               <Undo2 size={14} aria-hidden />
-              Revoke all answers
+              Revoke
             </Button>
           )}
         </DialogFooter>

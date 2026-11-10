@@ -1,11 +1,11 @@
-import { Suspense, lazy, useCallback, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
-import { Skeleton } from '../../components';
+import { Segmented, Skeleton } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { useDashboardMyTasksQuery, useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
@@ -39,6 +39,18 @@ const OWN_TICKET_LIMIT = 100;
 const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];
 const NO_RUNS: ChecklistInstance[] = [];
+
+type StatScope = 'overall' | 'mine';
+
+const STAT_SCOPE_KEY = 'tm-home-stat-scope';
+
+const readStatScope = (): StatScope => {
+  try {
+    return window.localStorage.getItem(STAT_SCOPE_KEY) === 'mine' ? 'mine' : 'overall';
+  } catch {
+    return 'overall';
+  }
+};
 
 type HomeTab = 'work' | 'team' | 'attention' | 'approvals';
 
@@ -79,7 +91,18 @@ export const HomePage = () => {
     }, { replace: true });
   };
 
-  const summaries = useDashboardSummaries();
+  const [statScope, setStatScope] = useState<StatScope>(readStatScope);
+  const ownStats = hasTabs && statScope === 'mine';
+  const changeStatScope = (next: StatScope) => {
+    setStatScope(next);
+    try {
+      window.localStorage.setItem(STAT_SCOPE_KEY, next);
+    } catch {
+      return;
+    }
+  };
+
+  const summaries = useDashboardSummaries(ownStats ? 'mine' : undefined);
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
@@ -137,6 +160,7 @@ export const HomePage = () => {
   const focusCard = (
     <FocusNowCard
       ownWorkOnly={!frontLine}
+      hideApprovals={hasTabs}
       todayChecklist={summaries.kpi.checklistToday.data ? { total: summaries.kpi.checklistToday.data.total, completed: summaries.kpi.checklistToday.data.completed } : null}
       tasks={assignedTasks}
       tickets={myAssignedTickets}
@@ -155,18 +179,37 @@ export const HomePage = () => {
   const overview = (
     <DashboardOverview
       summaries={summaries.kpi}
-      taskList={frontLine ? assignedTasks : visibleTasks}
-      ticketList={visibleTickets}
+      taskList={frontLine || ownStats ? assignedTasks : visibleTasks}
+      ticketList={ownStats ? myAssignedTickets : visibleTickets}
       todoList={todos}
       checklistList={focusChecklists}
-      simple={frontLine}
+      simple={frontLine || ownStats}
     />
   );
 
+  const statSection = hasTabs ? (
+    <section aria-labelledby="home-stats-heading" className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="home-stats-heading" className="t-section font-display font-bold text-text">Numbers today</h2>
+        <Segmented
+          label="Whose numbers to show"
+          value={statScope}
+          onChange={changeStatScope}
+          options={[
+            { value: 'overall', label: dashboardView.orgWide ? 'Overall' : 'My team' },
+            { value: 'mine', label: 'My own' },
+          ]}
+        />
+      </div>
+      {overview}
+    </section>
+  ) : overview;
+
   const workPanel = (
     <>
+      {hasTabs && statSection}
       {focusCard}
-      {overview}
+      {!hasTabs && statSection}
       <StreakGoalCard />
     </>
   );

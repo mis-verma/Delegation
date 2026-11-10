@@ -1,5 +1,5 @@
-import { AlarmClockOff, CalendarClock, Clock } from 'lucide-react';
-import { memo } from 'react';
+import { AlarmClockOff, CalendarClock, Clock, Eye } from 'lucide-react';
+import { memo, useState } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -11,6 +11,8 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useSharedNow } from '../../../lib/useSharedNow';
 import { LateWindowOverlay } from './LateWindowOverlay';
+import { SubmissionPreviewDialog } from './SubmissionPreviewDialog';
+import { revokeMsLeft } from './revokeWindow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
@@ -39,6 +41,9 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const canPreview = !!user && instance.submittedBy === user.id && instance.verificationStatus === 'PENDING_APPROVAL' && !!instance.submittedAt;
+  const canChange = canPreview && revokeMsLeft(instance.submittedAt, now) > 0;
   const doneByOthers = (() => {
     if (!isComplete || !user) return null;
     const names = new Set<string>();
@@ -50,13 +55,14 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   })();
 
   return (
+    <div className="relative h-full">
     <Link
       to={`/checklists/${instance.id}`}
-      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]', (inLateWindow || closed) && 'border-danger/50 bg-danger/5 hover:border-danger')}
+      className={cn(ENTITY_CARD_CLASS, 'h-full justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]', (inLateWindow || closed) && 'border-danger/50 bg-danger/5 hover:border-danger')}
     >
       {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
       <div className="flex flex-col gap-1 min-w-0">
-        <p className="t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2">{instance.title}</p>
+        <p className={cn('t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2', canPreview && 'pr-11')}>{instance.title}</p>
         <p className="t-meta font-medium text-text-muted">
           {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
@@ -96,6 +102,22 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         />
       </div>
     </Link>
+    {canPreview && (
+      <button
+        type="button"
+        onClick={() => setPreviewOpen(true)}
+        aria-label={`Preview what you submitted: ${instance.title}${canChange ? '. You can still change it' : ''}`}
+        title={canChange ? 'Preview. You can still take it back or correct it' : 'Preview what you submitted'}
+        className="absolute right-2 top-2 flex size-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-surface text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] pointer-coarse:size-11"
+      >
+        <Eye size={16} aria-hidden />
+        {canChange && <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-surface bg-warning" aria-hidden />}
+      </button>
+    )}
+    {previewOpen && canPreview && (
+      <SubmissionPreviewDialog instance={instance} now={now} canRevoke onClose={() => setPreviewOpen(false)} />
+    )}
+    </div>
   );
 });
 ChecklistInstanceCard.displayName = 'ChecklistInstanceCard';
