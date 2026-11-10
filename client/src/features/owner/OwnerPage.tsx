@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Crown, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../../components/button';
-import { PageHeader } from '../../components/pageHeader/PageHeader';
 import { Segmented } from '../../components/segmented/Segmented';
 import { useAnalyticsRefresh } from '../admin/analytics/useAnalyticsQueries';
 import { PerformanceLeadersCard } from '../admin/analytics/PerformanceLeadersCard';
@@ -17,7 +16,6 @@ import { useScoreExplorer } from '../scores/useScoreExplorer';
 import { DepartmentHeadsCard } from './DepartmentHeadsCard';
 import { OwnerApprovalsCard } from './OwnerApprovalsCard';
 import { OwnerScoreCard } from './OwnerScoreCard';
-import { PeriodTag } from './PeriodTag';
 import { equalSpanBefore } from './ownerWindow';
 import { useCanOpen } from './useReadOnlyViewer';
 
@@ -66,26 +64,25 @@ export const OwnerPage = () => {
 
   return (
     <div className="flex w-full flex-col gap-4 pt-2.5">
-      <PageHeader
-        icon={Crown}
-        title="Owner view"
-        subtitle="The whole company on one screen. Read only."
-        actions={
-          <>
-            <Segmented
-              label="Period"
-              options={PERIODS}
-              value={period}
-              onChange={setPeriod}
-              className="[&>button]:min-h-11 pointer-fine:[&>button]:min-h-8"
-            />
-            <Button type="button" variant="outline" size="sm" onClick={refreshAll} disabled={isRefreshing} aria-label="Refresh the numbers" className="h-11 shrink-0 pointer-fine:h-8">
-              <RotateCw className={cn('size-3.5', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
-              <span className="hidden sm:inline">{isRefreshing ? 'Updating' : 'Refresh'}</span>
-            </Button>
-          </>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="sr-only">Owner view</h1>
+        <p className="t-meta font-medium text-text-secondary max-sm:hidden">
+          The whole company on one screen, {periodLabel.toLowerCase()}. Read only.
+        </p>
+        <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+          <Segmented
+            label="Period"
+            options={PERIODS}
+            value={period}
+            onChange={setPeriod}
+            className="[&>button]:min-h-11 pointer-fine:[&>button]:min-h-8"
+          />
+          <Button type="button" variant="outline" size="sm" onClick={refreshAll} disabled={isRefreshing} aria-label="Refresh the numbers" className="h-11 shrink-0 pointer-fine:h-8">
+            <RotateCw className={cn('size-3.5', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
+            <span className="hidden sm:inline">{isRefreshing ? 'Updating' : 'Refresh'}</span>
+          </Button>
+        </div>
+      </div>
 
       <OwnerScoreCard
         periodLabel={periodLabel}
@@ -110,20 +107,19 @@ export const OwnerPage = () => {
           loading={!nowFresh && !now.isError}
           failed={now.isError && !nowFresh}
           onRetry={() => void now.refetch()}
-          periodLabel={periodLabel}
           from={current.from}
           to={current.to}
         />
-        <PerformanceLeadersCard from={current.from} to={current.to} onViewFull={() => void navigate(scoresHref('department'), { viewTransition: true })} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <OwnerApprovalsCard from={current.from} to={current.to} periodLabel={periodLabel} />
+          <PerformanceLeadersCard from={current.from} to={current.to} onViewFull={() => void navigate(scoresHref('department'), { viewTransition: true })} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <ExceptionsCard limit={3} aside={<PeriodTag label="Live now" />} />
-        <OwnerApprovalsCard from={current.from} to={current.to} periodLabel={periodLabel} />
-      </div>
+      <ExceptionsCard limit={3} />
 
       {deeper.length > 0 && (
-        <nav aria-label="Go deeper" className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+        <nav aria-label="Go deeper" className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 pb-2">
           {deeper.map((l) => (
             <DashCardLink key={l.to} to={l.to}>{l.label}</DashCardLink>
           ))}

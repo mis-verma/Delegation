@@ -21,6 +21,8 @@ import { scoreService } from "../scores/score.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
 import { isAdminOrPc } from "../../utils/roles.js"
+import { weightedGoodExpr, weightedScoredExpr } from "../checklistReports/checklistReport.service.js"
+import { personFillFigures, type PersonAnswerFact, type PersonRunFact } from "./personFill.js"
 
 const MINUTE_MS = 60_000
 const DAY_MS = 86_400_000
@@ -188,6 +190,76 @@ const loadDailyFill = async (where: SQL | undefined, from: string, to: string, t
         byDay.set(r.day, { total: Number(r.total), missed: Number(r.missed), done: Number(r.done) })
     }
     return out
+}
+
+const creditedUserSql = sql<string | null>`(CASE WHEN ${checklistInstanceItems.sendBackCount} > 0 AND ${checklistInstanceItems.sentBackFrom} IS NOT NULL THEN ${checklistInstanceItems.sentBackFrom} ELSE ${checklistInstanceItems.completedBy} END)`
+const lastDoneAtSql = sql`(SELECT MAX(ti.completedAt) FROM ${checklistInstanceItems} ti WHERE ti.instanceId = ${checklistInstances.id})`
+
+const loadPersonFacts = async (where: SQL | undefined, from: string, to: string, today: string) => {
+    const dueDay = sql<string>`DATE_FORMAT(DATE_SUB(${runDeadlineSql}, INTERVAL 1 SECOND), '%Y-%m-%d')`
+    const window = and(
+        sql`${checklistInstances.periodStart} >= DATE_SUB(TIMESTAMP(${from}), INTERVAL 400 DAY)`,
+        sql`${runDeadlineSql} > TIMESTAMP(${from})`,
+        sql`${runDeadlineSql} <= TIMESTAMP(DATE_ADD(${to}, INTERVAL 1 DAY))`,
+        sql`${checklistInstances.recurrence} <> 'ONE_TIME'`,
+        parentNotDeletedExpr,
+        where,
+    )
+    const [runRows, answerRows] = await Promise.all([
+        db
+            .select({
+                userId: checklistInstanceAssignees.userId,
+                instanceId: checklistInstances.id,
+                day: dueDay,
+                deadline: sql<string>`DATE_FORMAT(${runDeadlineSql}, '%Y-%m-%dT%H:%i:%s')`,
+                totalItems: totalItemsSql,
+                doneItems: doneItemsSql,
+                completedFirstAt: checklistInstances.completedFirstAt,
+                lastDoneAt: sql<Date | null>`${lastDoneAtSql}`.mapWith(checklistInstanceItems.completedAt),
+                missed: sql<number>`CASE WHEN ${missedFromPastDayExpr} THEN 1 ELSE 0 END`,
+                filled: sql<number>`CASE WHEN ${checklistInstances.submittedAt} IS NOT NULL OR ${checklistInstances.verificationStatus} IN ('PENDING_APPROVAL', 'APPROVED') THEN 1 ELSE 0 END`,
+            })
+            .from(checklistInstanceAssignees)
+            .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
+            .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+            .where(window),
+        db
+            .select({
+                userId: creditedUserSql,
+                instanceId: checklistInstanceItems.instanceId,
+                good: weightedGoodExpr,
+                scored: weightedScoredExpr,
+            })
+            .from(checklistInstanceItems)
+            .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
+            .innerJoin(checklistInstanceAssignees, and(eq(checklistInstanceAssignees.instanceId, checklistInstanceItems.instanceId), sql`${checklistInstanceAssignees.userId} = ${creditedUserSql}`))
+            .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+            .where(window)
+            .groupBy(checklistInstanceItems.instanceId, creditedUserSql),
+    ])
+
+    const runsByUser = new Map<string, PersonRunFact[]>()
+    for (const r of runRows) {
+        if (r.day > today) continue
+        const totalItems = Number(r.totalItems)
+        const doneItems = Number(r.doneItems)
+        const complete = totalItems > 0 && doneItems >= totalItems
+        const doneAt = r.completedFirstAt ?? r.lastDoneAt
+        const onTime = complete && (!doneAt || doneAt.getTime() <= localToUtcMs(r.deadline))
+        const fact: PersonRunFact = { instanceId: r.instanceId, day: r.day, totalItems, doneItems, missed: Number(r.missed) > 0, filled: Number(r.filled) > 0, onTime }
+        const list = runsByUser.get(r.userId)
+        if (list) list.push(fact)
+        else runsByUser.set(r.userId, [fact])
+    }
+    const answersByUser = new Map<string, PersonAnswerFact[]>()
+    for (const a of answerRows) {
+        if (!a.userId) continue
+        const fact = { instanceId: a.instanceId, good: Number(a.good), scored: Number(a.scored) }
+        const list = answersByUser.get(a.userId)
+        if (list) list.push(fact)
+        else answersByUser.set(a.userId, [fact])
+    }
+    return (userId: string) => personFillFigures(runsByUser.get(userId) ?? [], answersByUser.get(userId) ?? [], today)
 }
 
 const cellOf = (date: string, today: string, c: { total: number; missed: number; done: number } | undefined): DayCell => {
@@ -449,13 +521,15 @@ export const attentionService = {
         const today = orgDay(Date.now())
         const end = to > today ? today : to
         const where = userScope(scope)
-        const [people, fill] = await Promise.all([
+        const [people, fill, figuresFor] = await Promise.all([
             db
-                .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, avatarUrl: users.avatarUrl, departmentName: departments.name })
+                .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, avatarUrl: users.avatarUrl, departmentName: departments.name, storeName: stores.name })
                 .from(users)
                 .leftJoin(departments, eq(departments.id, users.departmentId))
+                .leftJoin(stores, eq(stores.id, users.storeId))
                 .where(where),
             loadDailyFill(where, from, end, today),
+            loadPersonFacts(where, from, end, today),
         ])
         const days: string[] = []
         for (let d = from; d <= to; d = addDays(d, 1)) days.push(d)
@@ -471,11 +545,13 @@ export const attentionService = {
                     name: fullName(p),
                     avatarUrl: p.avatarUrl,
                     departmentName: p.departmentName,
+                    storeName: p.storeName,
                     cells,
                     due,
                     missed,
                     fillRate: due > 0 ? Math.round(((due - missed) / due) * 100) : null,
                     missedStreak: streakOf(byDay, today),
+                    ...figuresFor(p.id),
                 }
             })
             .sort((a, b) => (a.fillRate ?? 101) - (b.fillRate ?? 101) || a.name.localeCompare(b.name))

@@ -51,7 +51,7 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
       <DashCardHeader
         id="owner-approvals-heading"
         title="Waiting for approval"
-        subtitle="Approvals are promised within 24 hours"
+        subtitle="Live now. Approvals are promised within 24 hours"
         action={canOpen('/verify') ? <DashCardLink to="/verify">Open queue</DashCardLink> : undefined}
       />
       <div className="p-4">
@@ -65,7 +65,6 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
               tone="plain"
               loading={loading}
               help={data ? breakdown(data, (w) => w.now, 'Nothing is waiting') : undefined}
-              caption="Live now"
             />
             <FigureCard
               label="Over 24 hours"
@@ -73,7 +72,6 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
               tone={over === null ? 'plain' : over > 0 ? 'bad' : 'good'}
               loading={loading}
               help={data ? breakdown(data, (w) => w.over24h, 'None past the 24 hour promise') : undefined}
-              caption="Live now"
             />
             <FigureCard
               label="Average decision time"

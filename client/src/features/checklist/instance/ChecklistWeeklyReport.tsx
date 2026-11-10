@@ -10,6 +10,7 @@ import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
 import { FillMatrix } from './FillMatrix';
+import { fillMatrixRows } from './fillMatrixState';
 import { ChecklistPeriodReport } from './ChecklistPeriodReport';
 import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
 import { rankScoreboard } from './reportScoreboardRank';
@@ -260,11 +261,12 @@ export const ChecklistWeeklyReport = () => {
       {view === 'checklists' && data && !!rows?.length && (
         <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
           {summary && summary.due + (summary.open ?? 0) > 0 && (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
               {summaryTiles?.map((t) => (
                 <StatCard
                   key={t.label}
                   modern
+                  compact
                   label={t.label}
                   value={t.value}
                   icon={t.icon}
@@ -292,10 +294,23 @@ export const ChecklistWeeklyReport = () => {
                 <ChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
               </summary>
               <p className="pb-1 leading-relaxed">
-                Completion is the share of due checklists that got filled, on time or late. It counts whole checklists, not questions. Met deadline is the share of due checklists filled before their cutoff, so late and not-filled ones both count against it. On time (of finished) is the share of filled checklists that were filled before their cutoff. Answers right is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+                Completion in the tiles is the share of due checklists that got filled, on time or late. It counts whole checklists. In the table, Questions done counts questions instead: a checklist with 8 questions due on 6 days has 48 questions due, and the count shows how many were answered. Only checklists whose cutoff has passed or that are filled are counted; open ones show as +open. Met deadline is days filled before the cutoff out of days due, so late and not-filled days both count against it. On time (of finished) is the share of filled checklists that were filled before their cutoff. Answers right is good answers out of checked answers, with critical questions counted twice and sent-back ones counted as failed.
               </p>
             </details>
           )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="t-meta font-display text-text-muted">Each row shows questions answered, days that met the deadline and answers right, with the counts behind each %.</p>
+            <ExportMenu
+              disabled={!rows?.length}
+              aria-label="Export the fill table"
+              filename="checklist-fill"
+              sheetName="Fill"
+              title={exportTitle({ what: 'Checklist fill', from: range.from, to: range.to, period: range.label, filters: { Store: storeName, Department: departmentName } })}
+              getRows={() => fillMatrixRows(data)}
+              className="h-11 rounded-lg sm:h-9"
+            />
+          </div>
 
           <FillMatrix data={data} today={today} label={range.label} />
 

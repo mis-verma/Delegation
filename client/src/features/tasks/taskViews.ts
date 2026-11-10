@@ -21,4 +21,4 @@ export const TASK_VIEWS = Object.keys(TASK_VIEW_LABEL) as TaskViewKey[];
 export const isTaskViewKey = (value: string | null): value is TaskViewKey =>
   !!value && (TASK_VIEWS as string[]).includes(value);
 
-export const defaultTaskView = (isMobile: boolean): TaskViewKey => (isMobile ? 'list' : 'board');
+export const defaultTaskView = (_isMobile: boolean): TaskViewKey => 'list';

@@ -14,10 +14,9 @@ import { figureOf, shiftDay, shortDay, type OwnerFigure } from './ownerWindow';
 import { PeriodTag } from './PeriodTag';
 
 const MODULES = ['checklist', 'ticket', 'delegation'] as const;
-const TILES: readonly { key: OwnerFigure; label: string }[] = [
-  { key: 'all', label: 'Company score' },
-  ...MODULES.map((key) => ({ key, label: MODULE_LABEL[key] })),
-];
+const GRID_COLS: Record<number, string> = { 1: 'sm:grid-cols-2', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
+
+const joinNames = (names: string[]) => (names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 const TREND_DAYS = 7;
 
 const pctText = (n: number) => `${n.toFixed(1)}%`;
@@ -77,7 +76,7 @@ const LastSevenDays = () => {
           {MODULES.map((m) => (
             <li key={m} className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2">
               <span className="t-meta font-semibold text-text-secondary">{MODULE_LABEL[m]}</span>
-              <HeatDots values={buckets.map((b) => dotValue(b, m))} labels={buckets.map((b) => b.label)} />
+              <HeatDots fill values={buckets.map((b) => dotValue(b, m))} labels={buckets.map((b) => b.label)} />
             </li>
           ))}
         </ul>
@@ -109,16 +108,28 @@ interface OwnerScoreCardProps {
   detailHref: string;
 }
 
-export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, compare, detailHref }: OwnerScoreCardProps) => (
+export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, compare, detailHref }: OwnerScoreCardProps) => {
+  const withData = loading ? [...MODULES] : MODULES.filter((m) => figureOf(total, m) !== null);
+  const idle = loading ? [] : MODULES.filter((m) => figureOf(total, m) === null);
+  const single = !loading && withData.length === 1;
+  const moduleTiles = single ? [] : withData;
+  const tiles: { key: OwnerFigure; label: string }[] = [
+    { key: 'all', label: single ? `Company score, ${MODULE_LABEL[withData[0]!].toLowerCase()} only` : 'Company score' },
+    ...moduleTiles.map((key) => ({ key, label: MODULE_LABEL[key] })),
+  ];
+  const idleNote = idle.length === 0
+    ? null
+    : `${joinNames(idle.map((m) => MODULE_LABEL[m]))}: nothing due ${periodLabel.toLowerCase()}${single ? `, so the company score is the ${MODULE_LABEL[withData[0]!].toLowerCase()} score.` : '.'}`;
+  return (
   <section aria-labelledby="owner-score-heading" className={cn(PANEL_CLASS, 'flex flex-col')}>
-    <DashCardHeader id="owner-score-heading" title="Company score" action={<PeriodTag label={periodLabel} />} />
+    <DashCardHeader id="owner-score-heading" title="Company score" />
     <div className="flex flex-col gap-3 p-4 sm:p-5">
       {failed ? (
         <InlineError message="Couldn't load the company score." onRetry={onRetry} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {TILES.map(({ key, label }) => {
+          <div className={cn('grid grid-cols-2 gap-2', GRID_COLS[tiles.length])}>
+            {tiles.map(({ key, label }) => {
               const now = figureOf(total, key);
               return (
                 <FigureCard
@@ -136,6 +147,7 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
               );
             })}
           </div>
+          {idleNote && <p className="t-meta font-medium text-text-secondary">{idleNote}</p>}
           {!loading && (
             <p className="t-meta font-medium text-text-secondary">
               {compare.failed
@@ -148,4 +160,5 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
       <LastSevenDays />
     </div>
   </section>
-);
+  );
+};

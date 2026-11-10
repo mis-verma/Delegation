@@ -306,7 +306,7 @@ export const TicketList = () => {
       {!isPending && !isError && organizer.resultTotal === 0 && (
         <EmptyState
           icon={Inbox}
-          size={isMobile ? 'compact' : undefined}
+          size="compact"
           title={isMobile ? 'Nothing here' : 'No tickets found'}
           description={isMobile ? undefined : organizer.hasActiveFilters
             ? organizer.quickFilter

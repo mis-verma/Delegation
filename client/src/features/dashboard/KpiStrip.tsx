@@ -268,7 +268,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
           </span>
           <span className="min-w-0 flex-1">
             <h3 className="line-clamp-2 break-words leading-snug t-card font-display font-bold text-text">{view.title}</h3>
-            {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ' · today' : ' · all time'}</span>}
+            {scopeTag && <span className="block t-meta text-text-muted">{scopeTag}{view.todayCounts ? ', today' : ', all time'}</span>}
           </span>
           <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-400">
             <span className="group-hover:underline">View all</span>
@@ -305,8 +305,8 @@ const ModuleCard = ({ view, onOpen, score, scopeTag, index, spark }: { view: Mod
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-1 border-l border-border/60">
-                  <RadialGauge percent={score.value} size={72} variant="circle" ariaLabel={`${gaugeName} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                    <span className="t-stat font-display font-bold tabular-nums text-text">{formatPct(score.value)}</span>
+                  <RadialGauge percent={score.value} size={80} variant="circle" ariaLabel={`${gaugeName} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                    <span className="t-card font-display font-bold tabular-nums text-text">{formatPct(score.value)}</span>
                   </RadialGauge>
                   <span className="flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
                     {gaugeName}

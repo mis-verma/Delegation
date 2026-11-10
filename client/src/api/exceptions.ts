@@ -104,11 +104,21 @@ export interface HeatmapRow {
   name: string;
   avatarUrl: string | null;
   departmentName: string | null;
+  storeName?: string | null;
   cells: DayCell[];
   due: number;
   missed: number;
   fillRate: number | null;
   missedStreak: number;
+  questionsDue?: number;
+  questionsDone?: number;
+  questionsPct?: number | null;
+  runsDue?: number;
+  runsOnTime?: number;
+  metDeadlinePct?: number | null;
+  answersGood?: number;
+  answersChecked?: number;
+  compliancePct?: number | null;
 }
 
 export interface FillHeatmap {

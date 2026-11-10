@@ -30,6 +30,7 @@ import { isRankable, metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, r
 import { isAdminOrPc } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
 import { parentNotDeletedExpr, paginate, buildMeta, isHod, instanceInDepartmentCondition, dayStartUtc } from "./checklistInstanceShared.js"
+import { addRunQuestions, emptyQuestionTally, fillCountsOf, type FillCounts, type QuestionTally } from "./fillCounts.js"
 
 export const auditHistory = async (user: AccessTokenPayload, filter: { from?: string; to?: string; storeId?: string; personId?: string; page?: number; limit?: number }) => {
     const p = paginate(filter.page, filter.limit)
@@ -230,11 +231,12 @@ export const periodReport = async (user: AccessTokenPayload, from: string, to: s
         onTimeOfFinishedPct: number | null
         metDeadlinePct: number | null
         rankable: boolean
-    }
-    const figuresOf = (outcomes: Iterable<RunOutcome>, good: number, scored: number): Figures => {
+    } & FillCounts
+    const figuresOf = (outcomes: Iterable<RunOutcome>, good: number, scored: number, questions: QuestionTally = emptyQuestionTally()): Figures => {
         const t = tallyRuns(outcomes)
         const metDeadline = metDeadlinePct(t.onTime, t.due)
         return {
+            ...fillCountsOf(questions, good, scored),
             due: t.due, completed: t.completed, onTime: t.onTime, late: t.completed - t.onTime, missed: t.missed, open: t.open,
             rate: metDeadline,
             completion: runCompletionPct(t),
@@ -364,14 +366,15 @@ export const periodReport = async (user: AccessTokenPayload, from: string, to: s
         grouped.set(key, g)
     }
 
-    type Tally = { outcomes: RunOutcome[]; scored: number; good: number }
-    const newTally = (): Tally => ({ outcomes: [], scored: 0, good: 0 })
+    type Tally = { outcomes: RunOutcome[]; scored: number; good: number; questions: QuestionTally }
+    const newTally = (): Tally => ({ outcomes: [], scored: 0, good: 0, questions: emptyQuestionTally() })
     const addRun = (t: Tally, r: Run) => {
         t.outcomes.push(outcomeOf(r))
         t.scored += Number(r.wScored)
         t.good += Number(r.wGood)
+        addRunQuestions(t.questions, { state: stateOf(r), total: Number(r.total), done: Number(r.done) })
     }
-    const figuresOfTally = (t: Tally | undefined): Figures => figuresOf(t?.outcomes ?? [], t?.good ?? 0, t?.scored ?? 0)
+    const figuresOfTally = (t: Tally | undefined): Figures => figuresOf(t?.outcomes ?? [], t?.good ?? 0, t?.scored ?? 0, t?.questions)
     const totals = newTally()
     const storeTotals = new Map<string, Tally>()
     const rows = [...grouped.values()].map((g) => {

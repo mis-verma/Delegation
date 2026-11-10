@@ -751,7 +751,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       {!isPending && !isError && isEmpty && (
         <EmptyState
           icon={Inbox}
-          size={isMobile ? 'compact' : undefined}
+          size="compact"
           title={isFiltered && filterChips.length === 0 && quickFilter === null
             ? (isAssignedToMe ? 'Nothing assigned to you' : 'You have not created any delegations')
             : isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}

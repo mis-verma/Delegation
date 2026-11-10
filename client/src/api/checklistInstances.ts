@@ -390,6 +390,13 @@ export type WeeklyCell = {
   open?: number;
   rate?: number | null;
   completion?: number | null;
+} & Partial<FillCounts>;
+export type FillCounts = {
+  questionsDue: number;
+  questionsDone: number;
+  questionsPct: number | null;
+  answersGood: number;
+  answersChecked: number;
 };
 export type ReportScore = {
   due: number;
@@ -404,7 +411,7 @@ export type ReportScore = {
   onTimeOfFinishedPct: number | null;
   metDeadlinePct: number | null;
   rankable: boolean;
-};
+} & Partial<FillCounts>;
 export type StoreScore = ReportScore & { storeId: string; storeName: string };
 export type DepartmentScore = ReportScore & { departmentId: string; departmentName: string };
 export type WeeklyReport = {

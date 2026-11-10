@@ -8,6 +8,8 @@ import { formatPct } from '../../../lib/percent';
 import { rateToneClass } from '../checklistDisplay';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 import { STATE } from './fillMatrixState';
+import { FillCountCell } from './FillCountCell';
+import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, formatCount } from './fillCount';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
 
@@ -44,9 +46,10 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
 
   if (cell.state === 'summary') {
     const due = cell.due ?? 0;
+    const questions = cell.questionsDue ? `, ${formatCount(cell.questionsDone ?? 0)} of ${formatCount(cell.questionsDue)} questions done` : '';
     const detail = due === 0 && !cell.open
       ? 'Nothing was due'
-      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
+      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${questions}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
     const monthName = new Date(`${cell.date}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
     return (
       <Popover>
@@ -92,39 +95,25 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
 });
 Cell.displayName = 'Cell';
 
+const openNote = (open: number) => (open ? `+${open} open` : undefined);
+
 const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
-  <tr className="border-b border-border/60 last:border-0">
-    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-1.5 font-normal">
-      <span className="block t-card font-display font-semibold text-text leading-snug line-clamp-2">{row.name}</span>
-      <span className="block t-meta text-text-muted">{row.storeName}</span>
+  <tr className="group border-b border-border/60 last:border-0">
+    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2 font-normal transition-colors duration-150 group-hover:bg-surface-hover">
+      <span className="block w-36 sm:w-56 t-card font-display font-semibold text-text leading-snug line-clamp-2 break-words">{row.name}</span>
+      <span className="block t-meta text-text-muted line-clamp-1">{row.storeName}</span>
     </th>
     {row.cells.map(cell => (
-      <td key={cell.date} className="px-1 py-1 text-center"><Cell cell={cell} name={row.name} /></td>
+      <td key={cell.date} className="px-1 py-1 text-center align-middle"><Cell cell={cell} name={row.name} /></td>
     ))}
-    <td className="px-2 py-1 text-center">
-      {row.completion === null ? (
-        <span className="text-text-light">-</span>
-      ) : (
-        <span className={cn('t-card font-display font-bold tabular-nums', rateToneClass(row.completion))}>{formatPct(row.completion)}</span>
-      )}
-      {!!row.open && <span className="block t-meta font-display text-text-secondary">{row.open} open</span>}
+    <td className={COUNT_CELL_CLASS}>
+      <FillCountCell done={row.questionsDone} due={row.questionsDue} pct={row.questionsPct} note={openNote(row.open)} />
     </td>
-    <td className="px-2 py-1 text-center">
-      {row.rate === null ? (
-        <span className="text-text-light">-</span>
-      ) : (
-        <span className="inline-flex items-center gap-1.5">
-          <Ring percent={row.rate} tone={rateToneClass(row.rate)} size={30} />
-          <span className={cn('t-card font-display font-bold tabular-nums', rateToneClass(row.rate))}>{formatPct(row.rate)}</span>
-        </span>
-      )}
+    <td className={COUNT_CELL_CLASS}>
+      <FillCountCell done={row.onTime} due={row.due} pct={row.rate} unit={row.due === 1 ? 'day' : 'days'} />
     </td>
-    <td className="px-2 py-1 text-center">
-      {row.compliance === null ? (
-        <span className="text-text-light" title="No answers were checked in this period">-</span>
-      ) : (
-        <span className={cn('t-card font-display font-bold tabular-nums', rateToneClass(row.compliance))}>{formatPct(row.compliance)}</span>
-      )}
+    <td className={COUNT_CELL_CLASS}>
+      <FillCountCell done={row.answersGood} due={row.answersChecked} pct={row.compliance} emptyTitle="No answers were checked in this period" />
     </td>
   </tr>
 ));
@@ -141,14 +130,14 @@ export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
   const holidayDays = Object.keys(data.holidays).sort();
   return (
     <>
-      <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
+      <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">Daily checklist fill status, {label}</caption>
           <thead>
-            <tr className="border-b border-border">
-              <th scope="col" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 t-meta font-display font-semibold text-text-secondary min-w-28 sm:min-w-48">Checklist</th>
+            <tr>
+              <th scope="col" className="sticky left-0 top-0 z-30 border-b border-border bg-surface px-3 sm:px-4 py-2.5 t-meta font-display font-semibold text-text-secondary">Checklist</th>
               {data.columns.map((col) => (
-                <th key={col.key} scope="col" className={cn('px-1 py-2 text-center', isMonthView ? 'min-w-14' : data.columns.length > 7 ? 'min-w-10' : 'min-w-12')} title={data.holidays[col.key]}>
+                <th key={col.key} scope="col" className={cn('sticky top-0 z-20 border-b border-border bg-surface px-1 py-2 text-center', isMonthView ? 'w-16 min-w-16' : 'w-12 min-w-12')} title={data.holidays[col.key]}>
                   {isMonthView ? (
                     <span className="t-meta font-display font-medium text-text-muted">{col.label}</span>
                   ) : (
@@ -160,9 +149,9 @@ export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
                   )}
                 </th>
               ))}
-              <th scope="col" className="px-2 py-2.5 text-center t-meta font-display font-semibold text-text-secondary min-w-16">Completion</th>
-              <th scope="col" className="px-2 py-2.5 text-center t-meta font-display font-semibold text-text-secondary min-w-16">Met deadline</th>
-              <th scope="col" className="px-2 py-2.5 text-center t-meta font-display font-semibold text-text-secondary min-w-16">Answers right</th>
+              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Questions answered out of questions due, on checklists whose cutoff has passed or that are filled">Questions done</th>
+              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Days filled before the cutoff out of days due">Met deadline</th>
+              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Good answers out of checked answers. Critical questions count twice">Answers right</th>
             </tr>
           </thead>
           <tbody>

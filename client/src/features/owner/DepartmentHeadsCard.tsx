@@ -4,7 +4,6 @@ import { ChevronRight, UserRoundCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../components';
 import type { ExplorerRow } from '../../api/scores';
-import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
 import { formatPct } from '../../lib/percent';
 import { DashCardHeader, DashCardLink } from '../dashboard/DashCardHeader';
@@ -12,7 +11,6 @@ import { scorecardRowHref } from '../dashboard/scoreDrill';
 import { TONE_TEXT, TONE_WORD, toneOf } from '../dashboard/scoreTone';
 import { useAssignableUsersQuery } from '../tasks/hook';
 import { HEAD_LIST_SIZE, headRowsFor, splitBestLowest, type HeadRow } from './departmentHeads';
-import { PeriodTag } from './PeriodTag';
 
 const HeadItem = ({ row, rank, href }: { row: HeadRow; rank: number; href: string }) => {
   const tone = toneOf(row.score);
@@ -25,7 +23,7 @@ const HeadItem = ({ row, rank, href }: { row: HeadRow; rank: number; href: strin
         className="group flex min-h-14 items-center gap-3 px-4 py-2.5 outline-none transition-colors duration-150 ease-out hover:bg-surface-hover/50 focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 active:bg-surface-hover sm:px-5"
       >
         <span aria-hidden="true" className="w-5 shrink-0 t-meta font-display font-bold tabular-nums text-text-secondary">{rank}</span>
-        <span aria-hidden="true" className={cn('flex size-10 shrink-0 items-center justify-center rounded-full t-card font-display font-bold text-white', avatarColorClass(row.name))}>
+        <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-500/12 t-card font-display font-bold text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">
           {getInitials(row.name)}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -59,12 +57,11 @@ interface DepartmentHeadsCardProps {
   loading: boolean;
   failed: boolean;
   onRetry: () => void;
-  periodLabel: string;
   from: string;
   to: string;
 }
 
-export const DepartmentHeadsCard = ({ departments, loading, failed, onRetry, periodLabel, from, to }: DepartmentHeadsCardProps) => {
+export const DepartmentHeadsCard = ({ departments, loading, failed, onRetry, from, to }: DepartmentHeadsCardProps) => {
   const people = useAssignableUsersQuery();
   const { rows, unscored, anyHeads } = useMemo(() => headRowsFor(departments ?? [], people.data ?? []), [departments, people.data]);
   const { best, lowest } = splitBestLowest(rows);
@@ -78,7 +75,6 @@ export const DepartmentHeadsCard = ({ departments, loading, failed, onRetry, per
         id="owner-heads-heading"
         title="Department heads"
         subtitle="Each head with their department's score"
-        action={<PeriodTag label={periodLabel} />}
       />
       {failed || peopleFailed ? (
         <div className="p-4 sm:p-5">
@@ -117,7 +113,7 @@ export const DepartmentHeadsCard = ({ departments, loading, failed, onRetry, per
           <div className={cn('grid grid-cols-1 divide-y divide-border/60', lowest.length > 0 && '@2xl:grid-cols-2 @2xl:divide-x @2xl:divide-y-0')}>
             <HeadList id="owner-heads-best" title={lowest.length > 0 ? 'Best' : 'Ranked'} rows={best} rankOf={(i) => i + 1} hrefFor={hrefFor} />
             {lowest.length > 0 && (
-              <HeadList id="owner-heads-lowest" title="Lowest" rows={lowest} rankOf={(i) => rows.length - i} hrefFor={hrefFor} />
+              <HeadList id="owner-heads-lowest" title="Lowest" rows={[...lowest].reverse()} rankOf={(i) => rows.length - lowest.length + 1 + i} hrefFor={hrefFor} />
             )}
           </div>
         </div>

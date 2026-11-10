@@ -24,7 +24,6 @@ import { buildTicketSchema, type TicketFields } from './form/ticketFormSchema';
 import { CategoryForm } from '../settings/CategoryForm';
 import { DepartmentForm } from '../admin/department/DepartmentForm';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
-import { AssignmentChoice } from './form/AssignmentChoice';
 import { DueDateField } from './form/DueDateField';
 import { FormField, StepHeading } from './form/FormField';
 import { FormProgress } from './form/FormProgress';
@@ -112,7 +111,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
+    defaultValues: { priority: 'MEDIUM', assignmentMode: 'AUTO', ...initialDue, ...prefill, ...(kept ?? {}), ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
 
   useEffect(() => {
@@ -263,11 +262,6 @@ Who is affected: `;
       keepAssignee.current = true;
       setValue('departmentId', person.departmentId, { shouldValidate: validateOnChange, shouldDirty: true });
     }
-  };
-
-  const chooseMode = (mode: 'AUTO' | 'MANUAL') => {
-    sendToDepartment(mode === 'MANUAL');
-    setValue('assignmentMode', mode, { shouldDirty: true, shouldValidate: validateOnChange });
   };
 
   const due = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`) : null;
@@ -624,7 +618,7 @@ Who is affected: `;
       size="xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title={draft ? 'Finish draft ticket' : 'New ticket'}
-      description={<span className="hidden sm:inline">Choose how it is sent first, then describe the problem.</span>}
+      description={<span className="hidden sm:inline">Pick Auto or Manual, then describe the problem.</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
       headerClassName="border-b-0"
@@ -639,14 +633,8 @@ Who is affected: `;
         noValidate
       >
         <section className="flex flex-col gap-3" aria-label="How to send it">
-          {!modeChosen ? (
-            <AssignmentChoice frontLine={ownScopeOnly} onChoose={chooseMode} error={submitCount > 0 ? errors.assignmentMode?.message : undefined} />
-          ) : (
-            <>
-              <StepHeading step={1} title="How it is sent" subtitle="Auto uses a category. Manual lets you choose the team and person." />
-              {modeToggle}
-            </>
-          )}
+          <StepHeading step={1} title="How it is sent" subtitle="Auto uses a category. Manual lets you choose the team and person." />
+          {modeToggle}
         </section>
 
         {modeChosen && (

@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { usePendingVerificationChecklistInstancesQuery } from '../../features/checklist/hook';
 import { Link, NavLink, useLocation } from 'react-router';
+import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
@@ -348,7 +349,16 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
 
     return (
       <div key={to} className={entranceProps.className} style={entranceProps.style}>
-        <div className="group/row flex items-center gap-1.5 pointer-coarse:gap-2">
+        <div
+          className={[
+            'group/row flex items-center gap-1.5 pointer-coarse:gap-2 rounded-xl transition-colors duration-150 ease-out',
+            showLabel
+              ? hasActiveChild
+                ? 'bg-primary-50 dark:bg-primary-500/15'
+                : 'has-[a[aria-current=page]]:bg-primary-50 dark:has-[a[aria-current=page]]:bg-primary-500/15'
+              : '',
+          ].join(' ')}
+        >
           <RailTip label={label} show={!showLabel}>
           <NavLink
             viewTransition
@@ -365,7 +375,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
                 isDrawer ? 'px-3 py-3' : 'px-2.5 py-1.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
-                  ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold'
+                  ? cn('text-primary-700 dark:text-primary-300 font-semibold', !showLabel && 'bg-primary-50 dark:bg-primary-500/15')
                   : 'text-text-secondary font-medium hover:bg-surface-hover hover:text-text',
               ].join(' ')
             }
@@ -659,7 +669,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
             onClick={onToggleCollapse}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-border bg-surface text-text-muted outline-none transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-1 pointer-coarse:after:rounded-full"
+            className="absolute top-1/2 right-3 z-30 flex size-6 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text-muted outline-none transition-colors duration-150 ease-out cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-2.5 after:rounded-full after:content-['']"
           >
             {isOpen ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
           </button>
