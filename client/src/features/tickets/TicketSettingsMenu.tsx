@@ -1,6 +1,6 @@
 import {
   Eye, LayoutGrid, UserPen, UserCheck, Rows3, ArrowUpDown, Building2, User,
-  CircleDot, Flag, Tag as TagIcon, Users, Layers, type LucideIcon,
+  CircleDot, Flag, Tag as TagIcon, Users, Layers, Hand, type LucideIcon,
 } from 'lucide-react';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect,
@@ -28,6 +28,7 @@ const SCOPE_ICON: Record<ScopeFilter, LucideIcon> = {
   ALL: LayoutGrid,
   CREATED_BY_ME: UserPen,
   ASSIGNED_TO_ME: UserCheck,
+  TO_CLAIM: Hand,
 };
 
 const STATUS_ORDER: Ticket['status'][] = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL', 'CLOSED'];

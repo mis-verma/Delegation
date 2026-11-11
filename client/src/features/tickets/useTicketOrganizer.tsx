@@ -184,7 +184,7 @@ export const ticketServerQuery = (
   page: state.page,
   sort: state.sort,
   bucket: state.quickFilter ?? undefined,
-  handledBy: state.scopeFilter === 'ASSIGNED_TO_ME' ? 'assignee' : state.scopeFilter === 'CREATED_BY_ME' ? 'creator' : undefined,
+  handledBy: state.scopeFilter === 'ASSIGNED_TO_ME' ? 'assignee' : state.scopeFilter === 'CREATED_BY_ME' ? 'creator' : state.scopeFilter === 'TO_CLAIM' ? 'claimable' : undefined,
   status: state.filters.status === 'all' ? undefined : state.filters.status,
   priority: state.filters.priority.length ? state.filters.priority : undefined,
   departmentId: state.filters.departmentId || undefined,

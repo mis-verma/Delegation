@@ -156,6 +156,8 @@ export type Ticket = {
   autoClosedAt?:   string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
   awaitingHeadApproval?: boolean;
+  claimOpenedAt?: string | null;
+  claimedAt?: string | null;
   assignmentApprovedAt?: string | null;
   assignmentApprovedBy?: string | null;
   assignmentApprover?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
@@ -179,7 +181,7 @@ export type TicketListQuery = {
   limit: number;
   sort?: "tatDueAt" | "priority" | "createdAt" | "title";
   bucket?: "pending" | "completed" | "due" | "delayed";
-  handledBy?: "assignee" | "creator";
+  handledBy?: "assignee" | "creator" | "claimable";
   status?: TicketStatus;
   priority?: Priority[];
   departmentId?: string;
@@ -342,8 +344,11 @@ export const ticketApi = {
   reopenDeclined: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/reopen-declined`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
-  approveAssignment: (id: string, assigneeId?: string) =>
-    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST', body: JSON.stringify(assigneeId ? { assigneeId } : {}) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+  approveAssignment: (id: string, assigneeId?: string, tatHours?: number) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST', body: JSON.stringify({ ...(assigneeId ? { assigneeId } : {}), ...(tatHours ? { tatHours } : {}) }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  claim: (id: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/claim`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   decline: (id: string, reason: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowRight, ArrowRightLeft, Ban, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, RotateCcw, ShieldCheck, Undo2, UserRound, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowRight, ArrowRightLeft, Ban, CalendarClock, Check, ChevronDown, Flag, Hand, History, Pencil, Plus, RotateCcw, ShieldCheck, Undo2, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
 import type { Role } from '../../api/auth';
@@ -29,6 +29,7 @@ const KIND: Record<ActivityKind, { icon: LucideIcon; tone: ActivityTone }> = {
   edited: { icon: Pencil, tone: 'muted' },
   progress: { icon: Activity, tone: 'warning' },
   head_approved: { icon: ShieldCheck, tone: 'success' },
+  claimed: { icon: Hand, tone: 'primary' },
   declined: { icon: Ban, tone: 'danger' },
   reopened: { icon: RotateCcw, tone: 'info' },
 };
@@ -90,6 +91,7 @@ const sentence = (e: ActivityEvent, thing: string) => {
     case 'edited': return `edited the ${(e.fields ?? []).join(' and ')}`;
     case 'progress': return `posted a work update`;
     case 'head_approved': return `approved this ${thing} for the team`;
+    case 'claimed': return `claimed this ${thing}`;
     case 'declined': return `declined this ${thing}`;
     case 'reopened': return `reopened this ${thing}`;
   }

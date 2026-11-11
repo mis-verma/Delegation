@@ -7,7 +7,7 @@ import {
   ticketStatusUpdates,
   ticketAttachments,
   categories,
-
+  users,
 } from "../../db/schema/index.js"
 import { asc, eq, and, inArray, notInArray, sql, gte, lte, ne, isNotNull, isNull, type SQL } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
@@ -23,7 +23,7 @@ import { notificationService, notifySafely } from "../notifications/notification
 import { settingsService } from "../settings/settings.service.js"
 import { canApproveAssignment, isDepartmentHead, resolveGateDepartment, ticketNeedsHeadApproval } from "./ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/roles.js"
-import { type TicketRow, NOT_DELETED, assertAssignableUser, deriveTatDueAt, overdueAtHandOver } from "./ticketShared.js"
+import { type TicketRow, NOT_DELETED, CLAIM_POOL, assertAssignableUser, deriveTatDueAt, inClaimPool, overdueAtHandOver } from "./ticketShared.js"
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
@@ -157,6 +157,7 @@ export const ticketService = {
     const gated = !hooks?.skipHeadGate
     const departmentId = await resolveGateDepartment(input.departmentId ?? defaults.departmentId, assigneeId, gated)
     const needsHead = gated && await ticketNeedsHeadApproval({ departmentId }, user)
+    const openForClaim = !needsHead && !assigneeId && !!departmentId
     await db.transaction(async (tx) => {
       await tx.insert(tickets).values({
         id,
@@ -170,10 +171,11 @@ export const ticketService = {
         subcategoryId: input.subcategoryId ?? null,
         departmentId,
         tatHours: tatHours ?? null,
-        tatDueAt: deriveTatDueAt(tatHours ?? null, now),
+        tatDueAt: openForClaim ? null : deriveTatDueAt(tatHours ?? null, now),
         startDate: input.startDate ? new Date(input.startDate) : null,
         isOverdue: false,
         awaitingHeadApproval: needsHead,
+        claimOpenedAt: openForClaim ? now : null,
         userId: user.sub,
       })
 
@@ -199,6 +201,8 @@ export const ticketService = {
       await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
     } else if (afterRow!.assigneeId) {
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)))
+    } else if (openForClaim) {
+      await notifySafely(() => notificationService.notifyTicketClaimable({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId, tatHours: afterRow!.tatHours }, user.sub))
     } else {
       await notifySafely(() => notificationService.notifyTicketUnassigned({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId }, user.sub))
     }
@@ -325,13 +329,20 @@ export const ticketService = {
       }
     }
 
+    const waitingForClaim = inClaimPool(before) && !nextAssigneeId && !nowAwaitingHead
     if (input.tatHours !== undefined && input.tatHours !== before.tatHours) {
       patch.tatHours = input.tatHours ?? null
-      patch.tatDueAt = deriveTatDueAt(input.tatHours ?? null, new Date())
+      patch.tatDueAt = waitingForClaim ? null : deriveTatDueAt(input.tatHours ?? null, new Date())
       patch.isOverdue = false
       patch.dueSoonNotifiedAt = null
       patch.overdueNotifiedAt = null
       patch.overdueEscalatedAt = null
+    }
+
+    if (nowAwaitingHead) patch.claimOpenedAt = null
+    if (!nowAwaitingHead && inClaimPool(before) && nextAssigneeId && !before.tatDueAt && patch.tatDueAt === undefined) {
+      patch.tatDueAt = deriveTatDueAt(before.tatHours, new Date())
+      patch.isOverdue = false
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
@@ -410,6 +421,10 @@ export const ticketService = {
 
     if (before.declinedAt) {
       throw AppError.badRequest("This ticket was declined. Use Reopen ticket to bring it back.")
+    }
+
+    if (inClaimPool(before)) {
+      throw AppError.badRequest("Nobody has claimed this ticket yet. Claim it, or give it to someone first.")
     }
 
     const canActBeforeApproval = isVerifierRole(user) || isDepartmentHead(user, ticket)
@@ -546,7 +561,7 @@ export const ticketService = {
     return populated;
   },
 
-  async approveAssignment(id: string, user: AccessTokenPayload, assigneeId?: string) {
+  async approveAssignment(id: string, user: AccessTokenPayload, assigneeId?: string, tatHours?: number) {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this ticket.")
@@ -558,16 +573,24 @@ export const ticketService = {
       await resolveGateDepartment(ticket.departmentId, assigneeId)
     }
 
+    const hours = tatHours ?? ticket.tatHours
+    if (!hours) throw AppError.badRequest("Set how many hours this ticket gets before approving it.")
+    const person = assigneeId ?? ticket.assigneeId
+    const openForClaim = !person && !!ticket.departmentId
+
     const now = new Date()
     const patch: Partial<typeof tickets.$inferInsert> = {
       awaitingHeadApproval: false,
       ...(assigneeId ? { assigneeId } : {}),
+      tatHours: hours,
       assignmentApprovedBy: user.sub,
       assignmentApprovedAt: now,
+      claimOpenedAt: openForClaim ? now : null,
       updatedAt: now,
     }
-    if (ticket.tatHours && ticket.assignmentMode !== "MANUAL") {
-      patch.tatDueAt = deriveTatDueAt(ticket.tatHours, now)
+    const restartClock = openForClaim || tatHours !== undefined || ticket.assignmentMode !== "MANUAL"
+    if (restartClock) {
+      patch.tatDueAt = openForClaim ? null : deriveTatDueAt(hours, now)
       patch.isOverdue = false
       patch.dueSoonNotifiedAt = null
       patch.overdueNotifiedAt = null
@@ -582,6 +605,49 @@ export const ticketService = {
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
     await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub))
+    if (openForClaim) await notifySafely(() => notificationService.notifyTicketClaimable({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId, tatHours: afterRow!.tatHours }, user.sub))
+    await dropTicketSummaries()
+    return populated
+  },
+
+  async claim(id: string, user: AccessTokenPayload) {
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
+    if (!ticket) throw AppError.notFound("Ticket not found")
+    if (ticket.declinedAt) throw AppError.badRequest("This ticket was declined, so it can't be claimed.")
+    if (ticket.awaitingHeadApproval) throw AppError.badRequest("Your department head has to set the time for this ticket before anyone can claim it.")
+    if (ticket.assigneeId) {
+      const [taker] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, ticket.assigneeId)).limit(1)
+      throw AppError.conflict(ticket.assigneeId === user.sub ? "You already have this ticket." : `${taker?.firstName ?? "Someone"} already took this ticket.`)
+    }
+    if (!inClaimPool(ticket)) throw AppError.badRequest("This ticket is not open to claim. Ask your department head.")
+
+    const [me] = await db.select({ departmentId: users.departmentId, isActive: users.isActive, role: users.role }).from(users).where(eq(users.id, user.sub)).limit(1)
+    if (!me || !me.isActive || me.role === "OWNER" || !me.departmentId || me.departmentId !== ticket.departmentId) {
+      throw AppError.forbidden("Only people in this ticket's department can claim it.")
+    }
+
+    const now = new Date()
+    const [result] = await db.update(tickets).set({
+      assigneeId: user.sub,
+      claimedAt: now,
+      tatDueAt: ticket.tatDueAt ?? deriveTatDueAt(ticket.tatHours, now),
+      isOverdue: false,
+      dueSoonNotifiedAt: null,
+      overdueNotifiedAt: null,
+      overdueEscalatedAt: null,
+      unassignedNotifiedAt: null,
+      updatedAt: now,
+    }).where(and(eq(tickets.id, id), eq(tickets.departmentId, me.departmentId), CLAIM_POOL))
+    if (result.affectedRows === 0) throw AppError.conflict("Someone claimed this ticket a moment ago.")
+
+    const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    await auditService.record({ entityType: "Ticket", entityId: id, action: "CLAIM", actorId: user.sub, before: ticket, after: afterRow })
+
+    const populated = await getPopulatedTicket(id)
+    const target = roomTarget(afterRow!)
+    emitTicketEvent("ticket:updated", target, populated)
+    emitTicketEvent("ticket:assigned", target, populated)
+    await notifySafely(() => notificationService.notifyTicketClaimed({ _id: id, title: afterRow!.title, userId: afterRow!.userId, departmentId: afterRow!.departmentId }, user.sub))
     await dropTicketSummaries()
     return populated
   },
@@ -593,8 +659,10 @@ export const ticketService = {
     if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can reopen a declined ticket.")
 
     const now = new Date()
+    const backToPool = !ticket.assigneeId && !!ticket.departmentId
     const [result] = await db.update(tickets).set({
       status: "OPEN",
+      claimOpenedAt: backToPool ? now : ticket.claimOpenedAt,
       declinedAt: null,
       declinedBy: null,
       declineReason: null,
@@ -607,7 +675,7 @@ export const ticketService = {
       assignmentApprovedBy: user.sub,
       assignmentApprovedAt: now,
       reopenCount: ticket.reopenCount + 1,
-      tatDueAt: ticket.tatHours ? deriveTatDueAt(ticket.tatHours, now) : ticket.tatDueAt,
+      tatDueAt: backToPool ? null : ticket.tatHours ? deriveTatDueAt(ticket.tatHours, now) : ticket.tatDueAt,
       isOverdue: false,
       dueSoonNotifiedAt: null,
       overdueNotifiedAt: null,
@@ -622,6 +690,7 @@ export const ticketService = {
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
     await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub))
+    if (backToPool) await notifySafely(() => notificationService.notifyTicketClaimable({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId, tatHours: afterRow!.tatHours }, user.sub))
     await dropTicketSummaries()
     return populated
   },

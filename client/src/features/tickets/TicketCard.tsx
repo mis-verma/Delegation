@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlarmClock, CalendarDays, Clock3, User } from 'lucide-react';
+import { AlarmClock, CalendarDays, Clock3, Hand, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { latestRemarkOf } from '../../lib/ticketProgress';
 import { TicketFlowChips } from './TicketFlowChips';
@@ -8,6 +8,7 @@ import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { usePrefetchTicket } from './hook';
+import { isClaimable, tatText } from './claim/ticketClaim';
 import { PRIORITY_CONFIG, formatDueLabel, formatAge } from './ticketDisplay';
 import { StatusChip, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
@@ -65,7 +66,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
               {getInitials(assigneeName)}
             </span>
           ) : (
-            <span className="flex items-center justify-center size-6 sm:size-7 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
+            <span className="flex items-center justify-center size-6 sm:size-7 rounded-full bg-surface-hover text-text-light shrink-0" title={isClaimable(ticket) ? 'Nobody yet, open to claim' : 'Unassigned'}>
               <User className="size-3" />
             </span>
           ))}
@@ -119,6 +120,16 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         <TicketFlowChips ticket={ticket} />
 
         <PriorityChip meta={priorityInfo} />
+
+        {isClaimable(ticket) && (
+          <IconChip
+            icon={Hand}
+            tone="bg-primary-600"
+            label={tatText(ticket.tatHours) ? `To claim, ${tatText(ticket.tatHours)}` : 'To claim'}
+            title="Anyone in this department can claim it. The clock starts at claim."
+            className="border-primary-500/30 bg-primary-500/10"
+          />
+        )}
 
         {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 

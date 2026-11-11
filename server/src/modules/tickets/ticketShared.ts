@@ -3,7 +3,7 @@ import {
   tickets,
   users,
 } from "../../db/schema/index.js"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, isNotNull, isNull } from "drizzle-orm"
 import { type DbTransaction } from "../audit/audit.service.js"
 import { MAX_TAT_HOURS } from "../../utils/tatLimits.js"
 import { AppError } from "../../utils/AppError.js"
@@ -13,6 +13,11 @@ export type TicketRow = typeof tickets.$inferSelect
 export const NOT_DELETED = isNull(tickets.deletedAt)
 
 export const NOT_GATED = and(eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt))
+
+export const CLAIM_POOL = and(isNotNull(tickets.claimOpenedAt), isNull(tickets.assigneeId), eq(tickets.status, "OPEN"), eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt), isNull(tickets.deletedAt))!
+
+export const inClaimPool = (ticket: Pick<TicketRow, "claimOpenedAt" | "assigneeId" | "status" | "awaitingHeadApproval" | "declinedAt">): boolean =>
+  !!ticket.claimOpenedAt && !ticket.assigneeId && ticket.status === "OPEN" && !ticket.awaitingHeadApproval && !ticket.declinedAt
 
 export const deriveTatDueAt = (tatHours: number | null, fromDate: Date): Date | null =>
   tatHours ? new Date(fromDate.getTime() + Math.min(tatHours, MAX_TAT_HOURS) * 60 * 60 * 1000) : null

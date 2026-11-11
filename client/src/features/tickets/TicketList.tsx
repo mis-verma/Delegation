@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
-import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock } from 'lucide-react';
+import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock, Hand } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, SearchField, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
@@ -230,6 +230,7 @@ export const TicketList = () => {
             options={[
               { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck },
               { value: 'CREATED_BY_ME', label: 'Created by me', shortLabel: 'By me', icon: PenLine },
+              { value: 'TO_CLAIM', label: 'To claim', shortLabel: 'Claim', icon: Hand },
             ]}
             value={organizer.scopeFilter}
             allValue="ALL"

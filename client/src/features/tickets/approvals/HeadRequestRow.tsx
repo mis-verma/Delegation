@@ -13,6 +13,8 @@ import { AssigneeField } from '../../assignees/AssigneeField';
 import { RedirectTicketDialog } from '../detail/RedirectTicketDialog';
 import { DeclineTicketDialog } from '../detail/DeclineTicketDialog';
 import { TicketDetail } from '../TicketDetail';
+import { TatHoursPicker } from '../claim/TatHoursPicker';
+import { headApproveLabel } from '../claim/ticketClaim';
 import type { Ticket } from '../../../api/ticket';
 
 interface HeadRequestRowProps {
@@ -39,6 +41,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
   const [declining, setDeclining] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [pickedId, setPickedId] = useState('');
+  const [tatHours, setTatHours] = useState<number | null>(ticket.tatHours ?? null);
   const needsPerson = !ticket.assigneeId;
   const { data: people, isLoading: loadingPeople } = useAssignableUsersQuery(ticket.departmentId ?? undefined, undefined, undefined, needsPerson);
   const { data: departments } = useDepartmentsQuery();
@@ -77,7 +80,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
             <WaitChip since={ticket.createdAt} now={now} warnAfterHours={4} dangerAfterHours={24} />
-            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title={ticket.assignmentMode === 'MANUAL' ? 'The sender chose this finish time' : 'The clock starts when you approve'} className="shrink-0" labelClassName="tabular-nums" />}
+            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title="Asked for by the sender. You set the final time below" className="shrink-0" labelClassName="tabular-nums" />}
           </span>
         </span>
       </button>
@@ -86,9 +89,16 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         <p className="t-meta font-display font-semibold text-warning">This ticket is assigned to you. If you approve it, PC can see that you approved your own work.</p>
       )}
 
+      <TatHoursPicker
+        value={tatHours}
+        onChange={setTatHours}
+        disabled={busy}
+        hint={needsPerson && !pickedId ? 'The clock starts when someone claims it.' : 'The clock starts as soon as you confirm.'}
+      />
+
       {needsPerson && (
         <div className="flex flex-col gap-1.5">
-          <span className="t-meta font-display font-semibold text-text-secondary">Who will do it? You can pick now or later.</span>
+          <span className="t-meta font-display font-semibold text-text-secondary">Give it to someone (optional). Leave it empty and anyone in {departmentName ?? 'your team'} can claim it.</span>
           <AssigneeField
             single
             hideLabel
@@ -122,13 +132,13 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         </Button>
         <Button
           variant="primary"
-          onClick={() => { haptic('tap'); approveMut.mutate({ id: ticket.id, assigneeId: pickedId || undefined }); }}
+          onClick={() => { if (!tatHours) return; haptic('tap'); approveMut.mutate({ id: ticket.id, tatHours, assigneeId: pickedId || undefined }); }}
           isLoading={approveMut.isPending}
-          disabled={busy}
+          disabled={busy || !tatHours}
           className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
         >
           <CircleCheck size={16} aria-hidden="true" />
-          {pickedId ? 'Approve and assign' : 'Approve'}
+          {headApproveLabel(!needsPerson || !!pickedId)}
         </Button>
       </div>
 

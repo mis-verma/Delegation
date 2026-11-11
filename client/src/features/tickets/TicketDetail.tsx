@@ -11,13 +11,14 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
   useDeclineTicketMutation,
-  useApproveAssignmentMutation,
   useReopenDeclinedMutation,
 } from './hook';
 import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components';
 import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../components/imageLightbox';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
-import { HeadDecisionPanel } from './detail/HeadDecisionPanel';
+import { TicketHeadDecision } from './detail/TicketHeadDecision';
+import { ClaimBanner } from './claim/ClaimBanner';
+import { isClaimable } from './claim/ticketClaim';
 import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
 import { ProgressUpdatesPanel } from './detail/ProgressUpdatesPanel';
 import { OverdueBanner } from './detail/OverdueBanner';
@@ -101,7 +102,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
   const verifyMut = useVerifyTicketMutation();
   const declineMut = useDeclineTicketMutation();
-  const approveAssignmentMut = useApproveAssignmentMutation();
   const reopenMut = useReopenDeclinedMutation();
   const [declining, setDeclining] = useState(false);
 
@@ -215,7 +215,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
     && (!ownScope || ticket.assigneeId === currentUser?.id);
-  const statusOptions = showVerify || awaitingHead || !!ticket.declinedAt
+  const statusOptions = showVerify || awaitingHead || !!ticket.declinedAt || isClaimable(ticket)
     ? []
     : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
       .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
@@ -397,18 +397,16 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 <HeadApprovedBanner approver={ticket.assignmentApprover} approvedAt={ticket.assignmentApprovedAt} departmentName={departmentName} />
               )}
               {awaitingHead && (
-                <HeadDecisionPanel
-                  itemTitle={ticket.title}
-                  raiser={ticket.raisedBy ?? null}
-                  assignee={ticket.assignee}
+                <TicketHeadDecision
+                  key={ticket.id}
+                  ticket={ticket}
                   departmentName={departmentName}
                   canDecide={canApproveAssignment}
-                  isApproving={approveAssignmentMut.isPending}
                   isDeclining={declineMut.isPending}
-                  onApprove={() => approveAssignmentMut.mutate({ id: ticket.id })}
                   onDecline={() => setDeclining(true)}
                 />
               )}
+              {isClaimable(ticket) && <ClaimBanner ticket={ticket} departmentName={departmentName} />}
               {!ticket.declinedAt && <TicketApprovalTrail ticket={ticket} />}
               {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} title={ticket.autoClosedAt ? 'Closed automatically' : undefined} />}
 

@@ -237,12 +237,21 @@ export const useTicketsAwaitingHeadQuery = (enabled = true) => {
 
 export const useApproveAssignmentMutation = () =>
   useEntityMutation({
-    mutationFn: ({ id, assigneeId }: { id: string; assigneeId?: string }) => ticketApi.approveAssignment(id, assigneeId).then(r => r.data),
+    mutationFn: ({ id, assigneeId, tatHours }: { id: string; assigneeId?: string; tatHours?: number }) => ticketApi.approveAssignment(id, assigneeId, tatHours).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
-    successMessage: 'Approved. The team can start work now.',
+    successMessage: (updated) => (updated.assigneeId ? 'Time set. The work can start now.' : 'Time set. Your team can claim it now.'),
     retryable: true,
     errorFallback: "Couldn't approve the ticket. Try again.",
+  });
+
+export const useClaimTicketMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id }: { id: string }) => ticketApi.claim(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
+    invalidateKeys: [['tickets'], ['scores']],
+    successMessage: "It's yours. The clock has started.",
+    errorFallback: "Couldn't claim the ticket. Try again.",
   });
 
 export const useReopenDeclinedMutation = () =>

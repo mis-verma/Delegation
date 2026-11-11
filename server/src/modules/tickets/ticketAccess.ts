@@ -9,7 +9,7 @@ import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { canApproveAtStage, type ApprovalStage } from "./ticketApproval.js"
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
-import { type TicketRow } from "./ticketShared.js"
+import { CLAIM_POOL, type TicketRow } from "./ticketShared.js"
 import { reviewerTicketIds } from "./ticketRelations.js"
 import { approvalCoverService } from "../approvalCover/approvalCover.service.js"
 import { borrowAuthority } from "../approvalCover/coverAuthority.js"
@@ -39,7 +39,9 @@ const ownVisibilityFilter = async (user: AccessTokenPayload) => {
     if (user.storeId) or_conditions.push(eq(tickets.storeId, user.storeId))
     base = or(...or_conditions)
   } else if (isOwnScopeRole(user.role)) {
-    base = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
+    base = user.departmentId
+      ? or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub), and(eq(tickets.departmentId, user.departmentId), CLAIM_POOL))!
+      : or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
   } else {
     base = eq(tickets.userId, user.sub)
   }

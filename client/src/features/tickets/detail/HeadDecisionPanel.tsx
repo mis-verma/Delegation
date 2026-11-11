@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ArrowRight, Ban, Check, CircleCheck, Hourglass, Play, Send, ShieldQuestion, User } from 'lucide-react';
 import { Button } from '../../../components';
 import { avatarColorClass } from '../../../lib/avatarColors';
@@ -28,6 +29,11 @@ interface HeadDecisionPanelProps {
   isDeclining: boolean;
   onApprove: () => void;
   onDecline: () => void;
+  children?: ReactNode;
+  approveLabel?: string;
+  approveDisabled?: boolean;
+  decideStepLabel?: string;
+  decideText?: string;
 }
 
 const fullName = (p: Person) => `${p.firstName}${p.lastName ? ` ${p.lastName}` : ''}`.trim();
@@ -85,6 +91,11 @@ export const HeadDecisionPanel = ({
   isDeclining,
   onApprove,
   onDecline,
+  children,
+  approveLabel = 'Approve',
+  approveDisabled = false,
+  decideStepLabel,
+  decideText,
 }: HeadDecisionPanelProps) => {
   const busy = isApproving || isDeclining;
   const raiserName = raiser ? raiser.firstName : 'Someone';
@@ -110,7 +121,7 @@ export const HeadDecisionPanel = ({
           </h2>
           <p className="t-card font-medium leading-snug text-text-secondary">
             {canDecide
-              ? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until ${several ? 'every head has approved it' : 'you approve it'}.`
+              ? decideText ?? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until ${several ? 'every head has approved it' : 'you approve it'}.`
               : several
                 ? `Work starts once every head approves it${waitingFor.length ? `. Still waiting for ${waitingFor.join(', ')}` : ''}. If one declines, you will see the reason here.`
                 : 'Work starts as soon as they approve it. If they decline, you will see their reason here.'}
@@ -141,10 +152,12 @@ export const HeadDecisionPanel = ({
       <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
         <Step icon={Send} label="Sent" state="done" />
         <Connector filled />
-        <Step icon={ShieldQuestion} label={several ? 'Heads approve' : 'Head approves'} state="current" />
+        <Step icon={ShieldQuestion} label={decideStepLabel ?? (several ? 'Heads approve' : 'Head approves')} state="current" />
         <Connector filled={false} />
         <Step icon={Play} label="Work starts" state="next" />
       </ol>
+
+      {canDecide && children}
 
       {canDecide && (
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
@@ -161,12 +174,12 @@ export const HeadDecisionPanel = ({
           <Button
             variant="primary"
             onClick={() => { haptic('tap'); onApprove(); }}
-            disabled={busy}
+            disabled={busy || approveDisabled}
             isLoading={isApproving}
             className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
           >
             <CircleCheck size={16} aria-hidden="true" />
-            Approve
+            {approveLabel}
           </Button>
         </div>
       )}

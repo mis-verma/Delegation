@@ -240,3 +240,55 @@ describe("ticket raised to a department user", () => {
         expect(after.body.data.completed).toBe(before.body.data.completed)
     })
 })
+
+describe("ticket opened for the team to claim", () => {
+    const openForClaim = async (body: Record<string, unknown> = {}) => {
+        const res = await raise("headA", { departmentId: departmentIds.b })
+        const id = res.body.data.id as string
+        const opened = await as("headB", request(app).post(`/tickets/${id}/approve-assignment`)).send(body)
+        expect(opened.status).toBe(200)
+        return { id, opened }
+    }
+
+    it("keeps the clock stopped until someone claims it", async () => {
+        const { opened } = await openForClaim({ tatHours: 8 })
+        expect(opened.body.data.assigneeId).toBeNull()
+        expect(opened.body.data.claimOpenedAt).not.toBeNull()
+        expect(opened.body.data.tatHours).toBe(8)
+        expect(opened.body.data.tatDueAt).toBeNull()
+    })
+
+    it("shows it to people in that department only", async () => {
+        const { id } = await openForClaim({ tatHours: 8 })
+        expect((await as("workerB", request(app).get(`/tickets/${id}`))).status).toBe(200)
+        expect((await as("workerC", request(app).get(`/tickets/${id}`))).status).toBe(403)
+    })
+
+    it("lets the first person in the department claim it and starts the clock then", async () => {
+        const { id } = await openForClaim({ tatHours: 8 })
+        expect((await as("workerC", request(app).post(`/tickets/${id}/claim`))).status).toBe(403)
+        const before = Date.now()
+        const claimed = await as("workerB", request(app).post(`/tickets/${id}/claim`))
+        expect(claimed.status).toBe(200)
+        expect(claimed.body.data.assigneeId).toBe(people.workerB!.id)
+        expect(claimed.body.data.claimedAt).not.toBeNull()
+        const due = new Date(claimed.body.data.tatDueAt as string).getTime()
+        expect(due).toBeGreaterThanOrEqual(before + 8 * 3_600_000 - 5_000)
+        expect((await as("seniorB", request(app).post(`/tickets/${id}/claim`))).status).toBe(409)
+        expect((await start("workerB", id)).status).toBe(200)
+    })
+
+    it("does not let anyone start an unclaimed ticket", async () => {
+        const { id } = await openForClaim({ tatHours: 8 })
+        expect((await start("headB", id)).status).toBe(400)
+    })
+
+    it("starts the clock at once when the head gives it to a person", async () => {
+        const res = await raise("headA", { departmentId: departmentIds.b })
+        const given = await as("headB", request(app).post(`/tickets/${res.body.data.id}/approve-assignment`)).send({ tatHours: 4, assigneeId: people.workerB!.id })
+        expect(given.status).toBe(200)
+        expect(given.body.data.assigneeId).toBe(people.workerB!.id)
+        expect(given.body.data.claimOpenedAt).toBeNull()
+        expect(given.body.data.tatDueAt).not.toBeNull()
+    })
+})

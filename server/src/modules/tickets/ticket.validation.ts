@@ -86,6 +86,7 @@ export const ownerStatsQuerySchema = z.object({
 
 export const approveAssignmentSchema = z.object({
     assigneeId : objectId.optional(),
+    tatHours : tatHoursSchema.optional(),
 })
 
 export const verifyTicketSchema = z.object({

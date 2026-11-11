@@ -27,6 +27,7 @@ ticketRouter.post('/:id/status-updates', ticketAttachmentUpload, ticketControlle
 ticketRouter.patch('/:id/verify', ticketController.verify);
 ticketRouter.post('/:id/decline', ticketController.decline);
 ticketRouter.post('/:id/approve-assignment', ticketController.approveAssignment);
+ticketRouter.post('/:id/claim', ticketController.claim);
 ticketRouter.post('/:id/reopen-declined', ticketController.reopenDeclined);
 ticketRouter.delete('/:id', ticketController.remove);
 

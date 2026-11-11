@@ -722,6 +722,13 @@
       "when": 1793030000000,
       "tag": "0102_allow_not_applicable",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "5",
+      "when": 1793040000000,
+      "tag": "0103_ticket_claim",
+      "breakpoints": true
     }
   ]
 }

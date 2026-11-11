@@ -1,7 +1,7 @@
 import { db } from '../../config/db.js';
 import { departments, notifications, users } from '../../db/schema/core.js';
 import { tickets } from '../../db/schema/index.js';
-import { eq, and, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { eq, and, inArray, isNull, ne, notInArray, sql } from 'drizzle-orm';
 import { notifyMany, formatWaiting, activeVerifierIds, activeEscalationIds, type VerifiableEntity } from './notificationCore.js';
 
 export const notifyTicketAssigned = async (ticket: { _id: string; title: string; departmentId?: string | null; assigneeId?: string | null }) => {
@@ -202,6 +202,49 @@ export const notifyTicketUnassigned = async (ticket: { _id: string; title: strin
     type: 'TICKET_ASSIGNED',
     title: 'New ticket needs a person',
     message: `"${ticket.title}" was raised and nobody is working it yet. Pick someone for it.`,
+    ticketId: ticket._id.toString(),
+  });
+}
+
+const hoursText = (hours: number | null | undefined) => {
+  if (!hours) return null;
+  if (hours % 24 === 0) return `${hours / 24} ${hours === 24 ? 'day' : 'days'}`;
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+};
+
+export const notifyTicketClaimable = async (ticket: { _id: string; title: string; departmentId?: string | null; tatHours?: number | null }, actorId: string) => {
+  if (!ticket.departmentId) return [];
+  const people = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.departmentId, ticket.departmentId), eq(users.isActive, true), notInArray(users.role, ['MANAGER', 'SENIOR', 'OWNER'])));
+  const recipientIds = people.map((p) => p.id).filter((id) => id !== actorId);
+  if (!recipientIds.length) return notifyTicketUnassigned({ _id: ticket._id, title: ticket.title, departmentId: ticket.departmentId }, actorId);
+  const time = hoursText(ticket.tatHours);
+  return notifyMany(recipientIds, {
+    type: 'TICKET_CLAIMABLE',
+    title: 'New ticket to claim',
+    message: `"${ticket.title}" is open in your department. Claim it if you can take it${time ? `. You get ${time} from when you claim` : ''}.`,
+    ticketId: ticket._id.toString(),
+  });
+}
+
+export const notifyTicketClaimed = async (ticket: { _id: string; title: string; userId: string; departmentId?: string | null }, claimerId: string) => {
+  await db.update(notifications).set({ isRead: true }).where(and(
+    eq(notifications.ticketId, ticket._id),
+    eq(notifications.type, 'TICKET_CLAIMABLE'),
+    ne(notifications.recipientId, claimerId),
+    eq(notifications.isRead, false),
+  ));
+  const heads = ticket.departmentId
+    ? await db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId), eq(users.isActive, true)))
+    : [];
+  const recipientIds = [...new Set([ticket.userId, ...heads.map((h) => h.id)])].filter((id) => id !== claimerId);
+  const claimer = await personLine(claimerId);
+  return notifyMany(recipientIds, {
+    type: 'TICKET_CLAIMED',
+    title: 'Ticket claimed',
+    message: `${claimer ?? 'Someone'} took "${ticket.title}". The clock has started.`,
     ticketId: ticket._id.toString(),
   });
 }

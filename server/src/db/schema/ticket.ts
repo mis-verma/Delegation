@@ -62,6 +62,8 @@ export const tickets = mysqlTable(
     hodApprovedBy: varchar('hodApprovedBy', { length: 191 }).references(() => users.id),
     hodApprovedAt: datetime('hodApprovedAt', { mode: 'date' }),
     awaitingHeadApproval: boolean('awaitingHeadApproval').notNull().default(false),
+    claimOpenedAt: datetime('claimOpenedAt', { mode: 'date' }),
+    claimedAt: datetime('claimedAt', { mode: 'date' }),
     assignmentApprovedBy: varchar('assignmentApprovedBy', { length: 191 }).references(() => users.id),
     assignmentApprovedAt: datetime('assignmentApprovedAt', { mode: 'date' }),
     deletedAt: datetime('deletedAt', { mode: 'date' }),
@@ -85,6 +87,7 @@ export const tickets = mysqlTable(
     index('Ticket_departmentId_closedAt_idx').on(table.departmentId, table.closedAt),
     index('Ticket_tatDueAt_idx').on(table.tatDueAt),
     index('Ticket_isOverdue_tatDueAt_idx').on(table.isOverdue, table.tatDueAt),
+    index('Ticket_departmentId_claimOpenedAt_idx').on(table.departmentId, table.claimOpenedAt),
   ],
 );
 

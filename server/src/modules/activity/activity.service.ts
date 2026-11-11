@@ -20,6 +20,7 @@ export type ActivityKind =
     | "reassigned"
     | "progress"
     | "head_approved"
+    | "claimed"
     | "declined"
     | "reopened"
     | "edited"
@@ -201,6 +202,7 @@ export const activityService = {
             if (r.action === "DECLINE") { push({ kind: "declined", remark: typeof a.declineReason === "string" ? a.declineReason : null }, "x"); continue }
             if (r.action === "PROGRESS") { push({ kind: "progress", remark: remarkFor(r.actorId, "IN_PROGRESS", r.createdAt) }, "g"); continue }
             if (r.action === "REOPEN") { push({ kind: "reopened" }, "o"); continue }
+            if (r.action === "CLAIM") { push({ kind: "claimed", to: iso(a.tatDueAt) }, "k"); continue }
             if (r.action !== "UPDATE") continue
 
             if (b.awaitingHeadApproval && !a.awaitingHeadApproval && !a.declinedAt) push({ kind: "head_approved" }, "h")
