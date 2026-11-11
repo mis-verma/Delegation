@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
 import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock, Hand } from 'lucide-react';
-import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, SearchField, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, EmptyState, InlineError, Button, SearchField, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { ticketMatchesDrill, useScoreDrill } from '../../lib/scoreDrill';
@@ -26,7 +26,7 @@ import { ExportDialog } from '../reports';
 import { TicketListSkeleton } from './list/TicketListSkeleton';
 import { TicketGroupedList } from './list/TicketGroupedList';
 import { TicketQuickStats } from './list/TicketQuickStats';
-import { useTicketOrganizer, useTicketViewState, ticketServerQuery, type TicketServerExtras, type TicketView, type TicketViewSnapshot } from './useTicketOrganizer';
+import { useTicketOrganizer, useTicketViewState, ticketServerQuery, type TicketServerExtras, type TicketView } from './useTicketOrganizer';
 import { TicketSettingsMenu } from './TicketSettingsMenu';
 import { TicketActiveTags } from './TicketActiveTags';
 import type { Ticket } from '../../api/ticket';
@@ -147,8 +147,6 @@ export const TicketList = () => {
     organizer.setPage(page);
     resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  const savedViews = useSavedViews<TicketViewSnapshot>(`savedViews:tickets:${user?.id ?? 'anon'}`);
-  const activeSavedViewId = savedViews.views.find((v) => JSON.stringify(v.state) === JSON.stringify(organizer.snapshot))?.id ?? null;
 
   useEffect(() => {
     const openId = searchParams.get('open');
@@ -238,15 +236,6 @@ export const TicketList = () => {
           />
 
           <div className="flex items-center gap-x-3 gap-y-2 flex-wrap shrink-0 ml-auto">
-            <div className="hidden sm:contents">
-              <SavedViewsMenu
-                views={savedViews.views}
-                activeId={activeSavedViewId}
-                onSave={(name) => savedViews.save(name, organizer.snapshot)}
-                onApply={(v) => organizer.applySnapshot(v.state)}
-                onRemove={savedViews.remove}
-              />
-            </div>
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
             {draftCount > 0 && (
               <Button variant="outline" size="sm" onClick={() => setShowDrafts(true)} className="h-9 max-sm:h-11 font-display font-semibold">

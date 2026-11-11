@@ -92,6 +92,7 @@ export const TicketSettingsMenu = ({
       onExport={canExport ? onExport : undefined}
       showLabel={`Show ${resultCount} ${resultCount === 1 ? 'ticket' : 'tickets'}`}
       triggerLabel="Filters"
+      iconOnly
     >
       <div className="max-sm:hidden">
       <OptionSection icon={Eye} label="Show">
