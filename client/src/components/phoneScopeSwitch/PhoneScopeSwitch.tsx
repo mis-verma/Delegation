@@ -9,7 +9,7 @@ interface PhoneScopeSwitchProps<T extends string> {
 }
 
 export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, onChange }: PhoneScopeSwitchProps<T>) => (
-  <div role="group" aria-label="Show" className="grid min-w-0 flex-1 grid-cols-2 gap-0.5 rounded-md border border-border bg-surface p-0.5 sm:w-auto sm:max-w-sm sm:flex-none">
+  <div role="group" aria-label="Show" className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50 sm:w-auto sm:max-w-sm sm:flex-none">
     {options.map((o) => {
       const active = value === o.value;
       const Icon = o.icon;
@@ -21,11 +21,11 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
           aria-label={o.label}
           onClick={() => onChange(active ? allValue : o.value)}
           className={cn(
-            'inline-flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-sm px-2.5 t-meta font-display leading-tight outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-[1.875rem] [-webkit-tap-highlight-color:transparent]',
-            active ? 'bg-primary-800 font-bold text-white shadow-[inset_0_-2px_0_var(--color-gold)]' : 'font-semibold text-text-secondary hover:bg-surface-hover hover:text-text',
+            'inline-flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 t-meta font-display leading-tight outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:h-[1.875rem] [-webkit-tap-highlight-color:transparent]',
+            active ? 'bg-surface font-bold text-text ring-1 ring-border/60' : 'font-semibold text-text-muted hover:text-text',
           )}
         >
-          {Icon && <Icon className="size-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
+          {Icon && <Icon className={cn('size-4 shrink-0', active && 'text-primary-700 dark:text-primary-300')} strokeWidth={2.25} aria-hidden="true" />}
           <span className="truncate">
             {o.shortLabel ? (
               <>

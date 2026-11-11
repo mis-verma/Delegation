@@ -4,19 +4,12 @@ import { cn } from '@/lib/utils';
 import { InlineError, Segmented, Skeleton } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { DashCardHeader } from './DashCardHeader';
-import { CATEGORY_PILL } from './categoryLook';
+import { STAT_FIGURE } from '../../components/statSurface';
 import { formatPct } from '../../lib/percent';
 import {
-  GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, type StreakKind, STREAK_LABEL, STREAK_TITLE,
+  GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, STREAK_LABEL, STREAK_TITLE,
   daysFor, summariseStreak, useStreakDays, useStreakGoal, useStreakKind,
 } from './useStreak';
-
-const KIND_PILL: Record<StreakKind, string> = {
-  checklist: CATEGORY_PILL.checklist,
-  ticket: CATEGORY_PILL.ticket,
-  delegation: CATEGORY_PILL.delegation,
-  all: 'bg-surface-hover text-text-secondary',
-};
 
 const dayLetter = (date: string) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(`${date}T00:00:00Z`).getUTCDay()] ?? '';
 const dayNumber = (date: string) => Number(date.slice(8, 10));
@@ -27,7 +20,7 @@ const StepButton = ({ label, onClick, disabled, children }: { label: string; onC
     onClick={onClick}
     disabled={disabled}
     aria-label={label}
-    className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-text-secondary outline-none transition-colors duration-150 ease-out cursor-pointer hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 disabled:cursor-not-allowed disabled:opacity-40 pointer-fine:size-9"
+    className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-hover/70 text-text-secondary ring-1 ring-inset ring-border/60 outline-none transition-colors duration-150 ease-out cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 disabled:cursor-not-allowed disabled:opacity-40 pointer-fine:size-9"
   >
     {children}
   </button>
@@ -102,10 +95,8 @@ export const StreakGoalCard = () => {
 
           <div className="flex items-center justify-between gap-3">
             <p className="flex items-center gap-2">
-              <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', KIND_PILL[activeKind])} aria-hidden="true">
-                <Flame className={cn('size-4', hot && 'live-dot')} strokeWidth={2.25} />
-              </span>
-              <span className={cn('t-stat font-display font-bold tabular-nums leading-none', summary.current > 0 ? 'text-text' : 'text-text-muted')}>{summary.current}</span>
+              <Flame className={cn('size-6 shrink-0', summary.current > 0 ? 'text-coral-500' : 'text-text-light', hot && 'live-dot')} strokeWidth={2.25} aria-hidden="true" />
+              <span className={cn('t-figure', STAT_FIGURE, summary.current > 0 ? 'text-text' : 'text-text-muted')}>{summary.current}</span>
               <span className="t-card font-display font-bold text-text">{summary.current === 1 ? 'day' : 'days'}</span>
             </p>
             <dl className="flex flex-col items-end gap-0.5 t-meta font-medium text-text-muted">
@@ -120,7 +111,7 @@ export const StreakGoalCard = () => {
             </dl>
           </div>
 
-          <div className="hidden items-center justify-between gap-3 border-t border-border/60 pt-3 sm:flex">
+          <div className="hidden items-center justify-between gap-3 pt-1 sm:flex">
             <span className="t-meta font-display font-semibold text-text-secondary">Your goal</span>
             <div className="flex items-center gap-2">
               <StepButton label={`Lower the goal to ${goal - GOAL_STEP} percent`} onClick={() => setGoal(goal - GOAL_STEP)} disabled={goal <= GOAL_MIN}>
@@ -146,10 +137,11 @@ export const StreakGoalCard = () => {
                   key={d.date}
                   title={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : formatPct(d.value)}`}
                   aria-label={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : `${formatPct(d.value)}, ${state === 'met' ? 'goal met' : 'below the goal'}`}`}
-                  style={state === 'met' ? { background: 'var(--heat-high)', color: 'var(--heat-high-ink)' } : state === 'missed' ? { background: 'var(--heat-low)', color: 'var(--heat-low-ink)', boxShadow: 'inset 0 -3px 0 var(--color-vivid-red)' } : undefined}
                   className={cn(
-                    'flex h-12 flex-col items-center justify-center gap-0.5 rounded-md font-display leading-none',
-                    state === 'none' && 'bg-surface-hover text-text-muted',
+                    'flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl font-display leading-none transition-colors duration-150',
+                    state === 'met' && 'bg-vivid-green/15 text-vivid-green-text',
+                    state === 'missed' && 'bg-vivid-red/10 text-vivid-red-text',
+                    state === 'none' && 'bg-surface-hover/60 text-text-muted',
                   )}
                 >
                   <span className="t-meta font-extrabold tabular-nums">{dayNumber(d.date)}</span>
@@ -159,9 +151,9 @@ export const StreakGoalCard = () => {
             })}
           </ol>
           <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted sm:flex" aria-hidden="true">
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-sm" style={{ background: 'var(--heat-high)' }} />Goal met</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-sm" style={{ background: 'var(--heat-low)' }} />Below goal</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded bg-surface-hover" />Nothing due</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-green/30" />Goal met</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-red/25" />Below goal</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-surface-hover" />Nothing due</span>
           </div>
         </div>
       </div>

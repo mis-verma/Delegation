@@ -25,7 +25,7 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const CELL = cn(STAT_SURFACE, STAT_SURFACE_ACTION, 'flex min-h-16 min-w-0 flex-col justify-center gap-1 px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5');
+const CELL = cn(STAT_SURFACE, STAT_SURFACE_ACTION, 'flex min-h-16 min-w-0 flex-col justify-center gap-1 px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-0 sm:gap-3 sm:p-5');
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
@@ -57,7 +57,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
               {isLoading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('t-stat', STAT_FIGURE, failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
                   {failed ? '-' : count}
                 </span>
               )}

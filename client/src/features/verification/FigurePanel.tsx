@@ -26,9 +26,9 @@ interface FigurePanelProps {
 }
 
 const CELL = cn(STAT_SURFACE, 'flex min-w-0 flex-col justify-center gap-1 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40');
-const CELL_SIZE = 'min-h-16 p-2.5 sm:p-3';
-const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-1 sm:p-2.5';
-const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-1 sm:p-3';
+const CELL_SIZE = 'min-h-16 p-3 sm:gap-3 sm:p-5';
+const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
+const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
 const ACTION = STAT_SURFACE_ACTION;
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
@@ -51,7 +51,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
               {loading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('t-stat', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
                   {broken || cell.value === null ? '-' : cell.value}
                 </span>
               )}

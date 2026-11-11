@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Skeleton } from '../skeleton';
 import { CountUp } from '../countUp';
 import { statusTiles } from './statusTiles';
-import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../statSurface';
+import { STAT_BAR_SMALL, STAT_FIGURE, STAT_LABEL, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../statSurface';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -35,44 +35,21 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
+const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` });
+
 const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
-  <div className="grid gap-1.5 sm:gap-3" style={gridStyle(count)} role="status" aria-label="Loading counts">
+  <div className="grid gap-1.5 sm:gap-3 lg:gap-4" style={gridStyle(count)} role="status" aria-label="Loading counts">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className={cn(STAT_SURFACE, 'flex items-start justify-between gap-3 p-2 sm:p-4')}>
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-7 w-12" />
-          <Skeleton className="h-3 w-16" />
-        </div>
-        <Skeleton className="hidden sm:block size-9 rounded-lg" />
+      <div key={i} className={cn(STAT_SURFACE, 'flex flex-col gap-3 p-2 sm:p-5')}>
+        <Skeleton className="hidden h-3 w-16 sm:block" />
+        <Skeleton className="h-7 w-12 sm:h-9 sm:w-20" />
+        <Skeleton className="h-3 w-14" />
       </div>
     ))}
   </div>
 );
 
-const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` });
-
 const LATE = new Set<string>(['delayed', 'overdue']);
-
-const RING_RADIUS = 8;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
-
-const ProgressRing = ({ percent, className }: { percent: number; className: string }) => (
-  <svg viewBox="0 0 20 20" className={cn('size-5 shrink-0 -rotate-90', className)} aria-hidden="true">
-    <circle cx="10" cy="10" r={RING_RADIUS} fill="none" strokeWidth="2.5" className="stroke-border" />
-    <circle
-      cx="10"
-      cy="10"
-      r={RING_RADIUS}
-      fill="none"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      stroke="currentColor"
-      strokeDasharray={RING_LENGTH}
-      strokeDashoffset={RING_LENGTH * (1 - percent / 100)}
-      className="transition-[stroke-dashoffset] duration-500 ease-out"
-    />
-  </svg>
-);
 
 export function QuickFilterStats<K extends string>({
   tiles,
@@ -93,7 +70,7 @@ export function QuickFilterStats<K extends string>({
   if (isLoading) return <QuickFilterStatsSkeleton count={shownTiles.length} />;
 
   return (
-    <div className="grid gap-1.5 sm:gap-3" style={gridStyle(shownTiles.length)}>
+    <div className="grid gap-1.5 sm:gap-3 lg:gap-4" style={gridStyle(shownTiles.length)}>
       {shownTiles.map((tile) => {
         const { key, label, shortLabel, icon: Icon, iconTint } = tile;
         const isTotalTile = hasTotal && key === 'all';
@@ -106,6 +83,8 @@ export function QuickFilterStats<K extends string>({
           ? `Show all ${itemLabel}`
           : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
         const spoken = `${label}: ${count}${hasTotal && !isTotalTile ? ` of ${total}` : ''}. ${purpose}`;
+        const late = LATE.has(key) && count > 0;
+        const iconColor = isQuiet ? 'text-text-muted' : late ? 'text-vivid-red-text' : iconTint;
         return (
           <button
             key={key}
@@ -115,33 +94,36 @@ export function QuickFilterStats<K extends string>({
             aria-label={spoken}
             title={purpose}
             className={cn(
-              'flex min-w-0 flex-col items-center justify-start gap-0.5 px-0.5 py-2 text-center font-display outline-none max-sm:min-h-20 max-sm:justify-center',
-              'sm:min-h-24 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
+              'flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-center font-display outline-none max-sm:min-h-20',
+              'sm:min-h-0 sm:items-stretch sm:justify-between sm:gap-3 sm:p-5 sm:text-left',
               '[-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-primary-500/50',
               STAT_SURFACE,
               STAT_SURFACE_ACTION,
               isActive && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL),
             )}
           >
-            <Icon className={cn('size-4 shrink-0 sm:hidden', isQuiet ? 'text-text-muted' : iconTint)} strokeWidth={2.5} aria-hidden="true" />
-            <span className="min-w-0 max-w-full">
-              <span className={cn(
-                cn('block t-stat max-sm:tracking-tighter max-sm:break-all', STAT_FIGURE),
-                isActive ? cn(iconTint, 'sm:text-text') : isQuiet ? 'text-text-muted' : LATE.has(key) ? 'text-vivid-red-text' : iconTint,
-              )}>
-                <CountUp value={count} />
-              </span>
-              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:line-clamp-2 sm:leading-snug sm:t-meta', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
-                {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
-              </span>
-              {hasTotal && !isTotalTile && (
-                <span className="hidden sm:flex mt-2 items-center gap-1.5" aria-hidden="true">
-                  <ProgressRing percent={percent} className={isQuiet ? 'text-text-muted' : iconTint} />
-                  <span className="t-meta font-medium text-text-muted tabular-nums">{percent}%</span>
-                </span>
-              )}
+            <Icon className={cn('size-4 shrink-0 sm:hidden', iconColor)} strokeWidth={2.5} aria-hidden="true" />
+            <span className="hidden items-center justify-between gap-3 sm:flex">
+              <span className={cn(STAT_LABEL, 'line-clamp-1')}>{label}</span>
+              <Icon className={cn('size-[1.125rem] shrink-0', iconColor)} strokeWidth={2.25} aria-hidden="true" />
             </span>
-            <Icon className={cn('hidden size-[1.125rem] shrink-0 sm:block', isQuiet ? 'text-text-muted' : iconTint)} strokeWidth={2.25} aria-hidden="true" />
+            <span
+              className={cn(
+                'block t-stat sm:t-figure max-sm:tracking-tighter max-sm:break-all',
+                STAT_FIGURE,
+                late ? 'text-vivid-red-text' : isQuiet ? 'text-text-muted' : isActive ? 'text-primary-700 dark:text-primary-300' : 'text-text',
+              )}
+            >
+              <CountUp value={count} />
+            </span>
+            <span className={cn('block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:hidden', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
+              {shortLabel ?? label}
+            </span>
+            {hasTotal && !isTotalTile ? (
+              <span className="hidden t-meta font-medium text-text-muted tabular-nums sm:block">{percent}% of {total}</span>
+            ) : (
+              <span className="hidden t-meta font-medium text-text-muted sm:block">{isTotalTile ? 'All shown' : itemLabel}</span>
+            )}
           </button>
         );
       })}

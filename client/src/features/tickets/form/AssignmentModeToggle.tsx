@@ -9,9 +9,9 @@ interface AssignmentModeToggleProps {
 }
 
 const SEGMENT_BASE =
-  'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-sm text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
-const SEGMENT_SELECTED = 'bg-primary-800 text-white border border-transparent shadow-[inset_0_-2px_0_var(--color-gold)]';
-const SEGMENT_IDLE = 'text-text-secondary border border-transparent hover:bg-surface-hover hover:text-text';
+  'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-full text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
+const SEGMENT_SELECTED = 'bg-surface text-text ring-1 ring-border/60';
+const SEGMENT_IDLE = 'text-text-muted hover:text-text';
 
 export const AssignmentModeToggle = ({ mode, onChange, frontLine = false, hideLabel = false }: AssignmentModeToggleProps) => {
   const options = frontLine ? FRONT_LINE_OPTIONS : ASSIGNMENT_OPTIONS;
@@ -23,7 +23,7 @@ export const AssignmentModeToggle = ({ mode, onChange, frontLine = false, hideLa
       How to send it
     </span>
     )}
-    <div className="grid grid-cols-2 gap-0.5 rounded-md border border-border bg-surface p-0.5" role="group" aria-label="How to send it">
+    <div className="grid grid-cols-2 gap-1 rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50" role="group" aria-label="How to send it">
       {options.map(({ value, label, icon: Icon }) => (
         <button
           key={value}

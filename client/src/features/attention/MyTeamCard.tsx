@@ -37,7 +37,7 @@ const Metric = ({ label, value }: { label: string; value: number | null | undefi
   </span>
 );
 
-const FOOT_LINK = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] pointer-fine:min-h-9';
+const FOOT_LINK = 'inline-flex min-h-11 items-center gap-1.5 rounded-full bg-surface-hover/70 px-3.5 t-meta font-display font-semibold text-text-secondary ring-1 ring-inset ring-border/60 outline-none transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] pointer-fine:min-h-9';
 
 export const MyTeamCard = () => {
   const today = useOrgToday();

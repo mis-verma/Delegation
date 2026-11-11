@@ -93,7 +93,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
   };
 
   return (
-    <div role="tablist" className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5">
+    <div role="tablist" className="flex items-center gap-1 rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50">
       {tabs.map((tab, index) => {
         const Icon = VIEW_ICONS[tab.key] ?? tab.icon;
         return (
@@ -108,15 +108,15 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
           onKeyDown={(e) => handleKeyDown(e, index)}
           title={shortcuts ? `${tab.label} view (press ${tabs.indexOf(tab) + 1})` : `${tab.label} view`}
           aria-label={`${tab.label} view`}
-          className={`group items-center gap-1.5 h-[1.875rem] pointer-coarse:h-11 px-3 rounded-sm t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
+          className={`group items-center gap-1.5 h-[1.875rem] pointer-coarse:h-11 px-3 rounded-full t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
             tab.mobileHidden ? 'hidden sm:flex' : 'flex'
           } ${
             value === tab.key
-              ? 'bg-primary-800 text-white font-bold shadow-[inset_0_-2px_0_var(--color-gold)]'
-              : 'text-text-secondary font-semibold hover:text-text hover:bg-surface-hover'
+              ? 'bg-surface text-text font-bold ring-1 ring-border/60'
+              : 'text-text-muted font-semibold hover:text-text'
           }`}
         >
-          {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-white' : 'text-text-muted'} />}
+          {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted'} />}
           <span className="hidden md:inline">{tab.label}</span>
         </button>
         );

@@ -54,14 +54,14 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto overscroll-x-contain rounded-xl border border-border/60">
+      <div className="overflow-x-auto overscroll-x-contain rounded-2xl ring-1 ring-inset ring-border/50">
         <table onKeyDown={move} className="w-full border-separate border-spacing-0">
           <caption className="sr-only">{moduleTitle(module)} {measureLabel(measure, module).toLowerCase()} by {noun}, one row per name. Pick a name or a box to open its details.</caption>
           <thead>
             <tr>
-              <th scope="col" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/60 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-muted sm:w-52 sm:min-w-44">Name</th>
+              <th scope="col" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/40 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-muted sm:w-52 sm:min-w-44">Name</th>
               {buckets.map((b, i) => (
-                <th key={i} scope="col" title={bucketTitle(period, b)} className="border-b border-border/60 px-0.5 py-2 text-center t-meta font-display font-semibold text-text-muted">
+                <th key={i} scope="col" title={bucketTitle(period, b)} className="border-b border-border/40 px-0.5 py-2 text-center t-meta font-display font-semibold text-text-muted">
                   {bucketShortLabel(period, b)}
                 </th>
               ))}
@@ -70,7 +70,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <th scope="row" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/40 bg-surface px-1 py-0.5 text-left sm:w-52 sm:min-w-44">
+                <th scope="row" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/30 bg-surface px-1 py-0.5 text-left sm:w-52 sm:min-w-44">
                   <button
                     type="button"
                     aria-haspopup="dialog"
@@ -85,7 +85,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                   const value = roundPct(cellValue(cell, module, measure));
                   const bucket = buckets[c];
                   return (
-                    <td key={c} className="border-b border-border/40 p-0.5">
+                    <td key={c} className="border-b border-border/30 p-1">
                       <button
                         type="button"
                         data-cell={`${r}:${c}`}
@@ -94,7 +94,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                         onClick={() => onOpen(row, c)}
                         style={value === null ? undefined : heatLook(value)}
                         className={cn(
-                          'flex h-9 w-full min-w-8 items-center justify-center rounded-md t-meta font-display font-bold tabular-nums outline-none cursor-pointer sm:h-10 lg:h-11 pointer-coarse:h-11',
+                          'flex h-9 w-full min-w-8 items-center justify-center rounded-lg t-meta font-display font-bold tabular-nums outline-none cursor-pointer transition-opacity duration-150 hover:opacity-85 sm:h-10 lg:h-11 pointer-coarse:h-11',
                           'focus-visible:ring-2 focus-visible:ring-primary-500/60',
                           value === null && 'bg-surface-hover/50 text-text-muted',
                         )}
@@ -113,12 +113,12 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted" aria-label="Colour key">
         {HEAT_KEY.map(({ level, label }) => (
           <span key={level} className="inline-flex items-center gap-1.5">
-            <span className="size-3.5 rounded-sm" style={{ background: heatFill(level) }} aria-hidden="true" />
+            <span className="size-3.5 rounded-md" style={{ background: heatFill(level) }} aria-hidden="true" />
             {label}
           </span>
         ))}
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-3.5 rounded bg-surface-hover" aria-hidden="true" />
+          <span className="size-3.5 rounded-md bg-surface-hover" aria-hidden="true" />
           Nothing due
         </span>
         {matrix.truncated && <span>Showing the 30 busiest rows.</span>}

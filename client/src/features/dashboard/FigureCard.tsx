@@ -87,7 +87,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         {loading ? (
           <Skeleton className="h-6 w-12" />
         ) : (
-          <span className={cn('t-stat', STAT_FIGURE, failed || (value === null && !text) ? 'text-text-muted' : FIGURE_TEXT[shownTone])}>
+          <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed || (value === null && !text) ? 'text-text-muted' : FIGURE_TEXT[shownTone])}>
             {failed ? '-' : (text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />))}
           </span>
         )}

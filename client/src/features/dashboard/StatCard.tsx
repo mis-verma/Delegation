@@ -72,9 +72,9 @@ export const StatCard = ({
     'group relative isolate flex min-w-0 flex-col justify-between gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60',
     STAT_SURFACE,
     compact ? 'p-4 sm:p-5' : 'p-5 sm:p-6',
-    highlight && STAT_SOLID,
-    !highlight && selected && STAT_SURFACE_SELECTED,
     isInteractive && STAT_SURFACE_ACTION,
+    !highlight && selected && STAT_SURFACE_SELECTED,
+    highlight && STAT_SOLID,
     selected && cn(STAT_BAR, highlight && 'after:bg-white/80 dark:after:bg-white/80'),
   );
 
