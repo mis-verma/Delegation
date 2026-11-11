@@ -67,12 +67,12 @@
   --color-vivid-sky-text: #1c4972;
   --color-on-vivid: #07140d;
 
-  --font-sans: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
   --color-gold: #d1ad53;
   --color-gold-leaf: #e5c982;
   --color-gold-deep: #765a00;
-  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-figure: "Manrope Variable", "Plus Jakarta Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", Arial, sans-serif;
+  --font-display: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-figure: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 17.5rem;
@@ -435,6 +435,7 @@ body {
   :root {
     --font-sans: "Josefin Sans Variable", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
     --font-display: var(--font-sans);
+    --font-figure: "Manrope Variable", "Josefin Sans Variable", "Noto Sans Devanagari", Arial, sans-serif;
   }
 
   body { font-weight: 500; letter-spacing: 0; }

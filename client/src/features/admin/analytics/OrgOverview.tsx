@@ -15,6 +15,7 @@ import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { BiOverview } from './bi/BiOverview';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { OverviewHeadline } from './OverviewHeadline';
+import { OverviewRanking } from './OverviewRanking';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { ExportRegistryProvider, OverviewExportMenu } from './ExportRegistry';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
@@ -237,6 +238,12 @@ export const OrgOverview = () => {
       {orgWide && !isOwner && !classic && (
         <div className="max-sm:order-1">
           <OverviewHeadline />
+        </div>
+      )}
+
+      {orgWide && !isOwner && !classic && (
+        <div className="max-sm:order-1">
+          <OverviewRanking from={windowFrom} to={windowTo} />
         </div>
       )}
 

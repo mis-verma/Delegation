@@ -6,6 +6,7 @@ import { checklistInstances } from "../../db/schema/checklistInstance.js";
 import { checklistDefinitions } from "../../db/schema/checklistDefinition.js";
 import { eq, and, desc, gte, lte, sql, like, inArray, type SQL } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
+import { currentRequestSource } from "../../utils/requestSource.js";
 
 const DEFAULT_PAGE_SIZE = 50
 
@@ -81,7 +82,7 @@ export const auditService = {
             action : params.action,
             actorId : params.actorId,
             actorName,
-            source : params.source ?? (actor ? "APP" : "SYSTEM"),
+            source : params.source ?? currentRequestSource() ?? (actor ? "APP" : "SYSTEM"),
             before : params.before ?? null,
             after : params.after ?? null,
         });
@@ -98,7 +99,7 @@ export const auditService = {
                 action : params.action,
                 actorId : params.actorId,
                 actorName,
-                source : params.source ?? (actor ? "APP" : "SYSTEM"),
+                source : params.source ?? currentRequestSource() ?? (actor ? "APP" : "SYSTEM"),
                 before : params.before ?? null,
                 after : params.after ?? null,
             });

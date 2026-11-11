@@ -84,6 +84,7 @@ export const actionVerb = (action: string) =>
 
 export const SOURCE_CONFIG: Record<string, { label: string; icon: LucideIcon; tone: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: MessageCircle, tone: 'bg-success' },
+  MCP: { label: 'Claude (MCP)', icon: Bot, tone: 'bg-primary-600' },
   SYSTEM: { label: 'Automatic', icon: Bot, tone: 'bg-text-muted' },
   APP: { label: 'App', icon: UserRound, tone: 'bg-primary-600' },
 };

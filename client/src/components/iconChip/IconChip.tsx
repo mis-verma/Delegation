@@ -7,18 +7,20 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const SOFT_LOOK: { match: RegExp; box: string; text: string }[] = [
-  { match: /bg-vivid-red/, box: 'border-vivid-red/40 bg-vivid-red/10', text: 'text-vivid-red-text' },
-  { match: /bg-vivid-sky/, box: 'border-vivid-sky/40 bg-vivid-sky/10', text: 'text-vivid-sky-text' },
-  { match: /bg-vivid-green/, box: 'border-vivid-green/40 bg-vivid-green/10', text: 'text-vivid-green-text' },
-  { match: /bg-vivid-blue/, box: 'border-vivid-blue/40 bg-vivid-blue/10', text: 'text-vivid-blue-text' },
-  { match: /bg-danger/, box: 'border-danger/30 bg-danger/10', text: 'text-danger' },
-  { match: /bg-warning/, box: 'border-warning/30 bg-warning/10', text: 'text-warning' },
-  { match: /bg-success/, box: 'border-success/30 bg-success/10', text: 'text-success' },
-  { match: /bg-info/, box: 'border-info/30 bg-info/10', text: 'text-info' },
-  { match: /bg-coral/, box: 'border-coral-500/30 bg-coral-500/10', text: 'text-coral-600 dark:text-coral-300' },
-  { match: /bg-primary/, box: 'border-primary-500/25 bg-primary-500/10', text: 'text-primary-700 dark:text-primary-300' },
+const LOOKS: { match: RegExp; box: string; text: string }[] = [
+  { match: /bg-vivid-red/, box: 'bg-vivid-red/10 ring-vivid-red/25', text: 'text-vivid-red-text' },
+  { match: /bg-vivid-sky/, box: 'bg-vivid-sky/10 ring-vivid-sky/25', text: 'text-vivid-sky-text' },
+  { match: /bg-vivid-green/, box: 'bg-vivid-green/10 ring-vivid-green/25', text: 'text-vivid-green-text' },
+  { match: /bg-vivid-blue/, box: 'bg-vivid-blue/10 ring-vivid-blue/25', text: 'text-vivid-blue-text' },
+  { match: /bg-danger/, box: 'bg-danger/10 ring-danger/25', text: 'text-danger' },
+  { match: /bg-warning/, box: 'bg-warning/10 ring-warning/25', text: 'text-warning' },
+  { match: /bg-success/, box: 'bg-success/10 ring-success/25', text: 'text-success' },
+  { match: /bg-info/, box: 'bg-info/10 ring-info/25', text: 'text-info' },
+  { match: /bg-coral/, box: 'bg-coral-500/10 ring-coral-500/25', text: 'text-coral-600 dark:text-coral-300' },
+  { match: /bg-primary/, box: 'bg-primary-500/10 ring-primary-500/20', text: 'text-primary-700 dark:text-primary-300' },
 ];
+
+const NEUTRAL = { box: 'bg-surface-hover/70 ring-border/70', text: 'text-text-secondary' };
 
 export interface IconChipProps {
   icon?: LucideIcon | false;
@@ -33,30 +35,29 @@ export interface IconChipProps {
   children?: ReactNode;
 }
 
-export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-primary-400', toneStyle, className, title, labelClassName, iconOnlyOnMobile = false, soft = false, children }: IconChipProps) => {
+export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-primary-400', toneStyle, className, title, labelClassName, iconOnlyOnMobile = false, children }: IconChipProps) => {
   const iconOnly = iconOnlyOnMobile && !!Icon;
-  const look = soft ? SOFT_LOOK.find((l) => l.match.test(tone)) : undefined;
+  const look = LOOKS.find((l) => l.match.test(tone)) ?? NEUTRAL;
   return (
-  <span
-    title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
-    className={cn(
-      'inline-flex items-center gap-1 sm:gap-1.5 h-6 sm:h-7 pr-2 sm:pr-2.5 py-0 max-w-full min-w-0 rounded-md border border-border bg-surface',
-      Icon ? 'pl-1' : 'pl-2.5',
-      look?.box,
-      iconOnly && 'max-sm:size-6 max-sm:justify-center max-sm:gap-0 max-sm:border-0 max-sm:bg-transparent max-sm:p-0',
-      className,
-    )}
-  >
-    {Icon && (
-      <span
-        className={cn('flex items-center justify-center size-4 sm:size-5 rounded-full shrink-0 text-white', iconOnly && 'max-sm:size-6', !toneStyle && tone)}
-        style={toneStyle}
-      >
-        <Icon className={cn('size-2.5 sm:size-3', iconOnly && 'max-sm:size-3.5')} strokeWidth={2.75} />
-      </span>
-    )}
-    <span className={cn('min-w-0 truncate t-meta font-display font-semibold text-text-secondary', iconOnly && 'max-sm:sr-only', look?.text, labelClassName)}>{label}</span>
-    {iconOnly ? <span className="contents max-sm:hidden">{children}</span> : children}
-  </span>
+    <span
+      title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
+      className={cn(
+        'inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 ring-1 ring-inset',
+        look.box,
+        iconOnly && 'max-sm:size-6 max-sm:justify-center max-sm:gap-0 max-sm:bg-transparent max-sm:p-0 max-sm:ring-0',
+        className,
+      )}
+    >
+      {Icon && (
+        <Icon
+          className={cn('size-3 shrink-0', iconOnly && 'max-sm:size-4', look.text)}
+          style={toneStyle ? { color: toneStyle.background as string | undefined } : undefined}
+          strokeWidth={2.5}
+          aria-hidden="true"
+        />
+      )}
+      <span className={cn('min-w-0 truncate t-meta font-display font-semibold leading-none', look.text, iconOnly && 'max-sm:sr-only', labelClassName)}>{label}</span>
+      {iconOnly ? <span className="contents max-sm:hidden">{children}</span> : children}
+    </span>
   );
 };

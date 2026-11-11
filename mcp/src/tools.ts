@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { apiGet, KaryaApiError } from './api.js';
+import { apiGet, apiPatch, KaryaApiError } from './api.js';
 import { config, orgToday } from './config.js';
 
 type Rec = Record<string, unknown>;
@@ -45,7 +45,66 @@ const approvalSource = async (path: string, limit: number) => {
   }
 };
 
+const KINDS = ['ticket', 'delegation', 'checklist'] as const;
+
+const VERIFY_PATH: Record<(typeof KINDS)[number], (id: string) => string> = {
+  ticket: (id) => `/tickets/${encodeURIComponent(id)}/verify`,
+  delegation: (id) => `/tasks/${encodeURIComponent(id)}/verify`,
+  checklist: (id) => `/checklist-instances/${encodeURIComponent(id)}/verify`,
+};
+
+const WRITE_HINTS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
+
+const registerWriteTools = (server: McpServer): void => {
+  server.registerTool(
+    'approve_item',
+    {
+      title: 'Approve an item',
+      description: 'Approve one ticket, delegation or checklist that is waiting for your approval. Needs confirm: true. Only works if your role may approve it.',
+      inputSchema: {
+        kind: z.enum(KINDS).describe('What kind of item it is.'),
+        id: z.string().min(1).describe('The id from list_pending_approvals.'),
+        note: z.string().trim().max(1000).optional().describe('Optional note for the team.'),
+        confirm: z.literal(true).describe('Must be true. Say so only after the person agreed.'),
+      },
+      annotations: { title: 'Approve an item', ...WRITE_HINTS },
+    },
+    async ({ kind, id, note }) => {
+      try {
+        await apiPatch(VERIFY_PATH[kind](id), { action: 'APPROVE', ...(note ? { note } : {}) });
+        return ok({ approved: true, kind, id });
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'send_back_item',
+    {
+      title: 'Send an item back',
+      description: 'Send one waiting ticket, delegation or checklist back for changes, with a note that says what to fix. Needs confirm: true. Only works if your role may decide on it.',
+      inputSchema: {
+        kind: z.enum(KINDS).describe('What kind of item it is.'),
+        id: z.string().min(1).describe('The id from list_pending_approvals.'),
+        note: z.string().trim().min(3).max(1000).describe('What needs fixing.'),
+        confirm: z.literal(true).describe('Must be true. Say so only after the person agreed.'),
+      },
+      annotations: { title: 'Send an item back', ...WRITE_HINTS },
+    },
+    async ({ kind, id, note }) => {
+      try {
+        await apiPatch(VERIFY_PATH[kind](id), { action: 'REJECT', note });
+        return ok({ sentBack: true, kind, id });
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+};
+
 export const registerTools = (server: McpServer): void => {
+  if (config.allowWrites) registerWriteTools(server);
   server.registerTool(
     'list_tickets',
     {

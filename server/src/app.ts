@@ -61,6 +61,7 @@ import compression from "compression"
 import type { Store } from "express-rate-limit"
 import { verifyUploadSignature, signUploadPathsDeep } from "./utils/signedUpload.js"
 import { serveImageVariant } from "./utils/imageVariants.js"
+import { captureRequestSource } from "./utils/requestSource.js"
 
 const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
 
@@ -97,6 +98,7 @@ class App {
         }))
 
         this.app.use(cookieParser())
+        this.app.use(captureRequestSource)
         this.app.use(discardUploadsOnFailure)
         this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))

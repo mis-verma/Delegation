@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { config } from './config.js';
 
 export class KaryaApiError extends Error {
@@ -14,6 +15,12 @@ type Params = Record<string, string | number | boolean | undefined>;
 
 let accessToken: string | null = config.token;
 
+const requestToken = new AsyncLocalStorage<string>();
+
+export const withToken = <T>(token: string, fn: () => T): T => requestToken.run(token, fn);
+
+const currentToken = (): string | null => requestToken.getStore() ?? accessToken;
+
 const messageFrom = (body: unknown, fallback: string): string => {
   if (body && typeof body === 'object') {
     const message = (body as { message?: unknown }).message;
@@ -24,9 +31,10 @@ const messageFrom = (body: unknown, fallback: string): string => {
 
 const request = async (path: string, init: RequestInit & { auth?: boolean } = {}): Promise<unknown> => {
   const { auth = true, ...rest } = init;
-  const headers: Record<string, string> = { Accept: 'application/json', ...(rest.headers as Record<string, string> | undefined) };
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Client-Source': 'mcp', ...(rest.headers as Record<string, string> | undefined) };
   if (rest.body) headers['Content-Type'] = 'application/json';
-  if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const token = currentToken();
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(`${config.apiUrl}${path}`, { ...rest, headers, signal: AbortSignal.timeout(config.timeoutMs) });
   const text = await response.text();
   let body: unknown = null;
@@ -54,15 +62,30 @@ const signIn = async (): Promise<void> => {
   accessToken = body.accessToken;
 };
 
+const send = async (method: 'PATCH' | 'POST', path: string, body: unknown): Promise<unknown> => {
+  if (!currentToken()) await signIn();
+  try {
+    return await request(path, { method, body: JSON.stringify(body) });
+  } catch (err) {
+    if (err instanceof KaryaApiError && err.status === 401 && !requestToken.getStore() && config.email && config.password) {
+      await signIn();
+      return await request(path, { method, body: JSON.stringify(body) });
+    }
+    throw err;
+  }
+};
+
+export const apiPatch = (path: string, body: unknown) => send('PATCH', path, body);
+
 export const apiGet = async <T = unknown>(path: string, params: Params = {}): Promise<T> => {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') query.set(key, String(value));
   const target = query.size ? `${path}?${query.toString()}` : path;
-  if (!accessToken) await signIn();
+  if (!currentToken()) await signIn();
   try {
     return (await request(target)) as T;
   } catch (err) {
-    if (err instanceof KaryaApiError && err.status === 401 && config.email && config.password) {
+    if (err instanceof KaryaApiError && err.status === 401 && !requestToken.getStore() && config.email && config.password) {
       await signIn();
       return (await request(target)) as T;
     }

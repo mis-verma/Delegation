@@ -12,9 +12,9 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const ENTITY_CARD_CLASS =
-  'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border/60 transition-colors duration-150 hover:border-primary-300';
+  'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border/40 transition-colors duration-150 hover:border-border-hover';
 
-export const PANEL_CLASS = 'bg-surface rounded-2xl border border-border/60';
+export const PANEL_CLASS = 'bg-surface rounded-2xl border border-border/40';
 
 interface EntityIconTileProps {
   icon: LucideIcon;

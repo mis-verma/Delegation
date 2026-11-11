@@ -154,7 +154,7 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
   const needsMorePhotos = item.requiredImageCount > item.images.length;
 
   return (
-    <View className={`border rounded-2xl p-4 mb-3 bg-surface ${item.isDone ? "border-emerald-300" : "border-border"}`}>
+    <View className={`border rounded-2xl p-4 mb-3 bg-surface ${item.isDone ? "border-emerald-300" : "border-border/60"}`}>
       <View className="flex-row items-start justify-between mb-1">
         <Text className="text-base font-medium text-text flex-1 pr-2">{item.label}</Text>
         {item.isDone && <Text className="text-emerald-600 text-sm font-medium">Done</Text>}
@@ -180,14 +180,14 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
           <Pressable
             onPress={() => pickImage("camera")}
             disabled={isUploading || photoRoom === 0}
-            className="border border-border rounded-lg px-3 py-2 mr-2 mb-2"
+            className="min-h-11 items-center justify-center rounded-full border border-border bg-surface-hover/60 px-4 mr-2 mb-2"
           >
             <Text className="text-sm text-text">📷 Camera</Text>
           </Pressable>
           <Pressable
             onPress={() => pickImage("gallery")}
             disabled={isUploading || photoRoom === 0}
-            className="border border-border rounded-lg px-3 py-2 mr-2 mb-2"
+            className="min-h-11 items-center justify-center rounded-full border border-border bg-surface-hover/60 px-4 mr-2 mb-2"
           >
             <Text className="text-sm text-text">🖼 Gallery</Text>
           </Pressable>
@@ -197,7 +197,7 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
             <Pressable
               onPress={() => setDone.mutate(undefined)}
               disabled={setDone.isPending}
-              className="bg-primary-700 rounded-lg px-3 py-2 mb-2"
+              className="min-h-11 items-center justify-center rounded-full bg-primary-700 px-4 mb-2"
             >
               <Text className="text-sm text-white font-medium">Mark done</Text>
             </Pressable>
@@ -220,7 +220,7 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
                 key={ans}
                 onPress={() => (ans === "NO" ? setAskingWhyNo(true) : setDone.mutate({ booleanAnswer: "YES" }))}
                 disabled={setDone.isPending}
-                className={`flex-1 rounded-lg py-2.5 items-center border ${selected ? "bg-primary-700 border-primary-700" : "border-border"}`}
+                className={`flex-1 min-h-12 justify-center rounded-full items-center border ${selected ? "bg-primary-700 border-primary-700" : "border-border bg-surface-hover/60"}`}
               >
                 <Text className={selected ? "text-white font-medium" : "text-text"}>{label}</Text>
               </Pressable>

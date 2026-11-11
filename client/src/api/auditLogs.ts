@@ -16,7 +16,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const AUDIT_SOURCES = ['APP', 'WHATSAPP', 'SYSTEM'] as const;
+export const AUDIT_SOURCES = ['APP', 'WHATSAPP', 'MCP', 'SYSTEM'] as const;
 export type AuditSource = (typeof AUDIT_SOURCES)[number];
 
 export const AUDIT_GROUPS = ['checklists', 'tickets', 'tasks', 'people', 'settings'] as const;
