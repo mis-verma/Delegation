@@ -67,10 +67,11 @@ export const useDashboardSummaries = (scopeOverride?: SummaryScope) => {
   const todosSource = useSource<TodoSummary>(part(d?.todos));
   const checklistTodaySource = useSource<ChecklistInstanceSummary>(part(d?.checklistToday));
   const orgChecklistTodaySource = useSource<ChecklistInstanceSummary>(part(d?.orgChecklistToday));
+  const scopeChecklistTodaySource = useSource<ChecklistInstanceSummary>(part(d?.scopeChecklistToday));
 
   const kpi = useMemo(
-    () => ({ tasks: kpiTasksSource, tickets: kpiTicketsSource, todos: todosSource, checklistToday: checklistTodaySource, orgChecklistToday: orgChecklistTodaySource }),
-    [kpiTasksSource, kpiTicketsSource, todosSource, checklistTodaySource, orgChecklistTodaySource],
+    () => ({ tasks: kpiTasksSource, tickets: kpiTicketsSource, todos: todosSource, checklistToday: checklistTodaySource, orgChecklistToday: orgChecklistTodaySource, scopeChecklistToday: scopeChecklistTodaySource }),
+    [kpiTasksSource, kpiTicketsSource, todosSource, checklistTodaySource, orgChecklistTodaySource, scopeChecklistTodaySource],
   );
 
   return {

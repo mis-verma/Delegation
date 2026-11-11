@@ -10,8 +10,8 @@ import { useTicketsQuery } from '../tickets/hook';
 import { useDashboardMyTasksQuery, useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyFocusChecklistsQuery } from '../checklist/hook';
-import { StatStrip, type StatStripItem } from './StatStrip';
-import { CATEGORY_ICON } from './categoryLook';
+import { HomeStats, type StatScope } from './HomeStats';
+import { OwnApprovals } from './OwnApprovals';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TicketRequestsCard } from './TicketRequestsCard';
 import { FocusNowCard } from './FocusNowCard';
@@ -40,8 +40,6 @@ const OWN_TICKET_LIMIT = 100;
 const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];
 const NO_RUNS: ChecklistInstance[] = [];
-
-type StatScope = 'overall' | 'mine';
 
 const STAT_SCOPE_KEY = 'tm-home-stat-scope';
 
@@ -92,6 +90,7 @@ export const HomePage = () => {
     }, { replace: true });
   };
 
+  const [approvalsView, setApprovalsView] = useState<'queue' | 'own'>('queue');
   const [statScope, setStatScope] = useState<StatScope>(readStatScope);
   const ownStats = hasTabs && statScope === 'mine';
   const changeStatScope = (next: StatScope) => {
@@ -103,7 +102,7 @@ export const HomePage = () => {
     }
   };
 
-  const summaries = useDashboardSummaries(ownStats ? 'mine' : undefined);
+  const summaries = useDashboardSummaries(!hasTabs || ownStats ? 'mine' : undefined);
   const onWorkTab = !hasTabs || tab === 'work';
   const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, onWorkTab, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
@@ -178,41 +177,7 @@ export const HomePage = () => {
     />
   );
 
-  const kpi = summaries.kpi;
-  const statItems = useMemo<StatStripItem[]>(() => {
-    const make = (
-      key: string,
-      label: string,
-      source: { data: { pending: number; overdue: number; completed: number } | undefined; isPending: boolean; isError: boolean },
-      icon: StatStripItem['icon'],
-      tint: StatStripItem['tint'],
-      href: string,
-      highlight = false,
-    ): StatStripItem => {
-      const d = source.data;
-      const late = d?.overdue ?? 0;
-      return {
-        key,
-        label,
-        value: d?.pending ?? 0,
-        caption: !d ? '' : late > 0 ? `${late} late` : (d.pending === 0 ? 'All clear' : 'Nothing late'),
-        icon,
-        tint: late > 0 ? 'danger' : tint,
-        href,
-        highlight,
-        loading: source.isPending && !d,
-        failed: !d && source.isError,
-      };
-    };
-    return [
-      make('delegation', 'Delegation', kpi.tasks, CATEGORY_ICON.delegation, 'primary', '/tasks?quickFilter=pending', true),
-      make('tickets', 'Tickets', kpi.tickets, CATEGORY_ICON.ticket, 'coral', '/tickets?quickFilter=pending'),
-      make('checklist', 'Checklists', kpi.checklistToday, CATEGORY_ICON.checklist, 'primary', '/checklists?status=pending'),
-      make('todo', 'To-do', kpi.todos, CATEGORY_ICON.todo, 'success', '/todo?quickFilter=pending'),
-    ];
-  }, [kpi]);
-
-  const overview = <StatStrip items={statItems} label="Pending work by area" />;
+  const overview = <HomeStats kpi={summaries.kpi} scope={hasTabs ? statScope : 'mine'} teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'} />;
 
   const statSection = hasTabs ? (
     <section aria-labelledby="home-stats-heading" className="flex flex-col gap-2">
@@ -268,8 +233,23 @@ export const HomePage = () => {
             )}
             {tab === 'approvals' && (
               <>
-                {dashboardView.reviewsTicketRequests && <TicketRequestsCard />}
-                <NeedsApprovalCard full />
+                <Segmented
+                  label="Whose approvals to show"
+                  value={approvalsView}
+                  onChange={setApprovalsView}
+                  options={[
+                    { value: 'queue', label: dashboardView.orgWide ? 'Waiting for me' : 'Waiting for me' },
+                    { value: 'own', label: 'My own' },
+                  ]}
+                />
+                {approvalsView === 'own' ? (
+                  <OwnApprovals userId={userId} />
+                ) : (
+                  <>
+                    {dashboardView.reviewsTicketRequests && <TicketRequestsCard />}
+                    <NeedsApprovalCard full />
+                  </>
+                )}
               </>
             )}
           </div>

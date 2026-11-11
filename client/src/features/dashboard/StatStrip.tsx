@@ -14,7 +14,10 @@ export interface StatStripItem {
   caption: string;
   icon: LucideIcon;
   tint: StatTint;
-  href: string;
+  href?: string;
+  onSelect?: () => void;
+  selected?: boolean;
+  controls?: string;
   highlight?: boolean;
   loading?: boolean;
   failed?: boolean;
@@ -36,6 +39,11 @@ const CARD_TINT: Record<StatTint, { box: string; icon: string }> = {
 
 const pathOf = (href: string) => href.split('?')[0] ?? href;
 
+const spoken = (item: StatStripItem) =>
+  `${item.label}: ${item.failed ? 'could not load' : item.loading ? 'loading' : item.value}. ${item.caption}`;
+
+const TILE_CLASS = 'flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center outline-none transition-colors duration-150 first:rounded-l-xl last:rounded-r-xl active:bg-surface-hover focus-visible:bg-surface-hover';
+
 const shown = (item: StatStripItem) => (item.failed ? '-' : item.loading ? '-' : item.value);
 
 interface StatStripProps {
@@ -53,20 +61,48 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
         {items.map((item) => {
           const Icon = item.icon;
           const tint = TILE_TINT[item.tint];
-          return (
-            <Link
-              key={item.key}
-              to={item.href}
-              viewTransition
-              onTouchStart={() => prefetchOf(item.href)}
-              aria-label={`${item.label}: ${item.failed ? 'could not load' : item.loading ? 'loading' : item.value}. ${item.caption}`}
-              className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center outline-none transition-colors duration-150 first:rounded-l-xl last:rounded-r-xl active:bg-surface-hover focus-visible:bg-surface-hover"
-            >
+          const inner = (
+            <>
               <span className={cn('inline-flex items-center gap-1', tint.icon)}>
                 <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
                 <span className={cn('t-card font-display font-bold leading-none tabular-nums', tint.value)}>{shown(item)}</span>
               </span>
               <span className="max-w-full truncate t-meta font-medium text-text-muted">{item.label}</span>
+            </>
+          );
+          const href = item.href;
+          if (item.onSelect) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={item.onSelect}
+                aria-expanded={!!item.selected}
+                aria-controls={item.controls}
+                aria-label={spoken(item)}
+                className={cn(TILE_CLASS, 'cursor-pointer', item.selected && 'bg-primary-500/10')}
+              >
+                {inner}
+              </button>
+            );
+          }
+          if (!href) {
+            return (
+              <div key={item.key} role="group" aria-label={spoken(item)} className={TILE_CLASS}>
+                {inner}
+              </div>
+            );
+          }
+          return (
+            <Link
+              key={item.key}
+              to={href}
+              viewTransition
+              onTouchStart={() => prefetchOf(href)}
+              aria-label={spoken(item)}
+              className={TILE_CLASS}
+            >
+              {inner}
             </Link>
           );
         })}
@@ -76,13 +112,19 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
         {items.map((item) => {
           const tint = CARD_TINT[item.tint];
           return (
-            <div key={item.key} onPointerEnter={() => prefetchOf(item.href)} onFocusCapture={() => prefetchOf(item.href)} className="contents">
+            <div
+              key={item.key}
+              onPointerEnter={item.href ? () => prefetchOf(item.href!) : undefined}
+              onFocusCapture={item.href ? () => prefetchOf(item.href!) : undefined}
+              className={cn('rounded-2xl', item.selected && 'ring-2 ring-primary-500/60')}
+            >
               <StatCard
                 icon={item.icon}
                 label={item.label}
                 value={item.failed ? '—' : item.value}
                 caption={item.failed ? "Couldn't load" : item.caption}
-                href={item.href}
+                href={item.onSelect ? undefined : item.href}
+                onClick={item.onSelect}
                 isLoading={item.loading && !item.failed}
                 highlight={item.highlight}
                 decorative={item.highlight}

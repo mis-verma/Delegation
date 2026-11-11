@@ -6,6 +6,8 @@ import { checklistInstanceService } from "../checklistInstances/checklistInstanc
 import type { DashboardSummariesQuery } from "./dashboard.validation.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 
+const isDepartmentHead = (role: string) => role === "MANAGER" || role === "SENIOR"
+
 export const dashboardService = {
     async summaries(user: AccessTokenPayload, { scope, today }: DashboardSummariesQuery) {
         const orgChecklistPromise = isAdminOrPc(user.role)
@@ -14,6 +16,14 @@ export const dashboardService = {
                 return undefined
             })
             : Promise.resolve(undefined)
+        const scopeChecklistPromise = isAdminOrPc(user.role)
+            ? orgChecklistPromise
+            : isDepartmentHead(user.role) && user.departmentId
+                ? checklistInstanceService.summary({ departmentId: user.departmentId, hideEnded: true, includeDeleted: false, from: today, to: today }).catch((err: unknown) => {
+                    console.error("Dashboard summary (department checklists) failed:", err)
+                    return undefined
+                })
+                : Promise.resolve(undefined)
         const results = await Promise.allSettled([
             taskService.summary(user, scope),
             ticketService.summary(user, scope),
@@ -21,6 +31,7 @@ export const dashboardService = {
             checklistInstanceService.summary({ userId: user.sub, hideEnded: true, includeDeleted: false, from: today, to: today }),
         ])
         const orgChecklistToday = await orgChecklistPromise
+        const scopeChecklistToday = await scopeChecklistPromise
         const failed = results.filter((result): result is PromiseRejectedResult => result.status === "rejected")
         if (failed.length === results.length) throw failed[0]!.reason
         const names = ["tasks", "tickets", "to-dos", "checklists"]
@@ -33,6 +44,6 @@ export const dashboardService = {
             Awaited<ReturnType<typeof todoService.summary>> | undefined,
             Awaited<ReturnType<typeof checklistInstanceService.summary>> | undefined,
         ]
-        return { tasksKpi, ticketsKpi, todos, checklistToday, orgChecklistToday }
+        return { tasksKpi, ticketsKpi, todos, checklistToday, orgChecklistToday, scopeChecklistToday }
     },
 }
