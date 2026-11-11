@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { TOGGLE_ITEM, TOGGLE_OFF, TOGGLE_ON, TOGGLE_SIZE_SM, TOGGLE_TRACK, TogglePill } from '../slidingTabs';
 
 interface SegmentedOption<T extends string> {
   value: T;
@@ -19,6 +20,7 @@ interface SegmentedProps<T extends string> {
 
 export const Segmented = <T extends string>({ label, options, value, onChange, className }: SegmentedProps<T>) => {
   const hintId = useId();
+  const pillId = useId();
   const [shownHint, setShownHint] = useState<T | null>(null);
   const hinted = options.some((o) => o.disabled && o.hint);
   const activeHint = shownHint !== null ? options.find((o) => o.value === shownHint && o.disabled)?.hint : undefined;
@@ -27,7 +29,7 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn('inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', !hinted && className)}
+      className={cn(TOGGLE_TRACK, !hinted && className)}
     >
       {options.map((o) => {
         const softDisabled = !!o.disabled && !!o.hint;
@@ -50,14 +52,17 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
               onChange(o.value);
             }}
             className={cn(
-              'inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 cursor-pointer pointer-coarse:min-h-11',
-              'focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40',
+              TOGGLE_ITEM,
+              TOGGLE_SIZE_SM,
               softDisabled && 'cursor-not-allowed opacity-40',
-              value === o.value ? 'bg-surface text-text ring-1 ring-border/60' : 'text-text-muted hover:text-text',
+              value === o.value ? TOGGLE_ON : TOGGLE_OFF,
             )}
           >
-            {o.icon}
-            {o.label}
+            {value === o.value && <TogglePill id={`${pillId}-pill`} />}
+            <span className="relative z-10 inline-flex items-center gap-1.5">
+              {o.icon}
+              {o.label}
+            </span>
           </button>
         );
       })}

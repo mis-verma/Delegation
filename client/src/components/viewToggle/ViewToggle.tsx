@@ -1,6 +1,8 @@
-import { useRef, useEffect, type KeyboardEvent } from 'react';
+import { useId, useRef, useEffect, type KeyboardEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { VIEW_ICONS } from './viewIconMap';
+import { cn } from '@/lib/utils';
+import { TOGGLE_ITEM, TOGGLE_OFF, TOGGLE_ON, TOGGLE_SIZE_SM, TOGGLE_TRACK, TogglePill } from '../slidingTabs';
 import type { ViewIcon } from './viewIcons';
 
 export interface ViewTab<V extends string> {
@@ -25,6 +27,7 @@ const isTypingTarget = (el: EventTarget | null) => {
 
 export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey, shortcuts = true }: ViewToggleProps<V>) {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pillId = useId();
 
   const pick = (key: V) => {
     onChange(key);
@@ -93,7 +96,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
   };
 
   return (
-    <div role="tablist" className="flex items-center gap-1 rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50">
+    <div role="tablist" className={TOGGLE_TRACK}>
       {tabs.map((tab, index) => {
         const Icon = VIEW_ICONS[tab.key] ?? tab.icon;
         return (
@@ -108,16 +111,13 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
           onKeyDown={(e) => handleKeyDown(e, index)}
           title={shortcuts ? `${tab.label} view (press ${tabs.indexOf(tab) + 1})` : `${tab.label} view`}
           aria-label={`${tab.label} view`}
-          className={`group items-center gap-1.5 h-[1.875rem] pointer-coarse:h-11 px-3 rounded-full t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
-            tab.mobileHidden ? 'hidden sm:flex' : 'flex'
-          } ${
-            value === tab.key
-              ? 'bg-surface text-text font-bold ring-1 ring-border/60'
-              : 'text-text-muted font-semibold hover:text-text'
-          }`}
+          className={cn(TOGGLE_ITEM, TOGGLE_SIZE_SM, 'gap-1.5 px-3', tab.mobileHidden && 'max-sm:hidden', value === tab.key ? TOGGLE_ON : TOGGLE_OFF)}
         >
-          {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted'} />}
-          <span className="hidden md:inline">{tab.label}</span>
+          {value === tab.key && <TogglePill id={`${pillId}-pill`} />}
+          <span className="relative z-10 inline-flex items-center gap-1.5">
+            {Icon && <Icon size={15} strokeWidth={2.25} className={value === tab.key ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted'} />}
+            <span className="hidden md:inline">{tab.label}</span>
+          </span>
         </button>
         );
       })}

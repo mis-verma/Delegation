@@ -55,7 +55,7 @@ export const StreakGoalCard = () => {
   const summary = useMemo(() => summariseStreak(days, goal), [days, goal]);
   const hasData = days.some((d) => d.value !== null);
 
-  const header = <DashCardHeader id="streak-heading" title={STREAK_TITLE[activeKind]} subtitle={`Days in a row at ${goal}% or better`} />;
+  const header = <DashCardHeader id="streak-heading" title={STREAK_TITLE[activeKind]} subtitle={`A streak is days in a row you scored ${goal}% or more. Days with nothing due are skipped.`} />;
   const shell = (body: ReactNode) => (
     <section aria-labelledby="streak-heading" className={cn(PANEL_CLASS, 'flex h-full flex-col overflow-hidden')}>
       {header}
@@ -97,22 +97,22 @@ export const StreakGoalCard = () => {
             <p className="flex items-center gap-2">
               <Flame className={cn('size-6 shrink-0', summary.current > 0 ? 'text-coral-500' : 'text-text-light', hot && 'live-dot')} strokeWidth={2.25} aria-hidden="true" />
               <span className={cn('t-figure', STAT_FIGURE, summary.current > 0 ? 'text-text' : 'text-text-muted')}>{summary.current}</span>
-              <span className="t-card font-display font-bold text-text">{summary.current === 1 ? 'day' : 'days'}</span>
+              <span className="t-card font-display font-bold text-text">{summary.current === 1 ? 'day in a row' : 'days in a row'}</span>
             </p>
             <dl className="flex flex-col items-end gap-0.5 t-meta font-medium text-text-muted">
               <div className="flex items-baseline gap-1.5">
-                <dt>Best in 28 days</dt>
+                <dt>Longest run, last 28 days</dt>
                 <dd className="font-display font-bold tabular-nums text-text">{summary.best}</dd>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <dt>Goal met</dt>
+                <dt>Days you hit the goal</dt>
                 <dd className="font-display font-bold tabular-nums text-text">{met} of {counted}</dd>
               </div>
             </dl>
           </div>
 
           <div className="hidden items-center justify-between gap-3 pt-1 sm:flex">
-            <span className="t-meta font-display font-semibold text-text-secondary">Your goal</span>
+            <span className="t-meta font-display font-semibold text-text-secondary">Score to hit each day</span>
             <div className="flex items-center gap-2">
               <StepButton label={`Lower the goal to ${goal - GOAL_STEP} percent`} onClick={() => setGoal(goal - GOAL_STEP)} disabled={goal <= GOAL_MIN}>
                 <Minus size={14} aria-hidden="true" />
@@ -151,8 +151,8 @@ export const StreakGoalCard = () => {
             })}
           </ol>
           <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted sm:flex" aria-hidden="true">
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-green/30" />Goal met</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-red/25" />Below goal</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-green/30" />Hit the goal</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-red/25" />Missed it</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-surface-hover" />Nothing due</span>
           </div>
         </div>

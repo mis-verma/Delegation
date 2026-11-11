@@ -1,4 +1,5 @@
 import { Workflow } from 'lucide-react';
+import { SlidingTabs } from '../../../components/slidingTabs';
 import { ASSIGNMENT_OPTIONS, FRONT_LINE_OPTIONS } from './assignmentOptions';
 
 interface AssignmentModeToggleProps {
@@ -8,37 +9,28 @@ interface AssignmentModeToggleProps {
   hideLabel?: boolean;
 }
 
-const SEGMENT_BASE =
-  'flex items-center justify-center gap-1.5 h-11 sm:h-9 px-2 text-sm sm:text-xs font-display font-semibold rounded-full text-center transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
-const SEGMENT_SELECTED = 'bg-surface text-text ring-1 ring-border/60';
-const SEGMENT_IDLE = 'text-text-muted hover:text-text';
-
 export const AssignmentModeToggle = ({ mode, onChange, frontLine = false, hideLabel = false }: AssignmentModeToggleProps) => {
   const options = frontLine ? FRONT_LINE_OPTIONS : ASSIGNMENT_OPTIONS;
   return (
-  <div className="flex flex-col gap-1.5">
-    {!hideLabel && (
-      <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
-      <Workflow size={14} className="text-text-light" />
-      How to send it
-    </span>
-    )}
-    <div className="grid grid-cols-2 gap-1 rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50" role="group" aria-label="How to send it">
-      {options.map(({ value, label, icon: Icon }) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => onChange(value)}
-          aria-pressed={mode === value}
-          className={`${SEGMENT_BASE} ${mode === value ? SEGMENT_SELECTED : SEGMENT_IDLE}`}
-        >
-          <Icon className="size-3.5 shrink-0" /> <span className="truncate">{label}</span>
-        </button>
-      ))}
+    <div className="flex flex-col gap-1.5">
+      {!hideLabel && (
+        <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
+          <Workflow size={14} className="text-text-light" />
+          How to send it
+        </span>
+      )}
+      <SlidingTabs
+        label="How to send it"
+        pressed
+        fill
+        size="sm"
+        value={mode}
+        options={options.map(({ value, label, icon }) => ({ value, label, icon }))}
+        onChange={onChange}
+      />
+      <p className="px-1 t-meta font-display text-text-muted">
+        {options.find((o) => o.value === mode)?.help}
+      </p>
     </div>
-    <p className="px-1 t-meta font-display text-text-muted">
-      {options.find(o => o.value === mode)?.help}
-    </p>
-  </div>
   );
 };

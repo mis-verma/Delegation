@@ -26,10 +26,10 @@ export const STREAK_LABEL: Record<StreakKind, string> = {
 };
 
 export const STREAK_TITLE: Record<StreakKind, string> = {
-  checklist: 'Checklist streak',
-  ticket: 'Ticket streak',
-  delegation: 'Delegation streak',
-  all: 'Overall streak',
+  checklist: 'Your checklist streak',
+  ticket: 'Your ticket streak',
+  delegation: 'Your delegation streak',
+  all: 'Your streak',
 };
 
 export interface StreakDay {

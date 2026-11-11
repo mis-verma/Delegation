@@ -1,5 +1,5 @@
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
+import { SlidingTabs } from '../../components/slidingTabs';
 
 interface PeriodTabControlProps<T extends string> {
   value: T;
@@ -13,22 +13,6 @@ interface PeriodTabControlProps<T extends string> {
 }
 
 export function PeriodTabControl<T extends string>({ value, options, labels, onChange, className, fill, columns }: PeriodTabControlProps<T>) {
-  return (
-    <Tabs value={value} onValueChange={(v) => onChange(v as T)} className={className}>
-      <TabsList
-        className={cn('h-auto', columns ? 'grid w-full flex-nowrap' : fill ? 'flex w-full' : 'w-fit')}
-        style={columns ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` } : undefined}
-      >
-        {options.map((option) => (
-          <TabsTrigger
-            key={option}
-            value={option}
-            className={columns ? 'min-h-11 sm:min-h-8 min-w-0 px-1 t-meta' : 'min-h-11 sm:min-h-9 basis-auto px-3 t-meta sm:text-sm'}
-          >
-            {labels[option]}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
-  );
+  const items = useMemo(() => options.map((option) => ({ value: option, label: labels[option] })), [options, labels]);
+  return <SlidingTabs label="View" value={value} options={items} onChange={onChange} size="sm" fill={fill || columns} className={className} />;
 }
