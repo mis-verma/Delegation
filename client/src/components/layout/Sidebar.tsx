@@ -63,6 +63,7 @@ const TEAM_DELEGATIONS_CHILD: NavChild = { to: '/tasks/team', label: 'Team Deleg
 const ARCHIVED_DELEGATIONS_CHILD: NavChild = { to: '/tasks/archived', label: 'Archived' };
 
 const REVIEW_QUEUE_CHILD: NavChild = { to: '/checklists/approvals', label: 'To review' };
+const CHECKLIST_TEAM_CHILD: NavChild = { to: '/checklists/team', label: 'Team' };
 const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'History' };
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
 
@@ -236,7 +237,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
         ...item,
         ...(isAdmin || isPC ? { quickCreateTo: '/admin/scheduled-checklists/builder' } : {}),
         ...(isAdmin || isPC || isManager || isSenior
-          ? { children: isManager || isSenior ? [CHECKLIST_HISTORY_CHILD] : [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD] }
+          ? { children: isManager || isSenior ? [CHECKLIST_TEAM_CHILD, CHECKLIST_HISTORY_CHILD] : [CHECKLIST_TEAM_CHILD, CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD] }
           : hasReviewsWaiting ? { children: [REVIEW_QUEUE_CHILD] } : {}),
       };
     }

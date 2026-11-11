@@ -96,3 +96,5 @@ export type { ExportFormat, ExportMenuProps, ExportSource, ExportTable } from '.
 export { AttachmentGrid } from './attachmentGrid';
 export type { AttachmentGridItem } from './attachmentGrid';
 export type { LightboxItem } from './imageLightbox';
+export { Pill } from './pill';
+export type { PillTone } from './pill';

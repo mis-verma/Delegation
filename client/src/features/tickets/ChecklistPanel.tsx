@@ -1,4 +1,5 @@
 import { LivePhotoTrigger } from '../checklist/instance/LivePhotoTrigger';
+import { MAX_LIVE_PHOTOS } from '../checklist/instance/cameraSupport';
 import { EvidenceThumb } from '../checklist/instance/EvidenceThumb';
 import { FailedPhotoNote } from '../checklist/instance/FailedPhotoNote';
 import { passingPhotos } from '../checklist/photoQuality';
@@ -67,6 +68,7 @@ const ItemRow = ({
     uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod });
   };
 
+  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - clearImages.length);
   const photosSatisfied = item.requiredImageCount > 0 && qualifying >= item.requiredImageCount;
 
   return (
@@ -193,7 +195,7 @@ const ItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-                <LivePhotoTrigger className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover" onFiles={files => handleFiles(files, 'LIVE')}>
+                <LivePhotoTrigger className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover" burst limit={photoRoom} onFiles={files => handleFiles(files, 'LIVE')}>
                   <Camera size={16} />
                   Camera
                 </LivePhotoTrigger>

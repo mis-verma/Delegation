@@ -72,6 +72,7 @@ export const sendBackChecklistInstanceSchema = z.object({
 
 export const revokeChecklistInstanceSchema = z.object({
     itemId: z.string().min(1).optional(),
+    note: z.string().trim().max(1000).optional(),
 })
 
 export const raiseChecklistTicketSchema = z.object({

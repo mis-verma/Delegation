@@ -10,7 +10,7 @@ export type ChecklistItemType =
   | "MULTIPLE_CHOICE" | "DROPDOWN" | "TEXT_BOX" | "DATE_TIME" | "GPS" | "SIGNATURE"
   | "DUAL_SIGNATURE" | "QR_SCAN" | "CASH_TALLY" | "VIDEO_UPLOAD";
 
-export type ChecklistVerificationStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED";
+export type ChecklistVerificationStatus = "NOT_SUBMITTED" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
 export type CaptureMethod = "LIVE" | "GALLERY";
 
 export type ChecklistInstanceImage = {
@@ -60,6 +60,8 @@ export type ChecklistInstance = {
   periodStart: string;
   periodEnd: string;
   verificationStatus: ChecklistVerificationStatus;
+  submittedAt?: string | null;
+  submittedBy?: string | null;
   items: ChecklistInstanceItem[];
 };
 
@@ -81,6 +83,9 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance[]>>(`/checklist-instances/mine${buildQuery(filter)}`),
 
   getOne: (id: string) => apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`),
+
+  revoke: (id: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: "POST", body: JSON.stringify({}) }),
 
   setItemDone: (
     itemId: string,

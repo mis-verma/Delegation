@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { StatStrip, type StatStripItem } from './StatStrip';
 import { CATEGORY_ICON } from './categoryLook';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
+import { useAuth } from '../../context/AuthContext';
 import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
 
@@ -31,6 +32,7 @@ interface ModuleRow {
   icon: LucideIcon;
   base: string;
   counts: Counts | undefined;
+  team?: boolean;
   loading: boolean;
   failed: boolean;
 }
@@ -50,7 +52,7 @@ const startOfToday = () => {
 
 const hrefFor = (module: ModuleRow, metric: Metric): string => {
   const { key, base } = module;
-  if (key === 'checklist') return metric === 'pending' ? `${base}?status=pending` : metric === 'delayed' ? `${base}?status=overdue` : base;
+  if (key === 'checklist') return checklistHref(metric, module.team === true);
   if (metric === 'pending') return `${base}?quickFilter=pending`;
   if (metric === 'delayed') return `${base}?quickFilter=delayed`;
   if (metric === 'new') {
@@ -65,6 +67,11 @@ const hrefFor = (module: ModuleRow, metric: Metric): string => {
 const valueOf = (counts: Counts | undefined, metric: Metric) =>
   !counts ? 0 : metric === 'pending' ? counts.pending : metric === 'delayed' ? counts.overdue : metric === 'new' ? counts.newToday : counts.total;
 
+const checklistHref = (metric: Metric, team: boolean): string => {
+  const base = team ? '/checklists/team' : '/checklists';
+  return metric === 'pending' ? `${base}?status=pending` : metric === 'delayed' ? `${base}?status=overdue` : metric === 'total' ? (team ? `${base}?status=all` : base) : base;
+};
+
 interface HomeStatsProps {
   kpi: DashboardSummaries['kpi'];
   scope: StatScope;
@@ -75,20 +82,22 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
   const [open, setOpen] = useState<Metric | null>(null);
   const panelId = useId();
   const warm = usePrefetchRoute();
+  const { user } = useAuth();
+  const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
 
   const modules = useMemo<ModuleRow[]>(() => {
-    const row = (key: ModuleKey, label: string, icon: LucideIcon, base: string, source: Source): ModuleRow => ({
-      key, label, icon, base, counts: source.data, loading: source.isPending && !source.data, failed: !source.data && source.isError,
+    const row = (key: ModuleKey, label: string, icon: LucideIcon, base: string, source: Source, team = false): ModuleRow => ({
+      key, label, icon, base, team, counts: source.data, loading: source.isPending && !source.data, failed: !source.data && source.isError,
     });
     const checklistSource = scope === 'mine' ? kpi.checklistToday : kpi.scopeChecklistToday.data ? kpi.scopeChecklistToday : kpi.checklistToday;
     const rows = [
       row('delegation', 'Delegation', CATEGORY_ICON.delegation, '/tasks', kpi.tasks),
       row('tickets', 'Tickets', CATEGORY_ICON.ticket, '/tickets', kpi.tickets),
-      row('checklist', 'Checklists, today', CATEGORY_ICON.checklist, '/checklists', checklistSource),
+      row('checklist', 'Checklists, today', CATEGORY_ICON.checklist, canSeeTeam && scope === 'overall' ? '/checklists/team' : '/checklists', checklistSource, canSeeTeam && scope === 'overall'),
     ];
     if (scope === 'mine') rows.push(row('todo', 'To-do', CATEGORY_ICON.todo, '/todo', kpi.todos));
     return rows;
-  }, [kpi, scope]);
+  }, [kpi, scope, canSeeTeam]);
 
   const items = useMemo<StatStripItem[]>(
     () => METRICS.map((m, index) => {

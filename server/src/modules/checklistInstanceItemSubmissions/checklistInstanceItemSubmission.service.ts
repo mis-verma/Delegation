@@ -12,6 +12,7 @@ import {
 import { and, eq, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
+import { autoSubmitIfComplete } from "../checklistInstances/checklistInstanceActions.js"
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { auditService } from "../audit/audit.service.js"
@@ -239,6 +240,7 @@ export const checklistInstanceItemSubmissionService = {
         if (!changed) return row
 
         await syncVerificationStatus(item.instanceId)
+        if (isDone) await autoSubmitIfComplete(item.instanceId, user.sub)
         if (instance) emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: item.instanceId })
         return row
     },

@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
@@ -97,6 +98,16 @@ export const ChecklistInstanceDetail = () => {
   const submit = useSubmitRun(instanceId);
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
+  const status = instance?.verificationStatus;
+  const previousStatus = useRef(status);
+  useEffect(() => {
+    const before = previousStatus.current;
+    previousStatus.current = status;
+    if (status === 'PENDING_APPROVAL' && (before === 'NOT_SUBMITTED' || before === 'REJECTED') && instance?.submittedBy === user?.id) {
+      haptic('success');
+      toast.success('Sent for approval. You can take it back for 10 minutes from the Preview on the list.');
+    }
+  }, [status, instance?.submittedBy, user?.id]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
   const [pickedShow, setShow] = useState<ShowMode | null>(null);
   const [oneIndex, setOneIndex] = useState(0);
@@ -162,7 +173,7 @@ export const ChecklistInstanceDetail = () => {
   const canWork = canWorkRaw && (!canReview || editAnswers);
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
-    canWork && isComplete && !notYetOpen &&
+    user?.role === 'ADMIN' && canWork && isComplete && !notYetOpen &&
     (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
   const resubmit = instance.verificationStatus === 'REJECTED';
   const hasSections = instance.items.some(i => i.section);

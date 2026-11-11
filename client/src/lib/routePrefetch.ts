@@ -67,6 +67,7 @@ PREFETCHERS['/checklists'] = (qc) => {
   void qc.prefetchQuery(departmentsQueryOptions());
 };
 
+PREFETCHERS['/checklists/team'] = PREFETCHERS['/checklists'];
 PREFETCHERS['/admin/tickets'] = PREFETCHERS['/tickets'];
 
 const hasSlowConnection = () => {

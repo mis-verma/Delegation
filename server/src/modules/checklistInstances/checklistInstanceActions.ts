@@ -184,6 +184,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     }
 
     await syncVerificationStatus(instanceRow.id)
+    if (isDone) await autoSubmitIfComplete(instanceRow.id, user.sub)
 
     const [finalItem] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
     if (!finalItem) throw AppError.notFound("Checklist item not found.")
@@ -203,7 +204,44 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     return stripSecretItemFields(finalItem)
 }
 
+const commitSubmission = async (instance: typeof checklistInstances.$inferSelect, assigneeIds: string[], actorId: string): Promise<boolean> => {
+    const now = new Date()
+    const [submitted] = await db.update(checklistInstances)
+        .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: actorId, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now })
+        .where(and(eq(checklistInstances.id, instance.id), inArray(checklistInstances.verificationStatus, ["NOT_SUBMITTED", "REJECTED"])))
+    if (submitted.affectedRows === 0) return false
+
+    notificationService
+        .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds })
+        .catch((err) => console.error("Failed to notify PC of pending checklist:", err))
+    await auditService.record({
+        entityType: "ChecklistInstance", entityId: instance.id, action: "SUBMIT", actorId,
+        before: { verificationStatus: instance.verificationStatus },
+        after: { verificationStatus: "PENDING_APPROVAL", submittedAt: now },
+    })
+    await dropChecklistSummaries(assigneeIds)
+    emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: instance.id })
+    return true
+}
+
+export const autoSubmitIfComplete = async (instanceId: string, actorId: string): Promise<boolean> => {
+    try {
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
+        if (!instance || (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED")) return false
+        const items = await db.select({ isDone: checklistInstanceItems.isDone }).from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, instanceId))
+        if (!items.length || items.some((i) => !i.isDone)) return false
+        const links = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instanceId))
+        return await commitSubmission(instance, links.map((l) => l.userId), actorId)
+    } catch (err) {
+        console.error("Auto-submit of a finished checklist failed:", err)
+        return false
+    }
+}
+
 export const submit = async (id: string, user: AccessTokenPayload) => {
+    if (user.role !== "ADMIN") {
+        throw AppError.forbidden("Checklists are sent for approval automatically when the last question is answered.")
+    }
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
@@ -220,22 +258,8 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
         throw AppError.badRequest(open === 1 ? "1 question is still open. Finish it, then submit." : `${open} questions are still open. Finish them, then submit.`)
     }
 
-    const now = new Date()
-    const [submitted] = await db.update(checklistInstances)
-        .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: user.sub, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now })
-        .where(and(eq(checklistInstances.id, id), inArray(checklistInstances.verificationStatus, ["NOT_SUBMITTED", "REJECTED"])))
-    if (submitted.affectedRows === 0) throw AppError.conflict("This checklist was just submitted. Refresh to see where it stands.")
-
-    notificationService
-        .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds })
-        .catch((err) => console.error("Failed to notify PC of pending checklist:", err))
-    await auditService.record({
-        entityType: "ChecklistInstance", entityId: id, action: "SUBMIT", actorId: user.sub,
-        before: { verificationStatus: instance.verificationStatus },
-        after: { verificationStatus: "PENDING_APPROVAL", submittedAt: now },
-    })
-    await dropChecklistSummaries(assigneeIds)
-    emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+    const committed = await commitSubmission(instance, assigneeIds, user.sub)
+    if (!committed) throw AppError.conflict("This checklist was just submitted. Refresh to see where it stands.")
     return getPopulatedInstanceById(id)
 }
 
@@ -245,20 +269,24 @@ const RESET_ITEM_VALUES = {
     signatureValue: null, secondSignatureValue: null, conditionalReasonValue: null,
 } as const
 
-export const revokeSubmission = async (id: string, input: { itemId?: string }, user: AccessTokenPayload) => {
+export const revokeSubmission = async (id: string, input: { itemId?: string; note?: string }, user: AccessTokenPayload) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeIds = assigneeLinks.map((l) => l.userId)
     assertCanAccess({ assigneeIds }, user)
 
-    if (instance.verificationStatus !== "PENDING_APPROVAL") {
+    const isAdmin = user.role === "ADMIN"
+    const note = input.note?.trim() ?? ""
+    if (isAdmin && !note) throw AppError.badRequest("Say why you are revoking this checklist.")
+    const revocable = isAdmin ? ["PENDING_APPROVAL", "APPROVED"] : ["PENDING_APPROVAL"]
+    if (!revocable.includes(instance.verificationStatus)) {
         throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved, so it can't be taken back." : "This checklist isn't waiting for approval.")
     }
-    if (instance.submittedBy !== user.sub && user.role !== "ADMIN") {
+    if (instance.submittedBy !== user.sub && !isAdmin) {
         throw AppError.forbidden("Only the person who submitted this checklist can take it back.")
     }
-    if (!revokeWindowOpen(instance.submittedAt) && user.role !== "ADMIN") {
+    if (!revokeWindowOpen(instance.submittedAt) && !isAdmin) {
         throw AppError.badRequest("The 10 minutes to take this back are over.")
     }
     await assertRunOpenForUser(id, user)
@@ -273,8 +301,9 @@ export const revokeSubmission = async (id: string, input: { itemId?: string }, u
     await db.transaction(async (tx) => {
         const [claimed] = await tx.update(checklistInstances).set({
             verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null,
+            verifiedBy: null, verifiedAt: null, verificationNote: isAdmin ? note : null,
             approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now,
-        }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+        }).where(and(eq(checklistInstances.id, id), inArray(checklistInstances.verificationStatus, revocable as ("PENDING_APPROVAL" | "APPROVED")[])))
         if (claimed.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
         if (targetIds.length) {
             await tx.update(checklistInstanceItems).set(
@@ -291,9 +320,14 @@ export const revokeSubmission = async (id: string, input: { itemId?: string }, u
 
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: input.itemId ? "RECORRECT" : "REVOKE", actorId: user.sub,
-        before: { verificationStatus: "PENDING_APPROVAL", submittedAt: instance.submittedAt },
-        after: { verificationStatus: "NOT_SUBMITTED", itemIds: input.itemId ? [input.itemId] : "all" },
+        before: { verificationStatus: instance.verificationStatus, submittedAt: instance.submittedAt },
+        after: { verificationStatus: "NOT_SUBMITTED", itemIds: input.itemId ? [input.itemId] : "all", ...(isAdmin ? { note } : {}) },
     })
+    if (isAdmin) {
+        notificationService
+            .notifyChecklistVerificationResult({ _id: instance.id, title: instance.title, assigneeIds }, "REJECT", note)
+            .catch((err) => console.error("Failed to notify checklist revoke:", err))
+    }
     await dropChecklistSummaries(assigneeIds)
     emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
     return getPopulatedInstanceById(id)
@@ -302,7 +336,8 @@ export const revokeSubmission = async (id: string, input: { itemId?: string }, u
 export const sendBack = async (id: string, input: { itemIds: string[]; note: string; fixByHours?: number; photoOnlyItemIds?: string[] }, user: AccessTokenPayload) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
-    if (instance.verificationStatus !== "PENDING_APPROVAL") {
+    const adminReopen = user.role === "ADMIN" && instance.verificationStatus === "APPROVED"
+    if (instance.verificationStatus !== "PENDING_APPROVAL" && !adminReopen) {
         throw AppError.badRequest("Only a checklist that's waiting for approval can have questions sent back.")
     }
 
@@ -333,7 +368,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
     const note = input.note.trim()
     await db.transaction(async (tx) => {
         const [claimed] = await tx.update(checklistInstances).set({ updatedAt: now })
-            .where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")))
+            .where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, adminReopen ? "APPROVED" : "PENDING_APPROVAL")))
         if (claimed.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
         await tx.update(checklistInstanceItems).set({
             sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
@@ -359,6 +394,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
         await tx.update(checklistInstances).set({
             verificationStatus: "REJECTED",
             verificationNote: note,
+            ...(adminReopen ? { verifiedBy: null, verifiedAt: null } : {}),
             approvalReminderSentAt: null,
             approvalEscalatedAt: null,
             submitReminderSentAt: null,

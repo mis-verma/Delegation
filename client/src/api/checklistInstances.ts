@@ -465,6 +465,7 @@ export const checklistInstanceApi = {
 
   getSummary: (filter: {
     mine?: boolean;
+    scope?: 'visible';
     storeId?: string;
     assigneeId?: string;
     assigneeIds?: string[];
@@ -479,6 +480,7 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstanceSummary>>(
       `/checklist-instances/summary${buildQuery({
         mine: filter.mine ? '1' : undefined,
+        scope: filter.scope,
         storeId: filter.storeId,
         assigneeId: filter.assigneeId,
         assigneeIds: filter.assigneeIds?.length ? filter.assigneeIds.join(',') : undefined,
@@ -553,8 +555,8 @@ export const checklistInstanceApi = {
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
-  revoke: (id: string, itemId?: string) =>
-    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: 'POST', body: JSON.stringify(itemId ? { itemId } : {}) }),
+  revoke: (id: string, itemId?: string, note?: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: 'POST', body: JSON.stringify({ ...(itemId ? { itemId } : {}), ...(note ? { note } : {}) }) }),
   submit: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/submit`, { method: 'PATCH' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),

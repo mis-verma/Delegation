@@ -186,12 +186,12 @@ const MAX_LIVE_PHOTO_FILES = 25
 
 export const taskImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
-    return buildImageUpload(storage).array("images" , settingsService.getCached().maxUploadFiles)(req, res, next)
+    return buildImageUpload(storage).array("images" , Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, next)
 }
 
 export const checklistImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
-    return buildImageUpload(ticketStorage).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+    return buildImageUpload(ticketStorage).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, next)
 }
 
 export const ticketAttachmentUpload = (req : Request , res : Response , next : NextFunction) => {

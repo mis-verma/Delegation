@@ -59,6 +59,7 @@ const ChecklistInstanceDetail = lazy(() => import('./features/checklist').then(m
 const ChecklistTemplatesGrid = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistTemplatesGrid })));
 const ChecklistDefinitionDetail = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistDefinitionDetail })));
 const ChecklistBuilder = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistBuilder })));
+const TeamChecklists = lazy(() => import('./features/checklist').then(m => ({ default: m.TeamChecklists })));
 const ChecklistApprovals = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistApprovals })));
 const ChecklistHistory = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistHistory })));
 const ChecklistWeeklyReport = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistWeeklyReport })));
@@ -188,6 +189,7 @@ const TeamRedirect = () => {
 };
 
 const HistoryRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
+const TeamChecklistsRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const router = createBrowserRouter([
   {
@@ -260,6 +262,10 @@ const router = createBrowserRouter([
           { path: '/checklists/:instanceId', element: <ChecklistInstanceDetail /> },
           { path: '/dashboard', element: <Navigate to="/" replace /> },
           { path: '/checklists/approvals', element: <ChecklistApprovalsRoute /> },
+          {
+            element: <TeamChecklistsRoute />,
+            children: [{ path: '/checklists/team', element: <TeamChecklists /> }],
+          },
           {
             element: <HistoryRoute />,
             children: [

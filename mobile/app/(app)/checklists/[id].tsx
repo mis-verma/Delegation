@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Image, Alert, Modal } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { checklistInstanceApi, type ChecklistInstanceItem } from "../../../lib/api/checklistInstances";
 import { formatDateShort, formatDeadlineTime } from "../../../lib/checklist/display";
+import { useAuth } from "../../../lib/auth/AuthContext";
 
 // Item types the mobile fill-out flow can already drive end-to-end. Anything outside this list
 // (GPS geofence, signature pad, QR scan, cash tally, per-auditor AUDIT sub-forms, video upload)
@@ -13,6 +14,7 @@ import { formatDateShort, formatDeadlineTime } from "../../../lib/checklist/disp
 const SUPPORTED_TYPES = new Set(["STANDARD", "YES_NO", "PASS_FAIL", "TEXT_BOX", "NUMBER_ENTRY", "RATING"]);
 
 const MAX_PHOTOS = 25;
+const REVOKE_WINDOW_MS = 10 * 60 * 1000;
 
 const askForAnother = (count: number, max: number) =>
   new Promise<boolean>((resolve) => {
@@ -296,8 +298,36 @@ const ItemCard = ({ item, instanceId }: { item: ChecklistInstanceItem; instanceI
 export default function ChecklistInstanceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useInstance(id);
   const instance = data?.data;
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const takeBack = useMutation({
+    mutationFn: () => checklistInstanceApi.revoke(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklist-instance", id] }),
+    onError: () => Alert.alert("Couldn't take it back", "The 10 minutes may be over, or someone already decided on it."),
+  });
+
+  const submittedAt = instance?.submittedAt ? new Date(instance.submittedAt).getTime() : null;
+  const minutesLeft = submittedAt ? Math.max(0, Math.ceil((submittedAt + REVOKE_WINDOW_MS - clock) / 60_000)) : 0;
+  const waiting = instance?.verificationStatus === "PENDING_APPROVAL";
+  const canTakeBack = waiting && !!user && instance?.submittedBy === user.id && minutesLeft > 0;
+
+  const confirmTakeBack = () =>
+    Alert.alert(
+      "Take it back?",
+      "Every answer is cleared and you answer it again. It goes for approval by itself when the last question is done.",
+      [
+        { text: "Keep it", style: "cancel" },
+        { text: "Take it back", style: "destructive", onPress: () => takeBack.mutate() },
+      ],
+    );
 
   const done = instance?.items.filter((i) => i.isDone).length ?? 0;
   const total = instance?.items.length ?? 0;
@@ -332,6 +362,28 @@ export default function ChecklistInstanceDetail() {
       {error && (
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-sm text-red-600 text-center">Couldn't load this checklist. Go back and try again.</Text>
+        </View>
+      )}
+
+      {instance && waiting && (
+        <View className="mx-4 mt-3 flex-row items-center justify-between rounded-xl border border-border bg-surface-hover/60 px-3 py-2.5">
+          <View className="flex-1 pr-3">
+            <Text className="text-sm font-semibold text-text">Sent for approval</Text>
+            <Text className="text-xs text-text-muted">
+              {canTakeBack ? `You can take it back for ${minutesLeft} more ${minutesLeft === 1 ? "minute" : "minutes"}.` : "Waiting for the approver."}
+            </Text>
+          </View>
+          {canTakeBack && (
+            <Pressable
+              onPress={confirmTakeBack}
+              disabled={takeBack.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Take the checklist back"
+              className="min-h-11 items-center justify-center rounded-lg border border-border px-4"
+            >
+              <Text className="text-sm font-medium text-text">{takeBack.isPending ? "Working..." : "Take back"}</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
