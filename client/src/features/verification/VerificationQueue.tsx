@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldCheck, CheckCheck, ListChecks } from 'lucide-react';
+import { ArrowLeft, CheckCheck, ListChecks } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { EmptyState, PageHeader, PANEL_CLASS, useConfirm } from '../../components';
+import { EmptyState, PANEL_CLASS, useConfirm } from '../../components';
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useTicketsByStatusQuery } from '../tickets/hook';
@@ -15,7 +16,6 @@ import type { ChecklistInstance } from '../../api/checklistInstances';
 import { ChecklistList } from './ChecklistList';
 import { DecidedToday } from './DecidedToday';
 import { QueueToolbar } from './QueueToolbar';
-import { QueueOverview } from './QueueOverview';
 import { QueueSections } from './QueueSections';
 import { SectionTitle } from './SectionTitle';
 import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats';
@@ -23,7 +23,7 @@ import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
 import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
-import { filterTasks, filterTickets, oldestWaitingOf, sortByWaiting, type TicketTaskFilter } from './ticketTaskFilters';
+import { filterTasks, filterTickets, sortByWaiting, type TicketTaskFilter } from './ticketTaskFilters';
 import { useChecklistDecisionsQuery } from './useChecklistDecisions';
 import {
   useChecklistQueueQuery, useChecklistRows, useNow, useQueueLookups, useVisibleChecklistRows,
@@ -33,7 +33,7 @@ import { useQueueParams, type QueueParamsPatch } from './useQueueParams';
 import { useQueueShortcuts } from './useQueueShortcuts';
 import { useRefreshAfterDecision } from './useRefreshAfterDecision';
 import { useReviewDraft, type ReviewDraft } from './useReviewDraft';
-import { DAY_MS, UNASSIGNED, formatWaiting, type ChecklistRow } from './verificationModel';
+import { DAY_MS, UNASSIGNED, type ChecklistRow } from './verificationModel';
 
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
@@ -134,16 +134,6 @@ export const VerificationQueue = () => {
     () => (countsPending ? null : { all: checklistCount + ticketCount + taskCount, checklists: checklistCount, tickets: ticketCount, delegations: taskCount }),
     [countsPending, checklistCount, ticketCount, taskCount],
   );
-
-  const waitingTotal = ticketTotal + taskTotal + Math.max(0, checklistTotal - heldInLoaded);
-  const oldestWaiting = useMemo(() => {
-    const times = [
-      ...allRows.filter((r) => !heldIds.has(r.id)).map((r) => r.waitingSince),
-      oldestWaitingOf(tickets.filter((t) => !heldIds.has(t.id)), ticketWaitingSince),
-      oldestWaitingOf(tasks.filter((t) => !heldIds.has(t.id)), taskWaitingSince),
-    ].filter((t): t is number => t !== null);
-    return times.length ? Math.min(...times) : null;
-  }, [allRows, heldIds, tickets, tasks]);
 
   const sectionStats = useMemo(() => {
     const inDepartment = <T extends { departmentId: string | null }>(list: T[]) =>
@@ -314,15 +304,6 @@ export const VerificationQueue = () => {
   const checklistsFailed = checklistQuery.isError && !checklistQuery.data;
   const ticketsFailed = ticketsQuery.isError && !ticketsQuery.data;
   const tasksFailed = tasksQuery.isError && !tasksQuery.data;
-  const anyFailed = checklistsFailed || ticketsFailed || tasksFailed;
-
-  const subtitle = loadingTotals
-    ? <span className="block h-4 w-56 skeleton-shimmer rounded-md bg-surface-active" aria-hidden />
-    : anyFailed
-      ? 'Some lists did not load. Tap a card with a dash to try again.'
-      : waitingTotal === 0
-      ? 'Nothing is waiting for your review'
-      : `${waitingTotal} waiting for your review${oldestWaiting ? `. Oldest waiting: ${formatWaiting(oldestWaiting, now)}` : ''}`;
 
   const counter = reviewedCount !== null && dayTotal > 0 ? (
     <span role="status" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/60 bg-surface t-meta font-display font-medium text-text-secondary tabular-nums">
@@ -358,11 +339,22 @@ export const VerificationQueue = () => {
     if (ticketsFailed) void ticketsQuery.refetch();
     if (tasksFailed) void tasksQuery.refetch();
   };
+  const navigate = useNavigate();
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
-      <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border/60 bg-surface t-label font-display font-medium text-text-secondary hover:border-border-hover hover:text-text-primary transition-colors"
+        >
+          <ArrowLeft size={15} aria-hidden />
+          Back
+        </button>
+        {counter}
+      </div>
 
       {params.view === 'waiting' && (
         <QueueSections
@@ -373,24 +365,6 @@ export const VerificationQueue = () => {
           failed={{ checklists: checklistsFailed, tickets: ticketsFailed, delegations: tasksFailed }}
           onRetry={retryEverything}
           onChange={(tab) => patch({ tab, open: null })}
-        />
-      )}
-
-      {params.view === 'waiting' && showChecklists && (
-        <QueueOverview
-          loading={loadingTotals}
-          rows={allRows.filter((r) => !heldIds.has(r.id))}
-          now={now}
-          partial={hasMore}
-          attentionActive={params.attention}
-          slowActive={params.age === '3'}
-          onToggleAttention={() => patch({ attention: !params.attention })}
-          onToggleSlow={() => patch({ age: params.age === '3' ? 'any' : '3' })}
-          onShowReady={() => document.getElementById('queue-ready')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
-          onSortLowest={() => patch({ sort: params.sort === 'compliance' ? 'oldest' : 'compliance' })}
-          sortedLowest={params.sort === 'compliance'}
-          failed={checklistsFailed}
-          onRetry={retryEverything}
         />
       )}
 
