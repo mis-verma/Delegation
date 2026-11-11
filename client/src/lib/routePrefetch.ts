@@ -68,6 +68,9 @@ PREFETCHERS['/checklists'] = (qc) => {
 };
 
 PREFETCHERS['/checklists/team'] = PREFETCHERS['/checklists'];
+PREFETCHERS['/verify'] = () => {
+  void import('../features/verification');
+};
 PREFETCHERS['/admin/tickets'] = PREFETCHERS['/tickets'];
 
 const hasSlowConnection = () => {

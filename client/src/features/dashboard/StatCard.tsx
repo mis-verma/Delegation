@@ -197,7 +197,7 @@ export const StatCard = ({
             <Skeleton className={`rounded-md ${compact ? 'h-7 sm:h-9' : 'h-8 sm:h-9'} w-20`} />
           ) : (
             <p
-              className={`font-display font-bold tracking-tight leading-none tabular-nums break-words ${
+              className={`font-figure font-extrabold tracking-tight leading-none tabular-nums break-words ${
                 isNoData
                   ? 't-card'
                   : 't-stat'

@@ -98,3 +98,5 @@ export type { AttachmentGridItem } from './attachmentGrid';
 export type { LightboxItem } from './imageLightbox';
 export { Pill } from './pill';
 export type { PillTone } from './pill';
+export { SlidingTabs } from './slidingTabs';
+export type { SlidingTabOption } from './slidingTabs';

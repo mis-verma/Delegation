@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { installTapHaptics } from './lib/haptics';
 import '@fontsource-variable/inter/index.css';
 import '@fontsource-variable/plus-jakarta-sans/index.css';
+import '@fontsource-variable/manrope/index.css';
 import '@fontsource-variable/josefin-sans/index.css';
 import '@fontsource-variable/noto-sans-devanagari/index.css';
 import './index.css';

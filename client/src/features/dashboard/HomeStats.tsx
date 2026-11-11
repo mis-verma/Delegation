@@ -1,4 +1,5 @@
 import { memo, useId, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
 import { AlertTriangle, ChevronRight, CirclePlus, Clock3, Layers, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -82,6 +83,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
   const [open, setOpen] = useState<Metric | null>(null);
   const panelId = useId();
   const warm = usePrefetchRoute();
+  const reduce = useReducedMotion();
   const { user } = useAuth();
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
 
@@ -129,8 +131,18 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
   return (
     <div className="flex flex-col gap-3">
       <StatStrip items={items} label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`} />
+      <AnimatePresence initial={false}>
       {active && (
-        <section id={panelId} aria-label={`${active.label} by area`} className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-surface">
+        <motion.section
+          key={active.key}
+          id={panelId}
+          aria-label={`${active.label} by area`}
+          initial={reduce ? false : { opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-2xl bg-surface-hover/40"
+        >
           <h3 className="px-4 py-2.5 t-meta font-display font-bold text-text">{active.label} by area</h3>
           {modules.map((m) => {
             const Icon = m.icon;
@@ -148,7 +160,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
               >
                 <Icon size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate t-card font-display font-semibold text-text">{m.label}</span>
-                <span className={cn('t-card font-display font-bold tabular-nums', active.key === 'delayed' && value > 0 ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-card font-figure font-extrabold tabular-nums', active.key === 'delayed' && value > 0 ? 'text-danger' : 'text-text')}>
                   {m.failed || m.loading ? '-' : value}
                 </span>
                 <ChevronRight size={16} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
@@ -158,8 +170,9 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
           {scope === 'overall' && (
             <p className="px-4 py-2 t-meta font-medium text-text-muted">To-dos are personal, so they show under My own.</p>
           )}
-        </section>
+        </motion.section>
       )}
+      </AnimatePresence>
     </div>
   );
 });
