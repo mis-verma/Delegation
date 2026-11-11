@@ -10,7 +10,8 @@ import { useTicketsQuery } from '../tickets/hook';
 import { useDashboardMyTasksQuery, useDashboardTasksQuery } from '../tasks/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyFocusChecklistsQuery } from '../checklist/hook';
-import { DashboardOverview } from './DashboardOverview';
+import { StatStrip, type StatStripItem } from './StatStrip';
+import { CATEGORY_ICON } from './categoryLook';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TicketRequestsCard } from './TicketRequestsCard';
 import { FocusNowCard } from './FocusNowCard';
@@ -177,16 +178,41 @@ export const HomePage = () => {
     />
   );
 
-  const overview = (
-    <DashboardOverview
-      summaries={summaries.kpi}
-      taskList={frontLine || ownStats ? assignedTasks : visibleTasks}
-      ticketList={ownStats ? myAssignedTickets : visibleTickets}
-      todoList={todos}
-      checklistList={focusChecklists}
-      simple={frontLine || ownStats}
-    />
-  );
+  const kpi = summaries.kpi;
+  const statItems = useMemo<StatStripItem[]>(() => {
+    const make = (
+      key: string,
+      label: string,
+      source: { data: { pending: number; overdue: number; completed: number } | undefined; isPending: boolean; isError: boolean },
+      icon: StatStripItem['icon'],
+      tint: StatStripItem['tint'],
+      href: string,
+      highlight = false,
+    ): StatStripItem => {
+      const d = source.data;
+      const late = d?.overdue ?? 0;
+      return {
+        key,
+        label,
+        value: d?.pending ?? 0,
+        caption: !d ? '' : late > 0 ? `${late} late` : (d.pending === 0 ? 'All clear' : 'Nothing late'),
+        icon,
+        tint: late > 0 ? 'danger' : tint,
+        href,
+        highlight,
+        loading: source.isPending && !d,
+        failed: !d && source.isError,
+      };
+    };
+    return [
+      make('delegation', 'Delegation', kpi.tasks, CATEGORY_ICON.delegation, 'primary', '/tasks?quickFilter=pending', true),
+      make('tickets', 'Tickets', kpi.tickets, CATEGORY_ICON.ticket, 'coral', '/tickets?quickFilter=pending'),
+      make('checklist', 'Checklists', kpi.checklistToday, CATEGORY_ICON.checklist, 'primary', '/checklists?status=pending'),
+      make('todo', 'To-do', kpi.todos, CATEGORY_ICON.todo, 'success', '/todo?quickFilter=pending'),
+    ];
+  }, [kpi]);
+
+  const overview = <StatStrip items={statItems} label="Pending work by area" />;
 
   const statSection = hasTabs ? (
     <section aria-labelledby="home-stats-heading" className="flex flex-col gap-2">

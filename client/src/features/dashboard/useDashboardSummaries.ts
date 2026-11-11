@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { SummaryScope } from '../../api/http';
@@ -37,15 +37,27 @@ export const useDashboardSummaries = (scopeOverride?: SummaryScope) => {
   const isOwnScopeRole = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const kpiScope: SummaryScope = isOwnScopeRole ? 'mine' : (scopeOverride ?? 'visible');
   const todayBound = todayPeriodBoundIso();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['dashboard', 'summaries', kpiScope, todayBound] as const,
     queryFn: () => dashboardApi.summaries({ scope: kpiScope, today: todayBound }),
     enabled: !!token,
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
     ...DASHBOARD_QUERY_OPTIONS,
     staleTime: 15_000,
   });
+
+  useEffect(() => {
+    if (!token || isOwnScopeRole) return;
+    const other: SummaryScope = kpiScope === 'mine' ? 'visible' : 'mine';
+    void queryClient.prefetchQuery({
+      queryKey: ['dashboard', 'summaries', other, todayBound] as const,
+      queryFn: () => dashboardApi.summaries({ scope: other, today: todayBound }),
+      staleTime: 15_000,
+    });
+  }, [token, isOwnScopeRole, kpiScope, todayBound, queryClient]);
   const d = query.data;
   const updatedAt = query.dataUpdatedAt;
 
