@@ -32,7 +32,7 @@ const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
   <div className="flex min-w-0 flex-col items-center gap-0.5 px-1 py-2 text-center">
     <span className={`inline-flex items-center gap-1 ${TINT[tint].text}`}>
       <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
-      <span className={`t-card font-display font-bold leading-none tabular-nums ${tint === 'danger' ? 'text-danger' : 'text-text'}`}>{value}</span>
+      <span className={`t-card font-figure font-extrabold leading-none tabular-nums ${tint === 'danger' ? 'text-vivid-red-text' : 'text-text'}`}>{value}</span>
     </span>
     <span className="truncate t-meta font-medium text-text-muted">{label}</span>
   </div>
@@ -43,7 +43,7 @@ export const CalendarStats = ({ stats, isPending, monthLabel, todayWeekday }: Ca
 
   return (
     <>
-      <div className="grid grid-cols-4 divide-x divide-border/60 rounded-xl border border-border/60 bg-surface sm:hidden">
+      <div className="grid grid-cols-4 divide-x divide-border/50 rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:hidden">
         <Tile icon={CalendarIcon} label="Month" value={show(stats.inMonth)} tint="primary" />
         <Tile icon={AlertTriangle} label="Overdue" value={show(stats.overdueInMonth)} tint="danger" />
         <Tile icon={CalendarClock} label="Today" value={show(stats.dueToday)} tint="coral" />

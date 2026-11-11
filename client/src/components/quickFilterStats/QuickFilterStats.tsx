@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Skeleton } from '../skeleton';
 import { CountUp } from '../countUp';
 import { statusTiles } from './statusTiles';
+import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../statSurface';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -37,7 +38,7 @@ interface QuickFilterStatsProps<K extends string> {
 const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
   <div className="grid gap-1.5 sm:gap-3" style={gridStyle(count)} role="status" aria-label="Loading counts">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-2 sm:p-4">
+      <div key={i} className={cn(STAT_SURFACE, 'flex items-start justify-between gap-3 p-2 sm:p-4')}>
         <div className="flex flex-col gap-2">
           <Skeleton className="h-7 w-12" />
           <Skeleton className="h-3 w-16" />
@@ -94,7 +95,7 @@ export function QuickFilterStats<K extends string>({
   return (
     <div className="grid gap-1.5 sm:gap-3" style={gridStyle(shownTiles.length)}>
       {shownTiles.map((tile) => {
-        const { key, label, shortLabel, icon: Icon, iconTint, accentBar, accentBorder, bgTint, ring } = tile;
+        const { key, label, shortLabel, icon: Icon, iconTint } = tile;
         const isTotalTile = hasTotal && key === 'all';
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
@@ -114,18 +115,18 @@ export function QuickFilterStats<K extends string>({
             aria-label={spoken}
             title={purpose}
             className={cn(
-              'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border px-0.5 py-2 text-center font-display outline-none max-sm:min-h-20 max-sm:justify-center',
+              'flex min-w-0 flex-col items-center justify-start gap-0.5 px-0.5 py-2 text-center font-display outline-none max-sm:min-h-20 max-sm:justify-center',
               'sm:min-h-24 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
-              'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
-              'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              isQuiet ? 'bg-surface-hover/40' : bgTint,
-              isActive ? cn(accentBorder, 'ring-2 ring-black/5 dark:ring-white/10') : isQuiet ? 'border-border hover:border-border-hover' : ring,
+              '[-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-primary-500/50',
+              STAT_SURFACE,
+              STAT_SURFACE_ACTION,
+              isActive && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL),
             )}
           >
             <Icon className={cn('size-4 shrink-0 sm:hidden', isQuiet ? 'text-text-muted' : iconTint)} strokeWidth={2.5} aria-hidden="true" />
             <span className="min-w-0 max-w-full">
               <span className={cn(
-                'block t-stat font-extrabold sm:font-bold leading-none max-sm:tracking-tighter max-sm:break-all',
+                cn('block t-stat max-sm:tracking-tighter max-sm:break-all', STAT_FIGURE),
                 isActive ? cn(iconTint, 'sm:text-text') : isQuiet ? 'text-text-muted' : LATE.has(key) ? 'text-vivid-red-text' : iconTint,
               )}>
                 <CountUp value={count} />
@@ -140,9 +141,7 @@ export function QuickFilterStats<K extends string>({
                 </span>
               )}
             </span>
-            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isQuiet ? 'bg-surface-hover text-text-muted' : cn(accentBar, 'text-white'))}>
-              <Icon className="size-[1.125rem]" strokeWidth={2.25} />
-            </span>
+            <Icon className={cn('hidden size-[1.125rem] shrink-0 sm:block', isQuiet ? 'text-text-muted' : iconTint)} strokeWidth={2.25} aria-hidden="true" />
           </button>
         );
       })}

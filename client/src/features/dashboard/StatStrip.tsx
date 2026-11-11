@@ -1,9 +1,8 @@
-import { memo, type CSSProperties, type ReactNode } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CountUp } from '../../components/countUp';
-import { Skeleton } from '../../components/skeleton';
+import { StatCard } from './StatCard';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 
 export type StatTint = 'primary' | 'danger' | 'coral' | 'success';
@@ -38,14 +37,9 @@ const spoken = (item: StatStripItem) =>
 
 const shown = (item: StatStripItem) => (item.failed || item.loading ? '-' : item.value);
 
-const formatCompact = (value: number) =>
-  Math.abs(value) < 10_000 ? value.toLocaleString() : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-
 const BAR = 'after:pointer-events-none after:absolute after:bottom-0 after:rounded-full';
 
 const TILE_CLASS = 'relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center outline-none transition-colors duration-150 first:rounded-l-2xl last:rounded-r-2xl active:bg-surface-hover focus-visible:bg-surface-hover';
-
-const CARD_BASE = 'group relative flex min-w-0 flex-col gap-3 rounded-2xl p-5 text-left outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/60';
 
 interface StatStripProps {
   items: readonly StatStripItem[];
@@ -58,7 +52,7 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
 
   return (
     <div role="group" aria-label={label}>
-      <div className="grid grid-cols-4 divide-x divide-border/40 rounded-2xl bg-surface-hover/50 sm:hidden">
+      <div className="grid grid-cols-4 divide-x divide-border/50 rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:hidden">
         {items.map((item) => {
           const Icon = item.icon;
           const tint = TINT[item.tint];
@@ -104,62 +98,29 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
 
       <div className="hidden gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(min(100%,12.5rem),1fr))] lg:gap-4">
         {items.map((item, index) => {
-          const Icon = item.icon;
           const tint = TINT[item.tint];
-          const solid = !!item.highlight;
-          const interactive = !!item.onSelect || !!item.href;
-          const body: ReactNode = (
-            <>
-              <span className="flex items-center justify-between gap-3">
-                <span className={cn('t-meta font-display font-semibold', solid ? 'text-white/75' : 'text-text-muted')}>{item.label}</span>
-                <Icon className={cn('size-[1.125rem] shrink-0', solid ? 'text-white/80' : tint.icon)} strokeWidth={2.25} aria-hidden="true" />
-              </span>
-              {item.loading && !item.failed ? (
-                <Skeleton className="h-9 w-20 rounded-md" />
-              ) : (
-                <span
-                  className={cn(
-                    't-figure font-figure font-extrabold leading-none tracking-tight tabular-nums',
-                    solid ? 'text-white' : item.selected ? 'text-primary-700 dark:text-primary-300' : tint.value,
-                  )}
-                >
-                  {item.failed ? '—' : typeof item.value === 'number' ? <CountUp value={item.value} format={formatCompact} /> : item.value}
-                </span>
-              )}
-              <span className={cn('line-clamp-1 t-meta font-medium', solid ? 'text-white/70' : 'text-text-muted')}>{item.failed ? "Couldn't load" : item.caption}</span>
-            </>
-          );
-          const surface = solid
-            ? 'bg-primary-800 text-white hover:bg-primary-700 dark:bg-primary-600 dark:hover:bg-primary-500'
-            : item.selected
-              ? 'bg-primary-500/[0.09]'
-              : 'bg-surface-hover/50 hover:bg-surface-hover';
-          const cls = cn(
-            CARD_BASE,
-            'stat-rise',
-            surface,
-            interactive && 'cursor-pointer active:scale-[0.985]',
-            item.selected && cn(BAR, 'after:inset-x-6 after:h-1', solid ? 'after:bg-white/80' : 'after:bg-primary-600 dark:after:bg-primary-400'),
-          );
-          const style = { '--stat-delay': `${index * 70}ms` } as CSSProperties;
-          if (item.onSelect) {
-            return (
-              <button key={item.key} type="button" onClick={item.onSelect} aria-expanded={!!item.selected} aria-controls={item.controls} aria-label={spoken(item)} style={style} className={cls}>
-                {body}
-              </button>
-            );
-          }
-          if (item.href) {
-            const href = item.href;
-            return (
-              <Link key={item.key} to={href} viewTransition onPointerEnter={() => prefetchOf(href)} onFocus={() => prefetchOf(href)} aria-label={spoken(item)} style={style} className={cls}>
-                {body}
-              </Link>
-            );
-          }
+          const href = item.href;
           return (
-            <div key={item.key} role="group" aria-label={spoken(item)} style={style} className={cls}>
-              {body}
+            <div
+              key={item.key}
+              onPointerEnter={href ? () => prefetchOf(href) : undefined}
+              onFocusCapture={href ? () => prefetchOf(href) : undefined}
+              style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties}
+              className="stat-rise flex min-w-0 flex-col [&>*]:flex-1"
+            >
+              <StatCard
+                icon={item.icon}
+                label={item.label}
+                value={item.failed ? '—' : item.value}
+                caption={item.failed ? "Couldn't load" : item.caption}
+                href={item.onSelect ? undefined : href}
+                onClick={item.onSelect}
+                isLoading={item.loading && !item.failed}
+                highlight={item.highlight}
+                selected={item.selected}
+                iconTint={tint.icon}
+                valueTone={item.tint === 'danger' && !item.highlight ? 'danger' : undefined}
+              />
             </div>
           );
         })}

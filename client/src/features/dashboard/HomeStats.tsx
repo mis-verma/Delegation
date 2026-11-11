@@ -141,7 +141,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
           animate={{ opacity: 1, height: 'auto' }}
           exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-2xl bg-surface-hover/40"
+          className="flex flex-col divide-y divide-border/50 overflow-hidden rounded-2xl bg-surface ring-1 ring-inset ring-border/60"
         >
           <h3 className="px-4 py-2.5 t-meta font-display font-bold text-text">{active.label} by area</h3>
           {modules.map((m) => {

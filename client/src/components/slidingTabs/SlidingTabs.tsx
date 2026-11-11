@@ -34,7 +34,7 @@ export function SlidingTabs<T extends string>({ label, value, options, onChange,
     <div
       role="tablist"
       aria-label={label}
-      className={cn('relative inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-surface-hover/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}
+      className={cn('relative inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}
     >
       {options.map((option) => {
         const active = option.value === value;

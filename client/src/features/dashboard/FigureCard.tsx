@@ -5,12 +5,12 @@ import { CountUp } from '../../components/countUp';
 import { Skeleton } from '../../components/skeleton';
 import { HintPopover } from '../scores/HowCalculated';
 import { FIGURE_BAR, FIGURE_TEXT } from './scoreTone';
+import { STAT_BAR_SMALL, STAT_BOX, STAT_FIGURE, STAT_SURFACE_SELECTED } from '../../components/statSurface';
 
 export type FigureTone = 'good' | 'fair' | 'bad' | 'plain';
 
-export const FIGURE_BOX_CLASS = 'flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 p-2.5 text-left';
-const INTERACTIVE = 'relative transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985]';
-const OVERLAY = 'absolute inset-0 rounded-lg outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const INTERACTIVE = 'relative transition-colors duration-150 ease-out hover:bg-surface-hover active:scale-[0.985]';
+const OVERLAY = 'absolute inset-0 rounded-2xl outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 interface FigureCardProps {
   label: string;
@@ -56,11 +56,11 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
       aria-label={interactive ? undefined : label}
       aria-describedby={interactive ? undefined : describedBy}
       className={cn(
-        FIGURE_BOX_CLASS,
+        STAT_BOX,
         compact && 'max-sm:gap-0.5 max-sm:p-2',
         interactive && INTERACTIVE,
-        failed && onRetry && 'border-danger/30',
-        selected && !failed && 'border-primary-500/60 bg-primary-500/8',
+        failed && onRetry && 'ring-1 ring-danger/30',
+        selected && !failed && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL),
       )}
     >
       {overlay}
@@ -87,7 +87,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         {loading ? (
           <Skeleton className="h-6 w-12" />
         ) : (
-          <span className={cn('t-stat font-display font-bold leading-tight tabular-nums', failed || (value === null && !text) ? 'text-text-muted' : FIGURE_TEXT[shownTone])}>
+          <span className={cn('t-stat', STAT_FIGURE, failed || (value === null && !text) ? 'text-text-muted' : FIGURE_TEXT[shownTone])}>
             {failed ? '-' : (text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />))}
           </span>
         )}

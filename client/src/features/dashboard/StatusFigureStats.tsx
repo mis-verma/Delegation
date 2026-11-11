@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
+import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
 
 export type StatusKind = 'pending' | 'completed' | 'due' | 'late';
 
@@ -24,7 +25,7 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const CELL = 'flex min-h-16 min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-xl border border-border/60 bg-surface px-2.5 py-2 text-left outline-none transition-colors duration-150 hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5';
+const CELL = cn(STAT_SURFACE, STAT_SURFACE_ACTION, 'flex min-h-16 min-w-0 flex-col justify-center gap-1 px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5');
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
@@ -43,7 +44,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
             aria-pressed={retry ? undefined : selected}
             aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
             title={failed ? "Couldn't load. Tap to try again." : item.help}
-            className={cn(CELL, selected && 'bg-primary-500/15 shadow-[inset_0_-3px_0_var(--color-gold)]')}
+            className={cn(CELL, selected && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL))}
           >
             <span className="flex min-w-0 flex-col">
               <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
@@ -56,7 +57,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
               {isLoading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('t-stat font-display font-bold leading-none tabular-nums', failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat', STAT_FIGURE, failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
                   {failed ? '-' : count}
                 </span>
               )}

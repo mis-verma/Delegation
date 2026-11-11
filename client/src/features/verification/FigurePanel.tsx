@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
+import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
 
 export interface FigureCell {
   key: string;
@@ -24,11 +25,11 @@ interface FigurePanelProps {
   phoneDense?: boolean;
 }
 
-const CELL = 'flex min-w-0 flex-col justify-center gap-1 rounded-lg border border-border/60 bg-surface-hover/30 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const CELL = cn(STAT_SURFACE, 'flex min-w-0 flex-col justify-center gap-1 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40');
 const CELL_SIZE = 'min-h-16 p-2.5 sm:p-3';
 const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-1 sm:p-2.5';
 const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-1 sm:p-3';
-const ACTION = 'cursor-pointer hover:border-border-hover active:scale-[0.985]';
+const ACTION = STAT_SURFACE_ACTION;
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
   const broken = failed && !loading;
@@ -50,7 +51,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
               {loading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('t-stat font-display font-bold leading-tight tabular-nums', broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
                   {broken || cell.value === null ? '-' : cell.value}
                 </span>
               )}
@@ -60,7 +61,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             )}
           </>
         );
-        if (!interactive) return <div key={cell.key} title={cell.help} className={cn(CELL, cellSize, broken && 'border-danger/30')}>{body}</div>;
+        if (!interactive) return <div key={cell.key} title={cell.help} className={cn(CELL, cellSize, broken && 'ring-1 ring-danger/30')}>{body}</div>;
         return (
           <button
             key={cell.key}
@@ -69,7 +70,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
             aria-pressed={retry ? undefined : cell.selected}
             aria-label={broken ? `${cell.label}, couldn't load. Tap to try again` : `${cell.label}${cell.value === null ? '' : `, ${cell.value}`}`}
             title={broken ? "Couldn't load. Tap to try again." : cell.help}
-            className={cn(CELL, cellSize, ACTION, broken && 'border-danger/30', selected && 'border-primary-500 bg-primary-500/10 hover:border-primary-500')}
+            className={cn(CELL, cellSize, ACTION, broken && 'ring-1 ring-danger/30', selected && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL))}
           >
             {body}
           </button>

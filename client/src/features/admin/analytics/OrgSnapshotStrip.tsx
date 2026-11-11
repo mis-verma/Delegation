@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Store, Building2, Users, ShieldCheck, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineError, Skeleton } from '../../../components';
+import { STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION } from '../../../components/statSurface';
 import type { OrgCounts } from '../../../api/scores';
 import { useCanOpen } from '../../owner/useReadOnlyViewer';
 
@@ -23,19 +24,26 @@ interface OrgTileProps {
   to: string;
 }
 
-const TILE_CLASS = 'group flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-surface p-3 text-left';
+const ICON_TEXT: Record<string, string> = {
+  'bg-vivid-blue': 'text-vivid-blue-text',
+  'bg-vivid-sky': 'text-vivid-sky-text',
+  'bg-vivid-green': 'text-vivid-green-text',
+  'bg-vivid-red': 'text-vivid-red-text',
+};
+
+const TILE_CLASS = cn(STAT_SURFACE, 'group flex min-h-16 min-w-0 items-center gap-3 p-3 text-left');
 
 const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }: OrgTileProps) => {
   const navigate = useNavigate();
   const canOpen = useCanOpen();
   const body = (
     <>
-      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl text-white', solid)} aria-hidden="true">
+      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface', ICON_TEXT[solid] ?? 'text-text-secondary')} aria-hidden="true">
         <Icon className="size-5" strokeWidth={2.25} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline gap-2">
-          <span className="t-stat font-display font-extrabold tabular-nums leading-none text-text">{value}</span>
+          <span className={cn('t-stat text-text', STAT_FIGURE)}>{value}</span>
           <span className="line-clamp-1 t-meta font-display font-bold text-text-secondary">{label}</span>
         </span>
         <span className={cn('line-clamp-1 t-meta font-medium text-text-muted', captionClass)}>{caption}</span>
@@ -50,7 +58,7 @@ const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }:
       type="button"
       onClick={() => void navigate(to, { viewTransition: true })}
       aria-label={`${label}: ${value}. ${caption}. Open the directory`}
-      className={`${TILE_CLASS} outline-none transition-colors duration-150 cursor-pointer hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.985]`}
+      className={cn(TILE_CLASS, STAT_SURFACE_ACTION, 'outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50')}
     >
       {body}
       <ChevronRight className="size-4 shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />

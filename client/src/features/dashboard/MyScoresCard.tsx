@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, Building, CalendarDays, Gauge, ListOrdered, RotateCcw, Store, ChartColumn, ChevronLeft, ChevronRight, CircleGauge, User, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, CountUp, ExportMenu, IconChip, Skeleton, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { DashCardHeader } from './DashCardHeader';
-import { FIGURE_BOX_CLASS } from './FigureCard';
+import { STAT_BOX } from '../../components/statSurface';
 import { rateWord } from '../checklist/checklistDisplay';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
@@ -119,7 +119,7 @@ const ScoreTile = ({ module, title, score, detail, loading, onOpen, change, inde
   const [from, to] = RING[tone];
   const Icon = CATEGORY_ICON[module];
   const rounded = roundPct(score);
-  const tileClass = cn(FIGURE_BOX_CLASS, 'stat-rise w-full cursor-pointer items-center gap-2 p-3 text-center outline-none transition-colors duration-150 ease-out hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40');
+  const tileClass = cn(STAT_BOX, 'stat-rise w-full cursor-pointer items-center gap-2 p-3 text-center outline-none transition-colors duration-150 ease-out hover:bg-surface-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40');
   const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}, ${rateWord(score)}${detail ? `, ${detail}` : ''}`;
   return (
     <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} style={{ '--stat-delay': `${index * 70}ms` } as CSSProperties} className={tileClass}>
