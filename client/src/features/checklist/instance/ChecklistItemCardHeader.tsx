@@ -30,8 +30,8 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
             <IconChip icon={Flag} tone="bg-danger" label="Critical" title="Critical question: a bad answer counts double against compliance" />
           )}
           {!item.isDone && item.sendBackNote && <IconChip icon={CornerUpLeft} tone="bg-danger" label="Sent back" />}
-          {item.isDone && isFlaggedAnswer(item) && <IconChip icon={AlertTriangle} tone="bg-warning" label="Flagged" />}
-          {item.isDone && !isFlaggedAnswer(item) && <IconChip icon={Check} tone="bg-success" label="Done" />}
+          {item.isDone && isFlaggedAnswer(item) && !interactive && <IconChip icon={AlertTriangle} tone="bg-warning" label="Flagged" />}
+          {item.isDone && (interactive || !isFlaggedAnswer(item)) && <IconChip icon={Check} tone="bg-success" label="Done" />}
         </div>
         {subtitle}
         {item.isDone && item.completedAt && (

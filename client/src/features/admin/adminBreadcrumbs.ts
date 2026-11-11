@@ -34,7 +34,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
   if (pathname.startsWith('/admin/checklist-test-data')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Test data' }];
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Remove old runs' }];
   }
   if (pathname.startsWith('/admin/checklist-former')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Former People' }];

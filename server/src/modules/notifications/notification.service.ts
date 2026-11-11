@@ -2,7 +2,7 @@ import { notifyMany, notifySafely } from './notificationCore.js';
 import { notifyAssigneeMovedTeam, notifyTicketRedirected, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketClaimable, notifyTicketClaimed, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
 import { notifyTaskAwaitingHead, notifyTaskHeadDecisionReminder, notifyTaskHeadDecisionEscalation, notifyTaskHeadApproved, notifyTaskPartlyApproved, notifyTaskTeamRemoved, notifyTaskDeclined, notifyTaskAssigned, notifyTaskUnassigned, notifyTaskOverdue, notifyTaskDueSoon } from './taskNotifications.js';
 import { notifyAdminsOfRisk, notifyBackupFailed, notifyPendingVerification, notifyVerificationResult, notifyTicketAutoClosed, notifyTaskAutoClosed, notifyApprovalEscalation, notifyOverdueEscalation, notifyOverdueHeadChase, notifyUnassignedReminder, notifyStageHandOff, notifyCompletionPartlyApproved, notifyCommentAdded, notifyReviewerAdded, notifyStatusMoved } from './workflowNotifications.js';
-import { notifyChecklistPendingVerification, notifyChecklistApprovalReminder, notifyChecklistApprovalEscalation, notifyChecklistVerificationResult, notifyAreaManagersOfChecklistFlag, notifyChecklistOverdue, notifyChecklistLateWindowClosing, notifyChecklistOpened, notifyChecklistDueSoon, notifyChecklistUpcoming, notifyChecklistDraftReminder, notifyChecklistSubmitReminder } from './checklistNotifications.js';
+import { notifyChecklistPendingVerification, notifyChecklistAwaitingHead, notifyChecklistApprovalReminder, notifyChecklistApprovalEscalation, notifyChecklistVerificationResult, notifyAreaManagersOfChecklistFlag, notifyChecklistOverdue, notifyChecklistLateWindowClosing, notifyChecklistOpened, notifyChecklistDueSoon, notifyChecklistUpcoming, notifyChecklistDraftReminder, notifyChecklistSubmitReminder } from './checklistNotifications.js';
 import { listForUser, markRead, markUnread, markAllRead } from './notificationInbox.js';
 
 export { notifySafely };
@@ -52,6 +52,7 @@ export const notificationService = {
   notifyReviewerAdded,
   notifyStatusMoved,
   notifyChecklistPendingVerification,
+  notifyChecklistAwaitingHead,
   notifyChecklistApprovalReminder,
   notifyChecklistApprovalEscalation,
   notifyChecklistVerificationResult,

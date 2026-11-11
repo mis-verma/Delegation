@@ -1,4 +1,5 @@
 import { memo, useRef, useState, type TouchEvent } from 'react';
+import { stageLabel } from '../checklist/approvalStage';
 import { Check, ChevronDown, Clock3, CornerUpLeft, Repeat, Send, Store } from 'lucide-react';
 import { Button } from '../../components';
 import { cn } from '@/lib/utils';
@@ -110,8 +111,9 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   const lgHidden = inlineActions === 'below-lg' ? 'lg:hidden' : '';
   const waiting = formatWaiting(row.waitingSince, now);
   const waitingDays = (now - row.waitingSince) / 86_400_000;
+  const stage = stageLabel(instance);
   const submitted = instance.submittedAt
-    ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}` : 'Submitted'} · ${formatDateTime(instance.submittedAt)}`
+    ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}` : 'Submitted'} · ${formatDateTime(instance.submittedAt)}${stage ? ` · ${stage}` : ''}`
     : `Not submitted yet${row.assigneeNames.length ? ` · ${row.assigneeNames.slice(0, 2).join(', ')}${row.assigneeNames.length > 2 ? ` +${row.assigneeNames.length - 2}` : ''}` : ''}`;
 
   return (

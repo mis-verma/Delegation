@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
 import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, deleteRunSchema } from "./checklistInstance.validation.js"
-import { deleteRun, deleteTestRuns, previewTestRuns } from "./checklistRunDeletion.js"
+import { deleteRun, deleteTestRuns, previewTestRuns, runChecklistsForCleanup } from "./checklistRunDeletion.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -179,6 +179,10 @@ export const checklistInstanceController = {
     deleteRun: asyncHandler(async (req: Request, res: Response) => {
         const { reason } = deleteRunSchema.parse(req.body ?? {})
         res.json({ success: true, data: await deleteRun(routeParam(req, "id"), reason, req.user!) })
+    }),
+
+    cleanupChecklists: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await runChecklistsForCleanup(req.user!) })
     }),
 
     previewTestRuns: asyncHandler(async (req: Request, res: Response) => {

@@ -30,6 +30,7 @@ checklistInstanceRouter.get("/:id/items/:itemId/previous", checklistInstanceCont
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
 checklistInstanceRouter.patch("/:id/submit", checklistInstanceController.submit)
 checklistInstanceRouter.post("/:id/revoke", checklistInstanceController.revoke)
+checklistInstanceRouter.get("/admin/test-runs/checklists", requireRole("ADMIN"), checklistInstanceController.cleanupChecklists)
 checklistInstanceRouter.post("/admin/test-runs/preview", requireRole("ADMIN"), checklistInstanceController.previewTestRuns)
 checklistInstanceRouter.post("/admin/test-runs/delete", requireRole("ADMIN"), checklistInstanceController.deleteTestRuns)
 checklistInstanceRouter.delete("/:id", requireRole("ADMIN"), checklistInstanceController.deleteRun)

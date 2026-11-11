@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt, notInArray } from "drizzle-orm"
+import { and, asc, count, eq, gte, inArray, lt, notInArray, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { checklistInstances, checklistInstanceAssignees, notifications } from "../../db/schema/index.js"
 import { AppError } from "../../utils/AppError.js"
@@ -8,10 +8,21 @@ import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { dropChecklistSummaries } from "./checklistInstanceShared.js"
 
 const BATCH = 200
-export const MAX_TEST_RUNS = 5000
+export const MAX_TEST_RUNS = 20000
 
 const assertAdmin = (user: AccessTokenPayload) => {
     if (user.role !== "ADMIN") throw AppError.forbidden("Only an admin can delete checklist runs.")
+}
+
+const assigneesOf = async (ids: string[]): Promise<string[]> => {
+    const found = new Set<string>()
+    for (let i = 0; i < ids.length; i += BATCH) {
+        const rows = await db.selectDistinct({ userId: checklistInstanceAssignees.userId })
+            .from(checklistInstanceAssignees)
+            .where(inArray(checklistInstanceAssignees.instanceId, ids.slice(i, i + BATCH)))
+        rows.forEach((r) => found.add(r.userId))
+    }
+    return [...found]
 }
 
 const removeRuns = async (ids: string[]) => {
@@ -30,7 +41,7 @@ export const deleteRun = async (id: string, reason: string, user: AccessTokenPay
     if (!note) throw AppError.badRequest("Say why this run is being deleted.")
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("This checklist run was already deleted.")
-    const assigneeIds = (await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))).map((r) => r.userId)
+    const assigneeIds = await assigneesOf([id])
 
     await removeRuns([id])
 
@@ -44,19 +55,32 @@ export const deleteRun = async (id: string, reason: string, user: AccessTokenPay
     return { deleted: 1 }
 }
 
-export type TestRunFilter = { userIds: string[]; from?: Date; to?: Date }
+export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; from?: Date; to?: Date }
+
+const hasScope = (filter: TestRunFilter) => !!filter.userIds?.length || !!filter.definitionIds?.length || !!filter.to
+
+const runConditions = (filter: TestRunFilter): SQL[] => [
+    ...(filter.definitionIds?.length ? [inArray(checklistInstances.definitionId, filter.definitionIds)] : []),
+    ...(filter.from ? [gte(checklistInstances.periodStart, filter.from)] : []),
+    ...(filter.to ? [lt(checklistInstances.periodStart, filter.to)] : []),
+]
 
 const matchingRunIds = async (filter: TestRunFilter): Promise<string[]> => {
-    const people = [...new Set(filter.userIds)]
-    if (!people.length) return []
+    if (!hasScope(filter)) throw AppError.badRequest("Pick some checklists, some people, or an end date first.")
+    const people = [...new Set(filter.userIds ?? [])]
+    const conditions = runConditions(filter)
+
+    if (!people.length) {
+        const rows = await db.select({ id: checklistInstances.id }).from(checklistInstances)
+            .where(conditions.length ? and(...conditions) : undefined)
+            .limit(MAX_TEST_RUNS + 1)
+        return rows.map((r) => r.id)
+    }
+
     const linked = await db.selectDistinct({ id: checklistInstanceAssignees.instanceId })
         .from(checklistInstanceAssignees)
         .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
-        .where(and(
-            inArray(checklistInstanceAssignees.userId, people),
-            filter.from ? gte(checklistInstances.periodStart, filter.from) : undefined,
-            filter.to ? lt(checklistInstances.periodStart, filter.to) : undefined,
-        ))
+        .where(and(inArray(checklistInstanceAssignees.userId, people), ...conditions))
         .limit(MAX_TEST_RUNS + 1)
     const ids = linked.map((r) => r.id)
     if (!ids.length) return []
@@ -71,24 +95,31 @@ const matchingRunIds = async (filter: TestRunFilter): Promise<string[]> => {
     return ids.filter((id) => !shared.has(id))
 }
 
+const assertWithinCap = (ids: string[]) => {
+    if (ids.length > MAX_TEST_RUNS) throw AppError.badRequest(`More than ${MAX_TEST_RUNS} runs match. Pick fewer checklists or a shorter date range.`)
+}
+
 export const previewTestRuns = async (filter: TestRunFilter, user: AccessTokenPayload) => {
     assertAdmin(user)
     const ids = await matchingRunIds(filter)
-    if (ids.length > MAX_TEST_RUNS) throw AppError.badRequest(`More than ${MAX_TEST_RUNS} runs match. Pick a shorter date range.`)
-    const rows = ids.length
-        ? await db.select({ id: checklistInstances.id, title: checklistInstances.title, periodStart: checklistInstances.periodStart, verificationStatus: checklistInstances.verificationStatus })
-            .from(checklistInstances).where(inArray(checklistInstances.id, ids.slice(0, 500)))
-        : []
+    assertWithinCap(ids)
     const byStatus = { notSubmitted: 0, pending: 0, approved: 0 }
+    let sample: { id: string; title: string; periodStart: Date; verificationStatus: string }[] = []
     if (ids.length) {
-        const all = await db.select({ status: checklistInstances.verificationStatus }).from(checklistInstances).where(inArray(checklistInstances.id, ids))
-        for (const r of all) {
-            if (r.status === "APPROVED") byStatus.approved += 1
-            else if (r.status === "PENDING_APPROVAL") byStatus.pending += 1
-            else byStatus.notSubmitted += 1
+        for (let i = 0; i < ids.length; i += 1000) {
+            const rows = await db.select({ status: checklistInstances.verificationStatus, n: count() })
+                .from(checklistInstances).where(inArray(checklistInstances.id, ids.slice(i, i + 1000)))
+                .groupBy(checklistInstances.verificationStatus)
+            for (const r of rows) {
+                if (r.status === "APPROVED") byStatus.approved += Number(r.n)
+                else if (r.status === "PENDING_APPROVAL") byStatus.pending += Number(r.n)
+                else byStatus.notSubmitted += Number(r.n)
+            }
         }
+        sample = await db.select({ id: checklistInstances.id, title: checklistInstances.title, periodStart: checklistInstances.periodStart, verificationStatus: checklistInstances.verificationStatus })
+            .from(checklistInstances).where(inArray(checklistInstances.id, ids.slice(0, 1000)))
+            .orderBy(sql`${checklistInstances.periodStart} DESC`).limit(8)
     }
-    const sample = rows.sort((a, b) => b.periodStart.getTime() - a.periodStart.getTime()).slice(0, 8)
     return { total: ids.length, ...byStatus, sample }
 }
 
@@ -97,19 +128,37 @@ export const deleteTestRuns = async (filter: TestRunFilter, expectedCount: numbe
     const note = reason.trim()
     if (!note) throw AppError.badRequest("Say why these runs are being deleted.")
     const ids = await matchingRunIds(filter)
-    if (ids.length > MAX_TEST_RUNS) throw AppError.badRequest(`More than ${MAX_TEST_RUNS} runs match. Pick a shorter date range.`)
+    assertWithinCap(ids)
     if (ids.length !== expectedCount) {
         throw AppError.conflict(`The list changed since you checked: ${ids.length} runs match now, not ${expectedCount}. Check again before deleting.`)
     }
     if (!ids.length) return { deleted: 0 }
 
+    const assigneeIds = filter.userIds?.length ? filter.userIds : await assigneesOf(ids)
     await removeRuns(ids)
 
     await auditService.record({
-        entityType: "ChecklistInstance", entityId: "test-cleanup", action: "DELETE", actorId: user.sub,
-        after: { reason: note, deleted: ids.length, userIds: filter.userIds, from: filter.from ?? null, to: filter.to ?? null, runIds: ids.slice(0, 200) },
+        entityType: "ChecklistInstance", entityId: "bulk-cleanup", action: "DELETE", actorId: user.sub,
+        after: {
+            reason: note, deleted: ids.length,
+            userIds: filter.userIds ?? [], definitionIds: filter.definitionIds ?? [],
+            from: filter.from ?? null, to: filter.to ?? null, runIds: ids.slice(0, 200),
+        },
     })
-    await dropChecklistSummaries(filter.userIds)
+    await dropChecklistSummaries(assigneeIds)
     emitChecklistEvent("checklist-instance:deleted", {}, { count: ids.length })
     return { deleted: ids.length }
+}
+
+export const runChecklistsForCleanup = async (user: AccessTokenPayload) => {
+    assertAdmin(user)
+    const rows = await db.select({
+        id: checklistInstances.definitionId,
+        title: sql<string>`MAX(${checklistInstances.title})`,
+        runs: count(),
+    })
+        .from(checklistInstances)
+        .groupBy(checklistInstances.definitionId)
+        .orderBy(asc(sql`MAX(${checklistInstances.title})`))
+    return rows.map((r) => ({ id: r.id, title: r.title, runs: Number(r.runs) }))
 }

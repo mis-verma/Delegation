@@ -12,6 +12,7 @@ interface ReviewActionsProps {
   pickedCount?: number;
   showKeys?: boolean;
   stretch?: boolean;
+  approveLabel?: string;
 }
 
 const Key = ({ children }: { children: string }) => (
@@ -20,7 +21,7 @@ const Key = ({ children }: { children: string }) => (
   </kbd>
 );
 
-export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCount = 0, showKeys = false, stretch = false }: ReviewActionsProps) => (
+export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCount = 0, showKeys = false, stretch = false, approveLabel = 'Approve' }: ReviewActionsProps) => (
   <div className={cn('flex items-center gap-2', stretch ? 'w-full sm:w-auto' : 'shrink-0')}>
     <Button
       size="sm"
@@ -47,7 +48,7 @@ export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCo
       onClick={onApprove}
     >
       {!approving && <Check size={14} aria-hidden />}
-      Approve
+      {approveLabel}
       {showKeys && !approving && <Key>A</Key>}
     </Button>
   </div>

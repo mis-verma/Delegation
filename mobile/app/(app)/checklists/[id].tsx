@@ -314,6 +314,15 @@ export default function ChecklistInstanceDetail() {
     onError: () => Alert.alert("Couldn't take it back", "The 10 minutes may be over, or someone already decided on it."),
   });
 
+  const submitRun = useMutation({
+    mutationFn: () => checklistInstanceApi.submit(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checklist-instance", id] });
+      queryClient.invalidateQueries({ queryKey: ["checklist-instances"] });
+    },
+    onError: (err: unknown) => Alert.alert("Not submitted", err instanceof Error ? err.message : "Your answers are saved. Try again."),
+  });
+
   const submittedAt = instance?.submittedAt ? new Date(instance.submittedAt).getTime() : null;
   const minutesLeft = submittedAt ? Math.max(0, Math.ceil((submittedAt + REVOKE_WINDOW_MS - clock) / 60_000)) : 0;
   const waiting = instance?.verificationStatus === "PENDING_APPROVAL";
@@ -322,7 +331,7 @@ export default function ChecklistInstanceDetail() {
   const confirmTakeBack = () =>
     Alert.alert(
       "Take it back?",
-      "Every answer is cleared and you answer it again. It goes for approval by itself when the last question is done.",
+      "Every answer is cleared and you answer it again. Tap Submit when you are done.",
       [
         { text: "Keep it", style: "cancel" },
         { text: "Take it back", style: "destructive", onPress: () => takeBack.mutate() },
@@ -331,6 +340,19 @@ export default function ChecklistInstanceDetail() {
 
   const done = instance?.items.filter((i) => i.isDone).length ?? 0;
   const total = instance?.items.length ?? 0;
+  const isMine = !!user && !!instance && (user.role === "ADMIN" || (instance.assigneeIds ?? []).includes(user.id));
+  const canSubmit = isMine && total > 0 && done === total
+    && (instance?.verificationStatus === "NOT_SUBMITTED" || instance?.verificationStatus === "REJECTED");
+
+  const confirmSubmit = () =>
+    Alert.alert(
+      "Submit for approval?",
+      "It goes to your department head first, then PC. You can take it back within 10 minutes.",
+      [
+        { text: "Check again", style: "cancel" },
+        { text: "Submit", onPress: () => submitRun.mutate() },
+      ],
+    );
 
   return (
     <View className="flex-1 bg-surface">
@@ -370,7 +392,11 @@ export default function ChecklistInstanceDetail() {
           <View className="flex-1 pr-3">
             <Text className="text-sm font-semibold text-text">Sent for approval</Text>
             <Text className="text-xs text-text-muted">
-              {canTakeBack ? `You can take it back for ${minutesLeft} more ${minutesLeft === 1 ? "minute" : "minutes"}.` : "Waiting for the approver."}
+              {canTakeBack
+                ? `You can take it back for ${minutesLeft} more ${minutesLeft === 1 ? "minute" : "minutes"}.`
+                : instance.approvalStage === "HOD"
+                  ? "With your department head. Then PC gives the final OK."
+                  : instance.hodApprovedAt ? "Head approved. Waiting for PC." : "Waiting for PC."}
             </Text>
           </View>
           {canTakeBack && (
@@ -394,6 +420,19 @@ export default function ChecklistInstanceDetail() {
             .map((item) => (
               <ItemCard key={item.id} item={item} instanceId={instance.id} />
             ))}
+          {canSubmit && (
+            <Pressable
+              onPress={confirmSubmit}
+              disabled={submitRun.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Submit for approval"
+              className="mt-2 min-h-12 items-center justify-center rounded-xl bg-green-700 px-4"
+            >
+              <Text className="text-base font-semibold text-white">
+                {submitRun.isPending ? "Submitting..." : instance.verificationStatus === "REJECTED" ? "Submit again" : "Submit for approval"}
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
     </View>

@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { memo, useCallback, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
-import { AlertTriangle, Ban, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -47,15 +47,13 @@ const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: Lucid
 const ANSWER_BASE =
   'group flex min-w-0 items-center justify-center gap-2 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 rounded-2xl border-2 t-card font-display font-bold transition-[background-color,border-color,color,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
 
-const BADGE_BASE = 'flex size-6 shrink-0 items-center justify-center rounded-full transition-colors duration-150';
-
 type Tone = 'good' | 'bad' | 'plain' | 'muted';
 
-const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string; badgeIdle: string; badgeOn: string }> = {
-  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border/70 bg-surface text-text hover:border-success/60 hover:bg-success/5', badgeIdle: 'bg-success/12 text-success', badgeOn: 'bg-white/20 text-white' },
-  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border/70 bg-surface text-text hover:border-danger/60 hover:bg-danger/5', badgeIdle: 'bg-danger/12 text-danger', badgeOn: 'bg-white/20 text-white' },
-  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border/70 bg-surface text-text hover:border-primary-400/60 hover:bg-primary-500/5', badgeIdle: 'bg-primary-500/12 text-primary-700 dark:text-primary-300', badgeOn: 'bg-white/20 text-white' },
-  muted: { saved: '', picked: '', idle: 'border-border/70 bg-surface text-text-secondary hover:border-border-hover hover:text-text', badgeIdle: 'bg-surface-hover text-text-muted', badgeOn: '' },
+const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string }> = {
+  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border/70 bg-surface text-text hover:border-success/60 hover:bg-success/5' },
+  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border/70 bg-surface text-text hover:border-danger/60 hover:bg-danger/5' },
+  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border/70 bg-surface text-text hover:border-primary-400/60 hover:bg-primary-500/5' },
+  muted: { saved: '', picked: '', idle: 'border-border/70 bg-surface text-text-secondary hover:border-border-hover hover:text-text' },
 };
 
 
@@ -63,8 +61,6 @@ const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string; bad
 const toneFor = (accepted: readonly string[], value: Answer): Tone =>
   accepted.length ? (accepted.includes(value) ? 'good' : 'bad') : 'plain';
 
-const AUTO_SAVE_REASON_MS = 800;
-const AUTO_SAVE_PHOTO_MS = 1500;
 
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();
@@ -81,8 +77,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
   const [editingSaved, setEditingSaved] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const typingRef = useRef(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
@@ -108,24 +102,17 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     baselinePhotos.current = new Set(images.filter((img) => !sessionPhotos.includes(img) || isFailedPhoto(img)).map((img) => img.id));
   };
 
-  const latestReason = useRef(reasonDraft);
-  useEffect(() => {
-    latestReason.current = reasonDraft;
-  }, [reasonDraft]);
-
   const { mutate: mutateDone, isPending: saving } = setItemDone;
   const { isPending: uploading } = uploadImages;
   const itemId = item.id;
   const closeEditor = useCallback(() => {
-    typingRef.current = false;
-    setTyping(false);
     setEditingSaved(false);
     setPendingAnswer(null);
   }, []);
   const save = useCallback((answer: Answer, reason: string | undefined) => {
     mutateDone(
       { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
-      { onSuccess: () => { if ((reason === undefined || latestReason.current.trim() === reason) && !typingRef.current) closeEditor(); } },
+      { onSuccess: closeEditor },
     );
   }, [mutateDone, itemId, closeEditor]);
 
@@ -139,13 +126,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     }
     save(answer, reason);
   }, [savedDone, savedAnswer, savedReasonText, save, closeEditor]);
-
-  useEffect(() => {
-    if (!readyToSave || !pendingAnswer || saving || uploading || typing) return undefined;
-    const wait = needsReason ? AUTO_SAVE_REASON_MS : AUTO_SAVE_PHOTO_MS;
-    const timer = setTimeout(() => commit(pendingAnswer, needsReason ? reasonDraft.trim() : undefined), wait);
-    return () => clearTimeout(timer);
-  }, [readyToSave, pendingAnswer, reasonDraft, needsReason, saving, uploading, typing, commit]);
 
   const startEditReason = () => {
     if (!interactive || !item.isDone || !item.booleanAnswer) return;
@@ -216,6 +196,11 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const followUpBody = (
     <div className="flex flex-col gap-3">
+      {pendingAnswer && item.sendBackNote && (
+        <p className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 t-meta font-display text-text">
+          <span className="font-semibold text-danger">Reviewer said: </span>{item.sendBackNote}
+        </p>
+      )}
       <ul className="flex flex-wrap gap-1.5" aria-label="Needed for this answer">
         {activeActions.map((action) => {
           const { label, icon } = FOLLOW_UP[action];
@@ -239,8 +224,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             autoFocus
             value={reasonDraft}
             onChange={(e) => setReasonDraft(e.target.value)}
-            onFocus={() => { typingRef.current = true; setTyping(true); }}
-            onBlur={() => { typingRef.current = false; setTyping(false); }}
             rows={3}
             maxLength={1000}
             placeholder="Say what you saw. The reviewer reads this."
@@ -288,7 +271,13 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </div>
       )}
 
-      {pendingAnswer && needsPhoto && photoReady && !needsReason && !saving && <p className="t-meta font-display text-text-muted">Saving in a moment. Add another photo now if you need one.</p>}
+      {pendingAnswer && needsPhoto && (
+        <p className="t-meta font-display text-text-muted">
+          {photoReady
+            ? `${passingPhotos(images).length} ${passingPhotos(images).length === 1 ? 'photo' : 'photos'} added. Add more if you like, then tap Save.`
+            : 'Take at least one clear photo, then tap Save.'}
+        </p>
+      )}
     </div>
   );
 
@@ -296,7 +285,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     const label = value === 'YES' ? labels.yes : labels.no;
     const on = shownAnswer === value;
     const look = TONE_LOOK[toneFor(accepted, value)];
-    const Icon = value === 'YES' ? Check : X;
     const filled = on && item.isDone && !pendingAnswer;
     return (
       <button
@@ -311,9 +299,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           interactive ? 'cursor-pointer' : cn('cursor-not-allowed', !on && 'opacity-50'),
         )}
       >
-        <span className={cn(BADGE_BASE, filled ? look.badgeOn : look.badgeIdle)} aria-hidden="true">
-          <Icon size={14} strokeWidth={3} />
-        </span>
         <span className="truncate">{label}</span>
       </button>
     );
@@ -344,9 +329,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             aria-label={`Mark not applicable: ${item.label}`}
             className={cn(ANSWER_BASE, TONE_LOOK.muted.idle, 'cursor-pointer')}
           >
-            <span className={cn(BADGE_BASE, TONE_LOOK.muted.badgeIdle)} aria-hidden="true">
-              <Ban size={13} strokeWidth={2.75} />
-            </span>
             N/A
           </button>
         )}
@@ -423,7 +405,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </p>
       )}
 
-      {flagged && (
+      {flagged && !interactive && (
         <IconChip icon={AlertTriangle} tone="bg-danger" label="Flagged: counts against compliance, even with a reason or photo" className="h-auto min-h-7 w-fit max-w-full py-1" labelClassName="whitespace-normal text-danger" />
       )}
     </ItemCardShell>

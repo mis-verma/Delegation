@@ -62,6 +62,8 @@ export type ChecklistInstance = {
   verificationStatus: ChecklistVerificationStatus;
   submittedAt?: string | null;
   submittedBy?: string | null;
+  approvalStage?: "HOD" | "PC" | null;
+  hodApprovedAt?: string | null;
   items: ChecklistInstanceItem[];
 };
 
@@ -83,6 +85,9 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance[]>>(`/checklist-instances/mine${buildQuery(filter)}`),
 
   getOne: (id: string) => apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`),
+
+  submit: (id: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/submit`, { method: "PATCH" }),
 
   revoke: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: "POST", body: JSON.stringify({}) }),

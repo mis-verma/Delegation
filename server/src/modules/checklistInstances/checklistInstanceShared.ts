@@ -432,7 +432,7 @@ export const syncVerificationStatus = async (instanceId: string) => {
     if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
         const missed = (await missedInstanceIds([instanceId])).size > 0
         await db.update(checklistInstances)
-            .set({ verificationStatus: missed ? "REJECTED" : "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
+            .set({ verificationStatus: missed ? "REJECTED" : "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalStage: null, hodApprovedBy: null, hodApprovedAt: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
             .where(eq(checklistInstances.id, instanceId))
     }
 }
@@ -598,7 +598,8 @@ export const pendingApprovalScope = async (user: AccessTokenPayload): Promise<SQ
     const departmentIds = new Set<string>()
     if (isHod(user) && user.departmentId) departmentIds.add(user.departmentId)
     for (const cover of covers) if (isHod(cover) && cover.departmentId) departmentIds.add(cover.departmentId)
-    for (const departmentId of departmentIds) parts.push(instanceInDepartmentCondition(departmentId))
+    const withHead = sql`(${checklistInstances.approvalStage} IS NULL OR ${checklistInstances.approvalStage} = 'HOD')`
+    for (const departmentId of departmentIds) parts.push(sql`(${instanceInDepartmentCondition(departmentId)} AND ${withHead})`)
     return sql`(${sql.join(parts, sql` OR `)})`
 }
 

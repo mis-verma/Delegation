@@ -45,7 +45,7 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
           label={`${qualifying}/${needed} new ${item.requiresLivePhoto ? 'live ' : ''}${needed === 1 ? 'photo' : 'photos'}`}
         />
       </div>
-      <p className="t-meta text-text-secondary">Your answer stays as it is. Add a new, clear photo, then send it.</p>
+      <p className="t-meta text-text-secondary">Your answer stays as it is. Add as many clear photos as you need. Nothing is sent until you tap Send new photo.</p>
 
       {fresh.length > 0 && (
         <div className="flex flex-wrap gap-2">

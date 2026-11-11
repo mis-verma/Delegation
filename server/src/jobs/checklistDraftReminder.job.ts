@@ -125,10 +125,10 @@ const parentNotDeleted = sql`NOT EXISTS (
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
 )`
 
-export type StaleApproval = { id: string; title: string; storeId: string; waitingSince: Date }
+export type StaleApproval = { id: string; title: string; storeId: string; waitingSince: Date; stage: 'HOD' | 'PC' | null }
 
 export const findStaleApprovals = async (now: Date = new Date()): Promise<{ reminders: StaleApproval[]; escalations: StaleApproval[] }> => {
-    const columns = { id: checklistInstances.id, title: checklistInstances.title, storeId: checklistInstances.storeId, waitingSince: checklistInstances.updatedAt }
+    const columns = { id: checklistInstances.id, title: checklistInstances.title, storeId: checklistInstances.storeId, waitingSince: checklistInstances.updatedAt, stage: checklistInstances.approvalStage }
     const select = (hours: number, stamp: typeof checklistInstances.approvalReminderSentAt | typeof checklistInstances.approvalEscalatedAt) =>
         db.select(columns).from(checklistInstances)
             .where(and(
@@ -177,6 +177,7 @@ export const notifyStaleApprovals = async (now: Date = new Date()) => {
                     _id: row.id, title: row.title, storeId: row.storeId,
                     reviewerIds: reviewersBy.get(row.id) ?? [], assigneeIds: assigneesBy.get(row.id) ?? [],
                     hoursWaiting: hoursWaiting(row),
+                    stage: row.stage,
                 })
                 notifiedIds.push(row.id)
             } catch (err) {

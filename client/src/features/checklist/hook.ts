@@ -641,7 +641,7 @@ export const useRevokeChecklistSubmissionMutation = () =>
     mutationFn: ({ id, itemId, note }: { id: string; itemId?: string; note?: string }) => checklistInstanceApi.revoke(id, itemId, note).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
-    successMessage: (_updated, vars) => (vars.itemId ? 'Question reopened. Fix it and it goes back for approval by itself.' : vars.note ? 'Revoked. The team was told and can answer it again.' : 'Taken back. Answer it again and it goes for approval by itself.'),
+    successMessage: (_updated, vars) => (vars.itemId ? 'Question reopened. Fix it, then tap Submit again.' : vars.note ? 'Revoked. The team was told and can answer it again.' : 'Taken back. Answer it again, then tap Submit.'),
     errorFallback: "Couldn't take it back. Try again.",
     errorToast: false,
   });

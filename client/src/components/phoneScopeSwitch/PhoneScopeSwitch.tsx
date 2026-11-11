@@ -14,7 +14,7 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
     pressed
     fill
     size="sm"
-    className="min-w-0 flex-1 sm:w-auto sm:max-w-sm sm:flex-none"
+    className="min-w-0 flex-1 sm:w-auto sm:flex-none sm:shrink-0"
     value={value}
     options={options}
     onChange={(next) => onChange(next === value ? allValue : next)}

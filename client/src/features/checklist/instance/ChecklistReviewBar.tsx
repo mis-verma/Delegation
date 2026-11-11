@@ -3,6 +3,8 @@ import { Undo2 } from 'lucide-react';
 import { Button, PANEL_CLASS } from '../../../components';
 import { cn } from '@/lib/utils';
 import { ReviewActions } from './ReviewActions';
+import { approveLabelFor } from '../approvalStage';
+import { useAuth } from '../../../context/AuthContext';
 import { CorrectionDialog } from '../../verification/CorrectionDialog';
 import { runCorrectionItems, type SendBackPayload } from '../../verification/correctionItems';
 import { useDeferredDecisions } from '../../verification/useDeferredDecisions';
@@ -41,6 +43,7 @@ export const ReviewScoreStrip = ({ instance, className }: { instance: ChecklistI
 };
 
 export const ChecklistReviewBar = ({ instance, draft, onDecided }: Props) => {
+  const { user: reviewer } = useAuth();
   const refresh = useRefreshAfterDecision();
   const mounted = useRef(true);
   useEffect(() => {
@@ -88,6 +91,7 @@ export const ChecklistReviewBar = ({ instance, draft, onDecided }: Props) => {
           </p>
           <ReviewActions
             pickedCount={count}
+            approveLabel={approveLabelFor(reviewer?.role, instance)}
             onSendBack={() => draft.setSending(true)}
             onApprove={approve}
             busy={false}

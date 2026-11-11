@@ -26,14 +26,24 @@ export const notifyChecklistPendingVerification = async (instance: VerifiableChe
   });
 }
 
-export const notifyChecklistApprovalReminder = async (instance: VerifiableChecklistInstance & { reviewerIds?: string[]; hoursWaiting: number }) => {
+export const notifyChecklistAwaitingHead = async (instance: VerifiableChecklistInstance, headIds: string[]) => {
+  if (!headIds.length) return notifyChecklistPendingVerification(instance);
+  return notifyMany(headIds, {
+    type: 'CHECKLIST_PENDING_VERIFICATION',
+    title: 'Checklist waiting for you',
+    message: `"${instance.title}" was submitted by your team. Approve it to send it on to PC, or send it back.`,
+    checklistInstanceId: instance._id.toString(),
+  });
+}
+
+export const notifyChecklistApprovalReminder = async (instance: VerifiableChecklistInstance & { reviewerIds?: string[]; hoursWaiting: number; stage?: 'HOD' | 'PC' | null }) => {
   const coordinatorRun = await isCoordinatorRun(instance._id.toString());
   let recipientIds = (instance.reviewerIds ?? []).map((id) => id.toString());
   if (coordinatorRun) {
     recipientIds = await coordinatorReviewerIds((instance.assigneeIds ?? []).map((id) => id.toString()));
   } else if (!recipientIds.length) {
     const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
-    if (assigneeIds.length) {
+    if (assigneeIds.length && instance.stage !== 'PC') {
       const rows = await db.select({ departmentId: users.departmentId }).from(users).where(inArray(users.id, assigneeIds));
       const departmentIds = [...new Set(rows.map((r) => r.departmentId).filter((d): d is string => !!d))];
       if (departmentIds.length) {
@@ -44,7 +54,7 @@ export const notifyChecklistApprovalReminder = async (instance: VerifiableCheckl
         recipientIds.push(...heads.map((h) => h.id));
       }
     }
-    if (instance.storeId) {
+    if (instance.storeId && (instance.stage !== 'HOD' || !recipientIds.length)) {
       const pcs = await db
         .select({ id: users.id })
         .from(users)

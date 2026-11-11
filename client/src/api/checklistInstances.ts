@@ -162,6 +162,9 @@ export type ChecklistInstance = {
   verifiedBy:         string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;
+  approvalStage?:     'HOD' | 'PC' | null;
+  hodApprovedBy?:     string | null;
+  hodApprovedAt?:     string | null;
   sentBackAt?:        string | null;
   sentBackFixBy?:     string | null;
   coordinatorRun?:    boolean;
@@ -558,6 +561,9 @@ export const checklistInstanceApi = {
   deleteRun: (id: string, reason: string) =>
     apiFetch<ApiResponse<{ deleted: number }>>(`/checklist-instances/${id}`, { method: 'DELETE', body: JSON.stringify({ reason }) }).then(r => r.data),
 
+  cleanupChecklists: () =>
+    apiFetch<ApiResponse<CleanupChecklist[]>>('/checklist-instances/admin/test-runs/checklists').then(r => r.data),
+
   previewTestRuns: (filter: TestRunFilter) =>
     apiFetch<ApiResponse<TestRunPreview>>('/checklist-instances/admin/test-runs/preview', { method: 'POST', body: JSON.stringify(filter) }).then(r => r.data),
 
@@ -679,7 +685,9 @@ export const checklistItemHistoryApi = {
     apiFetch<ApiResponse<ChecklistItemPrevious | null>>(`/checklist-instances/${instanceId}/items/${itemId}/previous`),
 };
 
-export type TestRunFilter = { userIds: string[]; from?: string; to?: string };
+export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; from?: string; to?: string };
+
+export type CleanupChecklist = { id: string; title: string; runs: number };
 
 export type TestRunPreview = {
   total: number;

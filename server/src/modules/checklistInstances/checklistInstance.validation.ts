@@ -130,7 +130,8 @@ export const periodReportQuerySchema = z.object({
 
 
 const testRunFilter = {
-    userIds: z.array(objectId).min(1).max(50),
+    userIds: z.array(objectId).max(50).optional(),
+    definitionIds: z.array(objectId).max(200).optional(),
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarRange, ClipboardX, FlaskConical, ScanSearch, Trash2, Users } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
-import { Button, NoticeBanner, PageHeader, PANEL_CLASS, Pill, Textarea } from '../../../components';
+import { AlertTriangle, CalendarRange, ClipboardX, FlaskConical, ListChecks, ScanSearch, Trash2, Users } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Button, NoticeBanner, PageHeader, PANEL_CLASS, Pill, Textarea, ToggleChip } from '../../../components';
 import { DateRangePicker, type DateRangeValue } from '../../../components/dateRangePicker';
 import { useConfirm } from '@/components/confirmDialog';
 import { AssigneeField } from '../../assignees/AssigneeField';
@@ -11,6 +11,16 @@ import type { AssignableUser } from '../../../api/users';
 import { errorMessage } from '../../../lib/queryHelpers';
 import { useDeleteTestRunsMutation } from '../hook';
 import { formatDate, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
+import { ChecklistMultiPicker } from './ChecklistMultiPicker';
+
+const DAY_MS = 86_400_000;
+const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+
+const PRESETS = [
+  { key: 'before-today', label: 'Every day before today', range: () => ({ from: null, to: startOfToday() }) },
+  { key: 'last-7', label: 'Last 7 days', range: () => ({ from: new Date(startOfToday().getTime() - 7 * DAY_MS), to: startOfToday() }) },
+  { key: 'last-30', label: 'Last 30 days', range: () => ({ from: new Date(startOfToday().getTime() - 30 * DAY_MS), to: startOfToday() }) },
+] as const;
 
 const Step = ({ n, icon: Icon, title, children }: { n: number; icon: typeof Users; title: string; children: ReactNode }) => (
   <section className={`${PANEL_CLASS} flex flex-col gap-3 p-4 sm:p-5`} aria-label={title}>
@@ -27,6 +37,13 @@ export const TestDataCleanupPage = () => {
   const confirm = useConfirm();
   const { data: allUsers, isLoading } = useUsersQuery();
   const [userIds, setUserIds] = useState<string[]>([]);
+  const [definitionIds, setDefinitionIds] = useState<string[]>([]);
+  const [preset, setPreset] = useState<string | null>(null);
+  const { data: checklists, isLoading: loadingChecklists } = useQuery({
+    queryKey: ['checklist-instances', 'cleanup-checklists'] as const,
+    queryFn: () => checklistInstanceApi.cleanupChecklists(),
+    staleTime: 60_000,
+  });
   const [range, setRange] = useState<DateRangeValue>({ from: null, to: null });
   const [reason, setReason] = useState('');
   const [checked, setChecked] = useState<{ key: string; result: TestRunPreview } | null>(null);
@@ -38,7 +55,8 @@ export const TestDataCleanupPage = () => {
   );
 
   const filter: TestRunFilter = {
-    userIds,
+    ...(userIds.length ? { userIds } : {}),
+    ...(definitionIds.length ? { definitionIds } : {}),
     ...(range.from ? { from: range.from.toISOString() } : {}),
     ...(range.to ? { to: range.to.toISOString() } : {}),
   };
@@ -51,13 +69,20 @@ export const TestDataCleanupPage = () => {
   });
 
   const names = people.filter((p) => userIds.includes(p.id)).map((p) => p.firstName).join(', ');
+  const hasScope = userIds.length > 0 || definitionIds.length > 0 || !!range.to;
+  const pickPreset = (key: string) => {
+    const found = PRESETS.find((p) => p.key === key);
+    if (!found) return;
+    setPreset(key);
+    setRange(found.range());
+  };
   const canDelete = !!preview && preview.total > 0 && reason.trim().length >= 3 && !remove.isPending;
 
   const doDelete = async () => {
     if (!preview || !canDelete) return;
     const ok = await confirm({
       title: `Delete ${preview.total} ${preview.total === 1 ? 'run' : 'runs'} for good?`,
-      description: `Every run that only ${names || 'these people'} worked on is removed, with its answers, photos and score. Runs shared with anyone else stay. This cannot be undone.`,
+      description: `${userIds.length ? `Every matching run that only ${names || 'these people'} worked on is removed. Runs shared with anyone else stay.` : 'Every matching run is removed for everyone on it.'} Answers, photos and scores go with them, so they stop counting. This cannot be undone.`,
       confirmLabel: `Delete ${preview.total}`,
       cancelLabel: 'Keep them',
       variant: 'danger',
@@ -71,13 +96,28 @@ export const TestDataCleanupPage = () => {
 
   return (
     <div className="view-enter flex flex-col gap-4 sm:gap-5 pt-2.5 w-full max-w-3xl mx-auto">
-      <PageHeader icon={FlaskConical} title="Test data" subtitle="Remove checklist runs made by test accounts, so they stop counting in scores and reports." />
+      <PageHeader icon={FlaskConical} title="Remove old runs" subtitle="Delete checklist runs from earlier days or from test accounts, so they stop counting in scores and reports." />
 
       <NoticeBanner tone="warning" icon={AlertTriangle}>
-        <span className="font-semibold">Admin only. Deleting is permanent.</span> Only runs where every person on it is one you pick are removed. A run shared with a real person is never touched.
+        <span className="font-semibold">Admin only. Deleting is permanent.</span> Narrow it down with checklists, days and people, then check what matches before you delete.
       </NoticeBanner>
 
-      <Step n={1} icon={Users} title="Pick the test accounts">
+      <Step n={1} icon={ListChecks} title="Which checklists">
+        <ChecklistMultiPicker checklists={checklists ?? []} selectedIds={definitionIds} onChange={setDefinitionIds} isLoading={loadingChecklists} />
+        <p className="t-meta text-text-muted">Leave it on Every checklist to include all of them.</p>
+      </Step>
+
+      <Step n={2} icon={CalendarRange} title="Which days">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick day ranges">
+          {PRESETS.map((p) => (
+            <ToggleChip key={p.key} on={preset === p.key} onClick={() => pickPreset(p.key)}>{p.label}</ToggleChip>
+          ))}
+        </div>
+        <DateRangePicker value={range} onChange={(next) => { setPreset(null); setRange(next); }} placeholder="Every day" />
+        <p className="t-meta text-text-muted">Today is never included by the quick options. Leave the days empty only when you also pick checklists or people.</p>
+      </Step>
+
+      <Step n={3} icon={Users} title="Only these people (optional)">
         <AssigneeField
           hideLabel
           selectedIds={userIds}
@@ -86,18 +126,14 @@ export const TestDataCleanupPage = () => {
           isLoading={isLoading}
           emptyText="No people found."
         />
+        <p className="t-meta text-text-muted">Use this for test accounts. Only runs where everyone on it is someone you pick are removed. Leave it empty to remove runs for everyone.</p>
       </Step>
 
-      <Step n={2} icon={CalendarRange} title="Which days (optional)">
-        <DateRangePicker value={range} onChange={setRange} placeholder="Every day" />
-        <p className="t-meta text-text-muted">Leave it empty to include every run they ever had.</p>
-      </Step>
-
-      <Step n={3} icon={ScanSearch} title="Check what would go">
+      <Step n={4} icon={ScanSearch} title="Check what would go">
         <Button
           variant="outline"
           className="w-fit gap-1.5 font-display pointer-coarse:h-11"
-          disabled={userIds.length === 0}
+          disabled={!hasScope}
           isLoading={check.isPending}
           onClick={() => check.mutate()}
         >
@@ -105,7 +141,8 @@ export const TestDataCleanupPage = () => {
           {preview ? 'Check again' : 'Check'}
         </Button>
         {check.isError && <p role="alert" className="t-meta font-display font-semibold text-danger">{errorMessage(check.error, "Couldn't check. Try again.")}</p>}
-        {checked && !preview && <p className="t-meta text-text-muted">You changed the people or days. Check again.</p>}
+        {!hasScope && <p className="t-meta text-text-muted">Pick some checklists, some days or some people first.</p>}
+        {checked && !preview && <p className="t-meta text-text-muted">You changed what to include. Check again.</p>}
         {preview && (
           preview.total === 0 ? (
             <p className="flex items-center gap-2 t-card font-display text-text-secondary"><ClipboardX size={16} aria-hidden /> Nothing to delete for these people and days.</p>
@@ -131,7 +168,7 @@ export const TestDataCleanupPage = () => {
         )}
       </Step>
 
-      <Step n={4} icon={Trash2} title="Delete">
+      <Step n={5} icon={Trash2} title="Delete">
         <Textarea
           id="test-data-reason"
           label="Why (kept in the audit log)"

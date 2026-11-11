@@ -14,6 +14,7 @@ import { canWaiveRun } from '../checklist/instance/canWaive';
 import { ComplianceMeter } from './ComplianceMeter';
 import { PersonContext } from './PersonContext';
 import { ReviewActions } from '../checklist/instance/ReviewActions';
+import { approveLabelFor } from '../checklist/approvalStage';
 import { CorrectionDialog } from './CorrectionDialog';
 import { ReviewScoreStrip } from './ReviewScoreStrip';
 import { projectReviewScores } from './reviewScore';
@@ -319,6 +320,7 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
   const count = draft.pickedIds.length;
   const items = useMemo(() => runCorrectionItems(row.instance.items), [row.instance.items]);
   const progress = useReviewProgress(row, draft);
+  const { user: reviewer } = useAuth();
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -338,6 +340,7 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
           busy={false}
           approving={false}
           pickedCount={count}
+          approveLabel={approveLabelFor(reviewer?.role, row.instance)}
           onSendBack={() => draft.setSending(true)}
           onApprove={() => onApprove(row)}
         />

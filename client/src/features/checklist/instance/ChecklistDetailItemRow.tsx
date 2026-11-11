@@ -167,7 +167,7 @@ export const DetailItemRow = memo(({
             {flags.notLive && <IconChip icon={Camera} tone="bg-warning" label="Not live" title="This question needs live camera photos, but some were picked from the gallery" />}
           </p>
         )}
-        {(flags.reusedPhoto || flags.oldPhoto) && !item.isNotApplicable && (
+        {(flags.reusedPhoto || flags.oldPhoto) && !item.isNotApplicable && !canEdit && (
           <p className="flex flex-wrap items-center gap-2 t-meta font-display font-medium text-danger">
             <IconChip
               icon={flags.reusedPhoto ? Copy : History}
@@ -178,14 +178,14 @@ export const DetailItemRow = memo(({
             <span className="text-text-secondary">{flags.reusedPhoto ? 'Looks the same as a photo from an earlier question. Check it is for this one.' : 'Taken before this checklist opened. Check it shows today.'}</span>
           </p>
         )}
-        {flags.weakPhoto && (
+        {flags.weakPhoto && !canEdit && (
           <p className="flex flex-wrap items-center gap-2 t-meta font-display font-medium">
             <IconChip icon={ImageOff} tone="bg-warning" label="Weak photo" title="A photo looks blurry, too dark or too bright" />
             <span className="text-text-secondary">A photo may be hard to read. Open it and check, or send this question back for a clearer one.</span>
           </p>
         )}
         {selecting && !!item.definitionItemId && <PreviousAnswerPanel instanceId={instanceId} itemId={item.id} />}
-        {reason && (
+        {reason && !canEdit && (
           <NoticeBanner tone="warning" icon={AlertTriangle} className="items-center p-2.5 px-3.5 font-medium">
             {reason}
           </NoticeBanner>
@@ -197,7 +197,8 @@ export const DetailItemRow = memo(({
         )}
         {!item.isDone && item.sendBackNote && (
           <NoticeBanner tone="danger" icon={CornerUpLeft} className="p-2.5 px-3.5">
-            {item.sendBackPhotoOnly ? 'New photo asked for' : 'Sent back'}: {item.sendBackNote}
+            <span className="font-semibold">{item.sendBackPhotoOnly ? 'New photo asked for' : 'Reviewer said'}: </span>
+            {item.sendBackNote}
           </NoticeBanner>
         )}
         {canWaive && (item.waivedAt || countsAgainstCompliance(item)) && (

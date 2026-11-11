@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
@@ -95,7 +95,16 @@ export const ChecklistInstanceDetail = () => {
   const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   const draft = useReviewDraft(instanceId || null);
-  const submit = useSubmitRun(instanceId);
+  const submitSummary = useCallback(() => {
+    const items = instance?.items ?? [];
+    const na = items.filter((i) => i.isNotApplicable).length;
+    const answered = items.length - na;
+    return {
+      title: `Submit "${instance?.title ?? 'this checklist'}"?`,
+      description: `${answered} ${answered === 1 ? 'question' : 'questions'} answered${na ? `, ${na} not applicable` : ''}. It goes to your department head first, then PC. You can take it back within 10 minutes if you spot a mistake.`,
+    };
+  }, [instance]);
+  const submit = useSubmitRun(instanceId, submitSummary);
   const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
   useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
   const status = instance?.verificationStatus;
@@ -166,14 +175,16 @@ export const ChecklistInstanceDetail = () => {
     if (draft.pickedSet.has(id)) draft.togglePicked(id);
     else draft.pickWith(id, pickDefaults(correctionById.get(id) ?? { problems: [], canPhotoOnly: false }));
   };
+  const headDone = instance.approvalStage === 'PC' && (user?.role === 'MANAGER' || user?.role === 'SENIOR') && !instance.reviewerIds.includes(user.id);
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
+    !headDone &&
     !(user?.role === 'PC' && instance.coordinatorRun) &&
     !!user && (user.role === 'ADMIN' || !instance.assigneeIds.includes(user.id)) && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const canWork = canWorkRaw && (!canReview || editAnswers);
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
-    user?.role === 'ADMIN' && canWork && isComplete && !notYetOpen &&
+    !!user && (user.role === 'ADMIN' || instance.assigneeIds.includes(user.id)) && canWork && isComplete && !notYetOpen &&
     (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
   const resubmit = instance.verificationStatus === 'REJECTED';
   const hasSections = instance.items.some(i => i.section);
@@ -303,6 +314,7 @@ export const ChecklistInstanceDetail = () => {
     notYetOpen ||
     (instance.verificationStatus === 'PENDING_APPROVAL' && !canReview) ||
     (instance.verificationStatus === 'APPROVED' && !!verificationNote) ||
+    (instance.verificationStatus === 'NOT_SUBMITTED' && !!verificationNote) ||
     instance.verificationStatus === 'REJECTED';
   const metaParts = [
     labels.storeName,
@@ -453,7 +465,14 @@ export const ChecklistInstanceDetail = () => {
 
           {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
             <NoticeBanner tone="info" icon={ShieldQuestion}>
-              Submitted{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}{instance.submittedAt ? ` on ${formatDateTime(instance.submittedAt)}` : ''}. Waiting for approval.
+              Submitted{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}{instance.submittedAt ? ` on ${formatDateTime(instance.submittedAt)}` : ''}. {instance.approvalStage === 'HOD' ? 'With the department head now. After they approve, PC gives the final OK.' : instance.hodApprovedAt ? 'The department head approved it. Waiting for the final OK from PC.' : 'Waiting for approval from PC.'}
+            </NoticeBanner>
+          )}
+
+          {instance.verificationStatus === 'NOT_SUBMITTED' && verificationNote && (
+            <NoticeBanner tone="danger" icon={CornerUpLeft}>
+              <span className="font-semibold">Taken back by the admin: </span>{verificationNote}
+              <span className="block mt-0.5 text-text-secondary">Answer it again, then tap Submit.</span>
             </NoticeBanner>
           )}
 
