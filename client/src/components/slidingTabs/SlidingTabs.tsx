@@ -20,7 +20,7 @@ interface SlidingTabsProps<T extends string> {
   options: readonly SlidingTabOption<T>[];
   onChange: (value: T) => void;
   size?: 'md' | 'sm';
-  fill?: boolean;
+  fill?: boolean | 'phone';
   pressed?: boolean;
   className?: string;
 }
@@ -30,7 +30,7 @@ export function SlidingTabs<T extends string>({ label, value, options, onChange,
   const small = size === 'sm';
 
   return (
-    <div role={pressed ? 'group' : 'tablist'} aria-label={label} className={cn(TOGGLE_TRACK, fill && 'flex w-full', className)}>
+    <div role={pressed ? 'group' : 'tablist'} aria-label={label} className={cn(TOGGLE_TRACK, fill === true && 'flex w-full', fill === 'phone' && 'max-sm:flex max-sm:w-full', className)}>
       {options.map((option) => {
         const active = option.value === value;
         const Icon = option.icon;
@@ -45,7 +45,7 @@ export function SlidingTabs<T extends string>({ label, value, options, onChange,
             aria-label={option.ariaLabel}
             tabIndex={pressed || active ? 0 : -1}
             onClick={() => onChange(option.value)}
-            className={cn(TOGGLE_ITEM, small ? TOGGLE_SIZE_SM : TOGGLE_SIZE_MD, fill && 'min-w-0 flex-1', active ? TOGGLE_ON : TOGGLE_OFF)}
+            className={cn(TOGGLE_ITEM, small ? TOGGLE_SIZE_SM : TOGGLE_SIZE_MD, fill === true && 'min-w-0 flex-1', fill === 'phone' && 'max-sm:min-w-0 max-sm:flex-1', active ? TOGGLE_ON : TOGGLE_OFF)}
           >
             {active && <TogglePill id={`${groupId}-pill`} />}
             <span className="relative z-10 flex min-w-0 items-center gap-2">

@@ -12,7 +12,7 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
   <SlidingTabs
     label="Show"
     pressed
-    fill
+    fill="phone"
     size="sm"
     className="min-w-0 flex-1 sm:w-auto sm:flex-none sm:shrink-0"
     value={value}
