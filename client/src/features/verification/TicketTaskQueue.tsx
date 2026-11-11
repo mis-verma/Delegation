@@ -158,12 +158,24 @@ export const TicketTaskQueue = ({
   const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
   const toggleSelectAll = () => setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
 
-  const approveItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string) => {
+  const approveItem = useCallback((kind: 'ticket' | 'task') => async (id: string, title: string) => {
+    const ok = await confirm({
+      title: `Approve this ${kind === 'ticket' ? 'ticket' : 'delegation'}?`,
+      description: `"${title}" is approved. You can undo for a few seconds after.`,
+      confirmLabel: 'Approve',
+    });
+    if (!ok) return;
     schedule({ id, verb: 'Approved', label: title, run: kind === 'ticket' ? approveTicketRun(id) : approveTaskRun(id) });
-  }, [schedule]);
-  const sendBackItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string, note: string, correction?: ChecklistCorrection) => {
+  }, [schedule, confirm]);
+  const sendBackItem = useCallback((kind: 'ticket' | 'task') => async (id: string, title: string, note: string, correction?: ChecklistCorrection) => {
+    const ok = await confirm({
+      title: `Send this ${kind === 'ticket' ? 'ticket' : 'delegation'} back?`,
+      description: `"${title}" goes back to the assignee with your remarks. You can undo for a few seconds after.`,
+      confirmLabel: 'Send back',
+    });
+    if (!ok) return;
     schedule({ id, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note, correction) : rejectTaskRun(id, note, correction) });
-  }, [schedule]);
+  }, [schedule, confirm]);
   const approveTicket = useMemo(() => approveItem('ticket'), [approveItem]);
   const approveTask = useMemo(() => approveItem('task'), [approveItem]);
   const sendBackTicket = useMemo(() => sendBackItem('ticket'), [sendBackItem]);

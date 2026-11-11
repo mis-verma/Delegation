@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCheck, ListChecks } from 'lucide-react';
+import { ArrowLeft, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { EmptyState, PANEL_CLASS, useConfirm } from '../../components';
+import { useConfirm } from '../../components';
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useTicketsByStatusQuery } from '../tickets/hook';
@@ -19,7 +19,7 @@ import { QueueToolbar } from './QueueToolbar';
 import { QueueSections } from './QueueSections';
 import { SectionTitle } from './SectionTitle';
 import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats';
-import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
+import { ReviewPane, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
 import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
@@ -158,31 +158,24 @@ export const VerificationQueue = () => {
   }
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const autoOpened = useRef(false);
-  useEffect(() => {
-    if (autoOpened.current || !isDesktop || params.view !== 'waiting' || params.open || visibleRows.length === 0) return;
-    autoOpened.current = true;
-    patch({ open: visibleRows[0].id });
-  }, [isDesktop, params.view, params.open, visibleRows, patch]);
-
   const latest = useRef<Latest>({ rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch });
   useEffect(() => {
     latest.current = { rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch };
   });
 
   const advanceFrom = useCallback((id: string) => {
-    const { rows, activeId: current, openId, isDesktop: desktop, patch: update } = latest.current;
+    const { rows, activeId: current, openId, patch: update } = latest.current;
     const idx = rows.findIndex((r) => r.id === id);
     const next = idx < 0 ? null : (rows[idx + 1] ?? rows[idx - 1] ?? null);
     const rowEl = document.querySelector(`[data-queue-row="${CSS.escape(id)}"]`)?.closest('li');
     const hadFocus = !!rowEl && rowEl.contains(document.activeElement);
     if (current !== id && !hadFocus && openId !== id) return;
     setCursor(next?.id ?? null);
-    if (openId === id) update({ open: desktop ? (next?.id ?? null) : null });
+    if (openId === id) update({ open: null });
     focusRow(next?.id ?? null);
   }, []);
 
-  const approve = useCallback((id: string) => {
+  const approve = useCallback(async (id: string) => {
     const { rows, openId, draft: current } = latest.current;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -190,11 +183,24 @@ export const VerificationQueue = () => {
       toast('Untick the questions first, or send them back.');
       return;
     }
+    const ok = await confirm({
+      title: 'Approve this checklist?',
+      description: `"${row.instance.title}" is approved. You can undo for a few seconds after.`,
+      confirmLabel: 'Approve',
+    });
+    if (!ok) return;
     advanceFrom(id);
     schedule({ id, verb: 'Approved', label: row.instance.title, run: approveRun(id) });
-  }, [advanceFrom, schedule]);
+  }, [advanceFrom, schedule, confirm]);
 
-  const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
+  const sendBack = useCallback(async (row: ChecklistRow, payload: SendBackPayload) => {
+    const n = payload.itemIds.length;
+    const ok = await confirm({
+      title: n > 0 ? `Send ${n} ${n === 1 ? 'question' : 'questions'} back?` : 'Send the whole checklist back?',
+      description: `${row.assigneeNames.length ? `${row.assigneeNames.join(', ')} will` : 'The assignee will'} be asked to fix this and submit again. You can undo for a few seconds after.`,
+      confirmLabel: 'Send back',
+    });
+    if (!ok) return;
     advanceFrom(row.id);
     latest.current.draft?.reset();
     schedule({
@@ -203,7 +209,7 @@ export const VerificationQueue = () => {
       label: row.instance.title,
       run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours, payload.photoOnlyItemIds) : rejectRun(row.id, payload.note, payload.fixByHours),
     });
-  }, [advanceFrom, schedule]);
+  }, [advanceFrom, schedule, confirm]);
 
   const approveFromPane = useCallback((row: ChecklistRow) => approve(row.id), [approve]);
 
@@ -241,20 +247,19 @@ export const VerificationQueue = () => {
   }, []);
 
   const move = useCallback((delta: number) => {
-    const { rows, activeId: current, isDesktop: desktop, patch: update } = latest.current;
+    const { rows, activeId: current } = latest.current;
     if (rows.length === 0) return;
     const idx = current ? rows.findIndex((r) => r.id === current) : -1;
     const target = idx < 0 ? (delta > 0 ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, idx + delta));
     const id = rows[target].id;
     setCursor(id);
     setPendingSend(null);
-    if (desktop) update({ open: id });
     focusRow(id);
   }, []);
 
   useQueueShortcuts({
     enabled: params.view === 'waiting' && (params.tab === 'all' || params.tab === 'checklists'),
-    sheetOpen: !isDesktop && !!openRow,
+    sheetOpen: !!openRow,
     onNext: () => move(1),
     onPrevious: () => move(-1),
     onApprove: () => { const id = latest.current.activeId; if (id) approve(id); },
@@ -315,7 +320,6 @@ export const VerificationQueue = () => {
   const showChecklists = params.tab === 'all' || params.tab === 'checklists';
   const showTicketTask = params.tab !== 'checklists';
   const ticketTaskFailed = useMemo(() => ({ tickets: ticketsQuery.isError, tasks: tasksQuery.isError }), [ticketsQuery.isError, tasksQuery.isError]);
-  const splitPane = checklistQuery.isPending || visibleRows.length > 0;
 
   const rootHref = useMemo(() => {
     const next = new URLSearchParams(searchParams);
@@ -341,6 +345,24 @@ export const VerificationQueue = () => {
   };
   const navigate = useNavigate();
   const closeHelp = useCallback(() => setHelpOpen(false), []);
+
+  if (openRow && params.view === 'waiting') {
+    return (
+      <div className="flex flex-col gap-4 pt-2.5 w-full max-w-4xl mx-auto">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={closeRun}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border/60 bg-surface t-label font-display font-medium text-text-secondary hover:border-border-hover hover:text-text-primary transition-colors"
+          >
+            <ArrowLeft size={15} aria-hidden />
+            Back
+          </button>
+        </div>
+        <ReviewPane key={openRow.id} row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} className="lg:max-h-none" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
@@ -391,7 +413,7 @@ export const VerificationQueue = () => {
           )}
 
           {showChecklists && (
-            <div className={cn('grid grid-cols-1 gap-4 items-start', splitPane && 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')}>
+            <div className={cn('grid grid-cols-1 gap-4 items-start', )}>
               <ChecklistList
                 rows={visibleRows}
                 now={now}
@@ -418,23 +440,6 @@ export const VerificationQueue = () => {
                 onSendBackItem={sendBackItem}
               />
 
-              {isDesktop && visibleRows.length > 0 && (
-                <aside className="lg:sticky lg:top-4 min-w-0" aria-label="Review">
-                  {openRow ? (
-                    <ReviewPane key={openRow.id} row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} />
-                  ) : (
-                    <div className={PANEL_CLASS}>
-                      <EmptyState
-                        size="compact"
-                        icon={ListChecks}
-                        title="Pick a checklist to review"
-                        description="Use J and K to move, Enter to open."
-                        className="border-0"
-                      />
-                    </div>
-                  )}
-                </aside>
-              )}
             </div>
           )}
 
@@ -462,9 +467,6 @@ export const VerificationQueue = () => {
         </>
       )}
 
-      {!isDesktop && (
-        <ReviewSheet row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} onClose={closeRun} />
-      )}
       <ShortcutsHelp open={helpOpen} onClose={closeHelp} />
     </div>
   );
