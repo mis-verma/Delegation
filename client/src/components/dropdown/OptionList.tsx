@@ -117,7 +117,7 @@ export const OptionList = ({
             return (
               <Fragment key={option.value || '__empty__'}>
               {option.group && option.group !== shown[index - 1]?.group && (
-                <li role="presentation" className={cn('px-3 pt-2 pb-0.5 t-meta font-display font-bold text-text-muted', index > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
+                <li role="presentation" className={cn('px-3 pt-2.5 pb-1 t-meta font-display font-bold text-text-secondary', index > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
               )}
               <li role="option" aria-selected={isSelected}>
                 <button
@@ -126,16 +126,16 @@ export const OptionList = ({
                   className={cn(
                     'flex items-center gap-3 w-full min-h-12 px-3 py-2 rounded-xl text-left text-sm font-display font-medium cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
                     isSelected
-                      ? 'bg-surface-hover text-text font-semibold'
+                      ? 'bg-primary-500/10 text-primary-800 dark:text-primary-200 font-semibold'
                       : 'text-text hover:bg-surface-hover active:bg-surface-hover',
                     !option.value && !isSelected && 'text-text-muted italic',
-                    option.group && 'min-h-11 py-1.5 pl-5',
+                    option.group && 'pl-5',
                   )}
                 >
                   {option.lead}
                   <span className="flex flex-1 min-w-0 flex-col">
                     <span className="line-clamp-2 break-words leading-snug">{highlight(option.label, query.trim())}</span>
-                    {option.hint && <span className="t-meta font-medium text-text-muted line-clamp-1 break-all">{option.hint}</span>}
+                    {option.hint && <span className="t-meta font-medium text-text-secondary line-clamp-1 break-words">{option.hint}</span>}
                   </span>
                   {multiple ? (
                     <span

@@ -47,6 +47,7 @@ const AccountSettings = lazy(() => import('./features/settings/AccountSettings')
 const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSettings').then(m => ({ default: m.AppearanceSettings })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
+const TestDataCleanupPage = lazy(() => import('./features/checklist/testData').then(m => ({ default: m.TestDataCleanupPage })));
 const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
@@ -367,6 +368,7 @@ const router = createBrowserRouter([
                 children: [
                   { path: '/admin/audit-log', element: <AuditLogPage /> },
                   { path: '/admin/system-health', element: <SystemHealthPage /> },
+                  { path: '/admin/checklist-test-data', element: <TestDataCleanupPage /> },
                 ],
               },
               { path: '/admin/holidays', element: <HolidaysPage /> },

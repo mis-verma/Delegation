@@ -192,6 +192,9 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       context?.snapshots?.forEach(([, entries]) => {
         entries.forEach(([entryKey, data]) => queryClient.setQueryData(entryKey, data));
       });
+      if (err instanceof ApiError && (err.status === 409 || err.status === 404)) {
+        config.invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
+      }
       if (config.errorToast !== false) {
         notifyError(err, config.errorFallback, {
           retry: config.retryable ? () => mutateRef.current?.(vars) : undefined,

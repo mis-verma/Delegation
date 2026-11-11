@@ -12,7 +12,7 @@ import {
 } from '../../api/checklistDefinitions';
 import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstanceImage, type PhotoReviewReason, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
-import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
+import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory, TestRunFilter } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
 import { weakPhotoMessage } from './photoQuality';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
@@ -644,6 +644,25 @@ export const useRevokeChecklistSubmissionMutation = () =>
     successMessage: (_updated, vars) => (vars.itemId ? 'Question reopened. Fix it and it goes back for approval by itself.' : vars.note ? 'Revoked. The team was told and can answer it again.' : 'Taken back. Answer it again and it goes for approval by itself.'),
     errorFallback: "Couldn't take it back. Try again.",
     errorToast: false,
+  });
+
+export const useDeleteChecklistRunMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => checklistInstanceApi.deleteRun(id, reason),
+    removeKey: (_result, vars) => KEYS.instanceDetail(vars.id),
+    invalidateKeys: [['checklist-instances'], ['scores']],
+    successMessage: 'Run deleted. Scores and lists no longer count it.',
+    successHaptic: 'warning',
+    errorFallback: "Couldn't delete the run. Try again.",
+  });
+
+export const useDeleteTestRunsMutation = () =>
+  useEntityMutation({
+    mutationFn: (payload: TestRunFilter & { expectedCount: number; reason: string }) => checklistInstanceApi.deleteTestRuns(payload),
+    invalidateKeys: [['checklist-instances'], ['scores']],
+    successMessage: (result) => `${result.deleted} ${result.deleted === 1 ? 'run' : 'runs'} deleted.`,
+    successHaptic: 'warning',
+    errorFallback: "Couldn't delete those runs. Try again.",
   });
 
 export const useSendBackChecklistInstanceMutation = () =>

@@ -34,6 +34,7 @@ interface ChecklistListProps {
   cleanCount?: number;
   bulk?: { done: number; total: number } | null;
   onApproveAllClean?: () => void;
+  onApproveAll?: () => void;
   hasMore: boolean;
   remaining: number;
   isFetchingMore: boolean;
@@ -58,7 +59,7 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 
 export const ChecklistList = ({
   rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
-  cleanCount = 0, bulk = null, onApproveAllClean, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
+  cleanCount = 0, bulk = null, onApproveAllClean, onApproveAll, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
   showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
   const groupCounts = { critical: 0, attention: 0, ready: 0 };
@@ -79,6 +80,19 @@ export const ChecklistList = ({
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>
             <Keyboard size={14} aria-hidden />
             Shortcuts
+          </Button>
+        )}
+        {onApproveAll && rows.length > 0 && (
+          <Button
+            size="sm"
+            variant="primary"
+            className="bg-success text-white hover:from-success/90 hover:to-success/70 hover:text-white pointer-coarse:h-11"
+            disabled={!!bulk}
+            isLoading={!!bulk}
+            onClick={onApproveAll}
+          >
+            {!bulk && <CheckCheck size={14} aria-hidden />}
+            {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve all ${rows.length}`}
           </Button>
         )}
         {!grouped && onApproveAllClean && cleanCount > 0 && (

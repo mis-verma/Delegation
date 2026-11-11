@@ -27,6 +27,7 @@ export const useChecklistSocket = () => {
     const instanceEvents = [
       'checklist-instance:created',
       'checklist-instance:updated',
+      'checklist-instance:deleted',
     ] as const;
 
     definitionEvents.forEach((event) => socket.on(event, invalidateDefinitions));

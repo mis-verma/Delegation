@@ -40,6 +40,7 @@ function cn(...inputs: ClassValue[]) {
 interface AdminNavChild {
   to: string;
   label: string;
+  adminOnly?: boolean;
 }
 
 type AdminNavGroup = 'insights' | 'people' | 'checklists' | 'system';
@@ -61,6 +62,7 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },
   { to: '/admin/checklist-templates', label: 'Task Templates' },
+  { to: '/admin/checklist-test-data', label: 'Test data', adminOnly: true },
 ];
 
 const NAV: AdminNavItem[] = [
@@ -129,9 +131,10 @@ export const AdminLayout = () => {
   const OWNER_NAV_PATHS = ['/admin/owner', '/admin', '/admin/scores', '/team/fill'];
   const nav = user?.role === 'ADMIN'
     ? NAV
-    : user?.role === 'OWNER'
+    : (user?.role === 'OWNER'
       ? NAV.filter((item) => OWNER_NAV_PATHS.includes(item.to))
-      : NAV.filter((item) => !PC_HIDDEN_PATHS.includes(item.to));
+      : NAV.filter((item) => !PC_HIDDEN_PATHS.includes(item.to)))
+      .map((item) => (item.children ? { ...item, children: item.children.filter((child) => !child.adminOnly) } : item));
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return false;

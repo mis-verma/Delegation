@@ -14,7 +14,7 @@ import { RedirectTicketDialog } from '../detail/RedirectTicketDialog';
 import { DeclineTicketDialog } from '../detail/DeclineTicketDialog';
 import { TicketDetail } from '../TicketDetail';
 import { TatHoursPicker } from '../claim/TatHoursPicker';
-import { headApproveLabel } from '../claim/ticketClaim';
+import { headApproveLabel, wholeHours } from '../claim/ticketClaim';
 import type { Ticket } from '../../../api/ticket';
 
 interface HeadRequestRowProps {
@@ -41,7 +41,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
   const [declining, setDeclining] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [pickedId, setPickedId] = useState('');
-  const [tatHours, setTatHours] = useState<number | null>(ticket.tatHours ?? null);
+  const [tatHours, setTatHours] = useState<number | null>(() => wholeHours(ticket.tatHours));
   const needsPerson = !ticket.assigneeId;
   const { data: people, isLoading: loadingPeople } = useAssignableUsersQuery(ticket.departmentId ?? undefined, undefined, undefined, needsPerson);
   const { data: departments } = useDepartmentsQuery();
@@ -80,7 +80,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
             {departmentName && <DepartmentChip name={departmentName} />}
             <WaitChip since={ticket.createdAt} now={now} warnAfterHours={4} dangerAfterHours={24} />
-            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${ticket.tatHours}h to finish`} title="Asked for by the sender. You set the final time below" className="shrink-0" labelClassName="tabular-nums" />}
+            {!!ticket.tatHours && <IconChip icon={Timer} tone="bg-info" label={`${wholeHours(ticket.tatHours)}h asked`} title="Asked for by the sender. You set the final time below" className="shrink-0" labelClassName="tabular-nums" />}
           </span>
         </span>
       </button>

@@ -116,7 +116,7 @@ export function SelectDropdown<Value extends string>({
                 "flex items-center justify-between gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer outline-none active:scale-[0.98]",
                 isSelected
                   ? "text-primary-700 bg-gradient-to-r from-primary-500/15 to-primary-500/5 dark:text-primary-300"
-                  : "text-text-secondary focus:bg-surface-hover focus:text-text"
+                  : "text-text focus:bg-surface-hover"
               )}
             >
               <span className="flex min-w-0 items-center gap-2.5">

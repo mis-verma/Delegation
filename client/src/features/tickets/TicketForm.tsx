@@ -72,10 +72,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const deleteDraft = useDeleteDraftMutation('TICKET');
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState<'category' | 'department' | null>(null);
-  const headCanPick = useCallback(
-    (departmentId: string | undefined) => !!departmentId && departmentId !== user?.departmentId && !!headDepartmentIds?.has(departmentId),
-    [headDepartmentIds, user?.departmentId],
-  );
+  const headCanPick = useCallback((departmentId: string | undefined) => !!departmentId, []);
   const subcategoryRequired = useCallback(
     (id: string | undefined) => !!id && !!categories?.find((c) => c.id === id)?.subcategories.some((s) => s.isActive),
     [categories],
@@ -453,11 +450,11 @@ Who is affected: `;
       </div>
       <p className="t-meta font-display text-text-muted">
         {ownScopeOnly
-          ? (selectedCategory.assigneeIds.length === 0 ? 'The department head will pick who works on it.' : 'Nothing else to choose.')
+          ? (selectedCategory.assigneeIds.length === 0 ? 'The department head gives it to someone, or the team claims it.' : 'Nothing else to choose.')
           : selectedCategory.assigneeIds.length === 0
             ? (assignmentMode === 'AUTO'
-              ? 'Nobody is set for this category yet, so the department head will be asked to pick someone. Switch to Manual to pick now.'
-              : 'Nobody is set for this category yet. Pick who should handle it below.')
+              ? 'Nobody is set for this category yet. The department head sets the time, then gives it to someone or lets the team claim it. Switch to Manual to pick a person now.'
+              : 'Nobody is set for this category yet. Pick a person below, or leave it open for the team to claim.')
             : assignmentMode === 'AUTO'
               ? 'Nothing else to choose. Switch to Manual for a different person.'
               : 'Filled in for you. You can change the person or the due time.'}
@@ -478,7 +475,9 @@ Who is affected: `;
         label="Due"
         icon={<Clock size={14} className="text-text-light" />}
         required
-        hint="Pick a quick option or an exact day and time. Quick options are due at 6 PM."
+        hint={assignmentMode === 'MANUAL' && !assigneeId && departmentId
+          ? 'With nobody picked, this sets how long they get, counted from when someone claims it.'
+          : 'Pick a quick option or an exact day and time. Quick options are due at 6 PM.'}
         error={dueError}
       >
         <DueDateField
@@ -581,12 +580,12 @@ Who is affected: `;
   );
 
   const whereSection = (step: number) => (
-            <section className="flex flex-col gap-5" aria-label="Where it goes">
+            <section key={`where-${assignmentMode}`} className="view-enter flex flex-col gap-5" aria-label="Where it goes">
               <StepHeading step={step} title="Where it goes" subtitle={assignmentMode === 'AUTO' ? 'Pick a category and the rest fills in for you.' : 'Choose the team, the person and when it is due.'} />
 
             {needsHeadOk && (
               <NoticeBanner tone="warning" icon={ShieldQuestion}>
-                <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head approves this first.` : 'The department head approves this first.'}</span> Work starts once they say yes. If they decline, you will see why.
+                <span className="font-semibold">{targetDepartmentName ? `The ${targetDepartmentName} head checks this first.` : 'The department head checks this first.'}</span> {assigneeId ? 'They confirm the person and set the time.' : 'They set the time, then give it to someone or open it for the team to claim.'} If they decline, you will see why.
               </NoticeBanner>
             )}
 
@@ -626,12 +625,14 @@ Who is affected: `;
                       <FormField
                         label="Person"
                         icon={<UserCheck size={14} className="text-text-light" />}
-                        required={!headCanPick(departmentId || undefined) && emptyTeamId !== departmentId}
+                        optional={!!departmentId}
                         hint={emptyTeamId && emptyTeamId === departmentId
                           ? 'Nobody is in this team yet, so this is optional. The ticket waits until someone is added.'
-                          : headCanPick(departmentId || undefined)
-                          ? 'Optional. Leave it empty and the head of that team picks who does it.'
-                          : departmentId || selectedCategory ? 'Who will work on it.' : 'Pick a team first to see its people.'}
+                          : !departmentId
+                          ? 'Pick a team first to see its people.'
+                          : needsHeadOk
+                          ? `Optional. Leave it empty and the ${targetDepartmentName ?? 'team'} head sets the time, then gives it to someone or lets the team claim it.`
+                          : `Optional. Leave it empty and anyone in ${targetDepartmentName ?? 'the team'} can claim it. Their time starts when they claim.`}
                         error={errors.assigneeId?.message}
                       >
                         <AssigneeField
@@ -714,7 +715,7 @@ Who is affected: `;
             {assignmentMode === 'AUTO' && whereSection(2)}
 
             {(assignmentMode === 'MANUAL' || !!categoryId) && (
-            <section className="flex flex-col gap-5" aria-label="What happened">
+            <section key={`what-${assignmentMode}`} className="view-enter flex flex-col gap-5" aria-label="What happened">
               <StepHeading
                 step={assignmentMode === 'AUTO' ? 3 : 2}
                 title="What happened"
@@ -777,7 +778,7 @@ Who is affected: `;
             {assignmentMode === 'MANUAL' && whereSection(3)}
 
             {assignmentMode === 'MANUAL' && (
-              <section className="flex flex-col gap-5" aria-label="Extra details">
+              <section className="view-enter flex flex-col gap-5" aria-label="Extra details">
                 <StepHeading step={4} title="Extra details" subtitle="Optional. Most tickets are Medium." />
 
                 <FormField

@@ -555,6 +555,15 @@ export const checklistInstanceApi = {
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
+  deleteRun: (id: string, reason: string) =>
+    apiFetch<ApiResponse<{ deleted: number }>>(`/checklist-instances/${id}`, { method: 'DELETE', body: JSON.stringify({ reason }) }).then(r => r.data),
+
+  previewTestRuns: (filter: TestRunFilter) =>
+    apiFetch<ApiResponse<TestRunPreview>>('/checklist-instances/admin/test-runs/preview', { method: 'POST', body: JSON.stringify(filter) }).then(r => r.data),
+
+  deleteTestRuns: (payload: TestRunFilter & { expectedCount: number; reason: string }) =>
+    apiFetch<ApiResponse<{ deleted: number }>>('/checklist-instances/admin/test-runs/delete', { method: 'POST', body: JSON.stringify(payload) }).then(r => r.data),
+
   revoke: (id: string, itemId?: string, note?: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/revoke`, { method: 'POST', body: JSON.stringify({ ...(itemId ? { itemId } : {}), ...(note ? { note } : {}) }) }),
   submit: (id: string) =>
@@ -668,4 +677,14 @@ export const checklistItemHistoryApi = {
     apiFetch<ApiResponse<ChecklistItemHistoryEvent[]>>(`/checklist-instances/${instanceId}/item-history`),
   previous: (instanceId: string, itemId: string) =>
     apiFetch<ApiResponse<ChecklistItemPrevious | null>>(`/checklist-instances/${instanceId}/items/${itemId}/previous`),
+};
+
+export type TestRunFilter = { userIds: string[]; from?: string; to?: string };
+
+export type TestRunPreview = {
+  total: number;
+  notSubmitted: number;
+  pending: number;
+  approved: number;
+  sample: { id: string; title: string; periodStart: string; verificationStatus: ChecklistInstance['verificationStatus'] }[];
 };

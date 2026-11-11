@@ -9,6 +9,8 @@ export const isClaimable = (ticket: ClaimFields): boolean =>
 export const canClaim = (user: { role: Role; departmentId?: string | null } | null | undefined, ticket: ClaimFields & Pick<Ticket, 'departmentId'>): boolean =>
   !!user && user.role !== 'OWNER' && !!user.departmentId && user.departmentId === ticket.departmentId && isClaimable(ticket);
 
+export const wholeHours = (hours: number | null | undefined): number | null => (hours ? Math.max(1, Math.round(hours)) : null);
+
 export const tatText = (hours: number | null | undefined): string | null => {
   if (!hours) return null;
   if (hours % 24 === 0) return `${hours / 24} ${hours === 24 ? 'day' : 'days'}`;

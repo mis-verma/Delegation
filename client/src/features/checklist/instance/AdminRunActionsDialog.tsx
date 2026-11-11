@@ -1,10 +1,10 @@
 import { useId, useState } from 'react';
-import { Ban, Eye, PencilLine, Undo2 } from 'lucide-react';
+import { Ban, Eye, PencilLine, Trash2, Undo2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { Button, Pill, Textarea } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
-import { useRevokeChecklistSubmissionMutation, useSendBackChecklistInstanceMutation } from '../hook';
+import { useDeleteChecklistRunMutation, useRevokeChecklistSubmissionMutation, useSendBackChecklistInstanceMutation } from '../hook';
 import { answerText } from './answerText';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -20,9 +20,10 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
   const noteId = useId();
   const revoke = useRevokeChecklistSubmissionMutation();
   const sendBack = useSendBackChecklistInstanceMutation();
+  const removeRun = useDeleteChecklistRunMutation();
   const [note, setNote] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
-  const busy = revoke.isPending || sendBack.isPending;
+  const busy = revoke.isPending || sendBack.isPending || removeRun.isPending;
   const approved = instance.verificationStatus === 'APPROVED';
   const trimmed = note.trim();
   const canRecorrect = trimmed.length > 0 && picked.size > 0 && !busy;
@@ -52,7 +53,19 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
     if (ok) revoke.mutate({ id: instance.id, note: trimmed }, { onSuccess: onClose });
   };
 
-  const failure = revoke.error ?? sendBack.error;
+  const doDelete = async () => {
+    if (!canRevoke) return;
+    const ok = await confirm({
+      title: 'Delete this run for good?',
+      description: 'The answers, photos and its score are removed for everyone, as if it never ran. Use this for test runs only. It cannot be undone. Your note is kept in the audit log.',
+      confirmLabel: 'Delete run',
+      cancelLabel: 'Keep it',
+      variant: 'danger',
+    });
+    if (ok) removeRun.mutate({ id: instance.id, reason: trimmed }, { onSuccess: onClose });
+  };
+
+  const failure = revoke.error ?? sendBack.error ?? removeRun.error;
   const errorText = failure ? (failure instanceof Error ? failure.message : 'Something went wrong. Try again.') : null;
 
   return (
@@ -99,13 +112,23 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
           onChange={(e) => setNote(e.target.value)}
           rows={3}
           maxLength={NOTE_MAX}
-          placeholder="Say what needs fixing. Needed for both buttons."
+          placeholder="Say what needs fixing. Needed for every button below."
           className="min-h-0 resize-none rounded-lg px-3 py-2"
         />
 
         {errorText && (
           <p role="alert" className="t-meta font-display font-semibold text-danger">{errorText}</p>
         )}
+
+        <button
+          type="button"
+          disabled={!canRevoke}
+          onClick={() => void doDelete()}
+          className="inline-flex w-fit items-center gap-1.5 min-h-11 sm:min-h-8 rounded-lg px-2 t-meta font-display font-semibold text-danger transition-colors duration-150 hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          <Trash2 size={14} aria-hidden />
+          {removeRun.isPending ? 'Deleting…' : 'Delete this run for good (test runs)'}
+        </button>
 
         <DialogFooter className="gap-2">
           <DialogClose asChild>

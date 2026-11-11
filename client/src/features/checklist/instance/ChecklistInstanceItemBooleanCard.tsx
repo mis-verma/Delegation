@@ -7,7 +7,7 @@ import {
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
 import { Button, IconChip, Textarea } from '../../../components';
-import { ItemActionButton } from './ItemActionButton';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
@@ -45,15 +45,20 @@ const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: Lucid
 };
 
 const ANSWER_BASE =
-  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-11 pointer-coarse:min-h-12 px-4 rounded-xl border-2 t-card font-display font-bold transition-colors duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]';
+  'group flex min-w-0 items-center justify-center gap-2 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 rounded-2xl border-2 t-card font-display font-bold transition-[background-color,border-color,color,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
 
-type Tone = 'good' | 'bad' | 'plain';
+const BADGE_BASE = 'flex size-6 shrink-0 items-center justify-center rounded-full transition-colors duration-150';
 
-const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string }> = {
-  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border text-text hover:border-success/60 hover:bg-success/5' },
-  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border text-text hover:border-danger/60 hover:bg-danger/5' },
-  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border text-text hover:border-primary-400/60 hover:bg-primary-500/5' },
+type Tone = 'good' | 'bad' | 'plain' | 'muted';
+
+const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string; badgeIdle: string; badgeOn: string }> = {
+  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border/70 bg-surface text-text hover:border-success/60 hover:bg-success/5', badgeIdle: 'bg-success/12 text-success', badgeOn: 'bg-white/20 text-white' },
+  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border/70 bg-surface text-text hover:border-danger/60 hover:bg-danger/5', badgeIdle: 'bg-danger/12 text-danger', badgeOn: 'bg-white/20 text-white' },
+  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border/70 bg-surface text-text hover:border-primary-400/60 hover:bg-primary-500/5', badgeIdle: 'bg-primary-500/12 text-primary-700 dark:text-primary-300', badgeOn: 'bg-white/20 text-white' },
+  muted: { saved: '', picked: '', idle: 'border-border/70 bg-surface text-text-secondary hover:border-border-hover hover:text-text', badgeIdle: 'bg-surface-hover text-text-muted', badgeOn: '' },
 };
+
+
 
 const toneFor = (accepted: readonly string[], value: Answer): Tone =>
   accepted.length ? (accepted.includes(value) ? 'good' : 'bad') : 'plain';
@@ -149,7 +154,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     setReasonDraft(item.conditionalReasonValue ?? '');
     setEditingSaved(true);
     setPendingAnswer(item.booleanAnswer);
-    requestAnimationFrame(() => reasonRef.current?.focus());
   };
 
   const pickAnswer = (value: Answer) => {
@@ -191,7 +195,6 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     uploadImages.mutate({ itemId: item.id, files: Array.from(files), captureMethod, purpose: conditionalPurpose });
   };
 
-  const waitingOnFollowUp = pendingAnswer !== null && !readyToSave;
   const savedReason = pendingAnswer === null && item.isDone ? item.conditionalReasonValue : null;
   const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto)) || !!savedReason;
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
@@ -199,11 +202,102 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const canFollowUp = yesActions.length > 0 || noActions.length > 0 || !!item.conditionalReasonValue;
   const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending && item.allowNotApplicable !== false;
 
+  const pendingTone = pendingAnswer ? toneFor(accepted, pendingAnswer) : 'plain';
+  const pendingLabel = pendingAnswer === 'NO' ? labels.no : labels.yes;
+  const sheetTitle = needsReason
+    ? (pendingAnswer === 'NO' ? (item.itemType === 'PASS_FAIL' ? 'Why did it fail?' : 'Why is it No?') : `Why is it ${pendingLabel}?`)
+    : needsPhoto ? `Add a photo for ${pendingLabel}` : `Answer ${pendingLabel}`;
+
+  const cancelPending = () => {
+    discardSession();
+    closeEditor();
+    setReasonDraft(item.conditionalReasonValue ?? '');
+  };
+
+  const followUpBody = (
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-wrap gap-1.5" aria-label="Needed for this answer">
+        {activeActions.map((action) => {
+          const { label, icon } = FOLLOW_UP[action];
+          const done = action === 'ASK_REASON' ? reasonReady : action === 'REQUIRE_PHOTO' ? photoReady : true;
+          return (
+            <li key={action}>
+              <IconChip icon={done ? Check : icon} tone={done ? 'bg-success' : 'bg-warning'} label={label} labelClassName={done ? 'text-success' : 'text-warning'} />
+            </li>
+          );
+        })}
+        {saving && <li><IconChip icon={false} label="Saving" /></li>}
+      </ul>
+
+      {(needsReason || !!savedReason) && (
+        pendingAnswer ? (
+          <Textarea
+            ref={reasonRef}
+            id={reasonId}
+            label="Reason"
+            labelClassName="font-display font-medium"
+            autoFocus
+            value={reasonDraft}
+            onChange={(e) => setReasonDraft(e.target.value)}
+            onFocus={() => { typingRef.current = true; setTyping(true); }}
+            onBlur={() => { typingRef.current = false; setTyping(false); }}
+            rows={3}
+            maxLength={1000}
+            placeholder="Say what you saw. The reviewer reads this."
+            className="min-h-0 px-3 py-2 rounded-lg resize-none"
+          />
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 flex-1 t-meta font-display italic text-text"><span className="not-italic font-semibold text-text-muted">Reason: </span>"{item.conditionalReasonValue}"</p>
+            {interactive && needsReason && !!savedReason && (
+              <Button variant="ghost" size="sm" onClick={startEditReason} aria-label={`Edit reason: ${item.label}`}>
+                <Pencil size={13} aria-hidden />
+                Edit
+              </Button>
+            )}
+          </div>
+        )
+      )}
+
+      {needsPhoto && (
+        <div className="flex flex-col gap-2">
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {images.map((img) => (
+                <EvidenceThumb
+                  key={img.id}
+                  image={img}
+                  siblings={images}
+                  large={!pendingAnswer}
+                  onDelete={pendingAnswer && (!editingSaved || sessionIds.has(img.id)) ? deleteImage.mutate : undefined}
+                  deleting={deleteImage.isPending && deleteImage.variables === img.id}
+                />
+              ))}
+            </div>
+          )}
+          <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
+          {pendingAnswer && (
+            <div className="flex flex-wrap items-center gap-2">
+              <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={(files) => handleFiles(files, 'LIVE')} />
+              {!item.requiresLivePhoto && (
+                <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
+              )}
+              {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pendingAnswer && needsPhoto && photoReady && !needsReason && !saving && <p className="t-meta font-display text-text-muted">Saving in a moment. Add another photo now if you need one.</p>}
+    </div>
+  );
+
   const answerButton = (value: Answer) => {
     const label = value === 'YES' ? labels.yes : labels.no;
     const on = shownAnswer === value;
     const look = TONE_LOOK[toneFor(accepted, value)];
     const Icon = value === 'YES' ? Check : X;
+    const filled = on && item.isDone && !pendingAnswer;
     return (
       <button
         key={value}
@@ -213,12 +307,14 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         aria-pressed={on}
         className={cn(
           ANSWER_BASE,
-          on && item.isDone && !pendingAnswer ? look.saved : on ? look.picked : look.idle,
+          filled ? look.saved : on ? look.picked : look.idle,
           interactive ? 'cursor-pointer' : cn('cursor-not-allowed', !on && 'opacity-50'),
         )}
       >
-        <Icon size={17} strokeWidth={3} aria-hidden="true" />
-        {label}
+        <span className={cn(BADGE_BASE, filled ? look.badgeOn : look.badgeIdle)} aria-hidden="true">
+          <Icon size={14} strokeWidth={3} />
+        </span>
+        <span className="truncate">{label}</span>
       </button>
     );
   };
@@ -238,7 +334,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         <p className="t-meta text-text-muted">Reopened. It was answered {previousAnswer} before. Answer it again.</p>
       )}
 
-      <div className="flex items-center gap-2 sm:max-w-md">
+      <div className={cn('grid gap-2 sm:max-w-lg', canMarkNa ? 'grid-cols-[1fr_1fr_auto] sm:grid-cols-3' : 'grid-cols-2')} role="group" aria-label={`Answer: ${item.label}`}>
         {answerButton('YES')}
         {answerButton('NO')}
         {canMarkNa && (
@@ -246,9 +342,11 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             type="button"
             onClick={() => { haptic('tap'); setNaOpen(true); }}
             aria-label={`Mark not applicable: ${item.label}`}
-            className={cn(ANSWER_BASE, 'flex-none border-border text-text-muted hover:border-border-hover hover:text-text cursor-pointer')}
+            className={cn(ANSWER_BASE, TONE_LOOK.muted.idle, 'cursor-pointer')}
           >
-            <Ban size={16} strokeWidth={2.5} aria-hidden="true" />
+            <span className={cn(BADGE_BASE, TONE_LOOK.muted.badgeIdle)} aria-hidden="true">
+              <Ban size={13} strokeWidth={2.75} />
+            </span>
             N/A
           </button>
         )}
@@ -285,114 +383,38 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </ul>
       )}
 
-      {canFollowUp && (
-        <div
-          inert={!showFollowUp}
-          aria-hidden={!showFollowUp}
-          className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
-            showFollowUp ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-          )}
-        >
-        <div className="min-h-0 overflow-hidden">
-        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3">
-          <ul className="flex flex-wrap gap-1.5" aria-label="Needed for this answer">
-            {activeActions.map((action) => {
-              const { label, icon } = FOLLOW_UP[action];
-              const done = action === 'ASK_REASON' ? reasonReady : action === 'REQUIRE_PHOTO' ? photoReady : true;
-              return (
-                <li key={action}>
-                  <IconChip icon={done ? Check : icon} tone={done ? 'bg-success' : 'bg-warning'} label={label} labelClassName={done ? 'text-success' : 'text-warning'} />
-                </li>
-              );
-            })}
-            {saving && <li><IconChip icon={false} label="Saving" /></li>}
-          </ul>
-
-          {(needsReason || !!savedReason) && (
-            pendingAnswer ? (
-              <div className="flex flex-col gap-2">
-                <Textarea
-                  ref={reasonRef}
-                  id={reasonId}
-                  label="Reason"
-                  labelClassName="font-display font-medium"
-                  value={reasonDraft}
-                  onChange={(e) => setReasonDraft(e.target.value)}
-                  onFocus={() => { typingRef.current = true; setTyping(true); }}
-                  onBlur={() => { typingRef.current = false; setTyping(false); }}
-                  rows={2}
-                  placeholder="Why? It saves when you tap Save or leave this box."
-                  className="min-h-0 px-3 py-2 rounded-lg"
-                />
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {editingSaved && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { discardSession(); closeEditor(); setReasonDraft(item.conditionalReasonValue ?? ''); }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                  <ItemActionButton
-                    disabled={!readyToSave || uploading}
-                    isLoading={saving}
-                    aria-label={`Save reason: ${item.label}`}
-                    onClick={() => commit(pendingAnswer, reasonDraft.trim())}
-                  >
-                    Save
-                  </ItemActionButton>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="min-w-0 flex-1 t-meta font-display italic text-text"><span className="not-italic font-semibold text-text-muted">Reason: </span>"{item.conditionalReasonValue}"</p>
-                {interactive && needsReason && !!savedReason && (
-                  <Button variant="ghost" size="sm" onClick={startEditReason} aria-label={`Edit reason: ${item.label}`}>
-                    <Pencil size={13} aria-hidden />
-                    Edit
-                  </Button>
-                )}
-              </div>
-            )
-          )}
-
-          {needsPhoto && (
-            <div className="flex flex-col gap-2">
-              {images.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {images.map((img) => (
-                    <EvidenceThumb
-                      key={img.id}
-                      image={img}
-                      siblings={images}
-                      large={!pendingAnswer}
-                      onDelete={pendingAnswer && (!editingSaved || sessionIds.has(img.id)) ? deleteImage.mutate : undefined}
-                      deleting={deleteImage.isPending && deleteImage.variables === img.id}
-                    />
-                  ))}
-                </div>
-              )}
-              <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
-              {pendingAnswer && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={(files) => handleFiles(files, 'LIVE')} />
-                  {!item.requiresLivePhoto && (
-                    <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
-                  )}
-                  {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
-                </div>
-              )}
-            </div>
-          )}
-
-          {pendingAnswer && needsPhoto && photoReady && !needsReason && !saving && <p className="t-meta font-display text-text-muted">Saving in a moment. Add another photo now if you need one.</p>}
-          {waitingOnFollowUp && <p className="t-meta font-display text-text-muted">Tap the {shownAnswer === 'YES' ? labels.yes : labels.no} button again to go back.</p>}
-        </div>
-        </div>
+      {canFollowUp && pendingAnswer === null && showFollowUp && (
+        <div className="view-enter flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3">
+          {followUpBody}
         </div>
       )}
+
+      <Dialog open={pendingAnswer !== null} onOpenChange={(next) => { if (!next && !saving) cancelPending(); }}>
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-md">
+          <DialogHeader className="items-start text-left">
+            <span className={cn('flex size-11 items-center justify-center rounded-2xl text-white', pendingTone === 'bad' ? 'bg-danger' : pendingTone === 'good' ? 'bg-success-strong' : 'bg-primary-600')} aria-hidden="true">
+              {pendingAnswer === 'NO' ? <X size={20} strokeWidth={3} /> : <Check size={20} strokeWidth={3} />}
+            </span>
+            <DialogTitle className="text-lg">{sheetTitle}</DialogTitle>
+            <DialogDescription className="t-card font-medium text-text-secondary">{item.label}</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">{followUpBody}</div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" disabled={saving} onClick={cancelPending} className="pointer-coarse:h-12">Cancel</Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!readyToSave || uploading}
+              isLoading={saving}
+              onClick={() => { if (pendingAnswer) commit(pendingAnswer, needsReason ? reasonDraft.trim() : undefined); }}
+              className="pointer-coarse:h-12"
+            >
+              {!saving && <Check size={15} strokeWidth={2.75} aria-hidden="true" />}
+              Save {pendingAnswer === 'NO' ? labels.no : labels.yes}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {item.issueId && shownAnswer && !activeActions.includes('CREATE_ISSUE') && (
         <p className="flex items-start gap-1.5 t-meta font-display text-text-muted">

@@ -271,14 +271,9 @@ export const VerificationQueue = () => {
 
   const cleanRows = useMemo(() => visibleRows.filter((r) => r.risk.clean), [visibleRows]);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
-  const approveAllClean = useCallback(async () => {
-    const ids = cleanRows.map((r) => r.id);
+  const approveMany = useCallback(async (ids: string[], ask: { title: string; description: string }) => {
     if (ids.length === 0) return;
-    const ok = await confirm({
-      title: `Approve ${ids.length} ${ids.length === 1 ? 'checklist' : 'checklists'} with no issues?`,
-      description: `${filtersActive ? 'These are the ones with no issues in your current view. ' : ''}Each one is fully compliant, has its photos and was never sent back. They are approved right away.`,
-      confirmLabel: `Approve ${ids.length}`,
-    });
+    const ok = await confirm({ ...ask, confirmLabel: `Approve ${ids.length}` });
     if (!ok) return;
     hold(ids);
     if (latest.current.openId && ids.includes(latest.current.openId)) latest.current.patch({ open: null });
@@ -299,7 +294,17 @@ export const VerificationQueue = () => {
     setBulk(null);
     if (failed === 0) toast.success(`Approved ${saved} ${saved === 1 ? 'checklist' : 'checklists'}`);
     else toast.error(`Approved ${saved} of ${ids.length}. ${failed} could not be saved and are back in the list.`);
-  }, [cleanRows, confirm, filtersActive, hold, release, refresh]);
+  }, [confirm, hold, release, refresh]);
+
+  const approveAllClean = useCallback(() => approveMany(cleanRows.map((r) => r.id), {
+    title: `Approve ${cleanRows.length} ${cleanRows.length === 1 ? 'checklist' : 'checklists'} with no issues?`,
+    description: `${filtersActive ? 'These are the ones with no issues in your current view. ' : ''}Each one is fully compliant, has its photos and was never sent back. They are approved right away.`,
+  }), [approveMany, cleanRows, filtersActive]);
+
+  const approveEverything = useCallback(() => approveMany(visibleRows.map((r) => r.id), {
+    title: `Approve all ${visibleRows.length} ${visibleRows.length === 1 ? 'checklist' : 'checklists'}?`,
+    description: `${filtersActive ? 'Every checklist in your current view' : 'Every checklist waiting here'} is approved right away, including ones with failed answers or missing photos. Use this only when you have already checked them.`,
+  }), [approveMany, visibleRows, filtersActive]);
 
   const checklistsWaiting = Math.max(0, checklistTotal - heldInLoaded);
   const reviewedCount = decidedToday === null ? null : decidedToday + heldInLoaded;
@@ -427,6 +432,7 @@ export const VerificationQueue = () => {
                 cleanCount={cleanRows.length}
                 bulk={bulk}
                 onApproveAllClean={approveAllClean}
+                onApproveAll={viewer?.role === 'ADMIN' ? approveEverything : undefined}
                 hasMore={hasMore}
                 remaining={Math.max(0, checklistTotal - instances.length)}
                 isFetchingMore={checklistQuery.isFetchingNextPage}

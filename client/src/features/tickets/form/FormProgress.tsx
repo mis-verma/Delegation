@@ -2,14 +2,14 @@ import { useWatch, type Control } from 'react-hook-form';
 import { Check } from 'lucide-react';
 import type { TicketFields } from './ticketFormSchema';
 
-export const FormProgress = ({ control, requirePerson, showOnPhone }: {
+export const FormProgress = ({ control, showOnPhone }: {
   control: Control<TicketFields>;
-  requirePerson: boolean;
+  requirePerson?: boolean;
   showOnPhone: boolean;
 }) => {
-  const [title, description, mode, categoryId, departmentId, assigneeId, dueDate, dueTime] = useWatch({
+  const [title, description, mode, categoryId, departmentId, dueDate, dueTime] = useWatch({
     control,
-    name: ['title', 'description', 'assignmentMode', 'categoryId', 'departmentId', 'assigneeId', 'dueDate', 'dueTime'],
+    name: ['title', 'description', 'assignmentMode', 'categoryId', 'departmentId', 'dueDate', 'dueTime'],
   });
 
   const missing: string[] = [];
@@ -19,7 +19,6 @@ export const FormProgress = ({ control, requirePerson, showOnPhone }: {
     if (!categoryId) missing.push('category');
   } else {
     if (!categoryId && !departmentId) missing.push('department');
-    if (requirePerson && !categoryId && !assigneeId) missing.push('person');
     if (!dueDate || !dueTime) missing.push('due date');
   }
 

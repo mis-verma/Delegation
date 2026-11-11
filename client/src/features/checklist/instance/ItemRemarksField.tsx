@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react';
-import { MessageSquare, MessageSquareWarning, Ban, Pencil } from 'lucide-react';
+import { MessageSquare, MessageSquareWarning, Ban, Pencil, X } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { Button, Textarea } from '../../../components';
@@ -105,10 +105,16 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
 
   return (
     <Dialog open onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-base">{copy.title}</DialogTitle>
-          <DialogDescription className="t-meta">{item.label}</DialogDescription>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="items-start text-left">
+          <span
+            className={`flex size-11 items-center justify-center rounded-2xl ${mode === 'no' ? 'bg-danger text-white' : mode === 'na' ? 'bg-surface-hover text-text-secondary' : 'bg-primary-600 text-white'}`}
+            aria-hidden="true"
+          >
+            {mode === 'no' ? <X size={20} strokeWidth={3} /> : mode === 'na' ? <Ban size={19} strokeWidth={2.5} /> : <MessageSquare size={18} strokeWidth={2.5} />}
+          </span>
+          <DialogTitle className="text-lg">{copy.title}</DialogTitle>
+          <DialogDescription className="t-card font-medium text-text-secondary">{item.label}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
@@ -129,9 +135,9 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline" size="sm">Cancel</Button>
+            <Button type="button" variant="outline" className="pointer-coarse:h-12">Cancel</Button>
           </DialogClose>
-          <Button type="button" variant="primary" size="sm" onClick={save} disabled={saveDisabled} isLoading={mutation.isPending}>
+          <Button type="button" variant={mode === 'no' ? 'danger' : 'primary'} onClick={save} disabled={saveDisabled} isLoading={mutation.isPending} className="pointer-coarse:h-12">
             {removing ? 'Remove remark' : copy.save}
           </Button>
         </DialogFooter>

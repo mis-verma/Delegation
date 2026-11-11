@@ -236,7 +236,7 @@ export const Combobox = ({
               return (
                 <Fragment key={option.value || '__empty__'}>
                   {option.group && option.group !== shown[i - 1]?.group && (
-                    <li role="presentation" className={cn('px-3 pt-2 pb-0.5 t-meta font-display font-bold text-text-muted', i > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
+                    <li role="presentation" className={cn('sticky top-0 z-10 bg-surface px-3 pt-2.5 pb-1 t-meta font-display font-bold text-text-secondary', i > 0 && 'mt-1 border-t border-border/50')}>{option.group}</li>
                   )}
                 <li
                   id={optionId(option)}
@@ -248,19 +248,19 @@ export const Combobox = ({
                   }}
                   onMouseEnter={() => setHighlightedIndex(i)}
                   className={cn(
-                    'flex items-center justify-between gap-2 px-3 py-2.5 pointer-coarse:min-h-11 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
+                    'flex items-center justify-between gap-3 px-3 py-2.5 min-h-10 pointer-coarse:min-h-11 rounded-lg text-sm leading-snug font-display font-medium cursor-pointer transition-colors duration-150',
                     isSelected
                       ? 'bg-gradient-to-r from-primary-500/15 to-primary-500/5 text-primary-700 dark:text-primary-300 font-semibold'
                       : isHighlighted
                         ? 'bg-primary-500/8 text-text'
                         : 'text-text hover:bg-primary-500/8',
                     !option.value && !isSelected && 'text-text-muted italic',
-                    option.group && 'py-1.5 pl-5'
+                    option.group && 'pl-5'
                   )}
                 >
-                  <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>
+                  <span className="min-w-0 line-clamp-2 break-words" title={option.label}>{highlightMatch(option.label, trimmedQuery)}</span>
                   <span className="flex items-center gap-2 shrink-0 min-w-0">
-                    {option.hint && <span className="truncate max-w-28 t-meta font-medium text-text-muted">{option.hint}</span>}
+                    {option.hint && <span className="whitespace-nowrap rounded-md bg-surface-hover px-1.5 py-0.5 t-meta font-semibold tabular-nums text-text-secondary">{option.hint}</span>}
                     {isSelected && (
                       <span className="flex items-center justify-center size-4 rounded-full bg-primary-800 text-white shrink-0">
                         <Check size={10} strokeWidth={3.5} />

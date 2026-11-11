@@ -128,3 +128,21 @@ export const periodReportQuerySchema = z.object({
 }).refine((q) => q.from <= q.to, "From must be on or before To")
   .refine((q) => Date.parse(q.to + "T00:00:00Z") - Date.parse(q.from + "T00:00:00Z") <= 366 * 86_400_000, "Pick at most one year")
 
+
+const testRunFilter = {
+    userIds: z.array(objectId).min(1).max(50),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+}
+
+export const testRunPreviewSchema = z.object(testRunFilter).refine((v) => !v.from || !v.to || v.from < v.to, { message: "The start has to be before the end.", path: ["to"] })
+
+export const testRunDeleteSchema = z.object({
+    ...testRunFilter,
+    expectedCount: z.number().int().min(0),
+    reason: z.string().trim().min(3, "Say why these runs are being deleted.").max(500),
+}).refine((v) => !v.from || !v.to || v.from < v.to, { message: "The start has to be before the end.", path: ["to"] })
+
+export const deleteRunSchema = z.object({
+    reason: z.string().trim().min(3, "Say why this run is being deleted.").max(500),
+})

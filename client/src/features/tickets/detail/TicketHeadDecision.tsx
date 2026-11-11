@@ -3,7 +3,7 @@ import type { Ticket } from '../../../api/ticket';
 import { AssigneeField } from '../../assignees/AssigneeField';
 import { useApproveAssignmentMutation, useAssignableUsersQuery } from '../hook';
 import { TatHoursPicker } from '../claim/TatHoursPicker';
-import { headApproveLabel } from '../claim/ticketClaim';
+import { headApproveLabel, wholeHours } from '../claim/ticketClaim';
 import { HeadDecisionPanel } from './HeadDecisionPanel';
 
 interface TicketHeadDecisionProps {
@@ -18,7 +18,7 @@ export const TicketHeadDecision = ({ ticket, departmentName, canDecide, isDeclin
   const approveMut = useApproveAssignmentMutation();
   const needsPerson = !ticket.assigneeId;
   const { data: people, isLoading: loadingPeople } = useAssignableUsersQuery(ticket.departmentId ?? undefined, undefined, undefined, canDecide && needsPerson);
-  const [tatHours, setTatHours] = useState<number | null>(ticket.tatHours ?? null);
+  const [tatHours, setTatHours] = useState<number | null>(() => wholeHours(ticket.tatHours));
   const [pickedId, setPickedId] = useState('');
   const hasPerson = !needsPerson || !!pickedId;
   const raiserName = ticket.raisedBy?.firstName ?? 'Someone';
