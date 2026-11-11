@@ -71,7 +71,7 @@
   --color-gold: #d1ad53;
   --color-gold-leaf: #e5c982;
   --color-gold-deep: #765a00;
-  --font-display: "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 17.5rem;
