@@ -103,11 +103,12 @@ export const HomePage = () => {
   };
 
   const summaries = useDashboardSummaries(ownStats ? 'mine' : undefined);
-  const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, true, DASHBOARD_QUERY_OPTIONS);
+  const onWorkTab = !hasTabs || tab === 'work';
+  const ticketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, onWorkTab, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
-  const tasksQuery = useDashboardTasksQuery(true, DASHBOARD_QUERY_OPTIONS);
-  const myTasksQuery = useDashboardMyTasksQuery(!frontLine, DASHBOARD_QUERY_OPTIONS);
-  const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
+  const tasksQuery = useDashboardTasksQuery(onWorkTab, DASHBOARD_QUERY_OPTIONS);
+  const myTasksQuery = useDashboardMyTasksQuery(onWorkTab && !frontLine, DASHBOARD_QUERY_OPTIONS);
+  const todosQuery = useTodosQuery(onWorkTab, DASHBOARD_QUERY_OPTIONS);
   const focusRunsQuery = useMyFocusChecklistsQuery(DASHBOARD_QUERY_OPTIONS);
   const approvalBuckets = usePcApprovalBuckets();
   const exceptionTotals = useExceptionTotalsQuery();
@@ -242,7 +243,7 @@ export const HomePage = () => {
             {tab === 'approvals' && (
               <>
                 {dashboardView.reviewsTicketRequests && <TicketRequestsCard />}
-                <NeedsApprovalCard />
+                <NeedsApprovalCard full />
               </>
             )}
           </div>

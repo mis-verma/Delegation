@@ -10,7 +10,7 @@ import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { usePcApprovalBuckets } from '../pc/usePcApprovalBuckets';
-import { ApprovalStatsStrip, type ApprovalBucket } from './ApprovalStatsStrip';
+import { ApprovalStatsStrip, type ApprovalBucket, type ApprovalKind } from './ApprovalStatsStrip';
 import { SendBackDialog } from './SendBackDialog';
 import { canDecideInline, rowKey, useInlineDecisions } from './useInlineDecisions';
 import { useQueueShortcuts } from '../verification/useQueueShortcuts';
@@ -21,7 +21,12 @@ import { ACTIVITY_CATEGORY_LABEL } from './dashboardDisplay';
 import { CATEGORY_PILL } from './categoryLook';
 import { DashCardHeader, DashCardLink } from './DashCardHeader';
 
-type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
+type ApprovalCategory = ApprovalKind;
+
+const CATEGORIES: readonly ApprovalCategory[] = ['ticket', 'delegation', 'checklist'];
+const CATEGORY_PLURAL: Record<ApprovalCategory, string> = { ticket: 'Tickets', delegation: 'Delegations', checklist: 'Checklists' };
+const GROUP_LIMIT = 3;
+const MOBILE_GROUP_LIMIT = 2;
 
 export interface ApprovalRow {
   id: string;
@@ -69,7 +74,7 @@ export const ApprovalLink = memo(({ row, now, selected = false, actions }: Appro
 ));
 ApprovalLink.displayName = 'ApprovalLink';
 
-export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; hideOpenWork?: boolean }) => {
+export const NeedsApprovalCard = ({ hideStats = false, full = false }: { hideStats?: boolean; full?: boolean }) => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
   const now = useNow();
@@ -109,11 +114,25 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
     const lateBefore = now - LATE_MS;
     return allRows.filter((r) => (new Date(r.waitingSince).getTime() < lateBefore) === (bucket === 'late'));
   }, [allRows, bucket, now]);
-  const activeFilter = filter !== 'all' && bucketRows.some((r) => r.category === filter) ? filter : 'all';
+  const typeTotals: Record<ApprovalCategory, number> = {
+    ticket: buckets.ticket.pending,
+    delegation: buckets.delegation.pending,
+    checklist: buckets.checklist.pending,
+  };
+  const activeFilter: 'all' | ApprovalCategory = full
+    ? (filter !== 'all' && typeTotals[filter] > 0 ? filter : 'all')
+    : (filter !== 'all' && bucketRows.some((r) => r.category === filter) ? filter : 'all');
   const rows = useMemo(() => (activeFilter === 'all' ? bucketRows : bucketRows.filter((r) => r.category === activeFilter)), [bucketRows, activeFilter]);
 
   const previewLimit = isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT;
-  const visible = useMemo(() => rows.slice(0, previewLimit), [rows, previewLimit]);
+  const groupLimit = isMobile ? MOBILE_GROUP_LIMIT : GROUP_LIMIT;
+  const grouped = full && activeFilter === 'all';
+  const visible = useMemo(
+    () => (grouped
+      ? CATEGORIES.flatMap((c) => rows.filter((r) => r.category === c).slice(0, groupLimit))
+      : full ? rows : rows.slice(0, previewLimit)),
+    [grouped, full, rows, groupLimit, previewLimit],
+  );
   const canDecide = reviewsAllWork;
 
   const selectedRow = useMemo(() => visible.find((r) => rowKey(r) === selectedKey) ?? null, [visible, selectedKey]);
@@ -144,8 +163,15 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
   if (!showsStats && !hasError && (isPending || total === 0)) return null;
 
   const unfiltered = bucket === 'all' && activeFilter === 'all';
-  const notLoaded = unfiltered ? Math.max(0, total - allRows.length) : 0;
-  const moreCount = rows.length - visible.length + notLoaded;
+  const typeNotLoaded = full && activeFilter !== 'all' && bucket === 'all' ? Math.max(0, typeTotals[activeFilter] - rows.length) : 0;
+  const notLoaded = unfiltered ? Math.max(0, total - allRows.length) : typeNotLoaded;
+  const moreCount = grouped ? 0 : rows.length - visible.length + notLoaded;
+  const typeQueueHref = (category: ApprovalCategory): string | null => {
+    if (!queueHref) return null;
+    if (reviewsAllWork) return `/verify?tab=${category === 'ticket' ? 'tickets' : category === 'delegation' ? 'delegations' : 'checklists'}`;
+    return category === 'checklist' ? '/tickets/approvals?tab=checklists' : '/tickets/approvals';
+  };
+  const moreHref = activeFilter === 'all' ? queueHref : typeQueueHref(activeFilter) ?? queueHref;
   const bucketExpected = bucket === 'late' ? buckets.total.old : bucket === 'fresh' ? buckets.total.fresh : 0;
   const partial = bucket !== 'all' && activeFilter === 'all' && bucketExpected > rows.length;
 
@@ -156,12 +182,66 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
   ].filter(Boolean) as { label: string; retry: () => void }[];
 
   const countOf = (c: ApprovalCategory) => bucketRows.filter((r) => r.category === c).length;
-  const filterOptions = (['ticket', 'delegation', 'checklist'] as const)
+  const filterOptions = CATEGORIES
     .filter((c) => countOf(c) > 0)
     .map((c) => ({ value: c, label: `${ACTIVITY_CATEGORY_LABEL[c]}s ${countOf(c)}` }));
+  const typeOptions: { value: 'all' | ApprovalCategory; label: string }[] = [
+    { value: 'all', label: `All ${total}` },
+    ...CATEGORIES.filter((c) => typeTotals[c] > 0).map((c) => ({ value: c as 'all' | ApprovalCategory, label: `${CATEGORY_PLURAL[c]} ${typeTotals[c]}` })),
+  ];
 
   const nothingToShow = allRows.length === 0;
   const allCaughtUp = nothingToShow && !hasError && !isPending;
+
+  const renderRow = (row: ApprovalRow) => (
+    <motion.div
+      key={rowKey(row)}
+      layout={reduceMotion ? false : 'position'}
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.8 }}
+    >
+      <ApprovalLink
+        row={row}
+        now={now}
+        selected={rowKey(row) === selectedKey}
+        actions={canDecide && canDecideInline(row) ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setSendBackRow(row)}
+              aria-label={`Send back ${row.title}`}
+              title="Send back (S)"
+              className="inline-flex size-11 cursor-pointer items-center justify-center gap-1.5 rounded-full t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-vivid-red/10 hover:text-vivid-red-text focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 sm:w-auto sm:px-3 pointer-fine:h-9"
+            >
+              <Undo2 className="size-4 sm:hidden" aria-hidden="true" />
+              <span className="max-sm:hidden">Send back</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => approve(row)}
+              aria-label={`Approve ${row.title}`}
+              title="Approve (A)"
+              className="inline-flex h-11 cursor-pointer items-center rounded-full bg-vivid-green px-4 t-meta font-display font-bold text-on-vivid outline-none transition-colors duration-150 hover:bg-vivid-green/85 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 pointer-fine:h-9"
+            >
+              Approve
+            </button>
+          </>
+        ) : canDecide ? (
+          <Link
+            to={row.link}
+            viewTransition
+            aria-label={`Review ${row.title}`}
+            className="inline-flex h-11 items-center gap-1 rounded-full border border-border px-4 t-meta font-display font-bold text-text outline-none transition-colors duration-150 hover:border-border-hover hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] pointer-fine:h-9"
+          >
+            Review
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        ) : undefined}
+      />
+    </motion.div>
+  );
 
   return (
     <section aria-labelledby="needs-approval-heading" onPointerEnter={() => setEngaged(true)}
@@ -179,7 +259,7 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
       />
 
       {showsStats && !hideStats && !allCaughtUp && (
-        <StatsBoundary label="Approval figures"><ApprovalStatsStrip bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
+        <StatsBoundary label="Approval figures"><ApprovalStatsStrip kind={full ? activeFilter : 'all'} bucket={bucket} onBucket={pickBucket} /></StatsBoundary>
       )}
 
       {failedSources.length > 0 && (
@@ -214,11 +294,15 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
               ref={listRef}
               className={cn(
                 'scroll-mt-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-3 pb-1 sm:px-5',
-                bucket === 'all' && filterOptions.length <= 1 ? 'hidden sm:flex' : 'flex',
+                full || bucket !== 'all' || filterOptions.length > 1 ? 'flex' : 'hidden sm:flex',
               )}
             >
               <h3 className="t-meta font-display font-bold text-text">{BUCKET_TITLE[bucket]}</h3>
-              {filterOptions.length > 1 && (
+              {full ? (
+                typeOptions.length > 2 && (
+                  <Segmented label="Show approvals of one type" value={activeFilter} onChange={setFilter} options={typeOptions} className="w-full sm:w-auto" />
+                )
+              ) : filterOptions.length > 1 && (
                 <div className="max-sm:hidden">
                   <Segmented label="Filter approvals by type" value={activeFilter} onChange={(v) => setFilter(v === activeFilter ? 'all' : v)} options={filterOptions} />
                 </div>
@@ -226,48 +310,45 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
             </div>
 
             <div className="flex flex-col divide-y divide-border/60">
-              <AnimatePresence initial={false} mode="popLayout">
-              {visible.map((row) => (
-                <motion.div
-                  key={rowKey(row)}
-                  layout={reduceMotion ? false : 'position'}
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.8 }}
-                >
-                <ApprovalLink
-                  row={row}
-                  now={now}
-                  selected={rowKey(row) === selectedKey}
-                  actions={canDecide && canDecideInline(row) ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setSendBackRow(row)}
-                        aria-label={`Send back ${row.title}`}
-                        title="Send back (S)"
-                        className="inline-flex size-11 cursor-pointer items-center justify-center gap-1.5 rounded-full t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-vivid-red/10 hover:text-vivid-red-text focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 sm:w-auto sm:px-3 pointer-fine:h-9"
-                      >
-                        <Undo2 className="size-4 sm:hidden" aria-hidden="true" />
-                        <span className="max-sm:hidden">Send back</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => approve(row)}
-                        aria-label={`Approve ${row.title}`}
-                        title="Approve (A)"
-                        className="inline-flex h-11 cursor-pointer items-center rounded-full bg-vivid-green px-4 t-meta font-display font-bold text-on-vivid outline-none transition-colors duration-150 hover:bg-vivid-green/85 focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-[0.97] disabled:opacity-50 pointer-fine:h-9"
-                      >
-                        Approve
-                      </button>
-                    </>
-                  ) : undefined}
-                />
-                </motion.div>
-              ))}
-              </AnimatePresence>
-              {visible.length === 0 && (
+              {grouped ? (
+                CATEGORIES.map((category) => {
+                  const items = rows.filter((r) => r.category === category);
+                  const groupTotal = bucket === 'all' ? Math.max(typeTotals[category], items.length) : items.length;
+                  if (groupTotal === 0) return null;
+                  const shown = items.slice(0, groupLimit);
+                  const hidden = groupTotal - shown.length;
+                  return (
+                    <div key={category} role="group" aria-label={`${CATEGORY_PLURAL[category]} waiting for approval`} className="flex flex-col divide-y divide-border/60">
+                      <div className="flex items-center justify-between gap-3 bg-surface-hover/40 px-4 py-2 sm:px-5">
+                        <h4 className="flex items-center gap-2 t-meta font-display font-bold text-text">
+                          <span className={cn('rounded-full px-2 py-0.5', CATEGORY_PILL[category])}>{CATEGORY_PLURAL[category]}</span>
+                          <span className="tabular-nums text-text-muted">{groupTotal}</span>
+                        </h4>
+                        {hidden > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFilter(category)}
+                            aria-label={`See all ${groupTotal} ${CATEGORY_PLURAL[category].toLowerCase()} waiting`}
+                            className="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-md px-1 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:min-h-8"
+                          >
+                            See all {groupTotal}
+                            <ChevronRight className="size-3.5" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                      {shown.map(renderRow)}
+                      {shown.length === 0 && (
+                        <p className="px-4 py-3 t-meta font-medium text-text-muted sm:px-5">{groupTotal} waiting. Tap See all to open them.</p>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <AnimatePresence initial={false} mode="popLayout">
+                  {visible.map(renderRow)}
+                </AnimatePresence>
+              )}
+              {visible.length === 0 && !grouped && (
                 <div className="flex flex-col items-center gap-2 px-4 py-6 text-center sm:px-5">
                   <p className="t-card font-display font-semibold text-text">Nothing in this view</p>
                   <button
@@ -287,13 +368,13 @@ export const NeedsApprovalCard = ({ hideStats = false }: { hideStats?: boolean; 
       <div className="mt-auto flex flex-col">
       {partial ? (
         <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">
-          Showing {visible.length} of {bucketExpected}.{queueHref ? ' ' : ''}
-          {queueHref && <Link to={queueHref} viewTransition className="font-semibold text-text-secondary underline underline-offset-2 hover:text-text">Open the queue for the rest</Link>}
+          Showing {visible.length} of {bucketExpected}.{moreHref ? ' ' : ''}
+          {moreHref && <Link to={moreHref} viewTransition className="font-semibold text-text-secondary underline underline-offset-2 hover:text-text">Open the queue for the rest</Link>}
         </p>
       ) : moreCount > 0 && (
-        queueHref ? (
+        moreHref ? (
           <Link
-            to={queueHref}
+            to={moreHref}
             viewTransition
             className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2 sm:px-5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 hover:text-text focus-visible:bg-surface-hover"
           >

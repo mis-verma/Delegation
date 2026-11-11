@@ -13,13 +13,22 @@ import { windowFor } from './scorePeriods';
 import { orgDayWindow } from './scoreDrill';
 
 export type ApprovalBucket = 'all' | 'late' | 'fresh';
+export type ApprovalKind = 'ticket' | 'delegation' | 'checklist';
+
+const KIND_TITLE: Record<ApprovalKind | 'all', string> = {
+  all: 'Waiting for your decision',
+  ticket: 'Tickets waiting for your decision',
+  delegation: 'Delegations waiting for your decision',
+  checklist: 'Checklists waiting for your decision',
+};
 
 interface ApprovalStatsStripProps {
+  kind?: ApprovalKind | 'all';
   bucket?: ApprovalBucket;
   onBucket?: (bucket: ApprovalBucket) => void;
 }
 
-export const ApprovalStatsStrip = memo(({ bucket = 'all', onBucket }: ApprovalStatsStripProps) => {
+export const ApprovalStatsStrip = memo(({ kind = 'all', bucket = 'all', onBucket }: ApprovalStatsStripProps) => {
   const today = useOrgToday();
   const win = windowFor('week', 0, today);
   const to = win.to > today ? today : win.to;
@@ -42,17 +51,18 @@ export const ApprovalStatsStrip = memo(({ bucket = 'all', onBucket }: ApprovalSt
 
   const rate = data?.rate ?? null;
   const avg = data?.avgDecisionHours ?? null;
-  const { pending, old, fresh } = buckets.total;
+  const { pending, old, fresh } = kind === 'all' ? buckets.total : buckets[kind];
+  const scope = kind === 'all' ? '' : ' of this type';
   const pick = (next: ApprovalBucket) => (onBucket ? () => onBucket(bucket === next ? 'all' : next) : toQueue ? () => navigate(toQueue) : undefined);
   const cells: FigureCell[] = [
-    { key: 'pending', label: 'Pending', value: pending, note: pending === 0 ? 'All decided' : 'Waiting for you', help: 'Everything handed in that is still waiting for your decision. Tap to show them all.', onClick: pick('all') },
-    { key: 'delayed', label: 'Delayed', value: old, note: old === 0 ? 'None late' : 'Over 24 hours', alert: old > 0, help: 'Waiting items that have passed the 24 hour limit. Tap to show only these.', selected: bucket === 'late', onClick: pick('late') },
-    { key: 'new', label: 'New', value: fresh, note: 'Under 24 hours', help: 'Items that arrived in the last 24 hours. Tap to show only these.', selected: bucket === 'fresh', onClick: pick('fresh') },
-    { key: 'ontime', label: 'On time', value: rate === null ? null : `${Math.round(rate)}%`, note: 'This week', alert: rate !== null && rate < FAIR_FROM, help: `Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`, onClick: toQueue ? () => navigate(toQueue) : undefined },
+    { key: 'pending', label: 'Pending', value: pending, note: pending === 0 ? 'All decided' : 'Waiting for you', help: `Everything handed in${scope} that is still waiting for your decision. Tap to show them all.`, onClick: pick('all') },
+    { key: 'delayed', label: 'Delayed', value: old, note: old === 0 ? 'None late' : 'Over 24 hours', alert: old > 0, help: `Waiting items${scope} that have passed the 24 hour limit. Tap to show only these.`, selected: bucket === 'late', onClick: pick('late') },
+    { key: 'new', label: 'New', value: fresh, note: 'Under 24 hours', help: `Items${scope} that arrived in the last 24 hours. Tap to show only these.`, selected: bucket === 'fresh', onClick: pick('fresh') },
+    { key: 'ontime', label: 'On time', value: rate === null ? null : `${Math.round(rate)}%`, note: 'This week, all types', alert: rate !== null && rate < FAIR_FROM, help: `Share of this week's decisions made within 24 hours.${avg === null ? '' : ` Average decision time ${formatDuration(avg)}.`}`, onClick: toQueue ? () => navigate(toQueue) : undefined },
   ];
 
   return (
-    <ApprovalSection title="Waiting for your decision" className="@container">
+    <ApprovalSection title={KIND_TITLE[kind]} className="@container">
       <FigurePanel cells={cells} label="Approval figures" loading={loading || buckets.approvals.isPending} phoneColumns={2} compact />
     </ApprovalSection>
   );
