@@ -88,7 +88,13 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   ];
 
   return (
-    <header className={`relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30`}>
+    <header
+      className={cn(
+        'relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30',
+        'max-sm:border-primary-500/15 max-sm:bg-linear-to-br max-sm:from-primary-500/[0.11] max-sm:via-primary-500/[0.03] max-sm:to-gold/[0.10]',
+        'dark:max-sm:border-primary-400/20 dark:max-sm:from-primary-400/[0.16] dark:max-sm:via-primary-400/[0.05] dark:max-sm:to-gold/[0.07]',
+      )}
+    >
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {showBack && (
