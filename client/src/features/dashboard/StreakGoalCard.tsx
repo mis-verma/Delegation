@@ -1,10 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
-import { Flame, Minus, Plus } from 'lucide-react';
+import { Check, Flame, Minus, Plus, Target, Trophy, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineError, Segmented, Skeleton } from '../../components';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { DashCardHeader } from './DashCardHeader';
-import { STAT_FIGURE } from '../../components/statSurface';
 import { formatPct } from '../../lib/percent';
 import {
   GOAL_MAX, GOAL_MIN, GOAL_STEP, STREAK_KINDS, STREAK_LABEL, STREAK_TITLE,
@@ -24,6 +23,23 @@ const StepButton = ({ label, onClick, disabled, children }: { label: string; onC
   >
     {children}
   </button>
+);
+
+const SHOWN_DAYS = 14;
+
+const Figure = ({ icon: Icon, tone, value, unit, label }: { icon: LucideIcon; tone: string; value: ReactNode; unit: string; label: string }) => (
+  <div className="flex min-w-0 flex-col gap-1.5 rounded-xl bg-surface-hover/50 p-3 ring-1 ring-inset ring-border/50">
+    <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
+      <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone)} aria-hidden="true">
+        <Icon size={12} strokeWidth={2.5} />
+      </span>
+      <span className="truncate">{label}</span>
+    </span>
+    <span className="flex items-baseline gap-1">
+      <span className="t-stat font-figure font-extrabold leading-none tabular-nums text-text">{value}</span>
+      <span className="t-meta font-medium text-text-muted">{unit}</span>
+    </span>
+  </div>
 );
 
 const StreakSkeleton = () => (
@@ -55,7 +71,7 @@ export const StreakGoalCard = () => {
   const summary = useMemo(() => summariseStreak(days, goal), [days, goal]);
   const hasData = days.some((d) => d.value !== null);
 
-  const header = <DashCardHeader id="streak-heading" title={STREAK_TITLE[activeKind]} subtitle={`A streak is days in a row you scored ${goal}% or more. Days with nothing due are skipped.`} />;
+  const header = <DashCardHeader id="streak-heading" title={STREAK_TITLE[activeKind]} />;
   const shell = (body: ReactNode) => (
     <section aria-labelledby="streak-heading" className={cn(PANEL_CLASS, 'flex h-full flex-col overflow-hidden')}>
       {header}
@@ -78,84 +94,81 @@ export const StreakGoalCard = () => {
   const hot = summary.current >= 3;
   const met = days.filter((d) => d.value !== null && d.value >= goal).length;
   const counted = days.filter((d) => d.value !== null).length;
+  const recent = days.slice(-SHOWN_DAYS);
+  const lastDate = recent[recent.length - 1]?.date;
 
   return shell(
-    <div className="@container flex flex-col p-4 sm:p-5">
-      <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-center @3xl:gap-8">
-        <div className="flex flex-col gap-3 @3xl:w-80 @3xl:shrink-0">
-          {available.length > 1 && (
-            <Segmented
-              label="Streak type"
-              value={activeKind}
-              onChange={setKind}
-              options={available.map((k) => ({ value: k, label: STREAK_LABEL[k] }))}
-              className="self-start"
-            />
-          )}
+    <div className="flex flex-col gap-4 p-4 sm:p-5">
+      {available.length > 1 && (
+        <Segmented
+          label="Streak type"
+          value={activeKind}
+          onChange={setKind}
+          options={available.map((k) => ({ value: k, label: STREAK_LABEL[k] }))}
+          className="self-start"
+        />
+      )}
 
-          <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2">
-              <Flame className={cn('size-6 shrink-0', summary.current > 0 ? 'text-coral-500' : 'text-text-light', hot && 'live-dot')} strokeWidth={2.25} aria-hidden="true" />
-              <span className={cn('t-figure', STAT_FIGURE, summary.current > 0 ? 'text-text' : 'text-text-muted')}>{summary.current}</span>
-              <span className="t-card font-display font-bold text-text">{summary.current === 1 ? 'day in a row' : 'days in a row'}</span>
-            </p>
-            <dl className="flex flex-col items-end gap-0.5 t-meta font-medium text-text-muted">
-              <div className="flex items-baseline gap-1.5">
-                <dt>Longest run, last 28 days</dt>
-                <dd className="font-display font-bold tabular-nums text-text">{summary.best}</dd>
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <dt>Days you hit the goal</dt>
-                <dd className="font-display font-bold tabular-nums text-text">{met} of {counted}</dd>
-              </div>
-            </dl>
-          </div>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <Figure icon={Flame} tone={summary.current > 0 ? 'bg-coral-500' : 'bg-text-muted'} value={<span className={cn(hot && 'live-dot')}>{summary.current}</span>} unit={summary.current === 1 ? 'day' : 'days'} label="Current streak" />
+        <Figure icon={Trophy} tone="bg-primary-600" value={summary.best} unit={summary.best === 1 ? 'day' : 'days'} label="Best run" />
+        <Figure icon={Target} tone="bg-success" value={met} unit={`of ${counted}`} label="Goal hit" />
+      </div>
 
-          <div className="hidden items-center justify-between gap-3 pt-1 sm:flex">
-            <span className="t-meta font-display font-semibold text-text-secondary">Score to hit each day</span>
-            <div className="flex items-center gap-2">
-              <StepButton label={`Lower the goal to ${goal - GOAL_STEP} percent`} onClick={() => setGoal(goal - GOAL_STEP)} disabled={goal <= GOAL_MIN}>
-                <Minus size={14} aria-hidden="true" />
-              </StepButton>
-              <span className="min-w-12 text-center t-card font-display font-extrabold tabular-nums text-text" aria-live="polite">{goal}%</span>
-              <StepButton label={`Raise the goal to ${goal + GOAL_STEP} percent`} onClick={() => setGoal(goal + GOAL_STEP)} disabled={goal >= GOAL_MAX}>
-                <Plus size={14} aria-hidden="true" />
-              </StepButton>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2">
+        <span className="flex flex-col">
+          <span className="t-card font-display font-semibold text-text">Daily goal</span>
+          <span className="t-meta text-text-muted">Score {goal}% or more to keep the streak going.</span>
+        </span>
+        <div className="flex items-center gap-2">
+          <StepButton label={`Lower the goal to ${goal - GOAL_STEP} percent`} onClick={() => setGoal(goal - GOAL_STEP)} disabled={goal <= GOAL_MIN}>
+            <Minus size={14} aria-hidden="true" />
+          </StepButton>
+          <span className="min-w-12 text-center t-card font-display font-extrabold tabular-nums text-text" aria-live="polite">{goal}%</span>
+          <StepButton label={`Raise the goal to ${goal + GOAL_STEP} percent`} onClick={() => setGoal(goal + GOAL_STEP)} disabled={goal >= GOAL_MAX}>
+            <Plus size={14} aria-hidden="true" />
+          </StepButton>
         </div>
+      </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <ol
-            className="grid grid-cols-7 gap-1.5 @xl:grid-cols-14 @6xl:grid-cols-28"
-            aria-label={`Last ${days.length} days against your ${goal} percent goal`}
-          >
-            {days.map((d) => {
-              const state = d.value === null ? 'none' : d.value >= goal ? 'met' : 'missed';
-              return (
-                <li
-                  key={d.date}
-                  title={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : formatPct(d.value)}`}
-                  aria-label={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : `${formatPct(d.value)}, ${state === 'met' ? 'goal met' : 'below the goal'}`}`}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="t-meta font-display font-semibold text-text-secondary">Last {recent.length} days</span>
+          <span className="flex items-center gap-3 t-meta text-text-muted" aria-hidden="true">
+            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-success text-white"><Check size={9} strokeWidth={3.5} /></span>Hit</span>
+            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-danger/15 text-danger"><X size={9} strokeWidth={3.5} /></span>Missed</span>
+            <span className="inline-flex items-center gap-1"><span className="size-3.5 rounded bg-surface-hover" />Nothing due</span>
+          </span>
+        </div>
+        <ol className="grid grid-cols-7 gap-1.5 sm:grid-cols-14" aria-label={`Last ${recent.length} days against your ${goal} percent goal`}>
+          {recent.map((d) => {
+            const state = d.value === null ? 'none' : d.value >= goal ? 'met' : 'missed';
+            const isToday = d.date === lastDate;
+            return (
+              <li
+                key={d.date}
+                title={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : formatPct(d.value)}`}
+                aria-label={`${d.label} ${dayNumber(d.date)}: ${d.value === null ? 'nothing due' : `${formatPct(d.value)}, ${state === 'met' ? 'goal hit' : 'goal missed'}`}`}
+                className="flex flex-col items-center gap-1"
+              >
+                <span className={cn('t-meta font-display font-semibold leading-none', isToday ? 'text-text' : 'text-text-muted')}>{dayLetter(d.date)}</span>
+                <span
                   className={cn(
-                    'flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl font-display leading-none transition-colors duration-150',
-                    state === 'met' && 'bg-vivid-green/15 text-vivid-green-text',
-                    state === 'missed' && 'bg-vivid-red/10 text-vivid-red-text',
-                    state === 'none' && 'bg-surface-hover/60 text-text-muted',
+                    'flex aspect-square w-full max-w-11 items-center justify-center rounded-lg',
+                    state === 'met' && 'bg-success text-white',
+                    state === 'missed' && 'bg-danger/12 text-danger ring-1 ring-inset ring-danger/25',
+                    state === 'none' && 'bg-surface-hover/70 text-text-light',
+                    isToday && 'ring-2 ring-primary-500/60 ring-offset-1 ring-offset-surface',
                   )}
                 >
-                  <span className="t-meta font-extrabold tabular-nums">{dayNumber(d.date)}</span>
-                  <span className="t-meta font-semibold opacity-80">{dayLetter(d.date)}</span>
-                </li>
-              );
-            })}
-          </ol>
-          <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted sm:flex" aria-hidden="true">
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-green/30" />Hit the goal</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-vivid-red/25" />Missed it</span>
-            <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded-md bg-surface-hover" />Nothing due</span>
-          </div>
-        </div>
+                  {state === 'met' ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : state === 'missed' ? <X size={14} strokeWidth={3} aria-hidden="true" /> : null}
+                </span>
+                <span className="t-meta tabular-nums leading-none text-text-muted">{dayNumber(d.date)}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="t-meta text-text-muted">Days with nothing due don't break the streak. Best run and Goal hit count the last {days.length} days.</p>
       </div>
     </div>,
   );

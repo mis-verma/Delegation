@@ -38,6 +38,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
   }, [matrix, module, measure, lowestFirst, totalLabel, maxRows, showTotal]);
 
   const noun = PERIOD_NOUN[period];
+  const weekday = (day: string) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(`${day}T00:00:00Z`).getUTCDay()] ?? '';
 
   const move = (e: KeyboardEvent<HTMLTableElement>) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
@@ -61,16 +62,23 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
             <tr>
               <th scope="col" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/40 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-muted sm:w-52 sm:min-w-44">Name</th>
               {buckets.map((b, i) => (
-                <th key={i} scope="col" title={bucketTitle(period, b)} className="border-b border-border/40 px-0.5 py-2 text-center t-meta font-display font-semibold text-text-muted">
-                  {bucketShortLabel(period, b)}
+                <th key={i} scope="col" title={bucketTitle(period, b)} className="border-b border-border/40 px-0.5 py-2 text-center">
+                  <span className="flex flex-col items-center gap-0.5 leading-none">
+                    {period === 'day' && <span className="t-meta font-display font-medium text-text-light">{weekday(b.from)}</span>}
+                    <span className="t-meta font-display font-semibold tabular-nums text-text-secondary">{bucketShortLabel(period, b)}</span>
+                  </span>
                 </th>
               ))}
+              <th scope="col" className="border-b border-l border-border/40 px-2 py-2 text-center t-meta font-display font-semibold text-text-secondary">Overall</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, r) => (
-              <tr key={row.id}>
-                <th scope="row" className="sticky left-0 z-10 w-36 min-w-32 border-b border-border/30 bg-surface px-1 py-0.5 text-left sm:w-52 sm:min-w-44">
+            {rows.map((row, r) => {
+              const isTotal = row.id === 'total';
+              const overall = roundPct(cellValue(row.whole, module, measure));
+              return (
+              <tr key={row.id} className={cn(isTotal && 'bg-surface-hover/40')}>
+                <th scope="row" className={cn('sticky left-0 z-10 w-36 min-w-32 px-1 py-0.5 text-left sm:w-52 sm:min-w-44', isTotal ? 'border-b-2 border-border/70 bg-surface-hover' : 'border-b border-border/30 bg-surface')}>
                   <button
                     type="button"
                     aria-haspopup="dialog"
@@ -78,14 +86,14 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                     onClick={() => onOpen(row, null)}
                     className="min-h-9 w-full rounded-md px-2 text-left outline-none cursor-pointer hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-coarse:min-h-11"
                   >
-                    <span className={cn('line-clamp-2 t-meta font-display leading-snug text-text', row.id === 'total' ? 'font-extrabold' : 'font-semibold')}>{row.name}</span>
+                    <span className={cn('line-clamp-2 t-meta font-display leading-snug text-text', isTotal ? 'font-extrabold' : 'font-semibold')}>{row.name}</span>
                   </button>
                 </th>
                 {row.cells.map((cell, c) => {
                   const value = roundPct(cellValue(cell, module, measure));
                   const bucket = buckets[c];
                   return (
-                    <td key={c} className="border-b border-border/30 p-1">
+                    <td key={c} className={cn('p-1', isTotal ? 'border-b-2 border-border/70' : 'border-b border-border/30')}>
                       <button
                         type="button"
                         data-cell={`${r}:${c}`}
@@ -94,23 +102,33 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
                         onClick={() => onOpen(row, c)}
                         style={value === null ? undefined : heatLook(value)}
                         className={cn(
-                          'flex h-9 w-full min-w-8 items-center justify-center rounded-lg t-meta font-display font-bold tabular-nums outline-none cursor-pointer transition-opacity duration-150 hover:opacity-85 sm:h-10 lg:h-11 pointer-coarse:h-11',
+                          'flex h-9 w-full min-w-8 items-center justify-center rounded-md t-meta font-display font-semibold tabular-nums outline-none cursor-pointer transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.96] sm:h-10 pointer-coarse:h-11',
                           'focus-visible:ring-2 focus-visible:ring-primary-500/60',
-                          value === null && 'bg-surface-hover/50 text-text-muted',
+                          value === null && 'bg-surface-hover/40 text-text-light',
                         )}
                       >
-                        {value === null ? '-' : Math.round(value)}
+                        {value === null ? <span className="size-1 rounded-full bg-current" aria-hidden="true" /> : Math.round(value)}
                       </button>
                     </td>
                   );
                 })}
+                <td className={cn('border-l border-border/40 px-2 py-1', isTotal ? 'border-b-2 border-b-border/70' : 'border-b border-b-border/30')}>
+                  <span
+                    style={overall === null ? undefined : heatLook(overall)}
+                    className={cn('flex h-9 min-w-12 items-center justify-center rounded-full px-2 t-meta font-display font-bold tabular-nums sm:h-10', overall === null && 'text-text-light')}
+                  >
+                    {overall === null ? '-' : `${Math.round(overall)}%`}
+                  </span>
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-muted" aria-label="Colour key">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 t-meta font-medium text-text-muted" aria-label="Colour key">
+        <span className="font-display font-semibold text-text-secondary">Score</span>
         {HEAT_KEY.map(({ level, label }) => (
           <span key={level} className="inline-flex items-center gap-1.5">
             <span className="size-3.5 rounded-md" style={{ background: heatFill(level) }} aria-hidden="true" />
@@ -118,13 +136,12 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
           </span>
         ))}
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-3.5 rounded-md bg-surface-hover" aria-hidden="true" />
+          <span className="flex size-3.5 items-center justify-center rounded-md bg-surface-hover/60 text-text-light" aria-hidden="true"><span className="size-1 rounded-full bg-current" /></span>
           Nothing due
         </span>
         {matrix.truncated && <span>Showing the 30 busiest rows.</span>}
+        <span className="basis-full">Each box is one {noun}. Tap it for details.</span>
       </div>
-
-      <p className="t-meta font-medium text-text-muted">Each box is one {noun}. Pick a name or a box to see delegations, tickets and checklists.</p>
     </div>
   );
 };
