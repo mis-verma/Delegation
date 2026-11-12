@@ -6,38 +6,38 @@
 @variant dark ([data-theme="dark"] &);
 
 @theme {
-  --color-primary-50: #eff5ff;
-  --color-primary-100: #dbe8fe;
-  --color-primary-200: #bfd5fe;
-  --color-primary-300: #93b7fd;
-  --color-primary-400: #5a8ff8;
-  --color-primary-500: #3370f0;
-  --color-primary-600: #1f5ce0;
-  --color-primary-700: #1a4bbd;
-  --color-primary-800: #173d94;
-  --color-primary-900: #142f6e;
+  --color-primary-50: #eef3f8;
+  --color-primary-100: #d9e5f0;
+  --color-primary-200: #b4cbe0;
+  --color-primary-300: #7fa3c4;
+  --color-primary-400: #4a77a3;
+  --color-primary-500: #1c4972;
+  --color-primary-600: #003860;
+  --color-primary-700: #002f52; 
+  --color-primary-800: #001f35;
+  --color-primary-900: #001424; 
 
   
   --color-activity-checklist: var(--color-primary-700);
  
-  --color-activity-delegation: #7c3aed;
-  --color-activity-ticket: #0ea5e9;
-  --color-series-compliance: #0d9488;
-  --color-activity-todo: #64748b;
+  --color-activity-delegation: #2f4961;
+  --color-activity-ticket: #1c4972;
+  --color-series-compliance: #3f6f9e;
+  --color-activity-todo: #475569;
 
-  --color-coral-50: #f5f3ff;
-  --color-coral-100: #ede9fe;
-  --color-coral-200: #ddd6fe;
-  --color-coral-300: #c4b5fd;
-  --color-coral-400: #a78bfa;
-  --color-coral-500: #8b5cf6;
-  --color-coral-600: #7c3aed;
-  --color-coral-700: #6d28d9;
+  --color-coral-50: #f1f4f8;
+  --color-coral-100: #e4eaf1;
+  --color-coral-200: #c9d4e0;
+  --color-coral-300: #a3b4c7;
+  --color-coral-400: #7b92ab;
+  --color-coral-500: #566f8a;
+  --color-coral-600: #3f566e;
+  --color-coral-700: #2f4961;
 
   --color-success: #10b981;
   --color-warning: #dc2626;
   --color-danger: #ef4444;
-  --color-info: #2563eb;
+  --color-info: #1c4972;
   --color-status-todo: #94a3b8;
   --color-status-progress: #e0620d;
   --color-status-verify: #6366f1;
@@ -61,10 +61,10 @@
   --color-vivid-red-text: #c81e1e;
   --color-vivid-green: #12b24b;
   --color-vivid-green-text: #0b7a33;
-  --color-vivid-blue: #2563eb;
-  --color-vivid-blue-text: #1d4ed8;
-  --color-vivid-sky: #0ea5e9;
-  --color-vivid-sky-text: #0369a1;
+  --color-vivid-blue: #14497a;
+  --color-vivid-blue-text: #003860;
+  --color-vivid-sky: #4a77a3;
+  --color-vivid-sky-text: #1c4972;
   --color-on-vivid: #07140d;
 
   --font-sans: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
@@ -221,6 +221,32 @@ body {
   h1, h2, h3, h4 {
     text-wrap: balance;
   }
+
+  a, button, summary, label, input, select, textarea,
+  [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="checkbox"], [role="radio"], [role="switch"] {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  svg.lucide {
+    flex-shrink: 0;
+    vertical-align: -0.15em;
+    stroke-width: 1.75;
+  }
+
+  svg.lucide[width="10"], svg.lucide[width="11"], svg.lucide[width="12"], svg.lucide[width="13"], svg.lucide[width="14"],
+  svg.lucide.size-2\.5, svg.lucide.size-3, svg.lucide.size-3\.5 {
+    stroke-width: 2.1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 @media (max-width: 639px) {
@@ -231,13 +257,13 @@ body {
 }
 
 :root {
-  --heat-low: #dbe8fe;
-  --heat-low-ink: #1a4bbd;
-  --heat-fair: #93b7fd;
-  --heat-fair-ink: #142f6e;
-  --heat-good: #3370f0;
+  --heat-low: #dbe6f1;
+  --heat-low-ink: #002f52;
+  --heat-fair: #a3bfdb;
+  --heat-fair-ink: #001f35;
+  --heat-good: #3f6f9e;
   --heat-good-ink: #ffffff;
-  --heat-high: #173d94;
+  --heat-high: #001f35;
   --heat-high-ink: #ffffff;
 }
 
