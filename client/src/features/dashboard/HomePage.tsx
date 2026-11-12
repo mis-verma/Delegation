@@ -1,6 +1,9 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
-import { Briefcase, Globe2, Siren, User, Users } from 'lucide-react';
+import { Briefcase, Globe2, Siren, SlidersHorizontal, User, Users } from 'lucide-react';
+import { HomeSection } from './HomeSection';
+import { CustomizeHomeSheet } from './CustomizeHomeSheet';
+import { useHomeLayout, type HomeSectionId } from './homeLayout';
 import { haptic } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
@@ -73,6 +76,9 @@ export const HomePage = () => {
     }, { replace: true });
   };
 
+  const layout = useHomeLayout(userId);
+  const [customizing, setCustomizing] = useState<HomeSectionId | 'menu' | null>(null);
+
   const [statScope, setStatScope] = useState<StatScope>(readStatScope);
   const ownStats = hasTabs && statScope === 'mine';
   const changeStatScope = (next: StatScope) => {
@@ -141,6 +147,38 @@ export const HomePage = () => {
     </section>
   ) : overview;
 
+  const sectionIds: readonly HomeSectionId[] = hasTabs
+    ? ['stats', 'streak', ...(dashboardView.isHod ? (['myTeam'] as const) : []), 'teamWeek']
+    : ['stats', 'streak'];
+  const shown = (id: HomeSectionId) => !layout.isHidden(id);
+  const hiddenCount = layout.hiddenCount(sectionIds);
+  const section = (id: HomeSectionId, node: ReactNode) =>
+    shown(id) ? <HomeSection id={id} onHold={setCustomizing}>{node}</HomeSection> : null;
+
+  const customizeFooter = (
+    <div className="flex flex-col items-center gap-2 pt-2">
+      {hiddenCount === sectionIds.length && (
+        <p className="t-card font-display font-semibold text-text-secondary">Everything on Home is hidden.</p>
+      )}
+      <button
+        type="button"
+        onClick={() => setCustomizing('menu')}
+        className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border/60 bg-surface px-4 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out cursor-pointer hover:border-primary-500/40 hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <SlidersHorizontal size={14} aria-hidden="true" />
+        Customize Home
+        {hiddenCount > 0 && (
+          <span className="rounded-full bg-primary-500/10 px-2 py-0.5 tabular-nums text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">{hiddenCount} hidden</span>
+        )}
+      </button>
+      <p className="t-meta text-text-muted">
+        <span className="pointer-fine:hidden">Press and hold</span>
+        <span className="pointer-coarse:hidden">Right-click</span>
+        {' '}any section to hide or show it.
+      </p>
+    </div>
+  );
+
   if (hasTabs && requested === 'approvals') return <Navigate to={queueHref} replace />;
 
   return (
@@ -158,12 +196,13 @@ export const HomePage = () => {
           <div key={tab} className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none">
             {tab === 'work' && (
               <>
-                {statSection}
-                <StreakGoalCard />
+                {section('stats', statSection)}
+                {section('streak', <StreakGoalCard />)}
                 <Suspense fallback={PANEL_FALLBACK}>
-                  {dashboardView.isHod && <MyTeamCard />}
-                  <TeamWeekHeat />
+                  {dashboardView.isHod && section('myTeam', <MyTeamCard />)}
+                  {section('teamWeek', <TeamWeekHeat />)}
                 </Suspense>
+                {customizeFooter}
               </>
             )}
             {tab === 'attention' && (
@@ -175,9 +214,21 @@ export const HomePage = () => {
         </>
       ) : (
         <>
-          {statSection}
-          <StreakGoalCard />
+          {section('stats', statSection)}
+          {section('streak', <StreakGoalCard />)}
+          {customizeFooter}
         </>
+      )}
+
+      {customizing && (
+        <CustomizeHomeSheet
+          sections={sectionIds}
+          focusId={customizing === 'menu' ? null : customizing}
+          isHidden={layout.isHidden}
+          onChange={layout.setVisible}
+          onShowAll={layout.showAll}
+          onClose={() => setCustomizing(null)}
+        />
       )}
     </div>
   );
