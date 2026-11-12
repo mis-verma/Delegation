@@ -14,7 +14,7 @@ import { figureOf, shiftDay, shortDay, type OwnerFigure } from './ownerWindow';
 import { PeriodTag } from './PeriodTag';
 
 const MODULES = ['checklist', 'ticket', 'delegation'] as const;
-const GRID_COLS: Record<number, string> = { 1: 'sm:grid-cols-2', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
+const GRID_COLS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
 
 const joinNames = (names: string[]) => (names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 const TREND_DAYS = 7;
@@ -81,19 +81,20 @@ const LastSevenDays = () => {
           ))}
         </ul>
       )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 t-meta font-medium text-text-secondary" aria-label="Colour key">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 t-meta font-medium text-text-muted" aria-label="Colour key">
+        <span className="font-display font-semibold text-text-secondary">Score</span>
         {HEAT_KEY.map(({ level, label }) => (
           <span key={level} className="inline-flex items-center gap-1.5">
-            <span className="size-3.5 rounded-sm" style={{ background: heatFill(level) }} aria-hidden="true" />
+            <span className="size-3.5 rounded-md" style={{ background: heatFill(level) }} aria-hidden="true" />
             {label}
           </span>
         ))}
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-3.5 rounded-sm border border-border bg-surface-hover" aria-hidden="true" />
+          <span className="flex size-3.5 items-center justify-center rounded-md bg-surface-hover/60 text-text-light" aria-hidden="true"><span className="size-1 rounded-full bg-current" /></span>
           Nothing due
         </span>
+        <span className="basis-full sm:ml-auto sm:basis-auto">Oldest day on the left.</span>
       </div>
-      <p className="t-meta font-medium text-text-secondary">Each box is one day&apos;s score, oldest on the left.</p>
     </section>
   );
 };
@@ -128,7 +129,14 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
         <InlineError message="Couldn't load the company score." onRetry={onRetry} />
       ) : (
         <>
-          <div className={cn('grid grid-cols-2 gap-2', GRID_COLS[tiles.length])}>
+          <div
+            className={cn(
+              'grid gap-2',
+              tiles.length === 1 ? 'grid-cols-1' : 'grid-cols-2',
+              tiles.length > 1 && tiles.length % 2 === 1 && 'max-sm:[&>*:first-child]:col-span-2',
+              GRID_COLS[tiles.length],
+            )}
+          >
             {tiles.map(({ key, label }) => {
               const now = figureOf(total, key);
               return (

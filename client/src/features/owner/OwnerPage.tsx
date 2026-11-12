@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../../components/button';
-import { Segmented } from '../../components/segmented/Segmented';
+import { SlidingTabs, type SlidingTabOption } from '../../components';
 import { useAnalyticsRefresh } from '../admin/analytics/useAnalyticsQueries';
 import { PerformanceLeadersCard } from '../admin/analytics/PerformanceLeadersCard';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -21,10 +21,10 @@ import { useCanOpen } from './useReadOnlyViewer';
 
 type OwnerPeriod = 'day' | 'week' | 'month';
 
-const PERIODS: readonly { value: OwnerPeriod; label: string }[] = [
+const PERIODS: readonly SlidingTabOption<OwnerPeriod>[] = [
   { value: 'day', label: 'Today' },
-  { value: 'week', label: 'This week' },
-  { value: 'month', label: 'This month' },
+  { value: 'week', label: 'This week', shortLabel: 'Week' },
+  { value: 'month', label: 'This month', shortLabel: 'Month' },
 ];
 
 const PERIOD_TEXT: Record<OwnerPeriod, string> = { day: 'Today', week: 'This week', month: 'This month' };
@@ -69,16 +69,26 @@ export const OwnerPage = () => {
         <p className="t-meta font-medium text-text-secondary max-sm:hidden">
           The whole company on one screen, {periodLabel.toLowerCase()}. Read only.
         </p>
-        <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
-          <Segmented
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
+          <SlidingTabs
             label="Period"
             options={PERIODS}
             value={period}
             onChange={setPeriod}
-            className="[&>button]:min-h-11 pointer-fine:[&>button]:min-h-8"
+            size="sm"
+            fill="phone"
+            className="max-sm:min-w-0 max-sm:flex-1"
           />
-          <Button type="button" variant="outline" size="sm" onClick={refreshAll} disabled={isRefreshing} aria-label="Refresh the numbers" className="h-11 shrink-0 pointer-fine:h-8">
-            <RotateCw className={cn('size-3.5', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={refreshAll}
+            disabled={isRefreshing}
+            aria-label="Refresh the numbers"
+            title="Refresh the numbers"
+            className="size-13 shrink-0 gap-1.5 rounded-full p-0 font-display sm:h-11 sm:w-auto sm:px-4"
+          >
+            <RotateCw className={cn('size-4', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
             <span className="hidden sm:inline">{isRefreshing ? 'Updating' : 'Refresh'}</span>
           </Button>
         </div>
@@ -101,7 +111,7 @@ export const OwnerPage = () => {
         detailHref={scoresHref('module')}
       />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
         <DepartmentHeadsCard
           departments={nowFresh?.rows}
           loading={!nowFresh && !now.isError}
@@ -110,7 +120,7 @@ export const OwnerPage = () => {
           from={current.from}
           to={current.to}
         />
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4 lg:[&>*:last-child]:flex-1">
           <OwnerApprovalsCard from={current.from} to={current.to} periodLabel={periodLabel} />
           <PerformanceLeadersCard from={current.from} to={current.to} onViewFull={() => void navigate(scoresHref('department'), { viewTransition: true })} />
         </div>

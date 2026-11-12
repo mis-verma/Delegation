@@ -119,7 +119,7 @@ export const DepartmentHeadsCard = ({ departments, loading, failed, onRetry, fro
         </div>
       )}
       {!loading && !failed && !peopleFailed && !people.isPending && (unscored > 0 || rows.length > 0) && (
-        <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 px-4 py-2 sm:px-5">
+        <div className="mt-auto flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 px-4 py-2 sm:px-5">
           <p className="t-meta font-medium text-text-secondary">
             {rows.length > 0 ? `${rows.length} ${rows.length === 1 ? 'head' : 'heads'} ranked` : ''}
             {rows.length > 0 && unscored > 0 ? ', ' : ''}

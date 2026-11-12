@@ -54,7 +54,7 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
         subtitle="Live now. Approvals are promised within 24 hours"
         action={canOpen('/verify') ? <DashCardLink to="/verify">Open queue</DashCardLink> : undefined}
       />
-      <div className="p-4">
+      <div className="p-4 sm:p-5">
         {failed ? (
           <InlineError message="Couldn't load the approval figures." onRetry={() => void query.refetch()} />
         ) : (
