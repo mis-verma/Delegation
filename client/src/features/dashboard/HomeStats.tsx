@@ -1,9 +1,10 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
-import { AlertTriangle, CalendarClock, ChevronRight, Clock3, Layers, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ChevronRight, Clock3, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { StatStrip, type StatStripItem } from './StatStrip';
+import { StatBoard, type BoardTile, type BoardTone } from './StatBoard';
+import type { ApprovalFigure } from './approvalFigures';
 import { CATEGORY_ICON } from './categoryLook';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useAuth } from '../../context/AuthContext';
@@ -37,7 +38,7 @@ interface ModuleRow {
   failed: boolean;
 }
 
-const METRICS: readonly { key: Metric; label: string; caption: string; icon: LucideIcon; tint: StatStripItem['tint'] }[] = [
+const METRICS: readonly { key: Metric; label: string; caption: string; icon: LucideIcon; tint: BoardTone }[] = [
   { key: 'total', label: 'Total', caption: 'Everything in this view', icon: Layers, tint: 'primary' },
   { key: 'pending', label: 'Pending', caption: 'Still open', icon: Clock3, tint: 'coral' },
   { key: 'delayed', label: 'Delayed', caption: 'Past the deadline', icon: AlertTriangle, tint: 'danger' },
@@ -66,9 +67,10 @@ interface HomeStatsProps {
   kpi: DashboardSummaries['kpi'];
   scope: StatScope;
   teamLabel: string;
+  approval?: ApprovalFigure;
 }
 
-export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
+export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsProps) => {
   const [open, setOpen] = useState<Metric | null>(null);
   const panelId = useId();
   const warm = usePrefetchRoute();
@@ -90,8 +92,8 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
     return rows;
   }, [kpi, scope, canSeeTeam]);
 
-  const items = useMemo<StatStripItem[]>(
-    () => METRICS.map((m, index) => {
+  const items = useMemo<BoardTile[]>(
+    () => METRICS.map((m) => {
       const loaded = modules.filter((r) => r.counts);
       const total = loaded.reduce((sum, r) => sum + valueOf(r.counts, m.key), 0);
       const loading = loaded.length === 0 && modules.some((r) => r.loading);
@@ -103,11 +105,10 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
         value: total,
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
-        tint: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
+        tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
         onSelect: () => setOpen((cur) => (cur === m.key ? null : m.key)),
         selected: open === m.key,
         controls: panelId,
-        highlight: index === 0,
         loading,
         failed,
       };
@@ -119,7 +120,21 @@ export const HomeStats = memo(({ kpi, scope, teamLabel }: HomeStatsProps) => {
 
   return (
     <div className="flex flex-col gap-3">
-      <StatStrip items={items} label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`} />
+      <StatBoard
+        label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
+        total={items[0]}
+        tiles={approval ? [...items.slice(1), {
+          key: 'approval',
+          label: 'Approval',
+          value: approval.value,
+          caption: approval.caption,
+          icon: ShieldCheck,
+          tone: approval.delayed > 0 ? 'danger' : 'primary',
+          href: approval.href,
+          loading: approval.loading,
+          failed: approval.failed,
+        }] : items.slice(1)}
+      />
       <AnimatePresence initial={false}>
       {active && (
         <motion.section

@@ -20,11 +20,12 @@ export interface FabProps {
   icon?: LucideIcon;
   sheetTitle?: string;
   'aria-label'?: string;
+  raised?: boolean;
 }
 
 const tap = () => haptic('tap');
 
-export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-label': ariaLabel }: FabProps) => {
+export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-label': ariaLabel, raised = false }: FabProps) => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
@@ -90,7 +91,7 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
           'app-bottom-chrome md:hidden fixed right-4 sm:right-6 z-40 transition-transform duration-200 ease-out motion-reduce:transition-none',
           hidden && !sheetOpen ? 'translate-y-[calc(100%+8rem)]' : 'translate-y-0',
         )}
-        style={{ bottom: 'calc(6.25rem + env(safe-area-inset-bottom))' }}
+        style={{ bottom: raised ? 'calc(13rem + env(safe-area-inset-bottom))' : 'calc(6.25rem + env(safe-area-inset-bottom))' }}
       >
         {hasMore && (
           <button

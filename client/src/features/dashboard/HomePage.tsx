@@ -8,7 +8,7 @@ import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
-import { OwnApprovalStrip, TeamApprovalStrip } from './ApprovalStrip';
+import { teamApprovalFigure, useOwnApprovalFigure } from './approvalFigures';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
@@ -26,7 +26,6 @@ import type { Ticket } from '../../api/ticket';
 const ExceptionsCard = lazy(() => import('./ExceptionsCard').then((m) => ({ default: m.ExceptionsCard })));
 const TeamWeekHeat = lazy(() => import('./TeamWeekHeat').then((m) => ({ default: m.TeamWeekHeat })));
 const MyTeamCard = lazy(() => import('../attention/MyTeamCard').then((m) => ({ default: m.MyTeamCard })));
-const PcOrgFigures = lazy(() => import('../pc/PcOrgFigures').then((m) => ({ default: m.PcOrgFigures })));
 
 const TEAM_TICKET_LIMIT = 250;
 const OWN_TICKET_LIMIT = 100;
@@ -42,9 +41,9 @@ const readStatScope = (): StatScope => {
   }
 };
 
-type HomeTab = 'work' | 'team' | 'attention' | 'approvals';
+type HomeTab = 'work' | 'attention' | 'approvals';
 
-const HOME_TABS: readonly HomeTab[] = ['work', 'team', 'attention', 'approvals'];
+const HOME_TABS: readonly HomeTab[] = ['work', 'attention', 'approvals'];
 const isHomeTab = (value: string | null): value is HomeTab => !!value && (HOME_TABS as readonly string[]).includes(value);
 
 const PANEL_FALLBACK = <Skeleton className="h-64 rounded-2xl" />;
@@ -114,7 +113,6 @@ export const HomePage = () => {
 
   const tabOptions: readonly SlidingTabOption<HomeTab>[] = [
     { value: 'work', label: 'My work', icon: Briefcase },
-    { value: 'team', label: 'My team', icon: Users },
     { value: 'attention', label: 'Needs attention', shortLabel: 'Attention', icon: Siren, badge: attentionCount, badgeTone: 'danger' },
     {
       value: 'approvals',
@@ -133,7 +131,18 @@ export const HomePage = () => {
     { value: 'mine', label: 'My own', icon: User },
   ];
 
-  const overview = <HomeStats kpi={summaries.kpi} scope={hasTabs ? statScope : 'mine'} teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'} />;
+  const ownApproval = useOwnApprovalFigure();
+  const approvalSourcesLoading = approvalSources.isPending;
+  const teamApproval = teamApprovalFigure(approvalBuckets.total, queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
+  const currentScope: StatScope = hasTabs ? statScope : 'mine';
+  const overview = (
+    <HomeStats
+      kpi={summaries.kpi}
+      scope={currentScope}
+      teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'}
+      approval={currentScope === 'mine' ? ownApproval : teamApproval}
+    />
+  );
 
   const splitSections = (
     <div className="flex flex-col gap-6">
@@ -142,16 +151,14 @@ export const HomePage = () => {
           <h2 id="home-own-heading" className="t-section font-display font-bold text-text">Own</h2>
           <p className="hidden sm:block t-meta text-text-muted">Your own work and how its approvals stand.</p>
         </div>
-        <HomeStats kpi={ownSummaries.kpi} scope="mine" teamLabel="Own" />
-        <OwnApprovalStrip />
+        <HomeStats kpi={ownSummaries.kpi} scope="mine" teamLabel="Own" approval={ownApproval} />
       </section>
       <section aria-labelledby="home-team-heading" className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
           <h2 id="home-team-heading" className="t-section font-display font-bold text-text">Team</h2>
           <p className="hidden sm:block t-meta text-text-muted">Everyone's work, and the approvals waiting for you.</p>
         </div>
-        <HomeStats kpi={teamSummaries.kpi} scope="overall" teamLabel="Team" />
-        <TeamApprovalStrip queueHref={queueHref} />
+        <HomeStats kpi={teamSummaries.kpi} scope="overall" teamLabel="Team" approval={teamApproval} />
       </section>
     </div>
   );
@@ -187,13 +194,11 @@ export const HomePage = () => {
               <>
                 {statSection}
                 <StreakGoalCard />
+                <Suspense fallback={PANEL_FALLBACK}>
+                  {dashboardView.isHod && <MyTeamCard />}
+                  <TeamWeekHeat />
+                </Suspense>
               </>
-            )}
-            {tab === 'team' && (
-              <Suspense fallback={PANEL_FALLBACK}>
-                {dashboardView.isHod ? <MyTeamCard /> : <PcOrgFigures />}
-                <TeamWeekHeat />
-              </Suspense>
             )}
             {tab === 'attention' && (
               <Suspense fallback={PANEL_FALLBACK}>

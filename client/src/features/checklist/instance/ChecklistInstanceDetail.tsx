@@ -8,8 +8,7 @@ import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
-} from '../../../components';
+  Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, Fab } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
@@ -331,16 +330,24 @@ export const ChecklistInstanceDetail = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      <div className={cn('flex items-center justify-between gap-3', !isAdminOrPC && 'max-md:hidden')}>
+      <div className={'flex items-center justify-between gap-3 max-md:hidden'}>
         <Button variant="ghost" size="sm" className="max-md:hidden" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/checklists', { replace: true }))} aria-label="Back">
           <ArrowLeft size={15} aria-hidden />
           Back
         </Button>
 
         {isAdminOrPC && (
+          <Fab
+            raised
+            aria-label="Edit this checklist's template"
+            actions={[{ key: 'edit-template', label: 'Edit template', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`) }]}
+          />
+        )}
+        {isAdminOrPC && (
           <Button
             variant="outline"
             size="sm"
+            className="max-md:hidden"
             onClick={() => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`)}
             title="Edit this checklist's template. Changes apply to future runs, not this one."
           >
