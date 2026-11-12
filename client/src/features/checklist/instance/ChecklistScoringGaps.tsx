@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { ChevronDown, CircleHelp, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { IconChip, PANEL_CLASS } from '../../../components';
+import { Collapse, IconChip, PANEL_CLASS } from '../../../components';
 import { useChecklistScoringGapsQuery } from '../hook';
 import { RECURRENCE_LABEL } from '../checklistDisplay';
 
@@ -33,11 +33,11 @@ export const ChecklistScoringGaps = () => {
             Across {gaps.length} {gaps.length === 1 ? 'checklist' : 'checklists'}. Answer compliance cannot count them until you set the right answer.
           </span>
         </span>
-        <ChevronDown size={16} aria-hidden className={cn('shrink-0 text-text-muted transition-transform duration-200 motion-reduce:transition-none', open && 'rotate-180')} />
+        <ChevronDown size={16} aria-hidden className={cn('shrink-0 text-text-muted transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', open && 'rotate-180')} />
       </button>
 
-      {open && (
-        <ul id="scoring-gaps-list" className="flex flex-col divide-y divide-border/50 border-t border-border/60">
+      <Collapse id="scoring-gaps-list" open={open}>
+        <ul className="flex flex-col divide-y divide-border/50 border-t border-border/60">
           {gaps.map((g) => (
             <li key={g.id}>
               <Link
@@ -58,7 +58,7 @@ export const ChecklistScoringGaps = () => {
             </li>
           ))}
         </ul>
-      )}
+      </Collapse>
     </section>
   );
 };

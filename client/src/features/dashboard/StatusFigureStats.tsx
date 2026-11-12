@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
-import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { STAT_FIGURE } from '../../components/statSurface';
 
 export type StatusKind = 'pending' | 'completed' | 'due' | 'late';
 
@@ -25,7 +25,20 @@ interface StatusFigureStatsProps<K extends string> {
   label: string;
 }
 
-const CELL = cn(STAT_SURFACE, STAT_SURFACE_ACTION, 'flex min-h-16 min-w-0 flex-col justify-center gap-1 px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 sm:min-h-0 sm:gap-3 sm:p-5');
+const ACCENT: Record<StatusKind, string> = {
+  pending: '[--stat-accent:var(--stat-accent-pending)]',
+  completed: '[--stat-accent:var(--stat-accent-completed)]',
+  due: '[--stat-accent:var(--stat-accent-due)]',
+  late: '[--stat-accent:var(--stat-accent-late)]',
+};
+
+const CELL = cn(
+  'stat-navy relative flex min-h-16 min-w-0 cursor-pointer flex-col justify-center gap-1 overflow-hidden rounded-2xl px-2.5 py-2 text-left outline-none ring-1 ring-inset ring-white/10',
+  'transition-[transform,filter,box-shadow] duration-200 ease-out hover:brightness-[1.12] active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-white/70',
+  'sm:min-h-0 sm:gap-3 sm:p-5',
+);
+
+const SELECTED = 'ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
@@ -44,20 +57,23 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
             aria-pressed={retry ? undefined : selected}
             aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
             title={failed ? "Couldn't load. Tap to try again." : item.help}
-            className={cn(CELL, selected && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL))}
+            className={cn(CELL, ACCENT[item.kind], selected && SELECTED)}
           >
             <span className="flex min-w-0 flex-col">
-              <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
-                <span className="sm:hidden">{item.short ?? item.label}</span>
-                <span className="hidden sm:inline">{item.label}</span>
+              <span className="flex min-w-0 items-center gap-1.5 t-meta font-display font-semibold text-white/80">
+                <span className={cn('size-1.5 shrink-0 rounded-full bg-[rgb(var(--stat-accent))]', alert && 'live-dot')} aria-hidden="true" />
+                <span className="min-w-0 truncate">
+                  <span className="sm:hidden">{item.short ?? item.label}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
+                </span>
               </span>
-              {item.note && <span className="truncate t-meta text-text-light">{item.note}</span>}
+              {item.note && <span className="truncate t-meta text-white/60">{item.note}</span>}
             </span>
             <span className="flex min-h-7 shrink-0 items-center">
               {isLoading ? (
-                <Skeleton className="h-6 w-12" />
+                <Skeleton className="h-6 w-12 bg-white/15" />
               ) : (
-                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
+                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed ? 'text-white/45' : alert ? 'text-[rgb(var(--stat-accent))]' : 'text-white')}>
                   {failed ? '-' : count}
                 </span>
               )}

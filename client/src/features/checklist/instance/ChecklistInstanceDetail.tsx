@@ -8,7 +8,7 @@ import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, Fab } from '../../../components';
+  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, Fab } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
@@ -592,7 +592,7 @@ export const ChecklistInstanceDetail = () => {
                     key={`${key || 'none'}-${groupIndex}`}
                     id={groupIndex === itemGroups.findIndex((g) => (g.section ?? '') === key) ? `section-${key || 'none'}` : undefined}
                     aria-label={group.section ?? 'Other questions'}
-                    className={cn('flex scroll-mt-4 flex-col gap-3 rounded-lg border border-border bg-transparent p-3 sm:p-4', inactive && 'hidden')}
+                    className={cn('flex scroll-mt-4 flex-col rounded-lg border border-border bg-transparent p-3 sm:p-4', inactive && 'hidden')}
                   >
                     <header className="flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-3">
@@ -612,16 +612,16 @@ export const ChecklistInstanceDetail = () => {
                               aria-label={collapsed ? `Show ${group.section ?? 'other questions'}` : `Hide ${group.section ?? 'other questions'}`}
                               className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-text-muted outline-none transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
                             >
-                              <ChevronDown size={16} aria-hidden className={cn('transition-transform duration-200 ease-out motion-reduce:transition-none', collapsed ? '' : 'rotate-180')} />
+                              <ChevronDown size={16} aria-hidden className={cn('transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', collapsed ? '' : 'rotate-180')} />
                             </button>
                           )}
                         </div>
                       </div>
                       {counts && counts.total > 0 && <ChecklistProgressBar done={counts.done} total={counts.total} tone="auto" bare thin />}
                     </header>
-                    <div id={bodyId} className={cn('flex flex-col gap-3', collapsed && 'hidden')}>
+                    <Collapse id={bodyId} open={!collapsed} innerClassName="flex flex-col gap-3 pt-3">
                       {rows}
-                    </div>
+                    </Collapse>
                   </section>
                 );
               })}

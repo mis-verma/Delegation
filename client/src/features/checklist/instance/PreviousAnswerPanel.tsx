@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { InlineError } from '../../../components';
+import { Collapse, InlineError } from '../../../components';
 import { PhotoThumbs } from '../../verification/PhotoThumbs';
 import { useChecklistItemPreviousQuery } from '../hook';
 import { formatDateTime } from '../checklistDisplay';
@@ -25,7 +25,7 @@ export const PreviousAnswerPanel = ({ instanceId, itemId }: PreviousAnswerPanelP
   const { data, isPending, isError, refetch } = useChecklistItemPreviousQuery(instanceId, itemId, open);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -34,9 +34,9 @@ export const PreviousAnswerPanel = ({ instanceId, itemId }: PreviousAnswerPanelP
       >
         <History size={13} aria-hidden="true" />
         {open ? 'Hide last time' : 'Compare with last time'}
-        <ChevronDown size={13} aria-hidden="true" className={cn('transition-transform duration-150', open && 'rotate-180')} />
+        <ChevronDown size={13} aria-hidden="true" className={cn('transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', open && 'rotate-180')} />
       </button>
-      {open && (
+      <Collapse open={open} innerClassName="pt-2">
         <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/30 p-3">
           {isPending && <p className="t-meta font-display text-text-muted" role="status">Loading the earlier answer.</p>}
           {isError && <InlineError message="Couldn't load the earlier answer." onRetry={() => void refetch()} />}
@@ -59,7 +59,7 @@ export const PreviousAnswerPanel = ({ instanceId, itemId }: PreviousAnswerPanelP
             </>
           )}
         </div>
-      )}
+      </Collapse>
     </div>
   );
 };

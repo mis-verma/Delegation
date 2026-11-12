@@ -265,6 +265,12 @@ body {
   --heat-good-ink: #ffffff;
   --heat-high: #001f35;
   --heat-high-ink: #ffffff;
+  --stat-navy-from: #001d33;
+  --stat-navy-to: #00406e;
+  --stat-accent-pending: 96 165 250;
+  --stat-accent-completed: 52 211 153;
+  --stat-accent-due: 229 201 130;
+  --stat-accent-late: 248 113 113;
 }
 
 @font-face {
@@ -289,6 +295,8 @@ body {
   --heat-good-ink: #00111d;
   --heat-high: #b8d6f7;
   --heat-high-ink: #00111d;
+  --stat-navy-from: #0c2a46;
+  --stat-navy-to: #1a4f80;
   --color-background: #08131d;
   --color-surface: #0e2030;
   --color-surface-hover: #152b3f;
@@ -475,6 +483,14 @@ body {
 @utility t-meta { font-size: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale, 1))); line-height: 1.4; }
 @utility t-stat { font-size: calc(clamp(1.125rem, 1rem + 0.45vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }
 @utility t-figure { font-size: calc(clamp(1.25rem, 1.05rem + 1vw, 2rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+@utility stat-navy {
+  color: #ffffff;
+  background-color: var(--stat-navy-from);
+  background-image:
+    radial-gradient(130% 150% at 100% 0%, rgb(var(--stat-accent, 96 165 250) / 0.38) 0%, transparent 58%),
+    linear-gradient(140deg, var(--stat-navy-from) 0%, var(--stat-navy-to) 100%);
+}
 
 @utility gap-inherit {
   gap: inherit;
