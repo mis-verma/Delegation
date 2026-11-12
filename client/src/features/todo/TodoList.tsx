@@ -155,7 +155,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
                 title={overdue ? 'Overdue' : dueToday ? 'Due today' : 'Due'}
               />
             )}
-            <span className="inline-flex items-center gap-1 t-meta font-medium text-text-muted" title={new Date(todo.createdAt).toLocaleString()}>
+            <span className={cn('items-center gap-1 t-meta font-medium text-text-muted', !todo.completed && todo.dueDate ? 'hidden sm:inline-flex' : 'inline-flex')} title={new Date(todo.createdAt).toLocaleString()}>
               <Clock3 size={12} aria-hidden="true" />
               {addedLabel(todo.createdAt)}
             </span>
@@ -272,8 +272,10 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
     </button>
   ) : undefined;
 
+  const split = showPending && showCompleted;
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn('flex flex-col gap-6', split && 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] xl:items-start')}>
       {showPending && (
         <TodoSection label="Pending" dotClassName="bg-vivid-blue" count={pending.length}>
           {caughtUp ? (

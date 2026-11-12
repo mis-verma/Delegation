@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Flag, ArrowUpDown, Plus, SquarePen, X } from 'lucide-react';
+import { Flag, ArrowUpDown, FileSpreadsheet, Plus, SquarePen, X } from 'lucide-react';
 import { Button, Fab, SearchField } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
@@ -15,6 +15,7 @@ import { TODO_SORT_LABEL, TODO_SORT_ICON, type TodoPriorityFilter, type TodoSort
 import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
 import { CreateTodoModal } from './CreateTodoModal';
 import { TodoQuickAdd } from './TodoQuickAdd';
+import { TodoImportModal } from './TodoImportModal';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
 import { readOneOf, useUrlSync } from '../../lib/useUrlSync';
@@ -28,6 +29,7 @@ export const TodoPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [quickFilter, setQuickFilter] = useState<TodoQuickFilterKey | null>(
     () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
   );
@@ -86,7 +88,12 @@ export const TodoPage = () => {
       <h1 className="sr-only">To-Do</h1>
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
 
-      <Fab actions={[{ key: 'add', label: 'Add to-do', icon: Plus, onClick: () => setShowForm(true) }]} />
+      <Fab
+        actions={[
+          { key: 'add', label: 'Add to-do', icon: Plus, onClick: () => setShowForm(true) },
+          { key: 'import', label: 'Add from Excel or CSV', icon: FileSpreadsheet, description: 'Many to-dos at once from a sheet', onClick: () => setShowImport(true) },
+        ]}
+      />
 
       <TodoQuickStats
         counts={quickCounts}
@@ -99,7 +106,7 @@ export const TodoPage = () => {
         onRetry={() => void refetch()}
       />
 
-      <div className="flex items-center gap-2 max-sm:hidden">
+      <div className="flex items-start gap-2 max-sm:hidden">
         <div className="min-w-0 flex-1">
           <TodoQuickAdd />
         </div>
@@ -107,11 +114,23 @@ export const TodoPage = () => {
           type="button"
           variant="outline"
           onClick={() => setShowForm(true)}
-          className="h-11 shrink-0 gap-1.5 rounded-xl px-4 font-display max-md:hidden"
+          className="h-11 shrink-0 gap-1.5 rounded-xl px-3 font-display lg:px-4"
           aria-label="Add a to-do with details"
+          title="Add a to-do with details"
         >
           <SquarePen size={16} aria-hidden="true" />
-          With details
+          <span className="hidden lg:inline">With details</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowImport(true)}
+          className="h-11 shrink-0 gap-1.5 rounded-xl px-3 font-display lg:px-4"
+          aria-label="Add to-dos from an Excel or CSV file"
+          title="Add to-dos from an Excel or CSV file"
+        >
+          <FileSpreadsheet size={16} aria-hidden="true" />
+          <span className="hidden lg:inline">Import</span>
         </Button>
       </div>
 
@@ -188,6 +207,7 @@ export const TodoPage = () => {
       <TodoList quickFilter={quickFilter} priority={priority} sort={sort} search={search} onClearFilters={clearFilters} rangeFilter={rangeFilter} />
 
       <CreateTodoModal open={showForm} onClose={() => setShowForm(false)} />
+      {showImport && <TodoImportModal onClose={() => setShowImport(false)} />}
     </div>
   );
 };

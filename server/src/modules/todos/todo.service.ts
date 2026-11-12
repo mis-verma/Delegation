@@ -1,12 +1,12 @@
 import { db } from "../../config/db.js"
-import { todos } from "../../db/schema/task.js"
+import { todos, type TODO_PRIORITIES } from "../../db/schema/task.js"
 import { eq, and, desc, sql, inArray } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { cached, cacheKey, invalidateKeys } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { utcSql } from "../checklistInstances/checklistReportRange.js"
-import type { CreateTodoInput, RestoreTodosInput, UpdateTodoInput } from "./todo.validation.js"
+import type { CreateTodoInput, ImportTodosInput, RestoreTodosInput, UpdateTodoInput } from "./todo.validation.js"
 
 export type TodoSummaryRow = {
     total: number
@@ -97,19 +97,37 @@ export const todoService = {
     },
 
     async restore(userId: string, input: RestoreTodosInput["todos"]) {
-        const now = new Date()
-        const rows = input.map((item) => ({
-            id: createId(),
-            userId,
-            text: item.text,
-            completed: item.completed,
-            dueDate: item.dueDate ? new Date(item.dueDate) : null,
-            ...(item.priority !== undefined ? { priority: item.priority } : {}),
-            createdAt: item.createdAt ? new Date(item.createdAt) : now,
-            updatedAt: now,
-        }))
-        await db.insert(todos).values(rows)
-        await dropTodoSummary(userId)
-        return { restored: rows.length }
+        const restored = await insertMany(userId, input)
+        return { restored }
     },
+
+    async importMany(userId: string, input: ImportTodosInput["todos"]) {
+        const imported = await insertMany(userId, input)
+        return { imported }
+    },
+}
+
+type NewTodoItem = {
+    text: string
+    completed: boolean
+    dueDate?: string | null
+    priority?: (typeof TODO_PRIORITIES)[number]
+    createdAt?: string
+}
+
+const insertMany = async (userId: string, items: NewTodoItem[]): Promise<number> => {
+    const now = new Date()
+    const rows = items.map((item) => ({
+        id: createId(),
+        userId,
+        text: item.text,
+        completed: item.completed,
+        dueDate: item.dueDate ? new Date(item.dueDate) : null,
+        ...(item.priority !== undefined ? { priority: item.priority } : {}),
+        createdAt: item.createdAt ? new Date(item.createdAt) : now,
+        updatedAt: now,
+    }))
+    await db.insert(todos).values(rows)
+    await dropTodoSummary(userId)
+    return rows.length
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { todoApi, type Todo, type CreateTodoPayload, type UpdateTodoPayload } from "@/api/todos";
+import { todoApi, type Todo, type CreateTodoPayload, type UpdateTodoPayload, type ImportTodoPayload } from "@/api/todos";
 import { toast } from "sonner";
 import type { DashboardQueryOptions } from "@/lib/dashboardQuery";
 import { notifyError } from "@/lib/queryHelpers";
@@ -97,6 +97,25 @@ export const useUpdateTodoMutation = () => {
         },
     });
     return mutation;
+};
+
+export const useTodoImportPreviewMutation = () =>
+    useMutation({
+        mutationFn: (file: File) => todoApi.importPreview(file).then((r) => r.data),
+        onError: (err) => notifyError(err, "Couldn't read that file. Check it is a CSV or Excel (.xlsx) file and try again."),
+    });
+
+export const useImportTodosMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (todos: ImportTodoPayload[]) => todoApi.importMany(todos).then((r) => r.data),
+        onSuccess: ({ imported }) => {
+            toast.success(imported === 1 ? "1 to-do added" : `${imported} to-dos added`);
+            haptic("success");
+        },
+        onError: (err) => notifyError(err, "Couldn't add these to-dos. Try again."),
+        onSettled: () => refreshTodos(queryClient),
+    });
 };
 
 const recreateTodo = async (queryClient: QueryClient, todo: Todo): Promise<string> => {
