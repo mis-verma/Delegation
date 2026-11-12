@@ -16,14 +16,14 @@ interface CaptureButtonProps {
 }
 
 const BUTTON_BASE = cn(
-  'inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-11 px-3 rounded-md border t-meta font-medium whitespace-nowrap',
-  'cursor-pointer select-none transition-colors duration-200 ease-in-out active:scale-[0.98] [-webkit-tap-highlight-color:transparent]',
-  'focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 focus-within:ring-offset-background',
+  'inline-flex items-center justify-center gap-2 h-10 pointer-coarse:h-12 px-4 rounded-lg border t-card font-display font-semibold whitespace-nowrap',
+  'cursor-pointer select-none transition-colors duration-150 ease-out active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
+  'outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary-500/50',
   'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
 );
 
-const LIVE_LOOK = 'border-primary-500/50 text-primary-700 dark:text-primary-300 hover:border-primary-500 hover:bg-primary-500/10';
-const PLAIN_LOOK = 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover';
+const LIVE_LOOK = 'border-transparent bg-primary-700 text-white hover:bg-primary-800 dark:bg-primary-500 dark:hover:bg-primary-400';
+const PLAIN_LOOK = 'border-border bg-surface text-text hover:border-border-hover hover:bg-surface-hover';
 
 export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabled = false, ariaLabel, burst = false, limit }: CaptureButtonProps) => {
   const content = (

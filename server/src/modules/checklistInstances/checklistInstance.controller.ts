@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, deleteRunSchema } from "./checklistInstance.validation.js"
-import { deleteRun, deleteTestRuns, previewTestRuns, runChecklistsForCleanup } from "./checklistRunDeletion.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, testRunPeopleSchema, deleteRunSchema } from "./checklistInstance.validation.js"
+import { dayRange, deleteRun, deleteTestRuns, peopleForCleanup, previewTestRuns, runChecklistsForCleanup } from "./checklistRunDeletion.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -185,14 +185,19 @@ export const checklistInstanceController = {
         res.json({ success: true, data: await runChecklistsForCleanup(req.user!) })
     }),
 
+    cleanupPeople: asyncHandler(async (req: Request, res: Response) => {
+        const { definitionIds, fromDate, toDate } = testRunPeopleSchema.parse(req.query)
+        res.json({ success: true, data: await peopleForCleanup({ definitionIds, ...dayRange(fromDate, toDate) }, req.user!) })
+    }),
+
     previewTestRuns: asyncHandler(async (req: Request, res: Response) => {
-        const filter = testRunPreviewSchema.parse(req.body ?? {})
-        res.json({ success: true, data: await previewTestRuns(filter, req.user!) })
+        const { fromDate, toDate, ...rest } = testRunPreviewSchema.parse(req.body ?? {})
+        res.json({ success: true, data: await previewTestRuns({ ...rest, ...dayRange(fromDate, toDate) }, req.user!) })
     }),
 
     deleteTestRuns: asyncHandler(async (req: Request, res: Response) => {
-        const { expectedCount, reason, ...filter } = testRunDeleteSchema.parse(req.body ?? {})
-        res.json({ success: true, data: await deleteTestRuns(filter, expectedCount, reason, req.user!) })
+        const { expectedCount, reason, fromDate, toDate, ...rest } = testRunDeleteSchema.parse(req.body ?? {})
+        res.json({ success: true, data: await deleteTestRuns({ ...rest, ...dayRange(fromDate, toDate) }, expectedCount, reason, req.user!) })
     }),
 
     revoke: asyncHandler(async (req: Request, res: Response) => {

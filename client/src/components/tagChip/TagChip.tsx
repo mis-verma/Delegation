@@ -1,5 +1,5 @@
 import { Tag as TagIcon } from 'lucide-react';
-import { BARE_LABEL_CLASS, labelDotClass } from '../../lib/labelColors';
+import { labelDotClass } from '../../lib/labelColors';
 import { IconChip } from '../iconChip';
 import type { Tag } from '../../api/tags';
 
@@ -14,7 +14,7 @@ export const TagChip = ({ tag, className, showLabelOnMobile = false }: TagChipPr
     icon={TagIcon}
     tone={labelDotClass(tag)}
     label={tag.name}
-    className={`${BARE_LABEL_CLASS} ${className ?? ''}`}
+    className={className}
     iconOnlyOnMobile={!showLabelOnMobile}
     title={`Label: ${tag.name}`}
   />

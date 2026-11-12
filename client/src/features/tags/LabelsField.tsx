@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Tag as TagIcon, Plus, Loader2, Trash2, Settings2, Check, ChevronLeft, X, Lock, Search } from 'lucide-react';
 import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
-import { BARE_LABEL_CLASS, LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
+import { LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
@@ -59,7 +59,7 @@ const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: 
 );
 
 const LabelChip = ({ tag, className }: { tag: Pick<Tag, 'name' | 'color'>; className?: string }) => (
-  <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={cn(BARE_LABEL_CLASS, className)} title={`Label: ${tag.name}`} />
+  <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={className} title={`Label: ${tag.name}`} />
 );
 
 const PILL_LIMIT = 10;

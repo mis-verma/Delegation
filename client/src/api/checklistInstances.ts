@@ -564,6 +564,14 @@ export const checklistInstanceApi = {
   cleanupChecklists: () =>
     apiFetch<ApiResponse<CleanupChecklist[]>>('/checklist-instances/admin/test-runs/checklists').then(r => r.data),
 
+  cleanupPeople: (filter: Omit<TestRunFilter, 'userIds'>) => {
+    const params = new URLSearchParams();
+    if (filter.definitionIds?.length) params.set('definitionIds', filter.definitionIds.join(','));
+    if (filter.fromDate) params.set('fromDate', filter.fromDate);
+    if (filter.toDate) params.set('toDate', filter.toDate);
+    return apiFetch<ApiResponse<CleanupPerson[]>>(`/checklist-instances/admin/test-runs/people?${params.toString()}`).then(r => r.data);
+  },
+
   previewTestRuns: (filter: TestRunFilter) =>
     apiFetch<ApiResponse<TestRunPreview>>('/checklist-instances/admin/test-runs/preview', { method: 'POST', body: JSON.stringify(filter) }).then(r => r.data),
 
@@ -685,7 +693,9 @@ export const checklistItemHistoryApi = {
     apiFetch<ApiResponse<ChecklistItemPrevious | null>>(`/checklist-instances/${instanceId}/items/${itemId}/previous`),
 };
 
-export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; from?: string; to?: string };
+export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; fromDate?: string; toDate?: string };
+
+export type CleanupPerson = { id: string; name: string; isActive: boolean; runs: number };
 
 export type CleanupChecklist = { id: string; title: string; runs: number };
 

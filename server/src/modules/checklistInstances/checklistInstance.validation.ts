@@ -129,20 +129,30 @@ export const periodReportQuerySchema = z.object({
   .refine((q) => Date.parse(q.to + "T00:00:00Z") - Date.parse(q.from + "T00:00:00Z") <= 366 * 86_400_000, "Pick at most one year")
 
 
+const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-11-30")
+
 const testRunFilter = {
-    userIds: z.array(objectId).max(50).optional(),
+    userIds: z.array(objectId).max(500).optional(),
     definitionIds: z.array(objectId).max(200).optional(),
-    from: z.coerce.date().optional(),
-    to: z.coerce.date().optional(),
+    fromDate: dayString.optional(),
+    toDate: dayString.optional(),
 }
 
-export const testRunPreviewSchema = z.object(testRunFilter).refine((v) => !v.from || !v.to || v.from < v.to, { message: "The start has to be before the end.", path: ["to"] })
+const daysInOrder = (v: { fromDate?: string; toDate?: string }) => !v.fromDate || !v.toDate || v.fromDate <= v.toDate
+
+export const testRunPreviewSchema = z.object(testRunFilter).refine(daysInOrder, { message: "The start day has to be on or before the end day.", path: ["toDate"] })
+
+export const testRunPeopleSchema = z.object({
+    definitionIds: z.string().optional().transform((v) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined)).pipe(z.array(objectId).max(200).optional()),
+    fromDate: dayString.optional(),
+    toDate: dayString.optional(),
+}).refine(daysInOrder, { message: "The start day has to be on or before the end day.", path: ["toDate"] })
 
 export const testRunDeleteSchema = z.object({
     ...testRunFilter,
     expectedCount: z.number().int().min(0),
     reason: z.string().trim().min(3, "Say why these runs are being deleted.").max(500),
-}).refine((v) => !v.from || !v.to || v.from < v.to, { message: "The start has to be before the end.", path: ["to"] })
+}).refine(daysInOrder, { message: "The start day has to be on or before the end day.", path: ["toDate"] })
 
 export const deleteRunSchema = z.object({
     reason: z.string().trim().min(3, "Say why this run is being deleted.").max(500),

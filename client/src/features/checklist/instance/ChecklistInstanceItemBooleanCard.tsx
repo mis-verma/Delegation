@@ -251,7 +251,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
                   key={img.id}
                   image={img}
                   siblings={images}
-                  large={!pendingAnswer}
+                  large
                   onDelete={pendingAnswer && (!editingSaved || sessionIds.has(img.id)) ? deleteImage.mutate : undefined}
                   deleting={deleteImage.isPending && deleteImage.variables === img.id}
                 />
@@ -260,7 +260,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           )}
           <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
           {pendingAnswer && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={cn('grid gap-2 sm:flex sm:flex-wrap sm:items-center', item.requiresLivePhoto ? 'grid-cols-1' : 'grid-cols-2')}>
               <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={(files) => handleFiles(files, 'LIVE')} />
               {!item.requiresLivePhoto && (
                 <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
@@ -372,7 +372,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       )}
 
       <Dialog open={pendingAnswer !== null} onOpenChange={(next) => { if (!next && !saving) cancelPending(); }}>
-        <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-md">
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-md" onOpenAutoFocus={(e) => { if (!needsReason) e.preventDefault(); }}>
           <DialogHeader className="items-start text-left">
             <span className={cn('flex size-11 items-center justify-center rounded-2xl text-white', pendingTone === 'bad' ? 'bg-danger' : pendingTone === 'good' ? 'bg-success-strong' : 'bg-primary-600')} aria-hidden="true">
               {pendingAnswer === 'NO' ? <X size={20} strokeWidth={3} /> : <Check size={20} strokeWidth={3} />}

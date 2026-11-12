@@ -35,28 +35,32 @@ export interface IconChipProps {
   children?: ReactNode;
 }
 
+const FAINT_TONE = /\/\d+/;
+
 export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-primary-400', toneStyle, className, title, labelClassName, iconOnlyOnMobile = false, children }: IconChipProps) => {
   const iconOnly = iconOnlyOnMobile && !!Icon;
+  const faint = FAINT_TONE.test(tone) && !toneStyle;
   const look = LOOKS.find((l) => l.match.test(tone)) ?? NEUTRAL;
   return (
     <span
       title={title ?? (iconOnly && typeof label === 'string' ? label : undefined)}
       className={cn(
-        'inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 ring-1 ring-inset',
-        look.box,
-        iconOnly && 'max-sm:size-6 max-sm:justify-center max-sm:gap-0 max-sm:bg-transparent max-sm:p-0 max-sm:ring-0',
+        'inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-border/60 bg-surface pr-2.5',
+        Icon ? 'pl-1' : 'pl-2.5',
+        iconOnly && 'max-sm:size-7 max-sm:justify-center max-sm:gap-0 max-sm:border-0 max-sm:bg-transparent max-sm:p-0',
         className,
       )}
     >
       {Icon && (
-        <Icon
-          className={cn('size-3 shrink-0', iconOnly && 'max-sm:size-4', look.text)}
-          style={toneStyle ? { color: toneStyle.background as string | undefined } : undefined}
-          strokeWidth={2.5}
+        <span
+          className={cn('flex size-5 shrink-0 items-center justify-center rounded-md', faint ? cn(tone, look.text) : cn(tone, 'text-white'))}
+          style={toneStyle}
           aria-hidden="true"
-        />
+        >
+          <Icon className="size-3" strokeWidth={2.5} />
+        </span>
       )}
-      <span className={cn('min-w-0 truncate t-meta font-display font-semibold leading-none', look.text, iconOnly && 'max-sm:sr-only', labelClassName)}>{label}</span>
+      <span className={cn('min-w-0 truncate t-meta font-display font-semibold leading-none text-text-secondary', iconOnly && 'max-sm:sr-only', labelClassName)}>{label}</span>
       {iconOnly ? <span className="contents max-sm:hidden">{children}</span> : children}
     </span>
   );

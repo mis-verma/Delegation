@@ -1,11 +1,12 @@
 import { and, asc, count, eq, gte, inArray, lt, notInArray, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
-import { checklistInstances, checklistInstanceAssignees, notifications } from "../../db/schema/index.js"
+import { checklistInstances, checklistInstanceAssignees, notifications, users } from "../../db/schema/index.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { dropChecklistSummaries } from "./checklistInstanceShared.js"
+export { dayRange } from "./cleanupDays.js"
 
 const BATCH = 200
 export const MAX_TEST_RUNS = 20000
@@ -148,6 +149,25 @@ export const deleteTestRuns = async (filter: TestRunFilter, expectedCount: numbe
     await dropChecklistSummaries(assigneeIds)
     emitChecklistEvent("checklist-instance:deleted", {}, { count: ids.length })
     return { deleted: ids.length }
+}
+
+export const peopleForCleanup = async (filter: Omit<TestRunFilter, "userIds">, user: AccessTokenPayload) => {
+    assertAdmin(user)
+    if (!filter.definitionIds?.length && !filter.to) return []
+    const rows = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        isActive: users.isActive,
+        runs: sql<number>`COUNT(DISTINCT ${checklistInstanceAssignees.instanceId})`,
+    })
+        .from(checklistInstanceAssignees)
+        .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
+        .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+        .where(and(...runConditions(filter)))
+        .groupBy(users.id, users.firstName, users.lastName, users.isActive)
+        .orderBy(asc(users.firstName))
+    return rows.map((r) => ({ id: r.id, name: `${r.firstName}${r.lastName ? ` ${r.lastName}` : ""}`, isActive: r.isActive, runs: Number(r.runs) }))
 }
 
 export const runChecklistsForCleanup = async (user: AccessTokenPayload) => {
