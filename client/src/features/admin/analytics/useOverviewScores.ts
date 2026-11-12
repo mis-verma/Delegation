@@ -7,7 +7,13 @@ import { capWindowAtToday, windowLabel } from '../../scores/useScoreWindow';
 import { useScoreExplorer } from '../../scores/useScoreExplorer';
 import { teamScoreView } from '../../scores/teamScoreView';
 
-export const useOverviewScoreWindow = (windowFrom?: string, windowTo?: string) => {
+export interface OverviewScoreWindow {
+  from: string;
+  to: string;
+  label: string;
+}
+
+export const useOverviewScoreWindow = (windowFrom?: string, windowTo?: string): OverviewScoreWindow | null => {
   const today = useOrgToday();
   return useMemo(() => {
     if (!windowFrom || !windowTo) return null;

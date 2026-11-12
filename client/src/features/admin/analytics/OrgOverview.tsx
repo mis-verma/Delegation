@@ -241,7 +241,7 @@ export const OrgOverview = () => {
         </div>
       )}
 
-      {orgWide && !isOwner && !classic && (
+      {orgWide && !isOwner && !classic && scoreWindow && (
         <div className="max-sm:order-1">
           <section aria-label="Where to look first" className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
@@ -249,8 +249,8 @@ export const OrgOverview = () => {
               <p className="hidden sm:block t-meta text-text-muted">The departments and stores with the lowest scores in this period.</p>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
-              <OverviewRanking from={windowFrom} to={windowTo} fixedGroup="department" limit={8} />
-              <OverviewRanking from={windowFrom} to={windowTo} fixedGroup="store" limit={8} />
+              <OverviewRanking scoreWindow={scoreWindow} fixedGroup="department" limit={8} />
+              <OverviewRanking scoreWindow={scoreWindow} fixedGroup="store" limit={8} />
             </div>
           </section>
         </div>

@@ -10,6 +10,7 @@ import { asTrailItem, serializeTrail } from '../../scores/scoresDisplay';
 import { TONE_BAR, TONE_TEXT, toneOf } from '../../dashboard/scoreTone';
 import { DashCardHeader, DashCardLink } from '../../dashboard/DashCardHeader';
 import { formatPct, roundPct } from '../../../lib/percent';
+import type { OverviewScoreWindow } from './useOverviewScores';
 
 type Group = 'department' | 'store';
 type SortKey = 'overall' | 'checklist' | 'ticket' | 'delegation' | 'due' | 'name';
@@ -49,13 +50,13 @@ const PctCell = ({ value }: { value: number | null }) => (
 );
 
 interface OverviewRankingProps {
-  from: string;
-  to: string;
+  scoreWindow: OverviewScoreWindow;
   fixedGroup?: Group;
   limit?: number;
 }
 
-export const OverviewRanking = memo(({ from, to, fixedGroup, limit }: OverviewRankingProps) => {
+export const OverviewRanking = memo(({ scoreWindow, fixedGroup, limit }: OverviewRankingProps) => {
+  const { from, to } = scoreWindow;
   const navigate = useNavigate();
   const [pickedGroup, setGroup] = useState<Group>('department');
   const group = fixedGroup ?? pickedGroup;
