@@ -1,23 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { InlineError, PANEL_CLASS, Skeleton } from '../../components';
-import { scoreApi, type ExplorerRow, type TrendBucket } from '../../api/scores';
-import { HEAT_KEY, heatFill } from '../../lib/heatScale';
+import { InlineError, PANEL_CLASS } from '../../components';
+import type { ExplorerRow } from '../../api/scores';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { DashCardHeader } from '../dashboard/DashCardHeader';
 import { FigureCard } from '../dashboard/FigureCard';
-import { HeatDots } from '../dashboard/HeatDots';
-import { SCORE_QUERY_OPTIONS } from '../dashboard/scoreQueries';
 import { figureToneOf } from '../dashboard/scoreTone';
-import { useOrgToday } from '../checklist/useOrgToday';
-import { figureOf, shiftDay, shortDay, type OwnerFigure } from './ownerWindow';
-import { PeriodTag } from './PeriodTag';
+import { figureOf, shortDay, type OwnerFigure } from './ownerWindow';
+import { OwnerDayByDay } from './OwnerDayByDay';
 
 const MODULES = ['checklist', 'ticket', 'delegation'] as const;
 const GRID_COLS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
 
 const joinNames = (names: string[]) => (names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
-const TREND_DAYS = 7;
 
 const pctText = (n: number) => `${n.toFixed(1)}%`;
 
@@ -41,61 +35,6 @@ const ChangeCaption = ({ now, before, compare }: { now: number | null; before: n
     <span className={cn('font-semibold', diff > 0 ? 'text-vivid-green-text' : 'text-vivid-red-text')}>
       {diff > 0 ? 'Up' : 'Down'} {Math.abs(diff)} pts
     </span>
-  );
-};
-
-const dotValue = (b: TrendBucket, key: (typeof MODULES)[number]): number | null => {
-  const m = b[key];
-  return m.due <= 0 ? null : m.score;
-};
-
-const LastSevenDays = () => {
-  const today = useOrgToday();
-  const from = shiftDay(today, -(TREND_DAYS - 1));
-  const trend = useQuery({
-    queryKey: ['scores', 'trend', 'org', 'me', 'day', from, today],
-    queryFn: () => scoreApi.trend({ scope: 'org', period: 'day', from, to: today }),
-    ...SCORE_QUERY_OPTIONS,
-  });
-  const buckets = trend.data?.buckets ?? [];
-
-  return (
-    <section aria-labelledby="owner-week-heading" className="flex flex-col gap-2 border-t border-border/40 pt-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 id="owner-week-heading" className="t-card font-display font-bold text-text">Day by day</h3>
-        <PeriodTag label="Last 7 days" />
-      </div>
-      {trend.isError && !trend.data ? (
-        <InlineError message="Couldn't load the last 7 days." onRetry={() => void trend.refetch()} />
-      ) : !trend.data ? (
-        <div className="flex flex-col gap-2" role="status" aria-label="Loading the last 7 days">
-          {MODULES.map((m) => <Skeleton key={m} className="h-5 w-full rounded-md" />)}
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {MODULES.map((m) => (
-            <li key={m} className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-2">
-              <span className="t-meta font-semibold text-text-secondary">{MODULE_LABEL[m]}</span>
-              <HeatDots fill values={buckets.map((b) => dotValue(b, m))} labels={buckets.map((b) => b.label)} />
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 t-meta font-medium text-text-muted" aria-label="Colour key">
-        <span className="font-display font-semibold text-text-secondary">Score</span>
-        {HEAT_KEY.map(({ level, label }) => (
-          <span key={level} className="inline-flex items-center gap-1.5">
-            <span className="size-3.5 rounded-md" style={{ background: heatFill(level) }} aria-hidden="true" />
-            {label}
-          </span>
-        ))}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="flex size-3.5 items-center justify-center rounded-md bg-surface-hover/60 text-text-light" aria-hidden="true"><span className="size-1 rounded-full bg-current" /></span>
-          Nothing due
-        </span>
-        <span className="basis-full sm:ml-auto sm:basis-auto">Oldest day on the left.</span>
-      </div>
-    </section>
   );
 };
 
@@ -165,7 +104,7 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
           )}
         </>
       )}
-      <LastSevenDays />
+      <OwnerDayByDay />
     </div>
   </section>
   );
