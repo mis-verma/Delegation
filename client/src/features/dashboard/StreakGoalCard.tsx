@@ -27,8 +27,8 @@ const StepButton = ({ label, onClick, disabled, children }: { label: string; onC
 
 const SHOWN_DAYS = 14;
 
-const Figure = ({ icon: Icon, tone, value, unit, label }: { icon: LucideIcon; tone: string; value: ReactNode; unit: string; label: string }) => (
-  <div className="flex min-w-0 flex-col gap-1.5 rounded-xl bg-surface-hover/50 p-3 ring-1 ring-inset ring-border/50">
+const Figure = ({ icon: Icon, tone, tint, value, unit, label }: { icon: LucideIcon; tone: string; tint: string; value: ReactNode; unit: string; label: string }) => (
+  <div className={cn('flex min-w-0 flex-col gap-1.5 rounded-xl p-3 ring-1 ring-inset ring-border/40', tint)}>
     <span className="inline-flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone)} aria-hidden="true">
         <Icon size={12} strokeWidth={2.5} />
@@ -110,9 +110,16 @@ export const StreakGoalCard = () => {
       )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Figure icon={Flame} tone={summary.current > 0 ? 'bg-coral-500' : 'bg-text-muted'} value={<span className={cn(hot && 'live-dot')}>{summary.current}</span>} unit={summary.current === 1 ? 'day' : 'days'} label="Current streak" />
-        <Figure icon={Trophy} tone="bg-primary-600" value={summary.best} unit={summary.best === 1 ? 'day' : 'days'} label="Best run" />
-        <Figure icon={Target} tone="bg-success" value={met} unit={`of ${counted}`} label="Goal hit" />
+        <Figure
+          icon={Flame}
+          tone={summary.current > 0 ? 'bg-linear-to-br from-(--streak-fire-from) to-(--streak-fire-to)' : 'bg-text-muted'}
+          tint={summary.current > 0 ? 'bg-(--streak-fire-tint)' : 'bg-surface-hover/50'}
+          value={<span className={cn(hot && 'live-dot')}>{summary.current}</span>}
+          unit={summary.current === 1 ? 'day' : 'days'}
+          label="Current streak"
+        />
+        <Figure icon={Trophy} tone="bg-(--streak-gold)" tint="bg-(--streak-gold-tint)" value={summary.best} unit={summary.best === 1 ? 'day' : 'days'} label="Best run" />
+        <Figure icon={Target} tone="bg-linear-to-br from-(--streak-hit-from) to-(--streak-hit-to)" tint="bg-(--streak-hit-tint)" value={met} unit={`of ${counted}`} label="Goal hit" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2">
@@ -135,8 +142,8 @@ export const StreakGoalCard = () => {
         <div className="flex items-center justify-between gap-2">
           <span className="t-meta font-display font-semibold text-text-secondary">Last {recent.length} days</span>
           <span className="flex items-center gap-3 t-meta text-text-muted" aria-hidden="true">
-            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-success text-white"><Check size={9} strokeWidth={3.5} /></span>Hit</span>
-            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-danger/15 text-danger"><X size={9} strokeWidth={3.5} /></span>Missed</span>
+            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-linear-to-br from-(--streak-hit-from) to-(--streak-hit-to) text-white"><Check size={9} strokeWidth={3.5} /></span>Hit</span>
+            <span className="inline-flex items-center gap-1"><span className="flex size-3.5 items-center justify-center rounded bg-(--heat-low) text-(--heat-low-ink)"><X size={9} strokeWidth={3.5} /></span>Missed</span>
             <span className="inline-flex items-center gap-1"><span className="size-3.5 rounded bg-surface-hover" />Nothing due</span>
           </span>
         </div>
@@ -155,8 +162,8 @@ export const StreakGoalCard = () => {
                 <span
                   className={cn(
                     'flex aspect-square w-full max-w-11 items-center justify-center rounded-lg',
-                    state === 'met' && 'bg-success text-white',
-                    state === 'missed' && 'bg-danger/12 text-danger ring-1 ring-inset ring-danger/25',
+                    state === 'met' && 'bg-linear-to-br from-(--streak-hit-from) to-(--streak-hit-to) text-white',
+                    state === 'missed' && 'bg-(--heat-low) text-(--heat-low-ink)',
                     state === 'none' && 'bg-surface-hover/70 text-text-light',
                     isToday && 'ring-2 ring-primary-500/60 ring-offset-1 ring-offset-surface',
                   )}
