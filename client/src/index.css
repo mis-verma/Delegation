@@ -257,22 +257,14 @@ body {
 }
 
 :root {
-  --heat-low: #ffe1e5;
-  --heat-low-ink: #be123c;
-  --heat-fair: #fde68a;
-  --heat-fair-ink: #7c2d12;
-  --heat-good: #6ee7b7;
-  --heat-good-ink: #064e3b;
-  --heat-high: #047857;
+  --heat-low: #dbe6f1;
+  --heat-low-ink: #002f52;
+  --heat-fair: #a3bfdb;
+  --heat-fair-ink: #001f35;
+  --heat-good: #3f6f9e;
+  --heat-good-ink: #ffffff;
+  --heat-high: #001f35;
   --heat-high-ink: #ffffff;
-  --streak-fire-from: #fb923c;
-  --streak-fire-to: #e11d48;
-  --streak-fire-tint: rgba(249, 115, 22, 0.09);
-  --streak-gold: #f59e0b;
-  --streak-gold-tint: rgba(245, 158, 11, 0.1);
-  --streak-hit-from: #34d399;
-  --streak-hit-to: #059669;
-  --streak-hit-tint: rgba(16, 185, 129, 0.09);
 }
 
 @font-face {
@@ -289,17 +281,14 @@ body {
   --color-primary-600: #3b7ab8;
   --color-primary-700: #2a679f;
   --color-gold: #d9b865;
-  --heat-low: #4a1d2a;
-  --heat-low-ink: #fecdd3;
-  --heat-fair: #5c3d0a;
-  --heat-fair-ink: #fde68a;
-  --heat-good: #0b5e48;
-  --heat-good-ink: #a7f3d0;
-  --heat-high: #34d399;
-  --heat-high-ink: #022c22;
-  --streak-fire-tint: rgba(251, 146, 60, 0.14);
-  --streak-gold-tint: rgba(245, 158, 11, 0.14);
-  --streak-hit-tint: rgba(52, 211, 153, 0.13);
+  --heat-low: #14324a;
+  --heat-low-ink: #cfe0f2;
+  --heat-fair: #2d5a85;
+  --heat-fair-ink: #eef4fb;
+  --heat-good: #5b93c9;
+  --heat-good-ink: #00111d;
+  --heat-high: #b8d6f7;
+  --heat-high-ink: #00111d;
   --color-background: #08131d;
   --color-surface: #0e2030;
   --color-surface-hover: #152b3f;
