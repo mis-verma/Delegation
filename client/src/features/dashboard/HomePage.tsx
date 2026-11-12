@@ -1,10 +1,10 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import { ArrowUpRight, Briefcase, Globe2, ShieldCheck, Siren, User, Users } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router';
+import { Briefcase, Globe2, Siren, User, Users } from 'lucide-react';
+import { haptic } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
-import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
@@ -40,9 +40,9 @@ const readStatScope = (): StatScope => {
   }
 };
 
-type HomeTab = 'work' | 'attention' | 'approvals';
+type HomeTab = 'work' | 'attention';
 
-const HOME_TABS: readonly HomeTab[] = ['work', 'attention', 'approvals'];
+const HOME_TABS: readonly HomeTab[] = ['work', 'attention'];
 const isHomeTab = (value: string | null): value is HomeTab => !!value && (HOME_TABS as readonly string[]).includes(value);
 
 const PANEL_FALLBACK = <Skeleton className="h-64 rounded-2xl" />;
@@ -55,20 +55,16 @@ export const HomePage = () => {
   const hasTabs = dashboardView.orgWide || dashboardView.isHod;
   const orgToday = useOrgToday();
   const now = useNow();
-  const warm = usePrefetchRoute();
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const navigate = useNavigate();
-  const tab: HomeTab = hasTabs && isHomeTab(requested) && requested !== 'approvals' ? requested : 'work';
+  const tab: HomeTab = hasTabs && isHomeTab(requested) ? requested : 'work';
 
   const approvalSources = useApprovalSources();
   const queueHref = approvalSources.queueHref ?? '/verify';
 
   const changeTab = (next: HomeTab) => {
-    if (next === 'approvals') {
-      navigate(queueHref, { viewTransition: true });
-      return;
-    }
+    if (next === tab) return;
+    haptic('tap');
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       if (next === 'work') out.delete('tab');
@@ -110,19 +106,12 @@ export const HomePage = () => {
     ? exceptionTotals.data.tickets + exceptionTotals.data.delegations + exceptionTotals.data.missedRuns
     : 0;
 
+  const ownKpi = ownSummaries.kpi;
+  const myPending = (ownKpi.tasks.data?.pending ?? 0) + (ownKpi.tickets.data?.pending ?? 0) + (ownKpi.checklistToday.data?.pending ?? 0) + (ownKpi.todos.data?.pending ?? 0);
+
   const tabOptions: readonly SlidingTabOption<HomeTab>[] = [
-    { value: 'work', label: 'My work', icon: Briefcase },
-    { value: 'attention', label: 'Needs attention', shortLabel: 'Attention', icon: Siren, badge: attentionCount, badgeTone: 'danger' },
-    {
-      value: 'approvals',
-      label: 'Approval pending',
-      shortLabel: 'Approvals',
-      icon: ShieldCheck,
-      badge: approvalBuckets.total.pending,
-      badgeTone: approvalBuckets.total.old > 0 ? 'danger' : 'primary',
-      trailing: ArrowUpRight,
-      ariaLabel: `Approval pending, ${approvalBuckets.total.pending} waiting. Opens the verification queue`,
-    },
+    { value: 'work', label: 'My work', icon: Briefcase, badge: myPending, badgeTone: 'primary', ariaLabel: `My work, ${myPending} open` },
+    { value: 'attention', label: 'Needs attention', shortLabel: 'Attention', icon: Siren, badge: attentionCount, badgeTone: 'danger', ariaLabel: `Needs attention, ${attentionCount} items` },
   ];
 
   const scopeOptions: readonly SlidingTabOption<StatScope>[] = [
@@ -184,9 +173,7 @@ export const HomePage = () => {
 
       {hasTabs ? (
         <>
-          <div onPointerEnter={() => warm('/verify')} onTouchStart={() => warm('/verify')} className="max-w-full">
-            <SlidingTabs label="Home views" value={tab} options={tabOptions} onChange={changeTab} />
-          </div>
+          <SlidingTabs label="Home views" value={tab} options={tabOptions} onChange={changeTab} fill="phone" className="max-sm:w-full sm:self-start" />
           <div key={tab} className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none">
             {tab === 'work' && (
               <>
