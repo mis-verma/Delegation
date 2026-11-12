@@ -52,7 +52,7 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
 
   return (
     <div role="group" aria-label={label}>
-      <div className="grid grid-cols-4 divide-x divide-border/50 rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:hidden">
+      <div className={cn('grid divide-x divide-border/50 rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:hidden', items.length === 3 ? 'grid-cols-3' : 'grid-cols-4')}>
         {items.map((item) => {
           const Icon = item.icon;
           const tint = TINT[item.tint];

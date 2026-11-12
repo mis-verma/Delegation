@@ -8,6 +8,7 @@ import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
+import { OwnApprovalStrip, TeamApprovalStrip } from './ApprovalStrip';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
@@ -89,7 +90,10 @@ export const HomePage = () => {
     }
   };
 
+  const splitOwnTeam = user?.role === 'PC';
   const summaries = useDashboardSummaries(!hasTabs || ownStats ? 'mine' : undefined);
+  const ownSummaries = useDashboardSummaries('mine');
+  const teamSummaries = useDashboardSummaries(hasTabs ? undefined : 'mine');
   const teamTicketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, frontLine, DASHBOARD_QUERY_OPTIONS);
   const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
   const approvalBuckets = usePcApprovalBuckets();
@@ -131,7 +135,28 @@ export const HomePage = () => {
 
   const overview = <HomeStats kpi={summaries.kpi} scope={hasTabs ? statScope : 'mine'} teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'} />;
 
-  const statSection = hasTabs ? (
+  const splitSections = (
+    <div className="flex flex-col gap-6">
+      <section aria-labelledby="home-own-heading" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h2 id="home-own-heading" className="t-section font-display font-bold text-text">Own</h2>
+          <p className="hidden sm:block t-meta text-text-muted">Your own work and how its approvals stand.</p>
+        </div>
+        <HomeStats kpi={ownSummaries.kpi} scope="mine" teamLabel="Own" />
+        <OwnApprovalStrip />
+      </section>
+      <section aria-labelledby="home-team-heading" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h2 id="home-team-heading" className="t-section font-display font-bold text-text">Team</h2>
+          <p className="hidden sm:block t-meta text-text-muted">Everyone's work, and the approvals waiting for you.</p>
+        </div>
+        <HomeStats kpi={teamSummaries.kpi} scope="overall" teamLabel="Team" />
+        <TeamApprovalStrip queueHref={queueHref} />
+      </section>
+    </div>
+  );
+
+  const statSection = splitOwnTeam ? splitSections : hasTabs ? (
     <section aria-labelledby="home-stats-heading" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h2 id="home-stats-heading" className="t-section font-display font-bold text-text">Numbers today</h2>

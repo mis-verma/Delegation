@@ -1,23 +1,22 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router';
-import { AlertTriangle, ChevronRight, CirclePlus, Clock3, Layers, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ChevronRight, Clock3, Layers, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatStrip, type StatStripItem } from './StatStrip';
 import { CATEGORY_ICON } from './categoryLook';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useAuth } from '../../context/AuthContext';
-import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
 
 export type StatScope = 'overall' | 'mine';
-type Metric = 'pending' | 'delayed' | 'new' | 'total';
+type Metric = 'total' | 'pending' | 'delayed' | 'due';
 type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
 
 interface Counts {
   pending: number;
   overdue: number;
-  newToday: number;
+  due: number;
   total: number;
 }
 
@@ -39,38 +38,28 @@ interface ModuleRow {
 }
 
 const METRICS: readonly { key: Metric; label: string; caption: string; icon: LucideIcon; tint: StatStripItem['tint'] }[] = [
-  { key: 'pending', label: 'Pending', caption: 'Open right now', icon: Clock3, tint: 'primary' },
+  { key: 'total', label: 'Total', caption: 'Everything in this view', icon: Layers, tint: 'primary' },
+  { key: 'pending', label: 'Pending', caption: 'Still open', icon: Clock3, tint: 'coral' },
   { key: 'delayed', label: 'Delayed', caption: 'Past the deadline', icon: AlertTriangle, tint: 'danger' },
-  { key: 'new', label: 'New', caption: 'Added today', icon: CirclePlus, tint: 'coral' },
-  { key: 'total', label: 'Total', caption: 'All in this view', icon: Layers, tint: 'success' },
+  { key: 'due', label: 'Due', caption: 'Open and still on time', icon: CalendarClock, tint: 'success' },
 ];
-
-const startOfToday = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
 
 const hrefFor = (module: ModuleRow, metric: Metric): string => {
   const { key, base } = module;
   if (key === 'checklist') return checklistHref(metric, module.team === true);
+  if (key === 'todo') return base;
   if (metric === 'pending') return `${base}?quickFilter=pending`;
   if (metric === 'delayed') return `${base}?quickFilter=delayed`;
-  if (metric === 'new') {
-    const from = startOfToday();
-    const to = new Date(from);
-    to.setDate(to.getDate() + 1);
-    return createdRangeHref(base, from, to);
-  }
+  if (metric === 'due') return `${base}?quickFilter=due`;
   return base;
 };
 
 const valueOf = (counts: Counts | undefined, metric: Metric) =>
-  !counts ? 0 : metric === 'pending' ? counts.pending : metric === 'delayed' ? counts.overdue : metric === 'new' ? counts.newToday : counts.total;
+  !counts ? 0 : metric === 'pending' ? counts.pending : metric === 'delayed' ? counts.overdue : metric === 'due' ? counts.due : counts.total;
 
 const checklistHref = (metric: Metric, team: boolean): string => {
   const base = team ? '/checklists/team' : '/checklists';
-  return metric === 'pending' ? `${base}?status=pending` : metric === 'delayed' ? `${base}?status=overdue` : metric === 'total' ? (team ? `${base}?status=all` : base) : base;
+  return metric === 'pending' || metric === 'due' ? `${base}?status=pending` : metric === 'delayed' ? `${base}?status=overdue` : team ? `${base}?status=all` : base;
 };
 
 interface HomeStatsProps {
