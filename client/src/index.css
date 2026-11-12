@@ -67,12 +67,12 @@
   --color-vivid-sky-text: #1c4972;
   --color-on-vivid: #07140d;
 
-  --font-sans: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "IBM Plex Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
   --color-gold: #d1ad53;
   --color-gold-leaf: #e5c982;
   --color-gold-deep: #765a00;
-  --font-display: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
-  --font-figure: "Mulish Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", Arial, sans-serif;
+  --font-display: "IBM Plex Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-figure: "IBM Plex Sans Variable", "Inter Variable", "Inter Fallback", "Noto Sans Devanagari", Arial, sans-serif;
 
   --container-width: min(96rem, 100% - 3rem);
   --sidebar-width-expanded: 17.5rem;
@@ -492,6 +492,19 @@ body {
   .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 800); }
   .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 700); }
   .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 600); }
+}
+
+@media (min-width: 640px) {
+  body { line-height: 1.55; letter-spacing: 0; }
+  .t-title, .t-section { font-weight: clamp(600, var(--tw-font-weight, 600), 700); letter-spacing: -0.015em; }
+  .t-figure, .t-stat { font-weight: clamp(600, var(--tw-font-weight, 600), 700); letter-spacing: -0.01em; }
+  .t-card { font-weight: clamp(500, var(--tw-font-weight, 500), 700); }
+}
+
+@layer base {
+  @media (min-width: 640px) {
+    h1, h2, h3, h4 { line-height: 1.25; }
+  }
 }
 
 button, a, summary, [role="button"], [role="tab"] {
