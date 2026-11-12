@@ -50,9 +50,16 @@ function TabsList({
     mutations.observe(list, { attributes: true, subtree: true, attributeFilter: ["data-state"] })
     const sizes = new ResizeObserver(measure)
     sizes.observe(list)
+    Array.from(list.children).forEach((child) => sizes.observe(child))
+    const children = new MutationObserver(() => Array.from(list.children).forEach((child) => sizes.observe(child)))
+    children.observe(list, { childList: true })
+    let alive = true
+    void document.fonts?.ready.then(() => { if (alive) measure() })
     const frame = requestAnimationFrame(() => setAnimate(true))
     return () => {
+      alive = false
       mutations.disconnect()
+      children.disconnect()
       sizes.disconnect()
       cancelAnimationFrame(frame)
     }
@@ -63,7 +70,7 @@ function TabsList({
       ref={listRef}
       data-slot="tabs-list"
       className={cn(
-        "relative bg-surface-hover/70 text-text-muted ring-1 ring-inset ring-border/50 inline-flex flex-wrap w-fit items-center justify-center rounded-full p-1 gap-1",
+        "relative bg-surface-hover/70 text-text-muted ring-1 ring-inset ring-border/50 inline-flex flex-nowrap w-fit max-w-full overflow-x-auto no-scrollbar items-center rounded-full p-1 gap-1",
         className,
       )}
       {...props}
@@ -91,7 +98,7 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "relative z-10 data-[state=active]:text-text data-[state=active]:font-semibold data-[state=inactive]:hover:text-text focus-visible:ring-primary-500/50 focus-visible:outline-none focus-visible:ring-2 inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-display font-medium whitespace-nowrap transition-colors duration-200 ease-in-out disabled:pointer-events-none disabled:opacity-50 cursor-pointer active:scale-[0.97] text-text-muted",
+        "relative z-10 data-[state=active]:text-text data-[state=active]:font-semibold data-[state=inactive]:hover:text-text focus-visible:ring-primary-500/50 focus-visible:outline-none focus-visible:ring-2 inline-flex flex-[1_0_auto] items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-display font-medium whitespace-nowrap transition-colors duration-200 ease-in-out disabled:pointer-events-none disabled:opacity-50 cursor-pointer active:scale-[0.97] text-text-muted",
         className,
       )}
       {...props}
