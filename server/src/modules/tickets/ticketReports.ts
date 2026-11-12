@@ -231,13 +231,17 @@ export const ownerStats = async (scope: "department" | "store" | "user" | "org",
   return ownerStatsByColumn(sql`tickets.assigneeId`, [...scopeConditions, sql`tickets.assigneeId IS NOT NULL`], window, true)
 }
 
+export const ticketScopeWhere = async (user: AccessTokenPayload, scope: TicketSummaryScope) => {
+  const scopeCondition = scope === "visible"
+    ? await visibilityFilter(user)
+    : eq(tickets.assigneeId, user.sub)
+  return and(NOT_DELETED, NOT_GATED, scopeCondition)
+}
+
 export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScope = "mine"): Promise<TicketSummaryRow> => {
   const version = await versionTag(TICKET_SUMMARY_VERSION)
   return cached(cacheKey(TICKET_SUMMARY_PREFIX, `v${version}`, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
-    const scopeCondition = scope === "visible"
-      ? await visibilityFilter(user)
-      : eq(tickets.assigneeId, user.sub)
-    const where = and(NOT_DELETED, NOT_GATED, scopeCondition)
+    const where = await ticketScopeWhere(user, scope)
 
     const [row] = await db.select({
       total: sql<number>`COUNT(*)`,

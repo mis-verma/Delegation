@@ -29,6 +29,7 @@ const TicketList = lazy(() => import('./features/tickets/TicketList').then(m => 
 const TaskList = lazy(() => import('./features/tasks/TaskList').then(m => ({ default: m.TaskList })));
 const DraftDelegationsPage = lazy(() => import('./features/tasks/DraftAndArchivedTasks').then(m => ({ default: m.DraftDelegationsPage })));
 const ArchivedDelegationsPage = lazy(() => import('./features/tasks/DraftAndArchivedTasks').then(m => ({ default: m.ArchivedDelegationsPage })));
+const WorkListPage = lazy(() => import('./features/dashboard/work').then(m => ({ default: m.WorkListPage })));
 const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ default: m.TodoPage })));
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
@@ -258,6 +259,7 @@ const router = createBrowserRouter([
           { path: '/tasks/draft', element: <DraftDelegationsPage /> },
           { path: '/tasks/archived', element: <ArchivedDelegationsPage /> },
           { path: '/todo', element: <TodoPage /> },
+          { path: '/work', element: <WorkListPage /> },
           { path: '/events', element: <EventList /> },
           { path: '/checklists', element: <MyChecklists /> },
           { path: '/checklists/:instanceId', element: <ChecklistInstanceDetail /> },

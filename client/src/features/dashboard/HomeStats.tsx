@@ -1,13 +1,15 @@
-import { memo, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarClock, Clock3, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { StatBoard, type BoardTile, type BoardTone } from './StatBoard';
+import { memo, useMemo } from 'react';
+import { ShieldCheck, type LucideIcon } from 'lucide-react';
+import { StatBoard, type BoardTile } from './StatBoard';
+import { WORK_METRIC_LOOK, metricValue, moduleListHref, workListHref } from './work/workMetrics';
+import type { WorkKind, WorkMetric } from '../../api/dashboard';
 import type { ApprovalFigure } from './approvalFigures';
 import { CATEGORY_ICON } from './categoryLook';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardSummaries } from './useDashboardSummaries';
 
 export type StatScope = 'overall' | 'mine';
-type Metric = 'total' | 'pending' | 'delayed' | 'due';
+type Metric = WorkMetric;
 type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
 
 interface Counts {
@@ -34,30 +36,13 @@ interface ModuleRow {
   failed: boolean;
 }
 
-const METRICS: readonly { key: Metric; label: string; caption: string; icon: LucideIcon; tint: BoardTone }[] = [
-  { key: 'total', label: 'Total', caption: 'Everything in this view', icon: Layers, tint: 'primary' },
-  { key: 'pending', label: 'Pending', caption: 'Still open', icon: Clock3, tint: 'coral' },
-  { key: 'delayed', label: 'Delayed', caption: 'Past the deadline', icon: AlertTriangle, tint: 'danger' },
-  { key: 'due', label: 'Due', caption: 'Open and still on time', icon: CalendarClock, tint: 'success' },
-];
+const METRICS = WORK_METRIC_LOOK;
 
-const hrefFor = (module: ModuleRow, metric: Metric): string => {
-  const { key, base } = module;
-  if (key === 'checklist') return checklistHref(metric, module.team === true);
-  if (key === 'todo') return base;
-  if (metric === 'pending') return `${base}?quickFilter=pending`;
-  if (metric === 'delayed') return `${base}?quickFilter=delayed`;
-  if (metric === 'due') return `${base}?quickFilter=due`;
-  return base;
-};
+const KIND_OF: Record<ModuleKey, WorkKind> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist', todo: 'todo' };
 
-const valueOf = (counts: Counts | undefined, metric: Metric) =>
-  !counts ? 0 : metric === 'pending' ? counts.pending : metric === 'delayed' ? counts.overdue : metric === 'due' ? counts.due : counts.total;
+const hrefFor = (module: ModuleRow, metric: Metric): string => moduleListHref(KIND_OF[module.key], metric, module.team === true);
 
-const checklistHref = (metric: Metric, team: boolean): string => {
-  const base = team ? '/checklists/team' : '/checklists';
-  return metric === 'pending' || metric === 'due' ? `${base}?status=pending` : metric === 'delayed' ? `${base}?status=overdue` : team ? `${base}?status=all` : base;
-};
+const valueOf = (counts: Counts | undefined, metric: Metric) => metricValue(counts, metric);
 
 interface HomeStatsProps {
   kpi: DashboardSummaries['kpi'];
@@ -67,7 +52,6 @@ interface HomeStatsProps {
 }
 
 export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsProps) => {
-  const [activeKey, setActiveKey] = useState<Metric>('total');
   const { user } = useAuth();
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
 
@@ -100,16 +84,15 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
         tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
-        onSelect: () => setActiveKey(m.key),
-        selected: activeKey === m.key,
+        href: workListHref(m.key, scope === 'mine' ? 'mine' : 'visible'),
         loading,
         failed,
       };
     }),
-    [modules, activeKey],
+    [modules, scope],
   );
 
-  const active = items.find((i) => i.key === activeKey) ?? items[0];
+  const active = items[0];
   const tiles: BoardTile[] = approval
     ? [...items, {
         key: 'approval',

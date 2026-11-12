@@ -179,6 +179,23 @@ export const ownerStats = async (scope: "department" | "user" | "org", from?: st
     return taskOwnerStatsByColumn(sql`t.ownerKey`, baseConditions, true, true);
 }
 
+export const delegationScopeWhere = async (user: AccessTokenPayload, scope: "mine" | "visible"): Promise<SQL | undefined> => {
+    const scopeCondition = scope === "mine"
+        ? or(
+            eq(tasks.assigneeId, user.sub),
+            sql`EXISTS (SELECT 1 FROM ${taskAdditionalAssignees} ta WHERE ta.taskId = ${tasks.id} AND ta.userId = ${user.sub})`,
+        )
+        : await buildVisibilityCondition(user);
+    return and(
+        NOT_DELETED,
+        NOT_GATED,
+        eq(tasks.category, "delegation"),
+        isNull(tasks.parentTaskId),
+        ne(tasks.status, "draft"),
+        scopeCondition,
+    );
+}
+
 export const summary = async (user: AccessTokenPayload, scope?: TaskSummaryScope): Promise<TaskSummaryRow> => {
     const version = await versionTag(TASK_SUMMARY_VERSION);
     return cached(cacheKey(TASK_SUMMARY_PREFIX, `v${version}`, scope ?? "default", user.sub), SUMMARY_TTL_SECONDS, async () => {
@@ -190,20 +207,7 @@ export const summary = async (user: AccessTokenPayload, scope?: TaskSummaryScope
                 : selfAndDepartmentCondition(user);
             where = and(NOT_DELETED, NOT_GATED, mineCondition);
         } else {
-            const scopeCondition = scope === "mine"
-                ? or(
-                    eq(tasks.assigneeId, user.sub),
-                    sql`EXISTS (SELECT 1 FROM ${taskAdditionalAssignees} ta WHERE ta.taskId = ${tasks.id} AND ta.userId = ${user.sub})`,
-                )
-                : await buildVisibilityCondition(user);
-            where = and(
-                NOT_DELETED,
-                NOT_GATED,
-                eq(tasks.category, "delegation"),
-                isNull(tasks.parentTaskId),
-                ne(tasks.status, "draft"),
-                scopeCondition,
-            );
+            where = await delegationScopeWhere(user, scope);
         }
 
         const [row] = await db.select({

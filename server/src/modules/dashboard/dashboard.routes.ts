@@ -2,7 +2,8 @@ import { Router } from "express"
 import { authenticate } from "../../middleware/auth/auth.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { dashboardService } from "./dashboard.service.js"
-import { dashboardSummariesQuerySchema } from "./dashboard.validation.js"
+import { dashboardSummariesQuerySchema, workItemsQuerySchema } from "./dashboard.validation.js"
+import { workItems } from "./workItems.js"
 import { myApprovals } from "./myApprovals.js"
 
 export const dashboardRouter = Router()
@@ -16,4 +17,9 @@ dashboardRouter.get("/summaries", asyncHandler(async (req, res) => {
 
 dashboardRouter.get("/my-approvals", asyncHandler(async (req, res) => {
     res.json({ success: true, data: await myApprovals(req.user!) })
+}))
+
+dashboardRouter.get("/work-items", asyncHandler(async (req, res) => {
+    const query = workItemsQuerySchema.parse(req.query)
+    res.json({ success: true, data: await workItems(req.user!, query) })
 }))

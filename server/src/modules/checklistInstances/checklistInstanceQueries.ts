@@ -88,11 +88,29 @@ export const listAll = async (filter: InstanceListFilter & { page?: number; limi
     return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
 }
 
-export const summary = async (filter: InstanceListFilter) => {
+const windowOf = (filter: InstanceListFilter) => {
     const today = orgLocalDate(new Date())
     const fromDay = filter.from ? asOrgDay(filter.from) : `${today.slice(0, 8)}01`
     const toDay = filter.to ? asOrgDay(filter.to) : today
-    const windowed: InstanceListFilter = { ...filter, from: fromDay, to: toDay }
+    return { fromDay, toDay, windowed: { ...filter, from: fromDay, to: toDay } as InstanceListFilter }
+}
+
+export const runFlagsInWindow = async (filter: InstanceListFilter, now: Date = new Date()) => {
+    const { fromDay, toDay, windowed } = windowOf(filter)
+    const built = instanceConditions(windowed)
+    const offDayRules = await loadOffDayRules(fromDay, toDay)
+    const runRows = await db.select(runSelect)
+        .from(checklistInstances)
+        .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+        .where(built)
+        .groupBy(...runGroupBy)
+    const assigneesByRun = await loadExtraDayAssignees(runRows, offDayRules)
+    const flagCtx = { offDayRules, assigneesByRun, offsetMs: env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000, now: now.getTime() }
+    return { built, fromDay, toDay, runRows, flags: runRows.map((r) => runFlagsOf(r, flagCtx)) }
+}
+
+export const summary = async (filter: InstanceListFilter) => {
+    const { fromDay, toDay } = windowOf(filter)
     const owner = summaryOwnerKey(filter.userId)
     const version = await versionTag(SUMMARY_VERSION_ALL, summaryVersionOf(owner))
     return cached(
@@ -103,18 +121,8 @@ export const summary = async (filter: InstanceListFilter) => {
         ),
         SUMMARY_TTL_SECONDS,
         async () => {
-            const built = instanceConditions(windowed)
             const now = new Date()
-            const offDayRules = await loadOffDayRules(fromDay, toDay)
-
-            const runRows = await db.select(runSelect)
-                .from(checklistInstances)
-                .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
-                .where(built)
-                .groupBy(...runGroupBy)
-            const assigneesByRun = await loadExtraDayAssignees(runRows, offDayRules)
-            const flagCtx = { offDayRules, assigneesByRun, offsetMs: env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000, now: now.getTime() }
-            const flags = runRows.map((r) => runFlagsOf(r, flagCtx))
+            const { built, runRows, flags } = await runFlagsInWindow(filter, now)
             const counted = flags.filter((f) => !f.skip)
             const completed = counted.filter((f) => f.complete).length
             const missed = counted.filter((f) => !f.complete && f.missed).length
