@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import { ArrowUpRight, Briefcase, Globe2, ShieldCheck, Siren, User, Users } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { Briefcase, Globe2, ShieldCheck, Siren, User, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
@@ -8,7 +8,7 @@ import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
-import { teamApprovalFigure, useOwnApprovalFigure } from './approvalFigures';
+import { teamApprovalFigure } from './approvalFigures';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
@@ -50,7 +50,6 @@ const PANEL_FALLBACK = <Skeleton className="h-64 rounded-2xl" />;
 
 export const HomePage = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const userId = user?.id;
   const dashboardView = useMemo(() => dashboardViewFor(user?.role), [user?.role]);
   const frontLine = dashboardView.frontLine;
@@ -60,16 +59,12 @@ export const HomePage = () => {
   const warm = usePrefetchRoute();
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: HomeTab = hasTabs && isHomeTab(requested) && requested !== 'approvals' ? requested : 'work';
+  const tab: HomeTab = hasTabs && isHomeTab(requested) ? requested : 'work';
 
   const approvalSources = useApprovalSources();
   const queueHref = approvalSources.queueHref ?? '/verify';
 
   const changeTab = (next: HomeTab) => {
-    if (next === 'approvals') {
-      navigate(queueHref, { viewTransition: true });
-      return;
-    }
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       if (next === 'work') out.delete('tab');
@@ -121,8 +116,7 @@ export const HomePage = () => {
       icon: ShieldCheck,
       badge: approvalBuckets.total.pending,
       badgeTone: approvalBuckets.total.old > 0 ? 'danger' : 'primary',
-      trailing: ArrowUpRight,
-      ariaLabel: `Approval pending, ${approvalBuckets.total.pending} waiting. Opens the verification queue`,
+      ariaLabel: `Approval pending, ${approvalBuckets.total.pending} waiting`,
     },
   ];
 
@@ -131,16 +125,15 @@ export const HomePage = () => {
     { value: 'mine', label: 'My own', icon: User },
   ];
 
-  const ownApproval = useOwnApprovalFigure();
   const approvalSourcesLoading = approvalSources.isPending;
-  const teamApproval = teamApprovalFigure(approvalBuckets.total, queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
+  const teamApproval = teamApprovalFigure(approvalBuckets.total, hasTabs ? '/?tab=approvals' : queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
   const currentScope: StatScope = hasTabs ? statScope : 'mine';
   const overview = (
     <HomeStats
       kpi={summaries.kpi}
       scope={currentScope}
       teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'}
-      approval={currentScope === 'mine' ? ownApproval : teamApproval}
+      approval={currentScope === 'mine' ? undefined : teamApproval}
     />
   );
 
@@ -151,7 +144,7 @@ export const HomePage = () => {
           <h2 id="home-own-heading" className="t-section font-display font-bold text-text">Own</h2>
           <p className="hidden sm:block t-meta text-text-muted">Your own work and how its approvals stand.</p>
         </div>
-        <HomeStats kpi={ownSummaries.kpi} scope="mine" teamLabel="Own" approval={ownApproval} />
+        <HomeStats kpi={ownSummaries.kpi} scope="mine" teamLabel="Own" />
       </section>
       <section aria-labelledby="home-team-heading" className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
@@ -173,8 +166,6 @@ export const HomePage = () => {
     </section>
   ) : overview;
 
-  if (hasTabs && requested === 'approvals') return <Navigate to={queueHref} replace />;
-
   return (
     <div className="flex w-full flex-col gap-6 pt-2.5">
       <h1 className="sr-only">Today, {heading}</h1>
@@ -193,6 +184,7 @@ export const HomePage = () => {
             {tab === 'work' && (
               <>
                 {statSection}
+                {approvalBuckets.total.pending > 0 && <NeedsApprovalCard hideStats />}
                 <StreakGoalCard />
                 <Suspense fallback={PANEL_FALLBACK}>
                   {dashboardView.isHod && <MyTeamCard />}
@@ -200,6 +192,7 @@ export const HomePage = () => {
                 </Suspense>
               </>
             )}
+            {tab === 'approvals' && <NeedsApprovalCard full />}
             {tab === 'attention' && (
               <Suspense fallback={PANEL_FALLBACK}>
                 <ExceptionsCard />

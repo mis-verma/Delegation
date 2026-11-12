@@ -103,6 +103,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         key: m.key,
         label: m.label,
         value: total,
+        breakdown: modules.map((r) => ({ key: r.key, label: r.label, value: valueOf(r.counts, m.key), missing: !r.counts })),
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
         tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
@@ -122,6 +123,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
     <div className="flex flex-col gap-3">
       <StatBoard
         label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
+        open={items[1]?.value ?? 0}
         total={items[0]}
         tiles={approval ? [...items.slice(1), {
           key: 'approval',
