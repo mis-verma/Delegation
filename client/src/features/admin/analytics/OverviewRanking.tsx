@@ -51,11 +51,14 @@ const PctCell = ({ value }: { value: number | null }) => (
 interface OverviewRankingProps {
   from: string;
   to: string;
+  fixedGroup?: Group;
+  limit?: number;
 }
 
-export const OverviewRanking = memo(({ from, to }: OverviewRankingProps) => {
+export const OverviewRanking = memo(({ from, to, fixedGroup, limit }: OverviewRankingProps) => {
   const navigate = useNavigate();
-  const [group, setGroup] = useState<Group>('department');
+  const [pickedGroup, setGroup] = useState<Group>('department');
+  const group = fixedGroup ?? pickedGroup;
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'overall', dir: 'asc' });
   const view: ExplorerView = group;
   const query = useScoreExplorer({ from, to, view });
@@ -85,17 +88,19 @@ export const OverviewRanking = memo(({ from, to }: OverviewRankingProps) => {
   };
 
   const allScoresHref = `/admin/scores?${new URLSearchParams({ view: group, from, to }).toString()}`;
+  const shownRows = limit ? rows.slice(0, limit) : rows;
+  const hiddenCount = rows.length - shownRows.length;
 
   return (
-    <section aria-labelledby="overview-ranking-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
+    <section aria-labelledby={`overview-ranking-${group}`} className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
       <DashCardHeader
-        id="overview-ranking-heading"
-        title="Where to look first"
-        subtitle="Lowest scores on top. Tap a column to sort, tap a row to see the people."
+        id={`overview-ranking-${group}`}
+        title={fixedGroup ? (fixedGroup === 'department' ? 'Departments' : 'Stores') : 'Where to look first'}
+        subtitle={fixedGroup ? 'Lowest scores on top. Tap a row to see who.' : 'Lowest scores on top. Tap a column to sort, tap a row to see the people.'}
         action={<DashCardLink to={allScoresHref}>All scores</DashCardLink>}
       />
       <div className="flex flex-col gap-3 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
-        <SlidingTabs label="Group by" value={group} options={GROUPS} onChange={setGroup} size="sm" />
+        {!fixedGroup && <SlidingTabs label="Group by" value={group} options={GROUPS} onChange={setGroup} size="sm" />}
         {query.isError && !data ? (
           <InlineError message="Couldn't load the ranking." onRetry={() => void query.refetch()} />
         ) : !data ? (
@@ -105,7 +110,7 @@ export const OverviewRanking = memo(({ from, to }: OverviewRankingProps) => {
         ) : rows.length === 0 ? (
           <EmptyState icon={group === 'department' ? Building2 : Store} title="Nothing was due" description="No scores for this period yet." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="flex flex-col gap-1 overflow-x-auto">
             <table className="w-full min-w-[22rem] border-separate border-spacing-0">
               <caption className="sr-only">Scores by {group}, sortable</caption>
               <thead>
@@ -128,7 +133,7 @@ export const OverviewRanking = memo(({ from, to }: OverviewRankingProps) => {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
+                {shownRows.map((row) => {
                   const tone = toneOf(row.overall);
                   return (
                     <tr key={row.id} className="group cursor-pointer transition-colors duration-150 hover:bg-surface-hover/50" onClick={() => open(row)}>
@@ -153,6 +158,12 @@ export const OverviewRanking = memo(({ from, to }: OverviewRankingProps) => {
                 })}
               </tbody>
             </table>
+            {hiddenCount > 0 && (
+              <button type="button" onClick={() => void navigate(allScoresHref, { viewTransition: true })} className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-1 rounded-xl t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                See all {rows.length}
+                <ChevronRight className="size-3.5" aria-hidden="true" />
+              </button>
+            )}
           </div>
         )}
       </div>

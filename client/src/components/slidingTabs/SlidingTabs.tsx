@@ -45,7 +45,7 @@ export function SlidingTabs<T extends string>({ label, value, options, onChange,
             aria-label={option.ariaLabel}
             tabIndex={pressed || active ? 0 : -1}
             onClick={() => onChange(option.value)}
-            className={cn(TOGGLE_ITEM, small ? TOGGLE_SIZE_SM : TOGGLE_SIZE_MD, fill === true && 'min-w-0 flex-1', fill === 'phone' && 'max-sm:min-w-0 max-sm:flex-1', active ? TOGGLE_ON : TOGGLE_OFF)}
+            className={cn(TOGGLE_ITEM, small ? TOGGLE_SIZE_SM : TOGGLE_SIZE_MD, fill === true && 'flex-[1_0_auto]', fill === 'phone' && 'max-sm:flex-[1_0_auto]', active ? TOGGLE_ON : TOGGLE_OFF)}
           >
             {active && <TogglePill id={`${groupId}-pill`} />}
             <span className="relative z-10 flex min-w-0 items-center gap-2">
