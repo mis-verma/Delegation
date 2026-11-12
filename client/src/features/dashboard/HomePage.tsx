@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
-import { Briefcase, Globe2, ShieldCheck, Siren, User, Users } from 'lucide-react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
+import { ArrowUpRight, Briefcase, Globe2, ShieldCheck, Siren, User, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
@@ -9,7 +9,6 @@ import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
 import { teamApprovalFigure } from './approvalFigures';
-import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
 import { EnableAlertsBanner } from '../notifications/EnableAlertsBanner';
@@ -59,12 +58,17 @@ export const HomePage = () => {
   const warm = usePrefetchRoute();
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: HomeTab = hasTabs && isHomeTab(requested) ? requested : 'work';
+  const navigate = useNavigate();
+  const tab: HomeTab = hasTabs && isHomeTab(requested) && requested !== 'approvals' ? requested : 'work';
 
   const approvalSources = useApprovalSources();
   const queueHref = approvalSources.queueHref ?? '/verify';
 
   const changeTab = (next: HomeTab) => {
+    if (next === 'approvals') {
+      navigate(queueHref, { viewTransition: true });
+      return;
+    }
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       if (next === 'work') out.delete('tab');
@@ -116,7 +120,8 @@ export const HomePage = () => {
       icon: ShieldCheck,
       badge: approvalBuckets.total.pending,
       badgeTone: approvalBuckets.total.old > 0 ? 'danger' : 'primary',
-      ariaLabel: `Approval pending, ${approvalBuckets.total.pending} waiting`,
+      trailing: ArrowUpRight,
+      ariaLabel: `Approval pending, ${approvalBuckets.total.pending} waiting. Opens the verification queue`,
     },
   ];
 
@@ -126,7 +131,7 @@ export const HomePage = () => {
   ];
 
   const approvalSourcesLoading = approvalSources.isPending;
-  const teamApproval = teamApprovalFigure(approvalBuckets.total, hasTabs ? '/?tab=approvals' : queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
+  const teamApproval = teamApprovalFigure(approvalBuckets.total, queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
   const currentScope: StatScope = hasTabs ? statScope : 'mine';
   const overview = (
     <HomeStats
@@ -166,6 +171,8 @@ export const HomePage = () => {
     </section>
   ) : overview;
 
+  if (hasTabs && requested === 'approvals') return <Navigate to={queueHref} replace />;
+
   return (
     <div className="flex w-full flex-col gap-6 pt-2.5">
       <h1 className="sr-only">Today, {heading}</h1>
@@ -184,7 +191,6 @@ export const HomePage = () => {
             {tab === 'work' && (
               <>
                 {statSection}
-                {approvalBuckets.total.pending > 0 && <NeedsApprovalCard hideStats />}
                 <StreakGoalCard />
                 <Suspense fallback={PANEL_FALLBACK}>
                   {dashboardView.isHod && <MyTeamCard />}
@@ -192,7 +198,6 @@ export const HomePage = () => {
                 </Suspense>
               </>
             )}
-            {tab === 'approvals' && <NeedsApprovalCard full />}
             {tab === 'attention' && (
               <Suspense fallback={PANEL_FALLBACK}>
                 <ExceptionsCard />
@@ -202,10 +207,8 @@ export const HomePage = () => {
         </>
       ) : (
         <>
-          {!frontLine && <NeedsApprovalCard />}
           {statSection}
           <StreakGoalCard />
-          {frontLine && <NeedsApprovalCard />}
         </>
       )}
     </div>

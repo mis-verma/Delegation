@@ -1,12 +1,8 @@
-import { memo, useId, useMemo, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Link } from 'react-router';
-import { AlertTriangle, CalendarClock, ChevronRight, Clock3, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { memo, useMemo, useState } from 'react';
+import { AlertTriangle, CalendarClock, Clock3, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { StatBoard, type BoardTile, type BoardTone } from './StatBoard';
 import type { ApprovalFigure } from './approvalFigures';
 import { CATEGORY_ICON } from './categoryLook';
-import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardSummaries } from './useDashboardSummaries';
 
@@ -71,10 +67,7 @@ interface HomeStatsProps {
 }
 
 export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsProps) => {
-  const [open, setOpen] = useState<Metric | null>(null);
-  const panelId = useId();
-  const warm = usePrefetchRoute();
-  const reduce = useReducedMotion();
+  const [activeKey, setActiveKey] = useState<Metric>('total');
   const { user } = useAuth();
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
 
@@ -103,83 +96,41 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         key: m.key,
         label: m.label,
         value: total,
-        breakdown: modules.map((r) => ({ key: r.key, label: r.label, value: valueOf(r.counts, m.key), missing: !r.counts })),
+        breakdown: modules.map((r) => ({ key: r.key, label: r.label, icon: r.icon, href: hrefFor(r, m.key), value: valueOf(r.counts, m.key), missing: !r.counts })),
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
         tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
-        onSelect: () => setOpen((cur) => (cur === m.key ? null : m.key)),
-        selected: open === m.key,
-        controls: panelId,
+        onSelect: () => setActiveKey(m.key),
+        selected: activeKey === m.key,
         loading,
         failed,
       };
     }),
-    [modules, open, panelId],
+    [modules, activeKey],
   );
 
-  const active = open ? METRICS.find((m) => m.key === open) : null;
+  const active = items.find((i) => i.key === activeKey) ?? items[0];
+  const tiles: BoardTile[] = approval
+    ? [...items, {
+        key: 'approval',
+        label: 'Approval',
+        value: approval.value,
+        caption: approval.caption,
+        icon: ShieldCheck,
+        tone: approval.delayed > 0 ? 'danger' : 'primary',
+        href: approval.href,
+        loading: approval.loading,
+        failed: approval.failed,
+      }]
+    : items;
 
   return (
-    <div className="flex flex-col gap-3">
-      <StatBoard
-        label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
-        open={items[1]?.value ?? 0}
-        total={items[0]}
-        tiles={approval ? [...items.slice(1), {
-          key: 'approval',
-          label: 'Approval',
-          value: approval.value,
-          caption: approval.caption,
-          icon: ShieldCheck,
-          tone: approval.delayed > 0 ? 'danger' : 'primary',
-          href: approval.href,
-          loading: approval.loading,
-          failed: approval.failed,
-        }] : items.slice(1)}
-      />
-      <AnimatePresence initial={false}>
-      {active && (
-        <motion.section
-          key={active.key}
-          id={panelId}
-          aria-label={`${active.label} by area`}
-          initial={reduce ? false : { opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col divide-y divide-border/50 overflow-hidden rounded-2xl bg-surface ring-1 ring-inset ring-border/60"
-        >
-          <h3 className="px-4 py-2.5 t-meta font-display font-bold text-text">{active.label} by area</h3>
-          {modules.map((m) => {
-            const Icon = m.icon;
-            const value = valueOf(m.counts, active.key);
-            const href = hrefFor(m, active.key);
-            return (
-              <Link
-                key={m.key}
-                to={href}
-                viewTransition
-                onPointerEnter={() => warm(m.base)}
-                onTouchStart={() => warm(m.base)}
-                aria-label={`${m.label}: ${m.failed ? 'could not load' : value}. Open`}
-                className="group flex min-h-12 items-center gap-3 px-4 py-2 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover active:bg-surface-hover"
-              >
-                <Icon size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate t-card font-display font-semibold text-text">{m.label}</span>
-                <span className={cn('t-card font-figure font-extrabold tabular-nums', active.key === 'delayed' && value > 0 ? 'text-danger' : 'text-text')}>
-                  {m.failed || m.loading ? '-' : value}
-                </span>
-                <ChevronRight size={16} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-            );
-          })}
-          {scope === 'overall' && (
-            <p className="px-4 py-2 t-meta font-medium text-text-muted">To-dos are personal, so they show under My own.</p>
-          )}
-        </motion.section>
-      )}
-      </AnimatePresence>
-    </div>
+    <StatBoard
+      label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
+      active={active}
+      tiles={tiles}
+      note={scope === 'overall' ? 'To-dos are personal, so they show under My own.' : undefined}
+    />
   );
 });
 HomeStats.displayName = 'HomeStats';

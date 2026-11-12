@@ -1,6 +1,6 @@
 import { memo, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 
@@ -10,6 +10,8 @@ export interface BoardPart {
   key: string;
   label: string;
   value: number;
+  icon: LucideIcon;
+  href: string;
   missing?: boolean;
 }
 
@@ -17,14 +19,13 @@ export interface BoardTile {
   key: string;
   label: string;
   value: number;
-  breakdown?: readonly BoardPart[];
   caption: string;
   icon: LucideIcon;
   tone: BoardTone;
+  breakdown?: readonly BoardPart[];
   href?: string;
   onSelect?: () => void;
   selected?: boolean;
-  controls?: string;
   loading?: boolean;
   failed?: boolean;
 }
@@ -42,11 +43,13 @@ const spoken = (t: BoardTile) => `${t.label}: ${t.failed ? 'could not load' : t.
 
 const pathOf = (href: string) => href.split('?')[0] ?? href;
 
-const Shell = ({ tile, className, children }: { tile: BoardTile; className: string; children: ReactNode }) => {
+const PRESS = 'outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50';
+
+const TileShell = ({ tile, className, children }: { tile: BoardTile; className: string; children: ReactNode }) => {
   const warm = usePrefetchRoute();
   if (tile.onSelect) {
     return (
-      <button type="button" onClick={tile.onSelect} aria-expanded={!!tile.selected} aria-controls={tile.controls} aria-label={spoken(tile)} className={cn(className, 'cursor-pointer')}>
+      <button type="button" onClick={tile.onSelect} aria-pressed={!!tile.selected} aria-label={spoken(tile)} className={cn(className, 'cursor-pointer')}>
         {children}
       </button>
     );
@@ -54,7 +57,7 @@ const Shell = ({ tile, className, children }: { tile: BoardTile; className: stri
   if (tile.href) {
     const href = tile.href;
     return (
-      <Link to={href} viewTransition aria-label={spoken(tile)} onPointerEnter={() => warm(pathOf(href))} onTouchStart={() => warm(pathOf(href))} className={className}>
+      <Link to={href} viewTransition aria-label={spoken(tile)} onPointerEnter={() => warm(pathOf(href))} onTouchStart={() => warm(pathOf(href))} className={cn(className, 'cursor-pointer')}>
         {children}
       </Link>
     );
@@ -62,78 +65,78 @@ const Shell = ({ tile, className, children }: { tile: BoardTile; className: stri
   return <div role="group" aria-label={spoken(tile)} className={className}>{children}</div>;
 };
 
-const PRESS = 'outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50';
+const COLS: Record<number, string> = {
+  3: 'sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3',
+  4: 'sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4',
+  5: 'sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5',
+};
 
 interface StatBoardProps {
-  total: BoardTile;
+  active: BoardTile;
   tiles: readonly BoardTile[];
   label: string;
-  open?: number;
+  note?: string;
 }
 
-const Breakdown = ({ parts, light = false }: { parts: readonly BoardPart[]; light?: boolean }) => (
-  <ul className={cn('hidden lg:flex flex-col gap-1 border-t pt-2', light ? 'border-white/15' : 'border-border/50')}>
-    {parts.map((p) => (
-      <li key={p.key} className="flex items-center justify-between gap-2 t-meta">
-        <span className={cn('min-w-0 truncate', light ? 'text-white/75' : 'text-text-muted')}>{p.label}</span>
-        <span className={cn('shrink-0 font-semibold tabular-nums', light ? 'text-white' : 'text-text')}>{p.missing ? '-' : p.value}</span>
-      </li>
-    ))}
-  </ul>
-);
+export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) => {
+  const warm = usePrefetchRoute();
+  const ActiveIcon = active.icon;
+  const parts = active.breakdown ?? [];
+  const odd = tiles.length % 2 === 1;
 
-export const StatBoard = memo(({ total, tiles, label, open }: StatBoardProps) => {
-  const TotalIcon = total.icon;
-  const showDone = open !== undefined && !total.loading && !total.failed && total.value > 0;
-  const done = showDone ? Math.max(0, total.value - (open ?? 0)) : 0;
-  const donePct = showDone ? Math.round((done / total.value) * 100) : 0;
   return (
-    <div role="group" aria-label={label} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] overflow-hidden rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:grid-cols-[minmax(11rem,1fr)_minmax(0,4fr)]">
-      <Shell
-        tile={total}
-        className={cn(
-          PRESS,
-          'flex min-w-0 flex-col justify-between gap-3 bg-primary-800 p-4 text-left text-white sm:p-5 dark:bg-primary-700',
-          total.selected ? 'ring-2 ring-inset ring-white/60' : 'hover:bg-primary-900 dark:hover:bg-primary-800',
-        )}
-      >
-        <span className="inline-flex items-center gap-2 t-meta font-display font-semibold text-white/80">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/15" aria-hidden="true">
-            <TotalIcon size={15} strokeWidth={2.5} />
-          </span>
-          {total.label}
-        </span>
-        <span className="flex flex-col gap-0.5">
-          <span className="t-figure font-figure font-extrabold leading-none tabular-nums">{shown(total)}</span>
-          <span className="t-meta font-medium text-white/75 line-clamp-2">{total.failed ? "Couldn't load" : total.caption}</span>
-        </span>
-        {showDone && (
-          <span className="hidden sm:flex flex-col gap-1.5">
-            <span className="flex items-center justify-between gap-2 t-meta text-white/80">
-              <span>{done} done, {open} open</span>
-              <span className="font-semibold tabular-nums text-white">{donePct}%</span>
+    <div role="group" aria-label={label} className="flex flex-col overflow-hidden rounded-2xl bg-surface ring-1 ring-inset ring-border/60 lg:grid lg:grid-cols-[minmax(15rem,1fr)_minmax(0,2fr)]">
+      <section aria-live="polite" aria-label={`${active.label} by area`} className="flex min-w-0 flex-col gap-3 bg-primary-800 p-4 text-white sm:p-5 dark:bg-primary-700">
+        <div className="flex items-start justify-between gap-3">
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="inline-flex items-center gap-2 t-meta font-display font-semibold text-white/80">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/15" aria-hidden="true">
+                <ActiveIcon size={15} strokeWidth={2.5} />
+              </span>
+              {active.label}
             </span>
-            <span className="h-1.5 w-full overflow-hidden rounded-full bg-white/15" aria-hidden="true">
-              <span className="block h-full rounded-full bg-white" style={{ width: `${donePct}%` }} />
-            </span>
+            <span className="t-meta text-white/70">{active.failed ? "Couldn't load" : active.caption}</span>
           </span>
-        )}
-        {total.breakdown && <Breakdown parts={total.breakdown} light />}
-      </Shell>
+          <span className="t-figure font-figure font-extrabold leading-none tabular-nums">{shown(active)}</span>
+        </div>
+        <ul className="flex flex-col divide-y divide-white/10 rounded-xl bg-white/5">
+          {parts.map((p) => {
+            const Icon = p.icon;
+            return (
+              <li key={p.key}>
+                <Link
+                  to={p.href}
+                  viewTransition
+                  onPointerEnter={() => warm(pathOf(p.href))}
+                  onTouchStart={() => warm(pathOf(p.href))}
+                  aria-label={`${active.label}, ${p.label}: ${p.missing ? 'could not load' : p.value}. Open`}
+                  className="group flex min-h-11 items-center gap-2.5 px-3 py-1.5 outline-none transition-colors duration-150 hover:bg-white/10 focus-visible:bg-white/10 active:bg-white/15"
+                >
+                  <Icon size={15} className="shrink-0 text-white/70" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate t-card font-display font-semibold">{p.label}</span>
+                  <span className="t-card font-figure font-extrabold tabular-nums">{p.missing ? '-' : p.value}</span>
+                  <ChevronRight size={15} className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        {note && <p className="t-meta text-white/60">{note}</p>}
+      </section>
 
-      <div className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-4">
-        {tiles.map((tile) => {
+      <div className={cn('grid grid-cols-2 gap-px bg-border/50', COLS[tiles.length] ?? COLS[4])}>
+        {tiles.map((tile, index) => {
           const Icon = tile.icon;
           const tone = TONE[tile.tone];
           return (
-            <Shell
+            <TileShell
               key={tile.key}
               tile={tile}
               className={cn(
                 PRESS,
-                'relative flex min-w-0 flex-col justify-start gap-2 bg-surface p-3 text-left sm:p-4',
-                tile.onSelect || tile.href ? 'hover:bg-surface-hover/60' : '',
-                tile.selected && 'bg-primary-500/10 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary-600 dark:after:bg-primary-400',
+                'relative flex min-w-0 flex-col justify-between gap-2 bg-surface p-3 text-left sm:p-4',
+                odd && index === tiles.length - 1 && 'col-span-2 sm:col-span-1 lg:col-span-2 xl:col-span-1',
+                tile.selected ? 'bg-primary-500/10 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary-600 dark:after:bg-primary-400' : 'hover:bg-surface-hover/60',
               )}
             >
               <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -146,8 +149,7 @@ export const StatBoard = memo(({ total, tiles, label, open }: StatBoardProps) =>
                 <span className={cn('t-stat font-figure font-extrabold leading-none tabular-nums', tile.value > 0 ? tone.value : 'text-text')}>{shown(tile)}</span>
                 <span className="hidden sm:block t-meta text-text-muted line-clamp-2">{tile.failed ? "Couldn't load" : tile.caption}</span>
               </span>
-              {tile.breakdown && <Breakdown parts={tile.breakdown} />}
-            </Shell>
+            </TileShell>
           );
         })}
       </div>
