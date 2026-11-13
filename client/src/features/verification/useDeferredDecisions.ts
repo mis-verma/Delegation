@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notifyError } from '../../lib/queryHelpers';
+import { ApiError } from '../../api/http';
 
 const UNDO_WINDOW_MS = 5_000;
 
@@ -50,7 +51,13 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
       await entry.request.run({ keepalive });
       try { await afterSavedRef.current?.(); } catch { }
     } catch (err) {
-      notifyError(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`);
+      const stale = err instanceof ApiError && (err.status === 409 || err.status === 404);
+      if (stale) {
+        toast.info(`"${entry.request.label}" was already decided by someone else. The list is up to date now.`);
+        try { await afterSavedRef.current?.(); } catch { }
+      } else {
+        notifyError(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`);
+      }
     } finally {
       release([id]);
     }

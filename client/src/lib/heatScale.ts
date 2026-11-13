@@ -20,6 +20,12 @@ export const heatLook = (value: number | null): CSSProperties | undefined => {
 
 export const heatFill = (level: HeatLevel): string => `var(--heat-${level})`;
 
+const EPSILON = 1e-6;
+
+export const heatWhole = (value: number): number => Math.min(100, Math.max(0, Math.floor(value + EPSILON)));
+
+export const heatExact = (value: number): string => `${Math.min(100, Math.max(0, Math.floor(value * 10 + EPSILON) / 10))}%`;
+
 export const HEAT_KEY: readonly { level: HeatLevel; label: string }[] = [
   { level: 'low', label: `Under ${FAIR_FROM}` },
   { level: 'fair', label: `${FAIR_FROM} to ${GOOD_FROM - 1}` },

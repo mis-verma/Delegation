@@ -640,7 +640,7 @@ export const useRevokeChecklistSubmissionMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, itemId, note }: { id: string; itemId?: string; note?: string }) => checklistInstanceApi.revoke(id, itemId, note).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
-    invalidateKeys: [['checklist-instances']],
+    invalidateKeys: [['checklist-instances'], ['scores']],
     successMessage: (_updated, vars) => (vars.itemId ? 'Question reopened. Fix it, then tap Submit again.' : vars.note ? 'Revoked. The team was told and can answer it again.' : 'Taken back. Answer it again, then tap Submit.'),
     errorFallback: "Couldn't take it back. Try again.",
     errorToast: false,
@@ -670,7 +670,7 @@ export const useSendBackChecklistInstanceMutation = () =>
     mutationFn: ({ id, payload }: { id: string; payload: SendBackChecklistInstancePayload }) =>
       checklistInstanceApi.sendBack(id, payload).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
-    invalidateKeys: [['checklist-instances']],
+    invalidateKeys: [['checklist-instances'], ['scores']],
     successMessage: 'Sent back to the team',
     errorFallback: "Couldn't send the questions back. Try again.",
     retryable: true,

@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { InlineError, Skeleton } from '../../components';
 import { scoreApi, type TrendBucket } from '../../api/scores';
-import { HEAT_KEY, heatFill, heatLook } from '../../lib/heatScale';
-import { formatPct } from '../../lib/percent';
+import { HEAT_KEY, heatExact, heatFill, heatLook, heatWhole } from '../../lib/heatScale';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { SCORE_QUERY_OPTIONS } from '../dashboard/scoreQueries';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -31,7 +30,7 @@ const valueOf = (b: TrendBucket, key: RowKey): number | null => {
 const weekdayOf = (day: string) => WEEKDAY[new Date(`${day}T00:00:00Z`).getUTCDay()] ?? '';
 
 const Cell = ({ value, day, row, strong }: { value: number | null; day: string; row: string; strong: boolean }) => {
-  const text = `${row}, ${weekdayOf(day)} ${shortDay(day)}: ${value === null ? 'nothing due' : formatPct(value)}`;
+  const text = `${row}, ${weekdayOf(day)} ${shortDay(day)}: ${value === null ? 'nothing due' : heatExact(value)}`;
   return (
     <span
       role="cell"
@@ -45,7 +44,7 @@ const Cell = ({ value, day, row, strong }: { value: number | null; day: string; 
     >
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">
-        {value === null ? <span className="block size-1 rounded-full bg-current" /> : Math.round(value)}
+        {value === null ? <span className="block size-1 rounded-full bg-current" /> : heatWhole(value)}
       </span>
     </span>
   );

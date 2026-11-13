@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest"
-import { isFailedPhoto, passingPhotos, photoRoomError } from "./photoFailure.js"
+import { correctionRoundStart, isEarlierRoundPhoto, isFailedPhoto, passingPhotos, photoRoomError, photosInRound } from "./photoFailure.js"
+
+describe("correction round photos", () => {
+    const sentBackAt = new Date("2026-11-13T10:00:00Z")
+    const before = { id: "a", createdAt: new Date("2026-11-13T09:00:00Z") }
+    const after = { id: "b", createdAt: new Date("2026-11-13T11:00:00Z") }
+
+    it("starts a round only for a question that is sent back", () => {
+        expect(correctionRoundStart({ sendBackNote: "Blurry" }, { sentBackAt })).toBe(sentBackAt)
+        expect(correctionRoundStart({ sendBackNote: null }, { sentBackAt })).toBeNull()
+        expect(correctionRoundStart({ sendBackNote: "Blurry" }, { sentBackAt: null })).toBeNull()
+    })
+
+    it("counts only photos added after the send-back towards the limit", () => {
+        expect(photosInRound([before, after], sentBackAt).map((p) => p.id)).toEqual(["b"])
+        expect(photosInRound([before, after], null).map((p) => p.id)).toEqual(["a", "b"])
+    })
+
+    it("marks photos from before the send-back as earlier ones", () => {
+        expect(isEarlierRoundPhoto(before, sentBackAt)).toBe(true)
+        expect(isEarlierRoundPhoto(after, sentBackAt)).toBe(false)
+        expect(isEarlierRoundPhoto(before, null)).toBe(false)
+    })
+})
 
 describe("isFailedPhoto", () => {
     it("fails a photo the system flagged as blurry, unreadable or cropped", () => {

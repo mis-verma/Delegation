@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldAlert, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ import { canWaiveRun } from './canWaive';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { CompletedGroup } from './CompletedGroup';
+import { SendBackSummary } from './SendBackSummary';
+import { CorrectionRoundContext, sentBackAtOf } from './correctionRound';
 import { PhotoReviewContext } from './photoReviewContext';
 import { DetailItemRow } from './ChecklistDetailItemRow';
 import {
@@ -28,7 +30,6 @@ import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateCountdownChip, LateWindowBanner } from './LateWindowBanner';
-import { isSendBackLocking } from './sendBackLock';
 import { useAuth } from '../../../context/AuthContext';
 import { useSubmitRun } from './fill/useSubmitRun';
 import { FillBottomBar } from './fill/FillBottomBar';
@@ -290,24 +291,6 @@ export const ChecklistInstanceDetail = () => {
     const next = inSection ?? instance.items.find((i) => !answered(i));
     if (next) goToItem(next);
   };
-  const fixByTime = instance.sentBackFixBy ? new Date(instance.sentBackFixBy).getTime() : null;
-  const fixBy = fixByTime !== null && Number.isFinite(fixByTime) ? fixByTime : null;
-  const sendBackDetail = (
-    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="min-w-0">
-        {sentBackItems.length > 0 && `${sentBackItems.length} ${sentBackItems.length === 1 ? 'question was' : 'questions were'} sent back. `}
-        Fix what's flagged, then submit it again.
-        {fixBy !== null && (now >= fixBy ? ' The fix time has passed.' : ` Fix by ${formatDateTime(new Date(fixBy).toISOString())}.`)}
-        {sentBackId && canWork && (isSendBackLocking(instance.sentBackAt, now) ? ' Your other checklists stay locked until this is fixed.' : ' Fix it soon, or your other checklists will lock.')}
-      </p>
-      {canWork && sentBackItems.length > 0 && (
-        <Button variant="outline" size="sm" className="shrink-0 pointer-coarse:h-11" onClick={() => goToItem(sentBackItems[0])}>
-          Go to first
-          <ArrowDown size={14} aria-hidden />
-        </Button>
-      )}
-    </div>
-  );
   const verificationNote = instance.verificationNote;
   const showBanners =
     inLateWindow ||
@@ -490,21 +473,7 @@ export const ChecklistInstanceDetail = () => {
           )}
 
           {instance.verificationStatus === 'REJECTED' && (
-            verificationNote ? (
-              <>
-                <VerificationNoteBanner note={verificationNote} approved={false} />
-                <NoticeBanner tone="warning" icon={CornerUpLeft}>
-                  {sendBackDetail}
-                </NoticeBanner>
-              </>
-            ) : (
-              <NoticeBanner tone="danger" icon={ShieldAlert}>
-                <div className="flex flex-col gap-1">
-                  <p className="font-semibold">Sent back for changes.</p>
-                  {sendBackDetail}
-                </div>
-              </NoticeBanner>
-            )
+            <SendBackSummary instance={instance} now={now} showLockNote={!!sentBackId && canWork} onGoTo={goToItem} />
           )}
         </div>
       )}
@@ -549,6 +518,7 @@ export const ChecklistInstanceDetail = () => {
             </div>
           )}
 
+          <CorrectionRoundContext.Provider value={sentBackAtOf(instance)}>
           <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instanceId } : null}>
             <div className="flex flex-col gap-3">
               {show === 'left' && shownItems.length === 0 && (
@@ -645,6 +615,7 @@ export const ChecklistInstanceDetail = () => {
               })}
             </div>
           </PhotoReviewContext.Provider>
+          </CorrectionRoundContext.Provider>
 
           {show === 'section' && activeSection && activeSection.done === activeSection.total && activeSectionIndex < sections.length - 1 && (
             <Button variant="primary" size="md" className="h-11 self-end font-display" onClick={() => pickSection(sections[activeSectionIndex + 1]!.key)}>

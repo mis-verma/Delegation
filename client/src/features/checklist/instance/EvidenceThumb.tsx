@@ -32,6 +32,7 @@ interface EvidenceThumbProps {
   deleting?:    boolean;
   siblings?:    EvidenceImage[];
   large?:       boolean;
+  earlier?:     boolean;
 }
 
 const REVIEW_BUTTON =
@@ -92,7 +93,7 @@ const PhotoReviewActions = ({ image, state }: { image: EvidenceImage; state: Pho
   );
 };
 
-export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 'Evidence', onDelete, deleting, siblings, large = false }: EvidenceThumbProps) {
+export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 'Evidence', onDelete, deleting, siblings, large = false, earlier = false }: EvidenceThumbProps) {
   const src = `${UPLOADS_BASE}${image.url}`;
   const { user } = useAuth();
   const review = usePhotoReview();
@@ -108,7 +109,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
   const weak = isVideo ? [] : qualityFlagsOf(image);
   const failed = !isVideo && isFailedPhoto(image);
   const canDeleteFailed = user?.role === 'ADMIN' || user?.role === 'PC';
-  const showDelete = !!onDelete && (!failed || canDeleteFailed);
+  const showDelete = !!onDelete && (!failed || canDeleteFailed) && (!earlier || canDeleteFailed);
 
   return (
     <div className="flex flex-col items-start gap-1.5">
@@ -146,9 +147,13 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
         >
           {image.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
         </span>
-        {(image.reusedFromEarlier || image.takenBeforeRun) && (
+        {(image.reusedFromEarlier || image.takenBeforeRun) ? (
           <span className="pointer-events-none absolute -top-1 -right-1 px-1.5 rounded-full bg-danger t-meta font-display font-semibold text-white" title={image.reusedFromEarlier ? 'This photo looks the same as one uploaded earlier for another question' : 'This photo was taken before this checklist opened'}>
             {image.reusedFromEarlier ? 'Reused' : 'Old'}
+          </span>
+        ) : earlier && !showDelete && (
+          <span className="pointer-events-none absolute -top-1 -right-1 px-1.5 rounded-full bg-primary-700 t-meta font-display font-semibold text-white" title="Added before the checklist was sent back. It stays on record.">
+            Earlier
           </span>
         )}
         {failed ? (

@@ -141,7 +141,7 @@ export const DetailItemRow = memo(({
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className={cn('flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background', sentBack && 'border border-danger/50 bg-danger/10 p-2 ring-1 ring-danger/20')}>
+      <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className={cn('flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background', sentBack && 'relative border border-danger/35 bg-danger/[0.04] p-2 pl-3 sm:p-2.5 sm:pl-3.5 before:absolute before:inset-y-3 before:left-0 before:w-1 before:rounded-r-full before:bg-danger')}>
         {item.section && !showHeader && !inSectionBox && (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
             <Layers size={12} className="shrink-0" aria-hidden />
@@ -195,18 +195,25 @@ export const DetailItemRow = memo(({
             {waived}
           </NoticeBanner>
         )}
-        {!item.isDone && item.sendBackNote && (
-          <NoticeBanner tone="danger" icon={CornerUpLeft} className="p-2.5 px-3.5">
-            <span className="font-semibold">{item.sendBackPhotoOnly ? 'New photo asked for' : 'Reviewer said'}: </span>
-            {item.sendBackNote}
-          </NoticeBanner>
+        {sentBack && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-danger/10 px-3 py-2.5" role="note">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-danger text-white" aria-hidden="true">
+              {item.sendBackPhotoOnly ? <Camera size={14} strokeWidth={2.25} /> : <CornerUpLeft size={14} strokeWidth={2.25} />}
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="t-meta font-display font-bold text-danger">
+                {item.sendBackPhotoOnly ? 'Sent back · Add a new photo, the answer stays' : 'Sent back · Fix this answer'}
+              </p>
+              <p className="t-card leading-snug text-text break-words">{item.sendBackNote}</p>
+            </div>
+          </div>
         )}
         {canWaive && (item.waivedAt || countsAgainstCompliance(item)) && (
           <div className="flex justify-end">
             <WaiveAction instanceId={instanceId} item={item} />
           </div>
         )}
-        <div className={cn('overflow-hidden rounded-2xl border bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0', sentBack ? 'border-danger/60' : 'border-border/60')}>
+        <div className={cn('overflow-hidden rounded-2xl border bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0', sentBack ? 'border-danger/30' : 'border-border/60')}>
           {item.isNotApplicable ? (
             <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
           ) : (

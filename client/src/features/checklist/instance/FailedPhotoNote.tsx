@@ -12,7 +12,7 @@ export const FailedPhotoNote = ({ count, needsMore = false }: FailedPhotoNotePro
       <ImageOff className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
       <span>
         {count === 1 ? '1 photo did not pass' : `${count} photos did not pass`}. {count === 1 ? 'It stays' : 'They stay'} on record and cannot be deleted.
-        {needsMore ? ' Take a new, clear photo to replace it.' : ' You can still add a clear photo.'}
+        {needsMore ? ' Add a new, clear photo next to it.' : ' You can still add a clear photo.'}
       </span>
     </p>
   );

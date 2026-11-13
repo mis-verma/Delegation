@@ -11,7 +11,10 @@ import { assertInstanceEditable } from "../checklistInstances/checklistInstance.
 import { assertCanVerify, assertNotOwnRun, dropChecklistSummaries, getDepartmentIdsForUserIds } from "../checklistInstances/checklistInstanceShared.js";
 import { assertCoordinatorRunReviewer } from "../checklistInstances/checklistCoordinatorRun.js";
 import { checklistInstanceReviewers } from "../../db/schema/index.js";
-import { FAILED_PHOTO_DELETE_MESSAGE, MAX_FAILED_PHOTOS, MAX_PASSING_PHOTOS, isFailedPhoto, passingPhotos, type PhotoReviewReason } from "./photoFailure.js";
+import {
+    EARLIER_PHOTO_DELETE_MESSAGE, FAILED_PHOTO_DELETE_MESSAGE, MAX_FAILED_PHOTOS, MAX_PASSING_PHOTOS,
+    correctionRoundStart, isEarlierRoundPhoto, isFailedPhoto, passingPhotos, photosInRound, type PhotoReviewReason,
+} from "./photoFailure.js";
 import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.js";
 import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
@@ -35,11 +38,11 @@ const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: str
     if (!instance) throw AppError.notFound("Checklist instance not found");
     assertInstanceEditable(instance, user);
     await assertRunOpenForUser(instance.id, user);
-    if (isAdminOrPc(user.role)) return;
+    if (isAdminOrPc(user.role)) return instance;
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId })
         .from(checklistInstanceAssignees)
         .where(eq(checklistInstanceAssignees.instanceId, instance.id));
-    if (assigneeLinks.some((l) => l.userId === user.sub)) return;
+    if (assigneeLinks.some((l) => l.userId === user.sub)) return instance;
     throw AppError.forbidden("Only an assignee of this checklist can upload evidence for it");
 };
 
@@ -47,7 +50,8 @@ export const checklistInstanceImageService = {
     async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", purpose: "GENERAL" | "CONDITIONAL_YES" | "CONDITIONAL_NO", user: AccessTokenPayload, takenAt: string[] = []) {
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
-        await assertCanUpload(user, item);
+        const instance = await assertCanUpload(user, item);
+        const roundStart = correctionRoundStart(item, instance);
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
@@ -86,7 +90,7 @@ export const checklistInstanceImageService = {
                 files.forEach((f) => fs.unlink(f.path, () => {}));
                 throw AppError.badRequest("Too many photos on this question did not pass the check. Ask your department head for help.");
             }
-            const passingCount = passingPhotos(existing).length;
+            const passingCount = passingPhotos(photosInRound(existing, roundStart)).length;
             const limit = purpose === "GENERAL" && item.maxImageCount != null ? Math.min(item.maxImageCount, MAX_PASSING_PHOTOS) : MAX_PASSING_PHOTOS;
             if (passingCount + files.length > limit) {
                 files.forEach((f) => fs.unlink(f.path, () => {}));
@@ -148,7 +152,7 @@ export const checklistInstanceImageService = {
         if (!image) throw AppError.notFound("Image not found");
 
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, image.checklistInstanceItemId)).limit(1);
-        if (item) await assertCanUpload(user, item);
+        const instance = item ? await assertCanUpload(user, item) : null;
         if (!item && !isAdminOrPc(user.role) && image.uploadedBy !== user.sub) {
             throw AppError.forbidden("Only an assignee of this checklist can upload evidence for it");
         }
@@ -159,6 +163,10 @@ export const checklistInstanceImageService = {
 
         if (isFailedPhoto(image) && !isAdminOrPc(user.role)) {
             throw AppError.forbidden(FAILED_PHOTO_DELETE_MESSAGE);
+        }
+
+        if (item && instance && !isAdminOrPc(user.role) && isEarlierRoundPhoto(image, correctionRoundStart(item, instance))) {
+            throw AppError.forbidden(EARLIER_PHOTO_DELETE_MESSAGE);
         }
 
         await db.delete(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId));

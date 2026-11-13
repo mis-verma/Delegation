@@ -19,6 +19,7 @@ import { CaptureButton, UploadingHint } from './CaptureButton';
 import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { isFlaggedAnswer } from '../checklistDisplay';
 import { RemarkDialog } from './ItemRemarksField';
+import { isEarlierPhoto, photosInRound, useRoundStart } from './correctionRound';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 import type { CaptureMethod } from '../../../api/ticket';
@@ -105,7 +106,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const sessionPhotos = images.filter((img) => !baselinePhotos.current.has(img.id));
   const sessionIds = new Set(sessionPhotos.map((img) => img.id));
   const reasonReady = !needsReason || reasonDraft.trim().length > 0;
-  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - passingPhotos(images).length);
+  const roundStart = useRoundStart(item);
+  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - passingPhotos(photosInRound(images, roundStart)).length);
   const photoReady = !needsPhoto || passingPhotos(images).length > 0;
   const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
 
@@ -264,6 +266,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
                   image={img}
                   siblings={images}
                   large
+                  earlier={isEarlierPhoto(img, roundStart)}
                   onDelete={pendingAnswer && (!editingSaved || sessionIds.has(img.id)) ? deleteImage.mutate : undefined}
                   deleting={deleteImage.isPending && deleteImage.variables === img.id}
                 />

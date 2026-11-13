@@ -4,7 +4,7 @@ import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, La
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
-import { IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
+import { Collapse, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
@@ -28,6 +28,7 @@ export type { SendBackPayload } from './correctionItems';
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
 const NO_SECTION = '__none__';
+const SECTION_OPEN_MS = 280;
 
 const hasIssue = (item: ChecklistInstanceItem) => {
   const flags = itemFlags(item);
@@ -99,13 +100,16 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
 
   const goTo = useCallback((id: string) => {
     const key = sectionOf.get(id);
-    if (key) setOpenSections((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
-    requestAnimationFrame(() => {
+    const opening = !!key && !openSections.has(key);
+    if (opening) setOpenSections((prev) => new Set([...prev, key]));
+    const reveal = () => {
       const el = document.getElementById(`item-${id}`);
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el?.focus({ preventScroll: true });
-    });
-  }, [sectionOf]);
+    };
+    if (opening) window.setTimeout(reveal, SECTION_OPEN_MS);
+    else requestAnimationFrame(reveal);
+  }, [sectionOf, openSections]);
 
   const jumpTo = (id: string | undefined) => (id ? () => goTo(id) : undefined);
   const firstUnanswered = items.find((i) => !i.isDone && !i.isNotApplicable)?.id;
@@ -276,13 +280,16 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
               const open = openSections.has(section.key);
               const panelId = `review-section-${instance.id}-${section.key}`;
               return (
-                <section key={section.key} aria-label={section.name} className="flex flex-col gap-3">
+                <section key={section.key} aria-label={section.name} className="flex flex-col">
                   <button
                     type="button"
                     aria-expanded={open}
                     aria-controls={panelId}
                     onClick={() => toggleSection(section.key)}
-                    className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-surface-hover/30 px-3 text-left outline-none transition-colors duration-150 ease-out hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                    className={cn(
+                      'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl border px-3 text-left outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                      section.issues > 0 ? 'border-danger/25 bg-danger/[0.04] hover:border-danger/45' : 'border-border/60 bg-surface-hover/30 hover:border-border-hover',
+                    )}
                   >
                     <Layers size={14} className="shrink-0 text-text-muted" aria-hidden />
                     <span className="min-w-0 flex-1 t-card font-display font-bold text-text line-clamp-2 leading-snug">{section.name}</span>
@@ -290,11 +297,11 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
                       {section.issues > 0 ? `${section.issues} ${section.issues === 1 ? 'issue' : 'issues'}` : 'No issues'}
                       <span className="text-text-muted"> · {section.items.length} {section.items.length === 1 ? 'question' : 'questions'}</span>
                     </span>
-                    <ChevronDown size={16} aria-hidden className={cn('shrink-0 text-text-muted transition-transform duration-200 ease-out motion-reduce:transition-none', open && 'rotate-180')} />
+                    <ChevronDown size={16} aria-hidden className={cn('shrink-0 text-text-muted transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', open && 'rotate-180')} />
                   </button>
-                  <div id={panelId} hidden={!open} className="flex flex-col gap-3">
+                  <Collapse id={panelId} open={open} innerClassName="flex flex-col gap-3 pt-3">
                     {section.items.map((item, idx) => renderRow(item, idx))}
-                  </div>
+                  </Collapse>
                 </section>
               );
             })}
@@ -332,7 +339,7 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
               <span className="sm:hidden">{count} picked</span>
               <span className="hidden sm:inline">{`${count} ${count === 1 ? 'question' : 'questions'} picked. Send them for correction, or untick them to approve.`}</span>
             </>
-          ) : 'Approve it, or send it for correction.'}
+          ) : 'Approve it, or send it for correction. You get 5 seconds to undo either.'}
         </p>
         <ReviewActions
           stretch

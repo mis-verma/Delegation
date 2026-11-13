@@ -21,6 +21,7 @@ import { formatDateTime } from '../checklistDisplay';
 import { passingPhotos } from '../photoQuality';
 import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { FailedPhotoNote } from './FailedPhotoNote';
+import { isEarlierPhoto, photosInRound, useRoundStart } from './correctionRound';
 
 interface ChecklistInstanceItemCardProps {
   item:       ChecklistInstanceItem;
@@ -38,10 +39,12 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
   const isVideoItem = item.itemType === 'VIDEO_UPLOAD';
   const mediaWord = isVideoItem ? 'video' : 'photo';
 
+  const roundStart = useRoundStart(item);
   const images = (item.images ?? []).filter(i => i.purpose === 'GENERAL');
   const clearImages = passingPhotos(images);
   const failedCount = images.length - clearImages.length;
-  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - clearImages.length);
+  const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - photosInRound(clearImages, roundStart).length);
+  const hasEarlier = roundStart !== null && images.some((img) => isEarlierPhoto(img, roundStart));
   const qualifying = item.requiresLivePhoto
     ? clearImages.filter(i => i.captureMethod === 'LIVE').length
     : clearImages.length;
@@ -157,11 +160,16 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
               image={img}
               siblings={images}
               large={!(interactive && !item.isDone)}
+              earlier={isEarlierPhoto(img, roundStart)}
               onDelete={interactive && !item.isDone ? deleteImage.mutate : undefined}
               deleting={deleteImage.isPending && deleteImage.variables === img.id}
             />
           ))}
         </div>
+      )}
+
+      {hasEarlier && interactive && !item.isDone && (
+        <p className="t-meta font-medium text-text-muted">Earlier photos stay on record. New ones are added next to them.</p>
       )}
 
       <FailedPhotoNote count={failedCount} needsMore={!photosSatisfied} />

@@ -38,14 +38,14 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
   return (
     <div className="flex flex-col gap-3 border-t border-border/50 bg-surface-hover/30 px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="t-card font-display font-semibold text-text">Retake the photo</p>
+        <p className="t-card font-display font-semibold text-text">Add a new photo</p>
         <IconChip
           icon={Camera}
           tone={ready ? 'bg-success' : 'bg-warning'}
           label={`${qualifying}/${needed} new ${item.requiresLivePhoto ? 'live ' : ''}${needed === 1 ? 'photo' : 'photos'}`}
         />
       </div>
-      <p className="t-meta text-text-secondary">Your answer stays as it is. Add as many clear photos as you need. Nothing is sent until you tap Send new photo.</p>
+      <p className="t-meta text-text-secondary">Your answer and earlier photo stay on record. New photos are added next to them. Nothing is sent until you tap Send new photo.</p>
 
       {fresh.length > 0 && (
         <div className="flex flex-wrap gap-2">

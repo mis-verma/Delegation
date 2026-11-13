@@ -38,6 +38,8 @@ import { DAY_MS, UNASSIGNED, type ChecklistRow } from './verificationModel';
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
 const AUTO_LOAD_PAGES = 10;
+const BULK_PARALLEL = 4;
+const BACK_BUTTON = 'inline-flex h-11 items-center gap-1.5 rounded-full border border-border/60 bg-surface px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out cursor-pointer hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:h-9';
 const NO_INSTANCES: ChecklistInstance[] = [];
 
 const focusRow = (id: string | null) => {
@@ -171,11 +173,14 @@ export const VerificationQueue = () => {
     const hadFocus = !!rowEl && rowEl.contains(document.activeElement);
     if (current !== id && !hadFocus && openId !== id) return;
     setCursor(next?.id ?? null);
-    if (openId === id) update({ open: null });
+    if (openId === id) {
+      update({ open: next?.id ?? null });
+      if (next) return;
+    }
     focusRow(next?.id ?? null);
   }, []);
 
-  const approve = useCallback(async (id: string) => {
+  const approve = useCallback((id: string) => {
     const { rows, openId, draft: current } = latest.current;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -183,33 +188,20 @@ export const VerificationQueue = () => {
       toast('Untick the questions first, or send them back.');
       return;
     }
-    const ok = await confirm({
-      title: 'Approve this checklist?',
-      description: `"${row.instance.title}" is approved. You can undo for a few seconds after.`,
-      confirmLabel: 'Approve',
-    });
-    if (!ok) return;
     advanceFrom(id);
     schedule({ id, verb: 'Approved', label: row.instance.title, run: approveRun(id) });
-  }, [advanceFrom, schedule, confirm]);
+  }, [advanceFrom, schedule]);
 
-  const sendBack = useCallback(async (row: ChecklistRow, payload: SendBackPayload) => {
-    const n = payload.itemIds.length;
-    const ok = await confirm({
-      title: n > 0 ? `Send ${n} ${n === 1 ? 'question' : 'questions'} back?` : 'Send the whole checklist back?',
-      description: `${row.assigneeNames.length ? `${row.assigneeNames.join(', ')} will` : 'The assignee will'} be asked to fix this and submit again. You can undo for a few seconds after.`,
-      confirmLabel: 'Send back',
-    });
-    if (!ok) return;
-    advanceFrom(row.id);
+  const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
     latest.current.draft?.reset();
+    advanceFrom(row.id);
     schedule({
       id: row.id,
-      verb: 'Sent back',
+      verb: payload.itemIds.length ? `Sent ${payload.itemIds.length} back from` : 'Sent back',
       label: row.instance.title,
       run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours, payload.photoOnlyItemIds) : rejectRun(row.id, payload.note, payload.fixByHours),
     });
-  }, [advanceFrom, schedule, confirm]);
+  }, [advanceFrom, schedule]);
 
   const approveFromPane = useCallback((row: ChecklistRow) => approve(row.id), [approve]);
 
@@ -280,15 +272,20 @@ export const VerificationQueue = () => {
     setBulk({ done: 0, total: ids.length });
     let saved = 0;
     let failed = 0;
-    for (const id of ids) {
-      try {
-        await approveRun(id)({ keepalive: false });
-        saved += 1;
-      } catch {
-        failed += 1;
+    let next = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        const id = ids[next++];
+        try {
+          await approveRun(id)({ keepalive: false });
+          saved += 1;
+        } catch {
+          failed += 1;
+        }
+        setBulk({ done: saved + failed, total: ids.length });
       }
-      setBulk({ done: saved + failed, total: ids.length });
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(BULK_PARALLEL, ids.length) }, worker));
     try { await refresh(); } catch { }
     release(ids);
     setBulk(null);
@@ -352,17 +349,19 @@ export const VerificationQueue = () => {
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   if (openRow && params.view === 'waiting') {
+    const position = visibleRows.findIndex((r) => r.id === openRow.id) + 1;
     return (
       <div key={openRow.id} className="view-enter flex flex-col gap-4 pt-2.5 w-full max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={closeRun}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border/60 bg-surface t-label font-display font-medium text-text-secondary hover:border-border-hover hover:text-text-primary transition-colors"
-          >
+          <button type="button" onClick={closeRun} className={BACK_BUTTON}>
             <ArrowLeft size={15} aria-hidden />
-            Back
+            Back to list
           </button>
+          {visibleRows.length > 1 && position > 0 && (
+            <span className="inline-flex h-9 items-center rounded-full border border-border/60 bg-surface px-3 t-meta font-display font-semibold tabular-nums text-text-secondary" role="status">
+              {position} of {visibleRows.length} waiting
+            </span>
+          )}
         </div>
         <ReviewPane key={openRow.id} row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} className="lg:max-h-none" />
       </div>
@@ -372,11 +371,7 @@ export const VerificationQueue = () => {
   return (
     <div className="view-enter flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border/60 bg-surface t-label font-display font-medium text-text-secondary hover:border-border-hover hover:text-text-primary transition-colors"
-        >
+        <button type="button" onClick={() => navigate(-1)} className={BACK_BUTTON}>
           <ArrowLeft size={15} aria-hidden />
           Back
         </button>

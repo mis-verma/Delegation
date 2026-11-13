@@ -25,6 +25,21 @@ export const FAILED_PHOTO_SQL = (alias: string) => sql.raw(
 
 export const passingPhotos = <T extends PhotoState>(images: readonly T[]): T[] => images.filter((image) => !isFailedPhoto(image))
 
+export const EARLIER_PHOTO_DELETE_MESSAGE =
+    "This photo was there before the checklist was sent back, so it stays on record. Add a new photo alongside it."
+
+type RoundItem = { sendBackNote?: string | null }
+type RoundRun = { sentBackAt?: Date | null }
+
+export const correctionRoundStart = (item: RoundItem, run: RoundRun): Date | null =>
+    item.sendBackNote && run.sentBackAt ? run.sentBackAt : null
+
+export const isEarlierRoundPhoto = (image: { createdAt: Date }, roundStart: Date | null): boolean =>
+    !!roundStart && image.createdAt.getTime() <= roundStart.getTime()
+
+export const photosInRound = <T extends { createdAt: Date }>(images: readonly T[], roundStart: Date | null): T[] =>
+    roundStart ? images.filter((image) => !isEarlierRoundPhoto(image, roundStart)) : [...images]
+
 export const photoRoomError = (existing: readonly PhotoState[], incoming: number, itemMax: number | null | undefined): string | null => {
     if (existing.filter(isFailedPhoto).length >= MAX_FAILED_PHOTOS) {
         return "Too many photos on this item did not pass the check. Ask your department head for help."

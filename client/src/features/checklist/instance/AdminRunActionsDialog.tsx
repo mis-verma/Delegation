@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
 import { Ban, Eye, PencilLine, Trash2, Undo2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
-import { Button, Pill, Textarea } from '../../../components';
+import { Button, Pill, Textarea, ToggleChip } from '../../../components';
+import { QUICK_REASONS, hasReason, toggleReason } from './sendBackNote';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useDeleteChecklistRunMutation, useRevokeChecklistSubmissionMutation, useSendBackChecklistInstanceMutation } from '../hook';
@@ -88,7 +89,7 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
             const answer = item.isNotApplicable ? 'Not applicable' : answerText(item) ?? (item.isDone ? 'Done' : 'No answer');
             return (
               <li key={item.id}>
-                <label className={cn('flex cursor-pointer items-start gap-3 rounded-lg border bg-surface p-3 transition-colors duration-150', on ? 'border-primary-500/60 bg-primary-500/5' : 'border-border/60 hover:border-border-hover')}>
+                <label className={cn('flex cursor-pointer items-start gap-3 rounded-xl border bg-surface p-3 transition-colors duration-150', on ? 'border-danger/45 bg-danger/[0.05]' : 'border-border/60 hover:border-border-hover')}>
                   <input type="checkbox" checked={on} onChange={() => toggle(item.id)} disabled={busy} className="mt-1 size-4 shrink-0 accent-primary-700 pointer-coarse:size-5" />
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</span>
@@ -104,6 +105,13 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
           })}
         </ul>
 
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
+          {QUICK_REASONS.map((reason) => (
+            <ToggleChip key={reason} on={hasReason(note, reason)} disabled={busy} onClick={() => setNote(toggleReason(note, reason))}>
+              {reason}
+            </ToggleChip>
+          ))}
+        </div>
         <Textarea
           id={noteId}
           label="Note for the team"
