@@ -45,15 +45,27 @@ const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: Lucid
 };
 
 const ANSWER_BASE =
-  'group flex min-w-0 items-center justify-center gap-2 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 rounded-2xl border-2 t-card font-display font-bold transition-[background-color,border-color,color,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
+  'group relative flex min-w-0 items-center justify-center gap-2 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 rounded-xl border t-card font-display font-semibold tracking-tight transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
 
 type Tone = 'good' | 'bad' | 'plain' | 'muted';
 
 const TONE_LOOK: Record<Tone, { saved: string; picked: string; idle: string }> = {
-  good: { saved: 'border-success-strong bg-success-strong text-white', picked: 'border-success bg-success/10 text-success', idle: 'border-border/70 bg-surface text-text hover:border-success/60 hover:bg-success/5' },
-  bad: { saved: 'border-danger bg-danger text-white', picked: 'border-danger bg-danger/10 text-danger', idle: 'border-border/70 bg-surface text-text hover:border-danger/60 hover:bg-danger/5' },
-  plain: { saved: 'border-primary-600 bg-primary-600 text-white', picked: 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300', idle: 'border-border/70 bg-surface text-text hover:border-primary-400/60 hover:bg-primary-500/5' },
-  muted: { saved: '', picked: '', idle: 'border-border/70 bg-surface text-text-secondary hover:border-border-hover hover:text-text' },
+  good: {
+    saved: 'border-success/45 bg-success/12 text-success-strong font-bold dark:text-success',
+    picked: 'border-success/60 bg-surface text-success-strong ring-2 ring-success/20 dark:text-success',
+    idle: 'border-border/70 bg-surface text-text hover:border-success/45 hover:bg-success/[0.06]',
+  },
+  bad: {
+    saved: 'border-danger/45 bg-danger/10 text-danger font-bold',
+    picked: 'border-danger/60 bg-surface text-danger ring-2 ring-danger/20',
+    idle: 'border-border/70 bg-surface text-text hover:border-danger/45 hover:bg-danger/[0.05]',
+  },
+  plain: {
+    saved: 'border-primary-500/45 bg-primary-500/10 text-primary-700 font-bold dark:text-primary-300',
+    picked: 'border-primary-500/60 bg-surface text-primary-700 ring-2 ring-primary-500/20 dark:text-primary-300',
+    idle: 'border-border/70 bg-surface text-text hover:border-primary-500/40 hover:bg-primary-500/[0.05]',
+  },
+  muted: { saved: '', picked: '', idle: 'border-border/60 bg-surface-hover/40 text-text-secondary hover:border-border-hover hover:bg-surface-hover hover:text-text' },
 };
 
 

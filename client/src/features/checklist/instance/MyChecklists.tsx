@@ -14,13 +14,13 @@ import { getInitials } from '../../../lib/getInitials';
 import { toggleValue } from '../../../lib/toggleValue';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../../api/auth';
 import { useMyChecklistInstancesPageQuery, useMyFocusChecklistsQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 import { toFilterPeople } from '../../../lib/filterPeople';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
+import { CompletedGroup } from './CompletedGroup';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { isSendBackLocking } from './sendBackLock';
@@ -261,7 +261,7 @@ export const MyChecklists = () => {
   }, [sortedInstances, now, quickFilter, canFillEnded]);
 
   const { pending: pendingRuns, done: doneRuns } = useDoneLast(instances, isRunDone);
-  const sinkedInstances = useMemo(() => [...pendingRuns, ...doneRuns], [pendingRuns, doneRuns]);
+  const [doneOpen, setDoneOpen] = useState(true);
 
   const lateNowCount = useMemo(
     () => instances.filter((i) => isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now)).length,
@@ -279,7 +279,7 @@ export const MyChecklists = () => {
       const group = groups.get(key);
       if (group) group.push(instance); else groups.set(key, [instance]);
     };
-    for (const instance of sinkedInstances) {
+    for (const instance of pendingRuns) {
       if (groupBy === 'person') {
         if (!instance.assigneeIds.length) addTo('Unassigned', instance);
         else for (const id of instance.assigneeIds) addTo(peopleNameById.get(id) ?? (peopleLoading ? 'Loading people' : 'Unknown'), instance);
@@ -290,7 +290,7 @@ export const MyChecklists = () => {
       }
     }
     return [...groups.entries()];
-  }, [view, sinkedInstances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
+  }, [view, pendingRuns, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
 
   const sendBack = useMemo(() => {
     const rejectedById = new Map<string, ChecklistInstance>();
@@ -545,16 +545,28 @@ export const MyChecklists = () => {
             {grouped.map(([groupLabel, group]) => (
               <section key={groupLabel} aria-label={groupLabel} className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="t-meta font-display font-bold text-text">
-                    {groupLabel}
-                  </h2>
-                  <Badge variant="neutral">{group.length}</Badge>
+                  <h2 className="t-card font-display font-bold text-text">{groupLabel}</h2>
+                  <span className="rounded-full bg-surface px-2 py-0.5 t-meta font-display font-semibold tabular-nums text-text-secondary ring-1 ring-inset ring-border/60">{group.length}</span>
+                  <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {group.map(instance => <ChecklistInstanceCard key={instance.id} instance={instance} />)}
                 </div>
               </section>
             ))}
+            {doneRuns.length > 0 && (
+              <CompletedGroup
+                id="my-checklists-completed"
+                count={doneRuns.length}
+                total={instances.length}
+                hint="Finished checklists move here, whatever their group"
+                open={doneOpen}
+                onToggle={() => setDoneOpen((v) => !v)}
+                bodyClassName="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {doneRuns.map((instance) => <ChecklistInstanceCard key={instance.id} instance={instance} />)}
+              </CompletedGroup>
+            )}
           </div>
         )}
 

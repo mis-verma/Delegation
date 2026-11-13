@@ -113,7 +113,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         onClick={() => setPreviewOpen(true)}
         aria-label={`Preview submitted answers: ${instance.title}${canChange ? '. Actions available' : ''}`}
         title={canChange ? (isAdmin ? 'Preview. Revoke or send questions back' : 'Preview. You can still take it back or correct it') : 'Preview what was submitted'}
-        className="absolute right-2 top-2 flex size-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-surface text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.985] pointer-coarse:size-11"
+        className="absolute right-2 top-2 flex size-9 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-surface/90 text-text-muted outline-none backdrop-blur-sm transition-[color,background-color,border-color,transform] duration-150 ease-out hover:border-primary-500/40 hover:bg-primary-500/[0.06] hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 pointer-coarse:size-11 dark:hover:text-primary-300"
       >
         <Eye size={16} aria-hidden />
         {canChange && <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-surface bg-warning" aria-hidden />}

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { scoreApi, type ScoreTrend } from '../../api/scores';
+import { scoreApi, type ScoreTrend, type TrendBucket } from '../../api/scores';
 import { useAuth } from '../../context/AuthContext';
 import { shiftDay } from '../admin/analytics/analyticsDisplay';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -36,6 +36,7 @@ export interface StreakDay {
   date: string;
   label: string;
   value: number | null;
+  bucket: TrendBucket;
 }
 
 type StreakValues = Record<StreakKind, number | null>;
@@ -44,6 +45,7 @@ export interface StreakDayValues {
   date: string;
   label: string;
   values: StreakValues;
+  bucket: TrendBucket;
 }
 
 const isKind = (value: unknown): value is StreakKind => STREAK_KINDS.some((k) => k === value);
@@ -71,7 +73,7 @@ export const useStreakKind = () => {
 };
 
 export const daysFor = (days: readonly StreakDayValues[], kind: StreakKind): StreakDay[] =>
-  days.map((d) => ({ date: d.date, label: d.label, value: d.values[kind] }));
+  days.map((d) => ({ date: d.date, label: d.label, value: d.values[kind], bucket: d.bucket }));
 
 const readGoal = (key: string): number => {
   try {
@@ -157,6 +159,7 @@ export const useStreakDays = () => {
           delegation: b.delegation.due > 0 ? b.delegation.completionPct : null,
           all: anyDue ? (b.overall ?? null) : null,
         },
+        bucket: b,
       };
     })),
     [results],

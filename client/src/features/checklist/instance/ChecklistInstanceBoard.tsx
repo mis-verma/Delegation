@@ -1,7 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Clock, AlarmClock, CheckCircle2, Inbox } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../../../components';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { getInstanceView } from '../checklistDisplay';
@@ -38,12 +37,12 @@ const BoardColumn = memo(({ col, items }: BoardColumnProps) => (
       <div className="flex items-center gap-2.5 min-w-0">
         <span className={`size-2 rounded-full shrink-0 ${col.dot}`} aria-hidden="true" />
         <col.icon size={13} className={`shrink-0 ${col.headerText}`} aria-hidden />
-        <h3 className={`text-sm font-display font-bold tracking-wide truncate ${col.headerText}`}>
+        <h3 className={`t-card font-display font-bold truncate ${col.headerText}`}>
           {col.label}
         </h3>
       </div>
 
-      <Badge variant="neutral" className="tabular-nums">{items.length}</Badge>
+      <span className="rounded-full bg-surface px-2 py-0.5 t-meta font-display font-semibold tabular-nums text-text-secondary ring-1 ring-inset ring-border/60">{items.length}</span>
     </div>
 
     <div className="flex flex-col gap-2.5 lg:gap-3 lg:min-h-40">
@@ -73,7 +72,7 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
   }, [instances]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4 items-start animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4 items-start animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none">
       {COLUMNS.map((col) => (
         <BoardColumn key={col.key} col={col} items={byStatus[col.key]} />
       ))}
