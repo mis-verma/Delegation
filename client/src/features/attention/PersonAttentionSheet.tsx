@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from 'react';
 import { SheetGrabHandle } from '@/components/sheetGrabHandle';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, BarChart3, BellRing, CalendarClock, CheckCheck, ClipboardList, MessageCircle, Repeat, Ticket, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, BarChart3, BellRing, CalendarClock, CheckCheck, CircleDot, ClipboardList, MessageCircle, Repeat, Ticket, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../../components/ui/sheet';
 import { Button, DepartmentChip, IconChip, InlineError, NoticeBanner, RoleChip, Skeleton, StoreChip } from '../../components';
@@ -296,7 +296,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
                             <span className="line-clamp-2 t-card font-display font-semibold text-text leading-snug">{tk.title}</span>
                             <span className="t-meta font-medium text-text-muted">Ticket{tk.tatDueAt ? ` · due ${new Date(tk.tatDueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</span>
                           </span>
-                          {tk.isOverdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={false} label="Open" />}
+                          {tk.isOverdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={CircleDot} tone="bg-primary-600 dark:bg-primary-400" label="Open" />}
                         </RowLink>
                       </li>
                     ))}
@@ -307,7 +307,7 @@ export const PersonAttentionSheet = ({ userId, onClose }: PersonAttentionSheetPr
                             <span className="line-clamp-2 t-card font-display font-semibold text-text leading-snug">{tk.title}</span>
                             <span className="t-meta font-medium text-text-muted">Delegation{tk.dueDate ? ` · due ${new Date(tk.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}</span>
                           </span>
-                          {tk.overdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={false} label="Open" />}
+                          {tk.overdue ? <IconChip icon={AlertTriangle} tone="bg-danger" label="Overdue" labelClassName="text-danger" /> : <IconChip icon={CircleDot} tone="bg-primary-600 dark:bg-primary-400" label="Open" />}
                         </RowLink>
                       </li>
                     ))}

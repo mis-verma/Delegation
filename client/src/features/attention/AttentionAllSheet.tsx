@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { SheetGrabHandle } from '@/components/sheetGrabHandle';
-import { BellRing, CheckCheck, ListChecks, Search, X } from 'lucide-react';
+import { BellRing, CheckCheck, ListChecks, Repeat, Search, Siren, TrendingDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../../components/ui/sheet';
-import { Button, EmptyState, Input, ToggleChip } from '../../components';
+import { Button, EmptyState, Input, SlidingTabs, type SlidingTabOption } from '../../components';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import type { PersonStatus } from '../../api/exceptions';
 import { useNow, useRemindMutation } from './useAttention';
@@ -71,11 +71,11 @@ export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: Atten
     });
   };
 
-  const FILTERS: { key: Filter; label: string }[] = [
-    { key: 'all', label: `All ${counts.all}` },
-    { key: 'red', label: `Needs you now ${counts.red}` },
-    { key: 'orange', label: `Falling behind ${counts.orange}` },
-    ...(counts.repeat ? [{ key: 'repeat' as const, label: `Repeat misses ${counts.repeat}` }] : []),
+  const FILTERS: SlidingTabOption<Filter>[] = [
+    { value: 'all', label: 'All', badge: counts.all },
+    { value: 'red', label: 'Needs you now', shortLabel: 'Now', icon: Siren, badge: counts.red, badgeTone: 'danger' },
+    { value: 'orange', label: 'Falling behind', shortLabel: 'Behind', icon: TrendingDown, badge: counts.orange },
+    ...(counts.repeat ? [{ value: 'repeat' as const, label: 'Repeat misses', shortLabel: 'Repeat', icon: Repeat, badge: counts.repeat }] : []),
   ];
 
   return (
@@ -103,11 +103,7 @@ export const AttentionAllSheet = ({ open, onClose, people, onOpenPerson }: Atten
             </button>
           </div>
           <Input id="attention-search" icon={Search} placeholder="Search name, department or store" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" aria-label="Search people" />
-          <div className="flex flex-wrap items-center gap-1.5">
-            {FILTERS.map((f) => (
-              <ToggleChip key={f.key} on={filter === f.key} onClick={() => setFilter(f.key)}>{f.label}</ToggleChip>
-            ))}
-          </div>
+          <SlidingTabs label="Show" value={filter} options={FILTERS} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
         </header>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">

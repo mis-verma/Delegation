@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { AlertTriangle, CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Layers, Search, Send, ShieldCheck, Undo2, type LucideIcon } from 'lucide-react';
+import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Repeat, Search, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, InlineError, PageHeader, Pill, Skeleton, type PillTone } from '../../../components';
+import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, type SlidingTabOption } from '../../../components';
+import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
+import { RunVerificationChip } from './RunVerificationChip';
 import { PANEL_CLASS } from '../../../components/entityCard';
 import { useAuth } from '../../../context/AuthContext';
 import { useNow } from '../../../lib/useNow';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
-import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus } from '../../../api/checklistInstances';
+import { checklistInstanceApi, type ChecklistInstanceStatus } from '../../../api/checklistInstances';
 import { useStoresQuery, useAssignableUsersQuery } from '../../tickets/hook';
 import { useChecklistInstanceSummaryQuery } from '../hook';
 import { RECURRENCE_LABEL, formatPeriodSpan, getInstanceView, todayPeriodBoundIso } from '../checklistDisplay';
-import { StatStrip, type StatStripItem } from '../../dashboard/StatStrip';
 
 type Tab = 'pending' | 'overdue' | 'completed' | 'all';
 type Window = 'today' | 'month';
@@ -30,26 +31,29 @@ const SERVER_STATUS: Record<Tab, ChecklistInstanceStatus | undefined> = {
 const isTab = (value: string | null): value is Tab => !!value && (TABS as readonly string[]).includes(value);
 
 interface StateLook {
-  tone: PillTone;
+  tone: string;
   icon: LucideIcon;
   label: string;
 }
 
 const progressState = (done: number, total: number): StateLook => {
-  if (total === 0) return { tone: 'neutral', icon: CircleDashed, label: 'No questions' };
-  if (done >= total) return { tone: 'success', icon: CheckCheck, label: 'Completed' };
-  if (done === 0) return { tone: 'neutral', icon: CircleDashed, label: 'Not started' };
-  return { tone: 'primary', icon: Clock3, label: `In progress ${done}/${total}` };
+  if (total === 0) return { tone: 'bg-text-muted', icon: CircleDashed, label: 'No questions' };
+  if (done >= total) return { tone: 'bg-success', icon: CheckCheck, label: 'Completed' };
+  if (done === 0) return { tone: 'bg-text-muted', icon: CircleDashed, label: 'Not started' };
+  return { tone: 'bg-primary-600', icon: Clock3, label: `In progress ${done}/${total}` };
 };
 
-const reviewState = (instance: ChecklistInstance): StateLook | null => {
-  switch (instance.verificationStatus) {
-    case 'PENDING_APPROVAL': return { tone: 'info', icon: Send, label: 'Pending approval' };
-    case 'REJECTED': return { tone: 'danger', icon: Undo2, label: 'Sent back' };
-    case 'APPROVED': return { tone: 'success', icon: ShieldCheck, label: 'Approved' };
-    default: return null;
-  }
-};
+const TAB_ITEMS: readonly StatusFigureItem<Tab>[] = [
+  { key: 'pending', kind: 'pending', label: 'Pending', help: 'Checklists still open right now.' },
+  { key: 'overdue', kind: 'late', label: 'Overdue', short: 'Late', help: 'Checklists that missed their deadline.' },
+  { key: 'completed', kind: 'completed', label: 'Completed', short: 'Done', help: 'Checklists that are finished.' },
+  { key: 'all', kind: 'total', label: 'All', help: 'Every checklist in this period.' },
+];
+
+const WINDOW_OPTIONS: readonly SlidingTabOption<Window>[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'month', label: 'This month', shortLabel: 'Month' },
+];
 
 const RowSkeleton = () => (
   <div className="flex items-center gap-3 px-4 py-3" aria-hidden="true">
@@ -126,19 +130,7 @@ export const TeamChecklists = () => {
     });
   }, [rows, search, onlyNotStarted, storeNames, peopleNames]);
 
-  const tiles = ((): StatStripItem[] => {
-    const loading = summary.isPending && !s;
-    const failed = !s && summary.isError;
-    const make = (key: Tab, label: string, value: number, caption: string, icon: LucideIcon, tint: StatStripItem['tint'], highlight = false): StatStripItem => ({
-      key, label, value, caption, icon, tint, highlight, loading, failed, selected: tab === key, onSelect: () => patch({ status: key === 'pending' ? null : key }),
-    });
-    return [
-      make('pending', 'Pending', s?.pending ?? 0, 'Open right now', Clock3, 'primary', true),
-      make('overdue', 'Overdue', s?.missed ?? 0, 'Missed the deadline', AlertTriangle, (s?.missed ?? 0) > 0 ? 'danger' : 'success'),
-      make('completed', 'Completed', s?.completed ?? 0, 'Finished', CheckCheck, 'success'),
-      make('all', 'All', s?.total ?? 0, windowKey === 'today' ? 'Today' : 'This month', Layers, 'coral'),
-    ];
-  })();
+  const tabCounts: Record<Tab, number> = { pending: s?.pending ?? 0, overdue: s?.missed ?? 0, completed: s?.completed ?? 0, all: s?.total ?? 0 };
 
   const role = user?.role;
   const scopeText = role === 'ADMIN' || role === 'PC' ? 'Every store and department' : 'Your department';
@@ -156,7 +148,16 @@ export const TeamChecklists = () => {
         }
       />
 
-      <StatStrip items={tiles} label="Team checklist numbers" />
+      <StatusFigureStats
+        items={TAB_ITEMS}
+        counts={tabCounts}
+        active={tab}
+        onToggle={(key) => patch({ status: key === 'pending' ? null : key })}
+        isLoading={summary.isPending && !s}
+        error={!s && summary.isError}
+        onRetry={() => void summary.refetch()}
+        label="Team checklist numbers"
+      />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="relative flex min-h-11 flex-1 items-center sm:max-w-sm">
@@ -173,34 +174,20 @@ export const TeamChecklists = () => {
         <div className="sm:w-56">
           <Combobox value={storeId} onChange={(v) => patch({ store: v || null })} options={storeOptions} emptyOptionLabel="All stores" placeholder="All stores" />
         </div>
-        <div role="radiogroup" aria-label="Period" className="flex gap-1.5">
-          {(['today', 'month'] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={windowKey === key}
-              onClick={() => patch({ window: key === 'today' ? null : key })}
-              className={cn(
-                'inline-flex min-h-11 cursor-pointer items-center rounded-full px-3.5 t-meta font-display font-semibold outline-none ring-1 ring-inset transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/60 pointer-fine:min-h-9',
-                windowKey === key ? 'bg-primary-800 text-white ring-transparent dark:bg-primary-500' : 'bg-surface text-text-secondary ring-border hover:bg-surface-hover',
-              )}
-            >
-              {key === 'today' ? 'Today' : 'This month'}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-pressed={onlyNotStarted}
-            onClick={() => patch({ started: onlyNotStarted ? null : '0' })}
-            className={cn(
-              'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 t-meta font-display font-semibold outline-none ring-1 ring-inset transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/60 pointer-fine:min-h-9',
-              onlyNotStarted ? 'bg-primary-800 text-white ring-transparent dark:bg-primary-500' : 'bg-surface text-text-secondary ring-border hover:bg-surface-hover',
-            )}
-          >
+        <div className="flex items-center gap-2">
+          <SlidingTabs
+            label="Period"
+            value={windowKey}
+            options={WINDOW_OPTIONS}
+            onChange={(key) => patch({ window: key === 'today' ? null : key })}
+            size="sm"
+            fill="phone"
+            className="max-sm:min-w-0 max-sm:flex-1"
+          />
+          <ToggleChip on={onlyNotStarted} onClick={() => patch({ started: onlyNotStarted ? null : '0' })} className="min-h-11 shrink-0 gap-1.5 rounded-full font-semibold sm:min-h-9">
             <CircleDashed className="size-3.5" aria-hidden="true" />
             Not started
-          </button>
+          </ToggleChip>
         </div>
       </div>
 
@@ -220,7 +207,7 @@ export const TeamChecklists = () => {
             {visible.map((instance) => {
               const view = getInstanceView(instance, now);
               const progress = progressState(view.done, view.total);
-              const review = reviewState(instance);
+              const reviewed = instance.verificationStatus !== 'NOT_SUBMITTED' || view.isComplete;
               const store = storeNames.get(instance.storeId);
               const late = view.overdue && !view.isComplete;
               return (
@@ -237,10 +224,10 @@ export const TeamChecklists = () => {
                     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <span className="line-clamp-2 leading-snug t-card font-display font-semibold text-text">{instance.title}</span>
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <Pill tone={progress.tone} icon={progress.icon}>{progress.label}</Pill>
-                        {late && <Pill tone="danger" icon={Hourglass}>Overdue</Pill>}
-                        {review && <Pill tone={review.tone} icon={review.icon}>{review.label}</Pill>}
-                        <Pill tone="neutral" className="max-sm:hidden">{RECURRENCE_LABEL[instance.recurrence]}, {formatPeriodSpan(instance, true)}</Pill>
+                        <IconChip icon={progress.icon} tone={progress.tone} label={progress.label} />
+                        {late && <IconChip icon={Hourglass} tone="bg-danger" label="Overdue" labelClassName="text-danger" />}
+                        {reviewed && <RunVerificationChip instance={instance} />}
+                        <IconChip icon={Repeat} tone="bg-primary-700" label={`${RECURRENCE_LABEL[instance.recurrence]}, ${formatPeriodSpan(instance, true)}`} className="max-sm:hidden" />
                       </span>
                       <span className="line-clamp-1 t-meta font-medium text-text-muted">
                         {[store, namesOf(instance.assigneeIds, peopleNames)].filter(Boolean).join(' · ')}

@@ -1,19 +1,25 @@
 import { AlarmClockOff, CalendarClock, CalendarDays, Clock3, Hourglass, type LucideIcon } from 'lucide-react';
-import { StatusBadge, type StatusVariant } from '../statusBadge';
+import { IconChip } from '../iconChip';
 import { dueInfo, waitInfo, type DueLevel, type WaitLevel } from './dueInfo';
 
-const DUE_LOOK: Record<DueLevel, { icon: LucideIcon; variant: StatusVariant }> = {
-  late: { icon: AlarmClockOff, variant: 'critical' },
-  soon: { icon: Hourglass, variant: 'warning' },
-  today: { icon: Clock3, variant: 'warning' },
-  tomorrow: { icon: CalendarClock, variant: 'neutral' },
-  later: { icon: CalendarDays, variant: 'neutral' },
+interface ChipLook {
+  icon: LucideIcon;
+  tone: string;
+  text?: string;
+}
+
+const DUE_LOOK: Record<DueLevel, ChipLook> = {
+  late: { icon: AlarmClockOff, tone: 'bg-danger', text: 'text-danger' },
+  soon: { icon: Hourglass, tone: 'bg-warning', text: 'text-warning' },
+  today: { icon: Clock3, tone: 'bg-warning', text: 'text-warning' },
+  tomorrow: { icon: CalendarClock, tone: 'bg-primary-600 dark:bg-primary-400' },
+  later: { icon: CalendarDays, tone: 'bg-text-muted' },
 };
 
-const WAIT_VARIANT: Record<WaitLevel, StatusVariant> = {
-  fresh: 'neutral',
-  slow: 'warning',
-  stuck: 'critical',
+const WAIT_LOOK: Record<WaitLevel, ChipLook> = {
+  fresh: { icon: Hourglass, tone: 'bg-text-muted' },
+  slow: { icon: Hourglass, tone: 'bg-warning', text: 'text-warning' },
+  stuck: { icon: Hourglass, tone: 'bg-danger', text: 'text-danger' },
 };
 
 interface DueChipProps {
@@ -23,10 +29,10 @@ interface DueChipProps {
   plain?: boolean;
 }
 
-export const DueChip = ({ at, now, className, plain = false }: DueChipProps) => {
+export const DueChip = ({ at, now, className }: DueChipProps) => {
   const info = dueInfo(new Date(at).getTime(), now);
   const look = DUE_LOOK[info.level];
-  return <StatusBadge variant={look.variant} icon={plain ? false : look.icon} label={info.label} className={className} />;
+  return <IconChip icon={look.icon} tone={look.tone} label={info.label} labelClassName={look.text} className={className} />;
 };
 
 interface WaitChipProps {
@@ -38,7 +44,8 @@ interface WaitChipProps {
   plain?: boolean;
 }
 
-export const WaitChip = ({ since, now, warnAfterHours = 12, dangerAfterHours = 24, className, plain = false }: WaitChipProps) => {
+export const WaitChip = ({ since, now, warnAfterHours = 12, dangerAfterHours = 24, className }: WaitChipProps) => {
   const info = waitInfo(new Date(since).getTime(), now, warnAfterHours, dangerAfterHours);
-  return <StatusBadge variant={WAIT_VARIANT[info.level]} icon={plain ? false : Hourglass} label={info.label} className={className} />;
+  const look = WAIT_LOOK[info.level];
+  return <IconChip icon={look.icon} tone={look.tone} label={info.label} labelClassName={look.text} className={className} />;
 };

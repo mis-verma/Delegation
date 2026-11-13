@@ -3,7 +3,7 @@ import { Skeleton } from '../../components/skeleton';
 import { STAT_FIGURE, STAT_PHONE_CENTER, STAT_ROW_PHONE_CENTER } from '../../components/statSurface';
 import { useStatCountFormat } from '../../lib/statCount';
 
-export type StatusKind = 'pending' | 'completed' | 'due' | 'late';
+export type StatusKind = 'pending' | 'completed' | 'due' | 'late' | 'total';
 
 export interface StatusFigureItem<K extends string> {
   key: K;
@@ -31,6 +31,7 @@ const ACCENT: Record<StatusKind, string> = {
   completed: '[--stat-accent:var(--stat-accent-completed)]',
   due: '[--stat-accent:var(--stat-accent-due)]',
   late: '[--stat-accent:var(--stat-accent-late)]',
+  total: '[--stat-accent:var(--stat-accent-pending)]',
 };
 
 const CELL = cn(

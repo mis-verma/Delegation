@@ -1,13 +1,13 @@
 import { memo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { CheckCheck, ChevronRight } from 'lucide-react';
+import { CalendarX2, CheckCheck, ChevronRight, ClipboardX, Hourglass, Repeat, Siren, TicketX, TrendingDown, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
 import type { ExceptionItem, ExceptionKind } from '../../api/exceptions';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { Button, DueChip, StatusBadge, WaitChip } from '../../components';
+import { Button, DueChip, IconChip, WaitChip } from '../../components';
 import { useCanSeeExceptions, useExceptionTotalsQuery, useExceptionsQuery } from './useExceptionsQuery';
 import { useAttentionPeople, useNow, useRemindMutation } from '../attention/useAttention';
 import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/AttentionParts';
@@ -17,11 +17,11 @@ import { agoLabel, remindedRecently } from '../attention/attentionDisplay';
 import { DashCardHeader, DashCardLink } from './DashCardHeader';
 import { useCanOpen, useIsReadOnlyViewer } from '../owner/useReadOnlyViewer';
 
-const KIND_LABEL: Record<ExceptionKind, string> = {
-  TICKET_OVERDUE: 'Ticket late',
-  TICKET_STALE: 'Ticket stuck',
-  TASK_OVERDUE: 'Delegation late',
-  CHECKLIST_MISSED: 'Checklist missed',
+const KIND_LOOK: Record<ExceptionKind, { label: string; icon: LucideIcon }> = {
+  TICKET_OVERDUE: { label: 'Ticket late', icon: TicketX },
+  TICKET_STALE: { label: 'Ticket stuck', icon: Hourglass },
+  TASK_OVERDUE: { label: 'Delegation late', icon: CalendarX2 },
+  CHECKLIST_MISSED: { label: 'Checklist missed', icon: ClipboardX },
 };
 
 const KIND_LIST: Record<ExceptionKind, { href: string; label: string }> = {
@@ -45,9 +45,9 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="line-clamp-2 t-card font-display font-semibold leading-snug text-text">{item.title}</p>
         <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge variant={high ? 'critical' : 'warning'} icon={false} label={KIND_LABEL[item.kind]} />
-          {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} plain />}
-          {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} plain />}
+          <IconChip icon={KIND_LOOK[item.kind].icon} tone={high ? 'bg-danger' : 'bg-warning'} label={KIND_LOOK[item.kind].label} labelClassName={high ? 'text-danger' : 'text-warning'} />
+          {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} />}
+          {item.kind === 'TICKET_STALE' && <WaitChip since={item.since} now={now} warnAfterHours={24} dangerAfterHours={72} />}
         </div>
         <p className="line-clamp-2 t-meta font-medium text-text-muted">
           {item.storeName ? `${item.storeName} · ` : ''}{item.detail}
@@ -207,9 +207,9 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
             )}
           </div>
           <div className="flex flex-wrap gap-1.5 px-4 pb-2 sm:px-5">
-            {redPeople.length > 0 && <StatusBadge variant="critical" icon={false} label={`${redPeople.length} need you now`} />}
-            {orangeCount > 0 && <StatusBadge variant="warning" icon={false} label={`${orangeCount} falling behind`} />}
-            {repeatCount > 0 && <StatusBadge variant="neutral" icon={false} label={`${repeatCount} repeat misses`} />}
+            {redPeople.length > 0 && <IconChip icon={Siren} tone="bg-danger" label={`${redPeople.length} need you now`} labelClassName="text-danger" />}
+            {orangeCount > 0 && <IconChip icon={TrendingDown} tone="bg-vivid-sky" label={`${orangeCount} falling behind`} labelClassName="text-vivid-sky-text" />}
+            {repeatCount > 0 && <IconChip icon={Repeat} tone="bg-vivid-blue" label={`${repeatCount} repeat misses`} labelClassName="text-vivid-blue-text" />}
           </div>
           <div className="flex flex-col divide-y divide-border/60">
             {peopleRows.slice(0, peopleLimit).map((p) => (

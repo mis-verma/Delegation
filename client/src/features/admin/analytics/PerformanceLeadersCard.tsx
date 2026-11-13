@@ -34,16 +34,12 @@ interface LeaderEntryProps {
 }
 
 const SOLID = { success: 'bg-vivid-green', danger: 'bg-vivid-red' } as const;
+const TONE_TEXT = { success: 'text-vivid-green-text', danger: 'text-vivid-red-text' } as const;
 const EDGE = { success: 'border-vivid-green/40', danger: 'border-vivid-red/40' } as const;
 
 const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: LeaderEntryProps) => {
   const value = row?.overall ?? null;
-  const badge = (
-    <span className={cn('inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 t-meta font-display font-bold text-white', SOLID[tone])}>
-      <Icon size={13} strokeWidth={2.5} aria-hidden="true" />
-      {label}
-    </span>
-  );
+  const badge = <IconChip icon={Icon} tone={SOLID[tone]} label={label} labelClassName={TONE_TEXT[tone]} className="w-fit" />;
   const content = row ? (
     <>
       <ScoreRing value={value} size={56} stroke={7} label={row.name} />
