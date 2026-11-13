@@ -25,16 +25,19 @@ export const useQueueShortcuts = (handlers: QueueShortcutHandlers) => {
       const target = e.target instanceof HTMLElement ? e.target : null;
       if (target?.closest(OWN_KEYS_SELECTOR)) return;
       if (document.querySelector('[aria-label="Image preview"]')) return;
-      if (!h.sheetOpen && document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+      if (e.repeat && e.key !== 'j' && e.key !== 'k') return;
 
       switch (e.key) {
         case 'j':
         case 'ArrowDown':
+          if (h.sheetOpen) return;
           e.preventDefault();
           h.onNext();
           break;
         case 'k':
         case 'ArrowUp':
+          if (h.sheetOpen) return;
           e.preventDefault();
           h.onPrevious();
           break;
@@ -46,7 +49,7 @@ export const useQueueShortcuts = (handlers: QueueShortcutHandlers) => {
           h.onSendBack();
           break;
         case 'Enter':
-          if (target?.closest('button, a')) return;
+          if (h.sheetOpen || target?.closest('button, a')) return;
           h.onOpen();
           break;
         case 'Escape':

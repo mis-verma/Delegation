@@ -80,7 +80,11 @@ export const useTicketViewState = (user: AuthUser) => {
       const kept = readKept<Partial<TicketViewSnapshot>>(keptKey);
       return { view: kept?.view, sort: kept?.sort, groupBy: kept?.groupBy, ...snapshotFromUrl(searchParams) };
     }
-    return readQuickFilterParam(searchParams, QUICK_FILTER_VALUES) || assigneeIdFilter ? null : readKept<Partial<TicketViewSnapshot>>(keptKey);
+    if (searchParams.has('quickFilter') || assigneeIdFilter) {
+      const kept = readKept<Partial<TicketViewSnapshot>>(keptKey);
+      return { view: kept?.view, sort: kept?.sort, groupBy: kept?.groupBy };
+    }
+    return readKept<Partial<TicketViewSnapshot>>(keptKey);
   });
 
   const [view, setView] = useState<TicketView>(restored?.view ?? 'list');

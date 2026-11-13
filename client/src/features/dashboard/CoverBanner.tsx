@@ -35,5 +35,5 @@ const CoverBannerContent = ({ to }: { to: string }) => {
 export const CoverBanner = () => {
   const { user } = useAuth();
   if (!user || !COVER_ROLES.has(user.role)) return null;
-  return <CoverBannerContent to={user.role === 'ADMIN' || user.role === 'PC' ? '/verify' : '/tickets/approvals'} />;
+  return <CoverBannerContent to={user.role === 'ADMIN' || user.role === 'PC' ? '/verify' : '/checklists/approvals'} />;
 };

@@ -75,8 +75,9 @@ const RowLink = ({ row, now }: { row: WorkRow; now: Date }) => {
 };
 
 const GroupSection = ({ group, metric, team, now, onRetry }: { group: WorkGroup; metric: WorkMetric; team: boolean; now: Date; onRetry: () => void }) => {
+  const { user } = useAuth();
   const Icon = CATEGORY_ICON[KIND_ICON_KEY[group.kind]];
-  const fullList = moduleListHref(group.kind, metric, team);
+  const fullList = moduleListHref(group.kind, metric, team, user?.id);
   const more = group.total - group.rows.length;
   return (
     <section aria-label={KIND_LABEL[group.kind]} className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>

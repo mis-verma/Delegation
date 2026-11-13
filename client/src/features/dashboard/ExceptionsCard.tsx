@@ -8,7 +8,7 @@ import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { Button, DueChip, StatusBadge, WaitChip } from '../../components';
-import { useCanSeeExceptions, useExceptionsQuery } from './useExceptionsQuery';
+import { useCanSeeExceptions, useExceptionTotalsQuery, useExceptionsQuery } from './useExceptionsQuery';
 import { useAttentionPeople, useNow, useRemindMutation } from '../attention/useAttention';
 import { AttentionPersonRow, AttentionRowSkeleton } from '../attention/AttentionParts';
 import { PersonAttentionSheet } from '../attention/PersonAttentionSheet';
@@ -24,12 +24,14 @@ const KIND_LABEL: Record<ExceptionKind, string> = {
   CHECKLIST_MISSED: 'Checklist missed',
 };
 
-const KIND_HREF: Record<ExceptionKind, string> = {
-  TICKET_OVERDUE: '/tickets',
-  TICKET_STALE: '/tickets',
-  TASK_OVERDUE: '/tasks',
-  CHECKLIST_MISSED: '/checklists/history',
+const KIND_LIST: Record<ExceptionKind, { href: string; label: string }> = {
+  TICKET_OVERDUE: { href: '/tickets?quickFilter=delayed', label: 'Late tickets' },
+  TICKET_STALE: { href: '/tickets?quickFilter=pending', label: 'Stuck tickets' },
+  TASK_OVERDUE: { href: '/tasks?category=work&quickFilter=delayed', label: 'Late delegations' },
+  CHECKLIST_MISSED: { href: '/checklists/history?tab=checklists&status=OVERDUE', label: 'Missed checklists' },
 };
+
+const KIND_ORDER: readonly ExceptionKind[] = ['TICKET_OVERDUE', 'TASK_OVERDUE', 'CHECKLIST_MISSED', 'TICKET_STALE'];
 
 const PREVIEW_LIMIT = 4;
 const PEOPLE_PREVIEW_LIMIT = 4;
@@ -41,7 +43,7 @@ const ExceptionRow = memo(({ item, now, linked }: { item: ExceptionItem; now: nu
   const body = (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="line-clamp-2 text-sm font-display font-medium leading-snug text-text sm:font-semibold">{item.title}</p>
+        <p className="line-clamp-2 t-card font-display font-semibold leading-snug text-text">{item.title}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge variant={high ? 'critical' : 'warning'} icon={false} label={KIND_LABEL[item.kind]} />
           {(item.kind === 'TICKET_OVERDUE' || item.kind === 'TASK_OVERDUE') && <DueChip at={item.since} now={now} plain />}
@@ -80,6 +82,7 @@ interface ExceptionsCardProps {
 export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardProps = {}) => {
   const allowed = useCanSeeExceptions();
   const query = useExceptionsQuery();
+  const totals = useExceptionTotalsQuery();
   const readOnly = useIsReadOnlyViewer();
   const canOpen = useCanOpen();
 
@@ -95,19 +98,11 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
   const peopleRows = people.data ?? [];
   const items = query.data ?? [];
   const visible = items.slice(0, limit);
-  const hiddenAlerts = items.slice(limit);
-  const remaining = hiddenAlerts.length;
-  const remainingHref = (() => {
-    if (remaining === 0) return null;
-    const tally = new Map<string, number>();
-    for (const item of hiddenAlerts) {
-      const href = KIND_HREF[item.kind];
-      tally.set(href, (tally.get(href) ?? 0) + 1);
-    }
-    return [...tally.entries()].sort((a, b) => b[1] - a[1])[0]![0];
-  })();
+  const alertTotal = totals.data ? Math.max(items.length, totals.data.tickets + totals.data.delegations + totals.data.missedRuns) : items.length;
+  const remaining = Math.max(0, alertTotal - visible.length);
+  const kindLinks = KIND_ORDER.filter((kind) => items.some((i) => i.kind === kind) && canOpen(KIND_LIST[kind].href)).map((kind) => KIND_LIST[kind]);
   const summaryParts = [
-    items.length > 0 && `${items.length} ${items.length === 1 ? 'alert' : 'alerts'}`,
+    alertTotal > 0 && `${alertTotal} ${alertTotal === 1 ? 'alert' : 'alerts'}`,
     peopleRows.length > 0 && `${peopleRows.length} ${peopleRows.length === 1 ? 'person' : 'people'}`,
   ].filter(Boolean);
   const redPeople = peopleRows.filter((p) => p.level === 'red');
@@ -119,7 +114,6 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
   const countFailed = (alertsFailed || peopleFailed) && !query.isPending && !people.isPending;
   const nothingAtAll = items.length === 0 && peopleRows.length === 0 && !people.isPending && !peopleFailed;
   const allTicketsHref = canOpen('/tickets') ? '/tickets' : null;
-  const openAllHref = remainingHref && canOpen(remainingHref) ? remainingHref : null;
   const headerAside = countFailed || aside ? (
     <span className="flex items-center gap-2">
       {countFailed && (
@@ -134,7 +128,7 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
       <DashCardHeader
         id="exceptions-heading"
         title="Needs attention"
-        count={countFailed ? null : items.length + peopleRows.length}
+        count={countFailed ? null : alertTotal}
         countLabel={summaryParts.join(', ')}
         alert
         subtitle={summaryParts.length > 0 ? summaryParts.join(', ') : undefined}
@@ -169,9 +163,13 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
       )}
 
       {remaining > 0 && (
-        <div className="flex min-h-11 items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
-          <p className="t-meta font-medium text-text-secondary tabular-nums">{remaining} more {remaining === 1 ? 'alert' : 'alerts'}</p>
-          {openAllHref && <DashCardLink to={openAllHref} label={`Open the full list, ${remaining} more ${remaining === 1 ? 'alert' : 'alerts'}`}>Open all</DashCardLink>}
+        <div className="flex flex-col gap-1 border-t border-border/60 px-4 py-2.5 sm:px-5">
+          <p className="t-meta font-medium text-text-secondary tabular-nums">{remaining} more {remaining === 1 ? 'alert' : 'alerts'}. Open a full list:</p>
+          {kindLinks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+              {kindLinks.map((link) => <DashCardLink key={link.href} to={link.href}>{link.label}</DashCardLink>)}
+            </div>
+          )}
         </div>
       )}
 
@@ -199,7 +197,7 @@ export const ExceptionsCard = ({ limit = PREVIEW_LIMIT, aside }: ExceptionsCardP
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 shrink-0 max-sm:hidden pointer-fine:h-9"
+                className="h-11 shrink-0 pointer-fine:h-9"
                 onClick={() => remind.mutate(redToRemind)}
                 isLoading={remind.isPending}
                 aria-label={`Send a reminder to the ${redToRemind.length} ${redToRemind.length === 1 ? 'person' : 'people'} who need you now`}

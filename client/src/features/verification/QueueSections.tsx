@@ -28,8 +28,8 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
       label: 'Everything',
       short: 'All',
       value: total,
-      note: noteFor(total, everythingLate),
-      alert: everythingLate > 0,
+      note: anyFailed ? 'Some did not load' : noteFor(total, everythingLate),
+      alert: everythingLate > 0 || anyFailed,
       help: 'Everything waiting for your review. Late means waiting more than 24 hours.',
       selected: tab === 'all',
       onClick: () => onChange('all'),
@@ -44,6 +44,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
         alert: s.late > 0,
         help: `${SECTION_LOOK[section].label} waiting for review. Tap to show only these, tap again to show everything.`,
         selected: tab === section,
+        failed: failed[section],
         onClick: () => onChange(tab === section ? 'all' : section),
       };
     }),
@@ -51,7 +52,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
 
   return (
     <nav aria-label="Review sections">
-      <FigurePanel cells={cells} label="Review sections" loading={loading} failed={anyFailed} onRetry={onRetry} phoneDense />
+      <FigurePanel cells={cells} label="Review sections" loading={loading} onRetry={onRetry} phoneDense />
     </nav>
   );
 });

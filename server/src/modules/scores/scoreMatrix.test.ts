@@ -63,6 +63,18 @@ describe("matrixBuckets", () => {
 describe("shapeMatrix", () => {
     const base = { total: row("total", "Whole organisation", 10, 8), rows: [row("a", "Alpha", 6, 6), row("b", "Beta", 4, 2), row("c", "Idle")] }
 
+    it("keeps the lowest rows first when asked to rank lowest first, even past the row cap", () => {
+        const busy = [row("a", "Alpha", 9, 9), row("b", "Beta", 8, 8), row("w", "Weak", 2, 0)]
+        const out = shapeMatrix({ total: base.total, rows: busy }, [], 2, { module: "checklist", measure: "completion", order: "asc" })
+        expect(out.rows.map((r) => r.id)).toEqual(["w", "a"])
+        expect(out.truncated).toBe(true)
+    })
+
+    it("keeps the busiest rows when no rank is given", () => {
+        const busy = [row("a", "Alpha", 9, 9), row("b", "Beta", 8, 8), row("w", "Weak", 2, 0)]
+        expect(shapeMatrix({ total: base.total, rows: busy }, [], 2).rows.map((r) => r.id)).toEqual(["a", "b"])
+    })
+
     it("maps each row onto the buckets, leaves null where a row had nothing due, and drops rows with no work", () => {
         const perBucket = [
             { total: row("total", "t", 5, 4), rows: [row("a", "Alpha", 3, 3), row("b", "Beta", 2, 1)] },

@@ -22,10 +22,11 @@ const dayNumber = (date: string) => Number(date.slice(8, 10));
 const CELL_LOOK: Record<DayState, string> = {
   met: 'stat-navy text-white [--stat-accent:var(--stat-accent-completed)]',
   missed: 'bg-danger/10 text-danger ring-1 ring-inset ring-danger/25',
+  open: 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300',
   none: 'bg-surface-hover/60 text-text-light',
 };
 
-const STATE_WORD: Record<DayState, string> = { met: 'goal hit', missed: 'below goal', none: 'nothing due' };
+const STATE_WORD: Record<DayState, string> = { met: 'goal hit', missed: 'below goal', open: 'in progress', none: 'nothing due' };
 
 const StepButton = ({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled: boolean; children: ReactNode }) => (
   <button
@@ -166,8 +167,8 @@ export const StreakGoalCard = () => {
 
         <ol className="grid grid-cols-7 gap-1.5 sm:gap-2" aria-label={`Last ${days.length} days against your ${goal} percent goal`}>
           {days.map((d, i) => {
-            const state = dayState(d.value, goal);
             const isToday = d.date === today;
+            const state = dayState(d.value, goal, isToday);
             return (
               <li key={d.date} className="flex">
                 <button

@@ -10,13 +10,16 @@ const isDepartmentHead = (role: string) => role === "MANAGER" || role === "SENIO
 
 export const dashboardService = {
     async summaries(user: AccessTokenPayload, { scope, today }: DashboardSummariesQuery) {
-        const orgChecklistPromise = isAdminOrPc(user.role)
+        const teamView = scope === "visible"
+        const orgChecklistPromise = teamView && isAdminOrPc(user.role)
             ? checklistInstanceService.summary({ hideEnded: true, includeDeleted: false, from: today, to: today }).catch((err: unknown) => {
                 console.error("Dashboard summary (organisation checklists) failed:", err)
                 return undefined
             })
             : Promise.resolve(undefined)
-        const scopeChecklistPromise = isAdminOrPc(user.role)
+        const scopeChecklistPromise = !teamView
+            ? Promise.resolve(undefined)
+            : isAdminOrPc(user.role)
             ? orgChecklistPromise
             : isDepartmentHead(user.role) && user.departmentId
                 ? checklistInstanceService.summary({ departmentId: user.departmentId, hideEnded: true, includeDeleted: false, from: today, to: today }).catch((err: unknown) => {

@@ -78,7 +78,7 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
   const { mutate } = reopen;
 
   const decisions = useMemo(
-    () => [...(data ?? [])].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
+    () => (data ?? []).filter((d) => d.action !== 'SUBMIT').sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
     [data],
   );
   const latestApproval = useMemo(() => {

@@ -12,6 +12,7 @@ export interface FigureCell {
   alert?: boolean;
   help: string;
   selected?: boolean;
+  failed?: boolean;
   onClick?: () => void;
 }
 
@@ -33,13 +34,13 @@ const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-3
 const ACTION = STAT_SURFACE_ACTION;
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
-  const broken = failed && !loading;
   const formatCount = useStatCountFormat();
   const cellSize = compact ? CELL_SIZE_COMPACT : phoneDense ? CELL_SIZE_PHONE_DENSE : CELL_SIZE;
   const tightOnPhone = compact || phoneDense;
   return (
     <div className={cn('grid w-full gap-2 sm:grid-cols-4', phoneColumns === 2 ? 'grid-cols-2' : 'grid-cols-4')} role="group" aria-label={label}>
       {cells.map((cell) => {
+        const broken = (failed || !!cell.failed) && !loading;
         const retry = broken && !!onRetry;
         const interactive = retry || !!cell.onClick;
         const selected = !!cell.selected && !broken;

@@ -99,7 +99,7 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
             <p className="t-meta font-medium text-text-secondary">
               {compare.failed
                 ? "Couldn't compare with the period before. The scores above are still right."
-                : `Change compares with the ${compare.days === 1 ? 'day' : `${compare.days} days`} before, ${compare.days === 1 ? shortDay(compare.from) : `${shortDay(compare.from)} to ${shortDay(compare.to)}`}.`}
+                : `Change compares with the same ${compare.days === 1 ? 'day' : 'days'} before, ${compare.days === 1 ? shortDay(compare.from) : `${shortDay(compare.from)} to ${shortDay(compare.to)}`}.`}
             </p>
           )}
         </>

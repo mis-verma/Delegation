@@ -94,8 +94,38 @@ export const cellOf = (r: ExplorerRow): MatrixCell => ({
 
 export type MatrixSlice = { total: ExplorerRow; rows: readonly ExplorerRow[] }
 
-export const shapeMatrix = (base: MatrixSlice, perBucket: readonly MatrixSlice[], maxRows = MATRIX_MAX_ROWS): { total: MatrixTotal; rows: MatrixRow[]; truncated: boolean } => {
-    const candidates = base.rows.filter((r) => r.totalDue > 0).sort((a, b) => b.totalDue - a.totalDue || a.name.localeCompare(b.name))
+export const MATRIX_RANK_MODULES = ["all", "checklist", "ticket", "delegation"] as const
+export const MATRIX_RANK_MEASURES = ["score", "completion", "compliance", "onTime"] as const
+export const MATRIX_RANK_ORDERS = ["asc", "desc"] as const
+
+export type MatrixRank = {
+    module: (typeof MATRIX_RANK_MODULES)[number]
+    measure: (typeof MATRIX_RANK_MEASURES)[number]
+    order: (typeof MATRIX_RANK_ORDERS)[number]
+}
+
+export const rankValue = (r: ExplorerRow, rank: Pick<MatrixRank, "module" | "measure">): number | null => {
+    if (rank.module === "all") return r.totalDue > 0 ? r.overall : null
+    const b = r[rank.module]
+    if (b.due <= 0) return null
+    if (rank.measure === "score") return b.score
+    if (rank.measure === "completion") return b.completion
+    if (rank.measure === "onTime") return b.onTimeOfFinishedPct
+    return b.compliance
+}
+
+const pickRows = (rows: readonly ExplorerRow[], rank?: MatrixRank): ExplorerRow[] => {
+    if (!rank) return rows.filter((r) => r.totalDue > 0).sort((a, b) => b.totalDue - a.totalDue || a.name.localeCompare(b.name))
+    const due = (r: ExplorerRow) => (rank.module === "all" ? r.totalDue : r[rank.module].due)
+    return rows
+        .map((r) => ({ r, v: rankValue(r, rank) }))
+        .filter((x): x is { r: ExplorerRow; v: number } => x.v !== null)
+        .sort((a, b) => (rank.order === "asc" ? a.v - b.v : b.v - a.v) || due(b.r) - due(a.r) || a.r.name.localeCompare(b.r.name))
+        .map((x) => x.r)
+}
+
+export const shapeMatrix = (base: MatrixSlice, perBucket: readonly MatrixSlice[], maxRows = MATRIX_MAX_ROWS, rank?: MatrixRank): { total: MatrixTotal; rows: MatrixRow[]; truncated: boolean } => {
+    const candidates = pickRows(base.rows, rank)
     const chosen = candidates.slice(0, maxRows)
     const byBucket = perBucket.map((slice) => new Map(slice.rows.map((r) => [r.id, r])))
 

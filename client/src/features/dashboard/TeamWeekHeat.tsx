@@ -34,7 +34,7 @@ export const TeamWeekHeat = () => {
   const view = teamScoreView(user?.role);
   const win = useMemo(() => ({ from: shiftDay(today, -6), to: today }), [today]);
   const params = useMemo<MatrixParams | null>(
-    () => (allowed ? { from: win.from, to: win.to, view: view === 'person' ? 'person' : 'department', period: 'day' } : null),
+    () => (allowed ? { from: win.from, to: win.to, view: view === 'person' ? 'person' : 'department', period: 'day', rank: { module: 'all', measure: 'score', order: 'asc' } } : null),
     [allowed, win, view],
   );
   const query = useBiMatrix(params);
@@ -43,6 +43,8 @@ export const TeamWeekHeat = () => {
   if (!allowed) return null;
 
   const matrix = query.data;
+  const scoredRows = matrix ? matrix.rows.filter((r) => r.whole.totalDue > 0).length : 0;
+  const hiddenRows = Math.max(0, scoredRows - MAX_ROWS);
   const subject = view === 'person' ? 'people' : 'departments';
   const scoresHref = `/admin/scores?${new URLSearchParams({ view, from: win.from, to: win.to }).toString()}`;
   const dialogWin = { from: win.from, to: win.to, label: windowLabel(win.from, win.to) };
@@ -67,9 +69,10 @@ export const TeamWeekHeat = () => {
           <InlineError message="Couldn't load the team week." onRetry={() => void query.refetch()} />
         ) : !matrix ? (
           <HeatSkeleton />
-        ) : matrix.rows.length === 0 ? (
+        ) : scoredRows === 0 ? (
           <p className="rounded-xl border border-border px-4 py-8 text-center t-card font-medium text-text-muted">Nothing was due for your {subject} this week.</p>
         ) : (
+          <>
           <HeatGrid
             matrix={matrix}
             module="all"
@@ -80,6 +83,10 @@ export const TeamWeekHeat = () => {
             maxRows={MAX_ROWS}
             onOpen={(row, bucketIndex) => setDetail({ row, bucketIndex })}
           />
+          {hiddenRows > 0 && (
+            <DashCardLink to={scoresHref} label={`See all ${scoredRows} ${subject}`}>And {hiddenRows} more {subject}</DashCardLink>
+          )}
+          </>
         )}
       </div>
 

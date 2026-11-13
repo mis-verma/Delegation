@@ -87,7 +87,7 @@ const HeatRowView = memo(function HeatRowView({ row, r, module, measure, period,
               aria-label={`${row.name}, ${whenText(period, buckets[c])}: ${value === null ? 'nothing due' : heatExact(value)}. Open the details.`}
               style={value === null ? undefined : heatLook(value)}
               className={cn(
-                'flex h-9 w-full min-w-8 cursor-pointer items-center justify-center rounded-md t-meta font-display font-semibold tabular-nums outline-none sm:h-10 pointer-coarse:h-11',
+                'flex h-9 w-full min-w-8 cursor-pointer items-center justify-center rounded-md t-meta font-display font-semibold tabular-nums outline-none sm:h-10 pointer-coarse:h-11 pointer-coarse:min-w-10',
                 'transition-[box-shadow,transform] duration-150 ease-out hover:ring-2 hover:ring-primary-500/55 hover:ring-offset-1 hover:ring-offset-surface active:scale-[0.94]',
                 'focus-visible:ring-2 focus-visible:ring-primary-500/70 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
                 value === null && 'bg-surface-hover/40 text-text-light',
@@ -291,7 +291,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 t-meta font-medium text-text-muted" aria-label="Colour key">
-        <span className="font-display font-semibold text-text-secondary">Score</span>
+        <span className="font-display font-semibold text-text-secondary">{measureText}</span>
         {HEAT_KEY.map(({ level, label }) => (
           <span key={level} className="inline-flex items-center gap-1.5">
             <span className="size-3.5 rounded-md" style={{ background: heatFill(level) }} aria-hidden="true" />
@@ -303,7 +303,11 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
           Nothing due
         </span>
         {matrix.truncated && <span>Showing the 30 busiest rows.</span>}
-        <span className="basis-full">Each box is one {noun}, shown as a whole number. Hover or tap it for the exact figure and details.</span>
+        <span className="basis-full">
+          Each box is one {noun}, shown as a whole number.
+          <span className="pointer-coarse:hidden"> Hover it for the exact figure, click it for details.</span>
+          <span className="pointer-fine:hidden"> Tap it for details.</span>
+        </span>
       </div>
 
       <HeatTooltip ref={tipRef} />

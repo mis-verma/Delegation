@@ -7,7 +7,7 @@ export const useBiMatrix = (params: MatrixParams | null) => {
   const { token } = useAuth();
   const p = params ?? { from: '', to: '', view: 'department' as const, period: 'day' as const };
   const query = useQuery({
-    queryKey: ['scores', 'matrix', p.from, p.to, p.view, p.period, p.storeId ?? '', p.departmentId ?? '', p.parentId ?? ''] as const,
+    queryKey: ['scores', 'matrix', p.from, p.to, p.view, p.period, p.storeId ?? '', p.departmentId ?? '', p.parentId ?? '', p.rank?.module ?? '', p.rank?.measure ?? '', p.rank?.order ?? ''] as const,
     queryFn: () => scoreApi.matrix(p),
     ...SCORE_QUERY_OPTIONS,
     enabled: !!token && !!params && !!p.from && !!p.to,

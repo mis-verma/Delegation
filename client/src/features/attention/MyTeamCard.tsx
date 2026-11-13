@@ -51,7 +51,7 @@ export const MyTeamCard = () => {
     queryFn: () => scoreApi.report({ from: win.from, to }),
     retry: handleQueryRetry,
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: 3 * 60_000,
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   });
@@ -110,7 +110,7 @@ export const MyTeamCard = () => {
           <InlineError message="Couldn't load your team's scores." onRetry={() => void report.refetch()} />
         </div>
       ) : (
-        <>
+        <div className={cn('contents transition-opacity duration-200', report.isPlaceholderData && '[&>*]:opacity-60')} aria-busy={report.isPlaceholderData}>
           {!noScores && (
             <div className="grid grid-cols-2 gap-2 px-4 pt-3 sm:grid-cols-3 sm:px-5">
               <div className="col-span-2 sm:col-span-1">
@@ -233,7 +233,7 @@ export const MyTeamCard = () => {
               getRows={exportRows}
             />
           </div>
-        </>
+        </div>
       )}
 
       <PersonAttentionSheet userId={openPerson} onClose={() => setOpenPerson(null)} />

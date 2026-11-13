@@ -8,6 +8,7 @@ import type { Ticket } from '../../api/ticket';
 
 interface OverdueTicketsPopupProps {
   tickets: readonly Ticket[];
+  total?: number;
   userId: string | undefined;
 }
 
@@ -40,10 +41,9 @@ const writeNextAt = (key: string, at: number) => {
   }
 };
 
-export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopupProps) => {
+export const OverdueTicketsPopup = memo(({ tickets, total, userId }: OverdueTicketsPopupProps) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const decided = useRef(false);
   const seen = useRef<Set<string> | null>(null);
   const key = `tm-overdue-popup-${userId ?? 'anon'}`;
 
@@ -51,10 +51,9 @@ export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopu
   const hasLate = late.length > 0;
 
   useEffect(() => {
-    if (decided.current || !hasLate) return;
-    decided.current = true;
-    if (Date.now() >= readNextAt(key)) setOpen(true);
-  }, [hasLate, key]);
+    if (!hasLate || Date.now() < readNextAt(key)) return;
+    setOpen(true);
+  }, [hasLate, key, tickets]);
 
   useEffect(() => {
     const ids = new Set(late.map((t) => t.id));
@@ -89,8 +88,14 @@ export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopu
 
   if (!hasLate) return null;
 
+  const lateCount = Math.max(late.length, total ?? 0);
   const shown = late.slice(0, LIST_LIMIT);
-  const more = late.length - shown.length;
+  const more = lateCount - shown.length;
+  const seeAll = () => {
+    writeNextAt(key, nextMidnight());
+    setOpen(false);
+    navigate(userId ? `/tickets?quickFilter=delayed&assigneeIds=${encodeURIComponent(userId)}` : '/tickets?quickFilter=delayed');
+  };
 
   return (
     <Modal
@@ -99,7 +104,7 @@ export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopu
       size="md"
       icon={<AlarmClock size={20} strokeWidth={2.25} aria-hidden="true" />}
       iconTone="danger"
-      title={late.length === 1 ? 'You have an overdue ticket' : `You have ${late.length} overdue tickets`}
+      title={lateCount === 1 ? 'You have an overdue ticket' : `You have ${lateCount} overdue tickets`}
       description="Open each one and post an update, so everyone knows where it stands."
       footer={
         <div className="flex w-full flex-wrap items-center justify-end gap-2">
@@ -108,6 +113,7 @@ export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopu
         </div>
       }
     >
+      <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
         {shown.map((t) => {
           const due = formatDueLabel(t);
@@ -128,7 +134,17 @@ export const OverdueTicketsPopup = memo(({ tickets, userId }: OverdueTicketsPopu
           );
         })}
       </ul>
-      {more > 0 && <p className="mt-3 t-meta font-medium text-text-muted">and {more} more. Open the Tickets page to see them all.</p>}
+      {more > 0 && (
+        <button
+          type="button"
+          onClick={seeAll}
+          className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-1 rounded-lg px-2 t-meta font-display font-semibold text-primary-700 outline-none transition-colors duration-150 hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300"
+        >
+          See all {lateCount} overdue tickets
+          <ChevronRight size={14} aria-hidden="true" />
+        </button>
+      )}
+      </div>
     </Modal>
   );
 });

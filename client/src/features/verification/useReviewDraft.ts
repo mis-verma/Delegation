@@ -2,26 +2,32 @@ import { useCallback, useMemo, useState } from 'react';
 import type { PickDefaults } from './correctionItems';
 
 interface DraftState {
-  runId: string | null;
   picked: Record<string, string>;
   photoOnly: string[];
   looksRight: string[];
   note: string;
   fixByHours: number | null;
-  sending: boolean;
 }
 
-const fresh = (runId: string | null): DraftState => ({ runId, picked: {}, photoOnly: [], looksRight: [], note: '', fixByHours: null, sending: false });
+const EMPTY: DraftState = { picked: {}, photoOnly: [], looksRight: [], note: '', fixByHours: null };
 
 export const useReviewDraft = (runId: string | null) => {
-  const [state, setState] = useState<DraftState>(() => fresh(runId));
+  const [drafts, setDrafts] = useState<Readonly<Record<string, DraftState>>>({});
+  const [sendingFor, setSendingFor] = useState<string | null>(null);
+  const draft = (runId && drafts[runId]) || EMPTY;
+  const sending = runId !== null && sendingFor === runId;
 
-  const draft = state.runId === runId ? state : fresh(runId);
-  if (state.runId !== runId) setState(draft);
+  const updateRun = useCallback((id: string, change: (prev: DraftState) => DraftState) => {
+    setDrafts((all) => {
+      const prev = all[id] ?? EMPTY;
+      const next = change(prev);
+      return next === prev ? all : { ...all, [id]: next };
+    });
+  }, []);
 
   const update = useCallback((change: (prev: DraftState) => DraftState) => {
-    setState((prev) => change(prev.runId === runId ? prev : fresh(runId)));
-  }, [runId]);
+    if (runId) updateRun(runId, change);
+  }, [runId, updateRun]);
 
   const togglePicked = useCallback((itemId: string) => update((prev) => {
     const picked = { ...prev.picked };
@@ -58,15 +64,27 @@ export const useReviewDraft = (runId: string | null) => {
 
   const setNote = useCallback((note: string) => update((prev) => ({ ...prev, note })), [update]);
   const setFixBy = useCallback((fixByHours: number | null) => update((prev) => ({ ...prev, fixByHours })), [update]);
-  const setSending = useCallback((sending: boolean) => update((prev) => ({ ...prev, sending })), [update]);
-  const reset = useCallback(() => setState(fresh(runId)), [runId]);
-  const startSendBackFor = useCallback((id: string) => setState({ ...fresh(id), sending: true }), []);
-  const startPickFor = useCallback((id: string, itemId: string) => setState({ ...fresh(id), picked: { [itemId]: '' }, sending: true }), []);
+  const setSending = useCallback((on: boolean) => setSendingFor(on ? runId : null), [runId]);
+  const reset = useCallback(() => {
+    if (!runId) return;
+    setDrafts((all) => {
+      if (!(runId in all)) return all;
+      const next = { ...all };
+      delete next[runId];
+      return next;
+    });
+    setSendingFor((current) => (current === runId ? null : current));
+  }, [runId]);
+  const startSendBackFor = useCallback((id: string) => setSendingFor(id), []);
+  const startPickFor = useCallback((id: string, itemId: string) => {
+    updateRun(id, (prev) => (itemId in prev.picked ? prev : { ...prev, picked: { ...prev.picked, [itemId]: '' }, looksRight: prev.looksRight.filter((x) => x !== itemId) }));
+    setSendingFor(id);
+  }, [updateRun]);
 
   const pickedIds = useMemo(() => Object.keys(draft.picked), [draft.picked]);
   const pickedSet = useMemo<ReadonlySet<string>>(() => new Set(pickedIds), [pickedIds]);
 
-  const { picked, photoOnly, looksRight, note, fixByHours, sending } = draft;
+  const { picked, photoOnly, looksRight, note, fixByHours } = draft;
   const photoOnlySet = useMemo<ReadonlySet<string>>(() => new Set(photoOnly), [photoOnly]);
   const looksRightSet = useMemo<ReadonlySet<string>>(() => new Set(looksRight), [looksRight]);
   return useMemo(

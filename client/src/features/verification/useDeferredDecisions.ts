@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { notifyError } from '../../lib/queryHelpers';
 import { ApiError } from '../../api/http';
+import type { DecisionKind } from './decisionCache';
 
 const UNDO_WINDOW_MS = 5_000;
 
 export interface DecisionRequest {
   id: string;
+  kind?: DecisionKind;
   verb: string;
   label: string;
   run: (options: { keepalive: boolean }) => Promise<unknown>;
@@ -19,7 +21,7 @@ interface Queued {
 }
 
 interface Options {
-  afterSaved?: () => Promise<unknown> | void;
+  afterSaved?: (request: DecisionRequest) => Promise<unknown> | void;
   delayMs?: number;
 }
 
@@ -49,12 +51,12 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
     toast.dismiss(entry.toastId);
     try {
       await entry.request.run({ keepalive });
-      try { await afterSavedRef.current?.(); } catch { }
+      try { await afterSavedRef.current?.(entry.request); } catch { }
     } catch (err) {
       const stale = err instanceof ApiError && (err.status === 409 || err.status === 404);
       if (stale) {
         toast.info(`"${entry.request.label}" was already decided by someone else. The list is up to date now.`);
-        try { await afterSavedRef.current?.(); } catch { }
+        try { await afterSavedRef.current?.(entry.request); } catch { }
       } else {
         notifyError(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`);
       }

@@ -6,7 +6,7 @@ import { scoreService } from "./score.service.js"
 import { assertScoreConsistency } from "./scoreConsistency.js"
 import { EXPLORER_MODULES, EXPLORER_VIEWS } from "./scoreExplorer.js"
 import { scoreExplorerService } from "./scoreExplorer.service.js"
-import { MATRIX_PERIODS } from "./scoreMatrix.js"
+import { MATRIX_PERIODS, MATRIX_RANK_MEASURES, MATRIX_RANK_MODULES, MATRIX_RANK_ORDERS } from "./scoreMatrix.js"
 import { scoreMatrixService } from "./scoreMatrix.service.js"
 import { cachedScores } from "./scoreCache.js"
 
@@ -67,6 +67,9 @@ const matrixSchema = z
         departmentId: optionalId,
         recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "ONCE", "all"]).default("all")),
         parentId: optionalId,
+        rankModule: z.preprocess(blankToUndefined, z.enum(MATRIX_RANK_MODULES).optional()),
+        rankMeasure: z.preprocess(blankToUndefined, z.enum(MATRIX_RANK_MEASURES).default("score")),
+        rankOrder: z.preprocess(blankToUndefined, z.enum(MATRIX_RANK_ORDERS).default("desc")),
     })
     .refine(dayRange, "Pick at most one year, and From must be on or before To")
 
@@ -82,7 +85,8 @@ export const scoreController = {
     matrix: asyncHandler(async (req: Request, res: Response) => {
         const q = matrixSchema.parse(req.query)
         const recurrence = q.recurrence === "all" ? undefined : q.recurrence === "ONCE" ? "ONE_TIME" : q.recurrence
-        const data = await cachedScores("matrix", req, () => scoreMatrixService.matrix(req.user!, { from: q.from, to: q.to, view: q.view, period: q.period, storeId: q.storeId, departmentId: q.departmentId, recurrence, parentId: q.parentId }))
+        const rank = q.rankModule ? { module: q.rankModule, measure: q.rankMeasure, order: q.rankOrder } : undefined
+        const data = await cachedScores("matrix", req, () => scoreMatrixService.matrix(req.user!, { from: q.from, to: q.to, view: q.view, period: q.period, storeId: q.storeId, departmentId: q.departmentId, recurrence, parentId: q.parentId, rank }))
         res.json({ success: true, data })
     }),
     dataCheck: asyncHandler(async (req: Request, res: Response) => {

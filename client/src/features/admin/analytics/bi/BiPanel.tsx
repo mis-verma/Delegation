@@ -118,8 +118,9 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
       storeId: level.storeId,
       departmentId: level.departmentId,
       parentId: level.parentId,
+      rank: { module, measure, order: prefs.lowestFirst ? 'asc' : 'desc' },
     };
-  }, [data, win, storeId, departmentId, shownView, parent, ancestorStoreId, period]);
+  }, [data, win, storeId, departmentId, shownView, parent, ancestorStoreId, period, module, measure, prefs.lowestFirst]);
 
   const showStoreFilter = orgWide && parent?.kind !== 'store' && storeOptions.length > 0;
   const showDepartmentFilter = orgWide && !data?.scope.departmentLocked && shownView !== 'store' && !parent && departmentOptions.length > 0;
@@ -140,7 +141,7 @@ export const BiPanel = ({ route, prefs, query, win, orgWide, storeOptions, depar
   const showTiles = module !== 'all' && !!data;
   const sharing = data ? sharingLine(shownView, data.sharing) : null;
   const totalLabel = parent ? parent.name : orgWide ? 'Whole organisation' : 'Your department';
-  const priorWindow = prefs.compare ? previousWindow(win.from, win.to) : null;
+  const priorWindow = prefs.compare && (chart === 'bars' || chart === 'rings') ? previousWindow(win.from, win.to) : null;
 
   const periodOptions: { value: BiPeriodChoice; label: string; disabled?: boolean; hint?: string }[] = [
     { value: 'auto', label: 'Auto' },

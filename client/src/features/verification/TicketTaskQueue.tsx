@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Button, EmptyState, IconChip, InlineError, Skeleton, StatusBadge, useConfirm } from '../../components';
 import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun, type ChecklistCorrection } from './decisionRequests';
 import type { DecisionRequest } from './useDeferredDecisions';
+import type { DecisionTarget } from './useRefreshAfterDecision';
+import { runPaced } from './pacedRun';
 import { TicketRow, TaskRow } from './TicketTaskRows';
 import { UNASSIGNED, formatWaiting, type QueueTab } from './verificationModel';
 import { SECTION_LOOK } from './sectionLook';
@@ -103,7 +105,7 @@ interface TicketTaskQueueProps {
     hold: (ids: string[]) => void;
     release: (ids: string[]) => void;
   };
-  refresh: () => Promise<unknown>;
+  refresh: (target?: DecisionTarget | DecisionTarget[]) => Promise<unknown>;
 }
 
 export const TicketTaskQueue = ({
@@ -158,24 +160,12 @@ export const TicketTaskQueue = ({
   const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
   const toggleSelectAll = () => setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
 
-  const approveItem = useCallback((kind: 'ticket' | 'task') => async (id: string, title: string) => {
-    const ok = await confirm({
-      title: `Approve this ${kind === 'ticket' ? 'ticket' : 'delegation'}?`,
-      description: `"${title}" is approved. You can undo for a few seconds after.`,
-      confirmLabel: 'Approve',
-    });
-    if (!ok) return;
-    schedule({ id, verb: 'Approved', label: title, run: kind === 'ticket' ? approveTicketRun(id) : approveTaskRun(id) });
-  }, [schedule, confirm]);
-  const sendBackItem = useCallback((kind: 'ticket' | 'task') => async (id: string, title: string, note: string, correction?: ChecklistCorrection) => {
-    const ok = await confirm({
-      title: `Send this ${kind === 'ticket' ? 'ticket' : 'delegation'} back?`,
-      description: `"${title}" goes back to the assignee with your remarks. You can undo for a few seconds after.`,
-      confirmLabel: 'Send back',
-    });
-    if (!ok) return;
-    schedule({ id, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note, correction) : rejectTaskRun(id, note, correction) });
-  }, [schedule, confirm]);
+  const approveItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string) => {
+    schedule({ id, kind, verb: 'Approved', label: title, run: kind === 'ticket' ? approveTicketRun(id) : approveTaskRun(id) });
+  }, [schedule]);
+  const sendBackItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string, note: string, correction?: ChecklistCorrection) => {
+    schedule({ id, kind, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note, correction) : rejectTaskRun(id, note, correction) });
+  }, [schedule]);
   const approveTicket = useMemo(() => approveItem('ticket'), [approveItem]);
   const approveTask = useMemo(() => approveItem('task'), [approveItem]);
   const sendBackTicket = useMemo(() => sendBackItem('ticket'), [sendBackItem]);
@@ -193,19 +183,16 @@ export const TicketTaskQueue = ({
     });
     if (!ok) return;
     setBulkApproving(true);
-    const ids = [...ticketIds, ...taskIds];
+    const items = [...ticketIds.map((id) => ({ id, kind: 'ticket' as const })), ...taskIds.map((id) => ({ id, kind: 'task' as const }))];
+    const ids = items.map((i) => i.id);
     hold(ids);
-    const results = await Promise.allSettled([
-      ...ticketIds.map((id) => approveTicketRun(id)({ keepalive: false })),
-      ...taskIds.map((id) => approveTaskRun(id)({ keepalive: false })),
-    ]);
-    try { await refresh(); } catch { }
+    const { ok: saved, failed } = await runPaced(items, (item) => (item.kind === 'ticket' ? approveTicketRun(item.id) : approveTaskRun(item.id))({ keepalive: false }));
+    try { await refresh(saved); } catch { }
     release(ids);
     setBulkApproving(false);
     setSelectedIds(new Set());
-    const failed = results.filter((r) => r.status === 'rejected').length;
-    if (failed === 0) toast.success(`Approved ${results.length} item${results.length === 1 ? '' : 's'}`);
-    else toast.error(`Approved ${results.length - failed} of ${results.length}. ${failed} failed, try those one by one.`);
+    if (failed.length === 0) toast.success(`Approved ${saved.length} item${saved.length === 1 ? '' : 's'}`);
+    else toast.error(`Approved ${saved.length} of ${items.length}. ${failed.length} failed, try those one by one.`);
   };
 
   const ticketsFailed = showTickets && failed.tickets;

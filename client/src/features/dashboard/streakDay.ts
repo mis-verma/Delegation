@@ -13,10 +13,13 @@ export interface ModuleDayStat {
   pct: number | null;
 }
 
-export type DayState = 'met' | 'missed' | 'none';
+export type DayState = 'met' | 'missed' | 'open' | 'none';
 
-export const dayState = (value: number | null, goal: number): DayState =>
-  value === null ? 'none' : value >= goal ? 'met' : 'missed';
+export const dayState = (value: number | null, goal: number, isToday = false): DayState => {
+  if (value === null) return 'none';
+  if (value >= goal) return 'met';
+  return isToday ? 'open' : 'missed';
+};
 
 const stat = (module: StreakModule, due: number, done: number, late: number, pct: number | null): ModuleDayStat => ({
   module,

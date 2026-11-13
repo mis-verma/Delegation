@@ -112,7 +112,7 @@ export const OverviewRanking = memo(({ scoreWindow, fixedGroup, limit }: Overvie
           <EmptyState icon={group === 'department' ? Building2 : Store} title="Nothing was due" description="No scores for this period yet." />
         ) : (
           <div className="flex flex-col gap-1 overflow-x-auto">
-            <table className="w-full min-w-[22rem] border-separate border-spacing-0">
+            <table className="w-full border-separate border-spacing-0 sm:min-w-[22rem]">
               <caption className="sr-only">Scores by {group}, sortable</caption>
               <thead>
                 <tr>

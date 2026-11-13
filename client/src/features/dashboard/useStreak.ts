@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { shiftDay } from '../admin/analytics/analyticsDisplay';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
+import { moduleDayStats } from './streakDay';
 
 const WEEKS = 4;
 const WEEK_DAYS = 7;
@@ -146,10 +147,12 @@ export const useStreakDays = () => {
   });
 
   const pending = results.some((r) => r.isPending);
-  const failed = results.some((r) => r.isError) && !results.some((r) => r.data);
+  const failed = results.some((r) => r.isError && !r.data);
   const days = useMemo<StreakDayValues[]>(
     () => results.flatMap((r) => (r.data?.buckets ?? []).map((b) => {
-      const anyDue = b.checklist.due + b.ticket.due + b.delegation.due > 0;
+      const stats = moduleDayStats(b);
+      const due = stats.reduce((n, s) => n + s.due, 0);
+      const done = stats.reduce((n, s) => n + Math.min(s.done, s.due), 0);
       return {
         date: b.from,
         label: b.label,
@@ -157,7 +160,7 @@ export const useStreakDays = () => {
           checklist: b.checklist.due > 0 ? b.checklist.completionPct : null,
           ticket: b.ticket.due > 0 ? b.ticket.completionPct : null,
           delegation: b.delegation.due > 0 ? b.delegation.completionPct : null,
-          all: anyDue ? (b.overall ?? null) : null,
+          all: due > 0 ? (done / due) * 100 : null,
         },
         bucket: b,
       };

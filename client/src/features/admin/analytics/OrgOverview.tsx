@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Button, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
+import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { AnalyticsControlBar, type GroupBy } from './GroupByControl';
 import { useAnalyticsWindow, useSearchPatch } from './useAnalyticsWindow';
@@ -141,6 +142,7 @@ export const OrgOverview = () => {
   const orgWide = isOrgWide(user?.role);
   const { params, patch, groupBy, range, from, to, windowFrom, windowTo, handleGroupBy, handleRange } = useAnalyticsWindow();
   const classic = params.get('classic') === '1';
+  const isPhone = useMediaQuery('(max-width: 639px)');
 
   const jumpToSection = useCallback(
     (target: SectionValue) => {
@@ -190,9 +192,7 @@ export const OrgOverview = () => {
     <div className="@container">
       <div className="grid grid-cols-1 items-stretch gap-3 @3xl:grid-cols-2">
         <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
-        <div className="hidden sm:contents">
-          <TeamLeaderboardRail from={windowFrom} to={windowTo} />
-        </div>
+        {!isPhone && <TeamLeaderboardRail from={windowFrom} to={windowTo} />}
       </div>
     </div>
   );

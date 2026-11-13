@@ -39,7 +39,9 @@ export const OwnerApprovalsCard = ({ from: dayFrom, to: dayTo, periodLabel }: Ow
     placeholderData: keepPreviousData,
     retry: handleQueryRetry,
     staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const data = query.data;
   const loading = query.isPending;

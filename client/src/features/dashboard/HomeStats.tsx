@@ -40,7 +40,7 @@ const METRICS = WORK_METRIC_LOOK;
 
 const KIND_OF: Record<ModuleKey, WorkKind> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist', todo: 'todo' };
 
-const hrefFor = (module: ModuleRow, metric: Metric): string => moduleListHref(KIND_OF[module.key], metric, module.team === true);
+const hrefFor = (module: ModuleRow, metric: Metric, userId: string | undefined): string => moduleListHref(KIND_OF[module.key], metric, module.team === true, userId);
 
 const valueOf = (counts: Counts | undefined, metric: Metric) => metricValue(counts, metric);
 
@@ -53,13 +53,14 @@ interface HomeStatsProps {
 
 export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsProps) => {
   const { user } = useAuth();
+  const userId = user?.id;
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
 
   const modules = useMemo<ModuleRow[]>(() => {
     const row = (key: ModuleKey, label: string, icon: LucideIcon, base: string, source: Source, team = false): ModuleRow => ({
       key, label, icon, base, team, counts: source.data, loading: source.isPending && !source.data, failed: !source.data && source.isError,
     });
-    const checklistSource = scope === 'mine' ? kpi.checklistToday : kpi.scopeChecklistToday.data ? kpi.scopeChecklistToday : kpi.checklistToday;
+    const checklistSource = scope === 'mine' || !canSeeTeam ? kpi.checklistToday : kpi.scopeChecklistToday;
     const rows = [
       row('delegation', 'Delegation', CATEGORY_ICON.delegation, '/tasks', kpi.tasks),
       row('tickets', 'Tickets', CATEGORY_ICON.ticket, '/tickets', kpi.tickets),
@@ -80,16 +81,17 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         key: m.key,
         label: m.label,
         value: total,
-        breakdown: modules.map((r) => ({ key: r.key, label: r.label, icon: r.icon, href: hrefFor(r, m.key), value: valueOf(r.counts, m.key), missing: !r.counts })),
+        breakdown: modules.map((r) => ({ key: r.key, label: r.label, icon: r.icon, href: hrefFor(r, m.key, userId), value: valueOf(r.counts, m.key), missing: !r.counts })),
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
         tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
         href: workListHref(m.key, scope === 'mine' ? 'mine' : 'visible'),
         loading,
         failed,
+        hideOnPhone: m.key === 'total',
       };
     }),
-    [modules, scope],
+    [modules, scope, userId],
   );
 
   const active = items[0];

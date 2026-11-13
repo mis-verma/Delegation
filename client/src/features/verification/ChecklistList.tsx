@@ -23,7 +23,6 @@ const SkeletonRow = () => (
 
 interface ChecklistListProps {
   rows: ChecklistRow[];
-  now: number;
   activeId: string | null;
   isPending: boolean;
   loadFailed: boolean;
@@ -58,7 +57,7 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 };
 
 export const ChecklistList = ({
-  rows, now, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
+  rows, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, onApproveAll, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
   showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
@@ -85,8 +84,7 @@ export const ChecklistList = ({
         {onApproveAll && rows.length > 0 && (
           <Button
             size="sm"
-            variant="primary"
-            className="bg-success text-white hover:from-success/90 hover:to-success/70 hover:text-white pointer-coarse:h-11"
+            className="bg-success text-white hover:bg-success/90 hover:text-white pointer-coarse:h-11"
             disabled={!!bulk}
             isLoading={!!bulk}
             onClick={onApproveAll}
@@ -153,20 +151,19 @@ export const ChecklistList = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success"
+                      className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success pointer-coarse:h-11"
                       disabled={!!bulk}
                       isLoading={!!bulk}
                       onClick={onApproveAllClean}
                     >
                       {!bulk && <CheckCheck size={14} aria-hidden />}
-                      {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve all ${cleanCount}`}
+                      {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve ${cleanCount} with no issues`}
                     </Button>
                   )}
                 </li>
               )}
               <ChecklistQueueRow
                 row={row}
-                now={now}
                 active={row.id === activeId}
                 showDepartment={showDepartment}
                 inlineActions={inlineActions}
@@ -183,7 +180,7 @@ export const ChecklistList = ({
 
     {!isPending && hasMore && (
       <div className="flex flex-col items-center gap-1.5">
-        <Button variant="outline" size="sm" isLoading={isFetchingMore} onClick={onLoadMore}>
+        <Button variant="outline" size="sm" isLoading={isFetchingMore} onClick={onLoadMore} className="pointer-coarse:h-11">
           Load more ({remaining} remaining)
         </Button>
         <p className="t-meta font-display text-text-muted text-center">Sorting and filters work on the checklists loaded so far.</p>

@@ -42,13 +42,14 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
     const row = rows.find((r) => r.id === id);
     if (!row) return;
     setOpenId(null);
-    schedule({ id, verb: 'Approved', label: row.instance.title, run: approveRun(id) });
+    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id) });
   }, [rows, schedule]);
 
   const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
     setOpenId(null);
     schedule({
       id: row.id,
+      kind: 'checklist',
       verb: 'Sent back',
       label: row.instance.title,
       run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours, payload.photoOnlyItemIds) : rejectRun(row.id, payload.note, payload.fixByHours),
@@ -77,7 +78,6 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
 
       <ChecklistList
         rows={rows}
-        now={now}
         activeId={openId}
         isPending={query.isPending}
         loadFailed={query.isError && !query.data}

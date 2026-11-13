@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 import { NO_DEPARTMENT_ROW_ID, NO_STORE_ROW_ID, type ScoreReportRow } from '../../../api/scores';
 import { MIN_RANK_VOLUME, overallOf, totalDue } from '../../dashboard/scoreMetrics';
 import { explorerRowToReportRow } from '../../scores/explorerAdapters';
-import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
 import { useOverviewScores } from './useOverviewScores';
 
 export { MIN_RANK_VOLUME };
@@ -57,15 +56,9 @@ export const rankRows = (rows: RankedRow[]): RankedTable => {
 export const useOwnerRankings = (from?: string, to?: string) => {
   const departmentQuery = useOverviewScores(from, to, { view: 'department' });
   const storeQuery = useOverviewScores(from, to, { view: 'store' });
-  const deptTatQuery = useTicketOwnerStatsQuery('department', from, to);
-  const storeTatQuery = useTicketOwnerStatsQuery('store', from, to);
-
-  const deptTat = useMemo(() => new Map((deptTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [deptTatQuery.data]);
-  const storeTat = useMemo(() => new Map((storeTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [storeTatQuery.data]);
-
   const departmentRows: RankedRow[] = useMemo(
-    () => (departmentQuery.data?.rows ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', deptTat.get(r.id) ?? null)),
-    [departmentQuery.data, deptTat],
+    () => (departmentQuery.data?.rows ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', null)),
+    [departmentQuery.data],
   );
   const departmentUntagged: RankedRow[] = useMemo(
     () => (departmentQuery.data?.rows ?? []).filter((r) => r.id === NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', null)),
@@ -76,8 +69,8 @@ export const useOwnerRankings = (from?: string, to?: string) => {
     [storeQuery.data],
   );
   const storeRows: RankedRow[] = useMemo(
-    () => (storeQuery.data?.rows ?? []).filter((r) => r.id !== NO_STORE_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', storeTat.get(r.id) ?? null)),
-    [storeQuery.data, storeTat],
+    () => (storeQuery.data?.rows ?? []).filter((r) => r.id !== NO_STORE_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', null)),
+    [storeQuery.data],
   );
 
   const retryDepartments = useCallback(() => { if (departmentQuery.isError) void departmentQuery.refetch(); }, [departmentQuery]);

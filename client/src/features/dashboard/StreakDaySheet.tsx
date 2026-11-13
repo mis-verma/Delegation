@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleDashed, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleDashed, Clock3, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, Modal } from '../../components';
 import { formatPct } from '../../lib/percent';
@@ -25,6 +25,7 @@ const longDay = (date: string) =>
 const STATE_LOOK: Record<DayState, { text: string; icon: typeof Check; chip: string }> = {
   met: { text: 'Goal hit', icon: Check, chip: 'text-success-strong' },
   missed: { text: 'Below goal', icon: X, chip: 'text-vivid-red-text' },
+  open: { text: 'In progress', icon: Clock3, chip: 'text-primary-700' },
   none: { text: 'Nothing due', icon: CircleDashed, chip: 'text-coral-600' },
 };
 
@@ -44,11 +45,11 @@ export const StreakDaySheet = ({ days, index, goal, kind, userId, today, canSeeH
 
   if (!day) return null;
 
-  const state = dayState(day.value, goal);
+  const isToday = day.date === today;
+  const state = dayState(day.value, goal, isToday);
   const look = STATE_LOOK[state];
   const StateIcon = look.icon;
   const stats = moduleDayStats(day.bucket).filter((s) => s.due > 0);
-  const isToday = day.date === today;
   const fixContext = { userId, day: day.date, today, canSeeHistory };
 
   return (
@@ -90,7 +91,7 @@ export const StreakDaySheet = ({ days, index, goal, kind, userId, today, canSeeH
         {day.value !== null && (
           <div className="relative h-2 overflow-hidden rounded-full bg-surface-hover" role="img" aria-label={`Score ${formatPct(day.value)} against a goal of ${goal}%`}>
             <span
-              className={cn('block h-full rounded-full transition-[width] duration-300 ease-out', state === 'met' ? 'bg-primary-600' : 'bg-danger')}
+              className={cn('block h-full rounded-full transition-[width] duration-300 ease-out', state === 'met' || state === 'open' ? 'bg-primary-600' : 'bg-danger')}
               style={{ width: `${Math.min(100, day.value)}%` }}
             />
             <span className="absolute inset-y-0 w-0.5 bg-text" style={{ left: `${goal}%` }} aria-hidden="true" />

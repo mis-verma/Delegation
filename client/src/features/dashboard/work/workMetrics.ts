@@ -41,9 +41,11 @@ const checklistListHref = (metric: WorkMetric, team: boolean) => {
   return team ? `${base}?status=all` : base;
 };
 
-export const moduleListHref = (kind: WorkKind, metric: WorkMetric, team: boolean): string => {
+export const moduleListHref = (kind: WorkKind, metric: WorkMetric, team: boolean, userId?: string): string => {
   if (kind === 'checklist') return checklistListHref(metric, team);
   if (kind === 'todo') return '/todo';
-  const base = kind === 'ticket' ? '/tickets' : '/tasks';
-  return metric === 'total' ? base : `${base}?quickFilter=${metric}`;
+  const params = new URLSearchParams({ quickFilter: metric === 'total' ? 'all' : metric });
+  if (!team && kind === 'delegation') params.set('mine', '1');
+  if (!team && kind === 'ticket' && userId) params.set('assigneeIds', userId);
+  return `${kind === 'ticket' ? '/tickets' : '/tasks'}?${params.toString()}`;
 };

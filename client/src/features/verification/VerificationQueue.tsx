@@ -23,6 +23,7 @@ import { ReviewPane, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
 import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
+import { runPaced } from './pacedRun';
 import { filterTasks, filterTickets, sortByWaiting, type TicketTaskFilter } from './ticketTaskFilters';
 import { useChecklistDecisionsQuery } from './useChecklistDecisions';
 import {
@@ -38,7 +39,7 @@ import { DAY_MS, UNASSIGNED, type ChecklistRow } from './verificationModel';
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
 const AUTO_LOAD_PAGES = 10;
-const BULK_PARALLEL = 4;
+const OPEN_TAP_GUARD_MS = 450;
 const BACK_BUTTON = 'inline-flex h-11 items-center gap-1.5 rounded-full border border-border/60 bg-surface px-3.5 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out cursor-pointer hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:h-9';
 const NO_INSTANCES: ChecklistInstance[] = [];
 
@@ -164,6 +165,11 @@ export const VerificationQueue = () => {
   useEffect(() => {
     latest.current = { rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch };
   });
+  const openedAt = useRef(0);
+  const openRowId = openRow?.id ?? null;
+  useEffect(() => {
+    if (openRowId) openedAt.current = Date.now();
+  }, [openRowId]);
 
   const advanceFrom = useCallback((id: string) => {
     const { rows, activeId: current, openId, patch: update } = latest.current;
@@ -184,12 +190,14 @@ export const VerificationQueue = () => {
     const { rows, openId, draft: current } = latest.current;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
+    if (openId === id && Date.now() - openedAt.current < OPEN_TAP_GUARD_MS) return;
     if (openId === id && current && current.pickedIds.length > 0) {
       toast('Untick the questions first, or send them back.');
       return;
     }
+    if (openId === id) current?.reset();
     advanceFrom(id);
-    schedule({ id, verb: 'Approved', label: row.instance.title, run: approveRun(id) });
+    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id) });
   }, [advanceFrom, schedule]);
 
   const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
@@ -197,6 +205,7 @@ export const VerificationQueue = () => {
     advanceFrom(row.id);
     schedule({
       id: row.id,
+      kind: 'checklist',
       verb: payload.itemIds.length ? `Sent ${payload.itemIds.length} back from` : 'Sent back',
       label: row.instance.title,
       run: payload.itemIds.length ? sendBackRun(row.id, payload.itemIds, payload.note, payload.fixByHours, payload.photoOnlyItemIds) : rejectRun(row.id, payload.note, payload.fixByHours),
@@ -270,27 +279,12 @@ export const VerificationQueue = () => {
     hold(ids);
     if (latest.current.openId && ids.includes(latest.current.openId)) latest.current.patch({ open: null });
     setBulk({ done: 0, total: ids.length });
-    let saved = 0;
-    let failed = 0;
-    let next = 0;
-    const worker = async () => {
-      while (next < ids.length) {
-        const id = ids[next++];
-        try {
-          await approveRun(id)({ keepalive: false });
-          saved += 1;
-        } catch {
-          failed += 1;
-        }
-        setBulk({ done: saved + failed, total: ids.length });
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(BULK_PARALLEL, ids.length) }, worker));
-    try { await refresh(); } catch { }
+    const { ok: saved, failed } = await runPaced(ids, (id) => approveRun(id)({ keepalive: false }), (done) => setBulk({ done, total: ids.length }));
+    try { await refresh(saved.map((id) => ({ id, kind: 'checklist' as const }))); } catch { }
     release(ids);
     setBulk(null);
-    if (failed === 0) toast.success(`Approved ${saved} ${saved === 1 ? 'checklist' : 'checklists'}`);
-    else toast.error(`Approved ${saved} of ${ids.length}. ${failed} could not be saved and are back in the list.`);
+    if (failed.length === 0) toast.success(`Approved ${saved.length} ${saved.length === 1 ? 'checklist' : 'checklists'}`);
+    else toast.error(`Approved ${saved.length} of ${ids.length}. ${failed.length} could not be saved and are back in the list.`);
   }, [confirm, hold, release, refresh]);
 
   const approveAllClean = useCallback(() => approveMany(cleanRows.map((r) => r.id), {
@@ -416,7 +410,6 @@ export const VerificationQueue = () => {
             <div className={cn('grid grid-cols-1 gap-4 items-start', )}>
               <ChecklistList
                 rows={visibleRows}
-                now={now}
                 activeId={activeId}
                 isPending={checklistQuery.isPending}
                 loadFailed={checklistQuery.isError && !checklistQuery.data}

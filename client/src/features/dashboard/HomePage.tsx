@@ -7,9 +7,8 @@ import { useHomeLayout, type HomeSectionId } from './homeLayout';
 import { haptic } from '../../lib/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
-import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
-import { useTicketsQuery } from '../tickets/hook';
+import { useTicketsPagedQuery } from '../tickets/hook';
 import { HomeStats, type StatScope } from './HomeStats';
 import { teamApprovalFigure } from './approvalFigures';
 import { OvertimeNotice } from './OvertimeNotice';
@@ -29,8 +28,7 @@ const ExceptionsCard = lazy(() => import('./ExceptionsCard').then((m) => ({ defa
 const TeamWeekHeat = lazy(() => import('./TeamWeekHeat').then((m) => ({ default: m.TeamWeekHeat })));
 const MyTeamCard = lazy(() => import('../attention/MyTeamCard').then((m) => ({ default: m.MyTeamCard })));
 
-const TEAM_TICKET_LIMIT = 250;
-const OWN_TICKET_LIMIT = 100;
+const ATTENTION_TAB_LIMIT = 20;
 const NO_TICKETS: Ticket[] = [];
 
 const STAT_SCOPE_KEY = 'tm-home-stat-scope';
@@ -50,14 +48,17 @@ const isHomeTab = (value: string | null): value is HomeTab => !!value && (HOME_T
 
 const PANEL_FALLBACK = <Skeleton className="h-64 rounded-2xl" />;
 
+const HomeHeading = () => {
+  const now = useNow();
+  return <h1 className="sr-only">Today, {new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</h1>;
+};
+
 export const HomePage = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const dashboardView = useMemo(() => dashboardViewFor(user?.role), [user?.role]);
-  const frontLine = dashboardView.frontLine;
   const hasTabs = dashboardView.orgWide || dashboardView.isHod;
   const orgToday = useOrgToday();
-  const now = useNow();
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
   const tab: HomeTab = hasTabs && isHomeTab(requested) ? requested : 'work';
@@ -94,19 +95,11 @@ export const HomePage = () => {
 
   const summaries = useDashboardSummaries(!hasTabs || ownStats ? 'mine' : undefined);
   const ownSummaries = useDashboardSummaries('mine');
-  const teamTicketsQuery = useTicketsQuery(1, TEAM_TICKET_LIMIT, undefined, frontLine, DASHBOARD_QUERY_OPTIONS);
-  const ownTicketsQuery = useTicketsQuery(1, OWN_TICKET_LIMIT, userId, !!userId && !frontLine, DASHBOARD_QUERY_OPTIONS);
+  const lateTicketsQuery = useTicketsPagedQuery({ page: 1, bucket: 'delayed', assigneeIds: userId ? [userId] : [] }, !!userId);
   const approvalBuckets = usePcApprovalBuckets();
   const exceptionTotals = useExceptionTotalsQuery();
-
-  const teamTicketPage = teamTicketsQuery.data;
-  const ownTicketPage = ownTicketsQuery.data;
-  const myAssignedTickets = useMemo(
-    () => (frontLine ? (teamTicketPage?.data ?? NO_TICKETS).filter((t) => t.assigneeId === userId) : (ownTicketPage?.data ?? NO_TICKETS)),
-    [frontLine, teamTicketPage, ownTicketPage, userId],
-  );
-
-  const heading = new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const myLateTickets = lateTicketsQuery.data?.data ?? NO_TICKETS;
+  const myLateTotal = lateTicketsQuery.data?.meta?.total;
 
   const attentionCount = exceptionTotals.data
     ? exceptionTotals.data.tickets + exceptionTotals.data.delegations + exceptionTotals.data.missedRuns
@@ -126,7 +119,12 @@ export const HomePage = () => {
   ];
 
   const approvalSourcesLoading = approvalSources.isPending;
-  const teamApproval = teamApprovalFigure(approvalBuckets.total, queueHref, approvalSourcesLoading && approvalBuckets.total.pending === 0, approvalSources.hasError && approvalBuckets.total.pending === 0);
+  const approvalTotal = approvalBuckets.total;
+  const approvalFailed = approvalSources.hasError;
+  const teamApproval = useMemo(
+    () => teamApprovalFigure(approvalTotal, queueHref, approvalSourcesLoading && approvalTotal.pending === 0, approvalFailed && approvalTotal.pending === 0),
+    [approvalTotal, queueHref, approvalSourcesLoading, approvalFailed],
+  );
   const currentScope: StatScope = hasTabs ? statScope : 'mine';
   const overview = (
     <HomeStats
@@ -172,9 +170,8 @@ export const HomePage = () => {
         )}
       </button>
       <p className="t-meta text-text-muted">
-        <span className="pointer-fine:hidden">Press and hold</span>
-        <span className="pointer-coarse:hidden">Right-click</span>
-        {' '}any section to hide or show it.
+        <span className="pointer-fine:hidden">Press and hold any section to hide or show it.</span>
+        <span className="pointer-coarse:hidden">Pick which sections show on your Home.</span>
       </p>
     </div>
   );
@@ -183,9 +180,9 @@ export const HomePage = () => {
 
   return (
     <div className="flex w-full flex-col gap-6 pt-2.5">
-      <h1 className="sr-only">Today, {heading}</h1>
+      <HomeHeading />
 
-      <OverdueTicketsPopup tickets={myAssignedTickets} userId={userId} />
+      <OverdueTicketsPopup tickets={myLateTickets} total={myLateTotal} userId={userId} />
       <CoverBanner />
       <OvertimeNotice today={orgToday} />
       <EnableAlertsBanner />
@@ -207,7 +204,7 @@ export const HomePage = () => {
             )}
             {tab === 'attention' && (
               <Suspense fallback={PANEL_FALLBACK}>
-                <ExceptionsCard />
+                <ExceptionsCard limit={ATTENTION_TAB_LIMIT} />
               </Suspense>
             )}
           </div>

@@ -39,7 +39,7 @@ export const useLongPress = (onLongPress: () => void, { delay = 550, moveToleran
     pressing,
     handlers: {
       onPointerDown: (e: PointerEvent<HTMLElement>) => {
-        if (e.button !== 0 || !e.isPrimary) return;
+        if (e.button !== 0 || !e.isPrimary || e.pointerType === 'mouse') return;
         fired.current = false;
         stopTimers();
         origin.current = { x: e.clientX, y: e.clientY };
@@ -54,6 +54,7 @@ export const useLongPress = (onLongPress: () => void, { delay = 550, moveToleran
       onPointerCancel: cancel,
       onPointerLeave: cancel,
       onContextMenu: (e: MouseEvent<HTMLElement>) => {
+        if (origin.current === null && !fired.current) return;
         e.preventDefault();
         if (fired.current) return;
         trigger();

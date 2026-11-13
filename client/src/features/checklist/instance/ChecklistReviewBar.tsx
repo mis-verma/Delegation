@@ -7,7 +7,7 @@ import { approveLabelFor } from '../approvalStage';
 import { useAuth } from '../../../context/AuthContext';
 import { CorrectionDialog } from '../../verification/CorrectionDialog';
 import { runCorrectionItems, type SendBackPayload } from '../../verification/correctionItems';
-import { useDeferredDecisions } from '../../verification/useDeferredDecisions';
+import { useDeferredDecisions, type DecisionRequest } from '../../verification/useDeferredDecisions';
 import { useRefreshAfterDecision } from '../../verification/useRefreshAfterDecision';
 import { approveRun, rejectRun, sendBackRun } from '../../verification/decisionRequests';
 import { runScores } from '../checklistCompliance';
@@ -50,8 +50,8 @@ export const ChecklistReviewBar = ({ instance, draft, onDecided }: Props) => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const afterSaved = useCallback(async () => {
-    await refresh();
+  const afterSaved = useCallback(async (request: DecisionRequest) => {
+    await refresh(request);
     if (mounted.current) onDecided?.();
   }, [refresh, onDecided]);
   const { heldIds, schedule, undo } = useDeferredDecisions({ afterSaved });
@@ -63,13 +63,14 @@ export const ChecklistReviewBar = ({ instance, draft, onDecided }: Props) => {
     draft.reset();
     schedule({
       id: instance.id,
+      kind: 'checklist',
       verb: 'Sent back',
       label: instance.title,
       run: itemIds.length ? sendBackRun(instance.id, itemIds, note, fixByHours, photoOnlyItemIds) : rejectRun(instance.id, note, fixByHours),
     });
   };
 
-  const approve = () => schedule({ id: instance.id, verb: 'Approved', label: instance.title, run: approveRun(instance.id) });
+  const approve = () => schedule({ id: instance.id, kind: 'checklist', verb: 'Approved', label: instance.title, run: approveRun(instance.id) });
 
   return (
     <div className={cn(PANEL_CLASS, 'app-bottom-chrome sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex flex-col gap-3 bg-surface p-3.5 sm:p-4')}>

@@ -9,6 +9,7 @@ import { RiskChips } from './RiskChips';
 import { ComplianceMeter } from './ComplianceMeter';
 import { QuestionPreview } from './QuestionPreview';
 import { formatWaiting, type ChecklistRow } from './verificationModel';
+import { useSharedNow } from '../../lib/useSharedNow';
 
 const SWIPE_TRIGGER_PX = 96;
 const SWIPE_LOCK_PX = 12;
@@ -50,9 +51,14 @@ export const DecisionButtons = ({ onSendBack, onApprove, approveLabel = 'Approve
   </div>
 );
 
+const LiveWaitingTag = memo(function LiveWaitingTag({ since }: { since: number }) {
+  const now = useSharedNow();
+  const waiting = formatWaiting(since, now);
+  return <WaitingTag label={waiting} title={`Waiting ${waiting}`} tone={(now - since) / 86_400_000 >= 3 ? 'slow' : 'normal'} />;
+});
+
 interface ChecklistQueueRowProps {
   row: ChecklistRow;
-  now: number;
   active: boolean;
   showDepartment?: boolean;
   inlineActions?: 'below-lg' | 'always';
@@ -63,7 +69,7 @@ interface ChecklistQueueRowProps {
 }
 
 export const ChecklistQueueRow = memo(function ChecklistQueueRow({
-  row, now, active, showDepartment = true, inlineActions = 'below-lg', onOpen, onApprove, onSendBack, onSendBackItem,
+  row, active, showDepartment = true, inlineActions = 'below-lg', onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistQueueRowProps) {
   const { id, instance, risk } = row;
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -109,8 +115,6 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   };
 
   const lgHidden = inlineActions === 'below-lg' ? 'lg:hidden' : '';
-  const waiting = formatWaiting(row.waitingSince, now);
-  const waitingDays = (now - row.waitingSince) / 86_400_000;
   const stage = stageLabel(instance);
   const submitted = instance.submittedAt
     ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}` : 'Submitted'} · ${formatDateTime(instance.submittedAt)}${stage ? ` · ${stage}` : ''}`
@@ -151,7 +155,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
               <span className={cn(ROW_TITLE, active ? 'font-bold' : 'font-semibold')}>
                 {instance.title}
               </span>
-              <WaitingTag label={waiting} title={`Waiting ${waiting}`} tone={waitingDays >= 3 ? 'slow' : 'normal'} />
+              <LiveWaitingTag since={row.waitingSince} />
             </span>
             <span className={ROW_META}>
               {row.storeName && (

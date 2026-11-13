@@ -16,7 +16,7 @@ import { useScoreExplorer } from '../scores/useScoreExplorer';
 import { DepartmentHeadsCard } from './DepartmentHeadsCard';
 import { OwnerApprovalsCard } from './OwnerApprovalsCard';
 import { OwnerScoreCard } from './OwnerScoreCard';
-import { equalSpanBefore } from './ownerWindow';
+import { likeForLikeBefore } from './ownerWindow';
 import { useCanOpen } from './useReadOnlyViewer';
 
 type OwnerPeriod = 'day' | 'week' | 'month';
@@ -40,7 +40,7 @@ export const OwnerPage = () => {
     const raw = windowFor(period, 0, today);
     return capWindowAtToday(raw.from, raw.to, today);
   }, [period, today]);
-  const before = useMemo(() => equalSpanBefore(current.from, current.to), [current.from, current.to]);
+  const before = useMemo(() => likeForLikeBefore(period, current.from, current.to), [period, current.from, current.to]);
 
   const now = useScoreExplorer({ from: current.from, to: current.to, view: 'department' });
   const prior = useScoreExplorer({ from: before.from, to: before.to, view: 'department' });
@@ -63,7 +63,7 @@ export const OwnerPage = () => {
   ].filter((l) => canOpen(l.to));
 
   return (
-    <div className="flex w-full flex-col gap-4 pt-2.5">
+    <div className="flex w-full flex-col gap-6 pt-2.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h1 className="sr-only">Owner view</h1>
         <p className="t-meta font-medium text-text-secondary max-sm:hidden">

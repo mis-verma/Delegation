@@ -214,6 +214,13 @@ export interface MatrixParams {
   storeId?: string;
   departmentId?: string;
   parentId?: string;
+  rank?: MatrixRank;
+}
+
+export interface MatrixRank {
+  module: 'all' | ExplorerModule;
+  measure: 'score' | 'completion' | 'compliance' | 'onTime';
+  order: 'asc' | 'desc';
 }
 
 export type ConsistencyStatus ='pass' | 'fail' | 'flag';
@@ -260,6 +267,11 @@ export const scoreApi = {
     if (params.storeId) query.set('storeId', params.storeId);
     if (params.departmentId) query.set('departmentId', params.departmentId);
     if (params.parentId) query.set('parentId', params.parentId);
+    if (params.rank) {
+      query.set('rankModule', params.rank.module);
+      query.set('rankMeasure', params.rank.measure);
+      query.set('rankOrder', params.rank.order);
+    }
     return apiFetch<{ success: boolean; data: MatrixResponse }>(`/scores/matrix?${query.toString()}`).then((r) => r.data);
   },
   dataCheck: (params: { from: string; to: string }) => {

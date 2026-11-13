@@ -2,7 +2,7 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
 import { capWindow, type ExplorerView } from "./scoreExplorer.js"
 import { orgToday, scoreExplorerService, type ExplorerParent } from "./scoreExplorer.service.js"
-import { MATRIX_MAX_COLUMNS, matrixBuckets, shapeMatrix, type MatrixBucket, type MatrixPeriod, type MatrixRow, type MatrixSlice, type MatrixTotal } from "./scoreMatrix.js"
+import { MATRIX_MAX_COLUMNS, matrixBuckets, shapeMatrix, type MatrixBucket, type MatrixPeriod, type MatrixRank, type MatrixRow, type MatrixSlice, type MatrixTotal } from "./scoreMatrix.js"
 
 const BATCH = 4
 
@@ -15,6 +15,7 @@ export type MatrixQuery = {
     departmentId?: string
     recurrence?: string
     parentId?: string
+    rank?: MatrixRank
 }
 
 export type MatrixResponse = {
@@ -48,7 +49,7 @@ export const scoreMatrixService = {
             for (const r of part) slices.push({ total: r.total, rows: r.rows })
         }
 
-        const shaped = shapeMatrix({ total: base.total, rows: base.rows }, slices)
+        const shaped = shapeMatrix({ total: base.total, rows: base.rows }, slices, undefined, q.rank)
         return {
             window: { from: win.from, to: win.to, capped: win.capped },
             period: q.period,

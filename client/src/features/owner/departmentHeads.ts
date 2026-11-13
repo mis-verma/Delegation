@@ -22,18 +22,26 @@ export const headRowsFor = (departments: readonly ExplorerRow[], people: readonl
       .map((d) => [d.id, d]),
   );
   const heads = people.filter((p) => HEAD_ROLES.has(p.role) && !!p.departmentId);
+  const byDepartment = new Map<string, AssignableUser[]>();
+  for (const p of heads) {
+    const list = byDepartment.get(p.departmentId!);
+    if (list) list.push(p);
+    else byDepartment.set(p.departmentId!, [p]);
+  }
   const rows: HeadRow[] = [];
   let unscored = 0;
-  for (const p of heads) {
-    const dept = p.departmentId ? scored.get(p.departmentId) : undefined;
+  for (const [departmentId, members] of byDepartment) {
+    const dept = scored.get(departmentId);
     if (!dept || dept.overall === null) {
       unscored += 1;
       continue;
     }
+    const names = members.map((p) => [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email);
+    const roles = [...new Set(members.map((p) => ROLE_WORD[p.role]).filter(Boolean))];
     rows.push({
-      key: `${p.id}:${dept.id}`,
-      name: [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email,
-      role: ROLE_WORD[p.role] ?? '',
+      key: dept.id,
+      name: names.length <= 2 ? names.join(' and ') : `${names[0]} and ${names.length - 1} more`,
+      role: roles.join(', '),
       departmentId: dept.id,
       departmentName: dept.name,
       score: dept.overall,

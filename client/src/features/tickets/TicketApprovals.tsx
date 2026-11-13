@@ -66,10 +66,10 @@ export const TicketApprovals = ({ embedded = false }: { embedded?: boolean }) =>
   const failed = tasksQuery.isError || boardQuery.isError || allTasksQuery.isError;
 
   const approveTask = useCallback((id: string, title: string) => {
-    schedule({ id, verb: 'Approved, now with the final approver (PC)', label: title, run: approveTaskRun(id) });
+    schedule({ id, kind: 'task', verb: 'Approved, now with the final approver (PC)', label: title, run: approveTaskRun(id) });
   }, [schedule]);
   const sendBackTask = useCallback((id: string, title: string, note: string, correction?: ChecklistCorrection) => {
-    schedule({ id, verb: 'Sent back', label: title, run: rejectTaskRun(id, note, correction) });
+    schedule({ id, kind: 'task', verb: 'Sent back', label: title, run: rejectTaskRun(id, note, correction) });
   }, [schedule]);
 
   return (

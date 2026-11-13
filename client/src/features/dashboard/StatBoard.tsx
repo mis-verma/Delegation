@@ -30,6 +30,7 @@ export interface BoardTile {
   selected?: boolean;
   loading?: boolean;
   failed?: boolean;
+  hideOnPhone?: boolean;
 }
 
 const TONE: Record<BoardTone, { tile: string; value: string }> = {
@@ -86,10 +87,12 @@ export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) =
   const ActiveIcon = active.icon;
   const parts = active.breakdown ?? [];
   const odd = tiles.length % 2 === 1;
+  const phoneTiles = tiles.filter((t) => !t.hideOnPhone);
+  const lastPhoneKey = phoneTiles.length % 2 === 1 ? phoneTiles[phoneTiles.length - 1]?.key : undefined;
 
   return (
     <div role="group" aria-label={label} className="flex flex-col overflow-hidden rounded-2xl bg-surface ring-1 ring-inset ring-border/60 lg:grid lg:grid-cols-[minmax(15rem,1fr)_minmax(0,2fr)]">
-      <section aria-live="polite" aria-label={`${active.label} by area`} className="flex min-w-0 flex-col gap-3 bg-primary-800 p-4 text-white sm:p-5 dark:bg-primary-700">
+      <section aria-label={`${active.label} by area`} className="flex min-w-0 flex-col gap-3 bg-primary-800 p-4 text-white sm:p-5 dark:bg-primary-700">
         <div className="flex items-start justify-between gap-3">
           <span className="flex min-w-0 flex-col gap-1">
             <span className="inline-flex items-center gap-2 t-meta font-display font-semibold text-white/80">
@@ -139,7 +142,9 @@ export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) =
                 PRESS,
                 'relative flex min-w-0 flex-col justify-between gap-2 bg-surface p-3 text-left touch-manipulation sm:p-4',
                 STAT_PHONE_CENTER,
-                odd && index === tiles.length - 1 && 'col-span-2 sm:col-span-1 lg:col-span-2 xl:col-span-1',
+                odd && index === tiles.length - 1 && 'lg:col-span-2 xl:col-span-1',
+                tile.key === lastPhoneKey && 'max-sm:col-span-2',
+                tile.hideOnPhone && 'max-sm:hidden',
                 tile.selected ? 'bg-primary-500/10 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary-600 dark:after:bg-primary-400' : 'hover:bg-surface-hover/60',
               )}
             >
