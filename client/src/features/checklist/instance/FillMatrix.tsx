@@ -5,11 +5,10 @@ import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { formatPct } from '../../../lib/percent';
-import { rateToneClass } from '../checklistDisplay';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 import { STATE } from './fillMatrixState';
 import { FillCountCell } from './FillCountCell';
-import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, formatCount } from './fillCount';
+import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, fillTone, formatCount } from './fillCount';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
 
@@ -62,7 +61,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
           >
             {cell.completion == null
               ? <Minus size={14} className="text-text-light" aria-hidden />
-              : <span className={cn('t-card font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{formatPct(cell.completion)}</span>}
+              : <span className={cn('t-card font-display font-bold tabular-nums', fillTone(cell.completion).text)}>{formatPct(cell.completion)}</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-3">
@@ -98,8 +97,8 @@ Cell.displayName = 'Cell';
 const openNote = (open: number) => (open ? `+${open} open` : undefined);
 
 const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
-  <tr className="group border-b border-border/60 last:border-0">
-    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2 font-normal transition-colors duration-150 group-hover:bg-surface-hover">
+  <tr className="group border-b border-border/60 transition-colors duration-150 last:border-0 hover:bg-surface-hover/40">
+    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 font-normal transition-colors duration-150 group-hover:bg-surface-hover">
       <span className="block w-36 sm:w-56 t-card font-display font-semibold text-text leading-snug line-clamp-2 break-words">{row.name}</span>
       <span className="block t-meta text-text-muted line-clamp-1">{row.storeName}</span>
     </th>

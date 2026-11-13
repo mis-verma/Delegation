@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Grid3x3, Repeat, Search } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Grid3x3, Repeat, Search, Trophy, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, IconChip, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, Skeleton } from '../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, Skeleton } from '../../components';
 import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
+import { StatCard } from '../dashboard';
 import { FillCountCell } from '../checklist/instance/FillCountCell';
-import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, countText } from '../checklist/instance/fillCount';
+import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, countText, fillBand } from '../checklist/instance/fillCount';
 import { ApiError } from '../../api/http';
 import { useAuth } from '../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
@@ -13,10 +14,13 @@ import { windowFor } from '../dashboard/scorePeriods';
 import { useFillHeatmap } from './useAttention';
 import { PersonAttentionSheet } from './PersonAttentionSheet';
 import { LevelAvatar } from './AttentionParts';
-import { DAY_LOOK, dayMonthOf, pctText, scoreTone, weekdayOf } from './attentionDisplay';
+import { DAY_LOOK, dayMonthOf, pctText, weekdayOf } from './attentionDisplay';
 import type { DayState } from '../../api/exceptions';
 
 const LEGEND: DayState[] = ['done', 'partial', 'missed', 'open', 'none'];
+
+const BAND_TONE = { good: 'success', fair: undefined, low: 'danger' } as const;
+const bandTone = (pct: number) => BAND_TONE[fillBand(pct)];
 
 export const FillHeatmapPage = () => {
   const { user } = useAuth();
@@ -158,101 +162,104 @@ export const FillHeatmapPage = () => {
       ) : heatmap.isError && !data ? (
         <InlineError message="Couldn't load the fill chart." onRetry={() => void heatmap.refetch()} />
       ) : (
-        <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <IconChip icon={Grid3x3} tone="bg-primary-600 dark:bg-primary-400" label={`Filled ${pctText(summary.fill)}`} labelClassName={scoreTone(summary.fill)} />
-              <IconChip icon={false} label={`${summary.people} people`} />
-              <IconChip icon={false} label={`${summary.perfect} never missed`} />
-              {summary.repeat > 0 && <IconChip icon={Repeat} tone="bg-coral-500" label={`${summary.repeat} missing days in a row`} />}
-            </div>
-            <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Legend">
-              {LEGEND.map((s) => (
-                <li key={s} className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
-                  <span className={cn('size-3 rounded', DAY_LOOK[s].cell)} aria-hidden />
-                  {DAY_LOOK[s].label}
-                </li>
-              ))}
-            </ul>
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" aria-busy={heatmap.isPending}>
+            <StatCard modern compact label="Days filled" value={pctText(summary.fill)} icon={ClipboardCheck} iconTint="text-primary-600" valueTone={summary.fill === null ? undefined : bandTone(summary.fill)} isLoading={heatmap.isPending} />
+            <StatCard modern compact label="People" value={summary.people} icon={Users} iconTint="text-primary-600" isLoading={heatmap.isPending} />
+            <StatCard modern compact label="Never missed" value={summary.perfect} icon={Trophy} iconTint="text-success" valueTone={summary.perfect > 0 ? 'success' : undefined} isLoading={heatmap.isPending} />
+            <StatCard modern compact label="Missing days in a row" value={summary.repeat} icon={Repeat} iconTint="text-danger" valueTone={summary.repeat > 0 ? 'danger' : undefined} isLoading={heatmap.isPending} />
           </div>
+          <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="t-card font-display font-bold text-text">Day by day</h2>
+              <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Legend">
+                {LEGEND.map((s) => (
+                  <li key={s} className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
+                    <span className={cn('size-3 rounded', DAY_LOOK[s].cell)} aria-hidden />
+                    {DAY_LOOK[s].label}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          {heatmap.isPending ? (
-            <div className="flex flex-col gap-2" role="status" aria-label="Loading">
-              {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
-            </div>
-          ) : rows.length === 0 ? (
-            <EmptyState size="compact" icon={Grid3x3} title={query ? 'Nobody matches' : 'No daily checklists in this month'} description={query ? 'Try another name.' : 'Pick another month or check who the daily checklists are assigned to.'} />
-          ) : (
-            <div ref={scrollerRef} className={cn('relative max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain rounded-xl border border-border/60 custom-scrollbar transition-opacity duration-200', heatmap.isFetching && 'opacity-80')}>
-              <table className="w-max min-w-full border-collapse">
-                <caption className="sr-only">Checklist fill by person, {win.label}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="sticky left-0 top-0 z-30 border-b border-border/60 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-secondary">Person</th>
-                    {data!.days.map((d) => (
-                      <th key={d} scope="col" data-today={d === data!.today} className={cn('sticky top-0 z-20 w-7 min-w-7 border-b border-border/60 bg-surface px-0.5 py-2 text-center', d === data!.today && 'bg-[color-mix(in_oklab,var(--color-primary-500)_10%,var(--color-surface))]')}>
-                        <span className="flex flex-col items-center leading-tight">
-                          <span className="t-meta font-semibold tabular-nums text-text-secondary">{Number(d.slice(8))}</span>
-                          <span className="t-meta text-text-muted">{weekdayOf(d).slice(0, 1)}</span>
-                        </span>
-                      </th>
-                    ))}
-                    <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Days with every checklist filled out of days due">Days filled</th>
-                    <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Questions answered out of questions due on their checklists">Questions done</th>
-                    <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Checklists finished before the cutoff out of checklists due">Met deadline</th>
-                    <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice">Answers right</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {rows.map((p) => (
-                    <tr key={p.userId} className="group">
-                      <th scope="row" className="sticky left-0 z-10 bg-surface px-2 py-1.5 text-left font-normal transition-colors duration-150 group-hover:bg-surface-hover">
-                        <button
-                          type="button"
-                          onClick={() => setOpenPerson(p.userId)}
-                          className="flex min-h-11 w-40 sm:w-56 items-center gap-2 rounded-lg px-1 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
-                        >
-                          <LevelAvatar name={p.name} src={p.avatarUrl} level={p.missedStreak >= 2 ? 'red' : null} size="sm" />
-                          <span className="flex min-w-0 flex-col">
-                            <span className="line-clamp-2 leading-snug break-words t-card font-display font-semibold text-text">{p.name}</span>
-                            {p.missedStreak >= 2 ? (
-                              <span className="line-clamp-1 t-meta font-medium text-danger">Missed {p.missedStreak} days running</span>
-                            ) : (p.departmentName || p.storeName) ? (
-                              <span className="line-clamp-1 t-meta text-text-muted">{[p.departmentName, p.storeName].filter(Boolean).join(', ')}</span>
-                            ) : null}
+            {heatmap.isPending ? (
+              <div className="flex flex-col gap-2" role="status" aria-label="Loading">
+                {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
+              </div>
+            ) : rows.length === 0 ? (
+              <EmptyState size="compact" icon={Grid3x3} title={query ? 'Nobody matches' : 'No daily checklists in this month'} description={query ? 'Try another name.' : 'Pick another month or check who the daily checklists are assigned to.'} />
+            ) : (
+              <div ref={scrollerRef} className={cn('relative max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain rounded-xl border border-border/60 custom-scrollbar transition-opacity duration-200', heatmap.isFetching && 'opacity-80')}>
+                <table className="w-max min-w-full border-collapse">
+                  <caption className="sr-only">Checklist fill by person, {win.label}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" className="sticky left-0 top-0 z-30 border-b border-border/60 bg-surface px-3 py-2 text-left t-meta font-display font-semibold text-text-secondary">Person</th>
+                      {data!.days.map((d) => (
+                        <th key={d} scope="col" data-today={d === data!.today} className={cn('sticky top-0 z-20 w-7 min-w-7 border-b border-border/60 bg-surface px-0.5 py-2 text-center', d === data!.today && 'bg-[color-mix(in_oklab,var(--color-primary-500)_10%,var(--color-surface))]')}>
+                          <span className="flex flex-col items-center leading-tight">
+                            <span className="t-meta font-semibold tabular-nums text-text-secondary">{Number(d.slice(8))}</span>
+                            <span className="t-meta text-text-muted">{weekdayOf(d).slice(0, 1)}</span>
                           </span>
-                        </button>
-                      </th>
-                      {p.cells.map((c) => (
-                        <td key={c.date} className={cn('px-0.5 py-1.5 text-center', c.date === data!.today && 'bg-primary-500/10')}>
-                          <span
-                            title={`${dayMonthOf(c.date)}: ${DAY_LOOK[c.state].label}${c.total ? ` (${c.done} of ${c.total})` : ''}`}
-                            className={cn('mx-auto flex size-5 sm:size-6 items-center justify-center rounded-md', DAY_LOOK[c.state].cell)}
-                          >
-                            {DAY_LOOK[c.state].glyph && (() => { const G = DAY_LOOK[c.state].glyph!; return <G className="size-3" strokeWidth={3} aria-hidden />; })()}
-                          </span>
-                          <span className="sr-only">{`${dayMonthOf(c.date)} ${DAY_LOOK[c.state].label}`}</span>
-                        </td>
+                        </th>
                       ))}
-                      <td className={COUNT_CELL_CLASS}>
-                        <FillCountCell done={p.due - p.missed} due={p.due} pct={p.fillRate} unit={p.due === 1 ? 'day' : 'days'} />
-                      </td>
-                      <td className={COUNT_CELL_CLASS}>
-                        <FillCountCell done={p.questionsDone} due={p.questionsDue} pct={p.questionsPct} />
-                      </td>
-                      <td className={COUNT_CELL_CLASS}>
-                        <FillCountCell done={p.runsOnTime} due={p.runsDue} pct={p.metDeadlinePct} />
-                      </td>
-                      <td className={COUNT_CELL_CLASS}>
-                        <FillCountCell done={p.answersGood} due={p.answersChecked} pct={p.compliancePct} emptyTitle="No answers of theirs were checked in this month" />
-                      </td>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Days with every checklist filled out of days due">Days filled</th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Questions answered out of questions due on their checklists">Questions done</th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Checklists finished before the cutoff out of checklists due">Met deadline</th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice">Answers right</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {rows.map((p) => (
+                      <tr key={p.userId} className="group transition-colors duration-150 hover:bg-surface-hover/40">
+                        <th scope="row" className="sticky left-0 z-10 bg-surface px-2 py-1.5 text-left font-normal transition-colors duration-150 group-hover:bg-surface-hover">
+                          <button
+                            type="button"
+                            onClick={() => setOpenPerson(p.userId)}
+                            className="flex min-h-11 w-40 sm:w-56 items-center gap-2 rounded-lg px-1 text-left outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+                          >
+                            <LevelAvatar name={p.name} src={p.avatarUrl} level={p.missedStreak >= 2 ? 'red' : null} size="sm" />
+                            <span className="flex min-w-0 flex-col">
+                              <span className="line-clamp-2 leading-snug break-words t-card font-display font-semibold text-text">{p.name}</span>
+                              {p.missedStreak >= 2 ? (
+                                <span className="line-clamp-1 t-meta font-medium text-danger">Missed {p.missedStreak} days running</span>
+                              ) : (p.departmentName || p.storeName) ? (
+                                <span className="line-clamp-1 t-meta text-text-muted">{[p.departmentName, p.storeName].filter(Boolean).join(', ')}</span>
+                              ) : null}
+                            </span>
+                          </button>
+                        </th>
+                        {p.cells.map((c) => (
+                          <td key={c.date} className={cn('px-0.5 py-1.5 text-center', c.date === data!.today && 'bg-primary-500/10')}>
+                            <span
+                              title={`${dayMonthOf(c.date)}: ${DAY_LOOK[c.state].label}${c.total ? ` (${c.done} of ${c.total})` : ''}`}
+                              className={cn('mx-auto flex size-5 sm:size-6 items-center justify-center rounded-md', DAY_LOOK[c.state].cell)}
+                            >
+                              {DAY_LOOK[c.state].glyph && (() => { const G = DAY_LOOK[c.state].glyph!; return <G className="size-3" strokeWidth={3} aria-hidden />; })()}
+                            </span>
+                            <span className="sr-only">{`${dayMonthOf(c.date)} ${DAY_LOOK[c.state].label}`}</span>
+                          </td>
+                        ))}
+                        <td className={COUNT_CELL_CLASS}>
+                          <FillCountCell done={p.due - p.missed} due={p.due} pct={p.fillRate} unit={p.due === 1 ? 'day' : 'days'} />
+                        </td>
+                        <td className={COUNT_CELL_CLASS}>
+                          <FillCountCell done={p.questionsDone} due={p.questionsDue} pct={p.questionsPct} />
+                        </td>
+                        <td className={COUNT_CELL_CLASS}>
+                          <FillCountCell done={p.runsOnTime} due={p.runsDue} pct={p.metDeadlinePct} />
+                        </td>
+                        <td className={COUNT_CELL_CLASS}>
+                          <FillCountCell done={p.answersGood} due={p.answersChecked} pct={p.compliancePct} emptyTitle="No answers of theirs were checked in this month" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
       )}
 
       <PersonAttentionSheet userId={openPerson} onClose={() => setOpenPerson(null)} />
