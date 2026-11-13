@@ -524,6 +524,7 @@ export type InstanceListFilter = {
     userId?: string
     hideEnded?: boolean
     departmentId?: string
+    excludeUserId?: string
     from?: string
     to?: string
 }
@@ -554,6 +555,7 @@ export const instanceConditions = (filter: InstanceListFilter): SQL | undefined 
     if (filter.verificationStatus) conditions.push(eq(checklistInstances.verificationStatus, filter.verificationStatus))
     if (filter.from) conditions.push(gte(checklistInstances.periodStart, dayStartUtc(asOrgDay(filter.from))))
     if (filter.to) conditions.push(lt(checklistInstances.periodStart, dayStartUtc(addDays(asOrgDay(filter.to), 1))))
+    if (filter.excludeUserId) conditions.push(notOwnRunSql(filter.excludeUserId))
 
     if (filter.userId) {
         conditions.push(sql`NOT (

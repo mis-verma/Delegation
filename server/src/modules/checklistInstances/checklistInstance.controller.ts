@@ -15,6 +15,8 @@ const parseIdsParam = (value: unknown): string[] | undefined => {
     return ids.length ? ids : undefined
 }
 
+const wantsOthersOnly = (req: Request) => req.query.excludeOwn === "1" || req.query.excludeOwn === "true"
+
 export const checklistInstanceController = {
     getMine: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit, status, from, to } = listChecklistInstancesQuerySchema.parse(req.query)
@@ -50,6 +52,7 @@ export const checklistInstanceController = {
             status,
             assigneeId,
             ...(isOrgWide ? {} : { departmentId: req.user!.departmentId ?? "no-department" }),
+            excludeUserId: wantsOthersOnly(req) ? req.user!.sub : undefined,
             from,
             to,
             includeDeleted,
@@ -127,6 +130,7 @@ export const checklistInstanceController = {
             recurrence: req.query.recurrence as InstanceRecurrence | undefined,
             verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
             departmentId: useDepartment ? (req.user!.departmentId ?? "no-department") : (req.query.departmentId as string | undefined),
+            excludeUserId: wantsVisible && wantsOthersOnly(req) ? req.user!.sub : undefined,
             from,
             to,
             userId: scopedToSelf || (!isOrgWide && !useDepartment) ? req.user!.sub : undefined,

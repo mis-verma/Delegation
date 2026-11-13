@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { CalendarCheck2, CalendarOff, CalendarPlus, Clock3, History, MessageSquareText, Plus, Search, Trash2, TriangleAlert } from 'lucide-react';
 import { CreateButton } from '../../components/createButton';
-import { Avatar, Button, EmptyState, Fab, IconChip, InlineError, Input, PANEL_CLASS, SelectDropdown, Skeleton, useConfirm } from '../../components';
+import { Avatar, Button, Combobox, EmptyState, Fab, IconChip, InlineError, Input, PANEL_CLASS, Skeleton, useConfirm } from '../../components';
 import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -187,14 +187,18 @@ export const LeavePage = () => {
   }), [all]);
 
   const departmentOptions = useMemo(() => {
-    const names = [...new Set(approved.map((e) => e.departmentName).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b));
+    const names = [...new Set([...approved, ...toDecide].map((e) => e.departmentName).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b));
     return [{ value: '', label: 'All departments' }, ...names.map((n) => ({ value: n, label: n }))];
-  }, [approved]);
+  }, [approved, toDecide]);
 
-  const filtered = useMemo(() => {
+  const matches = useCallback((e: LeaveEntry) => {
     const needle = query.trim().toLowerCase();
-    return approved.filter((e) => (!department || e.departmentName === department) && (!needle || e.userName.toLowerCase().includes(needle)));
-  }, [approved, query, department]);
+    return (!department || e.departmentName === department)
+      && (!needle || [e.userName, e.departmentName, e.reason].some((v) => v?.toLowerCase().includes(needle)));
+  }, [query, department]);
+  const filtered = useMemo(() => approved.filter(matches), [approved, matches]);
+  const decideShown = useMemo(() => toDecide.filter(matches), [toDecide, matches]);
+  const showFilters = approved.length > 0 || toDecide.length > 1;
 
   const groups = useMemo(() => ({
     now: filtered.filter((e) => phaseOf(e, today) === 'now'),
@@ -238,6 +242,27 @@ export const LeavePage = () => {
   const noMatch = !isPending && !isError && approved.length > 0 && filtered.length === 0;
   const openForm = () => setShowForm(true);
 
+  const filterBar = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1 sm:max-w-80">
+        <Input id="leave-search" type="search" icon={Search} aria-label="Search leave by name, department or reason" placeholder="Search name, department or reason" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+      </div>
+      {departmentOptions.length > 2 && (
+        <div className="w-full sm:w-60">
+          <Combobox
+            id="leave-department"
+            label="Department"
+            value={department}
+            onChange={setDepartment}
+            options={departmentOptions.slice(1)}
+            emptyOptionLabel="All departments"
+            placeholder="All departments"
+          />
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-(--container-width) flex-col gap-3 pt-2.5 sm:gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -261,11 +286,14 @@ export const LeavePage = () => {
 
       {isError && <InlineError message="We couldn't load the leave list. Check your connection and try again." onRetry={() => { void refetch(); }} />}
 
+      {showFilters && filterBar}
+
       {toDecide.length > 0 && (
         <section aria-label="Requests waiting for a decision" className="flex flex-col gap-3">
-          <SectionTitle title="Waiting for your decision" count={toDecide.length} hint="Approving skips their checklists on those days." />
+          <SectionTitle title="Waiting for your decision" count={decideShown.length} hint="Approving skips their checklists on those days." />
+          {decideShown.length === 0 && <p className="t-meta text-text-muted">No requests match the search.</p>}
           <ul className={LIST_GRID}>
-            {toDecide.map((entry) => (
+            {decideShown.map((entry) => (
               <RequestCard
                 key={entry.id}
                 entry={entry}
@@ -293,17 +321,6 @@ export const LeavePage = () => {
         <>
           <StatusFigureStats label="Show leave" items={showItems} counts={counts} active={show} onToggle={toggleShow} />
           <WeekStrip entries={upcoming} today={today} />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-44 flex-1 sm:max-w-72">
-              <Input id="leave-search" type="search" icon={Search} aria-label="Search people on leave" placeholder="Search people..." value={query} onChange={(e) => setQuery(e.target.value)} />
-            </div>
-            {departmentOptions.length > 2 && (
-              <div className="w-full sm:w-52">
-                <SelectDropdown aria-label="Filter by department" value={department} options={departmentOptions} onChange={setDepartment} />
-              </div>
-            )}
-          </div>
         </>
       )}
 

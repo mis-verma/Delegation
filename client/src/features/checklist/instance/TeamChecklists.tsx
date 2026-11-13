@@ -107,12 +107,13 @@ export const TeamChecklists = () => {
   const storeOptions = useMemo(() => (stores ?? []).filter((s) => s.isActive).map((s) => ({ value: s.id, label: s.name })), [stores]);
   const peopleNames = useMemo(() => new Map((people ?? []).map((u) => [u.id, `${u.firstName} ${u.lastName ?? ''}`.trim()])), [people]);
 
-  const summary = useChecklistInstanceSummaryQuery({ scope: 'visible', storeId: storeId || undefined, from, to }, { keepPrevious: true });
+  const excludeOwn = user?.role === 'PC';
+  const summary = useChecklistInstanceSummaryQuery({ scope: 'visible', storeId: storeId || undefined, from, to, excludeOwn }, { keepPrevious: true });
   const s = summary.data;
 
   const list = useQuery({
-    queryKey: ['checklist-instances', 'team', { tab, storeId, from, to, page }] as const,
-    queryFn: () => checklistInstanceApi.list({ status: SERVER_STATUS[tab], storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE }),
+    queryKey: ['checklist-instances', 'team', { tab, storeId, from, to, page, excludeOwn }] as const,
+    queryFn: () => checklistInstanceApi.list({ status: SERVER_STATUS[tab], storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE, excludeOwn }),
     placeholderData: keepPreviousData,
     retry: handleQueryRetry,
     staleTime: 30_000,

@@ -117,7 +117,7 @@ export const summary = async (filter: InstanceListFilter) => {
         cacheKey(
             CHECKLIST_SUMMARY_PREFIX, owner, `v${version}`, filter.includeDeleted ? "deleted" : "live", filter.hideEnded === false ? "all-ends" : "open-ends",
             filter.storeId, filter.assigneeId, filter.assigneeIds?.join(","), filter.definitionId, filter.status,
-            filter.departmentId, filter.recurrence, filter.verificationStatus, fromDay, toDay,
+            filter.departmentId, filter.recurrence, filter.verificationStatus, filter.excludeUserId ? `not:${filter.excludeUserId}` : undefined, fromDay, toDay,
         ),
         SUMMARY_TTL_SECONDS,
         async () => {

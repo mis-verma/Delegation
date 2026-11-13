@@ -479,11 +479,13 @@ export const checklistInstanceApi = {
     from?: string;
     to?: string;
     includeDeleted?: boolean;
+    excludeOwn?: boolean;
   } = {}) =>
     apiFetch<ApiResponse<ChecklistInstanceSummary>>(
       `/checklist-instances/summary${buildQuery({
         mine: filter.mine ? '1' : undefined,
         scope: filter.scope,
+        excludeOwn: filter.excludeOwn ? '1' : undefined,
         storeId: filter.storeId,
         assigneeId: filter.assigneeId,
         assigneeIds: filter.assigneeIds?.length ? filter.assigneeIds.join(',') : undefined,
@@ -519,10 +521,11 @@ export const checklistInstanceApi = {
       `/checklist-instances${buildQuery({ definitionId, ...paging })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
-  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean } & PageParams = {}) =>
+  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; excludeOwn?: boolean } & PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances${buildQuery({
         ...filter,
+        excludeOwn: filter.excludeOwn ? '1' : undefined,
         from: filter.from ? toDayParam(filter.from) : undefined,
         to: filter.to ? toDayParam(filter.to) : undefined,
       })}`,

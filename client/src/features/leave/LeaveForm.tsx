@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { CalendarOff, ClipboardList, Info } from 'lucide-react';
-import { Button, Combobox, DateRangePicker, Input, Modal, Skeleton, type DateRangeValue } from '../../components';
+import { Button, DateRangePicker, Input, Modal, Skeleton, type DateRangeValue } from '../../components';
 import { useAssignableUsersQuery } from '../tickets/hook';
+import { AssigneeField } from '../assignees/AssigneeField';
+import type { AssignableUser } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import { LEAVE_RECORDER_ROLES } from '../../api/auth';
 import { useCreateLeaveMutation, useLeavePreviewQuery, useLeaveRulesQuery } from './hook';
@@ -48,13 +50,15 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
   const forSelf = userId === myId;
   const isRequest = forSelf && !isOrgWide;
 
-  const options = useMemo(() => {
+  const pickable = useMemo<AssignableUser[]>(() => {
     const others = (people ?? [])
-      .filter((p) => p.id !== myId && (!isHead || (p.role !== 'ADMIN' && p.role !== 'PC' && !!myDepartmentId && p.departmentId === myDepartmentId)))
-      .map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-    return myId ? [{ value: myId, label: `${user?.name || 'Me'} (me)` }, ...others] : others;
-  }, [people, isHead, myId, myDepartmentId, user?.name]);
+      .filter((p) => p.id !== myId && p.role !== 'OWNER' && (!isHead || (p.role !== 'ADMIN' && p.role !== 'PC' && !!myDepartmentId && p.departmentId === myDepartmentId)))
+      .sort((a, b) => `${a.firstName} ${a.lastName ?? ''}`.localeCompare(`${b.firstName} ${b.lastName ?? ''}`));
+    if (!user) return others;
+    const me = (people ?? []).find((p) => p.id === myId);
+    const self: AssignableUser = { id: myId, firstName: `${me?.firstName ?? user.name ?? 'Me'} (me)`, lastName: me?.lastName ?? null, email: user.email, role: user.role, departmentId: user.departmentId };
+    return [self, ...others];
+  }, [people, isHead, myId, myDepartmentId, user]);
 
   const startDate = range.from ? dayKey(range.from) : '';
   const endDate = range.to ? dayKey(range.to) : startDate;
@@ -105,14 +109,16 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
         {canRecordOthers && (
           <div className="flex flex-col gap-1.5">
             <span className="t-meta font-display font-semibold text-text-secondary">Person</span>
-            <Combobox
-              value={userId}
-              onChange={setUserId}
-              options={options}
+            <AssigneeField
+              single
+              hideLabel
+              selectedIds={userId ? [userId] : []}
+              onChange={(ids) => setUserId(ids[0] ?? '')}
+              users={pickable}
               isLoading={peoplePending}
-              placeholder="Search people..."
-              emptyOptionLabel="Choose a person"
-              className="w-full"
+              emptyText="Nobody you can record leave for."
+              pickerTitle="Leave for"
+              allowCreate={false}
             />
             {isRequest && <span className="t-meta text-text-muted">Your own leave goes to {isHead ? 'Admin or PC' : 'your manager'} for approval.</span>}
           </div>

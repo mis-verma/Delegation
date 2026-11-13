@@ -196,6 +196,7 @@ export const useChecklistInstanceSummaryQuery = (
     from?: string;
     to?: string;
     includeDeleted?: boolean;
+    excludeOwn?: boolean;
   } = {},
   options: DashboardQueryOptions & { enabled?: boolean; keepPrevious?: boolean } = {},
 ) => {

@@ -23,6 +23,8 @@ interface AssigneeFieldProps {
   single?: boolean;
   hintFor?: (user: AssignableUser) => string | null | undefined;
   emptyText?: string;
+  pickerTitle?: string;
+  allowCreate?: boolean;
 }
 
 const isHead = (u: AssignableUser) => u.role === 'MANAGER' || u.role === 'SENIOR';
@@ -46,7 +48,7 @@ const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => 
   );
 };
 
-export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor, emptyText = 'No assignable users' }: AssigneeFieldProps) => {
+export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor, emptyText = 'No assignable users', pickerTitle, allowCreate = true }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'ADMIN';
   const showRoles = !!currentUser && !OWN_SCOPE_ROLES.includes(currentUser.role);
@@ -196,7 +198,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
             open={sheetOpen}
             onOpenChange={onPickerOpenChange}
             trigger={triggerButton}
-            title={single ? 'Assign to' : 'Assign to (pick one or more)'}
+            title={pickerTitle ?? (single ? 'Assign to' : 'Assign to (pick one or more)')}
             popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
             popoverClassName="w-[min(22rem,calc(100vw-2rem))]"
             sheetFooter={isPhone && !single && (
@@ -218,7 +220,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               }}
               topActions={[
                 ...(single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : []),
-                ...(isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : []),
+                ...(isAdmin && allowCreate ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : []),
               ]}
             />
           </PickerShell>
