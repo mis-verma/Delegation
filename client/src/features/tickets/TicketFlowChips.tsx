@@ -26,9 +26,9 @@ export const TicketFlowChips = ({ ticket, showFreshness = true }: TicketFlowChip
   return (
     <>
       {awaiting && (needsMyDecision ? (
-        <IconChip icon={BellRing} tone="bg-warning" label="Needs your decision" className="border-warning/40 bg-warning/15" labelClassName="text-warning" />
+        <IconChip icon={BellRing} tone="bg-warning" label="Needs your decision" labelClassName="text-warning" />
       ) : (
-        <IconChip icon={ShieldQuestion} tone="bg-warning" label="Waiting for head" className="border-warning/30 bg-warning/10" labelClassName="text-warning" />
+        <IconChip icon={ShieldQuestion} tone="bg-warning" label="Waiting for head" labelClassName="text-warning" />
       ))}
       {headApproved && (
         <IconChip
@@ -36,12 +36,11 @@ export const TicketFlowChips = ({ ticket, showFreshness = true }: TicketFlowChip
           tone="bg-success"
           label="Head approved"
           title={`Approved by ${ticket.assignmentApprover?.firstName ?? 'the department head'}`}
-          className="border-success/30 bg-success/10"
           labelClassName="text-success"
         />
       )}
       {lastTouch && look && (
-        <IconChip icon={History} tone={look.tone} label={`Updated ${timeAgo(lastTouch, now)}`} className={look.chip} labelClassName={look.text} />
+        <IconChip icon={History} tone={look.tone} label={`Updated ${timeAgo(lastTouch, now)}`} labelClassName={look.text} />
       )}
     </>
   );

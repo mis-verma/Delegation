@@ -54,6 +54,16 @@ const firstNameOf = async (userId: string) => {
   return person?.firstName ?? "Someone"
 }
 
+const ROUTE_CLOCK_RESET = {
+  tatDueAt: null,
+  isOverdue: false,
+  claimedAt: null,
+  dueSoonNotifiedAt: null,
+  overdueNotifiedAt: null,
+  overdueEscalatedAt: null,
+  unassignedNotifiedAt: null,
+} satisfies Partial<typeof tickets.$inferInsert>
+
 const STALE_TICKET_MESSAGE ="Someone changed this ticket a moment ago. Open it again and retry."
 
 export const ticketService = {
@@ -361,6 +371,17 @@ export const ticketService = {
       patch.headClaimedAt = patch.assignmentApprovedAt
     }
 
+    const departmentMoved = nextDepartmentId !== before.departmentId && ["OPEN", "IN_PROGRESS", "ON_HOLD"].includes(before.status) && !before.declinedAt
+    let openedToPool = false
+    if (departmentMoved) {
+      const movedAt = new Date()
+      Object.assign(patch, ROUTE_CLOCK_RESET)
+      if (!nowAwaitingHead) {
+        openedToPool = !nextAssigneeId && !!nextDepartmentId
+        Object.assign(patch, nextAssigneeId ? claimHandOff(nextAssigneeId, user.sub, patch.tatHours ?? before.tatHours, movedAt) : { claimOpenedAt: openedToPool ? movedAt : null })
+      }
+    }
+
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const effectiveTatDueAt = patch.tatDueAt !== undefined ? patch.tatDueAt : before.tatDueAt
       patch.isOverdue = overdueAtHandOver(patch.isOverdue ?? before.isOverdue, effectiveTatDueAt, new Date())
@@ -416,6 +437,7 @@ export const ticketService = {
     if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
     if (input.departmentId && before.departmentId && input.departmentId !== before.departmentId) await notifySafely(() => notificationService.notifyTicketRedirected({ _id: id, title: afterRow!.title, userId: before.userId }, input.departmentId!, user.sub))
     if (approvedByReassign) await notifySafely(() => notificationService.notifyTicketHeadApproved({ ...notificationTarget(afterRow!), assigneeId: null }, user.sub))
+    if (openedToPool) await notifySafely(() => notificationService.notifyTicketClaimable({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId, tatHours: afterRow!.tatHours }, user.sub))
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }, "TICKET", afterRow!.approvalStage ?? "PC"));

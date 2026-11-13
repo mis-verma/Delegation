@@ -25,12 +25,12 @@ const TicketGroupedListComponent = ({
   departmentNames,
 }: TicketGroupedListProps) => {
   return (
-    <div className="flex flex-col gap-5 sm:gap-8">
+    <div className="flex flex-col gap-6">
       {groups.map((group) => {
         const stats = groupChecklistStats(group.tickets);
 
         return (
-          <div key={group.key} className="flex flex-col gap-3 sm:gap-4">
+          <div key={group.key} className="flex flex-col gap-3">
             <TicketGroupHeader
               label={group.label}
               groupBy={groupBy}

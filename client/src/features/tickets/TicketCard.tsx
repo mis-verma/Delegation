@@ -70,7 +70,6 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </Tooltip>
           ) : statusChip}
           <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
-          <TicketFlowChips ticket={ticket} />
         </div>
         <span
           className="inline-flex shrink-0 items-center gap-1 t-meta font-medium tabular-nums text-text-light"
@@ -104,7 +103,25 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         </div>
       ) : null}
 
-      <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/50 pt-3 dark:border-white/[0.06]">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 empty:hidden">
+        <TicketFlowChips ticket={ticket} />
+        {claimable && (
+          <IconChip icon={Hand} tone="bg-primary-600" label={tatText(ticket.tatHours) ? `To claim, ${tatText(ticket.tatHours)}` : 'To claim'} title="Anyone in this department can claim it. The clock starts at claim." />
+        )}
+        {awaitingAssignee && (
+          <IconChip icon={Hand} tone="bg-warning" label={`${assigneeName ?? 'Assignee'} to claim`} labelClassName="text-warning" title="Given by the department head. Their clock starts when they claim it." />
+        )}
+        {due && (
+          <IconChip
+            icon={isOverdue ? AlarmClock : CalendarDays}
+            tone={isOverdue ? 'bg-danger' : due.today ? 'bg-warning' : 'bg-text-muted'}
+            label={due.text}
+            labelClassName={isOverdue ? 'text-danger' : due.today ? 'text-warning' : undefined}
+          />
+        )}
+      </div>
+
+      <div className="mt-auto flex min-w-0 items-center gap-2 border-t border-border/50 pt-3 dark:border-white/[0.06]">
         {!hideAssignee && (
           <span className="inline-flex min-w-0 items-center gap-1.5 pr-1" title={assigneeName ? `Assigned to ${assigneeName}` : claimable ? 'Nobody yet, open to claim' : 'Nobody yet'}>
             {assigneeName ? (
@@ -122,30 +139,15 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </span>
         )}
 
-        {claimable && (
-          <IconChip icon={Hand} tone="bg-primary-600" label={tatText(ticket.tatHours) ? `To claim, ${tatText(ticket.tatHours)}` : 'To claim'} title="Anyone in this department can claim it. The clock starts at claim." />
-        )}
-        {awaitingAssignee && (
-          <IconChip icon={Hand} tone="bg-warning" label={`${assigneeName ?? 'Assignee'} to claim`} labelClassName="text-warning" title="Given by the department head. Their clock starts when they claim it." />
-        )}
-
-        {due && (
-          <IconChip
-            icon={isOverdue ? AlarmClock : CalendarDays}
-            tone={isOverdue ? 'bg-danger' : due.today ? 'bg-warning' : 'bg-text-muted'}
-            label={due.text}
-            labelClassName={isOverdue ? 'text-danger' : due.today ? 'text-warning' : undefined}
-          />
-        )}
-
-        {departmentName && <DepartmentChip name={departmentName} className={isBoard ? 'hidden max-w-[8rem] sm:inline-flex' : 'max-w-[10rem]'} />}
-
-        {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className={isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} />)}
-        {ticket.tags.length > 2 && (
-          <span className={cn(isBoard ? 'hidden xl:inline' : 'hidden sm:inline', 't-meta font-semibold tabular-nums text-text-muted')} title={ticket.tags.map((t) => t.name).join(', ')}>
-            +{ticket.tags.length - 2}
-          </span>
-        )}
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
+          {departmentName && <DepartmentChip name={departmentName} className={isBoard ? 'hidden max-w-[8rem] sm:inline-flex' : 'max-w-[10rem]'} />}
+          {ticket.tags.slice(0, 1).map((tag) => <TagChip key={tag.id} tag={tag} className={isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} />)}
+          {ticket.tags.length > 1 && (
+            <span className={cn(isBoard ? 'hidden xl:inline' : 'hidden sm:inline', 'shrink-0 t-meta font-semibold tabular-nums text-text-muted')} title={ticket.tags.map((t) => t.name).join(', ')}>
+              +{ticket.tags.length - 1}
+            </span>
+          )}
+        </span>
 
         {progress !== null && (
           <span className="ml-auto flex shrink-0 items-center gap-1.5" title={`Checklist ${doneItems} of ${totalItems}`}>

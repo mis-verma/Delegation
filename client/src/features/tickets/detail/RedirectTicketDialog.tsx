@@ -10,9 +10,12 @@ interface RedirectTicketDialogProps {
   isPending: boolean;
   onCancel: () => void;
   onConfirm: (departmentId: string) => void;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }
 
-export const RedirectTicketDialog = ({ open, ticketTitle, currentDepartmentId, departments, isPending, onCancel, onConfirm }: RedirectTicketDialogProps) => {
+export const RedirectTicketDialog = ({ open, ticketTitle, currentDepartmentId, departments, isPending, onCancel, onConfirm, title = 'Send to another team', description = 'Wrong team? Pick the right one. Their head decides next, and the person who sent it is told.', confirmLabel = 'Send it' }: RedirectTicketDialogProps) => {
   const [departmentId, setDepartmentId] = useState('');
   const options = departments.filter((d) => d.id !== currentDepartmentId).map((d) => ({ value: d.id, label: d.name }));
   const close = () => {
@@ -27,12 +30,12 @@ export const RedirectTicketDialog = ({ open, ticketTitle, currentDepartmentId, d
       onClose={close}
       size="md"
       icon={<Building2 className="size-5" />}
-      title="Send to another team"
-      description="Wrong team? Pick the right one. Their head decides next, and the person who sent it is told."
+      title={title}
+      description={description}
       footer={
         <div className="flex w-full items-center justify-end gap-2">
           <Button variant="ghost" onClick={close} disabled={isPending}>Cancel</Button>
-          <Button variant="primary" onClick={() => onConfirm(departmentId)} isLoading={isPending} disabled={!departmentId}>Send it</Button>
+          <Button variant="primary" onClick={() => onConfirm(departmentId)} isLoading={isPending} disabled={!departmentId}>{confirmLabel}</Button>
         </div>
       }
     >

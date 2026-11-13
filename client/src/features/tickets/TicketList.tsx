@@ -191,7 +191,7 @@ export const TicketList = () => {
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
 
   return (
-    <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
+    <div className="mx-auto flex w-full min-w-0 max-w-(--container-width) flex-col gap-4 pt-2.5">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="tickets" />
       <ScoreDrillBanner
         drill={scoreDrill}

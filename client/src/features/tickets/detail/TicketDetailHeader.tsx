@@ -43,7 +43,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
   };
 
   return (
-    <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2.5 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-1.5 lg:pl-8 lg:pr-6 text-left">
+    <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2.5 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-1.5 text-left">
       <div className="flex items-center gap-2">
         <div className="flex flex-1 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
           <button

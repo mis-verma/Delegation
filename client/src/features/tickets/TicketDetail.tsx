@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
-import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ListTree, ChevronDown, AlertCircle, Ban } from 'lucide-react';
+import { AlarmClock, RotateCcw, ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ListTree, ChevronDown, AlertCircle, ArrowRightLeft, Ban } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -16,6 +16,7 @@ import {
 import { Button, IconChip, ImageLightbox, PriorityChip } from '../../components';
 import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../components/imageLightbox';
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
+import { RedirectTicketDialog } from './detail/RedirectTicketDialog';
 import { TicketHeadDecision } from './detail/TicketHeadDecision';
 import { ClaimBanner } from './claim/ClaimBanner';
 import { isAwaitingClaim } from './claim/ticketClaim';
@@ -78,6 +79,7 @@ const formatRaised = (iso: string) => {
   return `${day}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 };
 const ROUTING_ROLES: readonly Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
+const MOVABLE_STATUSES: readonly TicketStatus[] = ['OPEN', 'IN_PROGRESS', 'ON_HOLD'];
 
 export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailProps) => {
   const { data: fresh, isPending } = useTicketQuery(initialTicket.id);
@@ -138,6 +140,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const [editing, setEditing] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [movingDepartment, setMovingDepartment] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
@@ -239,6 +242,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const canApproveAssignment = awaitingHead && (isAdmin || coverLeadership || isDepartmentHead);
   const canReopenDeclined = !!ticket.declinedAt && (isAdmin || coverLeadership || isDepartmentHead);
   const canSendAgain = !!ticket.declinedAt && ticket.userId === currentUser?.id;
+  const canMoveDepartment = isAdmin && canEdit && !editing && !ticket.declinedAt && MOVABLE_STATUSES.includes(ticket.status);
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline || canReopenDeclined || canSendAgain;
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
@@ -250,7 +254,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         onInteractOutside={(e) => { if (editing && editDirty) e.preventDefault(); }}
         ref={sheetRef}
         onOpenAutoFocus={(e) => { e.preventDefault(); sheetRef.current?.focus({ preventScroll: true }); }}
-        className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
+        className="w-full sm:max-w-[560px] md:max-w-[640px] lg:max-w-[780px] xl:max-w-[860px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
       >
         {showLoadingBar && (
           <div className="absolute top-0 left-0 right-0 z-50 h-[3px] w-full bg-primary-500/15 overflow-hidden" aria-hidden>
@@ -268,12 +272,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           isDeleting={deleteMut.isPending}
         />
 
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:px-8 lg:pt-2 lg:pb-6 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:pt-2 lg:pb-6 custom-scrollbar">
       
-          <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
+          <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] xl:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-x-6">
             <aside
               aria-label="Ticket properties"
-              className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:p-5"
+              className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border/60 lg:bg-surface lg:p-4"
             >
               
               <section className="flex flex-col gap-2 lg:gap-3">
@@ -291,9 +295,23 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     )}
                   </TicketPropertyRow>
 
-                  {departmentName && (
-                    <TicketPropertyRow label="Department" wide phoneHidden={!moreOpen}>
-                      <IconChip icon={Building2} tone="bg-coral-500" label={departmentName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                  {(departmentName || canMoveDepartment) && (
+                    <TicketPropertyRow label="Department" wide phoneHidden={!moreOpen && !canMoveDepartment}>
+                      <span className="flex w-full min-w-0 items-center justify-between gap-2">
+                        {departmentName
+                          ? <IconChip icon={Building2} tone="bg-coral-500" label={departmentName} className="h-8 sm:h-8 pr-3" labelClassName="text-sm" />
+                          : <span className="t-meta font-medium text-text-muted">No department</span>}
+                        {canMoveDepartment && (
+                          <button
+                            type="button"
+                            onClick={() => setMovingDepartment(true)}
+                            className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 t-meta font-display font-semibold text-primary-700 outline-none transition-colors duration-150 hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 pointer-coarse:h-11"
+                          >
+                            <ArrowRightLeft className="size-3.5" aria-hidden="true" />
+                            {departmentName ? 'Change' : 'Set'}
+                          </button>
+                        )}
+                      </span>
                     </TicketPropertyRow>
                   )}
 
@@ -478,7 +496,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
         {showFooter && (
           editing ? (
-            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
+            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5">
               {editMut.isError && (
                 <p role="alert" className="flex items-start gap-1.5 t-meta font-medium font-display text-danger min-w-0 sm:mr-auto">
                   <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden />
@@ -495,7 +513,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </div>
             </div>
           ) : (
-            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
+            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5">
               {showVerify && (
                 <div className="min-w-0 sm:flex-1 sm:basis-72 sm:max-w-md">
                   <TicketVerificationActions
@@ -578,6 +596,24 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           onCancel={() => setDeclining(false)}
           onConfirm={(reason) => declineMut.mutate({ id: ticket.id, reason }, { onSuccess: () => setDeclining(false) })}
         />
+
+        {canMoveDepartment && (
+          <RedirectTicketDialog
+            open={movingDepartment}
+            ticketTitle={ticket.title}
+            currentDepartmentId={ticket.departmentId ?? null}
+            departments={departments ?? []}
+            isPending={updateMut.isPending}
+            onCancel={() => setMovingDepartment(false)}
+            title="Move to another department"
+            description="Pick the right department. Its head claims and assigns it, and the clock restarts there. Total time still counts from when the ticket was raised."
+            confirmLabel="Move ticket"
+            onConfirm={(departmentId) => updateMut.mutate(
+              { id: ticket.id, payload: { departmentId, assigneeId: null } },
+              { onSuccess: () => setMovingDepartment(false) },
+            )}
+          />
+        )}
 
       </SheetContent>
 

@@ -1,6 +1,7 @@
 import { memo } from 'react';
+import { AlarmClock, CalendarDays } from 'lucide-react';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
-import { StatusChip, PriorityChip, DepartmentChip, TagChip } from '../../components';
+import { Avatar, StatusChip, PriorityChip, DepartmentChip, IconChip, TagChip } from '../../components';
 import { PRIORITY_CONFIG, formatDueLabel, formatShortDateTime } from './ticketDisplay';
 import { TicketFlowChips } from './TicketFlowChips';
 import type { StatusChipStatus } from '../../components/statusChip';
@@ -98,7 +99,14 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
                 </td>
 
                 <td className={`${CELL_CLASS} whitespace-nowrap`}>
-                  {ticket.assignee ? ticket.assignee.firstName : <span className="text-text-light">Nobody yet</span>}
+                  {ticket.assignee ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Avatar name={ticket.assignee.firstName} size="xs" />
+                      <span className="t-meta font-display font-semibold text-text">{ticket.assignee.firstName}</span>
+                    </span>
+                  ) : (
+                    <span className="t-meta text-text-light">Nobody yet</span>
+                  )}
                 </td>
 
                 <td className={`${CELL_CLASS} ${FROM_2XL} whitespace-nowrap`}>
@@ -107,11 +115,9 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
 
                 <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
                   {due ? (
-                    <span className={due.overdue ? 'text-danger font-semibold' : undefined}>
-                      {due.label}
-                    </span>
+                    <IconChip icon={due.overdue ? AlarmClock : CalendarDays} tone={due.overdue ? 'bg-danger' : 'bg-text-muted'} label={due.label} labelClassName={cn('tabular-nums', due.overdue && 'text-danger')} />
                   ) : (
-                    <span className="text-text-light">Not set</span>
+                    <span className="t-meta text-text-light">Not set</span>
                   )}
                 </td>
 
