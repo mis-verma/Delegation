@@ -1,4 +1,5 @@
 import { FAIR_FROM, GOOD_FROM } from '../../../lib/scoreBands';
+import type { StatusKind } from '../../dashboard/StatusFigureStats';
 
 export const formatCount = (n: number) => (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1));
 
@@ -19,3 +20,7 @@ export const FILL_TONE: Record<FillBand, { text: string; bar: string }> = {
 };
 
 export const fillTone = (pct: number) => FILL_TONE[fillBand(pct)];
+
+const BAND_KIND: Record<FillBand, StatusKind> = { good: 'completed', fair: 'due', low: 'late' };
+
+export const fillKind = (pct: number | null | undefined): StatusKind => (pct == null ? 'total' : BAND_KIND[fillBand(pct)]);

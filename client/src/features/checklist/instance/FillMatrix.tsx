@@ -36,7 +36,7 @@ const Ring = ({ percent, tone, dashed, size = 28, children }: { percent: number;
 
 const CELL_BOX = 'inline-flex items-center justify-center size-11 sm:size-10';
 
-const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
+export const FillCell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   const s = STATE[cell.state];
   const percent = cell.total ? Math.round((cell.done / cell.total) * 100) : 0;
   const stateLabel = cell.state === 'open' && cell.done === 0 ? 'Not started' : s.label;
@@ -92,7 +92,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
     </Link>
   );
 });
-Cell.displayName = 'Cell';
+FillCell.displayName = 'FillCell';
 
 const openNote = (open: number) => (open ? `+${open} open` : undefined);
 
@@ -103,7 +103,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       <span className="block t-meta text-text-muted line-clamp-1">{row.storeName}</span>
     </th>
     {row.cells.map(cell => (
-      <td key={cell.date} className="px-1 py-1 text-center align-middle"><Cell cell={cell} name={row.name} /></td>
+      <td key={cell.date} className="px-1 py-1 text-center align-middle"><FillCell cell={cell} name={row.name} /></td>
     ))}
     <td className={COUNT_CELL_CLASS}>
       <FillCountCell done={row.questionsDone} due={row.questionsDue} pct={row.questionsPct} note={openNote(row.open)} />
@@ -126,7 +126,6 @@ interface FillMatrixProps {
 
 export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
   const isMonthView = data.kind === 'month';
-  const holidayDays = Object.keys(data.holidays).sort();
   return (
     <>
       <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
@@ -159,6 +158,16 @@ export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
         </table>
       </div>
 
+      <FillLegend data={data} />
+    </>
+  );
+};
+
+export const FillLegend = ({ data }: { data: WeeklyReport }) => {
+  const isMonthView = data.kind === 'month';
+  const holidayDays = Object.keys(data.holidays).sort();
+  return (
+    <>
       {holidayDays.length > 0 && (
         <p className="t-meta font-display text-text-muted">
           Holiday: {holidayDays.map((d) => `${shortDate(d)}, ${data.holidays[d]}`).join('; ')}

@@ -17,6 +17,7 @@ export interface StatusFigureItem<K extends string> {
 interface StatusFigureStatsProps<K extends string> {
   items: readonly StatusFigureItem<K>[];
   counts: Record<K, number>;
+  display?: Partial<Record<K, string>>;
   total?: number;
   active?: K | null;
   onToggle?: (key: K) => void;
@@ -45,13 +46,14 @@ const STATIC = 'cursor-default hover:brightness-100 active:scale-100';
 
 const SELECTED ='ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
 
-export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
+export const StatusFigureStats = <K extends string>({ items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
   const formatCount = useStatCountFormat();
   return (
     <div className="grid w-full grid-cols-4 gap-1.5 sm:gap-2" role="group" aria-label={label}>
       {items.map((item) => {
         const count = counts[item.key] ?? 0;
+        const shown = display?.[item.key] ?? formatCount(count);
         const selected = active === item.key && !failed;
         const alert = item.kind === 'late' && count > 0 && !failed && !isLoading;
         const retry = failed && !!onRetry;
@@ -72,7 +74,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
                 <Skeleton className="h-6 w-12 bg-white/15" />
               ) : (
                 <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed ? 'text-white/45' : alert ? 'text-[rgb(var(--stat-accent))]' : 'text-white')}>
-                  {failed ? '-' : formatCount(count)}
+                  {failed ? '-' : shown}
                 </span>
               )}
             </span>
@@ -81,7 +83,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
         if (!retry && !onToggle) {
           return (
             <div key={item.key} title={item.help} className={cn(CELL, STATIC, ACCENT[item.kind])}>
-              <span className="sr-only">{isLoading ? item.label : `${item.label}, ${count}`}</span>
+              <span className="sr-only">{isLoading ? item.label : `${item.label}, ${shown}`}</span>
               <span aria-hidden="true" className="contents">{body}</span>
             </div>
           );
@@ -92,7 +94,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
             type="button"
             onClick={retry ? onRetry : () => onToggle?.(item.key)}
             aria-pressed={retry ? undefined : selected}
-            aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
+            aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${shown}`}
             title={failed ? "Couldn't load. Tap to try again." : item.help}
             className={cn(CELL, ACCENT[item.kind], selected && SELECTED)}
           >

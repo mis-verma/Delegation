@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ClipboardCheck, Grid3x3, Repeat, Search, Trophy, Users } from 'lucide-react';
+import { AlertTriangle, Grid3x3, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, Skeleton } from '../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, Skeleton, SlidingTabs } from '../../components';
+import { useStoredChoice } from '../../lib/useStoredChoice';
+import { FILL_VIEWS, FILL_VIEW_OPTIONS, type FillView } from '../checklist/instance/fillView';
+import { FillPeopleCards } from './FillPeopleCards';
 import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
-import { StatCard } from '../dashboard';
+import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 import { FillCountCell } from '../checklist/instance/FillCountCell';
-import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, countText, fillBand } from '../checklist/instance/fillCount';
+import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, countText, fillKind } from '../checklist/instance/fillCount';
 import { ApiError } from '../../api/http';
 import { useAuth } from '../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
@@ -19,8 +22,7 @@ import type { DayState } from '../../api/exceptions';
 
 const LEGEND: DayState[] = ['done', 'partial', 'missed', 'open', 'none'];
 
-const BAND_TONE = { good: 'success', fair: undefined, low: 'danger' } as const;
-const bandTone = (pct: number) => BAND_TONE[fillBand(pct)];
+type SummaryKey = 'fill' | 'people' | 'perfect' | 'repeat';
 
 export const FillHeatmapPage = () => {
   const { user } = useAuth();
@@ -31,6 +33,7 @@ export const FillHeatmapPage = () => {
   const [storeId, setStoreId] = useState('');
   const [query, setQuery] = useState('');
   const [openPerson, setOpenPerson] = useState<string | null>(null);
+  const [view, setView] = useStoredChoice<FillView>('fill-people-view', FILL_VIEWS, 'cards');
   const win = windowFor('month', offset, today);
   const heatmap = useFillHeatmap(win.from, win.to, departmentId, storeId);
   const departments = useDepartmentsQuery(orgWide);
@@ -55,6 +58,13 @@ export const FillHeatmapPage = () => {
     };
   }, [data]);
 
+  const summaryItems = useMemo<StatusFigureItem<SummaryKey>[]>(() => [
+    { key: 'fill', kind: fillKind(summary.fill), label: 'Days filled', short: 'Filled', help: 'Days with every checklist filled, out of days due, for everyone shown' },
+    { key: 'people', kind: 'total', label: 'People', help: 'People with a daily checklist in this month' },
+    { key: 'perfect', kind: 'completed', label: 'Never missed', short: 'Perfect', help: 'People who filled every day that was due' },
+    { key: 'repeat', kind: 'late', label: 'Missing days in a row', short: 'In a row', help: 'People who missed two or more days in a row' },
+  ], [summary.fill]);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
   const hasRows = rows.length > 0;
   useEffect(() => {
@@ -62,7 +72,7 @@ export const FillHeatmapPage = () => {
     if (!el) return;
     const th = el.querySelector<HTMLElement>('[data-today="true"]');
     el.scrollLeft = th ? Math.max(0, th.offsetLeft + th.offsetWidth + 72 - el.clientWidth) : 0;
-  }, [data?.today, data?.from, hasRows]);
+  }, [data?.today, data?.from, hasRows, view]);
 
   const forbidden = heatmap.error instanceof ApiError && heatmap.error.status === 403;
 
@@ -163,15 +173,19 @@ export const FillHeatmapPage = () => {
         <InlineError message="Couldn't load the fill chart." onRetry={() => void heatmap.refetch()} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" aria-busy={heatmap.isPending}>
-            <StatCard modern compact label="Days filled" value={pctText(summary.fill)} icon={ClipboardCheck} iconTint="text-primary-600" valueTone={summary.fill === null ? undefined : bandTone(summary.fill)} isLoading={heatmap.isPending} />
-            <StatCard modern compact label="People" value={summary.people} icon={Users} iconTint="text-primary-600" isLoading={heatmap.isPending} />
-            <StatCard modern compact label="Never missed" value={summary.perfect} icon={Trophy} iconTint="text-success" valueTone={summary.perfect > 0 ? 'success' : undefined} isLoading={heatmap.isPending} />
-            <StatCard modern compact label="Missing days in a row" value={summary.repeat} icon={Repeat} iconTint="text-danger" valueTone={summary.repeat > 0 ? 'danger' : undefined} isLoading={heatmap.isPending} />
-          </div>
-          <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4">
+          <StatusFigureStats
+            label="Fill summary"
+            items={summaryItems}
+            counts={{ fill: Math.round(summary.fill ?? 0), people: summary.people, perfect: summary.perfect, repeat: summary.repeat }}
+            display={{ fill: pctText(summary.fill) }}
+            isLoading={heatmap.isPending}
+          />
+          <section aria-label="People" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="t-card font-display font-bold text-text">Day by day</h2>
+              <h2 className="t-section font-display font-bold text-text">{view === 'cards' ? 'People' : 'Day by day'}</h2>
+              <SlidingTabs label="View" value={view} options={FILL_VIEW_OPTIONS} onChange={setView} size="sm" />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
               <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Legend">
                 {LEGEND.map((s) => (
                   <li key={s} className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
@@ -188,8 +202,10 @@ export const FillHeatmapPage = () => {
               </div>
             ) : rows.length === 0 ? (
               <EmptyState size="compact" icon={Grid3x3} title={query ? 'Nobody matches' : 'No daily checklists in this month'} description={query ? 'Try another name.' : 'Pick another month or check who the daily checklists are assigned to.'} />
+            ) : view === 'cards' ? (
+              <FillPeopleCards people={rows} today={data!.today} onOpen={setOpenPerson} />
             ) : (
-              <div ref={scrollerRef} className={cn('relative max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain rounded-xl border border-border/60 custom-scrollbar transition-opacity duration-200', heatmap.isFetching && 'opacity-80')}>
+              <div ref={scrollerRef} className={cn('relative max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain rounded-2xl border border-border/60 bg-surface custom-scrollbar transition-opacity duration-200', heatmap.isFetching && 'opacity-80')}>
                 <table className="w-max min-w-full border-collapse">
                   <caption className="sr-only">Checklist fill by person, {win.label}</caption>
                   <thead>

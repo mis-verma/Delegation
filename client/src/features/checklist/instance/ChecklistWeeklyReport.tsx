@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { CalendarCheck2, Check, ChevronRight, ClipboardCheck, ClipboardX, Clock, Hourglass, ListChecks, SearchX, ShieldCheck, Timer, type LucideIcon } from 'lucide-react';
+import { CalendarCheck2, ChevronRight, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton, SlidingTabs } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { formatPct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
@@ -10,14 +10,16 @@ import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
 import { FillMatrix } from './FillMatrix';
+import { FillChecklistCards } from './FillChecklistCards';
+import { FILL_VIEWS, FILL_VIEW_OPTIONS, type FillView } from './fillView';
+import { useStoredChoice } from '../../../lib/useStoredChoice';
 import { fillMatrixRows } from './fillMatrixState';
 import { ChecklistPeriodReport } from './ChecklistPeriodReport';
 import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
 import { rankScoreboard } from './reportScoreboardRank';
-import { rateToneClass } from '../checklistDisplay';
 import { useOrgToday } from '../useOrgToday';
-import { StatCard } from '../../dashboard';
-import { HowCalculated } from '../../scores/HowCalculated';
+import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
+import { fillKind } from './fillCount';
 import { FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { SCORE_LABEL, complianceLabel } from '../../../lib/scoreLabels';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
@@ -29,18 +31,7 @@ const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', depa
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 
-type Tone = 'success' | 'warning' | 'danger' | undefined;
-
-const toneOf = (cls: string): Tone => (cls.includes('success') ? 'success' : cls.includes('warning') ? 'warning' : cls.includes('danger') ? 'danger' : undefined);
-
-interface SummaryTile {
-  label: string;
-  how?: 'completion' | 'metDeadline' | 'onTime' | 'compliance';
-  value: string | number;
-  tone: string;
-  icon: LucideIcon;
-  tint: string;
-}
+type SummaryKey = 'completion' | 'metDeadline' | 'onTime' | 'compliance' | 'filledOnTime' | 'filledLate' | 'missed' | 'open';
 
 const ReportSkeleton = () => (
   <>
@@ -86,6 +77,7 @@ export const ChecklistWeeklyReport = () => {
   const [storeId, setStoreId] = useState(() => urlParams.get('storeId') ?? '');
   const [departmentId, setDepartmentId] = useState(() => urlParams.get('departmentId') ?? '');
   const [view, setView] = useState<ReportView>('checklists');
+  const [fillView, setFillView] = useStoredChoice<FillView>('fill-checklist-view', FILL_VIEWS, 'cards');
   const { user } = useAuth();
   const canPickDepartment = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
@@ -112,16 +104,31 @@ export const ChecklistWeeklyReport = () => {
 
   const rows = data?.rows;
   const summary = data?.summary;
-  const summaryTiles = useMemo(() => summary && [
-    { label: SCORE_LABEL.completion, how: 'completion', value: formatPct(summary.completion), tone: summary.completion === null ? '' : rateToneClass(summary.completion), icon: ClipboardCheck, tint: 'text-primary-600' },
-    { label: SCORE_LABEL.metDeadline, how: 'metDeadline', value: formatPct(summary.metDeadlinePct), tone: summary.metDeadlinePct === null ? '' : rateToneClass(summary.metDeadlinePct), icon: Timer, tint: 'text-primary-600' },
-    { label: SCORE_LABEL.onTime, how: 'onTime', value: formatPct(summary.onTimeOfFinishedPct), tone: summary.onTimeOfFinishedPct === null ? '' : rateToneClass(summary.onTimeOfFinishedPct), icon: Clock, tint: 'text-primary-600' },
-    { label: complianceLabel('checklist'), how: 'compliance', value: formatPct(summary.compliance), tone: summary.compliance === null ? '' : rateToneClass(summary.compliance), icon: ShieldCheck, tint: 'text-primary-600' },
-    { label: 'Filled on time', value: summary.onTime, tone: 'text-success', icon: Check, tint: 'text-success' },
-    { label: 'Filled late', value: summary.late, tone: summary.late ? 'text-warning' : '', icon: Hourglass, tint: 'text-warning' },
-    { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '', icon: ClipboardX, tint: 'text-danger' },
-    ...(summary.open ? [{ label: 'Still open', value: summary.open, tone: 'text-text-secondary', icon: ListChecks, tint: 'text-text-muted' }] : []),
-  ] satisfies SummaryTile[], [summary]);
+  const summaryCards = useMemo(() => {
+    if (!summary) return null;
+    const items: StatusFigureItem<SummaryKey>[] = [
+      { key: 'completion', kind: fillKind(summary.completion), label: SCORE_LABEL.completion, short: 'Filled', help: 'Due checklists that got filled, on time or late' },
+      { key: 'metDeadline', kind: fillKind(summary.metDeadlinePct), label: SCORE_LABEL.metDeadline, short: 'Deadline', help: 'Days filled before the cutoff out of days due' },
+      { key: 'onTime', kind: fillKind(summary.onTimeOfFinishedPct), label: SCORE_LABEL.onTime, short: 'On time', help: 'Filled checklists that were filled before their cutoff' },
+      { key: 'compliance', kind: fillKind(summary.compliance), label: complianceLabel('checklist'), short: 'Right', help: 'Good answers out of checked answers' },
+      { key: 'filledOnTime', kind: 'completed', label: 'Filled on time', short: 'On time', help: 'Checklists filled before their cutoff' },
+      { key: 'filledLate', kind: 'due', label: 'Filled late', short: 'Late', help: 'Checklists filled after their cutoff' },
+      { key: 'missed', kind: 'late', label: 'Not filled', short: 'Missed', help: 'Checklists that closed without being filled' },
+      ...(summary.open ? [{ key: 'open' as const, kind: 'pending' as const, label: 'Still open', short: 'Open', help: 'Not counted in the percentages until filled or closed' }] : []),
+    ];
+    const pctKeys = { completion: summary.completion, metDeadline: summary.metDeadlinePct, onTime: summary.onTimeOfFinishedPct, compliance: summary.compliance };
+    return {
+      items,
+      counts: {
+        ...Object.fromEntries(Object.entries(pctKeys).map(([k, v]) => [k, Math.round(v ?? 0)])),
+        filledOnTime: summary.onTime,
+        filledLate: summary.late,
+        missed: summary.missed,
+        open: summary.open ?? 0,
+      } as Record<SummaryKey, number>,
+      display: Object.fromEntries(Object.entries(pctKeys).map(([k, v]) => [k, formatPct(v)])) as Partial<Record<SummaryKey, string>>,
+    };
+  }, [summary]);
 
   const periodWord = PERIOD_LABEL[period].toLowerCase();
   const emptyAction = storeId || departmentId
@@ -260,22 +267,8 @@ export const ChecklistWeeklyReport = () => {
 
       {view === 'checklists' && data && !!rows?.length && (
         <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
-          {summary && summary.due + (summary.open ?? 0) > 0 && (
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-              {summaryTiles?.map((t) => (
-                <StatCard
-                  key={t.label}
-                  modern
-                  compact
-                  label={t.label}
-                  value={t.value}
-                  icon={t.icon}
-                  iconTint={t.tint}
-                  valueTone={toneOf(t.tone)}
-                  labelAdornment={'how' in t && t.how ? <HowCalculated figure={t.how} module="checklist" /> : undefined}
-                />
-              ))}
-            </div>
+          {summaryCards && summary && summary.due + (summary.open ?? 0) > 0 && (
+            <StatusFigureStats label="Checklist fill summary" items={summaryCards.items} counts={summaryCards.counts} display={summaryCards.display} />
           )}
           {summary && summary.due + (summary.open ?? 0) === 0 && (
             <p className="t-meta font-display text-text-muted">
@@ -300,19 +293,29 @@ export const ChecklistWeeklyReport = () => {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="t-meta font-display text-text-muted">Each row shows questions answered, days that met the deadline and answers right, with the counts behind each %.</p>
-            <ExportMenu
-              disabled={!rows?.length}
-              aria-label="Export the fill table"
-              filename="checklist-fill"
-              sheetName="Fill"
-              title={exportTitle({ what: 'Checklist fill', from: range.from, to: range.to, period: range.label, filters: { Store: storeName, Department: departmentName } })}
-              getRows={() => fillMatrixRows(data)}
-              className="h-11 rounded-lg sm:h-9"
-            />
+            <h2 className="t-section font-display font-bold text-text">Checklists</h2>
+            <div className="flex items-center gap-2">
+              <SlidingTabs label="View" value={fillView} options={FILL_VIEW_OPTIONS} onChange={setFillView} size="sm" />
+              <ExportMenu
+                disabled={!rows?.length}
+                aria-label="Export the fill table"
+                filename="checklist-fill"
+                sheetName="Fill"
+                title={exportTitle({ what: 'Checklist fill', from: range.from, to: range.to, period: range.label, filters: { Store: storeName, Department: departmentName } })}
+                getRows={() => fillMatrixRows(data)}
+                className="h-11 rounded-lg sm:h-9"
+              />
+            </div>
           </div>
 
-          <FillMatrix data={data} today={today} label={range.label} />
+          {fillView === 'cards' ? (
+            <FillChecklistCards data={data} />
+          ) : (
+            <>
+              <p className="t-meta font-display text-text-muted">Each row shows questions answered, days that met the deadline and answers right, with the counts behind each %.</p>
+              <FillMatrix data={data} today={today} label={range.label} />
+            </>
+          )}
 
           {isPlaceholderData && (
             <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
