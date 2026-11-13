@@ -1,7 +1,7 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarCheck2, ChevronDown, Eye, Repeat, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Collapse, EmptyState, IconChip, SlidingTabs, type SlidingTabOption } from '../../components';
+import { Collapse, EmptyState, IconChip, SelectDropdown, SlidingTabs, type SlidingTabOption } from '../../components';
 import type { DayCell, HeatmapRow } from '../../api/exceptions';
 import { FAIR_FROM } from '../../lib/scoreBands';
 import { MetricBar, ScoreBadge, ScoreTrack, StackBar } from '../checklist/instance/fillParts';
@@ -189,9 +189,11 @@ export const FillPeopleCards = ({ people, today, onOpen }: FillPeopleCardsProps)
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SlidingTabs label="Show" value={filter} options={filters} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
-        <SlidingTabs label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} size="sm" fill="phone" className="max-sm:w-full" />
+        <div className="sm:w-44">
+          <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
+        </div>
       </div>
       {shown.length === 0 ? (
         <EmptyState size="compact" icon={Trophy} title="Nobody here" description="Try another filter." action={{ label: 'Show everyone', onClick: () => setFilter('all') }} />

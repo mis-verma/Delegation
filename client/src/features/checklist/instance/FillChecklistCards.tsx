@@ -1,7 +1,7 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ClipboardList, Store, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Collapse, EmptyState, SlidingTabs, type SlidingTabOption } from '../../../components';
+import { Collapse, EmptyState, SelectDropdown, SlidingTabs, type SlidingTabOption } from '../../../components';
 import type { WeeklyReport } from '../../../api/checklistInstances';
 import { FAIR_FROM } from '../../../lib/scoreBands';
 import { FillCell, FillLegend } from './FillMatrix';
@@ -101,9 +101,11 @@ export const FillChecklistCards = ({ data }: { data: WeeklyReport }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SlidingTabs label="Show" value={filter} options={filters} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
-        <SlidingTabs label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} size="sm" fill="phone" className="max-sm:w-full" />
+        <div className="sm:w-44">
+          <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
+        </div>
       </div>
       {shown.length === 0 ? (
         <EmptyState size="compact" icon={ClipboardList} title="No checklists here" description="Try another filter." action={{ label: 'Show all', onClick: () => setFilter('all') }} />

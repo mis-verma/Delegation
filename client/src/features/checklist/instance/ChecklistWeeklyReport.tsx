@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { CalendarCheck2, ChevronRight, SearchX } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { BarChart3, Building2, CalendarCheck2, CalendarRange, ChevronRight, Grid3x3, ListChecks, MoreHorizontal, SearchX, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton, SlidingTabs } from '../../../components';
+import { Combobox, Dropdown, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs, type SlidingTabOption } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { formatPct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
@@ -20,14 +20,17 @@ import { rankScoreboard } from './reportScoreboardRank';
 import { useOrgToday } from '../useOrgToday';
 import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
 import { fillKind } from './fillCount';
-import { FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { SCORE_LABEL, complianceLabel } from '../../../lib/scoreLabels';
-import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { PERIOD_LABEL, PERIODS, windowFor, type ScorePeriod } from '../../dashboard/scorePeriods';
 
 type ReportView = 'checklists' | 'departments' | 'stores' | 'periods';
-const VIEW_KEYS: readonly ReportView[] = ['checklists', 'departments', 'stores', 'periods'];
-const VIEW_LABELS: Record<ReportView, string> = { checklists: 'Checklists', departments: 'Departments', stores: 'Stores', periods: 'Week to year' };
+const VIEW_OPTIONS: SlidingTabOption<ReportView>[] = [
+  { value: 'checklists', label: 'Checklists', icon: ListChecks },
+  { value: 'departments', label: 'Departments', shortLabel: 'Depts', icon: Building2 },
+  { value: 'stores', label: 'Stores', icon: Store },
+  { value: 'periods', label: 'Week to year', shortLabel: 'Trend', icon: CalendarRange },
+];
+const PERIOD_OPTIONS = PERIODS.map((value) => ({ value, label: PERIOD_LABEL[value] }));
 
 const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 
@@ -148,93 +151,94 @@ export const ChecklistWeeklyReport = () => {
   };
   const scoresMatrixHref = `/admin/scores?${new URLSearchParams({ view: 'checklist', matrix: '1', from: range.from, to: range.to, ...(appliedStoreId ? { store: appliedStoreId } : {}), ...(appliedDepartmentId ? { dept: appliedDepartmentId } : {}) }).toString()}`;
   const storeName = stores.find((s) => s.id === storeId)?.name;
+  const showStoreFilter = view !== 'stores';
+  const showDepartmentFilter = canPickDepartment && view !== 'departments';
   const departmentName = canPickDepartment ? departments.find((d) => d.id === departmentId)?.name : undefined;
 
   return (
-    <div className="flex w-full flex-col gap-6">
-      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in Scores."
-        actions={
-          <>
-            <Link viewTransition to="/admin/scores?view=checklist" className="inline-flex h-9 items-center rounded-lg border border-border px-3 t-meta font-display font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text">Compare in Scores</Link>
-            <Link viewTransition to={scoresMatrixHref} className="inline-flex h-9 items-center rounded-lg border border-border px-3 t-meta font-display font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text">Fill matrix in Scores</Link>
-          </>
-        }
-      />
+    <div className="flex w-full flex-col gap-4">
+      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in Scores." />
 
-      <div className="w-full sm:w-fit">
-        <PeriodTabControl value={view} options={VIEW_KEYS} labels={VIEW_LABELS} onChange={setView} fill />
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className={cn('flex w-full flex-col gap-3 sm:w-auto', view === 'periods' && 'hidden')}>
-          <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
-          <PeriodStepper
-            label={range.label}
-            onPrev={() => setOffset((o) => o - 1)}
-            onNext={() => setOffset((o) => Math.min(0, o + 1))}
-            nextDisabled={offset >= 0}
-            prevLabel={`Previous ${periodWord}`}
-            nextLabel={`Next ${periodWord}`}
-            todayLabel={offset !== 0 ? `This ${periodWord}` : undefined}
-            onToday={() => setOffset(0)}
-          />
-        </div>
-        <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto">
-          {view !== 'stores' && (
-          <div className="flex flex-col gap-1.5 flex-1 min-w-40 sm:flex-none sm:w-52">
-            <label htmlFor="weekly-store" className={FIELD_LABEL_CLASS}>Store</label>
-            <Combobox
-              id="weekly-store"
-              value={storeId}
-              onChange={setStoreId}
-              options={storeOptions}
-              emptyOptionLabel="All stores"
-              isLoading={storesPending}
-              className="h-11 rounded-lg sm:h-9"
+      <section aria-label="Report controls" className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4')}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <SlidingTabs label="Report view" value={view} options={VIEW_OPTIONS} onChange={setView} size="sm" fill="phone" className="max-sm:w-full" />
+          <div className="flex items-center gap-2 max-sm:w-full">
+            {view === 'checklists' && (
+              <WeeklyExportMenu
+                period={period}
+                offset={offset}
+                storeId={storeId || undefined}
+                departmentId={appliedDepartmentId}
+                storeName={storeName}
+                departmentName={canPickDepartment ? departmentName : user?.role ? 'your department' : undefined}
+              />
+            )}
+            {(view === 'departments' || view === 'stores') && (
+              <ExportMenu
+                disabled={!boardItems?.length}
+                aria-label={`Export the ${view} scoreboard`}
+                filename={`report-${view}`}
+                sheetName="Report"
+                title={exportTitle({
+                  what: `Report, ${view === 'departments' ? 'Departments' : 'Stores'}`,
+                  from: range.from,
+                  to: range.to,
+                  period: range.label,
+                  filters: view === 'departments' ? { Store: storeName } : { Department: departmentName },
+                })}
+                getRows={exportBoard}
+                className="h-11 rounded-xl"
+              />
+            )}
+            <Dropdown
+              title="Open in Scores"
+              items={[
+                { label: 'Compare in Scores', icon: BarChart3, to: '/admin/scores?view=checklist' },
+                { label: 'Fill matrix in Scores', icon: Grid3x3, to: scoresMatrixHref },
+              ]}
+              trigger={
+                <button type="button" aria-label="More options" className="ml-auto flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border/60 bg-surface text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:ml-0">
+                  <MoreHorizontal className="size-5" aria-hidden="true" />
+                </button>
+              }
             />
           </div>
-          )}
-          {canPickDepartment && view !== 'departments' && (
-            <div className="flex flex-col gap-1.5 flex-1 min-w-40 sm:flex-none sm:w-52">
-              <label htmlFor="weekly-department" className={FIELD_LABEL_CLASS}>Department</label>
-              <Combobox
-                id="weekly-department"
-                value={departmentId}
-                onChange={setDepartmentId}
-                options={departmentOptions}
-                emptyOptionLabel="All departments"
-                isLoading={departmentsPending}
-                className="h-11 rounded-lg sm:h-9"
+        </div>
+
+        <div className={cn('flex flex-col gap-2 border-t border-border/50 pt-3 lg:flex-row lg:items-center lg:justify-between', view === 'periods' && 'lg:justify-end')}>
+          {view !== 'periods' && (
+            <div className="flex items-center gap-2">
+              <div className="w-28 shrink-0">
+                <SelectDropdown aria-label="Period" label="Period" value={period} options={PERIOD_OPTIONS} onChange={(next) => { setPeriod(next); setOffset(0); }} />
+              </div>
+              <PeriodStepper
+                label={range.label}
+                onPrev={() => setOffset((o) => o - 1)}
+                onNext={() => setOffset((o) => Math.min(0, o + 1))}
+                nextDisabled={offset >= 0}
+                prevLabel={`Previous ${periodWord}`}
+                nextLabel={`Next ${periodWord}`}
+                todayLabel={offset !== 0 ? `This ${periodWord}` : undefined}
+                onToday={() => setOffset(0)}
               />
             </div>
           )}
-          {view === 'checklists' && <WeeklyExportMenu
-            period={period}
-            offset={offset}
-            storeId={storeId || undefined}
-            departmentId={canPickDepartment ? departmentId || undefined : undefined}
-            storeName={stores.find(s => s.id === storeId)?.name}
-            departmentName={canPickDepartment ? departments.find(d => d.id === departmentId)?.name : user?.role ? 'your department' : undefined}
-          />}
-          {(view === 'departments' || view === 'stores') && (
-            <ExportMenu
-              disabled={!boardItems?.length}
-              aria-label={`Export the ${view} scoreboard`}
-              filename={`report-${view}`}
-              sheetName="Report"
-              title={exportTitle({
-                what: `Report, ${view === 'departments' ? 'Departments' : 'Stores'}`,
-                from: range.from,
-                to: range.to,
-                period: range.label,
-                filters: view === 'departments' ? { Store: storeName } : { Department: departmentName },
-              })}
-              getRows={exportBoard}
-              className="h-11 rounded-lg sm:h-9"
-            />
+          {(showStoreFilter || showDepartmentFilter) && (
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              {showStoreFilter && (
+                <div className={cn('min-w-0 sm:w-52', !showDepartmentFilter && 'col-span-2')}>
+                  <Combobox id="weekly-store" label="Store" value={storeId} onChange={setStoreId} options={storeOptions} emptyOptionLabel="All stores" placeholder="All stores" isLoading={storesPending} />
+                </div>
+              )}
+              {showDepartmentFilter && (
+                <div className={cn('min-w-0 sm:w-52', !showStoreFilter && 'col-span-2')}>
+                  <Combobox id="weekly-department" label="Department" value={departmentId} onChange={setDepartmentId} options={departmentOptions} emptyOptionLabel="All departments" placeholder="All departments" isLoading={departmentsPending} />
+                </div>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      </section>
 
       {view === 'periods' && (
         <ChecklistPeriodReport
@@ -293,7 +297,7 @@ export const ChecklistWeeklyReport = () => {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="t-section font-display font-bold text-text">Checklists</h2>
+            <p className="t-meta font-display font-semibold text-text-secondary">{rows.length} {rows.length === 1 ? 'checklist' : 'checklists'}</p>
             <div className="flex items-center gap-2">
               <SlidingTabs label="View" value={fillView} options={FILL_VIEW_OPTIONS} onChange={setFillView} size="sm" />
               <ExportMenu
