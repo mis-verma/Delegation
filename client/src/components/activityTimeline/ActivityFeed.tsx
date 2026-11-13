@@ -30,6 +30,7 @@ const KIND: Record<ActivityKind, { icon: LucideIcon; tone: ActivityTone }> = {
   progress: { icon: Activity, tone: 'warning' },
   head_approved: { icon: ShieldCheck, tone: 'success' },
   claimed: { icon: Hand, tone: 'primary' },
+  head_claimed: { icon: Hand, tone: 'primary' },
   declined: { icon: Ban, tone: 'danger' },
   reopened: { icon: RotateCcw, tone: 'info' },
 };
@@ -92,6 +93,7 @@ const sentence = (e: ActivityEvent, thing: string) => {
     case 'progress': return `posted a work update`;
     case 'head_approved': return `approved this ${thing} for the team`;
     case 'claimed': return `claimed this ${thing}`;
+    case 'head_claimed': return `picked up this ${thing} as department head`;
     case 'declined': return `declined this ${thing}`;
     case 'reopened': return `reopened this ${thing}`;
   }

@@ -9,7 +9,7 @@ import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { cn } from '@/lib/utils';
 import { usePrefetchTicket } from './hook';
-import { isClaimable, tatText } from './claim/ticketClaim';
+import { isAwaitingAssigneeClaim, isClaimable, tatText } from './claim/ticketClaim';
 import { PRIORITY_CONFIG, formatDueLabel, formatAge } from './ticketDisplay';
 import { StatusChip, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
@@ -32,6 +32,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
   const isOverdue = !!due?.overdue;
   const isBoard = variant === 'board';
   const claimable = isClaimable(ticket);
+  const awaitingAssignee = isAwaitingAssigneeClaim(ticket);
   const statusChipStatus = (ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus;
   const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee ? ticket.assignee.firstName : null;
@@ -123,6 +124,9 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
 
         {claimable && (
           <IconChip icon={Hand} tone="bg-primary-600" label={tatText(ticket.tatHours) ? `To claim, ${tatText(ticket.tatHours)}` : 'To claim'} title="Anyone in this department can claim it. The clock starts at claim." />
+        )}
+        {awaitingAssignee && (
+          <IconChip icon={Hand} tone="bg-warning" label={`${assigneeName ?? 'Assignee'} to claim`} labelClassName="text-warning" title="Given by the department head. Their clock starts when they claim it." />
         )}
 
         {due && (

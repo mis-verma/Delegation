@@ -1,5 +1,5 @@
 import { notifyMany, notifySafely } from './notificationCore.js';
-import { notifyAssigneeMovedTeam, notifyTicketRedirected, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketClaimable, notifyTicketClaimed, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
+import { notifyAssigneeMovedTeam, notifyTicketRedirected, notifyTicketAssigned, notifyTicketAwaitingHead, notifyHeadDecisionReminder, notifyHeadDecisionEscalation, notifyStaleWork, notifyTicketHeadApproved, notifyTicketProgress, notifyTicketDeclined, notifyTicketUnassigned, notifyTicketClaimable, notifyTicketClaimed, notifyTicketHeadClaimed, notifyTicketGivenToClaim, notifyTicketOnHold, notifyTicketDueSoon, notifyTicketOverdue } from './ticketNotifications.js';
 import { notifyTaskAwaitingHead, notifyTaskHeadDecisionReminder, notifyTaskHeadDecisionEscalation, notifyTaskHeadApproved, notifyTaskPartlyApproved, notifyTaskTeamRemoved, notifyTaskDeclined, notifyTaskAssigned, notifyTaskUnassigned, notifyTaskOverdue, notifyTaskDueSoon } from './taskNotifications.js';
 import { notifyAdminsOfRisk, notifyBackupFailed, notifyPendingVerification, notifyVerificationResult, notifyTicketAutoClosed, notifyTaskAutoClosed, notifyApprovalEscalation, notifyOverdueEscalation, notifyOverdueHeadChase, notifyUnassignedReminder, notifyStageHandOff, notifyCompletionPartlyApproved, notifyCommentAdded, notifyReviewerAdded, notifyStatusMoved } from './workflowNotifications.js';
 import { notifyChecklistPendingVerification, notifyChecklistAwaitingHead, notifyChecklistApprovalReminder, notifyChecklistApprovalEscalation, notifyChecklistVerificationResult, notifyAreaManagersOfChecklistFlag, notifyChecklistOverdue, notifyChecklistLateWindowClosing, notifyChecklistOpened, notifyChecklistDueSoon, notifyChecklistUpcoming, notifyChecklistDraftReminder, notifyChecklistSubmitReminder } from './checklistNotifications.js';
@@ -22,6 +22,8 @@ export const notificationService = {
   notifyTicketUnassigned,
   notifyTicketClaimable,
   notifyTicketClaimed,
+  notifyTicketHeadClaimed,
+  notifyTicketGivenToClaim,
   notifyTicketOnHold,
   notifyTicketDueSoon,
   notifyTicketOverdue,

@@ -23,7 +23,7 @@ import { notificationService, notifySafely } from "../notifications/notification
 import { settingsService } from "../settings/settings.service.js"
 import { canApproveAssignment, isDepartmentHead, resolveGateDepartment, ticketNeedsHeadApproval } from "./ticketApproval.js"
 import { isAdminOrPc, isDepartmentHeadRole, isOwnScopeRole } from "../../utils/roles.js"
-import { type TicketRow, NOT_DELETED, CLAIM_POOL, assertAssignableUser, deriveTatDueAt, inClaimPool, overdueAtHandOver } from "./ticketShared.js"
+import { type TicketRow, NOT_DELETED, CLAIM_POOL, AWAITING_CLAIM, assertAssignableUser, awaitingAssigneeClaim, awaitingClaim, claimHandOff, deriveTatDueAt, headClaimBlock, inClaimPool, overdueAtHandOver } from "./ticketShared.js"
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
@@ -49,7 +49,12 @@ const roomTarget = (ticket: Pick<TicketRow, "userId" | "assigneeId" | "departmen
   storeId: ticket.storeId ?? null,
 })
 
-const STALE_TICKET_MESSAGE = "Someone changed this ticket a moment ago. Open it again and retry."
+const firstNameOf = async (userId: string) => {
+  const [person] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, userId)).limit(1)
+  return person?.firstName ?? "Someone"
+}
+
+const STALE_TICKET_MESSAGE ="Someone changed this ticket a moment ago. Open it again and retry."
 
 export const ticketService = {
   async list(user: AccessTokenPayload, query: ListTicketsQuery) {
@@ -329,7 +334,12 @@ export const ticketService = {
       }
     }
 
-    const waitingForClaim = inClaimPool(before) && !nextAssigneeId && !nowAwaitingHead
+    const handedToNewPerson = !nowAwaitingHead && awaitingClaim(before) && !!nextAssigneeId && nextAssigneeId !== before.assigneeId
+    const handOff = handedToNewPerson ? claimHandOff(nextAssigneeId, user.sub, input.tatHours !== undefined ? input.tatHours ?? null : before.tatHours, new Date()) : null
+    const waitingForClaim = !nowAwaitingHead && (handOff ? !handOff.claimedAt : awaitingClaim(before))
+    if (input.status !== undefined && input.status !== before.status && waitingForClaim && !isAdminOrPc(user.role)) {
+      throw AppError.badRequest("This ticket has not been claimed yet, so its status can't change.")
+    }
     if (input.tatHours !== undefined && input.tatHours !== before.tatHours) {
       patch.tatHours = input.tatHours ?? null
       patch.tatDueAt = waitingForClaim ? null : deriveTatDueAt(input.tatHours ?? null, new Date())
@@ -339,10 +349,16 @@ export const ticketService = {
       patch.overdueEscalatedAt = null
     }
 
-    if (nowAwaitingHead) patch.claimOpenedAt = null
-    if (!nowAwaitingHead && inClaimPool(before) && nextAssigneeId && !before.tatDueAt && patch.tatDueAt === undefined) {
-      patch.tatDueAt = deriveTatDueAt(before.tatHours, new Date())
-      patch.isOverdue = false
+    if (nowAwaitingHead) {
+      patch.claimOpenedAt = null
+      patch.claimedAt = null
+      patch.headClaimedBy = null
+      patch.headClaimedAt = null
+    }
+    if (handOff) Object.assign(patch, handOff, { isOverdue: false })
+    if (approvedByReassign && !before.headClaimedAt) {
+      patch.headClaimedBy = user.sub
+      patch.headClaimedAt = patch.assignmentApprovedAt
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
@@ -394,7 +410,8 @@ export const ticketService = {
     if (input.assigneeId && input.assigneeId !== before.assigneeId) {
       await db.update(tickets).set({ unassignedNotifiedAt: null }).where(eq(tickets.id, id))
       emitTicketEvent("ticket:assigned", target, populated)
-      if (!nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
+      if (handOff && !handOff.claimedAt) await notifySafely(() => notificationService.notifyTicketGivenToClaim({ _id: id, title: afterRow!.title, assigneeId: input.assigneeId!, tatHours: afterRow!.tatHours }, user.sub))
+      else if (!nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
     if (nowAwaitingHead) await notifySafely(() => notificationService.notifyTicketAwaitingHead(notificationTarget(afterRow!)))
     if (input.departmentId && before.departmentId && input.departmentId !== before.departmentId) await notifySafely(() => notificationService.notifyTicketRedirected({ _id: id, title: afterRow!.title, userId: before.userId }, input.departmentId!, user.sub))
@@ -423,8 +440,12 @@ export const ticketService = {
       throw AppError.badRequest("This ticket was declined. Use Reopen ticket to bring it back.")
     }
 
-    if (inClaimPool(before)) {
-      throw AppError.badRequest("Nobody has claimed this ticket yet. Claim it, or give it to someone first.")
+    if (awaitingClaim(before)) {
+      throw AppError.badRequest(!before.assigneeId
+        ? "Nobody has claimed this ticket yet. Claim it, or give it to someone first."
+        : before.assigneeId === user.sub
+          ? "Claim this ticket first. Your clock starts when you claim it."
+          : `${await firstNameOf(before.assigneeId)} has not claimed this ticket yet.`)
     }
 
     const canActBeforeApproval = isVerifierRole(user) || isDepartmentHead(user, ticket)
@@ -567,6 +588,7 @@ export const ticketService = {
     if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can approve this ticket.")
     if (ticket.declinedAt) throw AppError.badRequest("This ticket was declined. Reopen it first if it should go ahead.")
     if (!ticket.awaitingHeadApproval) throw AppError.conflict("This ticket has already been approved.")
+    if (headClaimBlock(ticket, user.sub, isAdminOrPc(user.role))) throw AppError.forbidden(`${await firstNameOf(ticket.headClaimedBy!)} claimed this ticket, so they assign it.`)
 
     if (assigneeId && assigneeId !== ticket.assigneeId) {
       await assertAssignableUser(assigneeId)
@@ -579,22 +601,21 @@ export const ticketService = {
     const openForClaim = !person && !!ticket.departmentId
 
     const now = new Date()
+    const handOff = claimHandOff(person, user.sub, hours, now)
     const patch: Partial<typeof tickets.$inferInsert> = {
       awaitingHeadApproval: false,
       ...(assigneeId ? { assigneeId } : {}),
       tatHours: hours,
       assignmentApprovedBy: user.sub,
       assignmentApprovedAt: now,
-      claimOpenedAt: openForClaim ? now : null,
+      headClaimedBy: ticket.headClaimedBy ?? user.sub,
+      headClaimedAt: ticket.headClaimedAt ?? now,
+      ...handOff,
+      isOverdue: false,
+      dueSoonNotifiedAt: null,
+      overdueNotifiedAt: null,
+      overdueEscalatedAt: null,
       updatedAt: now,
-    }
-    const restartClock = openForClaim || tatHours !== undefined || ticket.assignmentMode !== "MANUAL"
-    if (restartClock) {
-      patch.tatDueAt = openForClaim ? null : deriveTatDueAt(hours, now)
-      patch.isOverdue = false
-      patch.dueSoonNotifiedAt = null
-      patch.overdueNotifiedAt = null
-      patch.overdueEscalatedAt = null
     }
     const [result] = await db.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.awaitingHeadApproval, true), NOT_DELETED))
     if (result.affectedRows === 0) throw AppError.conflict("Someone approved this ticket a moment ago.")
@@ -604,8 +625,34 @@ export const ticketService = {
 
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
-    await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub))
+    const personMustClaim = !!person && !handOff.claimedAt
+    await notifySafely(() => notificationService.notifyTicketHeadApproved(notificationTarget(afterRow!), user.sub, personMustClaim))
+    if (personMustClaim) await notifySafely(() => notificationService.notifyTicketGivenToClaim({ _id: id, title: afterRow!.title, assigneeId: person!, tatHours: afterRow!.tatHours }, user.sub))
     if (openForClaim) await notifySafely(() => notificationService.notifyTicketClaimable({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId, tatHours: afterRow!.tatHours }, user.sub))
+    await dropTicketSummaries()
+    return populated
+  },
+
+  async headClaim(id: string, user: AccessTokenPayload) {
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
+    if (!ticket) throw AppError.notFound("Ticket not found")
+    if (!canApproveAssignment(ticket, user)) throw AppError.forbidden("Only the department head, PC or an admin can claim this ticket.")
+    if (ticket.declinedAt) throw AppError.badRequest("This ticket was declined. Reopen it first if it should go ahead.")
+    if (!ticket.awaitingHeadApproval) throw AppError.conflict("This ticket has already been assigned.")
+    if (ticket.headClaimedBy === user.sub) return getPopulatedTicket(id)
+    if (ticket.headClaimedBy) throw AppError.conflict(`${await firstNameOf(ticket.headClaimedBy)} already claimed this ticket.`)
+
+    const now = new Date()
+    const [result] = await db.update(tickets).set({ headClaimedBy: user.sub, headClaimedAt: now, updatedAt: now })
+      .where(and(eq(tickets.id, id), eq(tickets.awaitingHeadApproval, true), isNull(tickets.headClaimedBy), isNull(tickets.declinedAt), NOT_DELETED))
+    if (result.affectedRows === 0) throw AppError.conflict("Another head claimed this ticket a moment ago.")
+
+    const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    await auditService.record({ entityType: "Ticket", entityId: id, action: "HEAD_CLAIM", actorId: user.sub, before: ticket, after: afterRow })
+
+    const populated = await getPopulatedTicket(id)
+    emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
+    await notifySafely(() => notificationService.notifyTicketHeadClaimed({ _id: id, title: afterRow!.title, userId: afterRow!.userId }, user.sub))
     await dropTicketSummaries()
     return populated
   },
@@ -615,14 +662,15 @@ export const ticketService = {
     if (!ticket) throw AppError.notFound("Ticket not found")
     if (ticket.declinedAt) throw AppError.badRequest("This ticket was declined, so it can't be claimed.")
     if (ticket.awaitingHeadApproval) throw AppError.badRequest("Your department head has to set the time for this ticket before anyone can claim it.")
-    if (ticket.assigneeId) {
-      const [taker] = await db.select({ firstName: users.firstName }).from(users).where(eq(users.id, ticket.assigneeId)).limit(1)
-      throw AppError.conflict(ticket.assigneeId === user.sub ? "You already have this ticket." : `${taker?.firstName ?? "Someone"} already took this ticket.`)
+    const givenToMe = ticket.assigneeId === user.sub && awaitingAssigneeClaim(ticket)
+    if (ticket.assigneeId && !givenToMe) {
+      throw AppError.conflict(ticket.assigneeId === user.sub ? "You already have this ticket." : `${await firstNameOf(ticket.assigneeId)} already took this ticket.`)
     }
-    if (!inClaimPool(ticket)) throw AppError.badRequest("This ticket is not open to claim. Ask your department head.")
+    if (!givenToMe && !inClaimPool(ticket)) throw AppError.badRequest("This ticket is not open to claim. Ask your department head.")
 
     const [me] = await db.select({ departmentId: users.departmentId, isActive: users.isActive, role: users.role }).from(users).where(eq(users.id, user.sub)).limit(1)
-    if (!me || !me.isActive || me.role === "OWNER" || !me.departmentId || me.departmentId !== ticket.departmentId) {
+    if (!me || !me.isActive || me.role === "OWNER") throw AppError.forbidden("Your account can't take tickets.")
+    if (!givenToMe && (!me.departmentId || me.departmentId !== ticket.departmentId)) {
       throw AppError.forbidden("Only people in this ticket's department can claim it.")
     }
 
@@ -637,8 +685,10 @@ export const ticketService = {
       overdueEscalatedAt: null,
       unassignedNotifiedAt: null,
       updatedAt: now,
-    }).where(and(eq(tickets.id, id), eq(tickets.departmentId, me.departmentId), CLAIM_POOL))
-    if (result.affectedRows === 0) throw AppError.conflict("Someone claimed this ticket a moment ago.")
+    }).where(givenToMe
+      ? and(eq(tickets.id, id), eq(tickets.assigneeId, user.sub), AWAITING_CLAIM)
+      : and(eq(tickets.id, id), eq(tickets.departmentId, me.departmentId!), CLAIM_POOL))
+    if (result.affectedRows === 0) throw AppError.conflict(givenToMe ? "This ticket changed a moment ago. Open it again." : "Someone claimed this ticket a moment ago.")
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
     await auditService.record({ entityType: "Ticket", entityId: id, action: "CLAIM", actorId: user.sub, before: ticket, after: afterRow })
@@ -714,6 +764,7 @@ export const ticketService = {
       declinedBy: user.sub,
       declineReason: note,
       isOverdue: false,
+      ...(ticket.awaitingHeadApproval && !ticket.headClaimedAt ? { headClaimedBy: user.sub, headClaimedAt: now } : {}),
       updatedAt: now,
     }).where(and(eq(tickets.id, id), eq(tickets.status, ticket.status), NOT_DELETED))
     if (result.affectedRows === 0) throw AppError.conflict("Someone changed this ticket a moment ago. Open it again and retry.")

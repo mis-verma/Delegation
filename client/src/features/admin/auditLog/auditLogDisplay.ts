@@ -54,6 +54,7 @@ export const ACTION_CONFIG: Record<AuditAction, { label: string; icon: LucideIco
   PROGRESS: { label: 'Work update', icon: Activity, tone: 'bg-warning' },
   VIEW_AS: { label: 'Preview', icon: Eye, tone: 'bg-primary-600' },
   CLAIM: { label: 'Claimed', icon: Hand, tone: 'bg-primary-600' },
+  HEAD_CLAIM: { label: 'Head claimed', icon: Hand, tone: 'bg-primary-600' },
 };
 
 const ACTION_VERB: Record<AuditAction, string> = {
@@ -79,6 +80,7 @@ const ACTION_VERB: Record<AuditAction, string> = {
   PROGRESS: 'posted a work update on',
   VIEW_AS: 'previewed the account of',
   CLAIM: 'claimed',
+  HEAD_CLAIM: 'claimed as head',
 };
 
 export const actionVerb = (action: string) =>

@@ -16,8 +16,27 @@ export const NOT_GATED = and(eq(tickets.awaitingHeadApproval, false), isNull(tic
 
 export const CLAIM_POOL = and(isNotNull(tickets.claimOpenedAt), isNull(tickets.assigneeId), eq(tickets.status, "OPEN"), eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt), isNull(tickets.deletedAt))!
 
-export const inClaimPool = (ticket: Pick<TicketRow, "claimOpenedAt" | "assigneeId" | "status" | "awaitingHeadApproval" | "declinedAt">): boolean =>
+export const AWAITING_CLAIM = and(isNotNull(tickets.claimOpenedAt), isNull(tickets.claimedAt), eq(tickets.status, "OPEN"), eq(tickets.awaitingHeadApproval, false), isNull(tickets.declinedAt), isNull(tickets.deletedAt))!
+
+type ClaimState = Pick<TicketRow, "claimOpenedAt" | "claimedAt" | "assigneeId" | "status" | "awaitingHeadApproval" | "declinedAt">
+
+export const inClaimPool = (ticket: Omit<ClaimState, "claimedAt">): boolean =>
   !!ticket.claimOpenedAt && !ticket.assigneeId && ticket.status === "OPEN" && !ticket.awaitingHeadApproval && !ticket.declinedAt
+
+export const awaitingClaim = (ticket: ClaimState): boolean =>
+  !!ticket.claimOpenedAt && !ticket.claimedAt && ticket.status === "OPEN" && !ticket.awaitingHeadApproval && !ticket.declinedAt
+
+export const awaitingAssigneeClaim = (ticket: ClaimState): boolean => awaitingClaim(ticket) && !!ticket.assigneeId
+
+export type ClaimHandOff = { claimOpenedAt: Date; claimedAt: Date | null; tatDueAt: Date | null }
+
+export const claimHandOff = (assigneeId: string | null, actorId: string, tatHours: number | null, now: Date): ClaimHandOff => {
+  const takenBySelf = !!assigneeId && assigneeId === actorId
+  return { claimOpenedAt: now, claimedAt: takenBySelf ? now : null, tatDueAt: takenBySelf ? deriveTatDueAt(tatHours, now) : null }
+}
+
+export const headClaimBlock = (ticket: Pick<TicketRow, "headClaimedBy">, actorId: string, orgWide: boolean): boolean =>
+  !!ticket.headClaimedBy && ticket.headClaimedBy !== actorId && !orgWide
 
 export const deriveTatDueAt = (tatHours: number | null, fromDate: Date): Date | null =>
   tatHours ? new Date(fromDate.getTime() + Math.min(tatHours, MAX_TAT_HOURS) * 60 * 60 * 1000) : null

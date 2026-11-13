@@ -743,6 +743,13 @@
       "when": 1793060000000,
       "tag": "0105_leave_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "5",
+      "when": 1793070000000,
+      "tag": "0106_ticket_head_claim",
+      "breakpoints": true
     }
   ]
 }

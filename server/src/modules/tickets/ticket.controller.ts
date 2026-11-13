@@ -54,6 +54,11 @@ export const ticketController = {
         res.json({ success : true , data : ticket })
     }),
 
+    headClaim : asyncHandler(async (req : Request , res : Response) => {
+        const ticket = await runWithCover(req.user!, (actor) => ticketService.headClaim(routeParam(req, "id"), actor))
+        res.json({ success : true , data : ticket })
+    }),
+
     claim : asyncHandler(async (req : Request , res : Response) => {
         const ticket = await ticketService.claim(routeParam(req, "id"), req.user!)
         res.json({ success : true , data : ticket })

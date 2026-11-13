@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lt, notInArray, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { tickets, ticketTags, TICKET_PRIORITIES, TICKET_STATUSES } from "../../db/schema/index.js"
-import { CLAIM_POOL } from "./ticketShared.js"
+import { AWAITING_CLAIM, CLAIM_POOL } from "./ticketShared.js"
 import type { TicketListBucket, TicketListHandler, TicketListSort } from "./ticketListParams.js"
 
 export type TicketListScope = {
@@ -51,7 +51,7 @@ export const ticketScopeConditions = (scope: TicketListScope): (SQL | undefined)
     const conditions: (SQL | undefined)[] = []
     if (scope.viewerId && scope.handledBy === "assignee") conditions.push(eq(tickets.assigneeId, scope.viewerId))
     if (scope.viewerId && scope.handledBy === "creator") conditions.push(eq(tickets.userId, scope.viewerId))
-    if (scope.handledBy === "claimable") conditions.push(CLAIM_POOL)
+    if (scope.handledBy === "claimable") conditions.push(scope.viewerId ? or(CLAIM_POOL, and(eq(tickets.assigneeId, scope.viewerId), AWAITING_CLAIM)) : CLAIM_POOL)
     if (scope.createdFrom) conditions.push(gte(tickets.createdAt, scope.createdFrom))
     if (scope.createdTo) conditions.push(lt(tickets.createdAt, scope.createdTo))
     if (scope.dueFrom || scope.dueTo) {

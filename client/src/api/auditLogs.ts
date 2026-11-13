@@ -12,7 +12,7 @@ export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 export const AUDIT_ACTIONS = [
   'CREATE', 'UPDATE', 'DELETE', 'VERIFY', 'APPROVE', 'REJECT', 'ACTIVATE', 'DEACTIVATE', 'PASSWORD_RESET',
   'SUBMIT', 'SEND_BACK', 'REOPEN_APPROVAL', 'REOPEN', 'COMPLETE', 'REASSIGN', 'OFFBOARD', 'WAIVE', 'UNWAIVE',
-  'DECLINE', 'PROGRESS', 'VIEW_AS', 'CLAIM',
+  'DECLINE', 'PROGRESS', 'VIEW_AS', 'CLAIM', 'HEAD_CLAIM',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

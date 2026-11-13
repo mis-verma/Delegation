@@ -585,11 +585,18 @@ export const instanceConditions = (filter: InstanceListFilter): SQL | undefined 
     return conditions.length ? and(...conditions) : undefined
 }
 
+const notOwnRunSql = (userId: string) => sql`NOT EXISTS (
+    SELECT 1 FROM ${checklistInstanceAssignees} oa
+    WHERE oa.instanceId = ${checklistInstances.id} AND oa.userId = ${userId}
+)`
+
 export const pendingApprovalScope = async (user: AccessTokenPayload): Promise<SQL | undefined> => {
     if (user.role === "ADMIN") return undefined
+    const notOwnRun = notOwnRunSql(user.sub)
+    const notCoordinatorRun = sql`NOT ${coordinatorRunSql}`
     const covers = await approvalCoverService.activeCoversFor(user.sub)
-    if (covers.some((cover) => cover.role === "ADMIN")) return undefined
-    if (user.role === "PC" || covers.some((cover) => cover.role === "PC")) return sql`NOT ${coordinatorRunSql}`
+    if (covers.some((cover) => cover.role === "ADMIN")) return user.role === "PC" ? and(notOwnRun, notCoordinatorRun) : notOwnRun
+    if (user.role === "PC" || covers.some((cover) => cover.role === "PC")) return and(notOwnRun, notCoordinatorRun)
     const reviewerIds = [user.sub, ...covers.map((cover) => cover.id)]
     const parts: SQL[] = [sql`EXISTS (
         SELECT 1 FROM ${checklistInstanceReviewers} r
@@ -600,7 +607,7 @@ export const pendingApprovalScope = async (user: AccessTokenPayload): Promise<SQ
     for (const cover of covers) if (isHod(cover) && cover.departmentId) departmentIds.add(cover.departmentId)
     const withHead = sql`(${checklistInstances.approvalStage} IS NULL OR ${checklistInstances.approvalStage} = 'HOD')`
     for (const departmentId of departmentIds) parts.push(sql`(${instanceInDepartmentCondition(departmentId)} AND ${withHead})`)
-    return sql`(${sql.join(parts, sql` OR `)})`
+    return and(notOwnRun, sql`(${sql.join(parts, sql` OR `)})`)
 }
 
 export const SUMMARY_TTL_SECONDS = 10

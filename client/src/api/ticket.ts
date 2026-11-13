@@ -158,6 +158,9 @@ export type Ticket = {
   awaitingHeadApproval?: boolean;
   claimOpenedAt?: string | null;
   claimedAt?: string | null;
+  headClaimedAt?: string | null;
+  headClaimedBy?: string | null;
+  headClaimer?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
   assignmentApprovedAt?: string | null;
   assignmentApprovedBy?: string | null;
   assignmentApprover?: { id: string; email: string; firstName: string; lastName?: string | null; role: string } | null;
@@ -346,6 +349,9 @@ export const ticketApi = {
 
   approveAssignment: (id: string, assigneeId?: string, tatHours?: number) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/approve-assignment`, { method: 'POST', body: JSON.stringify({ ...(assigneeId ? { assigneeId } : {}), ...(tatHours ? { tatHours } : {}) }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  headClaim: (id: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/head-claim`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   claim: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/claim`, { method: 'POST' }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

@@ -64,6 +64,8 @@ export const tickets = mysqlTable(
     awaitingHeadApproval: boolean('awaitingHeadApproval').notNull().default(false),
     claimOpenedAt: datetime('claimOpenedAt', { mode: 'date' }),
     claimedAt: datetime('claimedAt', { mode: 'date' }),
+    headClaimedBy: varchar('headClaimedBy', { length: 191 }).references(() => users.id),
+    headClaimedAt: datetime('headClaimedAt', { mode: 'date' }),
     assignmentApprovedBy: varchar('assignmentApprovedBy', { length: 191 }).references(() => users.id),
     assignmentApprovedAt: datetime('assignmentApprovedAt', { mode: 'date' }),
     deletedAt: datetime('deletedAt', { mode: 'date' }),

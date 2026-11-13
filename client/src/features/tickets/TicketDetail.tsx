@@ -18,7 +18,8 @@ import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../comp
 import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { TicketHeadDecision } from './detail/TicketHeadDecision';
 import { ClaimBanner } from './claim/ClaimBanner';
-import { isClaimable } from './claim/ticketClaim';
+import { isAwaitingClaim } from './claim/ticketClaim';
+import { TicketTatStages } from './claim/TicketTatStages';
 import { HeadApprovedBanner } from './detail/HeadApprovedBanner';
 import { ProgressUpdatesPanel } from './detail/ProgressUpdatesPanel';
 import { OverdueBanner } from './detail/OverdueBanner';
@@ -215,7 +216,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     && ticket.status !== 'CLOSED'
     && ticket.status !== 'PENDING_APPROVAL'
     && (!ownScope || ticket.assigneeId === currentUser?.id);
-  const statusOptions = showVerify || awaitingHead || !!ticket.declinedAt || isClaimable(ticket)
+  const statusOptions = showVerify || awaitingHead || !!ticket.declinedAt || isAwaitingClaim(ticket)
     ? []
     : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
       .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
@@ -406,7 +407,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   onDecline={() => setDeclining(true)}
                 />
               )}
-              {isClaimable(ticket) && <ClaimBanner ticket={ticket} departmentName={departmentName} />}
+              {isAwaitingClaim(ticket) && <ClaimBanner ticket={ticket} departmentName={departmentName} />}
+              <TicketTatStages ticket={ticket} />
               {!ticket.declinedAt && <TicketApprovalTrail ticket={ticket} />}
               {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} title={ticket.autoClosedAt ? 'Closed automatically' : undefined} />}
 

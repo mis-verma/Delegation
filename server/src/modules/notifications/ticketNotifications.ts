@@ -113,17 +113,21 @@ export const notifyTicketAwaitingHead = async (ticket: { _id: string; title: str
   });
 }
 
-export const notifyHeadDecisionReminder = async (ticket: { _id: string; title: string; departmentId?: string | null; userId?: string | null }, hoursWaiting: number) => {
+export const notifyHeadDecisionReminder = async (ticket: { _id: string; title: string; departmentId?: string | null; userId?: string | null; headClaimedBy?: string | null }, hoursWaiting: number) => {
   if (!ticket.departmentId) return [];
   const raiserId = ticket.userId ? ticket.userId.toString() : null;
-  const heads = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
+  const heads = ticket.headClaimedBy
+    ? [{ id: ticket.headClaimedBy }]
+    : await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
   return notifyMany(heads.map((h) => h.id).filter((id) => id !== raiserId), {
     type: 'TICKET_AWAITING_HEAD_REMINDER',
-    title: 'A ticket is waiting for your decision',
-    message: `"${ticket.title}" has waited ${formatWaiting(hoursWaiting)}. Nobody can start until you approve or decline it.`,
+    title: ticket.headClaimedBy ? 'You claimed a ticket, assign it' : 'A ticket is waiting for your decision',
+    message: ticket.headClaimedBy
+      ? `"${ticket.title}" has waited ${formatWaiting(hoursWaiting)}. Give it to someone in your team so work can start.`
+      : `"${ticket.title}" has waited ${formatWaiting(hoursWaiting)}. Nobody can start until you claim and assign it, or decline it.`,
     ticketId: ticket._id.toString(),
   });
 }
@@ -148,9 +152,9 @@ export const notifyStaleWork = async (ticket: { _id: string; title: string; assi
   });
 }
 
-export const notifyTicketHeadApproved = async (ticket: { _id: string; title: string; userId?: string | null; assigneeId?: string | null }, actorId: string) => {
+export const notifyTicketHeadApproved = async (ticket: { _id: string; title: string; userId?: string | null; assigneeId?: string | null }, actorId: string, assigneeMustClaim = false) => {
   await settleHeadNotices(ticket._id.toString(), actorId);
-  const ids = [ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
+  const ids = [assigneeMustClaim ? null : ticket.assigneeId?.toString(), ticket.userId?.toString()].filter((id): id is string => !!id && id !== actorId);
   const [approver] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, actorId)).limit(1);
   const approverName = approver ? `${approver.firstName}${approver.lastName ? ` ${approver.lastName}` : ''}` : null;
   return notifyMany(ids, {
@@ -225,6 +229,30 @@ export const notifyTicketClaimable = async (ticket: { _id: string; title: string
     type: 'TICKET_CLAIMABLE',
     title: 'New ticket to claim',
     message: `"${ticket.title}" is open in your department. Claim it if you can take it${time ? `. You get ${time} from when you claim` : ''}.`,
+    ticketId: ticket._id.toString(),
+  });
+}
+
+export const notifyTicketHeadClaimed = async (ticket: { _id: string; title: string; userId: string }, headId: string) => {
+  await settleHeadNotices(ticket._id.toString(), headId);
+  if (ticket.userId === headId) return [];
+  const head = await personLine(headId);
+  return notifyMany([ticket.userId], {
+    type: 'TICKET_HEAD_CLAIMED',
+    title: 'Head picked up your ticket',
+    message: `${head ?? 'The department head'} claimed "${ticket.title}" and will give it to someone in the team.`,
+    ticketId: ticket._id.toString(),
+  });
+}
+
+export const notifyTicketGivenToClaim = async (ticket: { _id: string; title: string; assigneeId: string; tatHours?: number | null }, actorId: string) => {
+  if (ticket.assigneeId === actorId) return [];
+  const giver = await personLine(actorId);
+  const time = hoursText(ticket.tatHours);
+  return notifyMany([ticket.assigneeId], {
+    type: 'TICKET_GIVEN_TO_CLAIM',
+    title: 'Ticket given to you, claim it',
+    message: `${giver ?? 'Your department head'} gave you "${ticket.title}". Claim it to start${time ? `. You get ${time} from when you claim` : ''}.`,
     ticketId: ticket._id.toString(),
   });
 }

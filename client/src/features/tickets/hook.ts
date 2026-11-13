@@ -240,9 +240,18 @@ export const useApproveAssignmentMutation = () =>
     mutationFn: ({ id, assigneeId, tatHours }: { id: string; assigneeId?: string; tatHours?: number }) => ticketApi.approveAssignment(id, assigneeId, tatHours).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
-    successMessage: (updated) => (updated.assigneeId ? 'Time set. The work can start now.' : 'Time set. Your team can claim it now.'),
+    successMessage: (updated) => (!updated.assigneeId ? 'Time set. Your team can claim it now.' : updated.claimedAt ? 'Time set. Your clock has started.' : 'Assigned. Their clock starts when they claim it.'),
     retryable: true,
     errorFallback: "Couldn't approve the ticket. Try again.",
+  });
+
+export const useHeadClaimTicketMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id }: { id: string }) => ticketApi.headClaim(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
+    invalidateKeys: [['tickets']],
+    successMessage: 'Claimed. Now set the time and give it to someone.',
+    errorFallback: "Couldn't claim the ticket. Try again.",
   });
 
 export const useClaimTicketMutation = () =>

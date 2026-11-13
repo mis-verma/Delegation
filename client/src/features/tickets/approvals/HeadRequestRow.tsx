@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowRight, Ban, CircleCheck, Forward, ShieldQuestion, Timer, User } from 'lucide-react';
+import { ArrowRight, Ban, CircleCheck, Forward, Hand, ShieldQuestion, Timer, User } from 'lucide-react';
 import { Button, DepartmentChip, IconChip, PriorityChip, WaitChip } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -48,7 +48,9 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
   const redirectMut = useUpdateTicketMutation({ silent: true });
   const approveMut = useApproveAssignmentMutation();
   const declineMut = useDeclineTicketMutation();
-  const busy = approveMut.isPending || declineMut.isPending || redirectMut.isPending;
+  const claimedByOther = !!ticket.headClaimedBy && ticket.headClaimedBy !== user?.id;
+  const lockedOut = claimedByOther && user?.role !== 'ADMIN' && user?.role !== 'PC';
+  const busy = approveMut.isPending || declineMut.isPending || redirectMut.isPending || lockedOut;
 
   const raiserName = ticket.raisedBy?.firstName ?? null;
   const assigneeName = ticket.assignee?.firstName ?? null;
@@ -85,6 +87,10 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         </span>
       </button>
 
+      {claimedByOther && (
+        <IconChip icon={Hand} tone="bg-primary-600" label={`Claimed by ${ticket.headClaimer?.firstName ?? 'another head'}`} className="w-fit" />
+      )}
+
       {ticket.assigneeId === user?.id && (
         <p className="t-meta font-display font-semibold text-warning">This ticket is assigned to you. If you approve it, PC can see that you approved your own work.</p>
       )}
@@ -93,7 +99,7 @@ export const HeadRequestRow = ({ ticket, now, departmentName, embedded = false }
         value={tatHours}
         onChange={setTatHours}
         disabled={busy}
-        hint={needsPerson && !pickedId ? 'The clock starts when someone claims it.' : 'The clock starts as soon as you confirm.'}
+        hint={needsPerson && !pickedId ? 'The clock starts when someone claims it.' : 'Their clock starts when they claim it.'}
       />
 
       {needsPerson && (

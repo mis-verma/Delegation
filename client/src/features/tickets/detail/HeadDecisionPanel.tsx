@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowRight, Ban, Check, CircleCheck, Hourglass, Play, Send, ShieldQuestion, User } from 'lucide-react';
+import { ArrowRight, Ban, Check, CircleCheck, Hand, Hourglass, Play, Send, ShieldQuestion, User, UserCheck } from 'lucide-react';
 import { Button } from '../../../components';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
@@ -8,6 +8,13 @@ import { haptic } from '../../../lib/haptics';
 interface Person {
   firstName: string;
   lastName?: string | null;
+}
+
+export interface HeadClaimControl {
+  claimedBy: string | null;
+  canClaim: boolean;
+  isClaiming: boolean;
+  onClaim: () => void;
 }
 
 export interface DepartmentDecision {
@@ -34,6 +41,7 @@ interface HeadDecisionPanelProps {
   approveDisabled?: boolean;
   decideStepLabel?: string;
   decideText?: string;
+  claim?: HeadClaimControl;
 }
 
 const fullName = (p: Person) => `${p.firstName}${p.lastName ? ` ${p.lastName}` : ''}`.trim();
@@ -96,8 +104,20 @@ export const HeadDecisionPanel = ({
   approveDisabled = false,
   decideStepLabel,
   decideText,
+  claim,
 }: HeadDecisionPanelProps) => {
-  const busy = isApproving || isDeclining;
+  const busy = isApproving || isDeclining || !!claim?.isClaiming;
+  const mustClaim = !!claim && !claim.claimedBy;
+  const showClaim = mustClaim && !!claim?.canClaim;
+  const showDecide = canDecide && !mustClaim;
+  const acting = showClaim || showDecide;
+  const heading = showClaim
+    ? `Claim this ${noun} to take charge`
+    : acting
+      ? claim ? 'Set the time and assign it' : `This ${noun} needs your decision`
+      : claim?.claimedBy
+        ? `${claim.claimedBy} claimed it and is assigning it`
+        : (departments?.length ?? 0) > 1 ? 'Waiting for the department heads' : `Waiting for the ${departmentName ?? 'department'} head`;
   const raiserName = raiser ? raiser.firstName : 'Someone';
   const several = (departments?.length ?? 0) > 1;
   const where = several ? 'departments below' : departmentName ? `${departmentName} department` : 'your department';
@@ -113,14 +133,12 @@ export const HeadDecisionPanel = ({
           className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning text-white"
           aria-hidden="true"
         >
-          {canDecide ? <ShieldQuestion size={20} strokeWidth={2.3} /> : <Hourglass size={19} strokeWidth={2.3} />}
+          {showClaim ? <Hand size={20} strokeWidth={2.3} /> : acting ? <ShieldQuestion size={20} strokeWidth={2.3} /> : <Hourglass size={19} strokeWidth={2.3} />}
         </span>
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="t-section font-display font-bold leading-snug text-text">
-            {canDecide ? `This ${noun} needs your decision` : several ? 'Waiting for the department heads' : `Waiting for the ${departmentName ?? 'department'} head`}
-          </h2>
+          <h2 className="t-section font-display font-bold leading-snug text-text">{heading}</h2>
           <p className="t-card font-medium leading-snug text-text-secondary">
-            {canDecide
+            {acting
               ? decideText ?? `${raiserName} sent "${itemTitle}" to the ${where}. Nobody can start until ${several ? 'every head has approved it' : 'you approve it'}.`
               : several
                 ? `Work starts once every head approves it${waitingFor.length ? `. Still waiting for ${waitingFor.join(', ')}` : ''}. If one declines, you will see the reason here.`
@@ -152,14 +170,26 @@ export const HeadDecisionPanel = ({
       <ol className="flex items-start justify-center" aria-label={`Where this ${noun} is`}>
         <Step icon={Send} label="Sent" state="done" />
         <Connector filled />
-        <Step icon={ShieldQuestion} label={decideStepLabel ?? (several ? 'Heads approve' : 'Head approves')} state="current" />
-        <Connector filled={false} />
-        <Step icon={Play} label="Work starts" state="next" />
+        {claim ? (
+          <>
+            <Step icon={Hand} label="Head claims" state={mustClaim ? 'current' : 'done'} />
+            <Connector filled={!mustClaim} />
+            <Step icon={ShieldQuestion} label="Head assigns" state={mustClaim ? 'next' : 'current'} />
+            <Connector filled={false} />
+            <Step icon={UserCheck} label="Team claims" state="next" />
+          </>
+        ) : (
+          <>
+            <Step icon={ShieldQuestion} label={decideStepLabel ?? (several ? 'Heads approve' : 'Head approves')} state="current" />
+            <Connector filled={false} />
+            <Step icon={Play} label="Work starts" state="next" />
+          </>
+        )}
       </ol>
 
-      {canDecide && children}
+      {showDecide && children}
 
-      {canDecide && (
+      {acting && (
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
           <Button
             variant="outline"
@@ -171,16 +201,29 @@ export const HeadDecisionPanel = ({
             <Ban size={16} aria-hidden="true" />
             Decline
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => { haptic('tap'); onApprove(); }}
-            disabled={busy || approveDisabled}
-            isLoading={isApproving}
-            className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
-          >
-            <CircleCheck size={16} aria-hidden="true" />
-            {approveLabel}
-          </Button>
+          {showClaim ? (
+            <Button
+              variant="primary"
+              onClick={() => { haptic('tap'); claim?.onClaim(); }}
+              disabled={busy}
+              isLoading={claim?.isClaiming}
+              className="h-11 gap-1.5 font-display font-semibold sm:h-10"
+            >
+              <Hand size={16} aria-hidden="true" />
+              Claim it
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={() => { haptic('tap'); onApprove(); }}
+              disabled={busy || approveDisabled}
+              isLoading={isApproving}
+              className="h-11 gap-1.5 bg-success font-display font-semibold text-white hover:from-success/90 hover:to-success/70 hover:text-white sm:h-10"
+            >
+              <CircleCheck size={16} aria-hidden="true" />
+              {approveLabel}
+            </Button>
+          )}
         </div>
       )}
     </section>

@@ -236,7 +236,7 @@ const headDecisionChasers = async (now: Date) => {
       await notificationService.notifyHeadDecisionEscalation({ _id: t.id, title: t.title }, Math.floor(hours));
       await db.update(tickets).set({ headEscalatedAt: now, headReminderSentAt: t.headReminderSentAt ?? now }).where(eq(tickets.id, t.id));
     } else if (hours >= HEAD_REMINDER_HOURS && !t.headReminderSentAt) {
-      await notificationService.notifyHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId }, Math.floor(hours));
+      await notificationService.notifyHeadDecisionReminder({ _id: t.id, title: t.title, departmentId: t.departmentId, userId: t.userId, headClaimedBy: t.headClaimedBy }, Math.floor(hours));
       await db.update(tickets).set({ headReminderSentAt: now }).where(eq(tickets.id, t.id));
     }
   }
