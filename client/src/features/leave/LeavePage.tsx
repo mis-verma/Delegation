@@ -1,10 +1,8 @@
-import { useMemo, useState } from 'react';
-import { CalendarOff, Clock3, History, Plus, Search, Trash2, TriangleAlert } from 'lucide-react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { CalendarCheck2, CalendarOff, Clock3, History, MessageSquareText, Plus, Search, Trash2, TriangleAlert } from 'lucide-react';
 import { CreateButton } from '../../components/createButton';
-import { Button, EmptyState, Fab, IconChip, InlineError, Input, PANEL_CLASS, SelectDropdown, Skeleton, useConfirm } from '../../components';
-import { PeriodTabControl } from '../dashboard/PeriodTabControl';
-import { avatarColorClass } from '../../lib/avatarColors';
-import { getInitials } from '../../lib/getInitials';
+import { Avatar, Button, EmptyState, Fab, IconChip, InlineError, Input, PANEL_CLASS, SelectDropdown, Skeleton, useConfirm } from '../../components';
+import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 import { cn } from '@/lib/utils';
 import { useOrgToday } from '../checklist/useOrgToday';
 import type { LeaveEntry } from '../../api/leave';
@@ -18,7 +16,6 @@ const DAY_MS = 86_400_000;
 const WEEK = 7;
 
 type Show = 'all' | 'now' | 'coming' | 'recent';
-const SHOW_OPTIONS: readonly Show[] = ['all', 'now', 'coming', 'recent'];
 
 const asUtc = (date: string) => new Date(`${date}T00:00:00Z`);
 const addDays = (date: string, n: number) => new Date(asUtc(date).getTime() + n * DAY_MS).toISOString().slice(0, 10);
@@ -38,22 +35,31 @@ type Phase = 'now' | 'coming' | 'recent';
 const phaseOf = (entry: LeaveEntry, today: string): Phase =>
   entry.startDate > today ? 'coming' : entry.endDate < today ? 'recent' : 'now';
 
+const FAINT = 'bg-surface-hover/80';
+
 const statusChip = (entry: LeaveEntry, phase: Phase, today: string) => {
-  if (phase === 'now') return <IconChip icon={CalendarOff} tone="bg-vivid-blue" label="On leave now" labelClassName="text-vivid-blue-text" className="border-vivid-blue/40 bg-vivid-blue/10" />;
+  if (phase === 'now') return <IconChip icon={CalendarOff} tone="bg-vivid-blue" label="On leave now" labelClassName="text-vivid-blue-text" />;
   if (phase === 'coming') {
     const diff = daysBetween(today, entry.startDate);
-    return <IconChip icon={Clock3} tone="bg-vivid-sky" label={diff === 1 ? 'Starts tomorrow' : `Starts in ${diff} days`} labelClassName="text-vivid-sky-text" className="border-vivid-sky/40 bg-vivid-sky/10" />;
+    return <IconChip icon={Clock3} tone="bg-vivid-sky" label={diff === 1 ? 'Starts tomorrow' : `Starts in ${diff} days`} labelClassName="text-vivid-sky-text" />;
   }
-  return <IconChip icon={History} tone="bg-text-muted" label={`Ended ${plural(daysBetween(entry.endDate, today), 'day', 'days')} ago`} />;
+  return <IconChip icon={History} tone={FAINT} label={`Ended ${plural(daysBetween(entry.endDate, today), 'day', 'days')} ago`} />;
 };
 
-const LeaveCard = ({ entry, today, onRemove, busy }: { entry: LeaveEntry; today: string; onRemove: (entry: LeaveEntry) => void; busy: boolean }) => {
+const SHOW_ITEMS: readonly StatusFigureItem<Show>[] = [
+  { key: 'all', kind: 'total', label: 'All leave', short: 'All', help: 'Everyone on leave now, coming up or back in the last 30 days. Tap to show them all.' },
+  { key: 'now', kind: 'due', label: 'On leave now', short: 'Now', help: 'People away today. Tap to show only these, tap again to show all.' },
+  { key: 'coming', kind: 'pending', label: 'Coming up', short: 'Coming', help: 'Leave that has not started yet. Tap to show only these, tap again to show all.' },
+  { key: 'recent', kind: 'completed', label: 'Last 30 days', short: 'Past', help: 'Leave that ended in the last 30 days. Tap to show only these, tap again to show all.' },
+];
+
+const LeaveCard = memo(({ entry, today, onRemove, busy }: { entry: LeaveEntry; today: string; onRemove: (entry: LeaveEntry) => void; busy: boolean }) => {
   const phase = phaseOf(entry, today);
   const start = asUtc(entry.startDate);
   const work = openWork(entry);
   const past = phase === 'recent';
   return (
-    <li className={cn(PANEL_CLASS, 'flex items-start gap-3 p-3 sm:p-4 transition-colors duration-150 hover:border-border-hover', busy && 'pointer-events-none opacity-60')}>
+    <li aria-busy={busy || undefined} className={cn(PANEL_CLASS, 'flex items-start gap-3 p-3 transition-[border-color,opacity] duration-150 ease-out hover:border-border-hover sm:p-4', past && 'bg-surface-hover/30', busy && 'pointer-events-none opacity-60')}>
       <div
         aria-hidden
         className={cn(
@@ -62,20 +68,18 @@ const LeaveCard = ({ entry, today, onRemove, busy }: { entry: LeaveEntry; today:
         )}
       >
         <span className={cn('t-meta font-display font-semibold', phase === 'now' ? 'text-vivid-blue-text' : 'text-text-muted')}>{MONTH_SHORT.format(start)}</span>
-        <span className={cn('pt-0.5 font-display text-xl font-bold tabular-nums', past ? 'text-text-muted' : 'text-text')}>{start.getUTCDate()}</span>
+        <span className={cn('pt-0.5 t-stat font-figure font-bold tabular-nums', past ? 'text-text-muted' : 'text-text')}>{start.getUTCDate()}</span>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-start gap-2">
-          <span aria-hidden className={cn('flex size-7 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(entry.userName))}>
-            {getInitials(entry.userName).slice(0, 2)}
-          </span>
+        <div className="flex items-center gap-2">
+          <Avatar name={entry.userName} size="sm" />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className={cn('line-clamp-1 t-card font-display font-bold', past ? 'text-text-secondary' : 'text-text')}>{entry.userName}</span>
             <span className="line-clamp-1 t-meta font-display text-text-muted">{entry.departmentName ?? 'No department'}</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => onRemove(entry)} aria-label={`Remove leave for ${entry.userName}`} className="-mr-1 size-9 shrink-0 px-0 text-text-muted hover:text-danger pointer-coarse:size-11">
-            <Trash2 size={16} />
+          <Button variant="ghost" size="sm" onClick={() => onRemove(entry)} aria-label={`Remove leave for ${entry.userName}`} className="-mr-1 size-11 shrink-0 px-0 text-text-muted hover:bg-danger/10 hover:text-danger pointer-fine:size-9">
+            <Trash2 size={16} aria-hidden="true" />
           </Button>
         </div>
 
@@ -86,8 +90,8 @@ const LeaveCard = ({ entry, today, onRemove, busy }: { entry: LeaveEntry; today:
 
         <div className="flex flex-wrap items-center gap-1.5">
           {statusChip(entry, phase, today)}
-          {entry.reason && <IconChip icon={CalendarOff} tone="bg-text-muted" label={entry.reason} />}
-          {!past && <span className="t-meta font-display font-medium text-text-muted">Back {DAY.format(asUtc(addDays(entry.endDate, 1)))}</span>}
+          {!past && <IconChip icon={CalendarCheck2} tone={FAINT} label={`Back ${DAY.format(asUtc(addDays(entry.endDate, 1)))}`} labelClassName="tabular-nums" />}
+          {entry.reason && <IconChip icon={MessageSquareText} tone={FAINT} label={entry.reason} title={entry.reason} labelClassName="truncate" />}
         </div>
 
         {work && !past && (
@@ -99,13 +103,14 @@ const LeaveCard = ({ entry, today, onRemove, busy }: { entry: LeaveEntry; today:
       </div>
     </li>
   );
-};
+});
+LeaveCard.displayName = 'LeaveCard';
 
-const WeekStrip = ({ entries, today }: { entries: LeaveEntry[]; today: string }) => {
-  const days = Array.from({ length: WEEK }, (_, i) => addDays(today, i)).map((date) => ({
+const WeekStrip = memo(({ entries, today }: { entries: LeaveEntry[]; today: string }) => {
+  const days = useMemo(() => Array.from({ length: WEEK }, (_, i) => addDays(today, i)).map((date) => ({
     date,
     away: entries.filter((e) => e.startDate <= date && e.endDate >= date),
-  }));
+  })), [entries, today]);
   return (
     <section aria-label="Who is away this week" className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-3 sm:p-4')}>
       <h2 className="t-card font-display font-bold text-text">Next 7 days</h2>
@@ -115,12 +120,12 @@ const WeekStrip = ({ entries, today }: { entries: LeaveEntry[]; today: string })
             key={date}
             title={away.length ? away.map((a) => a.userName).join(', ') : 'Nobody away'}
             className={cn(
-              'flex min-w-0 flex-col items-center gap-0.5 rounded-xl border px-1 py-2 leading-none',
+              'flex min-w-0 flex-col items-center gap-1 rounded-xl border px-1 py-2 leading-none',
               i === 0 ? 'border-primary-500/40 bg-primary-500/10' : 'border-border/60 bg-surface',
             )}
           >
             <span className="t-meta font-display font-semibold text-text-muted">{WEEKDAY_SHORT.format(asUtc(date))}</span>
-            <span className="font-display text-base font-bold tabular-nums text-text">{asUtc(date).getUTCDate()}</span>
+            <span className="t-card font-display font-bold tabular-nums text-text">{asUtc(date).getUTCDate()}</span>
             <span className={cn('t-meta font-display font-bold tabular-nums', away.length ? 'text-vivid-blue-text' : 'text-text-light')}>{away.length || '-'}</span>
           </li>
         ))}
@@ -128,7 +133,8 @@ const WeekStrip = ({ entries, today }: { entries: LeaveEntry[]; today: string })
       <p className="t-meta text-text-muted">The number is how many people are away that day.</p>
     </section>
   );
-};
+});
+WeekStrip.displayName = 'WeekStrip';
 
 const Group = ({ title, entries, today, onRemove, removing }: { title: string; entries: LeaveEntry[]; today: string; onRemove: (entry: LeaveEntry) => void; removing: string | null }) =>
   entries.length === 0 ? null : (
@@ -143,18 +149,12 @@ const Group = ({ title, entries, today, onRemove, removing }: { title: string; e
     </section>
   );
 
-const StatTile = ({ label, value, tone, className }: { label: string; value: number; tone?: string; className?: string }) => (
-  <div className={cn('flex flex-col gap-1 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4', className)}>
-    <span className="t-meta font-display font-medium text-text-muted">{label}</span>
-    <span className={cn('t-stat font-display font-bold tabular-nums', tone ?? 'text-text')}>{value}</span>
-  </div>
-);
 
 export const LeavePage = () => {
   const confirm = useConfirm();
   const today = useOrgToday();
   const { data, isPending, isError, refetch } = useLeaveQuery();
-  const removeMut = useRemoveLeaveMutation();
+  const { mutate: removeLeave, isPending: removePending, variables: removingId } = useRemoveLeaveMutation();
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('');
@@ -177,15 +177,22 @@ export const LeavePage = () => {
     recent: filtered.filter((e) => phaseOf(e, today) === 'recent').reverse(),
   }), [filtered, today]);
 
-  const nowAll = useMemo(() => all.filter((e) => phaseOf(e, today) === 'now'), [all, today]);
-  const startingThisWeek = useMemo(() => all.filter((e) => e.startDate > today && e.startDate <= addDays(today, WEEK)).length, [all, today]);
-  const openOnNow = useMemo(() => nowAll.reduce((sum, e) => sum + e.openTickets + e.openDelegations, 0), [nowAll]);
   const upcoming = useMemo(() => all.filter((e) => e.endDate >= today), [all, today]);
 
   const counts: Record<Show, number> = { all: filtered.length, now: groups.now.length, coming: groups.coming.length, recent: groups.recent.length };
-  const labels: Record<Show, string> = { all: `All ${counts.all}`, now: `Now ${counts.now}`, coming: `Coming up ${counts.coming}`, recent: `Past ${counts.recent}` };
+  const showItems = useMemo<StatusFigureItem<Show>[]>(() => {
+    const weekEnd = addDays(today, WEEK);
+    const openOnNow = groups.now.reduce((sum, e) => sum + e.openTickets + e.openDelegations, 0);
+    const startingThisWeek = groups.coming.filter((e) => e.startDate <= weekEnd).length;
+    const notes: Partial<Record<Show, string>> = {
+      now: openOnNow > 0 ? `${plural(openOnNow, 'item', 'items')} still open` : 'Nothing left open',
+      coming: `${startingThisWeek} start this week`,
+    };
+    return SHOW_ITEMS.map((item) => (notes[item.key] ? { ...item, note: notes[item.key] } : item));
+  }, [groups, today]);
+  const toggleShow = useCallback((key: Show) => setShow((prev) => (prev === key ? 'all' : key)), []);
 
-  const remove = async (entry: LeaveEntry) => {
+  const remove = useCallback(async (entry: LeaveEntry) => {
     const started = entry.startDate <= today;
     const ok = await confirm({
       title: `Remove leave for ${entry.userName}?`,
@@ -193,11 +200,11 @@ export const LeavePage = () => {
       confirmLabel: 'Remove leave',
       variant: 'danger',
     });
-    if (ok) removeMut.mutate(entry.id);
-  };
+    if (ok) removeLeave(entry.id);
+  }, [confirm, removeLeave, today]);
 
-  const removing = removeMut.isPending ? removeMut.variables ?? null : null;
-  const handleRemove = (entry: LeaveEntry) => { void remove(entry); };
+  const removing = removePending ? removingId ?? null : null;
+  const handleRemove = useCallback((entry: LeaveEntry) => { void remove(entry); }, [remove]);
   const none = !isPending && !isError && all.length === 0;
   const noMatch = !isPending && !isError && all.length > 0 && filtered.length === 0;
 
@@ -213,11 +220,7 @@ export const LeavePage = () => {
 
       {!isPending && !isError && all.length > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="On leave now" value={nowAll.length} tone="text-vivid-blue-text" />
-            <StatTile label="Starting this week" value={startingThisWeek} />
-            <StatTile label="Work still open for them" value={openOnNow} tone={openOnNow > 0 ? 'text-vivid-red-text' : undefined} className="col-span-2 sm:col-span-1" />
-          </div>
+          <StatusFigureStats label="Show leave" items={showItems} counts={counts} active={show} onToggle={toggleShow} />
           <WeekStrip entries={upcoming} today={today} />
 
           <div className="flex flex-wrap items-center gap-2">
@@ -229,14 +232,16 @@ export const LeavePage = () => {
                 <SelectDropdown aria-label="Filter by department" value={department} options={departmentOptions} onChange={setDepartment} />
               </div>
             )}
-            <PeriodTabControl value={show} options={SHOW_OPTIONS} labels={labels} onChange={setShow} />
           </div>
         </>
       )}
 
       {isPending && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" aria-hidden>
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}
+        <div className="flex flex-col gap-3" role="status" aria-label="Loading leave">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl sm:h-28" />)}</div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+          </div>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { EntityIconTile, FormChunkFallback } from '../../components';
+import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { EntityIconTile, FormChunkFallback, NoticeBanner } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { useTasksQuery } from '../tasks/hook';
 import { useTicketsBoardQuery } from '../tickets/hook';
@@ -18,7 +18,7 @@ const TaskForm = lazy(() => import('../tasks/TaskForm').then((m) => ({ default: 
 const TicketForm = lazy(() => import('../tickets/TicketForm').then((m) => ({ default: m.TicketForm })));
 
 const NAV_BUTTON =
-  'flex items-center justify-center size-9 pointer-coarse:size-10 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50';
+  'flex size-10 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg text-text-muted transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 pointer-fine:size-9';
 
 export const CalendarPage = () => {
   const { user } = useAuth();
@@ -29,8 +29,7 @@ export const CalendarPage = () => {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
 
-  // eslint-disable-next-line react-hooks/purity
-  const now = useMemo(() => Date.now(), []);
+  const [now] = useState(() => Date.now());
   const today = useMemo(() => new Date(now), [now]);
 
   const { data: allTasks, isPending: tasksPending, isError: tasksFailed } = useTasksQuery();
@@ -174,17 +173,15 @@ export const CalendarPage = () => {
   const closeForm = () => setCreating(null);
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 sm:gap-6 w-full animate-in fade-in duration-500 ease-out">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="hidden sm:flex items-center gap-3 min-w-0">
+    <div className="flex w-full min-w-0 flex-col gap-3 pt-2.5 animate-in fade-in duration-200 ease-out motion-reduce:animate-none sm:gap-6">
+      <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="hidden min-w-0 items-center gap-3 sm:flex">
           <EntityIconTile icon={CalendarIcon} />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight">Calendar</h1>
-          </div>
+          <h1 className="t-section font-display font-bold text-text">Calendar</h1>
         </div>
 
         <nav aria-label="Month" className="flex items-center gap-2">
-          <div className="flex flex-1 sm:flex-none items-center gap-0.5 rounded-xl border border-border/60 bg-surface p-0.5">
+          <div className="flex flex-1 items-center gap-0.5 rounded-xl border border-border/60 bg-surface p-0.5 sm:flex-none">
             <button type="button" onClick={() => goToMonth(-1)} aria-label="Previous month" className={NAV_BUTTON}>
               <ChevronLeft size={18} strokeWidth={2.5} />
             </button>
@@ -196,7 +193,7 @@ export const CalendarPage = () => {
           <button
             type="button"
             onClick={goToToday}
-            className="h-10 sm:h-9 shrink-0 px-3 rounded-xl border border-primary-500/25 bg-primary-500/[0.08] t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-surface-hover hover:border-border-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50"
+            className="h-11 shrink-0 cursor-pointer touch-manipulation rounded-xl border border-primary-500/25 bg-primary-500/10 px-4 t-meta font-display font-semibold text-primary-700 transition-[background-color,border-color,transform] duration-150 ease-out hover:border-primary-500/40 hover:bg-primary-500/15 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 dark:text-primary-300 sm:h-10"
           >
             Today
           </button>
@@ -204,9 +201,9 @@ export const CalendarPage = () => {
       </header>
 
       {isError && (
-        <div role="alert" className="flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm font-medium text-text-secondary">
+        <NoticeBanner tone="danger" icon={AlertTriangle}>
           Some delegations or tickets didn&rsquo;t load, so the dates below may be incomplete.
-        </div>
+        </NoticeBanner>
       )}
 
       <CalendarStats

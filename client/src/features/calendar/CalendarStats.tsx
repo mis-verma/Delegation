@@ -1,5 +1,5 @@
-import { Calendar as CalendarIcon, CalendarClock, AlertTriangle, CalendarDays, type LucideIcon } from 'lucide-react';
-import { StatCard } from '../dashboard';
+import { useMemo } from 'react';
+import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 
 export interface CalendarStatValues {
   inMonth: number;
@@ -8,82 +8,23 @@ export interface CalendarStatValues {
   dueThisWeek: number;
 }
 
+type StatKey = keyof CalendarStatValues;
+
 interface CalendarStatsProps {
   stats: CalendarStatValues;
   isPending: boolean;
+  isError?: boolean;
   monthLabel: string;
   todayWeekday: string;
 }
 
-const TINT = {
-  primary: { box: 'bg-primary-500/10', text: 'text-primary-600 dark:text-primary-400' },
-  danger: { box: 'bg-danger/10', text: 'text-danger' },
-  coral: { box: 'bg-coral-500/10', text: 'text-coral-600 dark:text-coral-400' },
-} as const;
+export const CalendarStats = ({ stats, isPending, isError = false, monthLabel, todayWeekday }: CalendarStatsProps) => {
+  const items = useMemo<StatusFigureItem<StatKey>[]>(() => [
+    { key: 'inMonth', kind: 'total', label: 'This month', short: 'Month', help: `Everything dated in ${monthLabel}`, note: monthLabel },
+    { key: 'overdueInMonth', kind: 'late', label: 'Overdue', short: 'Overdue', help: 'Past its date and still open, this month', note: 'This month' },
+    { key: 'dueToday', kind: 'due', label: 'Due today', short: 'Today', help: 'Everything dated today', note: todayWeekday },
+    { key: 'dueThisWeek', kind: 'pending', label: 'Due this week', short: 'Week', help: 'Everything dated Sunday to Saturday this week', note: 'Sun to Sat' },
+  ], [monthLabel, todayWeekday]);
 
-interface TileProps {
-  icon: LucideIcon;
-  label: string;
-  value: number | string;
-  tint: keyof typeof TINT;
-}
-
-const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
-  <div className="flex min-w-0 flex-col items-center gap-0.5 px-1 py-2 text-center">
-    <span className={`inline-flex items-center gap-1 ${TINT[tint].text}`}>
-      <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
-      <span className={`t-card font-figure font-extrabold leading-none tabular-nums ${tint === 'danger' ? 'text-vivid-red-text' : 'text-text'}`}>{value}</span>
-    </span>
-    <span className="truncate t-meta font-medium text-text-muted">{label}</span>
-  </div>
-);
-
-export const CalendarStats = ({ stats, isPending, monthLabel, todayWeekday }: CalendarStatsProps) => {
-  const show = (n: number) => (isPending ? '-' : n);
-
-  return (
-    <>
-      <div className="grid grid-cols-4 divide-x divide-border/50 rounded-2xl bg-surface ring-1 ring-inset ring-border/60 sm:hidden">
-        <Tile icon={CalendarIcon} label="Month" value={show(stats.inMonth)} tint="primary" />
-        <Tile icon={AlertTriangle} label="Overdue" value={show(stats.overdueInMonth)} tint="danger" />
-        <Tile icon={CalendarClock} label="Today" value={show(stats.dueToday)} tint="coral" />
-        <Tile icon={CalendarDays} label="This week" value={show(stats.dueThisWeek)} tint="primary" />
-      </div>
-
-      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-        <StatCard
-          icon={CalendarIcon}
-          label="This month"
-          value={show(stats.inMonth)}
-          caption={monthLabel}
-          highlight
-          decorative
-        />
-        <StatCard
-          icon={AlertTriangle}
-          label="Overdue"
-          value={show(stats.overdueInMonth)}
-          caption="This month"
-          iconBgTint="bg-danger/10"
-          iconTint="text-danger"
-        />
-        <StatCard
-          icon={CalendarClock}
-          label="Due today"
-          value={show(stats.dueToday)}
-          caption={todayWeekday}
-          iconBgTint="bg-coral-500/10"
-          iconTint="text-coral-600 dark:text-coral-400"
-        />
-        <StatCard
-          icon={CalendarDays}
-          label="Due this week"
-          value={show(stats.dueThisWeek)}
-          caption="Sun to Sat"
-          iconBgTint="bg-primary-500/10"
-          iconTint="text-primary-600 dark:text-primary-400"
-        />
-      </div>
-    </>
-  );
+  return <StatusFigureStats label="Calendar summary" items={items} counts={stats} isLoading={isPending} error={isError} />;
 };

@@ -18,8 +18,8 @@ interface StatusFigureStatsProps<K extends string> {
   items: readonly StatusFigureItem<K>[];
   counts: Record<K, number>;
   total?: number;
-  active: K | null;
-  onToggle: (key: K) => void;
+  active?: K | null;
+  onToggle?: (key: K) => void;
   isLoading?: boolean;
   error?: boolean;
   onRetry?: () => void;
@@ -41,7 +41,9 @@ const CELL = cn(
   'sm:min-h-0 sm:gap-3 sm:p-5',
 );
 
-const SELECTED = 'ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
+const STATIC = 'cursor-default hover:brightness-100 active:scale-100';
+
+const SELECTED ='ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
 
 export const StatusFigureStats = <K extends string>({ items, counts, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
@@ -53,16 +55,8 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
         const selected = active === item.key && !failed;
         const alert = item.kind === 'late' && count > 0 && !failed && !isLoading;
         const retry = failed && !!onRetry;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={retry ? onRetry : () => onToggle(item.key)}
-            aria-pressed={retry ? undefined : selected}
-            aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
-            title={failed ? "Couldn't load. Tap to try again." : item.help}
-            className={cn(CELL, ACCENT[item.kind], selected && SELECTED)}
-          >
+        const body = (
+          <>
             <span className="flex min-w-0 max-w-full flex-col">
               <span className={cn('flex min-w-0 items-center gap-1.5 t-meta font-display font-semibold text-white/80', STAT_ROW_PHONE_CENTER)}>
                 <span className={cn('size-1.5 shrink-0 rounded-full bg-[rgb(var(--stat-accent))]', alert && 'live-dot')} aria-hidden="true" />
@@ -82,6 +76,27 @@ export const StatusFigureStats = <K extends string>({ items, counts, active, onT
                 </span>
               )}
             </span>
+          </>
+        );
+        if (!retry && !onToggle) {
+          return (
+            <div key={item.key} title={item.help} className={cn(CELL, STATIC, ACCENT[item.kind])}>
+              <span className="sr-only">{isLoading ? item.label : `${item.label}, ${count}`}</span>
+              <span aria-hidden="true" className="contents">{body}</span>
+            </div>
+          );
+        }
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={retry ? onRetry : () => onToggle?.(item.key)}
+            aria-pressed={retry ? undefined : selected}
+            aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${count}`}
+            title={failed ? "Couldn't load. Tap to try again." : item.help}
+            className={cn(CELL, ACCENT[item.kind], selected && SELECTED)}
+          >
+            {body}
           </button>
         );
       })}

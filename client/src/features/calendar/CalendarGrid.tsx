@@ -46,7 +46,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
   };
 
   return (
-    <div className="@container rounded-2xl border border-border bg-surface overflow-hidden">
+    <div className="@container overflow-hidden rounded-2xl border border-border/60 bg-surface">
       <div className="grid grid-cols-7 border-b border-border/60">
         {WEEKDAY_LABELS.map((label, i) => (
           <div
@@ -88,7 +88,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}
                 aria-label={`${longDate}, ${dayItems.length === 0 ? 'nothing due' : `${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'}`}${isToday ? ', today' : ''}`}
-                className={`flex h-12 @min-[38rem]:h-auto @min-[38rem]:min-h-24 w-full flex-col items-center @min-[38rem]:items-stretch gap-0.5 @min-[38rem]:gap-1 p-1 @min-[38rem]:p-1.5 text-left cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 ${
+                className={`flex h-12 @min-[38rem]:h-auto @min-[38rem]:min-h-24 w-full flex-col items-center @min-[38rem]:items-stretch gap-0.5 @min-[38rem]:gap-1 p-1 @min-[38rem]:p-1.5 text-left cursor-pointer touch-manipulation transition-colors duration-150 ease-out active:scale-[0.97] @min-[38rem]:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 ${
                   isSelected
                     ? '@min-[38rem]:bg-primary-500/10 @min-[38rem]:ring-2 @min-[38rem]:ring-inset @min-[38rem]:ring-primary-500'
                     : quiet
@@ -98,7 +98,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
               >
                 <span className={`flex @min-[38rem]:justify-start justify-center`}>
                   <span
-                    className={`inline-flex items-center justify-center size-7 rounded-full text-[0.8125rem] @min-[38rem]:text-sm font-display font-semibold tabular-nums transition-colors duration-150 ${
+                    className={`inline-flex size-7 items-center justify-center rounded-full t-meta font-display font-semibold tabular-nums transition-colors duration-150 @min-[38rem]:t-card ${
                       isSelected
                         ? 'bg-primary-600 text-white'
                         : isToday
@@ -167,7 +167,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 bg-surface-hover/30 px-3 py-2">
         {(Object.keys(CALENDAR_ITEM_LABEL) as CalendarItemType[]).map((type) => (
           <span key={type} className="inline-flex items-center gap-1 t-meta font-medium text-text-muted">
             <span className={`size-1.5 rounded-full ${CALENDAR_ITEM_DOT_CLASS[type]}`} aria-hidden="true" />
