@@ -30,6 +30,24 @@ export const rangeProblem = (from: string, to: string, today: string, actorRole:
     return null
 }
 
+export type LeaveStatus = "PENDING" | "APPROVED" | "DECLINED"
+export type LeaveScope = "all" | "department" | "own"
+
+export const leaveScopeFor = (role: string): LeaveScope =>
+    role === "ADMIN" || role === "PC" || role === "OWNER" ? "all" : role === "MANAGER" || role === "SENIOR" ? "department" : "own"
+
+export const canAskForOwnLeave = (actor: LeaveActor, target: LeaveTarget): boolean =>
+    target.id === actor.sub && target.isActive && actor.role !== "OWNER"
+
+export const statusForNewLeave = (actor: LeaveActor, target: LeaveTarget): LeaveStatus =>
+    target.id === actor.sub && !isAdminOrPc(actor.role) ? "PENDING" : "APPROVED"
+
+export const canDecideLeave = (actor: LeaveActor, target: LeaveTarget, status: LeaveStatus): boolean =>
+    status === "PENDING" && target.id !== actor.sub && canManageLeave(actor, target)
+
+export const canRemoveLeave = (actor: LeaveActor, target: LeaveTarget, leave: { status: LeaveStatus; startDate: string }, today: string): boolean =>
+    canManageLeave(actor, target) || (target.id === actor.sub && actor.role !== "OWNER" && (leave.status !== "APPROVED" || leave.startDate > today))
+
 export const canManageLeave = (actor: LeaveActor, target: LeaveTarget): boolean => {
     if (!target.isActive || target.role === "OWNER") return false
     if (actor.role === "ADMIN" || actor.role === "PC") return true

@@ -27,6 +27,7 @@ const inQuietHours = (prefs: Pick<NotificationPrefs, "quietStart" | "quietEnd"> 
 
 const pathFor = (n: Pick<PushRow, "ticketId" | "taskId" | "checklistInstanceId"> & { type?: string }) => {
     if (n.type?.startsWith("SYSTEM_")) return "/admin/system-health"
+    if (n.type?.startsWith("LEAVE_")) return "/leave"
     if (n.ticketId) return `/tickets?open=${n.ticketId}`
     if (n.taskId) return `/tasks?open=${n.taskId}`
     if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`

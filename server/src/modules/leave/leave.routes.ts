@@ -1,13 +1,13 @@
 import { Router } from "express"
-import { authenticate, requireRole } from "../../middleware/auth/auth.js"
+import { authenticate } from "../../middleware/auth/auth.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { routeParam } from "../../utils/routeParam.js"
 import { leaveService } from "./leave.service.js"
 import { backdateLimitFor } from "./leaveRules.js"
-import { createLeaveSchema, previewLeaveQuerySchema } from "./leave.validation.js"
+import { createLeaveSchema, decideLeaveSchema, previewLeaveQuerySchema } from "./leave.validation.js"
 
 export const leaveRouter = Router()
-leaveRouter.use(authenticate, requireRole("ADMIN", "PC", "MANAGER", "SENIOR"))
+leaveRouter.use(authenticate)
 
 leaveRouter.get("/", asyncHandler(async (req, res) => {
     res.json({ success: true, data: await leaveService.list(req.user!) })
@@ -24,8 +24,17 @@ leaveRouter.get("/preview", asyncHandler(async (req, res) => {
 
 leaveRouter.post("/", asyncHandler(async (req, res) => {
     const input = createLeaveSchema.parse(req.body)
-    const { leave, removedRuns, openTickets, openDelegations } = await leaveService.create(input, req.user!)
-    res.status(201).json({ success: true, data: leave, removedRuns, openTickets, openDelegations })
+    const { leave, status, removedRuns, openTickets, openDelegations } = await leaveService.create(input, req.user!)
+    res.status(201).json({ success: true, data: leave, status, removedRuns, openTickets, openDelegations })
+}))
+
+leaveRouter.post("/:id/approve", asyncHandler(async (req, res) => {
+    res.json({ success: true, data: await leaveService.decide(routeParam(req, "id"), true, undefined, req.user!) })
+}))
+
+leaveRouter.post("/:id/decline", asyncHandler(async (req, res) => {
+    const { note } = decideLeaveSchema.parse(req.body ?? {})
+    res.json({ success: true, data: await leaveService.decide(routeParam(req, "id"), false, note, req.user!) })
 }))
 
 leaveRouter.delete("/:id", asyncHandler(async (req, res) => {

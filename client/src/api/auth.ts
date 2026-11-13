@@ -7,7 +7,9 @@ export const ADMIN_AREA_ROLES: readonly Role[] = ['ADMIN', 'PC'];
 export const OWNER_HOME = '/admin/owner';
 
 const OWNER_EXACT_PATHS = ['/admin', OWNER_HOME];
-const OWNER_PATH_PREFIXES = ['/admin/scores', '/team/fill', '/settings', '/get-app'];
+const OWNER_PATH_PREFIXES = ['/admin/scores', '/team/fill', '/settings', '/get-app', '/leave'];
+
+export const LEAVE_RECORDER_ROLES: readonly Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
 
 export const ownerMayVisit = (pathname: string): boolean => {
   const path = pathname.replace(/\/+$/, '') || '/';

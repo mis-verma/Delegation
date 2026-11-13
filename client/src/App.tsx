@@ -109,7 +109,6 @@ const AdminOrOwnerRoute = createRoleGuard('ADMIN', 'OWNER');
 const PcDeskRoute = createRoleGuard('ADMIN', 'PC');
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
-const LeaveRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const ChecklistApprovalsRoute = () => {
   const { user } = useAuth();
@@ -312,12 +311,7 @@ const router = createBrowserRouter([
               { path: '/tickets/approvals', element: <TeamApprovalsPage /> },
             ],
           },
-          {
-            element: <LeaveRoute />,
-            children: [
-              { path: '/leave', element: <LeavePage /> },
-            ],
-          },
+          { path: '/leave', element: <LeavePage /> },
         ],
       },
       {

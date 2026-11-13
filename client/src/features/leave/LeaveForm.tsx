@@ -3,6 +3,7 @@ import { CalendarOff, ClipboardList, Info } from 'lucide-react';
 import { Button, Combobox, DateRangePicker, Input, Modal, Skeleton, type DateRangeValue } from '../../components';
 import { useAssignableUsersQuery } from '../tickets/hook';
 import { useAuth } from '../../context/AuthContext';
+import { LEAVE_RECORDER_ROLES } from '../../api/auth';
 import { useCreateLeaveMutation, useLeavePreviewQuery, useLeaveRulesQuery } from './hook';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,7 @@ const DAY_MS = 86_400_000;
 const pad = (n: number) => String(n).padStart(2, '0');
 const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-const PILL = 'h-9 pointer-coarse:h-10 px-3 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]';
+const PILL = 'h-11 pointer-fine:h-9 px-3 rounded-lg border t-meta font-display font-semibold touch-manipulation transition-[border-color,background-color,color,transform] duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]';
 const PILL_ON = 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300';
 const PILL_OFF = 'border-border/60 bg-surface text-text-secondary hover:border-border-hover';
 
@@ -32,23 +33,28 @@ interface LeaveFormProps {
 }
 
 export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
-  const [userId, setUserId] = useState(defaultUserId ?? '');
+  const { user } = useAuth();
+  const myId = user?.id ?? '';
+  const canRecordOthers = !!user && LEAVE_RECORDER_ROLES.includes(user.role);
+  const [userId, setUserId] = useState(defaultUserId ?? (canRecordOthers ? '' : myId));
   const [range, setRange] = useState<DateRangeValue>({ from: null, to: null });
   const [reason, setReason] = useState('');
   const { data: rules } = useLeaveRulesQuery();
   const create = useCreateLeaveMutation();
-  const { data: people, isPending: peoplePending } = useAssignableUsersQuery();
-  const { user } = useAuth();
+  const { data: people, isPending: peoplePending } = useAssignableUsersQuery(undefined, undefined, undefined, canRecordOthers);
   const isHead = user?.role === 'MANAGER' || user?.role === 'SENIOR';
-  const myId = user?.id;
+  const isOrgWide = user?.role === 'ADMIN' || user?.role === 'PC';
   const myDepartmentId = user?.departmentId ?? null;
+  const forSelf = userId === myId;
+  const isRequest = forSelf && !isOrgWide;
 
-  const options = useMemo(
-    () => (people ?? [])
-      .filter((p) => !isHead || (p.id !== myId && p.role !== 'ADMIN' && p.role !== 'PC' && !!myDepartmentId && p.departmentId === myDepartmentId))
-      .map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })).sort((a, b) => a.label.localeCompare(b.label)),
-    [people, isHead, myId, myDepartmentId],
-  );
+  const options = useMemo(() => {
+    const others = (people ?? [])
+      .filter((p) => p.id !== myId && (!isHead || (p.role !== 'ADMIN' && p.role !== 'PC' && !!myDepartmentId && p.departmentId === myDepartmentId)))
+      .map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return myId ? [{ value: myId, label: `${user?.name || 'Me'} (me)` }, ...others] : others;
+  }, [people, isHead, myId, myDepartmentId, user?.name]);
 
   const startDate = range.from ? dayKey(range.from) : '';
   const endDate = range.to ? dayKey(range.to) : startDate;
@@ -77,7 +83,7 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
     <>
       <Button type="button" variant="outline" size="sm" onClick={onClose} className="max-sm:h-11">Cancel</Button>
       <Button type="button" variant="primary" size="sm" disabled={!ready || preview.isError} isLoading={create.isPending} onClick={submit} className="max-sm:h-11">
-        Save leave
+        {isRequest ? 'Send request' : 'Save leave'}
       </Button>
     </>
   );
@@ -87,25 +93,30 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
       open
       onClose={onClose}
       icon={<CalendarOff className="size-5" />}
-      title="Record leave"
-      description="Their checklists are skipped on these days, so their score does not drop."
+      title={canRecordOthers ? 'Record leave' : 'Ask for leave'}
+      description={isRequest
+        ? 'Your manager approves it. Once approved, your checklists are skipped on these days so your score does not drop.'
+        : 'Their checklists are skipped on these days, so their score does not drop.'}
       footer={footer}
       showCloseButton={false}
       draggable
     >
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="t-meta font-display font-semibold text-text-secondary">Person</span>
-          <Combobox
-            value={userId}
-            onChange={setUserId}
-            options={options}
-            isLoading={peoplePending}
-            placeholder="Search people..."
-            emptyOptionLabel="Choose a person"
-            className="w-full"
-          />
-        </div>
+        {canRecordOthers && (
+          <div className="flex flex-col gap-1.5">
+            <span className="t-meta font-display font-semibold text-text-secondary">Person</span>
+            <Combobox
+              value={userId}
+              onChange={setUserId}
+              options={options}
+              isLoading={peoplePending}
+              placeholder="Search people..."
+              emptyOptionLabel="Choose a person"
+              className="w-full"
+            />
+            {isRequest && <span className="t-meta text-text-muted">Your own leave goes to {isHead ? 'Admin or PC' : 'your manager'} for approval.</span>}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className="t-meta font-display font-semibold text-text-secondary">Days off</span>
@@ -147,13 +158,13 @@ export const LeaveForm = ({ onClose, defaultUserId }: LeaveFormProps) => {
                 <p className="flex items-start gap-2 t-meta font-display font-semibold text-text">
                   <ClipboardList className="mt-px size-3.5 shrink-0 text-text-light" aria-hidden />
                   {preview.data.runs > 0
-                    ? `${label(preview.data.runs, 'checklist', 'checklists')} nobody has started will be removed for these days.`
-                    : 'No checklists to remove now. New ones are skipped on these days.'}
+                    ? `${label(preview.data.runs, 'checklist', 'checklists')} nobody has started will be removed for these days${isRequest ? ' once approved' : ''}.`
+                    : isRequest ? 'Once approved, new checklists are skipped on these days.' : 'No checklists to remove now. New ones are skipped on these days.'}
                 </p>
                 {(preview.data.openTickets > 0 || preview.data.openDelegations > 0) && (
                   <p className="flex items-start gap-2 t-meta font-display text-text-secondary">
                     <Info className="mt-px size-3.5 shrink-0 text-primary-600" aria-hidden />
-                    Still open for them: {[preview.data.openTickets > 0 && label(preview.data.openTickets, 'ticket', 'tickets'), preview.data.openDelegations > 0 && label(preview.data.openDelegations, 'delegation', 'delegations')].filter(Boolean).join(' and ')}. These are not moved, so hand them over if they cannot wait.
+                    Still open for {forSelf ? 'you' : 'them'}: {[preview.data.openTickets > 0 && label(preview.data.openTickets, 'ticket', 'tickets'), preview.data.openDelegations > 0 && label(preview.data.openDelegations, 'delegation', 'delegations')].filter(Boolean).join(' and ')}. These are not moved, so hand them over if they cannot wait.
                   </p>
                 )}
               </>

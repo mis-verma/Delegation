@@ -20,4 +20,8 @@ export const previewLeaveQuerySchema = z.object({
     endDate: calendarDay,
 })
 
+export const decideLeaveSchema = z.object({
+    note: z.string().trim().max(191).optional(),
+})
+
 export type CreateLeaveInput = z.infer<typeof createLeaveSchema>

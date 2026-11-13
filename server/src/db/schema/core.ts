@@ -61,6 +61,7 @@ export const holidays = mysqlTable(
 );
 
 export const EXTRA_WORKING_DAY_SCOPES = ['ALL', 'DEPARTMENT', 'STORE', 'PEOPLE'] as const;
+export const LEAVE_STATUSES = ['PENDING', 'APPROVED', 'DECLINED'] as const;
 
 export const extraWorkingDays = mysqlTable(
   'ExtraWorkingDay',
@@ -440,11 +441,16 @@ export const personLeaves = mysqlTable(
     startDate: varchar('startDate', { length: 10 }).notNull(),
     endDate: varchar('endDate', { length: 10 }).notNull(),
     reason: varchar('reason', { length: 191 }),
+    status: mysqlEnum('status', LEAVE_STATUSES).notNull().default('APPROVED'),
+    decidedBy: varchar('decidedBy', { length: 191 }),
+    decidedAt: datetime('decidedAt', { mode: 'date' }),
+    declineNote: varchar('declineNote', { length: 191 }),
     createdBy: varchar('createdBy', { length: 191 }).notNull(),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [
     index('PersonLeave_userId_idx').on(table.userId),
     index('PersonLeave_dates_idx').on(table.startDate, table.endDate),
+    index('PersonLeave_status_idx').on(table.status),
   ],
 );

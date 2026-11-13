@@ -1,5 +1,5 @@
 import {
-  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren, Ban, ShieldQuestion, Activity, Handshake,
+  TicketCheck, CheckSquare, ClipboardCheck, ShieldCheck, XCircle, AlarmClock, PauseCircle, Flag, Hourglass, Bell, MessageSquare, DoorOpen, CalendarClock, UserPlus, UserX, ArrowRightCircle, Siren, Ban, ShieldQuestion, Activity, Handshake, CalendarOff,
   type LucideIcon,
 } from 'lucide-react';
 import type { Notification } from '@/api/notifications';
@@ -35,6 +35,7 @@ const KIND: Array<{ match: string; icon: LucideIcon; tile: string; label: string
   { match: 'TICKET', icon: TicketCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white', label: 'Ticket' },
   { match: 'TASK', icon: CheckSquare, tile: 'bg-linear-to-br from-info to-info/70 text-white', label: 'Delegation' },
   { match: 'CHECKLIST', icon: ClipboardCheck, tile: 'bg-linear-to-br from-coral-500 to-coral-600 text-white', label: 'Checklist' },
+  { match: 'LEAVE', icon: CalendarOff, tile: 'bg-linear-to-br from-success to-success/70 text-white', label: 'Leave' },
 ];
 
 export const notificationLook = (type: string) => {
@@ -50,6 +51,7 @@ export const notificationLook = (type: string) => {
 export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'> & { type?: string }) => {
   if (n.type?.startsWith('SYSTEM_')) return '/admin/system-health';
   if (n.type === 'WORK_HANDED_OVER') return '/';
+  if (n.type?.startsWith('LEAVE_')) return '/leave';
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
   if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;

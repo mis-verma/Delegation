@@ -91,7 +91,7 @@ export const PcOrgFigures = () => {
 
   const leaveItems = useMemo<PcListItem[]>(
     () => (leave.data ?? [])
-      .filter((l) => l.startDate <= today && today <= l.endDate)
+      .filter((l) => l.status === 'APPROVED' && l.startDate <= today && today <= l.endDate)
       .map((l) => ({
         id: l.id,
         kind: 'leave' as const,

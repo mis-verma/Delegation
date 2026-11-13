@@ -56,19 +56,41 @@ export const useCreateLeaveMutation = () => {
     mutationFn: (payload: NewLeave) => leaveApi.create(payload),
     onSuccess: (res) => {
       refresh();
-      toast.success(res.removedRuns > 0 ? `Leave saved. ${res.removedRuns} checklist${res.removedRuns === 1 ? '' : 's'} nobody had started ${res.removedRuns === 1 ? 'was' : 'were'} removed.` : 'Leave saved.');
+      if (res.status === 'PENDING') {
+        toast.success('Request sent. Your manager will approve or decline it.');
+        return;
+      }
+      toast.success(res.removedRuns > 0 ? `Leave saved. ${removedText(res.removedRuns)}` : 'Leave saved.');
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't save the leave. Try again.")),
+  });
+};
+
+const removedText = (n: number) => `${n} checklist${n === 1 ? '' : 's'} nobody had started ${n === 1 ? 'was' : 'were'} removed.`;
+
+export const useDecideLeaveMutation = () => {
+  const refresh = useRefreshAfterChange();
+  return useMutation({
+    mutationFn: ({ id, approve, note }: { id: string; approve: boolean; note?: string }) => (approve ? leaveApi.approve(id) : leaveApi.decline(id, note)),
+    onSuccess: (res) => {
+      refresh();
+      if (res.status === 'DECLINED') toast.success('Request declined. They have been told.');
+      else toast.success(res.removedRuns > 0 ? `Leave approved. ${removedText(res.removedRuns)}` : 'Leave approved.');
+    },
+    onError: (err) => {
+      refresh();
+      toast.error(errorMessage(err, "Couldn't save your decision. Try again."));
+    },
   });
 };
 
 export const useRemoveLeaveMutation = () => {
   const refresh = useRefreshAfterChange();
   return useMutation({
-    mutationFn: (id: string) => leaveApi.remove(id),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; message: string }) => leaveApi.remove(id),
+    onSuccess: (_res, { message }) => {
       refresh();
-      toast.success('Leave removed. Their checklists come back.');
+      toast.success(message);
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't remove the leave. Try again.")),
   });

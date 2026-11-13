@@ -268,6 +268,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     { to: '/admin', icon: LayoutDashboard, label: 'Overview', tint: 'info' },
     { to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' },
     { to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' },
+    { to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' },
   ];
 
   const adminNavItems: NavItem[] = isOwner ? ownerNavItems : [
@@ -278,9 +279,10 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ...(user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]
       : []),
-    ...(isManager || isSenior || isAdmin || isPC ? [{ to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' }] : []),
+    { to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' },
     ...(isAdmin || isPC ? [{ to: '/admin', icon: ShieldCheck, label: 'Overview', tint: 'danger' }] : []),
   ];
+  const leadsTeam = isManager || isSenior || isAdmin || isPC;
 
   const topPaths = [...navItems, ...adminNavItems, SETTINGS_ITEM].map((item) => item.to);
   const matchesPath = (path: string) => location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -291,7 +293,8 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     ? [{ title: 'Owner', paths: adminNavItems.map((i) => i.to), dot: true }]
     : [
         { title: 'Approvals', paths: ['/tickets/approvals', '/verify'] },
-        { title: 'Team', paths: ['/analytics', '/admin/scores', '/team/fill', '/leave'] },
+        { title: 'Team', paths: leadsTeam ? ['/analytics', '/admin/scores', '/team/fill', '/leave'] : ['/analytics', '/admin/scores', '/team/fill'] },
+        ...(leadsTeam ? [] : [{ title: 'Time off', paths: ['/leave'] }]),
         { title: 'Admin', paths: ['/admin'], dot: true },
       ];
 
