@@ -505,7 +505,8 @@ body {
 
   body { font-weight: 500; letter-spacing: 0; }
   .t-title, .t-section { font-weight: clamp(600, var(--tw-font-weight, 400), 700); }
-  .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 800); }
+  .t-figure { font-weight: clamp(700, var(--tw-font-weight, 400), 800); }
+  .t-stat { font-size: calc(1.3125rem * var(--type-scale, 1)); font-weight: 800; letter-spacing: -0.02em; }
   .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 700); }
   .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 600); }
 }

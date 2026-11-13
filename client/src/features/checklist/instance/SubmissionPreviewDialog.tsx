@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Ban, Eye, PencilLine, Timer, Undo2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
-import { Button } from '../../../components';
+import { Button, Modal } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useRevokeChecklistSubmissionMutation } from '../hook';
 import { answerText } from './answerText';
 import { REVOKE_WINDOW_MS, revokeMsLeft } from './revokeWindow';
+import { RunVerificationChip } from './RunVerificationChip';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface SubmissionPreviewDialogProps {
@@ -53,79 +53,77 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
   };
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="flex max-h-[85dvh] flex-col gap-4 sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Eye size={16} aria-hidden />
-            What you submitted
-          </DialogTitle>
-          <DialogDescription asChild>
-            <div className="flex flex-wrap items-center gap-2 t-meta">
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-display font-semibold tabular-nums',
-                  open ? 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'bg-surface-hover text-text-muted',
-                )}
-              >
-                <Timer size={12} className="shrink-0" aria-hidden />
-                {open ? `${minutesText(msLeft)} left to change it` : canRevoke ? `${REVOKE_WINDOW_MS / 60_000} minute window is over` : 'Waiting for approval'}
-              </span>
-              {open && <span className="text-text-muted">Tap Correct on a question to reopen just that one.</span>}
-            </div>
-          </DialogDescription>
-        </DialogHeader>
-
-        <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" aria-label="Submitted answers">
-          {instance.items.map((item) => {
-            const answer = item.isNotApplicable ? 'Not applicable' : answerText(item) ?? (item.isDone ? 'Done' : 'No answer');
-            return (
-              <li key={item.id} className="flex items-start gap-3 rounded-xl border border-border/60 bg-surface p-3 transition-colors duration-150 hover:border-border-hover">
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
-                  <p className="flex flex-wrap items-center gap-1.5 t-meta font-display text-text-secondary break-words">
-                    {item.isNotApplicable && <Ban size={12} className="shrink-0" aria-hidden />}
-                    {answer}
-                  </p>
-                  {item.remarks && <p className="t-meta text-text-muted break-words">"{item.remarks}"</p>}
-                </div>
-                {open && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    isLoading={busy && pickedId === item.id}
-                    onClick={() => run(item.id)}
-                    aria-label={`Correct: ${item.label}`}
-                    className="shrink-0 rounded-full pointer-coarse:h-11"
-                  >
-                    <PencilLine size={13} aria-hidden />
-                    Correct
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        {revoke.isError && (
-          <p role="alert" className="t-meta font-display font-semibold text-danger">
-            {revoke.error instanceof Error ? revoke.error.message : "Couldn't take it back. Try again."}
-          </p>
-        )}
-
-        <DialogFooter className="gap-2">
-          <DialogClose asChild>
-            <Button type="button" variant="outline" size="sm" disabled={busy} className="pointer-coarse:h-11">Close</Button>
-          </DialogClose>
+    <Modal
+      open
+      onClose={() => { if (!busy) onClose(); }}
+      title="What you submitted"
+      icon={<Eye size={18} aria-hidden="true" />}
+      size="lg"
+      bodyClassName="flex flex-col gap-4"
+      footer={(
+        <div className={cn('grid w-full gap-2 sm:flex sm:justify-end', open ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1')}>
+          <Button type="button" variant="outline" disabled={busy} onClick={onClose} className="h-11 sm:h-9">Close</Button>
           {open && (
-            <Button type="button" variant="danger" size="sm" disabled={busy} isLoading={busy && pickedId === null} onClick={() => void revokeAll()} className="pointer-coarse:h-11">
-              <Undo2 size={14} aria-hidden />
+            <Button type="button" variant="danger" disabled={busy} isLoading={busy && pickedId === null} onClick={() => void revokeAll()} className="h-11 sm:h-9">
+              {!(busy && pickedId === null) && <Undo2 size={15} aria-hidden="true" />}
               Take all back
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <RunVerificationChip instance={instance} />
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 t-meta font-display font-semibold tabular-nums',
+            open ? 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'bg-surface-hover text-text-muted',
+          )}
+        >
+          <Timer size={12} className="shrink-0" aria-hidden="true" />
+          {open ? `${minutesText(msLeft)} left to change it` : canRevoke ? `${REVOKE_WINDOW_MS / 60_000} minute window is over` : 'Waiting for approval'}
+        </span>
+      </div>
+      {open && <p className="t-meta text-text-muted">Tap Correct on a question to reopen just that one. The rest stays as it is.</p>}
+
+      <ul className="flex flex-col gap-2" aria-label="Submitted answers">
+        {instance.items.map((item) => {
+          const answer = item.isNotApplicable ? 'Not applicable' : answerText(item) ?? (item.isDone ? 'Done' : 'No answer');
+          const correcting = busy && pickedId === item.id;
+          return (
+            <li key={item.id} className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
+                <p className="flex flex-wrap items-center gap-1.5 t-meta text-text-secondary break-words">
+                  {item.isNotApplicable && <Ban size={12} className="shrink-0" aria-hidden="true" />}
+                  {answer}
+                </p>
+                {item.remarks && <p className="t-meta text-text-muted break-words">"{item.remarks}"</p>}
+              </div>
+              {open && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  isLoading={correcting}
+                  onClick={() => run(item.id)}
+                  aria-label={`Correct: ${item.label}`}
+                  className="h-11 w-full shrink-0 rounded-full sm:h-9 sm:w-auto"
+                >
+                  {!correcting && <PencilLine size={13} aria-hidden="true" />}
+                  Correct
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {revoke.isError && (
+        <p role="alert" className="t-meta font-display font-semibold text-danger">
+          {revoke.error instanceof Error ? revoke.error.message : "Couldn't take it back. Try again."}
+        </p>
+      )}
+    </Modal>
   );
 };

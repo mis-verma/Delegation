@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
+import { useStatCountFormat } from '../../lib/statCount';
+import { STAT_FIGURE, STAT_PHONE_CENTER } from '../../components/statSurface';
 
 export type BoardTone = 'primary' | 'danger' | 'coral' | 'success';
 
@@ -80,6 +82,7 @@ interface StatBoardProps {
 
 export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) => {
   const warm = usePrefetchRoute();
+  const formatCount = useStatCountFormat();
   const ActiveIcon = active.icon;
   const parts = active.breakdown ?? [];
   const odd = tiles.length % 2 === 1;
@@ -134,19 +137,20 @@ export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) =
               tile={tile}
               className={cn(
                 PRESS,
-                'relative flex min-w-0 flex-col justify-between gap-2 bg-surface p-3 text-left sm:p-4',
+                'relative flex min-w-0 flex-col justify-between gap-2 bg-surface p-3 text-left touch-manipulation sm:p-4',
+                STAT_PHONE_CENTER,
                 odd && index === tiles.length - 1 && 'col-span-2 sm:col-span-1 lg:col-span-2 xl:col-span-1',
                 tile.selected ? 'bg-primary-500/10 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary-600 dark:after:bg-primary-400' : 'hover:bg-surface-hover/60',
               )}
             >
-              <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                 <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone.tile)} aria-hidden="true">
                   <Icon size={12} strokeWidth={2.75} />
                 </span>
                 <span className="min-w-0 truncate t-meta font-display font-semibold text-text-secondary">{tile.label}</span>
               </span>
-              <span className="flex flex-col gap-0.5">
-                <span className={cn('t-stat font-figure font-extrabold leading-none tabular-nums', tile.value > 0 ? tone.value : 'text-text')}>{shown(tile)}</span>
+              <span className="flex min-w-0 max-w-full flex-col gap-0.5">
+                <span className={cn('t-stat', STAT_FIGURE, tile.value > 0 ? tone.value : 'text-text')}>{tile.failed || tile.loading ? '-' : formatCount(tile.value)}</span>
                 <span className="hidden sm:block t-meta text-text-muted line-clamp-2">{tile.failed ? "Couldn't load" : tile.caption}</span>
               </span>
             </TileShell>

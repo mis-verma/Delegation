@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 
 export const TOGGLE_TRACK = 'relative inline-flex max-w-full items-center gap-1 overflow-x-auto no-scrollbar rounded-full bg-surface-hover/70 p-1 ring-1 ring-inset ring-border/50';
 
-export const TOGGLE_ITEM = 'group relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full px-4 font-display font-semibold outline-none transition-colors duration-150 ease-out select-none active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/60 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]';
+export const TOGGLE_ITEM = 'group relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full px-4 font-display font-semibold outline-none transition-colors duration-150 ease-out select-none touch-manipulation active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/60 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]';
 
 export const TOGGLE_SIZE_MD = 'min-h-11 t-card sm:min-h-10';
 

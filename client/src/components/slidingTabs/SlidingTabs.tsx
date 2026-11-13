@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TOGGLE_ITEM, TOGGLE_OFF, TOGGLE_ON, TOGGLE_SIZE_MD, TOGGLE_SIZE_SM, TOGGLE_TRACK, TogglePill } from './toggleStyle';
+import { useInstantChoice } from './useInstantChoice';
 
 export interface SlidingTabOption<T extends string> {
   value: T;
@@ -28,11 +29,12 @@ interface SlidingTabsProps<T extends string> {
 export function SlidingTabs<T extends string>({ label, value, options, onChange, size = 'md', fill = false, pressed = false, className }: SlidingTabsProps<T>) {
   const groupId = useId();
   const small = size === 'sm';
+  const [shown, choose] = useInstantChoice(value, onChange);
 
   return (
     <div role={pressed ? 'group' : 'tablist'} aria-label={label} className={cn(TOGGLE_TRACK, fill === true && 'flex w-full', fill === 'phone' && 'max-sm:flex max-sm:w-full', className)}>
       {options.map((option) => {
-        const active = option.value === value;
+        const active = option.value === shown;
         const Icon = option.icon;
         const Trailing = option.trailing;
         return (
@@ -44,7 +46,7 @@ export function SlidingTabs<T extends string>({ label, value, options, onChange,
             aria-pressed={pressed ? active : undefined}
             aria-label={option.ariaLabel}
             tabIndex={pressed || active ? 0 : -1}
-            onClick={() => onChange(option.value)}
+            onClick={() => choose(option.value)}
             className={cn(TOGGLE_ITEM, small ? TOGGLE_SIZE_SM : TOGGLE_SIZE_MD, fill === true && 'flex-[1_0_auto]', fill === 'phone' && 'max-sm:flex-[1_0_auto]', active ? TOGGLE_ON : TOGGLE_OFF)}
           >
             {active && <TogglePill id={`${groupId}-pill`} />}

@@ -3,6 +3,7 @@ import { Skeleton } from '../skeleton';
 import { CountUp } from '../countUp';
 import { statusTiles } from './statusTiles';
 import { STAT_BAR_SMALL, STAT_FIGURE, STAT_LABEL, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../statSurface';
+import { useStatCountFormat } from '../../lib/statCount';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -63,6 +64,7 @@ export function QuickFilterStats<K extends string>({
   onClearFilter,
 }: QuickFilterStatsProps<K>) {
   const hasTotal = total !== undefined;
+  const formatCount = useStatCountFormat();
   const shownTiles: QuickFilterTile<K | 'all'>[] = hasTotal
     ? [{ ...statusTiles(['all'])[0], label: totalLabel }, ...tiles]
     : tiles;
@@ -96,7 +98,7 @@ export function QuickFilterStats<K extends string>({
             className={cn(
               'flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-center font-display outline-none max-sm:min-h-20',
               'sm:min-h-0 sm:items-stretch sm:justify-between sm:gap-3 sm:p-5 sm:text-left',
-              '[-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-primary-500/50',
+              'touch-manipulation [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-primary-500/50',
               STAT_SURFACE,
               STAT_SURFACE_ACTION,
               isActive && cn(STAT_SURFACE_SELECTED, STAT_BAR_SMALL),
@@ -109,12 +111,12 @@ export function QuickFilterStats<K extends string>({
             </span>
             <span
               className={cn(
-                'block t-stat sm:t-figure max-sm:tracking-tighter max-sm:break-all',
+                'block min-w-0 max-w-full t-stat sm:t-figure',
                 STAT_FIGURE,
                 late ? 'text-vivid-red-text' : isQuiet ? 'text-text-muted' : isActive ? 'text-primary-700 dark:text-primary-300' : 'text-text',
               )}
             >
-              <CountUp value={count} />
+              <CountUp value={count} format={formatCount} />
             </span>
             <span className={cn('block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:hidden', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
               {shortLabel ?? label}

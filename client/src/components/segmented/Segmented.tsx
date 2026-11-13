@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { TOGGLE_ITEM, TOGGLE_OFF, TOGGLE_ON, TOGGLE_SIZE_SM, TOGGLE_TRACK, TogglePill } from '../slidingTabs';
+import { useInstantChoice } from '../slidingTabs/useInstantChoice';
 
 interface SegmentedOption<T extends string> {
   value: T;
@@ -22,6 +23,7 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
   const hintId = useId();
   const pillId = useId();
   const [shownHint, setShownHint] = useState<T | null>(null);
+  const [shown, choose] = useInstantChoice(value, onChange);
   const hinted = options.some((o) => o.disabled && o.hint);
   const activeHint = shownHint !== null ? options.find((o) => o.value === shownHint && o.disabled)?.hint : undefined;
 
@@ -38,7 +40,7 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
             key={o.value}
             type="button"
             role="radio"
-            aria-checked={value === o.value}
+            aria-checked={shown === o.value}
             disabled={o.disabled && !softDisabled}
             aria-disabled={softDisabled || undefined}
             aria-describedby={softDisabled && activeHint ? hintId : undefined}
@@ -49,16 +51,16 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
                 return;
               }
               setShownHint(null);
-              onChange(o.value);
+              choose(o.value);
             }}
             className={cn(
               TOGGLE_ITEM,
               TOGGLE_SIZE_SM,
               softDisabled && 'cursor-not-allowed opacity-40',
-              value === o.value ? TOGGLE_ON : TOGGLE_OFF,
+              shown === o.value ? TOGGLE_ON : TOGGLE_OFF,
             )}
           >
-            {value === o.value && <TogglePill id={`${pillId}-pill`} />}
+            {shown === o.value && <TogglePill id={`${pillId}-pill`} />}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               {o.icon}
               {o.label}

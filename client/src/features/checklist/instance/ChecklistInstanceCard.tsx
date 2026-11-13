@@ -13,6 +13,7 @@ import { useSharedNow } from '../../../lib/useSharedNow';
 import { LateWindowOverlay } from './LateWindowOverlay';
 import { SubmissionPreviewDialog } from './SubmissionPreviewDialog';
 import { AdminRunActionsDialog } from './AdminRunActionsDialog';
+import { RunVerificationChip } from './RunVerificationChip';
 import { revokeMsLeft } from './revokeWindow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -39,7 +40,7 @@ interface ChecklistInstanceCardProps {
 
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
   const now = useSharedNow();
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -79,9 +80,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
 {opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
-        {showVerification && (
-          <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
-        )}
+        {showVerification && <RunVerificationChip instance={instance} />}
       </div>
 
       {doneByOthers && (

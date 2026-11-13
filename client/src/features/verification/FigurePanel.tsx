@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
-import { STAT_BAR_SMALL, STAT_FIGURE, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { STAT_BAR_SMALL, STAT_FIGURE, STAT_PHONE_CENTER, STAT_ROW_PHONE_CENTER, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { useStatCountFormat } from '../../lib/statCount';
 
 export interface FigureCell {
   key: string;
@@ -25,7 +26,7 @@ interface FigurePanelProps {
   phoneDense?: boolean;
 }
 
-const CELL = cn(STAT_SURFACE, 'flex min-w-0 flex-col justify-center gap-1 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40');
+const CELL = cn(STAT_SURFACE, STAT_PHONE_CENTER, 'flex min-w-0 flex-col justify-center gap-1 text-left outline-none touch-manipulation transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40');
 const CELL_SIZE = 'min-h-16 p-3 sm:gap-3 sm:p-5';
 const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
 const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
@@ -33,6 +34,7 @@ const ACTION = STAT_SURFACE_ACTION;
 
 export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
   const broken = failed && !loading;
+  const formatCount = useStatCountFormat();
   const cellSize = compact ? CELL_SIZE_COMPACT : phoneDense ? CELL_SIZE_PHONE_DENSE : CELL_SIZE;
   const tightOnPhone = compact || phoneDense;
   return (
@@ -43,16 +45,16 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
         const selected = !!cell.selected && !broken;
         const body = (
           <>
-            <span className="min-w-0 truncate t-meta font-display font-semibold text-text-muted">
+            <span className="min-w-0 max-w-full truncate t-meta font-display font-semibold text-text-muted">
               <span className="sm:hidden">{cell.short ?? cell.label}</span>
               <span className="hidden sm:inline">{cell.label}</span>
             </span>
-            <span className={cn('flex items-center', tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7')}>
+            <span className={cn('flex min-w-0 max-w-full items-center', STAT_ROW_PHONE_CENTER, tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7')}>
               {loading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
                 <span className={cn('t-stat sm:t-figure', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
-                  {broken || cell.value === null ? '-' : cell.value}
+                  {broken || cell.value === null ? '-' : typeof cell.value === 'number' ? formatCount(cell.value) : cell.value}
                 </span>
               )}
             </span>

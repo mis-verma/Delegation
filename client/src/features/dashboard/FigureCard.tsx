@@ -5,7 +5,8 @@ import { CountUp } from '../../components/countUp';
 import { Skeleton } from '../../components/skeleton';
 import { HintPopover } from '../scores/HowCalculated';
 import { FIGURE_BAR, FIGURE_TEXT } from './scoreTone';
-import { STAT_BAR_SMALL, STAT_BOX, STAT_FIGURE, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { STAT_BAR_SMALL, STAT_BOX, STAT_FIGURE, STAT_PHONE_CENTER, STAT_ROW_PHONE_CENTER, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { useStatCountFormat } from '../../lib/statCount';
 
 export type FigureTone = 'good' | 'fair' | 'bad' | 'plain';
 
@@ -34,6 +35,7 @@ interface FigureCardProps {
 
 export const FigureCard = ({ label, short, help, value, tone, bar, loading, text, caption, format, decimals = 0, to, onClick, selected, compact = false, error = false, onRetry }: FigureCardProps) => {
   const helpId = useId();
+  const formatCount = useStatCountFormat();
   const failed = error && !loading;
   const shownTone: FigureTone = failed ? 'plain' : tone;
   const hint = failed ? "Couldn't load. Tap to try again." : help;
@@ -57,6 +59,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
       aria-describedby={interactive ? undefined : describedBy}
       className={cn(
         STAT_BOX,
+        STAT_PHONE_CENTER,
         compact && 'max-sm:gap-0.5 max-sm:p-2',
         interactive && INTERACTIVE,
         failed && onRetry && 'ring-1 ring-danger/30',
@@ -64,7 +67,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
       )}
     >
       {overlay}
-      <span className={cn('relative flex min-w-0 items-center gap-x-1 whitespace-nowrap t-meta text-text-muted', interactive && 'pointer-events-none')}>
+      <span className={cn('relative flex min-w-0 max-w-full items-center gap-x-1 whitespace-nowrap t-meta text-text-muted', STAT_ROW_PHONE_CENTER, interactive && 'pointer-events-none')}>
         <span aria-hidden="true" className={cn('hidden size-2 shrink-0 rounded-full', compact && 'max-sm:inline-block', loading ? 'bg-border' : FIGURE_BAR[shownTone])} />
         {short ? (
           <>
@@ -83,12 +86,12 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         )}
         {hint && <span id={helpId} hidden>{hint}</span>}
       </span>
-      <span className={cn('relative flex min-h-7 items-center', interactive && 'pointer-events-none')} aria-hidden={interactive || undefined}>
+      <span className={cn('relative flex min-h-7 min-w-0 max-w-full items-center', STAT_ROW_PHONE_CENTER, interactive && 'pointer-events-none')} aria-hidden={interactive || undefined}>
         {loading ? (
           <Skeleton className="h-6 w-12" />
         ) : (
           <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed || (value === null && !text) ? 'text-text-muted' : FIGURE_TEXT[shownTone])}>
-            {failed ? '-' : (text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format} fromZero />))}
+            {failed ? '-' : (text ?? (value === null ? '-' : <CountUp value={value} decimals={decimals} format={format ?? (decimals === 0 ? formatCount : undefined)} fromZero />))}
           </span>
         )}
       </span>

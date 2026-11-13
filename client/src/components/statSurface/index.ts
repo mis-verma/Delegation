@@ -12,6 +12,10 @@ export const STAT_BAR_SMALL = 'relative after:pointer-events-none after:absolute
 
 export const STAT_LABEL = 't-meta font-display font-semibold text-text-muted';
 
-export const STAT_FIGURE = 'font-figure font-extrabold leading-none tracking-tight tabular-nums';
+export const STAT_FIGURE = 'font-figure font-extrabold leading-none tracking-tight tabular-nums whitespace-nowrap';
+
+export const STAT_PHONE_CENTER = 'max-sm:items-center max-sm:text-center';
+
+export const STAT_ROW_PHONE_CENTER = 'max-sm:justify-center';
 
 export const STAT_BOX = 'flex min-w-0 flex-col gap-1.5 rounded-2xl bg-surface p-3 text-left ring-1 ring-inset ring-border/60 sm:gap-3 sm:p-5';
