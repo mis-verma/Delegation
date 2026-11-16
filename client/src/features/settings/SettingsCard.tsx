@@ -11,8 +11,8 @@ interface SettingsCardProps {
 }
 
 export const SettingsCard = ({ icon: Icon, title, aside, hint, tone = 'primary', children }: SettingsCardProps) => (
-  <section aria-label={title} className="flex flex-col gap-3.5 p-3.5 sm:p-5 rounded-2xl border border-border/60 bg-surface">
-    <div className="flex items-center gap-2.5">
+  <section aria-label={title} className="flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-border/60 bg-surface">
+    <div className="flex items-center gap-3">
       <span className={`flex items-center justify-center size-8 rounded-lg shrink-0 text-white bg-linear-to-br ${tone === 'warning' ? 'from-warning to-warning/70' : 'from-primary-500 to-primary-700'}`}>
         <Icon size={15} strokeWidth={2.25} aria-hidden />
       </span>

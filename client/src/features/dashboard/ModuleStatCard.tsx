@@ -37,7 +37,7 @@ const ModuleStatCardComponent = ({ column, className }: ModuleStatCardProps) => 
   return (
     <div
       className={cn(
-        'relative flex min-w-0 flex-col justify-between gap-2.5 bg-surface p-3 text-left transition-colors duration-150 ease-out hover:bg-surface-hover/60 sm:p-4 2xl:p-5',
+        'relative flex min-h-44 min-w-0 flex-col justify-between gap-2.5 bg-surface p-3 text-left transition-colors duration-150 ease-out hover:bg-surface-hover/60 sm:p-4 2xl:p-5',
         STAT_PHONE_CENTER,
         className,
       )}

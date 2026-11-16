@@ -12,6 +12,8 @@ import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from '../../form/formConstant
 import { questionTypeOf } from '../questionTypes';
 import { WindowTimeline } from '../WindowTimeline';
 import { isOvernightWindow } from '../scheduleWindow';
+import { pickedLabel } from '../scheduleSummary';
+import { RECURRENCE_REGISTRY } from '../../../recurrenceRegistry';
 import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import type { ChecklistRecurrence, ChecklistResponseMode } from '../../../../../api/checklistDefinitions';
 
@@ -25,6 +27,7 @@ interface BuilderReviewStepProps {
   cutoffTime: string;
   lateUntilTime: string;
   activeWeekdays: number[];
+  occurrenceDays: number[];
   responseMode: ChecklistResponseMode;
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
@@ -114,7 +117,7 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => (
 );
 
 export const BuilderReviewStep = ({
-  name, description, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, responseMode,
+  name, description, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays, responseMode,
   itemDrafts, assigneeIds, reviewerIds, sectionValidity, hasPeople, hideSubmit = false, onEditSection, canSubmit, isSubmitting,
   isEditing, isActive, onSubmit, submitError, onReloadLatest,
 }: BuilderReviewStepProps) => {
@@ -282,7 +285,7 @@ export const BuilderReviewStep = ({
             )}
           </Field>
           <ul className="flex flex-wrap gap-1.5" aria-label="When it runs">
-            <li><IconChip icon={Repeat} tone="bg-primary-600" label={`${RECURRENCE_LABEL[recurrence] ?? recurrence}${recurrence === 'DAILY' ? ` · ${formatWeekdays(activeWeekdays)}` : ''}`} /></li>
+            <li><IconChip icon={Repeat} tone="bg-primary-600" label={`${RECURRENCE_LABEL[recurrence] ?? recurrence}${recurrence === 'DAILY' ? ` · ${formatWeekdays(activeWeekdays)}` : ''}${RECURRENCE_REGISTRY[recurrence].picker ? ` · ${pickedLabel(recurrence, occurrenceDays)}` : ''}`} /></li>
             <li><IconChip icon={CalendarDays} tone="bg-primary-600" label={`${recurrence === 'ONE_TIME' ? 'Due' : 'Starts'} ${formatStart(startDate)}`} /></li>
             {overnight && <li><IconChip icon={Info} tone="bg-text-muted" label="Closes next morning" /></li>}
           </ul>

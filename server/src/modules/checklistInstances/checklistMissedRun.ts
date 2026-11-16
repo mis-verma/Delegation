@@ -39,7 +39,13 @@ export const closedFromPastDayExpr = sql`(
     AND ${runClosingSql} <= ${localNowSql}
 )`
 
-export const closedBeforeTodayExpr = sql`(${closedFromPastDayExpr} AND ${runClosingSql} < DATE(${localNowSql}))`
+export const TRAIL_DAYS = 3
+
+const TRAILING_CYCLES = ["WEEKLY", "TWICE_WEEKLY", "MONTHLY", "TWICE_MONTHLY", "QUARTERLY", "YEARLY"] as const
+
+const trailDaysSql = sql`CASE WHEN ${inArray(checklistInstances.recurrence, [...TRAILING_CYCLES])} THEN ${TRAIL_DAYS} ELSE 0 END`
+
+export const closedBeforeTodayExpr = sql`(${closedFromPastDayExpr} AND ${runClosingSql} < DATE_SUB(DATE(${localNowSql}), INTERVAL ${trailDaysSql} DAY))`
 
 export const missedInstanceIds = async (ids: string[]): Promise<Set<string>> => {
     const unique = [...new Set(ids)]

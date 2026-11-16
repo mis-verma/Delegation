@@ -16,6 +16,7 @@ import { OptionSection, OptionSelect } from "../../../components/optionsSheet";
 import { useMediaQuery } from "../../../lib/useMediaQuery";
 import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from "../directory/OrgToolbar";
 import { useDirectoryView } from "../directory/useDirectoryView";
+import { useUrlStatus } from "../useUrlStatus";
 import { useMonthScores } from "../directory/orgScoreData";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -49,7 +50,7 @@ export const DepartmentList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
+  const [statusFilter, setStatusFilter] = useUrlStatus();
   const [searchText, setSearchText] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [sort, setSort] = useState<SortKey>('name');
   const [view, setView] = useDirectoryView();

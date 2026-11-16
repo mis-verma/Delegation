@@ -15,7 +15,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { users, stores } from './core.js';
 
-export const CHECKLIST_RECURRENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const;
+export const CHECKLIST_RECURRENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME', 'TWICE_WEEKLY', 'TWICE_MONTHLY'] as const;
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number];
 export const CHECKLIST_RESPONSE_MODES = ['SHARED', 'PER_DEPARTMENT', 'PER_USER'] as const;
 export type ChecklistResponseMode = (typeof CHECKLIST_RESPONSE_MODES)[number];
@@ -96,6 +96,7 @@ export const checklistDefinitions = mysqlTable(
     icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
     responseMode: mysqlEnum('responseMode', CHECKLIST_RESPONSE_MODES).notNull().default('SHARED'),
     activeWeekdays: json('activeWeekdays').$type<number[]>(),
+    occurrenceDays: json('occurrenceDays').$type<number[]>(),
     version: int('version').notNull().default(1),
     createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
     deletedAt: datetime('deletedAt', { mode: 'date' }),

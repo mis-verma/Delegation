@@ -37,11 +37,7 @@ export const DirectoryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const tab: TabValue = isTabValue(tabParam) ? tabParam : 'users';
-  const setTab = (next: TabValue) => setSearchParams((prev) => {
-    const params = new URLSearchParams(prev);
-    params.set('tab', next);
-    return params;
-  }, { replace: true });
+  const setTab = (next: TabValue) => setSearchParams(new URLSearchParams({ tab: next }), { replace: true });
 
   const { user } = useAuth();
   const [importing, setImporting] = useState(false);
@@ -77,7 +73,7 @@ export const DirectoryPage = () => {
         ) : undefined}
       />
 
-      <DirectoryStats onOpen={setTab} />
+      <DirectoryStats />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

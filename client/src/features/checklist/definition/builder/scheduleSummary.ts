@@ -1,17 +1,13 @@
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
-
-export const EARLY_VIEW_DAYS = 3;
+import { ordinalDay } from '../../../../components/monthDayPicker';
+import { RECURRENCE_REGISTRY } from '../../recurrenceRegistry';
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const parseDay = (value: string): Date | null => (value ? new Date(`${value}T00:00:00`) : null);
 
-const ordinal = (n: number) => {
-  const suffix = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]}`;
-};
+const ordinal = ordinalDay;
 
 const shortDate = (d: Date) => `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
 
@@ -25,17 +21,25 @@ export const startDateHint = (recurrence: ChecklistRecurrence, startDate: string
   if (!date) return '';
   const weekday = WEEKDAY_NAMES[date.getDay()];
   if (recurrence === 'WEEKLY') return `Repeats every ${weekday}`;
+  if (recurrence === 'TWICE_WEEKLY' || recurrence === 'TWICE_MONTHLY') return `Starts ${weekday}`;
   if (recurrence === 'MONTHLY' || recurrence === 'QUARTERLY') return `${weekday}. Repeats on the ${ordinal(date.getDate())}`;
   return weekday;
 };
 
-export const repeatSentence = (recurrence: ChecklistRecurrence, startDate: string, daysLabel: string): string => {
+export const pickedLabel = (recurrence: ChecklistRecurrence, picked: readonly number[]): string =>
+  [...picked].sort((a, b) => a - b).map((n) => (recurrence === 'TWICE_WEEKLY' ? WEEKDAY_NAMES[n] : ordinal(n))).join(' and ');
+
+export const repeatSentence = (recurrence: ChecklistRecurrence, startDate: string, daysLabel: string, picked: readonly number[] = []): string => {
   if (recurrence === 'DAILY') return daysLabel === 'Every day' ? 'Every day' : `Runs ${daysLabel}`;
   const date = parseDay(startDate);
   if (!date) return recurrence === 'ONE_TIME' ? 'Pick the due date.' : 'Pick a start date to see when it runs.';
   const weekday = WEEKDAY_NAMES[date.getDay()];
   const from = `starting ${shortDate(date)}`;
   switch (recurrence) {
+    case 'TWICE_WEEKLY':
+      return picked.length === 2 ? `Every ${pickedLabel(recurrence, picked)}, ${from}` : 'Pick the two days of the week it runs.';
+    case 'TWICE_MONTHLY':
+      return picked.length === 2 ? `On the ${pickedLabel(recurrence, picked)} of every month, ${from}${picked.some((n) => n > 28) ? '. Shorter months use their last day' : ''}` : 'Pick the two dates of the month it runs.';
     case 'WEEKLY':
       return `Every ${weekday}, ${from}`;
     case 'MONTHLY':
@@ -56,7 +60,9 @@ export const windowSentence = (opensTime: string, cutoffTime: string, overnight:
   return `Open ${clockLabel(opensTime)} to ${clockLabel(cutoffTime)}${overnight ? ', closes the next morning' : ''}`;
 };
 
-export const earlySentence = (recurrence: ChecklistRecurrence): string | null =>
-  recurrence === 'DAILY' || recurrence === 'ONE_TIME'
+export const earlySentence = (recurrence: ChecklistRecurrence): string | null => {
+  const { leadDays, trailDays } = RECURRENCE_REGISTRY[recurrence];
+  return leadDays === 0
     ? null
-    : `Staff see each run ${EARLY_VIEW_DAYS} days before the date and can fill it from then. It is due at the end of that day.`;
+    : `Staff see each run ${leadDays} days before the date and can fill it from then. It is due at the end of that day, and stays on their list for ${trailDays} more days.`;
+};

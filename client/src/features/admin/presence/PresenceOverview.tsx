@@ -1,9 +1,9 @@
 import { memo, useDeferredValue, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Radio, Users, Search } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Input, Avatar, Skeleton, EmptyState, InlineError, PageHeader, PANEL_CLASS, ToggleChip, DepartmentChip, StoreChip, RoleChip, PresenceChip } from '../../../components';
-import { StatCard } from '../../dashboard';
+import { Input, Avatar, Skeleton, EmptyState, InlineError, PANEL_CLASS, SelectDropdown, ToggleChip, DepartmentChip, StoreChip, RoleChip, PresenceChip } from '../../../components';
 import { useUsersQuery, useDepartmentsQuery, usePresenceQuery } from '../hook';
 import { ROLE_LABEL } from '../roleBadge';
 import { useStoresQuery } from '../../tickets/hook';
@@ -77,13 +77,20 @@ PresenceRow.displayName = 'PresenceRow';
 
 export const PresenceOverview = () => {
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
-  const { data: presenceRows, isPending: presencePending, isError: presenceError, refetch: refetchPresence } = usePresenceQuery();
+  const { data: presenceRows, isError: presenceError, refetch: refetchPresence } = usePresenceQuery();
   const { data: departments } = useDepartmentsQuery();
   const { data: stores } = useStoresQuery();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [showDeactivated, setShowDeactivated] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const storeFilter = params.get('store') ?? '';
+  const setStoreFilter = (next: string) => setParams((prev) => {
+    const out = new URLSearchParams(prev);
+    if (next) out.set('store', next); else out.delete('store');
+    return out;
+  }, { replace: true });
 
   const presenceByUserId = useMemo(
     () => new Map((presenceRows ?? []).map((p) => [p.id, p])),
@@ -100,16 +107,12 @@ export const PresenceOverview = () => {
   );
 
   const deactivatedCount = useMemo(() => (users ?? []).filter((u) => !u.isActive).length, [users]);
-  const activeCount = (users?.length ?? 0) - deactivatedCount;
-  const onlineCount = useMemo(() => {
-    const activeIds = new Set((users ?? []).filter((u) => u.isActive).map((u) => u.id));
-    return (presenceRows ?? []).filter((p) => p.online && activeIds.has(p.id)).length;
-  }, [users, presenceRows]);
 
   const rows = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return (users ?? [])
       .filter((u) => showDeactivated || u.isActive)
+      .filter((u) => !storeFilter || u.storeId === storeFilter)
       .filter((u) => !q || `${u.firstName} ${u.lastName ?? ''} ${u.email} ${ROLE_LABEL[u.role]}`.toLowerCase().includes(q))
       .map((user) => {
         const presence = presenceByUserId.get(user.id);
@@ -127,7 +130,7 @@ export const PresenceOverview = () => {
         if (aOnline !== bOnline) return aOnline ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-  }, [users, presenceByUserId, deferredQuery, onlineOnly, showDeactivated]);
+  }, [users, presenceByUserId, deferredQuery, onlineOnly, showDeactivated, storeFilter]);
 
   const renderList = () => {
     if (usersPending) {
@@ -188,33 +191,6 @@ export const PresenceOverview = () => {
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <PageHeader
-        icon={Radio}
-        title="Who's online"
-        subtitle="See who is on the app right now, and when everyone else was last active."
-      />
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <StatCard modern
-          icon={Radio}
-          label="Active now"
-          value={presenceRows && users ? onlineCount : 'No data'}
-          caption={users ? `of ${activeCount} active ${activeCount === 1 ? 'person' : 'people'}` : undefined}
-          isLoading={presencePending || usersPending}
-          compact
-          highlight
-          decorative
-        />
-        <StatCard modern
-          icon={Users}
-          label="Total people"
-          value={users ? activeCount : 'No data'}
-          caption={deactivatedCount > 0 ? `${deactivatedCount} deactivated` : 'In your organization'}
-          isLoading={usersPending}
-          compact
-        />
-      </div>
-
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 basis-64">
           <Input
@@ -226,6 +202,9 @@ export const PresenceOverview = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+        </div>
+        <div className="w-full sm:w-52">
+          <SelectDropdown aria-label="Filter by store" value={storeFilter} options={[{ value: '', label: 'All stores' }, ...(stores ?? []).filter((st) => st.isActive).map((st) => ({ value: st.id, label: st.name }))]} onChange={setStoreFilter} />
         </div>
         <ToggleChip on={onlineOnly} onClick={() => setOnlineOnly((v) => !v)}>
           Online only

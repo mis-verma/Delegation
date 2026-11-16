@@ -190,6 +190,7 @@ const checklistDefinitionFields = {
     assigneeRoles: z.array(z.enum(CHECKLIST_ASSIGNEE_ROLES)).optional(),
     icon: z.enum(CHECKLIST_ICONS).optional(),
     responseMode: z.enum(CHECKLIST_RESPONSE_MODES).optional(),
+    occurrenceDays: z.array(z.number().int().min(0).max(31)).max(2).nullable().optional(),
     activeWeekdays: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one working day").max(7)
         .transform((d) => [...new Set(d)].sort()).nullable().optional(),
     items: z.array(definitionItemShape).min(1, "At least one checklist item is required").max(200, "A checklist can have at most 200 items"),
@@ -200,12 +201,25 @@ const refineLateWindow = (value: LateWindowInput, ctx: z.RefinementCtx) => {
     if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lateUntilTime"], message: problem })
 }
 
-export const createChecklistDefinitionSchema = z.object(checklistDefinitionFields).superRefine(refineLateWindow)
+const PICKED_RANGE: Partial<Record<(typeof CHECKLIST_RECURRENCES)[number], { min: number; max: number; message: string }>> = {
+    TWICE_WEEKLY: { min: 0, max: 6, message: "Pick two different days of the week" },
+    TWICE_MONTHLY: { min: 1, max: 31, message: "Pick two different dates of the month" },
+}
+
+const refineOccurrence = (value: { recurrence: (typeof CHECKLIST_RECURRENCES)[number]; occurrenceDays?: number[] | null }, ctx: z.RefinementCtx) => {
+    const range = PICKED_RANGE[value.recurrence]
+    if (!range) return
+    const days = value.occurrenceDays ?? []
+    const valid = days.length === 2 && days[0] !== days[1] && days.every((d) => d >= range.min && d <= range.max)
+    if (!valid) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["occurrenceDays"], message: range.message })
+}
+
+export const createChecklistDefinitionSchema = z.object(checklistDefinitionFields).superRefine(refineLateWindow).superRefine(refineOccurrence)
 
 export const updateChecklistDefinitionSchema = z.object({
     ...checklistDefinitionFields,
     version: z.number().int().min(1),
-}).superRefine(refineLateWindow)
+}).superRefine(refineLateWindow).superRefine(refineOccurrence)
 
 export const setChecklistDefinitionActiveSchema = z.object({
     isActive: z.boolean(),

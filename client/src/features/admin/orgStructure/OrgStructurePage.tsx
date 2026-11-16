@@ -1,16 +1,16 @@
 import { useCallback, useDeferredValue, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { MotionConfig } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { countOrg, unplacedCaption } from '../directory/orgCounts';
-import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, UserX, TriangleAlert, CircleCheck } from 'lucide-react';
-import { Button, EmptyState, IconChip, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, useConfirm } from '../../../components';
-import { StatCard } from '../../dashboard';
+import { countOrg } from '../directory/orgCounts';
+import { Network, Search, Maximize2, Minimize2, Inbox, Layers, TriangleAlert, CircleCheck } from 'lucide-react';
+import { Button, EmptyState, IconChip, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, ViewToggle, useConfirm, type ViewTab } from '../../../components';
 import { adminApi, type AdminUser } from '../../../api/admin';
 import type { Department } from '../../../api/departments';
 import type { Store as StoreRow } from '../../../api/stores';
-import { useDepartmentsQuery, useUsersQuery } from '../hook';
+import { useDepartmentsQuery, usePresenceQuery, useUsersQuery } from '../hook';
+import { OrgTreeView } from './OrgTreeView';
 import { useStoresQuery } from '../../tickets/hook';
 import { StoreSection } from './StoreSection';
 import { DepartmentSection } from './DepartmentSection';
@@ -25,6 +25,12 @@ import {
   readDraggedUser,
   type OrgMovePatch,
 } from './orgStructureDisplay';
+
+type OrgView = 'tree' | 'matrix';
+const VIEW_TABS: ViewTab<OrgView>[] = [
+  { key: 'tree', label: 'Org tree', icon: Network },
+  { key: 'matrix', label: 'Directory', icon: Layers },
+];
 
 const USERS_KEY = ['admin-users'] as const;
 const DEPARTMENTS_KEY = ['departments'] as const;
@@ -65,6 +71,14 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   const { data: departments, isPending: deptsPending, isError: deptsError, refetch: refetchDepts } = useDepartmentsQuery();
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
 
+  const [params, setParams] = useSearchParams();
+  const view: OrgView = params.get('orgview') === 'matrix' ? 'matrix' : 'tree';
+  const setView = (next: OrgView) => setParams((prev) => {
+    const out = new URLSearchParams(prev);
+    if (next === 'tree') out.delete('orgview'); else out.set('orgview', next);
+    return out;
+  }, { replace: true });
+  const presence = usePresenceQuery();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [showDeactivated, setShowDeactivated] = useState(false);
@@ -336,63 +350,6 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             />
           )}
 
-          <div className="grid grid-cols-4 gap-1.5 sm:hidden" aria-label="Org at a glance">
-            {[
-              { icon: Users, label: 'People', value: users ? people.activePeople : null, tile: 'from-primary-500 to-primary-700' },
-              { icon: Store, label: 'Stores', value: stores ? people.activeStores : null, tile: 'from-coral-400 to-coral-600' },
-              { icon: Layers, label: 'Depts', value: departments ? people.activeDepartments : null, tile: 'from-primary-400 to-primary-600' },
-              { icon: UserX, label: 'Unplaced', value: users ? people.unplaced : null, tile: people.unplaced > 0 ? 'from-warning to-warning' : 'from-success to-success' },
-            ].map(({ icon: Icon, label, value, tile }) => (
-              <div key={label} className={`${PANEL_CLASS} flex flex-col items-center gap-1 px-1 py-2.5`}>
-                <span className={`flex size-7 items-center justify-center rounded-lg bg-linear-to-br text-white ${tile}`} aria-hidden>
-                  <Icon className="size-3.5" strokeWidth={2.5} />
-                </span>
-                {value === null ? <Skeleton className="h-5 w-8" /> : <span className="t-card font-display font-bold tabular-nums text-text">{value.toLocaleString()}</span>}
-                <span className="t-meta font-display text-text-muted">{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard modern
-              icon={Users}
-              label="People"
-              value={users ? people.activePeople : 'No data'}
-              caption={people.deactivated > 0 ? `${people.deactivated} deactivated` : 'Active across your org'}
-              isLoading={usersPending}
-              compact
-              highlight
-              decorative
-            />
-            <StatCard modern
-              icon={Store}
-              iconTint="text-coral-600 dark:text-coral-400"
-              label="Stores"
-              value={stores ? people.activeStores : 'No data'}
-              caption={people.activeStores === 1 ? '1 location' : `${people.activeStores} locations`}
-              isLoading={storesPending}
-              compact
-            />
-            <StatCard modern
-              icon={Layers}
-              iconTint="text-primary-600 dark:text-primary-400"
-              label="Departments"
-              value={departments ? people.activeDepartments : 'No data'}
-              caption="Org-wide"
-              isLoading={deptsPending}
-              compact
-            />
-            <StatCard modern
-              icon={UserX}
-              iconTint={people.unplaced > 0 ? 'text-warning' : 'text-success'}
-              label="Unassigned"
-              value={users ? people.unplaced : 'No data'}
-              caption={people.unplaced > 0 ? unplacedCaption(people) : 'Everyone is placed'}
-              isLoading={usersPending}
-              compact
-            />
-          </div>
-
           {(isPending || hasAllData) && (
             <section aria-label="Needs attention" className={`${PANEL_CLASS} flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3`}>
               <h2 className="flex items-center gap-2 t-card font-display font-bold text-text shrink-0">
@@ -438,14 +395,19 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
                 Show deactivated{people.deactivated > 0 ? ` (${people.deactivated})` : ''}
               </ToggleChip>
             )}
-            {embedded && <div className="flex items-center gap-2 sm:ml-auto shrink-0">{expandCollapse}</div>}
+            <div className="flex items-center gap-2 sm:ml-auto shrink-0">
+              {embedded && view === 'matrix' && expandCollapse}
+              <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} shortcuts={false} storageKey="view:org-structure" />
+            </div>
           </div>
 
           {isError && hasAllData && (
             <InlineError message="Couldn't refresh the latest changes. Showing what we loaded earlier." onRetry={retryAll} />
           )}
 
-          {renderContent()}
+          {view === 'tree' && hasAllData ? (
+            <OrgTreeView stores={stores} departments={departments} users={users} presence={presence.data} query={deferredQuery} showDeactivated={showDeactivated} />
+          ) : renderContent()}
         </div>
       </OrgScoresContext.Provider>
       </OrgMoveContext.Provider>

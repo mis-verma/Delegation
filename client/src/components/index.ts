@@ -30,6 +30,7 @@ export type { DateRangeValue } from './dateRangePicker';
 export { DatePicker } from './datePicker';
 export { TimePicker } from './timePicker';
 export { WeekdayPicker, formatWeekdays, weekdayShortName } from './weekdayPicker';
+export { MonthDayPicker, ordinalDay } from './monthDayPicker';
 export { Modal } from './modal';
 export { Combobox } from './combobox';
 export type { ComboboxOption } from './combobox';

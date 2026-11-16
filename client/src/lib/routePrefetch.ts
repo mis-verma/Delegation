@@ -72,6 +72,12 @@ PREFETCHERS['/verify'] = () => {
   void import('../features/verification');
 };
 PREFETCHERS['/admin/tickets'] = PREFETCHERS['/tickets'];
+PREFETCHERS['/work'] = () => {
+  void import('../features/dashboard/work');
+};
+PREFETCHERS['/tickets/approvals'] = () => {
+  void import('../features/tickets/TeamApprovalsPage');
+};
 
 const hasSlowConnection = () => {
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;

@@ -16,7 +16,9 @@ const ALL_VIEWS: readonly ExplorerView[] = ['department', 'store', 'person', 'ch
 export const RECURRENCE_OPTIONS: { value: ExplorerRecurrence; label: string }[] = [
   { value: 'all', label: 'Every kind' },
   { value: 'DAILY', label: 'Daily' },
+  { value: 'TWICE_WEEKLY', label: 'Twice a week' },
   { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'TWICE_MONTHLY', label: 'Twice a month' },
   { value: 'MONTHLY', label: 'Monthly' },
   { value: 'QUARTERLY', label: 'Quarterly' },
   { value: 'YEARLY', label: 'Yearly' },

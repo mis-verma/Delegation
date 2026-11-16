@@ -87,12 +87,19 @@ export const HomePage = () => {
   const layout = useHomeLayout(userId);
   const [customizing, setCustomizing] = useState<HomeSectionId | 'menu' | null>(null);
 
-  const [statScope, setStatScope] = useState<StatScope>(readStatScope);
+  const rawScope = params.get('scope');
+  const statScope: StatScope = rawScope === 'mine' || rawScope === 'overall' ? rawScope : readStatScope();
   const ownStats = hasTabs && statScope === 'mine';
   const changeStatScope = (next: StatScope) => {
     if (next === statScope) return;
     haptic('tap');
-    startTransition(() => setStatScope(next));
+    startTransition(() => {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev);
+        out.set('scope', next);
+        return out;
+      }, { replace: true });
+    });
     try {
       window.localStorage.setItem(STAT_SCOPE_KEY, next);
     } catch {

@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { DraftsDialog } from '../../drafts/DraftsDialog';
 import { useDraftsQuery } from '../../drafts/hook';
 import { Plus, ClipboardList, FileClock, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
-import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
+import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ViewToggle, ENTITY_CARD_CLASS, type ViewTab } from '../../../components';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
@@ -16,14 +16,24 @@ import { useChecklistDefinitionsQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
 import { ExportDialog } from '../../reports';
-import { RECURRENCE_LABEL, plural } from '../checklistDisplay';
+import { plural } from '../checklistDisplay';
+import { RECURRENCE_LABEL, RECURRENCE_ORDER } from '../recurrenceRegistry';
+import { ChecklistDefinitionRows, ChecklistDefinitionTable } from './ChecklistDefinitionViews';
 import { checklistDefinitionApi, type ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
 interface ChecklistTemplatesGridProps {
   className?: string;
 }
 
-const RECURRENCE_TABS: Array<ChecklistRecurrence | 'all'> = ['all', 'DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'];
+const RECURRENCE_TABS: Array<ChecklistRecurrence | 'all'> = ['all', ...RECURRENCE_ORDER];
+
+type DefinitionView = 'cards' | 'list' | 'table';
+const VIEW_TABS: ViewTab<DefinitionView>[] = [
+  { key: 'cards', label: 'Cards' },
+  { key: 'list', label: 'List' },
+  { key: 'table', label: 'Table', mobileHidden: true },
+];
+const VIEW_KEYS: readonly string[] = VIEW_TABS.map((t) => t.key);
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'paused';
 const STATUS_CHIPS: Array<{ value: Exclude<StatusFilter, 'all'>; label: string }> = [
@@ -69,6 +79,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const statusParam = searchParams.get('status');
   const status: StatusFilter = statusParam === 'active' || statusParam === 'draft' || statusParam === 'paused' ? statusParam : 'all';
   const isFiltered = recurrence !== 'all' || status !== 'all';
+  const viewParam = searchParams.get('view');
+  const view: DefinitionView = VIEW_KEYS.includes(viewParam ?? '') ? (viewParam as DefinitionView) : 'cards';
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -86,13 +98,13 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
     return new Set([...selectedIds].filter((id) => loaded.has(id)));
   }, [definitions, selectedIds]);
 
-  const setFilter = (key: 'recurrence' | 'status', value: string) => {
+  const setFilter = (key: 'recurrence' | 'status' | 'view', value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value === 'all') next.delete(key); else next.set(key, value);
+      if (value === 'all' || (key === 'view' && value === 'cards')) next.delete(key); else next.set(key, value);
       return next;
     }, { replace: true });
-    setSelectedIds(new Set());
+    if (key !== 'view') setSelectedIds(new Set());
   };
   const clearFilters = () => {
     setSearchParams((prev) => {
@@ -228,11 +240,14 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
               Clear filters
             </Button>
           )}
-          {!isPending && !isError && (
-            <span className="ml-auto" aria-live="polite">
-              <IconChip icon={Repeat} tone="bg-primary-600" label={plural(total, 'checklist')} labelClassName="tabular-nums" />
-            </span>
-          )}
+          <span className="ml-auto flex items-center gap-2">
+            {!isPending && !isError && (
+              <span aria-live="polite">
+                <IconChip icon={Repeat} tone="bg-primary-600" label={plural(total, 'checklist')} labelClassName="tabular-nums" />
+              </span>
+            )}
+            <ViewToggle tabs={VIEW_TABS} value={view} onChange={(next) => setFilter('view', next)} storageKey="view:recurring-checklists" />
+          </span>
         </div>
       </div>
 
@@ -270,7 +285,19 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         )
       )}
 
-      {definitions.length > 0 && (
+      {definitions.length > 0 && view === 'table' && (
+        <div className={cn('transition-opacity', isRefreshing && 'opacity-60')}>
+          <ChecklistDefinitionTable definitions={definitions} selectionMode={selectMode} selection={selection} onToggleSelected={toggleSelected} />
+        </div>
+      )}
+
+      {definitions.length > 0 && view === 'list' && (
+        <div className={cn('transition-opacity', isRefreshing && 'opacity-60')}>
+          <ChecklistDefinitionRows definitions={definitions} selectionMode={selectMode} selection={selection} onToggleSelected={toggleSelected} />
+        </div>
+      )}
+
+      {definitions.length > 0 && view === 'cards' && (
         <div className={cn('grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 transition-opacity', isRefreshing && 'opacity-60')}>
           {definitions.map((d) => (
             <ChecklistDefinitionCard

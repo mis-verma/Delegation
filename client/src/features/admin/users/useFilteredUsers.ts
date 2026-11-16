@@ -7,7 +7,7 @@ import { fullName } from './userDisplay';
 
 export type UserSortKey = 'name' | 'role' | 'department' | 'store' | 'status' | 'newest' | 'lastActive';
 export type SortDir = 'asc' | 'desc';
-export type UserView = 'cards' | 'table';
+export type UserView = 'cards' | 'list' | 'table';
 
 const SORT_KEYS: UserSortKey[] = ['name', 'role', 'department', 'store', 'status', 'newest', 'lastActive'];
 
@@ -32,6 +32,7 @@ export interface UserFilters {
   noDepartment: boolean;
   noStore: boolean;
   heads: boolean;
+  invited: boolean;
 }
 
 interface Options {
@@ -44,6 +45,8 @@ interface Options {
 
 const isRole = (v: string | null): v is Role => !!v && (ROLE_ORDER as string[]).includes(v);
 const isSortKey = (v: string | null): v is UserSortKey => !!v && (SORT_KEYS as string[]).includes(v);
+
+export const isNotSignedIn = (p: UserPresence | undefined): boolean => !!p && !p.online && p.lastActiveAt === null;
 
 const lastActiveValue = (p: UserPresence | undefined) => {
   if (!p) return -1;
@@ -70,11 +73,13 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
     noDepartment: params.get('nodept') === '1',
     noStore: params.get('nostore') === '1',
     heads: params.get('heads') === '1',
+    invited: params.get('invited') === '1',
   }), [params, urlQ, roleParam, statusParam]);
 
   const sort: UserSortKey = isSortKey(sortParam) ? sortParam : 'name';
   const dir: SortDir = dirParam === 'asc' || dirParam === 'desc' ? dirParam : DEFAULT_DIR[sort];
-  const view: UserView = params.get('view') === 'table' ? 'table' : 'cards';
+  const viewParam = params.get('view');
+  const view: UserView = viewParam === 'table' || viewParam === 'list' ? viewParam : 'cards';
 
   const update = useCallback((patch: Record<string, string | null>, keepPage = false) => {
     setParams((prev) => {
@@ -104,12 +109,13 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
     if ('noDepartment' in patch) out.nodept = patch.noDepartment ? '1' : null;
     if ('noStore' in patch) out.nostore = patch.noStore ? '1' : null;
     if ('heads' in patch) out.heads = patch.heads ? '1' : null;
+    if ('invited' in patch) out.invited = patch.invited ? '1' : null;
     update(out);
   }, [update]);
 
   const clearFilters = useCallback(() => {
     setSearchText('');
-    update({ q: null, role: null, dept: null, store: null, status: null, nodept: null, nostore: null, heads: null });
+    update({ q: null, role: null, dept: null, store: null, status: null, nodept: null, nostore: null, heads: null, invited: null });
   }, [update]);
 
   const setSort = useCallback((key: UserSortKey) => update({ sort: key === 'name' ? null : key, dir: null }), [update]);
@@ -119,7 +125,7 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
     else update({ sort: key === 'name' ? null : key, dir: null });
   }, [sort, dir, update]);
 
-  const setView = useCallback((next: UserView) => update({ view: next === 'table' ? 'table' : null }, true), [update]);
+  const setView = useCallback((next: UserView) => update({ view: next === 'cards' ? null : next }, true), [update]);
   const setPage = useCallback((next: number) => update({ page: next > 1 ? String(next) : null }, true), [update]);
 
   const beforeStatus = useMemo(() => {
@@ -131,11 +137,12 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
       if (filters.noDepartment && u.departmentId) return false;
       if (filters.noStore && u.storeId) return false;
       if (filters.heads && !isDepartmentHead(u.role)) return false;
+      if (filters.invited && !isNotSignedIn(presenceById.get(u.id))) return false;
       if (tokens.length === 0) return true;
       const haystack = `${fullName(u)} ${u.email} ${u.phone ?? ''} ${u.employeeId ?? ''} ${ROLE_LABEL[u.role]}`.toLowerCase();
       return tokens.every((t) => haystack.includes(t));
     });
-  }, [users, filters]);
+  }, [users, filters, presenceById]);
 
   const counts = useMemo(() => {
     const active = beforeStatus.filter((u) => u.isActive).length;
@@ -180,7 +187,7 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
 
   const activeFilterCount =
     Number(!!filters.role) + Number(!!filters.department) + Number(!!filters.store) +
-    Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads);
+    Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads) + Number(filters.invited);
   const hasFilters = activeFilterCount > 0 || filters.status !== 'all' || filters.q !== '';
 
   return {

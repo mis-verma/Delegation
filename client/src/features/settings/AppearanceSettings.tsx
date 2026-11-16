@@ -17,7 +17,7 @@ export const AppearanceSettings = () => {
   const supported = hapticsSupported();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full max-w-5xl">
       <div className="lg:col-span-2">
       <SettingsCard
         icon={Monitor}

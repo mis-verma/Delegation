@@ -52,7 +52,7 @@ const explorerSchema = z
         storeId: optionalId,
         departmentId: optionalId,
         module: z.preprocess(blankToUndefined, z.enum(EXPLORER_MODULES).optional()),
-        recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "ONCE", "all"]).default("all")),
+        recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "TWICE_WEEKLY", "TWICE_MONTHLY", "ONCE", "all"]).default("all")),
         parentId: optionalId,
     })
     .refine(dayRange, "Pick at most one year, and From must be on or before To")
@@ -65,7 +65,7 @@ const matrixSchema = z
         period: z.enum(MATRIX_PERIODS),
         storeId: optionalId,
         departmentId: optionalId,
-        recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "ONCE", "all"]).default("all")),
+        recurrence: z.preprocess(blankToUndefined, z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "TWICE_WEEKLY", "TWICE_MONTHLY", "ONCE", "all"]).default("all")),
         parentId: optionalId,
         rankModule: z.preprocess(blankToUndefined, z.enum(MATRIX_RANK_MODULES).optional()),
         rankMeasure: z.preprocess(blankToUndefined, z.enum(MATRIX_RANK_MEASURES).default("score")),

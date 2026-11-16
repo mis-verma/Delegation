@@ -97,13 +97,13 @@ export const STEP_BLOCK_REASON: Record<number, string> = {
 
 export type BuilderSnapshot = {
   name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-  startDate: string; opensTime: string; cutoffTime: string; lateUntilTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode;
+  startDate: string; opensTime: string; cutoffTime: string; lateUntilTime: string; activeWeekdays: number[]; occurrenceDays: number[]; responseMode: ChecklistResponseMode;
   assigneeIds: string[]; reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
 };
 export const snapshotKey = (f: BuilderSnapshot) => JSON.stringify(f);
 
 export const BLANK_SNAPSHOT: BuilderSnapshot = {
   name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-  opensTime: '', cutoffTime: '', lateUntilTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, responseMode: 'SHARED',
+  opensTime: '', cutoffTime: '', lateUntilTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, occurrenceDays: [], responseMode: 'SHARED',
   assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
 };

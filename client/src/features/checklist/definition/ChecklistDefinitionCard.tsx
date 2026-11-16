@@ -1,14 +1,14 @@
 import { memo, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserPlus, FileClock, type LucideIcon } from 'lucide-react';
-import { definitionState, STATE_LABEL, addPeoplePath } from './definitionState';
-import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, StateChip, formatWeekdays } from '../../../components';
+import { Link } from 'react-router';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, FileClock, type LucideIcon } from 'lucide-react';
+import { definitionState } from './definitionState';
+import { ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
-import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
-import { RECURRENCE_LABEL, smallRateToneClass, smallInverseRateToneClass, rateBarClass, formatDate, orgDayKey, plural } from '../checklistDisplay';
-import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
-import { useAuth } from '../../../context/AuthContext';
+import { smallRateToneClass, smallInverseRateToneClass, rateBarClass, formatDate, orgDayKey, plural } from '../checklistDisplay';
+import { DefinitionActions } from './DefinitionActions';
+import { useDefinitionDelete } from './useDefinitionDelete';
+import { scheduleLabel } from './scheduleLabel';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
 import { ChecklistIconTile } from './ChecklistIconTile';
 import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from './form/formConstants';
@@ -61,16 +61,10 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
   selected = false,
   onToggleSelected,
 }: ChecklistDefinitionCardProps) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
-  const confirm = useConfirm();
-  const setActiveMutation = useSetChecklistDefinitionActiveMutation();
-  const deleteMutation = useDeleteChecklistDefinitionMutation();
+  const { remove, isDeleting } = useDefinitionDelete(definition);
 
   const Icon = CHECKLIST_ICON_MAP[definition.icon];
   const tags = useMemo(() => cardTags(definition), [definition]);
-  const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
   const { id, name, completionRate, qualityRate, issueRate } = definition;
   const state = definitionState(definition);
   const startsLater = startsAfterToday(definition.startDate);
@@ -78,20 +72,9 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 
   const handleToggleSelected = useCallback(() => onToggleSelected?.(id), [onToggleSelected, id]);
 
-  const handleDelete = async () => {
-    const ok = await confirm({
-      title: `Delete "${name}"?`,
-      description: 'This checklist and every run tied to it will disappear from the app: My Checklists, Compliance, the Dashboard, everywhere.',
-      confirmLabel: 'Yes, delete it',
-      cancelLabel: 'Cancel',
-      variant: 'danger',
-    });
-    if (ok) deleteMutation.mutate(id);
-  };
-
   const shownDepartments = definition.departmentNames.slice(0, 2);
   const moreDepartments = definition.departmentNames.length - shownDepartments.length;
-  const meta = [RECURRENCE_LABEL[definition.recurrence], daysLabel, plural(definition.storeIds.length, 'store'), plural(definition.items.length, 'question')]
+  const meta = [scheduleLabel(definition), plural(definition.storeIds.length, 'store'), plural(definition.items.length, 'question')]
     .filter(Boolean)
     .join(' · ');
   const hasRuns = completionRate !== null;
@@ -103,7 +86,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         ENTITY_CARD_CLASS,
         'gap-4 justify-start',
         selected && 'border-primary-500 hover:border-primary-500 bg-primary-500/5',
-        deleteMutation.isPending && 'opacity-50 pointer-events-none',
+        isDeleting && 'opacity-50 pointer-events-none',
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -121,57 +104,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           <ChecklistIconTile icon={Icon} name={name} />
         )}
 
-        {selectionMode ? null : canManage ? (
-          <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
-            {state === 'draft' ? (
-              <div className="flex items-center gap-2 min-h-11 sm:min-h-9">
-                <button
-                  type="button"
-                  onClick={() => navigate(addPeoplePath(id))}
-                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border bg-surface t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
-                >
-                  <UserPlus className="size-3.5" aria-hidden />
-                  Add people
-                </button>
-              </div>
-            ) : (
-              <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pl-1 pr-1 cursor-pointer">
-                <StateChip active={definition.isActive} label={STATE_LABEL[state]} className="max-sm:hidden" />
-                {setActiveMutation.isPending ? (
-                  <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
-                ) : (
-                  <Switch
-                    checked={definition.isActive}
-                    onChange={(next) => setActiveMutation.mutate({ id, isActive: next })}
-                  />
-                )}
-                <span className="sr-only">{definition.isActive ? 'Pause' : 'Resume'} {name}</span>
-              </label>
-            )}
-            <Dropdown
-              align="end"
-              items={[
-                { label: 'Edit in builder', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${id}`) },
-                { label: 'Duplicate', icon: Copy, onClick: () => navigate(`/admin/scheduled-checklists/builder?copyFrom=${id}`) },
-                ...(user?.role === 'ADMIN' ? [{ label: 'Delete', icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: handleDelete }] : []),
-              ]}
-              trigger={
-                <button
-                  type="button"
-                  aria-label={`More actions for ${name}`}
-                  disabled={deleteMutation.isPending}
-                  className="flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50"
-                >
-                  <MoreVertical className="size-4" strokeWidth={2.25} aria-hidden />
-                </button>
-              }
-            />
-          </div>
-        ) : (
-          state === 'draft'
-            ? <IconChip icon={FileClock} tone="bg-warning" label="Draft" labelClassName="text-warning" />
-            : <StateChip active={definition.isActive} label={STATE_LABEL[state]} />
-        )}
+        {selectionMode ? null : <DefinitionActions definition={definition} onDelete={() => { void remove(); }} deleting={isDeleting} />}
       </div>
 
       <div className="flex flex-col gap-1 min-w-0">

@@ -26,6 +26,7 @@ import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
 import { BuilderSchedulePanel } from './BuilderSchedulePanel';
 import { canOfferLateWindow, hasScheduleTimeMismatch, isTimedRecurrence, lateWindowProblem } from './scheduleWindow';
+import { PICKER_SIZE, RECURRENCE_REGISTRY } from '../../recurrenceRegistry';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
@@ -72,6 +73,7 @@ export const ChecklistBuilder = () => {
   const [cutoffTime, setCutoffTime] = useState('');
   const [lateUntilTime, setLateUntilTime] = useState('');
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
+  const [occurrenceDays, setOccurrenceDays] = useState<number[]>([]);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [responseMode, setResponseMode] = useState<ChecklistResponseMode>('SHARED');
   const [reviewerIds, setReviewerIds] = useState<string[]>([]);
@@ -110,6 +112,7 @@ export const ChecklistBuilder = () => {
     const nextDescription = def.description?.trim() ?? '';
     const nextStartDate = asCopy && def.recurrence === 'ONE_TIME' ? '' : def.startDate.slice(0, 10);
     const weekdays = def.activeWeekdays ?? ALL_WEEKDAYS;
+    const picked = def.occurrenceDays ?? [];
     const seenSections: string[] = [];
     for (const item of def.items) {
       if (item.section && !seenSections.includes(item.section)) seenSections.push(item.section);
@@ -128,6 +131,7 @@ export const ChecklistBuilder = () => {
     setCutoffTime(def.cutoffTime ?? '');
     setLateUntilTime(def.lateUntilTime ?? '');
     setActiveWeekdays(weekdays);
+    setOccurrenceDays(picked);
     setAssigneeIds(def.assigneeIds);
     setResponseMode(def.responseMode ?? 'SHARED');
     setReviewerIds(def.reviewerIds);
@@ -144,6 +148,7 @@ export const ChecklistBuilder = () => {
       cutoffTime: def.cutoffTime ?? '',
       lateUntilTime: def.lateUntilTime ?? '',
       activeWeekdays: weekdays,
+      occurrenceDays: picked,
       responseMode: def.responseMode ?? 'SHARED',
       assigneeIds: def.assigneeIds,
       reviewerIds: def.reviewerIds,
@@ -167,6 +172,7 @@ export const ChecklistBuilder = () => {
     setCutoffTime(restored.cutoffTime);
     setLateUntilTime(restored.lateUntilTime);
     setActiveWeekdays(restored.activeWeekdays);
+    setOccurrenceDays(restored.occurrenceDays);
     setAssigneeIds(restored.assigneeIds);
     setResponseMode(restored.responseMode);
     setReviewerIds(restored.reviewerIds);
@@ -203,7 +209,7 @@ export const ChecklistBuilder = () => {
   useEffect(() => {
     liveRef.current = {
       snapshot: {
-        name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+        name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
         responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
       },
       baseline,
@@ -218,13 +224,13 @@ export const ChecklistBuilder = () => {
   const markClean = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
       responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
     }));
   };
 
   const isDirty = snapshotKey({
-    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
     responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
   }) !== baseline;
 
@@ -338,10 +344,12 @@ export const ChecklistBuilder = () => {
     }
   };
 
+  const pickerOf = (value: ChecklistRecurrence) => RECURRENCE_REGISTRY[value].picker;
   const basicsValid = !!name.trim();
   const timed = isTimedRecurrence(recurrence);
   const lateWindowOn = canOfferLateWindow(recurrence, opensTime, cutoffTime) && !!lateUntilTime;
-  const scheduleValid = storeIds.length > 0 && !!startDate
+  const pickedValid = !pickerOf(recurrence) || occurrenceDays.length === PICKER_SIZE;
+  const scheduleValid = storeIds.length > 0 && !!startDate && pickedValid
     && (!timed || (!hasScheduleTimeMismatch(opensTime, cutoffTime) && lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) === null));
   const itemProblem = firstItemProblem(itemDrafts, storePersonIds);
   const itemsValid = itemProblem === null;
@@ -369,6 +377,7 @@ export const ChecklistBuilder = () => {
     const problems = [
       storeIds.length === 0 ? 'Pick at least one store' : null,
       startDate ? null : recurrence === 'ONE_TIME' ? 'Pick a due date' : 'Pick a start date',
+      pickedValid ? null : `Pick exactly ${PICKER_SIZE} ${pickerOf(recurrence) === 'weekdays' ? 'weekdays' : 'dates'}`,
       timed && hasScheduleTimeMismatch(opensTime, cutoffTime) ? "Opening and closing can't be the same time" : null,
       timed ? lateWindowProblem(recurrence, opensTime, cutoffTime, lateUntilTime) : null,
     ];
@@ -381,6 +390,7 @@ export const ChecklistBuilder = () => {
   };
 
   const handleRecurrenceChange = (next: ChecklistRecurrence) => {
+    if (pickerOf(next) !== pickerOf(recurrence)) setOccurrenceDays([]);
     setRecurrence(next);
     if (!isTimedRecurrence(next)) {
       setOpensTime('');
@@ -420,7 +430,7 @@ export const ChecklistBuilder = () => {
 
   const saveAsDraft = () => {
     const payload: Record<string, unknown> = {
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays,
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
       responseMode, assigneeIds, reviewerIds, itemDrafts, sections, step,
     };
     saveDraftMutation.mutate({ id: savedDraftId, title: name.trim() || 'Untitled checklist', payload }, {
@@ -456,6 +466,7 @@ export const ChecklistBuilder = () => {
       cutoffTime: timed ? cutoffTime || undefined : undefined,
       lateUntilTime: lateWindowOn ? lateUntilTime : undefined,
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
+      occurrenceDays: pickerOf(recurrence) ? occurrenceDays : null,
       responseMode,
       assigneeIds: splitByVisible(assigneeIds, storePersonIds).shown,
       reviewerIds: reviewersToSave.length ? reviewersToSave : undefined,
@@ -548,6 +559,8 @@ export const ChecklistBuilder = () => {
               onLateUntilTimeChange={setLateUntilTime}
               activeWeekdays={activeWeekdays}
               onActiveWeekdaysChange={setActiveWeekdays}
+              occurrenceDays={occurrenceDays}
+              onOccurrenceDaysChange={setOccurrenceDays}
             />
           </BuilderStepFrame>
         );
@@ -627,6 +640,7 @@ export const ChecklistBuilder = () => {
               cutoffTime={timed ? cutoffTime : ''}
               lateUntilTime={lateWindowOn ? lateUntilTime : ''}
               activeWeekdays={activeWeekdays}
+              occurrenceDays={occurrenceDays}
               responseMode={responseMode}
               itemDrafts={itemDrafts}
               assigneeIds={assigneeIds}

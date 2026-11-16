@@ -15,6 +15,8 @@ import { useStoresQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { UserCard, UserCardSkeleton } from './UserCard';
 import { UserTable } from './UserTable';
+import { UserRows } from './UserRows';
+
 import { UserToolbar } from './UserToolbar';
 import { BulkBar } from './BulkBar';
 import { OffboardDialog } from './OffboardDialog';
@@ -294,6 +296,20 @@ export const UserList = () => {
             onSort={list.toggleSort}
             onToggleSelect={toggleSelect}
             onTogglePage={togglePage}
+            onEdit={handleEdit}
+            onResetPassword={handleResetPassword}
+            onDeactivate={handleDeactivate}
+            onReactivate={handleReactivate}
+            onDelete={handleDelete}
+          />
+        ) : view === 'list' ? (
+          <UserRows
+            users={pageRows}
+            departmentNames={departmentNames}
+            storeNames={storeNames}
+            presenceById={presenceById}
+            busyId={busyId ?? undefined}
+            selfId={me?.id}
             onEdit={handleEdit}
             onResetPassword={handleResetPassword}
             onDeactivate={handleDeactivate}

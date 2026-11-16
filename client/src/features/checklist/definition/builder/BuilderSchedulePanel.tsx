@@ -4,7 +4,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import {
   Store, Repeat, CalendarDays, CalendarRange, CalendarClock, CalendarCheck, Target, Sun, Clock, AlertCircle, Moon, Check, Sunrise, Sunset, Hourglass, Eye, Info, Search, type LucideIcon,
 } from 'lucide-react';
-import { Button, DatePicker, InlineError, Input, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays } from '../../../../components';
+import { Button, DatePicker, InlineError, Input, MonthDayPicker, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays, ordinalDay, weekdayShortName } from '../../../../components';
+import { PICKER_SIZE, RECURRENCE_ORDER, RECURRENCE_REGISTRY } from '../../recurrenceRegistry';
 import { cn } from '@/lib/utils';
 import { useStoresQuery } from '../../hook';
 import { WindowTimeline } from './WindowTimeline';
@@ -15,19 +16,23 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 
-const RECURRENCE_OPTIONS: {
-  value: ChecklistRecurrence;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}[] = [
-  { value: 'DAILY', label: 'Daily', description: 'Every day, or the days you pick', icon: Sun },
-  { value: 'WEEKLY', label: 'Weekly', description: 'Same weekday every week', icon: CalendarRange },
-  { value: 'MONTHLY', label: 'Monthly', description: 'Same date every month', icon: CalendarDays },
-  { value: 'QUARTERLY', label: 'Quarterly', description: 'Every 3 months', icon: CalendarClock },
-  { value: 'YEARLY', label: 'Yearly', description: 'Once a year', icon: Repeat },
-  { value: 'ONE_TIME', label: 'One-time', description: 'A single run', icon: Target },
-];
+const RECURRENCE_ICON: Record<ChecklistRecurrence, LucideIcon> = {
+  DAILY: Sun,
+  TWICE_WEEKLY: CalendarCheck,
+  WEEKLY: CalendarRange,
+  TWICE_MONTHLY: CalendarCheck,
+  MONTHLY: CalendarDays,
+  QUARTERLY: CalendarClock,
+  YEARLY: Repeat,
+  ONE_TIME: Target,
+};
+
+const RECURRENCE_OPTIONS = RECURRENCE_ORDER.map((value) => ({ value, ...RECURRENCE_REGISTRY[value], icon: RECURRENCE_ICON[value] }));
+
+const pickedChip = (recurrence: ChecklistRecurrence, picked: number[]): string =>
+  picked.length === 0
+    ? `0 of ${PICKER_SIZE}`
+    : [...picked].sort((a, b) => a - b).map((n) => (recurrence === 'TWICE_WEEKLY' ? weekdayShortName(n) : ordinalDay(n))).join(' and ');
 
 const QUICK_WINDOWS: { label: string; opens: string; closes: string; late: string; icon: LucideIcon }[] = [
   { label: 'All day', opens: '', closes: '', late: '', icon: Sun },
@@ -52,6 +57,8 @@ interface BuilderSchedulePanelProps {
   onLateUntilTimeChange: (value: string) => void;
   activeWeekdays: number[];
   onActiveWeekdaysChange: (days: number[]) => void;
+  occurrenceDays: number[];
+  onOccurrenceDaysChange: (days: number[]) => void;
   className?: string;
 }
 
@@ -82,6 +89,8 @@ export const BuilderSchedulePanel = ({
   onLateUntilTimeChange,
   activeWeekdays,
   onActiveWeekdaysChange,
+  occurrenceDays,
+  onOccurrenceDaysChange,
   className = '',
 }: BuilderSchedulePanelProps) => {
   const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
@@ -103,6 +112,7 @@ export const BuilderSchedulePanel = ({
   const isOneTime = recurrence === 'ONE_TIME';
   const timed = isTimedRecurrence(recurrence);
   const early = earlySentence(recurrence);
+  const picker = RECURRENCE_REGISTRY[recurrence].picker;
 
   const [storeQuery, setStoreQuery] = useState('');
   const showStoreSearch = chipStores.length > 6;
@@ -217,7 +227,7 @@ export const BuilderSchedulePanel = ({
       </Section>
 
       <Section icon={Repeat} title="Repeats" hint="How often a new run is created.">
-        <div role="radiogroup" aria-label="How often it repeats" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div role="radiogroup" aria-label="How often it repeats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {RECURRENCE_OPTIONS.map((opt) => {
             const on = recurrence === opt.value;
             return (
@@ -267,6 +277,22 @@ export const BuilderSchedulePanel = ({
           <p className="hidden sm:block t-meta font-display text-text-muted">
             People’s own week-off days are skipped too.
           </p>
+        </Section>
+      )}
+
+      {picker && (
+        <Section
+          icon={picker === 'weekdays' ? CalendarDays : CalendarCheck}
+          title={picker === 'weekdays' ? 'Two days a week' : 'Two dates a month'}
+          hint={picker === 'weekdays' ? 'Pick the two weekdays it runs. Picking a third replaces the oldest.' : 'Pick the two dates it runs. On shorter months the 29th to 31st use the last day.'}
+          aside={<span className="shrink-0 rounded-full border border-border/60 bg-surface px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">{pickedChip(recurrence, occurrenceDays)}</span>}
+        >
+          {picker === 'weekdays' ? (
+            <WeekdayPicker value={occurrenceDays} onChange={onOccurrenceDaysChange} maxSelected={PICKER_SIZE} aria-label="The two weekdays this checklist runs" />
+          ) : (
+            <MonthDayPicker value={occurrenceDays} onChange={onOccurrenceDaysChange} maxSelected={PICKER_SIZE} aria-label="The two dates of the month this checklist runs" />
+          )}
+          {occurrenceDays.length !== PICKER_SIZE && <Note tone="danger">Pick exactly {PICKER_SIZE}.</Note>}
         </Section>
       )}
 
@@ -327,7 +353,7 @@ export const BuilderSchedulePanel = ({
 
         {!timed && (
           <Note tone="muted" icon={Info}>
-            A {recurrence.toLowerCase()} checklist shows to staff 3 days before its date and is due at the end of that day, so it has no opening hours and no late window. Hours are only for daily and one-time checklists.
+            A {RECURRENCE_REGISTRY[recurrence].label.toLowerCase()} checklist shows to staff {RECURRENCE_REGISTRY[recurrence].leadDays} days before its date and is due at the end of that day, so it has no opening hours and no late window. Hours are only for daily and one-time checklists.
           </Note>
         )}
         {timed && !hasTimeMismatch && <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={offerLate ? lateUntilTime : ''} />}

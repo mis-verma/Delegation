@@ -58,3 +58,26 @@ describe("getCurrentPeriod for weekly and monthly runs", () => {
     expect(getUpcomingPeriod("MONTHLY", start, at("2026-11-16T06:00:00.000Z"), 330)).toBeNull()
   })
 })
+
+describe("twice a week and twice a month", () => {
+  const mon = new Date("2026-10-05T00:00:00.000Z")
+
+  it("runs on exactly the two picked weekdays", () => {
+    const picked = [1, 4]
+    expect(getCurrentPeriod("TWICE_WEEKLY", mon, at("2026-10-12T06:00:00.000Z"), 330, picked)?.periodKey).toBe("2026-10-12")
+    expect(getCurrentPeriod("TWICE_WEEKLY", mon, at("2026-10-15T06:00:00.000Z"), 330, picked)?.periodKey).toBe("2026-10-15")
+    expect(getCurrentPeriod("TWICE_WEEKLY", mon, at("2026-10-13T06:00:00.000Z"), 330, picked)).toBeNull()
+  })
+
+  it("runs on the two picked dates and clamps to month end", () => {
+    const picked = [1, 31]
+    expect(getCurrentPeriod("TWICE_MONTHLY", mon, at("2026-11-01T06:00:00.000Z"), 330, picked)?.periodKey).toBe("2026-11-01")
+    expect(getCurrentPeriod("TWICE_MONTHLY", mon, at("2026-11-30T06:00:00.000Z"), 330, picked)?.periodKey).toBe("2026-11-30")
+    expect(getCurrentPeriod("TWICE_MONTHLY", mon, at("2026-11-15T06:00:00.000Z"), 330, picked)).toBeNull()
+  })
+
+  it("opens three days early and stays idle with no picked days", () => {
+    expect(getUpcomingPeriod("TWICE_WEEKLY", mon, at("2026-10-12T06:00:00.000Z"), 330, 3, [1, 4])?.periodKey).toBe("2026-10-15")
+    expect(getCurrentPeriod("TWICE_WEEKLY", mon, at("2026-10-12T06:00:00.000Z"), 330, null)).toBeNull()
+  })
+})

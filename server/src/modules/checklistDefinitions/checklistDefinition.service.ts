@@ -18,7 +18,7 @@ import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, Se
 import { accessoryPointsFor, criticalAccessoriesFor } from "./checklistDefinition.validation.js"
 import { clearSummariesForDefinition, dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
-import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, type ListChecklistDefinitionsFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid } from "./checklistDefinitionSupport.js"
+import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, pickedDaysFor, type ListChecklistDefinitionsFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid } from "./checklistDefinitionSupport.js"
 
 const SCORABLE_TYPES = new Set(["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN", "NUMBER_ENTRY", "RATING"])
 const RANGE_TYPES = new Set(["NUMBER_ENTRY", "RATING"])
@@ -129,6 +129,7 @@ export const checklistDefinitionService = {
                 icon: input.icon,
                 responseMode: input.responseMode ?? "SHARED",
                 activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
+                occurrenceDays: pickedDaysFor(input.recurrence, input.occurrenceDays),
                 isActive: hasActivePeople,
                 createdBy: user.sub,
             })
@@ -264,6 +265,7 @@ export const checklistDefinitionService = {
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
                 ...(input.responseMode ? { responseMode: input.responseMode } : {}),
+                occurrenceDays: pickedDaysFor(input.recurrence, input.occurrenceDays),
                 ...(input.recurrence !== "DAILY" ? { activeWeekdays: null } : input.activeWeekdays !== undefined ? { activeWeekdays: input.activeWeekdays } : {}),
                 isActive: nextActive,
                 version: existing.version + 1,

@@ -99,7 +99,7 @@ export interface OrgCounts {
 export type ExplorerView = 'department' | 'store' | 'person' | 'checklist' | 'module';
 export type ExplorerModule = 'checklist' | 'ticket' | 'delegation';
 export type ExplorerRowKind = ExplorerView | 'total' | 'unassigned';
-export type ExplorerRecurrence = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONCE' | 'all';
+export type ExplorerRecurrence = 'DAILY' | 'TWICE_WEEKLY' | 'WEEKLY' | 'TWICE_MONTHLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONCE' | 'all';
 
 export interface ExplorerBlock {
   due: number;

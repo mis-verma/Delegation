@@ -117,6 +117,14 @@ export const AccountSettings = () => {
       { onSuccess: () => resetPasswordForm() },
     );
 
+  const summary = profile
+    ? [
+        { key: 'email', label: 'Email', value: profile.email, icon: Mail },
+        { key: 'phone', label: 'Phone', value: profile.phone || 'Not set', icon: Phone },
+        { key: 'off', label: 'Week off', value: (profile.weekOffDays ?? []).length ? (profile.weekOffDays ?? []).map(weekdayShortName).join(', ') : 'None', icon: CalendarOff },
+      ]
+    : [];
+
   if (isError && !profile) {
     return (
       <div className="w-full max-w-5xl">
@@ -127,7 +135,7 @@ export const AccountSettings = () => {
 
   if (isPending || !profile) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full max-w-5xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-5xl">
         <Skeleton className="h-96 w-full rounded-2xl" />
         <Skeleton className="h-72 w-full rounded-2xl" />
       </div>
@@ -135,7 +143,7 @@ export const AccountSettings = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full max-w-5xl">
       <section aria-label="Your profile" className="flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-border/60 bg-surface sm:flex-row sm:items-center sm:gap-6 lg:col-span-2">
         <AvatarUpload
           name={`${profile.firstName} ${profile.lastName ?? ''}`}
@@ -145,17 +153,28 @@ export const AccountSettings = () => {
           onUpload={(file) => uploadAvatarMut.mutate(file)}
           onRemove={() => removeAvatarMut.mutate()}
         />
-        <div className="flex min-w-0 flex-col items-start gap-1.5 sm:ml-auto sm:items-end sm:text-right">
-          <p className="t-title font-display font-bold text-text truncate">{profile.firstName} {profile.lastName ?? ''}</p>
-          <p className="flex items-center gap-1.5 t-meta font-display text-text-muted min-w-0">
-            <Mail size={13} aria-hidden className="shrink-0" />
-            <span className="truncate">{profile.email}</span>
-          </p>
-          <RoleChip role={profile.role} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="min-w-0 t-title font-display font-bold text-text line-clamp-2 leading-snug">{profile.firstName} {profile.lastName ?? ''}</p>
+            <RoleChip role={profile.role} />
+          </div>
+          <dl className="grid grid-cols-1 gap-2 border-t border-border/50 pt-3 sm:grid-cols-3">
+            {summary.map(({ key, label, value, icon: Icon }) => (
+              <div key={key} className="flex min-w-0 items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
+                  <Icon size={15} aria-hidden />
+                </span>
+                <div className="flex min-w-0 flex-col">
+                  <dt className="t-meta font-display font-medium text-text-muted">{label}</dt>
+                  <dd className="truncate t-card font-display font-semibold text-text" title={value}>{value}</dd>
+                </div>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
       <form onSubmit={handleProfileSubmit(onProfileSubmit)} noValidate>
        <SettingsCard icon={UserIcon} title="Personal details" hint="Your name and phone show up next to your work across the app.">
 
@@ -187,7 +206,7 @@ export const AccountSettings = () => {
       </SettingsCard>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
       <WeekOffCard
         key={(profile.weekOffDays ?? []).join(',')}
         initial={profile.weekOffDays ?? []}

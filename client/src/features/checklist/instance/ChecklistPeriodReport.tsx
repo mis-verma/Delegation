@@ -13,6 +13,7 @@ import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable
 import { formatPct } from '../../../lib/percent';
 import { GOOD_FROM, FAIR_FROM } from '../../../lib/scoreBands';
 import { rateToneClass } from '../checklistDisplay';
+import { RECURRENCE_LABEL } from '../recurrenceRegistry';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { scoresHref } from '../../admin/directory/orgScoreData';
 
@@ -26,7 +27,7 @@ const DEFAULT_RANGE_TEXT: Record<PeriodBucketKind, string> = {
   quarter: 'Last 3 quarters and this one',
   year: 'Last 2 years and this year',
 };
-const RECURRENCE_WORD: Record<string, string> = { DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', YEARLY: 'Yearly', ONE_TIME: 'One time' };
+const RECURRENCE_WORD: Record<string, string> = RECURRENCE_LABEL;
 const RING_LIMIT = 12;
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

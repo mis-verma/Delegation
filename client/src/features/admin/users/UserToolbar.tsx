@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { CreateButton } from '../../../components/createButton';
 import {
   ArrowDownAZ, ArrowUpDown, Building2, Clock, Crown, LayoutGrid, MapPinOff, ShieldCheck, Store, Table2,
-  UserCheck, UserX, Users, X, Activity, Layers, type LucideIcon,
+  UserCheck, UserX, Users, X, Activity, Layers, MailCheck, List as ListIcon, type LucideIcon,
 } from 'lucide-react';
 import {
   Button,
@@ -44,6 +44,7 @@ interface UserToolbarProps {
 
 const VIEW_TABS: ViewTab<UserView>[] = [
   { key: 'cards', label: 'Cards', icon: LayoutGrid },
+  { key: 'list', label: 'List', icon: ListIcon },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 
@@ -75,7 +76,7 @@ export const UserToolbar = ({
 
   const activeCount =
     Number(filters.status !== 'all') + Number(!!filters.role) + Number(!!filters.department) + Number(!!filters.store) +
-    Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads);
+    Number(filters.noDepartment) + Number(filters.noStore) + Number(filters.heads) + Number(filters.invited);
 
   const departments = departmentOptions.filter((o) => o.value !== '');
   const stores = storeOptions.filter((o) => o.value !== '');
@@ -88,6 +89,7 @@ export const UserToolbar = ({
     ...(filters.heads ? [{ key: 'heads', label: 'Department heads', icon: Crown, clear: () => onFilters({ heads: false }) }] : []),
     ...(filters.noDepartment ? [{ key: 'noDepartment', label: 'No department', icon: MapPinOff, clear: () => onFilters({ noDepartment: false }) }] : []),
     ...(filters.noStore ? [{ key: 'noStore', label: 'No store', icon: MapPinOff, clear: () => onFilters({ noStore: false }) }] : []),
+    ...(filters.invited ? [{ key: 'invited', label: 'Not signed in yet', icon: MailCheck, clear: () => onFilters({ invited: false }) }] : []),
   ];
 
   const resetOptions = () => {
@@ -200,6 +202,13 @@ export const UserToolbar = ({
                 lead={<ChoiceIcon icon={MapPinOff} tone="bg-primary-600" />}
               >
                 No store
+              </ChoiceChip>
+              <ChoiceChip
+                active={filters.invited}
+                onClick={() => onFilters({ invited: !filters.invited })}
+                lead={<ChoiceIcon icon={MailCheck} tone="bg-primary-600" />}
+              >
+                Not signed in yet
               </ChoiceChip>
             </ChoiceWrap>
           </OptionSection>

@@ -2,7 +2,7 @@ import { apiFetch } from './http';
 import { shrinkImages } from '../lib/compressImage';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
-export type ChecklistRecurrence = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
+export type ChecklistRecurrence = 'DAILY' | 'TWICE_WEEKLY' | 'WEEKLY' | 'TWICE_MONTHLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
 
 export type ChecklistItemType =
   | 'STANDARD' | 'AUDIT' | 'NUMBER_ENTRY' | 'RATING'
@@ -75,6 +75,7 @@ export type ChecklistDefinition = {
   assigneeRoles: ChecklistAssigneeRole[];
   icon: ChecklistIcon;
   activeWeekdays: number[] | null;
+  occurrenceDays: number[] | null;
   responseMode: ChecklistResponseMode;
   departmentNames: string[];
   version: number;
@@ -142,6 +143,7 @@ export type CreateChecklistDefinitionPayload = {
   assigneeRoles?: ChecklistAssigneeRole[];
   icon?: ChecklistIcon;
   activeWeekdays?: number[] | null;
+  occurrenceDays?: number[] | null;
   responseMode?: ChecklistResponseMode;
   items: CreateChecklistDefinitionItemPayload[];
 };

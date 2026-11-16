@@ -85,7 +85,7 @@ const QUICK: ParamMap = { name: 'quickFilter', values: { pending: 'pending', del
 
 const CHECKLIST_SOLO: ParamMap = { name: 'status', values: { pending: 'pending', due: 'due', delayed: 'overdue', completed: 'completed' } };
 
-const CHECKLIST_TEAM: ParamMap = { name: 'status', values: { pending: 'pending', due: 'pending', delayed: 'overdue', completed: 'completed', total: 'all' } };
+const CHECKLIST_TEAM: ParamMap = { name: 'status', values: { pending: 'pending', due: 'due', delayed: 'overdue', completed: 'completed', total: 'all' } };
 
 const QUEUE_TABS: ParamMap = { name: 'tab', values: { delegation: 'delegations', tickets: 'tickets', checklist: 'checklists' } };
 

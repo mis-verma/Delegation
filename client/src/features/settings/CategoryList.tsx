@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useSearchParams } from "react-router";
 import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
 import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm,
+  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
@@ -15,6 +16,8 @@ import { getInitials } from "../../lib/getInitials";
 import { PRIORITY_CONFIG } from "../tickets/ticketDisplay";
 import { avatarColorClass } from "../../lib/avatarColors";
 import { STARTER_CATEGORIES, normalizeCategoryName } from "./starterCategories";
+import { CategoryStats, type CategoryStatKey } from "./CategoryStats";
+import { CategoryRows, CategoryTable } from "./CategoryViews";
 import { SLA_BAR, SLA_TEXT, formatTatHours, slaTone } from "./tatFormat";
 
 const loadCategoryForm = () => import("./CategoryForm");
@@ -39,8 +42,22 @@ type CategoryTab = "list" | "tat";
 const TAB_OPTIONS: readonly CategoryTab[] = ["list", "tat"];
 const TAB_LABELS: Record<CategoryTab, string> = { list: "Categories", tat: "Time report" };
 
-type StatusFilter = "all" | "active" | "inactive";
-const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "active", "inactive"];
+type StatusFilter = "all" | "active" | "inactive" | "head";
+type PillFilter = Exclude<StatusFilter, "head">;
+const STATUS_OPTIONS: readonly PillFilter[] = ["all", "active", "inactive"];
+
+type CategoryView = "cards" | "list" | "table";
+const VIEW_TABS: ViewTab<CategoryView>[] = [
+  { key: "cards", label: "Cards" },
+  { key: "list", label: "List" },
+  { key: "table", label: "Table", mobileHidden: true },
+];
+
+const isOneOf = <T extends string>(options: readonly T[], value: string | null): value is T => !!value && (options as readonly string[]).includes(value);
+const VIEW_KEYS: readonly CategoryView[] = ["cards", "list", "table"];
+const FILTER_KEYS: readonly StatusFilter[] = ["all", "active", "inactive", "head"];
+const STAT_TO_FILTER: Record<CategoryStatKey, StatusFilter> = { total: "all", active: "active", inactive: "inactive", headPicks: "head" };
+const FILTER_TO_STAT: Partial<Record<StatusFilter, CategoryStatKey>> = { active: "active", inactive: "inactive", head: "headPicks" };
 
 const MAX_VISIBLE_AVATARS = 3;
 const MAX_VISIBLE_LABELS = 3;
@@ -180,15 +197,40 @@ export const CategoryList = () => {
   const confirm = useConfirm();
   const { user } = useAuth();
   const canSeeReport = user?.role === "ADMIN" || user?.role === "PC";
-  const [tab, setTab] = useState<CategoryTab>("list");
+  const [params, setParams] = useSearchParams();
+  const rawTab = params.get("tab");
+  const tab: CategoryTab = canSeeReport && isOneOf(TAB_OPTIONS, rawTab) ? rawTab : "list";
+  const rawStatus = params.get("status");
+  const status: StatusFilter = isOneOf(FILTER_KEYS, rawStatus) ? rawStatus : "all";
+  const rawView = params.get("view");
+  const view: CategoryView = isOneOf(VIEW_KEYS, rawView) ? rawView : "cards";
+  const query = params.get("q") ?? "";
+  const departmentId = params.get("dept") ?? "";
+  const setParam = useCallback((key: string, value: string, fallback = "") => {
+    startTransition(() => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === fallback) next.delete(key);
+        else next.set(key, value);
+        return next;
+      }, { replace: true });
+    });
+  }, [setParams]);
+  const setTab = (next: CategoryTab) => setParam("tab", next, "list");
+  const setStatus = (next: StatusFilter) => setParam("status", next, "all");
+  const setView = (next: CategoryView) => setParam("view", next, "cards");
+  const setQuery = (next: string) => setParam("q", next);
+  const setDepartmentId = (next: string) => setParam("dept", next);
+  const clearFilters = () => startTransition(() => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    ["q", "status", "dept"].forEach((k) => next.delete(k));
+    return next;
+  }, { replace: true }));
   const [showForm, setShowForm] = useState(false);
   const [showStarter, setShowStarter] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const exportFile = useDownloadCategoriesMutation();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [departmentId, setDepartmentId] = useState("");
 
   const { data: categories = [], isPending, isError, refetch } = useCategoriesQuery();
   const { data: usageReport } = useCategoryTatQuery(90, canSeeReport);
@@ -202,6 +244,7 @@ export const CategoryList = () => {
     return categories.filter((c) => {
       if (status === "active" && !c.isActive) return false;
       if (status === "inactive" && c.isActive) return false;
+      if (status === "head" && (!c.isActive || (c.assigneeIds?.length ?? 0) > 0)) return false;
       if (departmentId && c.departmentId?.id !== departmentId) return false;
       return !needle || c.name.toLowerCase().includes(needle) || (c.departmentId?.name ?? "").toLowerCase().includes(needle);
     });
@@ -227,7 +270,6 @@ export const CategoryList = () => {
 
   const activeCount = useMemo(() => categories.filter((c) => c.isActive).length, [categories]);
   const headPicksCount = useMemo(() => categories.filter((c) => c.isActive && (c.assigneeIds?.length ?? 0) === 0).length, [categories]);
-  const defaultDueCount = useMemo(() => categories.filter((c) => c.isActive && !c.tatHours).length, [categories]);
   const missingStarter = useMemo(() => {
     const have = new Map(categories.map((c) => [normalizeCategoryName(c.name), c]));
     return STARTER_CATEGORIES.filter((s) => {
@@ -269,7 +311,14 @@ export const CategoryList = () => {
       );
     }
     if (shown.length === 0) {
-      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: () => { setQuery(""); setStatus("all"); setDepartmentId(""); } }} />;
+      return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: clearFilters }} />;
+    }
+
+    const busyId = (updateMut.isPending ? updateMut.variables?.id : undefined) ?? (deleteMut.isPending ? deleteMut.variables : undefined);
+    const onRemove = user?.role === "ADMIN" ? (category: Category) => { void remove(category); } : undefined;
+    if (view !== "cards") {
+      const Rows = view === "table" ? CategoryTable : CategoryRows;
+      return <Rows items={shown} usageById={usageById} busyId={busyId} onEdit={setEditingCategory} onToggle={toggleActive} onRemove={onRemove} />;
     }
 
     return (
@@ -338,6 +387,15 @@ export const CategoryList = () => {
         </Suspense>
       ) : (
         <>
+          <CategoryStats
+            counts={{ total: categories.length, active: activeCount, inactive: categories.length - activeCount, headPicks: headPicksCount }}
+            active={FILTER_TO_STAT[status] ?? null}
+            onToggle={(key) => setStatus(STAT_TO_FILTER[key] === status ? "all" : STAT_TO_FILTER[key])}
+            isLoading={isPending}
+            error={isError}
+            onRetry={() => { void refetch(); }}
+          />
+
           {categories.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex-1 min-w-44 sm:max-w-64">
@@ -357,18 +415,15 @@ export const CategoryList = () => {
                 </div>
               )}
               <PeriodTabControl
-                value={status}
+                value={status === "head" ? "all" : status}
                 options={STATUS_OPTIONS}
                 labels={{ all: `All ${categories.length}`, active: `Active ${activeCount}`, inactive: `Inactive ${categories.length - activeCount}` }}
-                onChange={setStatus}
+                onChange={(next: PillFilter) => setStatus(next)}
               />
+              <div className="sm:ml-auto">
+                <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey="view:categories" />
+              </div>
             </div>
-          )}
-
-          {!isPending && categories.length > 0 && (
-            <p className="t-meta font-display text-text-muted tabular-nums">
-              {headPicksCount} {headPicksCount === 1 ? "category lets" : "categories let"} the head pick the person, {defaultDueCount} on the default due time.
-            </p>
           )}
 
           {renderContent()}

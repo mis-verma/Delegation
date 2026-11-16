@@ -28,6 +28,11 @@ export const NOT_DELETED = isNull(checklistDefinitions.deletedAt)
 
 export const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6]
 
+const PICKED_DAY_RECURRENCES: readonly string[] = ["TWICE_WEEKLY", "TWICE_MONTHLY"]
+
+export const pickedDaysFor = (recurrence: string, days: number[] | null | undefined): number[] | null =>
+    PICKED_DAY_RECURRENCES.includes(recurrence) ? [...new Set(days ?? [])].sort((a, b) => a - b) : null
+
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
 
 export type ListChecklistDefinitionsFilter = {

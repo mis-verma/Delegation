@@ -4,15 +4,9 @@ import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../a
 import type { StatusChipStatus } from '../../components/statusChip';
 import { runScores } from './checklistCompliance';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { leadMs, trailMs } from './recurrenceRegistry';
 
-export const RECURRENCE_LABEL: Record<ChecklistRecurrence, string> = {
-  DAILY: 'Daily',
-  WEEKLY: 'Weekly',
-  MONTHLY: 'Monthly',
-  QUARTERLY: 'Quarterly',
-  YEARLY: 'Yearly',
-  ONE_TIME: 'One-time',
-};
+export { RECURRENCE_LABEL } from './recurrenceRegistry';
 
 const DATE_LONG_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const DATE_SHORT_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -138,15 +132,12 @@ export const todayPeriodBoundIso = (): string => {
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())).toISOString();
 };
 
-const EARLY_VIEW_DAYS = 3;
-
 type OpeningInstance = Pick<InstanceWindow, 'periodStart' | 'opensTime'> & { recurrence?: ChecklistRecurrence };
 
 const instanceOpensAt = (instance: OpeningInstance): number | null => {
   const [hours, minutes] = instance.opensTime ? instance.opensTime.split(':').map(Number) : [0, 0];
   const start = new Date(instance.periodStart);
-  const early = instance.recurrence && instance.recurrence !== 'DAILY' && instance.recurrence !== 'ONE_TIME' ? EARLY_VIEW_DAYS * 86_400_000 : 0;
-  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS - early;
+  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS - leadMs(instance.recurrence);
 };
 
 export const instanceDeadline = (instance: InstanceWindow): number => {
@@ -219,15 +210,14 @@ export const instanceOpensOnLaterDay = (instance: OpeningInstance, now: number =
   return new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(opensAt + ORG_TZ_OFFSET_MS));
 };
 
-const DONE_VISIBLE_DAYS = 3;
-
 export const isInstanceDoneRecently = (
   instance: { recurrence: ChecklistRecurrence; items: Pick<ChecklistInstanceItem, 'isDone'>[]; completedFirstAt?: string | null },
   now: number = Date.now(),
 ): boolean => {
-  if (instance.recurrence === 'DAILY' || instance.recurrence === 'ONE_TIME') return false;
+  const trail = trailMs(instance.recurrence);
+  if (trail === 0) return false;
   if (!instance.completedFirstAt || instance.items.length === 0 || !instance.items.every((i) => i.isDone)) return false;
-  return now - new Date(instance.completedFirstAt).getTime() <= DONE_VISIBLE_DAYS * 24 * 60 * 60_000;
+  return now - new Date(instance.completedFirstAt).getTime() <= trail;
 };
 
 export const isInstanceEnded = (instance: EndableInstance, now: number = Date.now()): boolean => {
@@ -238,7 +228,7 @@ export const isInstanceEnded = (instance: EndableInstance, now: number = Date.no
 };
 
 export const isInstanceEndedToday = (instance: EndableInstance, now: number = Date.now()): boolean =>
-  isInstanceEnded(instance, now) && instanceClosing(instance) >= instanceStartOfOrgDay(now);
+  isInstanceEnded(instance, now) && instanceClosing(instance) >= instanceStartOfOrgDay(now) - trailMs(instance.recurrence);
 
 const END_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

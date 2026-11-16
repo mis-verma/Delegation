@@ -15,14 +15,15 @@ import { useStoresQuery, useAssignableUsersQuery } from '../../tickets/hook';
 import { useChecklistInstanceSummaryQuery } from '../hook';
 import { RECURRENCE_LABEL, formatPeriodSpan, getInstanceView, todayPeriodBoundIso } from '../checklistDisplay';
 
-type Tab = 'pending' | 'overdue' | 'completed' | 'all';
+type Tab = 'pending' | 'due' | 'overdue' | 'completed' | 'all';
 type Window = 'today' | 'month';
 
-const TABS: readonly Tab[] = ['pending', 'overdue', 'completed', 'all'];
+const TABS: readonly Tab[] = ['pending', 'due', 'overdue', 'completed', 'all'];
 const PAGE_SIZE = 40;
 
 const SERVER_STATUS: Record<Tab, ChecklistInstanceStatus | undefined> = {
   pending: 'OPEN',
+  due: 'DUE',
   overdue: 'OVERDUE',
   completed: 'COMPLETED',
   all: undefined,
@@ -45,6 +46,7 @@ const progressState = (done: number, total: number): StateLook => {
 
 const TAB_ITEMS: readonly StatusFigureItem<Tab>[] = [
   { key: 'pending', kind: 'pending', label: 'Pending', help: 'Checklists still open right now.' },
+  { key: 'due', kind: 'due', label: 'Due', help: 'Checklists still inside their time.' },
   { key: 'overdue', kind: 'late', label: 'Overdue', short: 'Late', help: 'Checklists that missed their deadline.' },
   { key: 'completed', kind: 'completed', label: 'Completed', short: 'Done', help: 'Checklists that are finished.' },
   { key: 'all', kind: 'total', label: 'All', help: 'Every checklist in this period.' },
@@ -131,7 +133,7 @@ export const TeamChecklists = () => {
     });
   }, [rows, search, onlyNotStarted, storeNames, peopleNames]);
 
-  const tabCounts: Record<Tab, number> = { pending: s?.pending ?? 0, overdue: s?.missed ?? 0, completed: s?.completed ?? 0, all: s?.total ?? 0 };
+  const tabCounts: Record<Tab, number> = { pending: s?.pending ?? 0, due: s?.due ?? 0, overdue: s?.missed ?? 0, completed: s?.completed ?? 0, all: s?.total ?? 0 };
 
   const role = user?.role;
   const scopeText = role === 'ADMIN' || role === 'PC' ? 'Every store and department' : 'Your department';

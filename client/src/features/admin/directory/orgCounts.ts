@@ -1,4 +1,4 @@
-import type { AdminUser, Role, UserPresence } from '../../../api/admin';
+import type { AdminUser, Role } from '../../../api/admin';
 
 const ORG_WIDE_ROLES: readonly Role[] = ['ADMIN', 'PC', 'OWNER'];
 
@@ -37,19 +37,4 @@ export const countOrg = (users: AdminUser[] | undefined, departments: Active[] |
     activeStores,
     inactiveStores: (stores?.length ?? 0) - activeStores,
   };
-};
-
-export const onlineActive = (users: AdminUser[] | undefined, presence: UserPresence[] | undefined): number | null => {
-  if (!users || !presence) return null;
-  const active = new Set(users.filter((u) => u.isActive).map((u) => u.id));
-  return presence.filter((p) => p.online && active.has(p.id)).length;
-};
-
-export const unplacedCaption = (counts: OrgCounts): string => {
-  if (counts.unplaced === 0) return 'Everyone placed';
-  const parts = [
-    counts.noDepartment > 0 && `${counts.noDepartment} no department`,
-    counts.noStore > 0 && `${counts.noStore} no store`,
-  ].filter(Boolean);
-  return parts.join(', ');
 };

@@ -46,11 +46,16 @@ const STATIC = 'cursor-default hover:brightness-100 active:scale-100';
 
 const SELECTED ='ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
 
+const GRID_BY_COUNT: Record<number, string> = {
+  4: 'grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-5 [&>:last-child]:max-sm:col-span-2',
+};
+
 export const StatusFigureStats = <K extends string>({ items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
   const formatCount = useStatCountFormat();
   return (
-    <div className="grid w-full grid-cols-4 gap-1.5 sm:gap-2" role="group" aria-label={label}>
+    <div className={cn('grid w-full gap-1.5 sm:gap-2', GRID_BY_COUNT[items.length] ?? GRID_BY_COUNT[4])} role="group" aria-label={label}>
       {items.map((item) => {
         const count = counts[item.key] ?? 0;
         const shown = display?.[item.key] ?? formatCount(count);
