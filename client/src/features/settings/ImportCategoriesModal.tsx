@@ -46,12 +46,7 @@ interface RowOptions {
   fillHead: boolean;
 }
 
-const OPERATIONS = 'operations';
-
-const defaultOptions = (data: CategoryHistoryPreview): RowOptions => ({
-  departmentId: data.isList ? (data.departments.find((d) => d.name.trim().toLowerCase() === OPERATIONS)?.id ?? '') : '',
-  fillHead: true,
-});
+const defaultOptions = (): RowOptions => ({ departmentId: '', fillHead: true });
 
 const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
   const minRows = data.isList ? 1 : MIN_ROWS_BY_DEFAULT;
@@ -130,7 +125,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
     setReading(true);
     try {
       const data = await categoryApi.historyPreview(next, column);
-      const initial = defaultOptions(data);
+      const initial = defaultOptions();
       setFile(next);
       setPreview(data);
       setOptions(initial);
