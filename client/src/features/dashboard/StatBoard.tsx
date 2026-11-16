@@ -1,72 +1,16 @@
-import { memo, type ReactNode } from 'react';
+import { memo } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { ChevronRight, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
-import { useStatCountFormat } from '../../lib/statCount';
-import { STAT_FIGURE, STAT_PHONE_CENTER } from '../../components/statSurface';
+import { ApprovalPills } from './ApprovalPills';
+import { StatColumnCard } from './StatColumnCard';
+import { pathOf } from './boardLook';
+import type { BoardTile } from './boardTypes';
 
-export type BoardTone = 'primary' | 'danger' | 'coral' | 'success';
-
-export interface BoardPart {
-  key: string;
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  href: string;
-  missing?: boolean;
-}
-
-export interface BoardTile {
-  key: string;
-  label: string;
-  value: number;
-  caption: string;
-  icon: LucideIcon;
-  tone: BoardTone;
-  breakdown?: readonly BoardPart[];
-  href?: string;
-  onSelect?: () => void;
-  selected?: boolean;
-  loading?: boolean;
-  failed?: boolean;
-  hideOnPhone?: boolean;
-}
-
-const TONE: Record<BoardTone, { tile: string; value: string }> = {
-  primary: { tile: 'bg-primary-600 dark:bg-primary-500', value: 'text-text' },
-  danger: { tile: 'bg-danger', value: 'text-danger' },
-  coral: { tile: 'bg-coral-500', value: 'text-text' },
-  success: { tile: 'bg-success', value: 'text-text' },
-};
+export type { BoardApprovalPart, BoardApprovals, BoardPart, BoardTile, BoardTone } from './boardTypes';
 
 const shown = (t: BoardTile) => (t.failed || t.loading ? '-' : t.value);
-
-const spoken = (t: BoardTile) => `${t.label}: ${t.failed ? 'could not load' : t.loading ? 'loading' : t.value}. ${t.caption}`;
-
-const pathOf = (href: string) => href.split('?')[0] ?? href;
-
-const PRESS = 'outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50';
-
-const TileShell = ({ tile, className, children }: { tile: BoardTile; className: string; children: ReactNode }) => {
-  const warm = usePrefetchRoute();
-  if (tile.onSelect) {
-    return (
-      <button type="button" onClick={tile.onSelect} aria-pressed={!!tile.selected} aria-label={spoken(tile)} className={cn(className, 'cursor-pointer')}>
-        {children}
-      </button>
-    );
-  }
-  if (tile.href) {
-    const href = tile.href;
-    return (
-      <Link to={href} viewTransition aria-label={spoken(tile)} onPointerEnter={() => warm(pathOf(href))} onTouchStart={() => warm(pathOf(href))} className={cn(className, 'cursor-pointer')}>
-        {children}
-      </Link>
-    );
-  }
-  return <div role="group" aria-label={spoken(tile)} className={className}>{children}</div>;
-};
 
 const COLS: Record<number, string> = {
   3: 'sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3',
@@ -83,9 +27,9 @@ interface StatBoardProps {
 
 export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) => {
   const warm = usePrefetchRoute();
-  const formatCount = useStatCountFormat();
   const ActiveIcon = active.icon;
   const parts = active.breakdown ?? [];
+  const approvals = active.approvals;
   const odd = tiles.length % 2 === 1;
   const phoneTiles = tiles.filter((t) => !t.hideOnPhone);
   const lastPhoneKey = phoneTiles.length % 2 === 1 ? phoneTiles[phoneTiles.length - 1]?.key : undefined;
@@ -127,40 +71,39 @@ export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) =
             );
           })}
         </ul>
+        {approvals && (
+          <Link
+            to={approvals.href ?? '/verify'}
+            viewTransition
+            onPointerEnter={() => warm(pathOf(approvals.href ?? '/verify'))}
+            onTouchStart={() => warm(pathOf(approvals.href ?? '/verify'))}
+            aria-label={`${approvals.label}: ${approvals.failed ? 'could not load' : approvals.value}. Open`}
+            className="group flex flex-col gap-1.5 rounded-xl bg-white/5 px-3 py-2 outline-none transition-colors duration-150 hover:bg-white/10 focus-visible:bg-white/10 active:bg-white/15"
+          >
+            <span className="flex min-h-8 items-center gap-2.5">
+              <ShieldCheck size={15} className="shrink-0 text-white/70" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate t-card font-display font-semibold">{approvals.label}</span>
+              <span className="t-card font-figure font-extrabold tabular-nums">{approvals.failed || approvals.loading ? '-' : approvals.value}</span>
+              <ChevronRight size={15} className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+            <ApprovalPills parts={approvals.parts} missing={approvals.failed || approvals.loading} tone="dark" />
+          </Link>
+        )}
         {note && <p className="t-meta text-white/60">{note}</p>}
       </section>
 
       <div className={cn('grid grid-cols-2 gap-px bg-border/50', COLS[tiles.length] ?? COLS[4])}>
-        {tiles.map((tile, index) => {
-          const Icon = tile.icon;
-          const tone = TONE[tile.tone];
-          return (
-            <TileShell
-              key={tile.key}
-              tile={tile}
-              className={cn(
-                PRESS,
-                'relative flex min-w-0 flex-col justify-between gap-2 bg-surface p-3 text-left touch-manipulation sm:p-4',
-                STAT_PHONE_CENTER,
-                odd && index === tiles.length - 1 && 'lg:col-span-2 xl:col-span-1',
-                tile.key === lastPhoneKey && 'max-sm:col-span-2',
-                tile.hideOnPhone && 'max-sm:hidden',
-                tile.selected ? 'bg-primary-500/10 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary-600 dark:after:bg-primary-400' : 'hover:bg-surface-hover/60',
-              )}
-            >
-              <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone.tile)} aria-hidden="true">
-                  <Icon size={12} strokeWidth={2.75} />
-                </span>
-                <span className="min-w-0 truncate t-meta font-display font-semibold text-text-secondary">{tile.label}</span>
-              </span>
-              <span className="flex min-w-0 max-w-full flex-col gap-0.5">
-                <span className={cn('t-stat', STAT_FIGURE, tile.value > 0 ? tone.value : 'text-text')}>{tile.failed || tile.loading ? '-' : formatCount(tile.value)}</span>
-                <span className="hidden sm:block t-meta text-text-muted line-clamp-2">{tile.failed ? "Couldn't load" : tile.caption}</span>
-              </span>
-            </TileShell>
-          );
-        })}
+        {tiles.map((tile, index) => (
+          <StatColumnCard
+            key={tile.key}
+            tile={tile}
+            className={cn(
+              odd && index === tiles.length - 1 && 'lg:col-span-2 xl:col-span-1',
+              tile.key === lastPhoneKey && 'max-sm:col-span-2',
+              tile.hideOnPhone && 'max-sm:hidden',
+            )}
+          />
+        ))}
       </div>
     </div>
   );

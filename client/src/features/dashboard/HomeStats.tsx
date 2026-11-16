@@ -1,9 +1,9 @@
 import { memo, useMemo } from 'react';
-import { ShieldCheck, type LucideIcon } from 'lucide-react';
-import { StatBoard, type BoardTile } from './StatBoard';
+import type { LucideIcon } from 'lucide-react';
+import { StatBoard, type BoardApprovals, type BoardTile } from './StatBoard';
 import { WORK_METRIC_LOOK, metricValue, moduleListHref, workListHref } from './work/workMetrics';
 import type { WorkKind, WorkMetric } from '../../api/dashboard';
-import type { ApprovalFigure } from './approvalFigures';
+import type { ApprovalFigure, ApprovalKind } from './approvalFigures';
 import { CATEGORY_ICON } from './categoryLook';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardSummaries } from './useDashboardSummaries';
@@ -41,6 +41,22 @@ const METRICS = WORK_METRIC_LOOK;
 const KIND_OF: Record<ModuleKey, WorkKind> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist', todo: 'todo' };
 
 const hrefFor = (module: ModuleRow, metric: Metric, userId: string | undefined): string => moduleListHref(KIND_OF[module.key], metric, module.team === true, userId);
+
+const APPROVAL_FIELD: Record<Metric, 'pending' | 'old' | 'fresh'> = { total: 'pending', pending: 'pending', delayed: 'old', due: 'fresh' };
+
+const APPROVAL_KINDS: readonly { key: ApprovalKind; label: string }[] = [
+  { key: 'delegation', label: 'Delegation' },
+  { key: 'tickets', label: 'Tickets' },
+  { key: 'checklist', label: 'Checklists' },
+];
+
+const approvalsFor = (approval: ApprovalFigure | undefined, metric: Metric): BoardApprovals | undefined => {
+  if (!approval) return undefined;
+  const field = APPROVAL_FIELD[metric];
+  const parts = APPROVAL_KINDS.map((k) => ({ key: k.key, label: k.label, value: approval.kinds?.[k.key][field] ?? 0 }));
+  const value = field === 'pending' ? approval.value : field === 'old' ? approval.delayed : parts.reduce((n, p) => n + p.value, 0);
+  return { label: 'Approvals', value, parts, href: approval.href, loading: approval.loading, failed: approval.failed };
+};
 
 const valueOf = (counts: Counts | undefined, metric: Metric) => metricValue(counts, metric);
 
@@ -81,6 +97,7 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         key: m.key,
         label: m.label,
         value: total,
+        approvals: approvalsFor(approval, m.key),
         breakdown: modules.map((r) => ({ key: r.key, label: r.label, icon: r.icon, href: hrefFor(r, m.key, userId), value: valueOf(r.counts, m.key), missing: !r.counts })),
         caption: partial ? `${m.caption}, some not loaded` : m.caption,
         icon: m.icon,
@@ -91,29 +108,15 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
         hideOnPhone: m.key === 'total',
       };
     }),
-    [modules, scope, userId],
+    [modules, scope, userId, approval],
   );
 
   const active = items[0];
-  const tiles: BoardTile[] = approval
-    ? [...items, {
-        key: 'approval',
-        label: 'Approval',
-        value: approval.value,
-        caption: approval.caption,
-        icon: ShieldCheck,
-        tone: approval.delayed > 0 ? 'danger' : 'primary',
-        href: approval.href,
-        loading: approval.loading,
-        failed: approval.failed,
-      }]
-    : items;
-
   return (
     <StatBoard
       label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
       active={active}
-      tiles={tiles}
+      tiles={items}
       note={scope === 'overall' ? 'To-dos are personal, so they show under My own.' : undefined}
     />
   );

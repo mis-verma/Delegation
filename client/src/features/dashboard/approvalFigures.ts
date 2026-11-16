@@ -5,8 +5,13 @@ import { handleQueryRetry } from '../../lib/queryHelpers';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import type { ApprovalBucket } from '../pc/usePcApprovalBuckets';
 
+export type ApprovalKind = 'delegation' | 'tickets' | 'checklist';
+
+export type ApprovalKinds = Record<ApprovalKind, ApprovalBucket>;
+
 export interface ApprovalFigure {
   value: number;
+  kinds?: ApprovalKinds;
   caption: string;
   delayed: number;
   href?: string;
@@ -38,8 +43,9 @@ export const useOwnApprovalFigure = (): ApprovalFigure => {
   };
 };
 
-export const teamApprovalFigure = (bucket: ApprovalBucket, queueHref: string, loading: boolean, failed: boolean): ApprovalFigure => ({
+export const teamApprovalFigure = (bucket: ApprovalBucket, queueHref: string, loading: boolean, failed: boolean, kinds?: ApprovalKinds): ApprovalFigure => ({
   value: bucket.pending,
+  kinds,
   delayed: bucket.old,
   caption: bucket.old > 0 ? `${bucket.old} waiting over 24 hours` : 'Waiting for your decision',
   href: queueHref,

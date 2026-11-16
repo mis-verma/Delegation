@@ -122,8 +122,14 @@ export const HomePage = () => {
   const approvalTotal = approvalBuckets.total;
   const approvalFailed = approvalSources.hasError;
   const teamApproval = useMemo(
-    () => teamApprovalFigure(approvalTotal, queueHref, approvalSourcesLoading && approvalTotal.pending === 0, approvalFailed && approvalTotal.pending === 0),
-    [approvalTotal, queueHref, approvalSourcesLoading, approvalFailed],
+    () => teamApprovalFigure(
+      approvalTotal,
+      queueHref,
+      approvalSourcesLoading && approvalTotal.pending === 0,
+      approvalFailed && approvalTotal.pending === 0,
+      { delegation: approvalBuckets.delegation, tickets: approvalBuckets.ticket, checklist: approvalBuckets.checklist },
+    ),
+    [approvalTotal, approvalBuckets.delegation, approvalBuckets.ticket, approvalBuckets.checklist, queueHref, approvalSourcesLoading, approvalFailed],
   );
   const currentScope: StatScope = hasTabs ? statScope : 'mine';
   const overview = (

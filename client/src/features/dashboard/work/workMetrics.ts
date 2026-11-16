@@ -1,6 +1,6 @@
 import { AlertTriangle, CalendarClock, Clock3, Layers, type LucideIcon } from 'lucide-react';
 import type { WorkKind, WorkMetric } from '../../../api/dashboard';
-import type { BoardTone } from '../StatBoard';
+import type { BoardTone } from '../boardTypes';
 
 export interface MetricLook {
   key: WorkMetric;
