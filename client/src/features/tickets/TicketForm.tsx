@@ -7,13 +7,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion, ListTree } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion, ListTree, Sparkles, X } from 'lucide-react';
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, useDepartmentsWithHeadQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
 import { buildCategoryIndex, departmentIdOf, hasActiveSubcategory } from './ticketCategoryIndex';
+import { buildProblemMatcher, type ProblemMatch } from './ticketRouting';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { DepartmentField } from '../departments/DepartmentField';
@@ -48,6 +49,8 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateInput = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const toTimeInput = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
+const SUGGEST_DELAY_MS = 400;
+
 const FIELD_ORDER = ['title', 'description', 'categoryId', 'subcategoryId', 'departmentId', 'assigneeId', 'dueDate', 'dueTime', 'startDate'] as const;
 const anchorFor = (field: (typeof FIELD_ORDER)[number]) => (field === 'dueTime' || field === 'startDate' ? 'dueDate' : field);
 
@@ -68,6 +71,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
   const { data: categories } = useCategoriesQuery();
   const categoryIndex = useMemo(() => buildCategoryIndex(categories), [categories]);
+  const problemMatcher = useMemo(() => buildProblemMatcher(categoryIndex.problems), [categoryIndex]);
   const { data: tags } = useTagsQuery(!ownScopeOnly);
   const mutation = useCreateTicketMutation();
   const saveDraft = useSaveDraftMutation('TICKET');
@@ -149,6 +153,10 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const assignmentMode = useWatch({ control, name: 'assignmentMode' });
   const modeChosen = assignmentMode === 'AUTO' || assignmentMode === 'MANUAL';
   const categoryId = useWatch({ control, name: 'categoryId' });
+  const titleText = useWatch({ control, name: 'title' });
+  const descriptionText = useWatch({ control, name: 'description' });
+  const [suggestion, setSuggestion] = useState<ProblemMatch | null>(null);
+  const [dismissedProblemId, setDismissedProblemId] = useState<string | null>(null);
   const departmentId = useWatch({ control, name: 'departmentId' });
   const priority = useWatch({ control, name: 'priority' });
   const assigneeId = useWatch({ control, name: 'assigneeId' });
@@ -269,6 +277,12 @@ Who is affected: `;
       setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
     }
   };
+
+  useEffect(() => {
+    if (assignmentMode !== 'AUTO' || categoryId) return;
+    const timer = setTimeout(() => setSuggestion(problemMatcher.match(`${titleText ?? ''} ${descriptionText ?? ''}`)), SUGGEST_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [assignmentMode, categoryId, titleText, descriptionText, problemMatcher]);
 
   const pickProblem = (subcategoryId: string) => {
     const entry = categoryIndex.problemById.get(subcategoryId);
@@ -514,6 +528,29 @@ Who is affected: `;
         error={errors.categoryId?.message}
       >
         <div className="flex flex-col gap-2">
+        {suggestion && assignmentMode === 'AUTO' && !categoryId && suggestion.entry.subcategory.id !== dismissedProblemId && (
+          <div role="status" className="flex items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/5 p-2.5">
+            <Sparkles className="size-4 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden />
+            <p className="min-w-0 flex-1 t-meta font-display text-text-secondary">
+              Looks like <span className="font-semibold text-text">{suggestion.entry.subcategory.name}</span> in {suggestion.entry.category.name}.
+            </p>
+            <button
+              type="button"
+              onClick={() => pickProblem(suggestion.entry.subcategory.id)}
+              className="min-h-11 shrink-0 cursor-pointer rounded-lg bg-primary-800 px-3 t-meta font-display font-semibold text-white outline-none transition-colors duration-150 hover:bg-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:min-h-9"
+            >
+              Use it
+            </button>
+            <button
+              type="button"
+              aria-label="Dismiss suggestion"
+              onClick={() => setDismissedProblemId(suggestion.entry.subcategory.id)}
+              className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-fine:size-9"
+            >
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+        )}
         {!categoryId && problemOptions.length > 0 && (
           <Combobox
             value=""
