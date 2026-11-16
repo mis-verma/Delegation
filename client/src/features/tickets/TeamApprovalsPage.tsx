@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { ShieldCheck } from 'lucide-react';
 import { PageHeader, Skeleton, PageBackButton } from '../../components';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
-import { TicketApprovals } from './TicketApprovals';
+import { TeamWorkApprovals } from './approvals/TeamWorkApprovals';
 
 const ChecklistApprovals = lazy(() => import('../checklist').then((m) => ({ default: m.ChecklistApprovals })));
 const ApprovalCoverCard = lazy(() => import('../checklist/ApprovalCoverCard').then((m) => ({ default: m.ApprovalCoverCard })));
@@ -30,7 +30,7 @@ export const TeamApprovalsPage = () => {
       </Suspense>
       <PeriodTabControl value={tab} options={TABS} labels={LABELS} onChange={change} className="w-full sm:w-fit" fill />
       {tab === 'work' ? (
-        <TicketApprovals embedded />
+        <TeamWorkApprovals />
       ) : (
         <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
           <ChecklistApprovals embedded />

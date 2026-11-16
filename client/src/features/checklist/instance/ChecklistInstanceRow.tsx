@@ -1,6 +1,7 @@
+import { OpensChip } from './OpensChip';
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { AlarmClockOff, CalendarClock, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
+import { AlarmClockOff, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -22,7 +23,7 @@ const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visibl
 
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
   const now = useSharedNow();
-  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
+  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate, inLateWindow, closed, closedAt, opensOn, dueInDays } = getInstanceView(instance, now);
 
   if (storeName !== undefined) {
     return (
@@ -38,7 +39,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {!closed && <StatusChip status={chipStatus} />}
-{opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
+<OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
             {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
             <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
@@ -85,7 +86,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
             {isComplete ? 'Done' : `${progress}% done`}
           </Badge>
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
-{opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
+<OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         </div>
       </div>

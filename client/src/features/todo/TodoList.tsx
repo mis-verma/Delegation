@@ -1,46 +1,35 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { SwipeRow } from '../../components/swipeRow/SwipeRow';
-import { Check, CheckCheck, CheckCircle2, CalendarClock, CalendarDays, Clock3, Pencil, RotateCcw, Trash2, MoreVertical, ListTodo, FilterX, ChevronDown } from 'lucide-react';
-import { Skeleton, EmptyState, PriorityChip, StatusBadge } from '../../components';
-import { ErrorMessage } from '../admin/adminDisplay';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { CheckCheck, Trash2, ListTodo, FilterX, ChevronDown } from 'lucide-react';
+import { Skeleton, EmptyState, InlineError } from '../../components';
 import { cn } from '@/lib/utils';
-import { PRIORITY_MAP } from '../tasks/taskDisplay';
-import { useTodosQuery, useUpdateTodoMutation, useDeleteTodoMutation, useClearCompletedMutation } from './hook';
+import { useUpdateTodoMutation, useDeleteTodoMutation, useClearCompletedMutation } from './hook';
 import { useConfirm } from '../../components/confirmDialog/ConfirmDialog';
-import { addedLabel, dueLabel } from './todoDate';
-import { TODO_QUICK_FILTER_PREDICATES, isOverdueTodo } from './todoQuickFilters';
-import { sortTodos, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
-import { dueBucketOf, groupTodosByDue, type TodoGroup } from './todoGroups';
+import { groupTodosByDue } from './todoGroups';
 import { EditTodoModal } from './EditTodoModal';
-import { TodoDueMenu } from './TodoMenus';
+import { TODO_VIEW_BODY, TODO_VIEW_GROUPED, TODO_VIEW_SPLIT, type TodoViewKey } from './todoViews';
+import type { TodoActions } from './todoActions';
 import type { TodoQuickFilterKey } from './TodoQuickStats';
-import type { Todo, TodoPriority } from '../../api/todos';
+import type { TodoSortKey } from './todoSort';
+import type { Todo } from '../../api/todos';
 
 interface TodoListProps {
-  quickFilter?: TodoQuickFilterKey | null;
-  priority?: TodoPriorityFilter;
-  rangeFilter?: (todo: Todo) => boolean;
-  search?: string;
-  sort?: TodoSortKey;
-  onClearFilters?: () => void;
+  todos: readonly Todo[];
+  view: TodoViewKey;
+  sort: TodoSortKey;
+  quickFilter: TodoQuickFilterKey | null;
+  filtered: boolean;
+  isPending: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onClearFilters: () => void;
 }
-
-const RING_CLASS: Record<TodoPriority, string> = {
-  high: 'border-vivid-red',
-  medium: 'border-vivid-sky',
-  low: 'border-vivid-blue',
-};
 
 const UNDO_MS = 6000;
 const CLEAR_BATCH_MAX = 500;
 const COMPLETED_PREVIEW = 5;
 
-const ACTION_CLASS = 'flex size-8 items-center justify-center rounded-lg text-text-muted outline-none transition-colors duration-150 cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:size-11';
-
-export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFilters, rangeFilter, search = '' }: TodoListProps) => {
-  const { data: allTodos = [], isPending, isError } = useTodosQuery();
+export const TodoList = ({ todos, view, sort, quickFilter, filtered, isPending, isError, onRetry, onClearFilters }: TodoListProps) => {
   const updateMut = useUpdateTodoMutation();
   const deleteMut = useDeleteTodoMutation();
   const clearMut = useClearCompletedMutation();
@@ -48,28 +37,30 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
   const [editing, setEditing] = useState<Todo | null>(null);
   const [completedOpen, setCompletedOpen] = useState<boolean | null>(null);
 
-  const needle = search.trim().toLowerCase();
-  const inRange = rangeFilter ? allTodos.filter(rangeFilter) : allTodos;
-  const quickFiltered = quickFilter ? inRange.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : inRange;
-  const priorityFiltered = priority === 'all' ? quickFiltered : quickFiltered.filter((t) => t.priority === priority);
-  const searched = needle ? priorityFiltered.filter((t) => t.text.toLowerCase().includes(needle)) : priorityFiltered;
-  const todos = sort ? sortTodos(searched, sort) : searched;
+  const actions = useMemo<TodoActions>(() => {
+    const complete = (todo: Todo) => {
+      const next = !todo.completed;
+      updateMut.mutate({ id: todo.id, payload: { completed: next } });
+      toast(next ? `Done: "${todo.text}"` : `Back on your list: "${todo.text}"`, {
+        duration: UNDO_MS,
+        action: { label: 'Undo', onClick: () => updateMut.mutate({ id: todo.id, payload: { completed: todo.completed } }) },
+      });
+    };
+    return {
+      onToggle: (todo) => updateMut.mutate({ id: todo.id, payload: { completed: !todo.completed } }),
+      onComplete: complete,
+      onEdit: setEditing,
+      onDelete: (todo) => deleteMut.mutate(todo.id),
+      onSetDue: (todo, date) => updateMut.mutate({ id: todo.id, payload: { dueDate: date ? date.toISOString() : null } }),
+    };
+  }, [updateMut, deleteMut]);
 
-  const toggleComplete = (todo: Todo) => updateMut.mutate({ id: todo.id, payload: { completed: !todo.completed } });
+  const { pending, completed } = useMemo(() => ({
+    pending: todos.filter((t) => !t.completed),
+    completed: todos.filter((t) => t.completed),
+  }), [todos]);
 
-  const completeWithUndo = (todo: Todo) => {
-    const next = !todo.completed;
-    updateMut.mutate({ id: todo.id, payload: { completed: next } });
-    toast(next ? `Done: "${todo.text}"` : `Back on your list: "${todo.text}"`, {
-      duration: UNDO_MS,
-      action: { label: 'Undo', onClick: () => updateMut.mutate({ id: todo.id, payload: { completed: todo.completed } }) },
-    });
-  };
-
-  const setDue = (todo: Todo, date: Date | null) =>
-    updateMut.mutate({ id: todo.id, payload: { dueDate: date ? date.toISOString() : null } });
-
-  const clearCompleted = async (list: Todo[]) => {
+  const clearCompleted = async (list: readonly Todo[]) => {
     const batch = list.slice(0, CLEAR_BATCH_MAX);
     const ok = await confirm({
       title: batch.length === 1 ? "Clear this completed to-do?" : `Clear ${batch.length} completed to-dos?`,
@@ -80,161 +71,16 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
     if (ok) clearMut.mutate(batch.map((t) => t.id));
   };
 
-  const renderRow = (todo: Todo, index: number) => {
-    const overdue = isOverdueTodo(todo);
-    const dueToday = !overdue && !todo.completed && dueBucketOf(todo) === 'today';
-    const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
-
-    return (
-      <SwipeRow
-        key={todo.id}
-        right={{ label: todo.completed ? 'Not done' : 'Done', icon: <Check size={16} aria-hidden />, tone: 'success', onTrigger: () => completeWithUndo(todo) }}
-        left={{ label: 'Delete', icon: <Trash2 size={16} aria-hidden />, tone: 'danger', onTrigger: () => deleteMut.mutate(todo.id) }}
-      >
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setEditing(todo)}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setEditing(todo);
-          }
-        }}
-        aria-label={`Edit "${todo.text}"`}
-        className={cn(
-          'group flex items-start gap-3 rounded-xl border p-3.5 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 active:bg-surface-hover/50 [-webkit-tap-highlight-color:transparent] animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none',
-          todo.completed
-            ? 'border-border/40 dark:border-white/[0.04] bg-surface/60 hover:border-border-hover'
-            : overdue
-              ? 'border-vivid-red/50 bg-surface hover:border-vivid-red'
-              : 'border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50',
-        )}
-        style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); toggleComplete(todo); }}
-          aria-pressed={todo.completed}
-          aria-label={todo.completed ? `Mark "${todo.text}" as not done` : `Mark "${todo.text}" as done`}
-          className="shrink-0 flex items-center justify-center size-11 -m-2.5 rounded-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
-        >
-          <span
-            className={cn(
-              'flex items-center justify-center size-6 rounded-full border-2 transition-all duration-200 ease-in-out active:scale-90',
-              todo.completed ? 'bg-vivid-green border-vivid-green text-white' : `${RING_CLASS[todo.priority]} text-transparent hover:text-text-muted`,
-            )}
-          >
-            <Check key={todo.completed ? 'done' : 'undone'} size={13} strokeWidth={3.25} className="animate-in zoom-in-50 duration-200 motion-reduce:animate-none" />
-          </span>
-        </button>
-
-        <div className="flex-1 min-w-0 flex flex-col gap-2 pt-0.5">
-          <p
-            title={todo.text}
-            className={cn(
-              't-card font-display tracking-tight leading-snug line-clamp-2 break-words transition-colors duration-200',
-              todo.completed ? 'font-medium text-text-muted line-through decoration-text-muted/60' : 'font-semibold text-text',
-            )}
-          >
-            {todo.text}
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {todo.completed ? (
-              <StatusBadge variant="success" icon={CheckCircle2} label="Done" />
-            ) : (
-              <PriorityChip meta={PRIORITY_MAP[todo.priority]} />
-            )}
-            {!todo.completed && todo.dueDate && (
-              <StatusBadge
-                variant={overdue ? 'critical' : dueToday ? 'warning' : 'neutral'}
-                icon={CalendarDays}
-                label={overdue ? `Overdue, ${dueLabel(todo.dueDate)}` : dueLabel(todo.dueDate)}
-                title={overdue ? 'Overdue' : dueToday ? 'Due today' : 'Due'}
-              />
-            )}
-            <span className={cn('items-center gap-1 t-meta font-medium text-text-muted', !todo.completed && todo.dueDate ? 'hidden sm:inline-flex' : 'inline-flex')} title={new Date(todo.createdAt).toLocaleString()}>
-              <Clock3 size={12} aria-hidden="true" />
-              {addedLabel(todo.createdAt)}
-            </span>
-          </div>
-        </div>
-
-        <div
-          onClick={stop}
-          className="hidden sm:flex shrink-0 items-center gap-0.5 -my-1 -mr-1.5 transition-opacity duration-150 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100"
-        >
-          <button
-            type="button"
-            onClick={() => completeWithUndo(todo)}
-            aria-label={todo.completed ? `Reopen "${todo.text}"` : `Mark "${todo.text}" as done`}
-            title={todo.completed ? 'Reopen' : 'Mark as done'}
-            className={ACTION_CLASS}
-          >
-            {todo.completed ? <RotateCcw size={15} aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-          </button>
-          <button type="button" onClick={() => setEditing(todo)} aria-label={`Edit "${todo.text}"`} title="Edit" className={ACTION_CLASS}>
-            <Pencil size={15} aria-hidden="true" />
-          </button>
-          <TodoDueMenu value={todo.dueDate ? new Date(todo.dueDate) : null} onChange={(date) => setDue(todo, date)}>
-            <button type="button" aria-label={`Set a due date for "${todo.text}"`} title="Set due date" className={ACTION_CLASS}>
-              <CalendarClock size={15} aria-hidden="true" />
-            </button>
-          </TodoDueMenu>
-          <button
-            type="button"
-            onClick={() => deleteMut.mutate(todo.id)}
-            aria-label={`Delete "${todo.text}"`}
-            title="Delete"
-            className={cn(ACTION_CLASS, 'hover:bg-danger/10 hover:text-danger')}
-          >
-            <Trash2 size={15} aria-hidden="true" />
-          </button>
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onClick={stop}
-              aria-label={`More actions for "${todo.text}"`}
-              className="sm:hidden shrink-0 flex items-center justify-center size-9 -my-1 -mr-1.5 rounded-full text-text-muted hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
-            >
-              <MoreVertical size={17} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5" onClick={stop}>
-            <DropdownMenuItem onClick={() => completeWithUndo(todo)} className="gap-2.5 py-2 cursor-pointer">
-              {todo.completed ? <RotateCcw size={14} /> : <Check size={14} />}
-              <span className="text-sm font-medium">{todo.completed ? 'Reopen' : 'Mark done'}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setEditing(todo)} className="gap-2.5 py-2 cursor-pointer">
-              <Pencil size={14} />
-              <span className="text-sm font-medium">Edit or set due date</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => deleteMut.mutate(todo.id)} className="gap-2.5 py-2 cursor-pointer">
-              <Trash2 size={14} />
-              <span className="text-sm font-medium">Delete</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      </SwipeRow>
-    );
-  };
-
   if (isPending) return <TodoListSkeleton />;
-  if (isError) return <ErrorMessage message="Couldn't load your to-dos. Check your connection and try again." />;
+  if (isError) return <InlineError message="Couldn't load your to-dos. Check your connection and try again." onRetry={onRetry} />;
   if (todos.length === 0) {
-    if (quickFilter || priority !== 'all' || needle) {
+    if (filtered) {
       return (
         <EmptyState
           icon={FilterX}
           title="Nothing matches"
           description="No to-dos fit these filters. Clear them to see everything."
-          action={onClearFilters ? { label: 'Clear filters', onClick: onClearFilters } : undefined}
+          action={{ label: 'Clear filters', onClick: onClearFilters }}
         />
       );
     }
@@ -252,8 +98,8 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
     );
   }
 
-  const pending = todos.filter((t) => !t.completed);
-  const completed = todos.filter((t) => t.completed);
+  const Body = TODO_VIEW_BODY[view];
+  const grouped = sort === 'due' && TODO_VIEW_GROUPED[view];
   const showPending = quickFilter !== 'completed';
   const showCompleted = quickFilter === 'completed' || (quickFilter === null && completed.length > 0);
   const collapsible = quickFilter === null;
@@ -272,7 +118,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
     </button>
   ) : undefined;
 
-  const split = showPending && showCompleted;
+  const split = showPending && showCompleted && TODO_VIEW_SPLIT[view];
 
   return (
     <div className={cn('flex flex-col gap-6', split && 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] xl:items-start')}>
@@ -280,10 +126,19 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
         <TodoSection label="Pending" dotClassName="bg-vivid-blue" count={pending.length}>
           {caughtUp ? (
             <CaughtUp />
-          ) : sort === 'due' ? (
-            <TodoGroups groups={groupTodosByDue(pending)} renderRow={renderRow} />
+          ) : grouped ? (
+            groupTodosByDue(pending).map((group) => (
+              <div key={group.key} role="group" aria-label={group.label} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 px-0.5 pt-1">
+                  <h4 className={cn('t-meta font-display font-semibold', group.key === 'overdue' ? 'text-vivid-red-text' : 'text-text-secondary')}>{group.label}</h4>
+                  <span className="t-meta font-semibold text-text-muted tabular-nums">{group.todos.length}</span>
+                  <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
+                </div>
+                <Body todos={group.todos} actions={actions} />
+              </div>
+            ))
           ) : (
-            pending.map((todo, i) => renderRow(todo, i))
+            <Body todos={pending} actions={actions} />
           )}
         </TodoSection>
       )}
@@ -302,7 +157,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
               <span className="t-meta font-display font-medium text-text-muted">Ticked-off to-dos show up here.</span>
             </div>
           ) : (
-            <CappedRows todos={completed} max={COMPLETED_PREVIEW} renderRow={renderRow} />
+            <CappedRows todos={completed} max={COMPLETED_PREVIEW} Body={Body} actions={actions} />
           )}
         </TodoSection>
       )}
@@ -324,28 +179,20 @@ const CaughtUp = () => (
   </div>
 );
 
-const TodoGroups = ({ groups, renderRow }: { groups: TodoGroup[]; renderRow: (todo: Todo, index: number) => ReactNode }) => (
-  <>
-    {groups.map((group) => (
-      <div key={group.key} role="group" aria-label={group.label} className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 px-0.5 pt-1">
-          <h4 className={cn('t-meta font-display font-semibold', group.key === 'overdue' ? 'text-vivid-red-text' : 'text-text-secondary')}>{group.label}</h4>
-          <span className="t-meta font-semibold text-text-muted tabular-nums">{group.todos.length}</span>
-          <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
-        </div>
-        {group.todos.map((todo, i) => renderRow(todo, i))}
-      </div>
-    ))}
-  </>
-);
+interface CappedRowsProps {
+  todos: readonly Todo[];
+  max: number;
+  Body: (typeof TODO_VIEW_BODY)[TodoViewKey];
+  actions: TodoActions;
+}
 
-const CappedRows = ({ todos, max, renderRow }: { todos: Todo[]; max: number; renderRow: (todo: Todo, index: number) => ReactNode }) => {
+const CappedRows = ({ todos, max, Body, actions }: CappedRowsProps) => {
   const [expanded, setExpanded] = useState(false);
   const capped = !expanded && todos.length > max;
   const visible = capped ? todos.slice(0, max) : todos;
   return (
     <>
-      {visible.map((todo, i) => renderRow(todo, i))}
+      <Body todos={visible} actions={actions} />
       {todos.length > max && (
         <button
           type="button"

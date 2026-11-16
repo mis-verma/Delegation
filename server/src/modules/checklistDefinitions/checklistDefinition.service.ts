@@ -17,6 +17,8 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
 import { accessoryPointsFor, criticalAccessoriesFor } from "./checklistDefinition.validation.js"
 import { clearSummariesForDefinition, dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
+import { env } from "../../config/env.js"
+import { isBeforeToday, sameLocalDate, windowTimesFor } from "./lateWindow.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, pickedDaysFor, type ListChecklistDefinitionsFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid } from "./checklistDefinitionSupport.js"
 
@@ -103,6 +105,9 @@ export const checklistDefinitionService = {
     },
 
     async create(input: CreateChecklistDefinitionInput, user: AccessTokenPayload) {
+        if (input.recurrence === "ONE_TIME" && isBeforeToday(new Date(input.startDate), new Date(), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)) {
+            throw AppError.badRequest("The due date of a one-time checklist can't be in the past.")
+        }
         await assertUsersBelongToStores(input.assigneeIds, input.storeIds, "assignees")
         for (const item of input.items) {
             if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
@@ -122,9 +127,7 @@ export const checklistDefinitionService = {
                 description: input.description ?? null,
                 recurrence: input.recurrence,
                 startDate: new Date(input.startDate),
-                opensTime: input.opensTime ?? null,
-                cutoffTime: input.cutoffTime ?? null,
-                lateUntilTime: input.lateUntilTime ?? null,
+                ...windowTimesFor(input.recurrence, input),
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
                 responseMode: input.responseMode ?? "SHARED",
@@ -211,10 +214,16 @@ export const checklistDefinitionService = {
     },
 
     async update(id: string, input: UpdateChecklistDefinitionInput, actorId: string) {
-        const [current] = await db.select({ version: checklistDefinitions.version }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
+        const [current] = await db.select({ version: checklistDefinitions.version, recurrence: checklistDefinitions.recurrence, startDate: checklistDefinitions.startDate }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!current) throw AppError.notFound("Checklist not found")
         if (current.version !== input.version) {
             throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
+        }
+        const offsetMinutes = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
+        const newStart = new Date(input.startDate)
+        const scheduleChanged = current.recurrence !== input.recurrence || !sameLocalDate(current.startDate, newStart, offsetMinutes)
+        if (input.recurrence === "ONE_TIME" && scheduleChanged && isBeforeToday(newStart, new Date(), offsetMinutes)) {
+            throw AppError.badRequest("The due date of a one-time checklist can't be in the past.")
         }
         await assertUsersBelongToStores(input.assigneeIds, input.storeIds, "assignees")
         for (const item of input.items) {
@@ -259,9 +268,7 @@ export const checklistDefinitionService = {
                 description: input.description ?? null,
                 recurrence: input.recurrence,
                 startDate: new Date(input.startDate),
-                opensTime: input.opensTime ?? null,
-                cutoffTime: input.cutoffTime ?? null,
-                lateUntilTime: input.lateUntilTime ?? null,
+                ...windowTimesFor(input.recurrence, input),
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
                 ...(input.responseMode ? { responseMode: input.responseMode } : {}),
@@ -360,13 +367,18 @@ export const checklistDefinitionService = {
                 console.error(`[checklistDefinition.update] paused ${id} but could not clear today's runs`, err)
             }
         }
-        if (isActiveAfter) {
+        let syncOneTimeRun = false
+        if (!isActiveAfter && input.recurrence === "ONE_TIME" && activePeopleCount > 0) {
+            const [ran] = await db.select({ total: count() }).from(checklistInstances).where(eq(checklistInstances.definitionId, id))
+            syncOneTimeRun = Number(ran?.total ?? 0) > 0
+        }
+        if (isActiveAfter || syncOneTimeRun) {
             try {
                 const definitionForGeneration = await loadDefinitionForGeneration(id)
                 if (definitionForGeneration) {
                     const now = new Date()
                     liveRuns = await syncLiveInstances(definitionForGeneration, now)
-                    await generateInstanceForDefinition(definitionForGeneration, now)
+                    if (isActiveAfter) await generateInstanceForDefinition(definitionForGeneration, now)
                 }
             } catch (err) {
                 liveRuns = { refreshed: 0, updated: 0, kept: 0 }

@@ -25,7 +25,7 @@ import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
 import { BuilderSchedulePanel } from './BuilderSchedulePanel';
-import { canOfferLateWindow, hasScheduleTimeMismatch, isTimedRecurrence, lateWindowProblem } from './scheduleWindow';
+import { canOfferLateWindow, hasScheduleTimeMismatch, isDateBeforeToday, isTimedRecurrence, lateWindowProblem } from './scheduleWindow';
 import { PICKER_SIZE, RECURRENCE_REGISTRY } from '../../recurrenceRegistry';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
@@ -392,6 +392,7 @@ export const ChecklistBuilder = () => {
   const handleRecurrenceChange = (next: ChecklistRecurrence) => {
     if (pickerOf(next) !== pickerOf(recurrence)) setOccurrenceDays([]);
     setRecurrence(next);
+    if (next === 'ONE_TIME' && isDateBeforeToday(startDate)) setStartDate('');
     if (!isTimedRecurrence(next)) {
       setOpensTime('');
       setCutoffTime('');

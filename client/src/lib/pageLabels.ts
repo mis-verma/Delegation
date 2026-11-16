@@ -23,3 +23,11 @@ const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
 ];
 
 export const getPageLabel = (pathname: string): string | undefined => PAGE_LABELS.find((p) => p.pattern.test(pathname))?.label;
+
+const OWN_BREADCRUMB_AREAS = /^\/(admin|settings)(\/|$)/;
+
+export const getPageTrail = (pathname: string): { label: string; to?: string }[] | null => {
+  if (OWN_BREADCRUMB_AREAS.test(pathname)) return null;
+  const label = getPageLabel(pathname);
+  return label && label !== 'Home' ? [{ label: 'Home', to: '/' }, { label }] : null;
+};

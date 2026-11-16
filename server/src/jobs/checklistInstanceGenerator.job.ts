@@ -1,7 +1,7 @@
 import { scheduleJob } from '../utils/jobTracker.js';
 import { isDuplicateEntryError } from '../utils/dbErrors.js';
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, asc, lte, gt, isNull, sql } from "drizzle-orm"
+import { eq, and, inArray, notInArray, asc, lte, gt, isNull, or, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -27,14 +27,16 @@ import {
 import { effectiveWeekOff } from "../modules/users/orgWeekOff.js"
 import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
-import { getCurrentPeriod, getUpcomingPeriod, type Period } from "../utils/period.js"
+import { getCurrentPeriod, getUpcomingPeriod, UPCOMING_LEAD_DAYS, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 import { leaveUserIdsOn } from "../modules/leave/leaveLookup.js"
+import { isOvernightWindow, windowTimesFor } from "../modules/checklistDefinitions/lateWindow.js"
+import { runDeadlineMs } from "../modules/checklistInstances/checklistRunEnd.js"
 
 const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null, lateUntilTime: string | null) =>
-    recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime, lateUntilTime } : { opensTime: null, cutoffTime: null, lateUntilTime: null }
+    windowTimesFor(recurrence, { opensTime, cutoffTime, lateUntilTime })
 
 const GENERATOR_BATCH_SIZE = 500;
 
@@ -475,11 +477,26 @@ export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number
     return removed
 }
 
+export const previousOvernightPeriod = (
+    definition: Pick<GenerationDefinition, "recurrence" | "startDate" | "opensTime" | "cutoffTime" | "occurrenceDays">,
+    now: Date,
+    offsetMinutes: number,
+): Period | null => {
+    if (definition.recurrence !== "DAILY" || !isOvernightWindow(definition.opensTime, definition.cutoffTime)) return null
+    const previous = getCurrentPeriod(definition.recurrence, definition.startDate, new Date(now.getTime() - 24 * 60 * 60 * 1000), offsetMinutes, definition.occurrenceDays)
+    if (!previous) return null
+    const deadline = runDeadlineMs({ periodStart: previous.periodStart, periodEnd: previous.periodEnd, cutoffTime: definition.cutoffTime, opensTime: definition.opensTime }, offsetMinutes)
+    return deadline > now.getTime() ? previous : null
+}
+
 export const generateInstanceForDefinition = async (definition: GenerationDefinition, now: Date): Promise<{ id: string }[]> => {
     const offset = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
+    const current = getCurrentPeriod(definition.recurrence, definition.startDate, now, offset, definition.occurrenceDays)
+    const previous = previousOvernightPeriod(definition, now, offset)
     const periods = [
-        getCurrentPeriod(definition.recurrence, definition.startDate, now, offset, definition.occurrenceDays),
+        current,
         getUpcomingPeriod(definition.recurrence, definition.startDate, now, offset, undefined, definition.occurrenceDays),
+        previous && previous.periodKey !== current?.periodKey ? previous : null,
     ].filter((p): p is Period => p !== null)
     const created: { id: string }[] = []
     for (const period of periods) created.push(...await generateForPeriod(definition, period, now))
@@ -493,7 +510,7 @@ const generateForPeriod = async (definition: GenerationDefinition, period: Perio
     if (!working) return []
     definition = working
 
-    const alreadyGeneratedRows = await db.select({ storeId: checklistInstances.storeId, scopeKey: checklistInstances.scopeKey })
+    const alreadyGeneratedRows = await db.select()
         .from(checklistInstances)
         .where(and(
             eq(checklistInstances.definitionId, definition.id),
@@ -503,9 +520,20 @@ const generateForPeriod = async (definition: GenerationDefinition, period: Perio
     const alreadyGenerated = new Set(alreadyGeneratedRows.map((r) => `${r.storeId}|${r.scopeKey}`))
     const scopesAt = await buildScopeResolver(definition)
 
+    const startedElsewhere = new Set<string>()
+    const stale = alreadyGeneratedRows.filter((r) => !scopesAt(r.storeId).some((sc) => sc.key === r.scopeKey))
+    if (stale.length) {
+        await db.transaction(async (tx) => {
+            for (const row of stale) {
+                if (!startedElsewhere.has(row.storeId) && await runHasProgress(tx, row)) startedElsewhere.add(row.storeId)
+            }
+        })
+    }
+
     const created: { id: string }[] = []
     let failedRuns = 0
     for (const storeId of definition.storeIds) {
+        if (startedElsewhere.has(storeId)) continue
         for (const scope of scopesAt(storeId)) {
             if (alreadyGenerated.has(`${storeId}|${scope.key}`)) continue
             try {
@@ -749,13 +777,15 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     const summary: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES, definition.occurrenceDays)
     const upcoming = getUpcomingPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES, undefined, definition.occurrenceDays)
-    if (!period && !upcoming) return summary
 
     const periods = [period, upcoming].filter((p): p is Period => p !== null)
-    const overnight = !!period && definition.recurrence === "DAILY" && !!definition.opensTime && !!definition.cutoffTime && definition.cutoffTime < definition.opensTime
-    if (overnight && period) {
-        const previous = getCurrentPeriod(definition.recurrence, definition.startDate, new Date(now.getTime() - 24 * 60 * 60 * 1000), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES, definition.occurrenceDays)
-        if (previous && previous.periodKey !== period.periodKey) periods.push(previous)
+    const previous = previousOvernightPeriod(definition, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
+    if (previous && previous.periodKey !== period?.periodKey) periods.push(previous)
+
+    try {
+        await dropUntouchedCurrentRunsFor(definition.id, now, periods.map((p) => p.periodKey))
+    } catch (err) {
+        console.error(`Clearing outdated runs of definition ${definition.id} failed:`, err)
     }
 
     for (const target of periods) {
@@ -924,10 +954,14 @@ export const dropUntouchedLongRuns = async (apply: boolean, now: Date = new Date
     return { found: runs.length, removed }
 }
 
-export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date()): Promise<number> => {
+export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date(), keepPeriodKeys: string[] = []): Promise<number> => {
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
-        .where(and(eq(checklistInstances.definitionId, definitionId), gt(checklistInstances.periodEnd, localNow)))
+        .where(and(
+            eq(checklistInstances.definitionId, definitionId),
+            gt(checklistInstances.periodEnd, localNow),
+            keepPeriodKeys.length ? notInArray(checklistInstances.periodKey, keepPeriodKeys) : undefined,
+        ))
 
     let removed = 0
     const affectedAssignees = new Set<string>()
@@ -980,13 +1014,17 @@ export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRu
 export const generateDueInstances = async () => {
     const now = new Date()
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
+    const leadHorizon = new Date(localNow.getTime() + UPCOMING_LEAD_DAYS * 24 * 60 * 60_000)
     const failures: string[] = []
     let cursor = ""
     for (;;) {
         const definitionRows = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
             .where(and(
                 eq(checklistDefinitions.isActive, true),
-                lte(checklistDefinitions.startDate, localNow),
+                or(
+                    lte(checklistDefinitions.startDate, localNow),
+                    and(notInArray(checklistDefinitions.recurrence, ["DAILY", "ONE_TIME"]), lte(checklistDefinitions.startDate, leadHorizon)),
+                ),
                 isNull(checklistDefinitions.deletedAt),
                 gt(checklistDefinitions.id, cursor),
             ))

@@ -2,7 +2,8 @@ import { useContext, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getPageLabel } from '../../lib/pageLabels';
+import { getPageLabel, getPageTrail } from '../../lib/pageLabels';
+import { Breadcrumbs } from '../breadcrumbs';
 import { GradientIconTile } from '../gradientIconTile';
 import { PageHeaderTitleContext } from './pageHeaderContext';
 
@@ -17,6 +18,7 @@ export const PageHeader = ({ icon, title, subtitle, actions }: PageHeaderProps) 
   const showTitle = useContext(PageHeaderTitleContext);
   const { pathname } = useLocation();
   const nameInTopBar = !!getPageLabel(pathname);
+  const trail = getPageTrail(pathname);
   if (!showTitle) {
     return actions ? (
       <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -29,6 +31,7 @@ export const PageHeader = ({ icon, title, subtitle, actions }: PageHeaderProps) 
   }
   return (
     <>
+      {trail && <Breadcrumbs items={trail} className="max-sm:hidden" />}
       {nameInTopBar && <h1 className="sr-only sm:hidden">{title}</h1>}
       <div className={cn('flex flex-wrap items-start justify-between gap-x-4 gap-y-3', nameInTopBar && !actions && 'max-sm:hidden')}>
         <div className={cn('flex items-center gap-3 min-w-0 flex-1 basis-80', nameInTopBar && 'max-sm:hidden')}>

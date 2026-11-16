@@ -1,12 +1,27 @@
-import { memo, useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useMemo, useState, lazy, Suspense, type ComponentType } from 'react';
+import { useSearchParams } from 'react-router';
 import { preloadWhenIdle } from '../../lib/preloadWhenIdle';
-import { Trash2, Pencil, CalendarClock, Clock3, History, Loader2, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button, Skeleton, GradientIconTile, IconChip, InlineError, QuickFilterStats, EmptyState, Fab, useConfirm } from '../../components';
+import { CalendarClock, Plus } from 'lucide-react';
+import { Button, Skeleton, GradientIconTile, InlineError, EmptyState, Fab, SearchField, SelectDropdown, ViewToggle, useConfirm } from '../../components';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
-import { EVENT_TYPE_LABELS, EVENT_TYPE_SOLID, EVENT_TYPE_GRADIENT, EVENT_TYPE_ICONS, EVENT_TYPE_TILES } from './eventDisplay';
-import type { Event, EventType } from '@/api/events';
+import {
+  EVENT_STATUS_EMPTY,
+  EVENT_STATUS_ITEMS,
+  EVENT_STATUS_KEYS,
+  EVENT_STATUS_MATCH,
+  EVENT_TYPE_FILTER_OPTIONS,
+  EVENT_TYPE_LABELS,
+  EVENT_VIEW_KEYS,
+  EVENT_VIEW_TABS,
+  buildEventClock,
+  type EventStatus,
+  type EventTypeFilter,
+  type EventView,
+} from './eventDisplay';
+import { EventCards, EventRows, EventTable, type EventViewProps } from './EventViews';
+import { StatusFigureStats } from '../dashboard/StatusFigureStats';
+import type { Event } from '@/api/events';
 
 const loadEventForm = () => import('./EventForm');
 const EventForm = lazy(() =>
@@ -15,82 +30,20 @@ const EventForm = lazy(() =>
 
 const GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
 
-const ICON_BUTTON =
-  'flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg text-text-light transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 pointer-fine:size-9';
+const VIEW_COMPONENT: Record<EventView, ComponentType<EventViewProps>> = {
+  cards: EventCards,
+  list: EventRows,
+  table: EventTable,
+};
 
-const whenLabel = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const TYPE_KEYS: Record<EventTypeFilter, true> = { ALL: true, DEADLINE: true, ANNOUNCEMENT: true, BROADCAST: true };
 
-interface EventCardProps {
-  event: Event;
-  isPast: boolean;
-  canManage: boolean;
-  isDeleting: boolean;
-  onEdit: (event: Event) => void;
-  onDelete: (event: Event) => void;
-}
+const readStatus = (raw: string | null): EventStatus | null =>
+  raw && (EVENT_STATUS_KEYS as string[]).includes(raw) ? (raw as EventStatus) : null;
 
-const EventCard = memo(({ event, isPast, canManage, isDeleting, onEdit, onDelete }: EventCardProps) => {
-  const Icon = EVENT_TYPE_ICONS[event.type];
-  return (
-    <article
-      aria-busy={isDeleting || undefined}
-      className={cn(
-        'flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-4 transition-[border-color,opacity] duration-150 ease-out hover:border-border-hover',
-        isPast && 'bg-surface-hover/30',
-        isDeleting && 'pointer-events-none opacity-40',
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white ring-1 ring-inset ring-white/20', isPast && 'opacity-70')}
-          style={{ background: EVENT_TYPE_GRADIENT[event.type] }}
-          aria-hidden="true"
-        >
-          <Icon size={18} strokeWidth={2.25} />
-        </span>
+const readView = (raw: string | null): EventView => (raw && raw in EVENT_VIEW_KEYS ? (raw as EventView) : 'cards');
 
-        {canManage && (
-          <div className="-mr-2 -mt-2 flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onEdit(event)}
-              className={cn(ICON_BUTTON, 'hover:bg-primary-500/10 hover:text-primary-600 focus-visible:ring-primary-500/50')}
-              aria-label={`Edit ${event.title}`}
-            >
-              <Pencil size={15} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(event)}
-              disabled={isDeleting}
-              className={cn(ICON_BUTTON, 'hover:bg-danger/10 hover:text-danger focus-visible:ring-danger/50')}
-              aria-label={`Delete ${event.title}`}
-            >
-              {isDeleting ? <Loader2 size={15} className="animate-spin text-danger" aria-hidden="true" /> : <Trash2 size={15} aria-hidden="true" />}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-1">
-        <h3 className={cn('line-clamp-2 t-card font-display font-bold leading-snug', isPast ? 'text-text-secondary' : 'text-text')}>{event.title}</h3>
-        {event.description && <p className="line-clamp-3 text-sm leading-relaxed text-text-muted">{event.description}</p>}
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-center gap-1.5">
-        <IconChip icon={Icon} tone={EVENT_TYPE_SOLID[event.type]} label={EVENT_TYPE_LABELS[event.type]} />
-        <IconChip
-          icon={isPast ? History : Clock3}
-          tone={isPast ? 'bg-surface-hover/80' : 'bg-primary-600 dark:bg-primary-400'}
-          label={isPast ? `Past · ${whenLabel(event.eventDate)}` : whenLabel(event.eventDate)}
-          labelClassName="tabular-nums"
-        />
-      </div>
-    </article>
-  );
-});
-EventCard.displayName = 'EventCard';
+const readType = (raw: string | null): EventTypeFilter => (raw && raw in TYPE_KEYS ? (raw as EventTypeFilter) : 'ALL');
 
 export const EventList = () => {
   useEffect(() => preloadWhenIdle(loadEventForm), []);
@@ -98,31 +51,60 @@ export const EventList = () => {
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const confirm = useConfirm();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const status = readStatus(searchParams.get('status'));
+  const view = readView(searchParams.get('view'));
+  const typeFilter = readType(searchParams.get('type'));
+  const search = searchParams.get('q') ?? '';
+
+  const setParam = useCallback((key: string, value: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [typeFilter, setTypeFilter] = useState<EventType | null>(null);
 
   const { data: events = [], isPending, isError, refetch } = useEventsQuery();
-  const { mutate: deleteEvent, isPending: deleting, variables: deletingId } = useDeleteEventMutation();
+  const { mutate: deleteEvent, isPending: deleting, variables: deletingVars } = useDeleteEventMutation();
 
   const [now] = useState(() => Date.now());
 
-  const counts = useMemo(() => {
-    const base: Record<EventType, number> = { DEADLINE: 0, ANNOUNCEMENT: 0, BROADCAST: 0 };
-    for (const e of events) base[e.type]++;
-    return base;
-  }, [events]);
-
-  const { upcoming, past } = useMemo(() => {
-    const shown = typeFilter ? events.filter((e) => e.type === typeFilter) : events;
-    const timed = shown.map((e) => ({ e, at: new Date(e.eventDate).getTime() }));
+  const { counts, upcoming, past } = useMemo(() => {
+    const clock = buildEventClock(now);
+    const needle = search.trim().toLowerCase();
+    const tally: Record<EventStatus, number> = { upcoming: 0, today: 0, week: 0, past: 0 };
+    const timed = events.map((e) => ({ e, at: new Date(e.eventDate).getTime() }));
+    for (const { at } of timed) {
+      for (const key of EVENT_STATUS_KEYS) if (EVENT_STATUS_MATCH[key](at, clock)) tally[key]++;
+    }
+    const shown = timed.filter(({ e, at }) =>
+      (typeFilter === 'ALL' || e.type === typeFilter) &&
+      (!status || EVENT_STATUS_MATCH[status](at, clock)) &&
+      (!needle || e.title.toLowerCase().includes(needle) || (e.description ?? '').toLowerCase().includes(needle)),
+    );
     return {
-      upcoming: timed.filter((x) => x.at >= now).sort((a, b) => a.at - b.at).map((x) => x.e),
-      past: timed.filter((x) => x.at < now).sort((a, b) => b.at - a.at).map((x) => x.e),
+      counts: tally,
+      upcoming: shown.filter((x) => x.at >= now).sort((a, b) => a.at - b.at).map((x) => x.e),
+      past: shown.filter((x) => x.at < now).sort((a, b) => b.at - a.at).map((x) => x.e),
     };
-  }, [events, typeFilter, now]);
+  }, [events, status, typeFilter, search, now]);
 
-  const toggleTypeFilter = (key: EventType) => setTypeFilter((prev) => (prev === key ? null : key));
+  const filtered = status !== null || typeFilter !== 'ALL' || search.trim() !== '';
+
+  const clearFilters = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('status');
+      next.delete('type');
+      next.delete('q');
+      return next;
+    }, { replace: true });
+  };
 
   const closeForm = () => {
     setShowForm(false);
@@ -139,6 +121,9 @@ export const EventList = () => {
     if (ok) deleteEvent(event.id);
   }, [confirm, deleteEvent]);
 
+  const ViewComponent = VIEW_COMPONENT[view];
+  const deletingId = deleting ? deletingVars : undefined;
+
   const renderGroup = (title: string, list: Event[], isPast: boolean) =>
     list.length > 0 && (
       <section aria-label={title} className="flex flex-col gap-3">
@@ -146,19 +131,7 @@ export const EventList = () => {
           {title}
           <span className="t-meta font-semibold tabular-nums text-text-muted">{list.length}</span>
         </h2>
-        <div className={GRID}>
-          {list.map((e) => (
-            <EventCard
-              key={e.id}
-              event={e}
-              isPast={isPast}
-              canManage={canManage}
-              isDeleting={deleting && deletingId === e.id}
-              onEdit={setEditingEvent}
-              onDelete={askDelete}
-            />
-          ))}
-        </div>
+        <ViewComponent items={list} isPast={isPast} canManage={canManage} deletingId={deletingId} onEdit={setEditingEvent} onDelete={askDelete} />
       </section>
     );
 
@@ -179,12 +152,13 @@ export const EventList = () => {
     }
 
     if (upcoming.length === 0 && past.length === 0) {
+      const title = status ? EVENT_STATUS_EMPTY[status] : typeFilter !== 'ALL' ? `No ${EVENT_TYPE_LABELS[typeFilter].toLowerCase()}s` : 'No matching events';
       return (
         <EmptyState
           icon={CalendarClock}
-          title={`No ${EVENT_TYPE_LABELS[typeFilter!].toLowerCase()}s`}
-          description="Clear the filter to see every event."
-          action={{ label: 'Clear filter', onClick: () => setTypeFilter(null) }}
+          title={title}
+          description="Clear the filters to see every event."
+          action={{ label: 'Clear filters', onClick: clearFilters }}
         />
       );
     }
@@ -214,17 +188,38 @@ export const EventList = () => {
         )}
       </header>
 
-      <QuickFilterStats
-        tiles={EVENT_TYPE_TILES}
+      <StatusFigureStats
+        label="Events summary"
+        items={EVENT_STATUS_ITEMS}
         counts={counts}
-        active={typeFilter}
-        onToggle={toggleTypeFilter}
-        total={events.length}
-        onClearFilter={() => setTypeFilter(null)}
-        itemLabel="events"
-        variant="navy"
+        active={status}
+        onToggle={(key) => setParam('status', status === key ? null : key)}
         isLoading={isPending}
+        error={isError}
+        onRetry={() => void refetch()}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField
+          value={search}
+          onChange={(v) => setParam('q', v)}
+          label="Search events by title or description"
+          placeholder="Search events"
+          className="min-w-0 flex-1 basis-48"
+        />
+        <div className="w-40 shrink-0">
+          <SelectDropdown
+            value={typeFilter}
+            onChange={(v) => setParam('type', v === 'ALL' ? null : v)}
+            options={EVENT_TYPE_FILTER_OPTIONS}
+            aria-label="Filter events by type"
+          />
+        </div>
+        <ViewToggle tabs={EVENT_VIEW_TABS} value={view} onChange={(v) => setParam('view', v === 'cards' ? null : v)} storageKey={`view:events:${user?.id ?? 'anon'}`} />
+        {filtered && (
+          <Button size="sm" variant="ghost" onClick={clearFilters}>Clear</Button>
+        )}
+      </div>
 
       {renderContent()}
 

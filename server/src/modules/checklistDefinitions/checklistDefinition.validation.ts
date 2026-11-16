@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { lateWindowProblem, type LateWindowInput } from "./lateWindow.js"
+import { lateWindowProblem, sameOpenAndCloseProblem, type LateWindowInput } from "./lateWindow.js"
 import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_ASSIGNEE_ROLES,
@@ -199,6 +199,8 @@ const checklistDefinitionFields = {
 const refineLateWindow = (value: LateWindowInput, ctx: z.RefinementCtx) => {
     const problem = lateWindowProblem(value)
     if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lateUntilTime"], message: problem })
+    const sameTime = sameOpenAndCloseProblem(value)
+    if (sameTime) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["cutoffTime"], message: sameTime })
 }
 
 const PICKED_RANGE: Partial<Record<(typeof CHECKLIST_RECURRENCES)[number], { min: number; max: number; message: string }>> = {

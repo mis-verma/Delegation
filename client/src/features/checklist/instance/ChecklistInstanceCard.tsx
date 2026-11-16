@@ -1,4 +1,5 @@
-import { AlarmClockOff, CalendarClock, Clock, Eye } from 'lucide-react';
+import { OpensChip } from './OpensChip';
+import { AlarmClockOff, Clock, Eye } from 'lucide-react';
 import { memo, useState } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -40,7 +41,7 @@ interface ChecklistInstanceCardProps {
 
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
   const now = useSharedNow();
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, doneLate, inLateWindow, closed, closedAt, opensOn } = getInstanceView(instance, now);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, doneLate, inLateWindow, closed, closedAt, opensOn, dueInDays } = getInstanceView(instance, now);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -77,7 +78,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {!closed && <StatusChip status={chipStatus} />}
-{opensOn && <IconChip icon={CalendarClock} tone="bg-primary-600" label={`Opens ${opensOn}`} />}
+<OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
         {showVerification && <RunVerificationChip instance={instance} />}

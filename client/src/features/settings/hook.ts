@@ -1,6 +1,7 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload, type CategoryFileFormat } from "@/api/categories";
+import { tagApi } from "@/api/tags";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
@@ -112,8 +113,29 @@ export const useDownloadCategoriesMutation = () =>
 
 export type CategoryJob = CreateCategoryPayload & {
     existingCategoryId?: string;
-    subcategories?: { name: string; tatHours?: number }[];
+    labels?: readonly string[];
+    subcategories?: { name: string; tatHours?: number | null; labels?: readonly string[] }[];
 };
+
+const labelKey = (name : string) => name.trim().toLowerCase();
+
+const resolveLabelIds = async (jobs : CategoryJob[]) => {
+    const wanted = new Map<string, string>();
+    for (const job of jobs) {
+        for (const name of [...(job.labels ?? []), ...(job.subcategories ?? []).flatMap((sub) => sub.labels ?? [])]) wanted.set(labelKey(name), name.trim());
+    }
+    const ids = new Map<string, string>();
+    if (wanted.size === 0) return ids;
+    const existing = await tagApi.getAll().then((r) => r.data).catch(() => []);
+    for (const tag of existing) ids.set(labelKey(tag.name), tag.id);
+    for (const [key, name] of wanted) {
+        if (ids.has(key)) continue;
+        await tagApi.create({ name }).then((r) => ids.set(key, r.data.id), () => undefined);
+    }
+    return ids;
+};
+
+const idsFor = (names : readonly string[] | undefined, ids : Map<string, string>) => (names ?? []).flatMap((name) => ids.get(labelKey(name)) ?? []);
 
 export const useCreateManyCategoriesMutation = () => {
     const queryClient = useQueryClient();
@@ -121,11 +143,12 @@ export const useCreateManyCategoriesMutation = () => {
         mutationFn : async (jobs : CategoryJob[]) => {
             const failed : string[] = [];
             let created = 0;
-            for (const { existingCategoryId, subcategories, ...payload } of jobs) {
+            const labelIds = await resolveLabelIds(jobs);
+            for (const { existingCategoryId, subcategories, labels, ...payload } of jobs) {
                 let categoryId = existingCategoryId;
                 if (!categoryId) {
                     try {
-                        const made = await categoryApi.create(payload);
+                        const made = await categoryApi.create({ ...payload, tagIds : idsFor(labels, labelIds) });
                         categoryId = made.data.id;
                         created += 1;
                     } catch {
@@ -135,7 +158,7 @@ export const useCreateManyCategoriesMutation = () => {
                 }
                 for (const subcategory of subcategories ?? []) {
                     try {
-                        await categoryApi.createSubcategory(categoryId, { name: subcategory.name, tatHours: subcategory.tatHours ?? null });
+                        await categoryApi.createSubcategory(categoryId, { name: subcategory.name, tatHours: subcategory.tatHours ?? null, tagIds : idsFor(subcategory.labels, labelIds) });
                     } catch {
                         failed.push(`${payload.name} / ${subcategory.name}`);
                     }

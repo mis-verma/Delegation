@@ -203,6 +203,14 @@ export const instanceStartOfOrgDay = (now: number = Date.now()): number => {
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ORG_TZ_OFFSET_MS;
 };
 
+export const instanceDueInDays = (instance: OpeningInstance, now: number = Date.now()): number | null => {
+  if (leadMs(instance.recurrence) === 0) return null;
+  const dueDay = Date.parse(`${instance.periodStart.slice(0, 10)}T00:00:00Z`);
+  const today = Date.parse(`${orgDayKey(now)}T00:00:00Z`);
+  const days = Math.round((dueDay - today) / 86_400_000);
+  return days > 0 ? days : null;
+};
+
 export const instanceOpensOnLaterDay = (instance: OpeningInstance, now: number = Date.now()): string | null => {
   const opensAt = instanceOpensAt(instance);
   if (opensAt == null || opensAt <= now) return null;
@@ -229,6 +237,17 @@ export const isInstanceEnded = (instance: EndableInstance, now: number = Date.no
 
 export const isInstanceEndedToday = (instance: EndableInstance, now: number = Date.now()): boolean =>
   isInstanceEnded(instance, now) && instanceClosing(instance) >= instanceStartOfOrgDay(now) - trailMs(instance.recurrence);
+
+export const isChecklistVisibleInWindow = (
+  instance: EndableInstance & { completedFirstAt?: string | null },
+  now: number = Date.now(),
+): boolean => {
+  const complete = instance.items.length > 0 && instance.items.every((i) => i.isDone);
+  return instanceDeadline(instance) > now
+    || isInstanceDoneRecently(instance, now)
+    || isInstanceEndedToday(instance, now)
+    || isInstanceInLateWindow(instance, complete, now);
+};
 
 const END_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -277,6 +296,7 @@ export type InstanceView = {
   closed: boolean;
   closedAt: string | null;
   opensOn: string | null;
+  dueInDays: number | null;
 };
 
 type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus; completedFirstAt?: string | null };
@@ -308,6 +328,7 @@ export const getInstanceView = (instance: ViewableInstance, now: number = Date.n
     closed,
     closedAt: closed ? DEADLINE_FMT.format(new Date(instanceClosing(instance) + ORG_TZ_OFFSET_MS)) : null,
     opensOn: instanceOpensOnLaterDay(instance),
+    dueInDays: instanceDueInDays(instance, now),
   };
 };
 

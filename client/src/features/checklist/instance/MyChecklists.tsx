@@ -25,7 +25,7 @@ import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { isSendBackLocking } from './sendBackLock';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceDoneRecently, isInstanceEnded, isInstanceEndedToday, isInstanceInLateWindow } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isChecklistVisibleInWindow, isInstanceEnded, isInstanceEndedToday, isInstanceInLateWindow } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { windowLabel } from '../../scores/useScoreWindow';
 import { UserMultiSelect } from '../../../components/userMultiSelect';
@@ -252,12 +252,7 @@ export const MyChecklists = () => {
       i.verificationStatus === 'REJECTED' ||
       (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone)) ||
       (i.recurrence === 'ONE_TIME' && !(i.items.length > 0 && i.items.every((it) => it.isDone)));
-    return open.filter((i) =>
-      instanceDeadline(i) > now ||
-      isInstanceDoneRecently(i, now) ||
-      isInstanceEndedToday(i, now) ||
-      isInstanceInLateWindow(i, i.items.length > 0 && i.items.every((it) => it.isDone), now) ||
-      needsAction(i));
+    return open.filter((i) => isChecklistVisibleInWindow(i, now) || needsAction(i));
   }, [sortedInstances, now, quickFilter, canFillEnded]);
 
   const { pending: pendingRuns, done: doneRuns } = useDoneLast(instances, isRunDone);

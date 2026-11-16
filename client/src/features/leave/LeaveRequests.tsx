@@ -1,9 +1,10 @@
-import { memo, useState } from 'react';
-import { Ban, Check, Hourglass, MessageSquareText, TriangleAlert, X } from 'lucide-react';
-import { Avatar, Button, IconChip, Input, Modal, PANEL_CLASS } from '../../components';
+import { useState } from 'react';
+import { Ban, Check, MessageSquareText, TriangleAlert, X } from 'lucide-react';
+import { Avatar, Button, IconChip, ENTITY_CARD_CLASS, Input, Modal } from '../../components';
 import { cn } from '@/lib/utils';
 import type { LeaveEntry } from '../../api/leave';
-import { leaveDays, leaveRange, openWorkText } from './leaveDisplay';
+import { leaveDays, leaveRange, stillOpenText, type LeaveActions } from './leaveDisplay';
+import { LeaveStatusChip } from './LeaveStatusChip';
 
 const FAINT = 'bg-surface-hover/80';
 const ACTION = 'h-11 flex-1 pointer-fine:h-9 sm:flex-none';
@@ -11,26 +12,21 @@ const DECLINE_REASONS = ['Too many away that day', 'Busy period', 'Talk to me fi
 
 interface RequestCardProps {
   entry: LeaveEntry;
+  today: string;
   busy: boolean;
-  onApprove?: (entry: LeaveEntry) => void;
-  onDecline?: (entry: LeaveEntry) => void;
-  onWithdraw?: (entry: LeaveEntry) => void;
+  actions: LeaveActions;
 }
 
-const statusChip = (entry: LeaveEntry) => {
-  if (entry.status === 'DECLINED') return <IconChip icon={Ban} tone="bg-danger" label="Declined" labelClassName="text-danger" />;
-  return <IconChip icon={Hourglass} tone="bg-warning" label="Waiting for approval" labelClassName="text-warning" />;
-};
-
-export const RequestCard = memo(({ entry, busy, onApprove, onDecline, onWithdraw }: RequestCardProps) => {
-  const work = openWorkText(entry);
+export const RequestCard = ({ entry, today, busy, actions }: RequestCardProps) => {
+  const { onApprove, onDecline, onRemove } = actions;
+  const work = stillOpenText(entry, today);
   const declined = entry.status === 'DECLINED';
   return (
     <li
       aria-busy={busy || undefined}
       className={cn(
-        PANEL_CLASS,
-        'flex flex-col gap-3 p-3 transition-[border-color,opacity] duration-150 ease-out sm:p-4',
+        ENTITY_CARD_CLASS,
+        'justify-start gap-3 p-3 transition-[border-color,opacity] duration-150 ease-out sm:p-4',
         declined ? 'border-danger/25' : 'border-warning/30',
         busy && 'pointer-events-none opacity-60',
       )}
@@ -49,7 +45,7 @@ export const RequestCard = memo(({ entry, busy, onApprove, onDecline, onWithdraw
       </p>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {statusChip(entry)}
+        <LeaveStatusChip entry={entry} today={today} />
         {entry.reason && <IconChip icon={MessageSquareText} tone={FAINT} label={entry.reason} title={entry.reason} labelClassName="truncate" />}
       </div>
 
@@ -60,17 +56,17 @@ export const RequestCard = memo(({ entry, busy, onApprove, onDecline, onWithdraw
         </p>
       )}
 
-      {work && !declined && (
+      {work && (
         <p className="flex items-start gap-1.5 rounded-lg bg-vivid-red/10 px-2.5 py-1.5 t-meta font-display font-semibold text-vivid-red-text">
           <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
           Still open for {entry.mine ? 'you' : 'them'}: {work}.
         </p>
       )}
 
-      {(onApprove || onDecline || onWithdraw) && (
+      {(onApprove || onDecline || onRemove) && (
         <div className="flex items-center gap-2 sm:justify-end">
-          {onWithdraw && (
-            <Button type="button" variant="outline" size="sm" className={ACTION} onClick={() => onWithdraw(entry)}>
+          {onRemove && (
+            <Button type="button" variant="outline" size="sm" className={ACTION} onClick={() => onRemove(entry)}>
               {declined ? 'Dismiss' : 'Withdraw'}
             </Button>
           )}
@@ -90,8 +86,7 @@ export const RequestCard = memo(({ entry, busy, onApprove, onDecline, onWithdraw
       )}
     </li>
   );
-});
-RequestCard.displayName = 'RequestCard';
+};
 
 interface DeclineDialogProps {
   entry: LeaveEntry;

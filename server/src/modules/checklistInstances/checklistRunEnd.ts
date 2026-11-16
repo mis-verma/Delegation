@@ -1,6 +1,7 @@
 import { AppError } from "../../utils/AppError.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
+import { END_OF_DAY_CUTOFF, isOvernightWindow } from "../checklistDefinitions/lateWindow.js"
 
 
 
@@ -20,7 +21,7 @@ export const runDeadlineMs = (run: Pick<RunEndInput, "periodStart" | "periodEnd"
     const offsetMs = offsetMinutes * MINUTE_MS
     if (!run.cutoffTime) return run.periodEnd.getTime() - offsetMs
     const [hours, minutes] = clockParts(run.cutoffTime)
-    const dayRoll = run.opensTime && run.cutoffTime < run.opensTime ? 24 * 60 : 0
+    const dayRoll = run.opensTime && (run.cutoffTime === END_OF_DAY_CUTOFF || isOvernightWindow(run.opensTime, run.cutoffTime)) ? 24 * 60 : 0
     return run.periodStart.getTime() + (hours * 60 + minutes + dayRoll) * MINUTE_MS - offsetMs
 }
 

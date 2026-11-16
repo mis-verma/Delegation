@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Flag, ArrowUpDown, FileSpreadsheet, Plus, SquarePen, X } from 'lucide-react';
-import { Button, Fab, SearchField, PageBackButton } from '../../components';
+import { Button, Fab, SearchField, PageBackButton, ViewToggle } from '../../components';
+import { useAuth } from '@/context/AuthContext';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -12,7 +13,9 @@ import { TodoList } from './TodoList';
 import { TodoQuickStats, type TodoQuickFilterKey } from './TodoQuickStats';
 import { TodoViewTabs } from './TodoViewTabs';
 import { TODO_SORT_LABEL, TODO_SORT_ICON, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
-import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
+import { TODO_QUICK_FILTER_PREDICATES, countTodosByFilter } from './todoQuickFilters';
+import { sortTodos } from './todoSort';
+import { DEFAULT_TODO_VIEW, TODO_VIEW_KEYS, TODO_VIEW_TABS, type TodoViewKey } from './todoViews';
 import { CreateTodoModal } from './CreateTodoModal';
 import { TodoQuickAdd } from './TodoQuickAdd';
 import { TodoImportModal } from './TodoImportModal';
@@ -31,8 +34,11 @@ export const TodoPage = () => {
   const [showOptions, setShowOptions] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [quickFilter, setQuickFilter] = useState<TodoQuickFilterKey | null>(
-    () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
+    () => readOneOf(searchParams, 'status', QUICK_FILTER_VALUES) ?? readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
   );
+  const [view, setView] = useState<TodoViewKey>(() => readOneOf(searchParams, 'view', TODO_VIEW_KEYS) ?? DEFAULT_TODO_VIEW);
+  const [viewFromUrl] = useState(() => searchParams.has('view'));
+  const { user } = useAuth();
   const [priority, setPriority] = useState<TodoPriorityFilter>(() => readOneOf(searchParams, 'priority', PRIORITIES) ?? 'all');
   const [sort, setSort] = useState<TodoSortKey>(() => readOneOf(searchParams, 'sort', SORT_KEYS) ?? 'created');
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
@@ -40,7 +46,9 @@ export const TodoPage = () => {
     q: search,
     priority: priority === 'all' ? null : priority,
     sort: sort === 'created' ? null : sort,
-    quickFilter,
+    status: quickFilter,
+    view: view === DEFAULT_TODO_VIEW ? null : view,
+    quickFilter: null,
   });
   const { data: allTodos = [], isPending, isError, refetch, dataUpdatedAt } = useTodosQuery();
   const createdRange = useCreatedRange();
@@ -65,17 +73,16 @@ export const TodoPage = () => {
 
   const toggleQuickFilter = (key: TodoQuickFilterKey) => setQuickFilter((prev) => (prev === key ? null : key));
 
-  const quickCounts = {
-    pending: todos.filter(TODO_QUICK_FILTER_PREDICATES.pending).length,
-    completed: todos.filter(TODO_QUICK_FILTER_PREDICATES.completed).length,
-    due: todos.filter(TODO_QUICK_FILTER_PREDICATES.due).length,
-    delayed: todos.filter(TODO_QUICK_FILTER_PREDICATES.delayed).length,
-  };
+  const quickCounts = useMemo(() => countTodosByFilter(todos), [todos]);
 
   const needle = search.trim().toLowerCase();
-  const quickFiltered = quickFilter ? todos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : todos;
-  const prioritized = priority === 'all' ? quickFiltered : quickFiltered.filter((t) => t.priority === priority);
-  const shownCount = needle ? prioritized.filter((t) => t.text.toLowerCase().includes(needle)).length : prioritized.length;
+  const visible = useMemo(() => {
+    const byStatus = quickFilter ? todos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : todos;
+    const byPriority = priority === 'all' ? byStatus : byStatus.filter((t) => t.priority === priority);
+    const searched = needle ? byPriority.filter((t) => t.text.toLowerCase().includes(needle)) : byPriority;
+    return sortTodos(searched, sort);
+  }, [todos, quickFilter, priority, needle, sort]);
+  const shownCount = visible.length;
 
   const clearFilters = () => {
     setPriority('all');
@@ -136,7 +143,8 @@ export const TodoPage = () => {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="max-sm:hidden">
+        <div className="max-sm:hidden flex items-center gap-3">
+          <ViewToggle tabs={TODO_VIEW_TABS} value={view} onChange={setView} storageKey={viewFromUrl ? undefined : `view:todos:${user?.id ?? 'anon'}`} />
           <TodoViewTabs
             counts={{ all: todos.length, pending: quickCounts.pending, completed: quickCounts.completed }}
             filter={quickFilter}
@@ -205,7 +213,17 @@ export const TodoPage = () => {
         </div>
       )}
 
-      <TodoList quickFilter={quickFilter} priority={priority} sort={sort} search={search} onClearFilters={clearFilters} rangeFilter={rangeFilter} />
+      <TodoList
+        todos={visible}
+        view={view}
+        sort={sort}
+        quickFilter={quickFilter}
+        filtered={quickFilter !== null || priority !== 'all' || needle !== ''}
+        isPending={isPending}
+        isError={isError}
+        onRetry={() => void refetch()}
+        onClearFilters={clearFilters}
+      />
 
       <CreateTodoModal open={showForm} onClose={() => setShowForm(false)} />
       {showImport && <TodoImportModal onClose={() => setShowImport(false)} />}

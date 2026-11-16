@@ -17,6 +17,7 @@ import { cached, cacheKey } from "../../config/queryCache.js"
 import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
 import type { UpdateChecklistDefinitionInput } from "./checklistDefinition.validation.js"
+import { END_OF_DAY_CUTOFF, isOvernightWindow } from "./lateWindow.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 
@@ -202,7 +203,7 @@ export const assertUsersBelongToStores = async (userIds: string[], storeIds: str
 
 export const closedForToday = (def: { recurrence: string; opensTime: string | null; cutoffTime: string | null }): boolean => {
     if (def.recurrence !== "DAILY" || !def.cutoffTime) return false
-    if (def.opensTime && def.cutoffTime < def.opensTime) return false
+    if (def.cutoffTime === END_OF_DAY_CUTOFF || isOvernightWindow(def.opensTime, def.cutoffTime)) return false
     const local = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16)
     return local >= def.cutoffTime
 }
