@@ -74,6 +74,18 @@ const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
       departmentId,
       assigneeId: keepsPerson ? p.assigneeId : (head?.personId ?? null),
       personName: keepsPerson ? p.personName : (head?.name ?? null),
+      subcategories: p.subcategories.map((sub) => {
+        const subMapped = sub.departmentName ? options.mapping[sub.departmentName] : undefined;
+        const subDepartmentId = subMapped || sub.departmentId;
+        const subKeepsPerson = sub.assigneeSource === 'column';
+        const subHead = !subKeepsPerson && options.fillHead && (subDepartmentId || departmentId) ? headNames.get(subDepartmentId || departmentId || '') : undefined;
+        return {
+          ...sub,
+          departmentId: subDepartmentId,
+          assigneeId: subKeepsPerson ? sub.assigneeId : (subHead?.personId ?? null),
+          personName: subKeepsPerson ? sub.personName : (subHead?.name ?? null),
+        };
+      }),
       selected: p.exists ? newSubcategories(p).length > 0 : !!departmentId && p.rowCount >= minRows,
       hours: p.tatHours ? String(p.tatHours) : options.defaultHours,
     };
@@ -161,11 +173,15 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
 
   const unmatched = useMemo(() => {
     const found = new Map<string, { rows: number; guess: string }>();
-    for (const p of preview?.proposals ?? []) {
-      if (!p.departmentText || p.departmentMatch === 'exact') continue;
-      const entry = found.get(p.departmentText) ?? { rows: 0, guess: p.departmentId ?? '' };
+    const note = (text: string | null, guess: string | null) => {
+      if (!text) return;
+      const entry = found.get(text) ?? { rows: 0, guess: guess ?? '' };
       entry.rows += 1;
-      found.set(p.departmentText, entry);
+      found.set(text, entry);
+    };
+    for (const p of preview?.proposals ?? []) {
+      if (p.departmentMatch !== 'exact') note(p.departmentText, p.departmentId);
+      for (const sub of p.subcategories) if (!sub.departmentId && !sub.exists) note(sub.departmentName, null);
     }
     return [...found].map(([text, entry]) => ({ text, ...entry }));
   }, [preview]);

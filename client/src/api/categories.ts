@@ -86,6 +86,7 @@ export type ProposalSubcategory = {
     labels: { name: string; tagId: string | null }[];
     personName: string | null;
     assigneeId: string | null;
+    assigneeSource: "column" | "head" | "none";
     departmentName: string | null;
     departmentId: string | null;
 };

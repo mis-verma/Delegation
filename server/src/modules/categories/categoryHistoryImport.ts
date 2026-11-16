@@ -38,6 +38,7 @@ export type CategoryProposalSubcategory = {
     labels: { name: string; tagId: string | null }[]
     personName: string | null
     assigneeId: string | null
+    assigneeSource: "column" | "head" | "none"
     departmentName: string | null
     departmentId: string | null
 }
@@ -269,7 +270,7 @@ export const buildCategoryProposals = (
         const subcategories: CategoryProposalSubcategory[] = [...group.subcategories.entries()].map(([subKey, subName]) => {
             const exists = found?.subcategoryKeys.has(subKey) ?? false
             const row = group.subRows.get(subKey)
-            if (!perRow || !row) return { name: subName, exists, tatHours: null, priority: null, labels: [], personName: null, assigneeId: null, departmentName: null, departmentId: null }
+            if (!perRow || !row) return { name: subName, exists, tatHours: null, priority: null, labels: [], personName: null, assigneeId: null, assigneeSource: "none", departmentName: null, departmentId: null }
             let rowDepartmentId: string | null = null
             if (row.department) {
                 const hit = matchExactOrFuzzy(row.department, ctx.departments, (d) => d.name)
@@ -281,6 +282,7 @@ export const buildCategoryProposals = (
                 rowPerson = ctx.people.find((p) => p.email.toLowerCase() === row.person.toLowerCase()) ?? matchExactOrFuzzy(row.person, ctx.people, (p) => p.name).match
                 if (!rowPerson) warnings.push(`Row "${subName}": no active person matches "${row.person}".`)
             }
+            const rowHead = !rowPerson ? ctx.heads?.get(rowDepartmentId ?? departmentId ?? "") ?? null : null
             let rowPriority: CategoryPriorityValue | null = null
             if (row.priority) {
                 rowPriority = priorityFrom(row.priority)
@@ -292,8 +294,9 @@ export const buildCategoryProposals = (
                 tatHours: row.hours,
                 priority: rowPriority,
                 labels: row.labels.map((label) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) })),
-                personName: row.person || null,
-                assigneeId: rowPerson?.id ?? null,
+                personName: row.person || rowHead?.name || null,
+                assigneeId: rowPerson?.id ?? rowHead?.id ?? null,
+                assigneeSource: rowPerson ? "column" : rowHead ? "head" : "none",
                 departmentName: row.department || null,
                 departmentId: rowDepartmentId,
             }
