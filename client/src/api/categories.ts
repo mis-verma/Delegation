@@ -1,6 +1,5 @@
 import { apiFetch } from "./http";
 import { downloadReport } from "./reports";
-import type { Tag } from "./tags";
 
 export type CategoryPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -21,8 +20,6 @@ export type Subcategory = {
     assigneeId: string | null;
     departmentId: string | null;
     sortOrder: number;
-    tags: Tag[];
-    tagIds: string[];
 };
 
 export type SubcategoryPayload = {
@@ -31,7 +28,6 @@ export type SubcategoryPayload = {
     tatHours?: number | null;
     assigneeId?: string | null;
     departmentId?: string | null;
-    tagIds?: string[];
     isActive?: boolean;
 };
 
@@ -43,7 +39,6 @@ export type Category = {
     assigneeIds: CategoryAssignee[];
     tatHours: number | null;
     priority: CategoryPriority | null;
-    tags: Tag[];
     subcategories: Subcategory[];
 }
 
@@ -83,7 +78,6 @@ export type ProposalSubcategory = {
     exists: boolean;
     tatHours: number | null;
     priority: CategoryPriority | null;
-    labels: { name: string; tagId: string | null }[];
     personName: string | null;
     assigneeId: string | null;
     assigneeSource: "column" | "head" | "none";
@@ -107,7 +101,6 @@ export type CategoryProposal = {
     existingCategoryId: string | null;
     subcategories: ProposalSubcategory[];
     priority: CategoryPriority | null;
-    labels: { name: string; tagId: string | null }[];
     warnings: string[];
 };
 
@@ -116,7 +109,6 @@ export type CategoryHistoryPreview = {
     nameColumn: string;
     totalRows: number;
     isList: boolean;
-    tags: { id: string; name: string }[];
     proposals: CategoryProposal[];
     departments: { id: string; name: string }[];
     people: { id: string; name: string; email: string }[];
@@ -131,7 +123,6 @@ export type CreateCategoryPayload = {
     assigneeIds?: string[];
     tatHours?: number | null;
     priority?: CategoryPriority | null;
-    tagIds?: string[];
 }
 
 export type UpdateCategoryPayload = Partial<CreateCategoryPayload> & { isActive?: boolean };
@@ -142,7 +133,6 @@ type CategoryRow = {
     isActive: boolean;
     tatHours: number | null;
     priority?: CategoryPriority | null;
-    tags?: Tag[];
     departmentId: string | { id: string; name: string };
     department?: { id: string; name: string } | null;
     assigneeIds?: Array<string | CategoryAssignee>;
@@ -156,7 +146,7 @@ const normalizeCategory = (raw: CategoryRow): Category => {
         : (raw.department ?? { id: String(raw.departmentId ?? ""), name: "" });
     const assigneeIds = raw.assignees
         ?? (raw.assigneeIds ?? []).filter((a): a is CategoryAssignee => typeof a === "object");
-    return { id: raw.id, name: raw.name, isActive: raw.isActive, tatHours: raw.tatHours ?? null, priority: raw.priority ?? null, tags: raw.tags ?? [], departmentId, assigneeIds, subcategories: raw.subcategories ?? [] };
+    return { id: raw.id, name: raw.name, isActive: raw.isActive, tatHours: raw.tatHours ?? null, priority: raw.priority ?? null, departmentId, assigneeIds, subcategories: raw.subcategories ?? [] };
 };
 
 export type CategoryFileFormat = "xlsx" | "csv";
@@ -175,8 +165,8 @@ export const categoryApi = {
         apiFetch<ApiResponse<CategoryRow>>("/categories", { method: "POST", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),
     update: (id: string, payload: UpdateCategoryPayload) =>
         apiFetch<ApiResponse<CategoryRow>>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),
-    tatReport: (days: TatWindowDays, tagId?: string) =>
-        apiFetch<ApiResponse<CategoryTatReport>>(`/categories/tat-report?days=${days}${tagId ? `&tagId=${encodeURIComponent(tagId)}` : ""}`),
+    tatReport: (days: TatWindowDays) =>
+        apiFetch<ApiResponse<CategoryTatReport>>(`/categories/tat-report?days=${days}`),
     delete: (id: string, options: { detachTickets?: boolean } = {}) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}${options.detachTickets ? "?detachTickets=true" : ""}`, { method: "DELETE" }),
     createSubcategory: (categoryId: string, payload: SubcategoryPayload & { name: string }) =>

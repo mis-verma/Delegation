@@ -1,7 +1,6 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload, type CategoryFileFormat, type CategoryPriority } from "@/api/categories";
-import { tagApi } from "@/api/tags";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
@@ -82,11 +81,11 @@ export const useCategoriesQuery = (enabled: boolean = true) => {
     })
 };
 
-export const useCategoryTatQuery = (days: TatWindowDays, enabled: boolean = true, tagId?: string) => {
+export const useCategoryTatQuery = (days: TatWindowDays, enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey : [...CATEGORY_KEY.all, "tat", days, tagId ?? ""] as const,
-        queryFn : () => categoryApi.tatReport(days, tagId).then(r => r.data),
+        queryKey : [...CATEGORY_KEY.all, "tat", days] as const,
+        queryFn : () => categoryApi.tatReport(days).then(r => r.data),
         enabled : !!token && enabled,
         staleTime : 60_000,
     });
@@ -113,38 +112,16 @@ export const useDownloadCategoriesMutation = () =>
 
 export type CategoryJob = CreateCategoryPayload & {
     existingCategoryId?: string;
-    labels?: readonly string[];
     subcategories?: JobSubcategory[];
 };
 
 type JobSubcategory = {
     name: string;
     tatHours?: number | null;
-    labels?: readonly string[];
     priority?: CategoryPriority | null;
     assigneeId?: string | null;
     departmentId?: string | null;
 };
-
-const labelKey = (name : string) => name.trim().toLowerCase();
-
-const resolveLabelIds = async (jobs : CategoryJob[]) => {
-    const wanted = new Map<string, string>();
-    for (const job of jobs) {
-        for (const name of [...(job.labels ?? []), ...(job.subcategories ?? []).flatMap((sub) => sub.labels ?? [])]) wanted.set(labelKey(name), name.trim());
-    }
-    const ids = new Map<string, string>();
-    if (wanted.size === 0) return ids;
-    const existing = await tagApi.getAll().then((r) => r.data).catch(() => []);
-    for (const tag of existing) ids.set(labelKey(tag.name), tag.id);
-    for (const [key, name] of wanted) {
-        if (ids.has(key)) continue;
-        await tagApi.create({ name }).then((r) => ids.set(key, r.data.id), () => undefined);
-    }
-    return ids;
-};
-
-const idsFor = (names : readonly string[] | undefined, ids : Map<string, string>) => (names ?? []).flatMap((name) => ids.get(labelKey(name)) ?? []);
 
 export const useCreateManyCategoriesMutation = () => {
     const queryClient = useQueryClient();
@@ -152,12 +129,11 @@ export const useCreateManyCategoriesMutation = () => {
         mutationFn : async (jobs : CategoryJob[]) => {
             const failed : string[] = [];
             let created = 0;
-            const labelIds = await resolveLabelIds(jobs);
-            for (const { existingCategoryId, subcategories, labels, ...payload } of jobs) {
+            for (const { existingCategoryId, subcategories, ...payload } of jobs) {
                 let categoryId = existingCategoryId;
                 if (!categoryId) {
                     try {
-                        const made = await categoryApi.create({ ...payload, tagIds : idsFor(labels, labelIds) });
+                        const made = await categoryApi.create(payload);
                         categoryId = made.data.id;
                         created += 1;
                     } catch {
@@ -173,7 +149,6 @@ export const useCreateManyCategoriesMutation = () => {
                             priority: subcategory.priority ?? null,
                             assigneeId: subcategory.assigneeId ?? null,
                             departmentId: subcategory.departmentId ?? null,
-                            tagIds : idsFor(subcategory.labels, labelIds),
                         });
                     } catch {
                         failed.push(`${payload.name} / ${subcategory.name}`);

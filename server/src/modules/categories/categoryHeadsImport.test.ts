@@ -3,7 +3,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import { readTable } from "../../utils/readTable.js"
-import { buildCategoryProposals, derivedLabelsFor, type HistoryPerson } from "./categoryHistoryImport.js"
+import { buildCategoryProposals, type HistoryPerson } from "./categoryHistoryImport.js"
 
 const names = ["IT – ERP", "IT – Support", "IT – Network", "IT – Security Systems", "Admin – Facilities", "Admin – Transport", "Accounts", "HR", "Merchandising", "MIS", "Operations", "Operations Manager"]
 const departments = names.map((name, i) => ({ id: `d${i}`, name }))
@@ -38,18 +38,5 @@ describe("Issue Ticket final file with department heads", async () => {
         expect(support).toMatchObject({ assigneeId: null, assigneeSource: "none" })
         expect(support.warnings).toContain("This department has no head, so nobody is assigned by default.")
         expect(byName("L10 / delegation")).toMatchObject({ assigneeId: null, assigneeSource: "none", departmentId: null })
-    })
-
-    it("adds the Networking label from the sub category text", () => {
-        expect(byName("Internet / Wi-Fi").labels.map((l) => l.name)).toEqual(["Issue Ticket", "Networking"])
-        expect(byName("Phone, intercom").labels.map((l) => l.name)).toContain("Networking")
-        expect(byName("Acme billing").labels.map((l) => l.name)).toEqual(["Issue Ticket"])
-        expect(proposals.filter((p) => p.labels.some((l) => l.name === "Networking")).map((p) => p.name.split(" ")[0])).toEqual(["Internet", "Phone,"])
-    })
-
-    it("matches networking words only", () => {
-        expect(derivedLabelsFor("Router / VPN access")).toEqual(["Networking"])
-        expect(derivedLabelsFor("Simple electrical switchboard")).toEqual([])
-        expect(derivedLabelsFor("Planning / lanes")).toEqual([])
     })
 })

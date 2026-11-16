@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, Clock, ListPlus, ListTree, Tag } from 'lucide-react';
-import { Button, IconChip, Modal, SelectDropdown, Skeleton } from '../../components';
+import { Check, Clock, ListPlus, ListTree } from 'lucide-react';
+import { Button, Modal, SelectDropdown, Skeleton } from '../../components';
 import { useCategoriesQuery, useCreateManyCategoriesMutation, useDepartmentsQuery } from './hook';
 import { STARTER_CATEGORIES, normalizeCategoryName, suggestDepartmentId } from './starterCategories';
 import { formatTatHours } from './tatFormat';
@@ -44,9 +44,8 @@ export const StarterCategoriesModal = ({ onClose }: StarterCategoriesModalProps)
         name: row.name,
         departmentId: row.departmentId,
         tatHours: row.tatHours,
-        labels: row.labels,
         existingCategoryId: row.existingId,
-        subcategories: row.missingSubcategories.map((sub) => ({ name: sub.name, tatHours: sub.tatHours, labels: sub.labels })),
+        subcategories: row.missingSubcategories.map((sub) => ({ name: sub.name, tatHours: sub.tatHours })),
       })),
       { onSuccess: ({ failed }) => { if (failed.length === 0) onClose(); } },
     );
@@ -67,7 +66,7 @@ export const StarterCategoriesModal = ({ onClose }: StarterCategoriesModalProps)
       onClose={onClose}
       icon={<ListPlus className="size-5" />}
       title="Add the usual categories"
-      description="Each one is added with its subcategories, due times and a label for who resolves it. Missing labels are created for you. You can change anything later."
+      description="Each one is added with its subcategories and due times. You can change anything later."
       footer={footer}
       showCloseButton={false}
       size="xl"
@@ -103,11 +102,6 @@ export const StarterCategoriesModal = ({ onClose }: StarterCategoriesModalProps)
                     <ListTree className="size-3" aria-hidden />
                     {row.subcategories.length} {row.subcategories.length === 1 ? 'subcategory' : 'subcategories'}
                   </span>
-                  {row.labels.length > 0 && (
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      {row.labels.map((label) => <IconChip key={label} icon={Tag} tone="bg-text-muted" label={label} />)}
-                    </span>
-                  )}
                 </div>
                 {row.exists ? (
                   <span className="inline-flex items-center gap-1 t-meta font-display font-semibold text-vivid-green-text">

@@ -100,15 +100,14 @@ describe("buildCategoryProposals", () => {
     })
 })
 
-describe("category file with sub category, labels and priority", () => {
-    const tags = [{ id: "t1", name: "Hardware" }]
+describe("category file with sub category and priority", () => {
     const existing = new Map([["printer not working", { id: "c1", subcategoryKeys: new Set(["toner"]) }]])
     const file = [
         { Category: "Printer not working", "Sub Category": "Toner", Department: "IT Department", "Assigned To": "nitin@x.in", Labels: "Hardware, Urgent", Priority: "high", "Due Hours": "24" },
         { Category: "Printer not working", "Sub Category": "Paper jam", Department: "IT Department", "Assigned To": "", Labels: "", Priority: "", "Due Hours": "" },
         { Category: "Bank change", "Sub Category": "", Department: "Accounts Department", "Assigned To": "ghost@x.in", Labels: "", Priority: "urgent", "Due Hours": "48" },
     ]
-    const proposals = buildCategoryProposals(file, "Category", { people, departments, existingNames: new Set(["printer not working"]), existing, tags })
+    const proposals = buildCategoryProposals(file, "Category", { people, departments, existingNames: new Set(["printer not working"]), existing })
     const printer = proposals.find((p) => p.name === "Printer not working")!
     const bank = proposals.find((p) => p.name === "Bank change")!
 
@@ -116,11 +115,6 @@ describe("category file with sub category, labels and priority", () => {
         expect(printer.subcategories.map((sub) => [sub.name, sub.exists])).toEqual([["Toner", true], ["Paper jam", false]])
         expect(printer.existingCategoryId).toBe("c1")
         expect(bank.subcategories).toEqual([])
-    })
-    it("matches labels to saved ones and keeps unknown names", () => {
-        expect(printer.subcategories[0]!.labels).toEqual([{ name: "Hardware", tagId: "t1" }, { name: "Urgent", tagId: null }])
-        expect(printer.subcategories[1]!.labels).toEqual([])
-        expect(printer.labels).toEqual([])
     })
     it("reads priority and warns about a value it cannot use", () => {
         expect(printer.priority).toBe("HIGH")

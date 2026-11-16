@@ -1,11 +1,8 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { AlertCircle, Building2, ChevronDown, Clock, Download, FileSpreadsheet, FileUp, User } from 'lucide-react';
-import { Button, Combobox, IconChip, Modal, PriorityChip, Switch, TagChip } from '../../components';
+import { Button, Combobox, IconChip, Modal, PriorityChip, Switch } from '../../components';
 import { notifyError } from '../../lib/queryHelpers';
 import { categoryApi, type CategoryHistoryPreview, type CategoryPriority, type CategoryProposal, type ProposalSubcategory } from '../../api/categories';
-import { tagApi } from '../../api/tags';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { useCreateManyCategoriesMutation, useDownloadCategoriesMutation } from './hook';
 import { formatTatHours } from './tatFormat';
@@ -23,10 +20,10 @@ const PRIORITY_VALUES: CategoryPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
 const PRIORITY_OPTIONS = PRIORITY_VALUES.map((value) => ({ value, label: PRIORITY_CONFIG[value].label }));
 
 const SAMPLE_FILE = [
-  'Category,Sub Category,Department,Assigned To,Labels,Priority,Due Hours',
-  'Printer not working,Toner,IT Department,nitin@yourcompany.in,Hardware,High,24',
-  'Printer not working,Paper jam,IT Department,nitin@yourcompany.in,Hardware,High,24',
-  'Bank change,,Accounts Department,,,Medium,48',
+  'Category,Sub Category,Department,Assigned To,Priority,Due Hours',
+  'Printer not working,Toner,IT Department,nitin@yourcompany.in,High,24',
+  'Printer not working,Paper jam,IT Department,nitin@yourcompany.in,High,24',
+  'Bank change,,Accounts Department,,Medium,48',
 ].join('\r\n');
 
 const downloadSample = () => {
@@ -92,10 +89,8 @@ const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
   });
 };
 
-const labelKey = (name: string) => name.trim().toLowerCase();
-
 const hasOwnValues = (sub: ProposalSubcategory) =>
-  !!sub.departmentId || !!sub.priority || sub.tatHours !== null || sub.labels.length > 0 || !!sub.assigneeId;
+  !!sub.departmentId || !!sub.priority || sub.tatHours !== null || !!sub.assigneeId;
 
 interface SubcategoryBreakdownProps {
   rowName: string;
@@ -120,12 +115,6 @@ const SubcategoryBreakdown = ({ rowName, subcategories }: SubcategoryBreakdownPr
             {sub.priority && <PriorityChip meta={PRIORITY_CONFIG[sub.priority]} />}
             {sub.tatHours !== null && <IconChip icon={Clock} label={formatTatHours(sub.tatHours)} title="Due time" />}
             {(sub.personName || sub.assigneeId) && <IconChip icon={User} label={sub.personName ?? 'Person'} title="Goes to" />}
-            {sub.labels.map((label) => (
-              <span key={label.name} className="flex items-center gap-1">
-                <TagChip tag={{ id: label.tagId ?? label.name, name: label.name, color: null }} showLabelOnMobile />
-                {!label.tagId && <span className="t-meta text-text-muted">new</span>}
-              </span>
-            ))}
           </div>
         )}
       </li>
@@ -139,11 +128,9 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
   const [rows, setRows] = useState<Row[]>([]);
   const [options, setOptions] = useState<RowOptions>(EMPTY_OPTIONS);
   const [reading, setReading] = useState(false);
-  const [preparing, setPreparing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
   const createMany = useCreateManyCategoriesMutation();
   const download = useDownloadCategoriesMutation();
 
@@ -203,45 +190,25 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
   const canCreate = chosen.length > 0 && needsTeam === 0 && badHours === 0;
   const subcategoryTotal = chosen.reduce((sum, r) => sum + newSubcategories(r).length, 0);
 
-  const submit = async () => {
-    setPreparing(true);
-    try {
-      const made = new Map<string, string>();
-      const missing = new Map<string, string>();
-      for (const row of chosenNew) {
-        for (const label of row.labels) if (!label.tagId && !missing.has(labelKey(label.name))) missing.set(labelKey(label.name), label.name);
-      }
-      for (const [key, name] of missing) {
-        const created = await tagApi.create({ name });
-        made.set(key, created.data.id);
-      }
-      if (missing.size > 0) await queryClient.invalidateQueries({ queryKey: ['tags'] });
-
-      createMany.mutate(
-        chosen.map((r) => ({
-          name: r.name,
-          departmentId: r.departmentId ?? '',
-          tatHours: r.hours.trim() ? Number(r.hours) : null,
-          priority: r.priority,
-          assigneeIds: r.assigneeId ? [r.assigneeId] : undefined,
-          tagIds: r.labels.map((l) => l.tagId ?? made.get(labelKey(l.name))).filter((id): id is string => !!id),
-          existingCategoryId: r.existingCategoryId ?? undefined,
-          subcategories: newSubcategories(r).map((sub) => ({
-            name: sub.name,
-            tatHours: sub.tatHours,
-            priority: sub.priority,
-            assigneeId: sub.assigneeId,
-            departmentId: sub.departmentId,
-            labels: sub.labels.map((l) => l.name),
-          })),
+  const submit = () => {
+    createMany.mutate(
+      chosen.map((r) => ({
+        name: r.name,
+        departmentId: r.departmentId ?? '',
+        tatHours: r.hours.trim() ? Number(r.hours) : null,
+        priority: r.priority,
+        assigneeIds: r.assigneeId ? [r.assigneeId] : undefined,
+        existingCategoryId: r.existingCategoryId ?? undefined,
+        subcategories: newSubcategories(r).map((sub) => ({
+          name: sub.name,
+          tatHours: sub.tatHours,
+          priority: sub.priority,
+          assigneeId: sub.assigneeId,
+          departmentId: sub.departmentId,
         })),
-        { onSuccess: ({ failed }) => { if (failed.length === 0) onClose(); } },
-      );
-    } catch (err) {
-      toast.error(err instanceof Error ? `Couldn't add the new labels. ${err.message}` : "Couldn't add the new labels. Try again.");
-    } finally {
-      setPreparing(false);
-    }
+      })),
+      { onSuccess: ({ failed }) => { if (failed.length === 0) onClose(); } },
+    );
   };
 
   const departmentOptions = (preview?.departments ?? []).map((d) => ({ value: d.id, label: d.name }));
@@ -263,7 +230,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
             {needsTeam > 0 ? `${needsTeam} need a team.` : 'Check the due hours.'}
           </p>
         )}
-        <Button type="button" variant="primary" size="sm" disabled={!canCreate} isLoading={createMany.isPending || preparing} onClick={() => void submit()} className="max-sm:h-11">
+        <Button type="button" variant="primary" size="sm" disabled={!canCreate} isLoading={createMany.isPending} onClick={submit} className="max-sm:h-11">
           {addLabel}
         </Button>
       </div>
@@ -311,7 +278,6 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
             <li><strong className="font-semibold text-text">Sub Category</strong> (optional): one name per row.</li>
             <li><strong className="font-semibold text-text">Department</strong>: the team that handles it. Use the name exactly as in Karya.</li>
             <li><strong className="font-semibold text-text">Assigned To</strong> (optional): a person's email, or full name.</li>
-            <li><strong className="font-semibold text-text">Labels</strong> (optional): one or more, separated by commas. New labels are created for you.</li>
             <li><strong className="font-semibold text-text">Priority</strong> (optional): Low, Medium, High or Critical.</li>
             <li><strong className="font-semibold text-text">Due Hours</strong> (optional): usual hours to finish, like 24 or 48.</li>
           </ul>
@@ -403,7 +369,6 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                   <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2">Team</th>
                   <th className="px-3 py-2">Person</th>
-                  <th className="px-3 py-2">Labels</th>
                   <th className="px-3 py-2">Priority</th>
                   <th className="px-3 py-2">Due (hours)</th>
                 </tr>
@@ -486,20 +451,6 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                           disabled={locked}
                           className="t-meta"
                         />
-                      </td>
-                      <td className="min-w-32 px-3 py-2">
-                        {row.labels.length === 0 ? (
-                          <span className="text-text-muted">None</span>
-                        ) : (
-                          <ul className="flex flex-wrap gap-1.5" aria-label={`Labels of ${row.name}`}>
-                            {row.labels.map((label) => (
-                              <li key={label.name} className="flex items-center gap-1">
-                                <TagChip tag={{ id: label.tagId ?? label.name, name: label.name, color: null }} />
-                                {!label.tagId && <span className="t-meta text-text-muted">new</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
                       </td>
                       <td className="min-w-32 px-3 py-2">
                         <Combobox

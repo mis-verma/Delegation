@@ -36,17 +36,14 @@ describe("Issue Ticket file read as 49 separate categories", async () => {
     it("keeps every column on each category", () => {
         const billing = byName("Acme billing")
         expect(billing).toMatchObject({ departmentId: idOf("IT – ERP"), departmentMatch: "exact", priority: "CRITICAL", tatHours: 4, assigneeId: null })
-        expect(billing.labels.map((l) => l.name)).toEqual(["Issue Ticket", "ERP & App Issue", "Incident"])
         expect(byName("Item / tag")).toMatchObject({ departmentId: idOf("Merchandising"), priority: "MEDIUM", tatHours: 48 })
         expect(byName("New device")).toMatchObject({ departmentId: idOf("IT – Support"), priority: "LOW", tatHours: 168 })
         expect(byName("Cash shortage")).toMatchObject({ departmentId: idOf("Operations Manager"), priority: "CRITICAL", tatHours: 4 })
-        expect(byName("Cash shortage").labels.map((l) => l.name)).toEqual(["Issue Ticket", "Security & Loss Incident", "Incident – Confidential"])
     })
 
     it("leaves blank fields empty", () => {
         expect(byName("Data extraction")).toMatchObject({ departmentId: idOf("MIS"), priority: "LOW", tatHours: null })
         const tracker = byName("L10 / delegation")
         expect(tracker).toMatchObject({ departmentId: null, priority: null, tatHours: null })
-        expect(tracker.labels.map((l) => l.name)).toEqual(["Issue Ticket", "Not a ticket → Task tracker", "Block in tool"])
     })
 })

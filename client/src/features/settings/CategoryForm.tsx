@@ -3,9 +3,7 @@ import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Tag, Building2, Users, Clock, Route, Flag, ListTree, type LucideIcon } from 'lucide-react';
-import { Input, Button, UserMultiSelect, Modal, DepartmentChip, IconChip, PriorityChip, TagChip } from '../../components';
-import { LabelsField } from '../tags/LabelsField';
-import { useTagsQuery } from '../tags/hook';
+import { Input, Button, UserMultiSelect, Modal, DepartmentChip, IconChip, PriorityChip } from '../../components';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { cn } from '@/lib/utils';
 import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery, useCategoriesQuery } from './hook';
@@ -19,7 +17,6 @@ const categorySchema = z.object({
   departmentId: z.string().min(1, 'Pick the department that handles it'),
   assigneeIds: z.array(z.string()).optional(),
   priority: z.enum(['', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  tagIds: z.array(z.string()),
   subcategory: z.string().trim().optional(),
   tatHours: z
     .string()
@@ -72,7 +69,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
   const mutation = isEditing ? updateMutation : createMutation;
 
   const { data: departments, isPending: isDepartmentsLoading } = useDepartmentsQuery();
-  const { data: tags } = useTagsQuery();
   const { data: allCategories } = useCategoriesQuery(isEditing);
   const liveSubcategories = allCategories?.find((c) => c.id === category?.id)?.subcategories ?? category?.subcategories ?? [];
 
@@ -89,14 +85,12 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
       departmentId: category?.departmentId?.id ?? '',
       assigneeIds: category?.assigneeIds?.map(u => u.id) ?? [],
       priority: category?.priority ?? '',
-      tagIds: category?.tags?.map(t => t.id) ?? [],
       tatHours: category?.tatHours ? String(category.tatHours) : '',
       subcategory: '',
     },
   });
 
-  const [departmentId, assigneeIds, tatHours, name, priority, tagIds] = useWatch({ control, name: ['departmentId', 'assigneeIds', 'tatHours', 'name', 'priority', 'tagIds'] });
-  const pickedTags = (tags ?? []).filter(t => (tagIds ?? []).includes(t.id));
+  const [departmentId, assigneeIds, tatHours, name, priority] = useWatch({ control, name: ['departmentId', 'assigneeIds', 'tatHours', 'name', 'priority'] });
   const departmentName = departments?.find(d => d.id === departmentId)?.name;
   const isPreset = !tatHours || TAT_PRESETS.some(p => p.hours === tatHours);
   const peopleCount = assigneeIds?.length ?? 0;
@@ -107,7 +101,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
       departmentId: data.departmentId,
       assigneeIds: data.assigneeIds ?? [],
       priority: data.priority === '' ? null : data.priority,
-      tagIds: data.tagIds,
       tatHours: data.tatHours ? Number(data.tatHours) : null,
     };
 
@@ -195,17 +188,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
           <span className="t-meta text-text-muted">The first person is picked on the ticket. Leave empty and the department head picks someone.</span>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Controller
-            control={control}
-            name="tagIds"
-            render={({ field }) => (
-              <LabelsField tags={tags ?? []} selectedIds={field.value ?? []} onChange={field.onChange} canCreate />
-            )}
-          />
-          <span className="t-meta text-text-muted">Added to every new ticket in this category. A label on a ticket cannot be removed later.</span>
-        </div>
-
         <div className="flex flex-col gap-2">
           <FieldLabel icon={Flag} optional>Usual priority</FieldLabel>
           <div role="radiogroup" aria-label="Usual priority" className="flex flex-wrap gap-1.5">
@@ -261,7 +243,6 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
             <IconChip icon={Users} tone={peopleCount ? 'bg-success' : 'bg-warning'} label={peopleCount ? `${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}` : 'Head picks'} />
             <IconChip icon={Clock} tone="bg-text-muted" label={`Due in ${dueText(tatHours ?? '')}`} />
             {priority && <PriorityChip meta={PRIORITY_CONFIG[priority]} />}
-            {pickedTags.map(t => <TagChip key={t.id} tag={t} />)}
           </div>
         </div>
 

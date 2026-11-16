@@ -27,14 +27,12 @@ describe("Issue Ticket list import", async () => {
         expect(proposal.subcategories).toHaveLength(49)
     })
 
-    it("keeps category time and labels empty because rows differ", () => {
+    it("keeps category time empty because rows differ", () => {
         expect(proposal.tatHours).toBeNull()
-        expect(proposal.labels).toEqual([])
     })
 
     it("maps per-row values", () => {
         expect(sub("Acme billing")).toMatchObject({ departmentId: idOf("IT – ERP"), priority: "CRITICAL", tatHours: 4 })
-        expect(sub("Acme billing").labels.map((l) => l.name)).toEqual(["ERP & App Issue", "Incident"])
         expect(sub("Login, user ID")).toMatchObject({ departmentId: idOf("IT – ERP"), priority: "HIGH", tatHours: 24 })
         expect(sub("Wrong transaction")).toMatchObject({ departmentId: idOf("Accounts"), priority: "MEDIUM", tatHours: 24 })
         expect(sub("Item / tag")).toMatchObject({ departmentId: idOf("Merchandising"), tatHours: 48 })
@@ -47,7 +45,6 @@ describe("Issue Ticket list import", async () => {
         expect(sub("Payslip")).toMatchObject({ departmentId: idOf("HR"), tatHours: 72 })
         expect(sub("Data extraction")).toMatchObject({ departmentId: idOf("MIS"), priority: "LOW", tatHours: null })
         expect(sub("Cash shortage")).toMatchObject({ departmentId: idOf("Operations Manager"), priority: "CRITICAL", tatHours: 4 })
-        expect(sub("Cash shortage").labels.map((l) => l.name)).toEqual(["Security & Loss Incident", "Incident – Confidential"])
     })
 
     it("leaves unmatched departments empty with a warning", () => {
@@ -62,7 +59,6 @@ describe("Issue Ticket list import", async () => {
     it("handles the row with no department, priority or hours", () => {
         const l10 = sub("L10 / delegation")
         expect(l10).toMatchObject({ departmentId: null, departmentName: null, priority: null, tatHours: null })
-        expect(l10.labels.map((l) => l.name)).toEqual(["Not a ticket → Task tracker", "Block in tool"])
         expect(proposal.warnings.filter((w) => w.includes("L10"))).toEqual([])
     })
 

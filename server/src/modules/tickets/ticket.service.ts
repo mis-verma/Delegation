@@ -27,7 +27,7 @@ import { type TicketRow, NOT_DELETED, CLAIM_POOL, AWAITING_CLAIM, assertAssignab
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
-import { categoryDefaults, mergeTagIds } from "../categories/categoryDefaults.js"
+import { categoryDefaults } from "../categories/categoryDefaults.js"
 import { resolveDescription } from "./ticketDescription.js"
 import { activeSubcategoryCount, checkSubcategoryChoice, loadSubcategory, mergeSubcategory } from "../categories/subcategoryDefaults.js"
 export { visibilityFilter, assertCanMutate } from "./ticketAccess.js"
@@ -166,7 +166,7 @@ export const ticketService = {
     const assigneeId = input.assigneeId ?? defaults.assigneeId
     if (assigneeId) await assertAssignableUser(assigneeId)
     const tatHours = input.tatHours ?? defaults.tatHours ?? settingsService.getCached().defaultTatHours
-    const tagIds = mergeTagIds(input.tagIds, defaults.tagIds)
+    const tagIds = [...new Set(input.tagIds ?? [])]
     const id = createId()
     const now = new Date()
     const gated = !hooks?.skipHeadGate

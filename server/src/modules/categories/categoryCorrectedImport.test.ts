@@ -41,12 +41,9 @@ describe("Corrected file with the 11 categories", async () => {
         expect(extraction).toMatchObject({ departmentId: idOf("Operations"), assigneeId: "h-Operations", tatHours: null })
     })
 
-    it("keeps trimmed labels and priorities per sub category", () => {
+    it("keeps priorities per sub category", () => {
         const billing = category("ERP & App Issue").subcategories[0]!
         expect(billing).toMatchObject({ priority: "CRITICAL", tatHours: 4 })
-        expect(billing.labels.map((l) => l.name)).toEqual(["Issue"])
-        const internet = category("Network & Telephony").subcategories[0]!
-        expect(internet.labels.map((l) => l.name)).toEqual(["Networking"])
         expect(category("Task tracker")).toMatchObject({ priority: "CRITICAL", tatHours: null, departmentId: idOf("Operations"), assigneeId: "h-Operations" })
     })
 

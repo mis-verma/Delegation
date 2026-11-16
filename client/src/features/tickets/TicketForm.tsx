@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion, ListTree } from 'lucide-react';
 
-import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip, TagChip } from '../../components';
+import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, useDepartmentsWithHeadQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
@@ -182,13 +182,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('assigneeId', '');
   }, [departmentId, categoryId, setValue]);
 
-  const autoLabelIds = useRef<string[]>([]);
-  const swapCategoryLabels = useCallback((next: string[]) => {
-    const kept = (getValues('tagIds') ?? []).filter(id => !autoLabelIds.current.includes(id));
-    autoLabelIds.current = next;
-    setValue('tagIds', [...new Set([...kept, ...next])], { shouldDirty: true });
-  }, [getValues, setValue]);
-
   const autoTitle = useRef('');
   const autoDescription = useRef('');
 
@@ -201,7 +194,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
 
   const applyOverrides = useCallback((category: Category, subcategory: Subcategory | null) => {
     const opts = { shouldValidate: true, shouldDirty: true };
-    swapCategoryLabels([...new Set([...(category.tags ?? []).map(t => t.id), ...(subcategory?.tags ?? []).map(t => t.id)])]);
     const priority = subcategory?.priority ?? category.priority;
     if (priority) setValue('priority', priority, opts);
     setValue('assigneeId', subcategory?.assigneeId ?? category.assigneeIds?.[0]?.id ?? '', opts);
@@ -211,7 +203,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
       setValue('dueDate', toDateInput(due), opts);
       setValue('dueTime', toTimeInput(due), opts);
     }
-  }, [setValue, swapCategoryLabels]);
+  }, [setValue]);
 
   const applyCategory = useCallback((category: Category) => {
     const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
@@ -219,7 +211,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     const sameCategory = getValues('categoryId') === category.id;
     if (!sameCategory) setValue('subcategoryId', '', { shouldDirty: true });
     const keptSubcategory = sameCategory ? category.subcategories.find((s) => s.id === getValues('subcategoryId') && s.isActive) ?? null : null;
-    swapCategoryLabels((category.tags ?? []).map(t => t.id));
     const currentTitle = getValues('title') ?? '';
     if (!currentTitle.trim() || currentTitle === autoTitle.current) {
       autoTitle.current = category.name;
@@ -233,7 +224,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
     setValue('categoryId', category.id, opts);
     setValue('departmentId', deptId, opts);
     applyOverrides(category, keptSubcategory);
-  }, [getValues, setValue, swapCategoryLabels, applyOverrides]);
+  }, [getValues, setValue, applyOverrides]);
 
   useEffect(() => {
     if (getValues('assignmentMode') !== 'AUTO' || getValues('categoryId')) return;
@@ -248,8 +239,6 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   useEffect(() => {
     if (seededAutoFill.current || !selectedCategory) return;
     seededAutoFill.current = true;
-    const seededSubcategory = selectedCategory.subcategories.find((s) => s.id === getValues('subcategoryId'));
-    autoLabelIds.current = [...new Set([...(selectedCategory.tags ?? []).map(t => t.id), ...(seededSubcategory?.tags ?? []).map(t => t.id)])];
     if (getValues('title') === selectedCategory.name) autoTitle.current = selectedCategory.name;
     const template = `Problem: ${selectedCategory.name}
 Where: 
@@ -275,14 +264,12 @@ Who is affected: `;
       applyCategory(category);
       if (category.subcategories.some((s) => s.isActive) && getValues('subcategoryId') === '') focusField('subcategoryId');
     } else {
-      swapCategoryLabels([]);
       setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
     }
   };
 
   const sendToDepartment = (yes: boolean) => {
     const opts = { shouldDirty: true };
-    swapCategoryLabels([]);
     clearAutoFill();
     setValue('assignmentMode', yes ? 'MANUAL' : 'AUTO', opts);
     setValue('categoryId', '', opts);
@@ -446,7 +433,6 @@ Who is affected: `;
         {selectedSubcategory && <IconChip icon={ListTree} tone="bg-primary-600" label={selectedSubcategory.name} />}
         <IconChip icon={Clock} tone="bg-text-muted" label={(selectedSubcategory?.tatHours ?? selectedCategory.tatHours) ? `Due in ${selectedSubcategory?.tatHours ?? selectedCategory.tatHours} hours` : 'Due in the standard time'} />
         {(selectedSubcategory?.priority ?? selectedCategory.priority) && <PriorityChip meta={PRIORITY_CONFIG[(selectedSubcategory?.priority ?? selectedCategory.priority)!]} />}
-        {selectedCategory.tags.map(t => <TagChip key={t.id} tag={t} />)}
       </div>
       <p className="t-meta font-display text-text-muted">
         {ownScopeOnly
@@ -674,7 +660,6 @@ Who is affected: `;
         if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
         if (m === 'MANUAL') {
           setValue('subcategoryId', '', { shouldDirty: true });
-          swapCategoryLabels([]);
           setValue('categoryId', '', { shouldDirty: true });
           setValue('assigneeId', '', { shouldDirty: true });
           clearAutoFill();
@@ -795,7 +780,6 @@ Who is affected: `;
                     selectedIds={tagIds ?? []}
                     onChange={v => setValue('tagIds', v, { shouldDirty: true })}
                     canCreate={isVerifier}
-                    lockedIds={selectedCategory?.tags.map(t => t.id)}
                   />
                 )}
               </section>

@@ -2,11 +2,11 @@ import { startTransition, useCallback, useEffect, useMemo, useState, lazy, Suspe
 import { useSearchParams } from "react-router";
 import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download, Trash2, MoreHorizontal } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download, Trash2, MoreHorizontal, ListChecks, X } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Dropdown, type DropdownAction, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
+  Button, Dropdown, type DropdownAction, Input, Skeleton, SelectDropdown, PriorityChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useClearCategoriesMutation, useDeleteCategoryMutation, useDepartmentsQuery, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
@@ -19,7 +19,7 @@ import { PRIORITY_CONFIG } from "../tickets/ticketDisplay";
 import { avatarColorClass } from "../../lib/avatarColors";
 import { STARTER_CATEGORIES, normalizeCategoryName } from "./starterCategories";
 import { CategoryStats, type CategoryStatKey } from "./CategoryStats";
-import { CategoryRows, CategoryTable } from "./CategoryViews";
+import { CategoryRows, CategoryTable, SelectMark, type CategorySelection } from "./CategoryViews";
 import { SLA_BAR, SLA_TEXT, departmentSummary, formatTatHours, slaTone } from "./tatFormat";
 
 const loadCategoryForm = () => import("./CategoryForm");
@@ -60,12 +60,12 @@ const STAT_TO_FILTER: Record<CategoryStatKey, StatusFilter> = { total: "all", ac
 const FILTER_TO_STAT: Partial<Record<StatusFilter, CategoryStatKey>> = { active: "active", inactive: "inactive", head: "headPicks" };
 
 const MAX_VISIBLE_AVATARS = 3;
-const MAX_VISIBLE_LABELS = 3;
 const NO_DEPARTMENT = "No department";
 const ROW_LABEL = "t-meta font-display font-medium text-text-muted";
 
 interface CategoryCardProps {
   category: Category;
+  selection: CategorySelection;
   busy: boolean;
   departmentNames: ReadonlyMap<string, string>;
   usage?: CategoryTatRow;
@@ -74,22 +74,23 @@ interface CategoryCardProps {
   onRemove?: (category: Category) => void;
 }
 
-const CategoryCard = ({ category: c, busy, departmentNames, usage, onEdit, onToggle, onRemove }: CategoryCardProps) => {
+const CategoryCard = ({ category: c, selection, busy, departmentNames, usage, onEdit, onToggle, onRemove }: CategoryCardProps) => {
   const people = c.assigneeIds ?? [];
   const names = people.map((p) => `${p.firstName} ${p.lastName ?? ""}`.trim());
   const tone = slaTone(usage?.slaMetPct ?? null);
   const departmentsLine = departmentSummary(c, departmentNames);
 
   return (
-    <article className={`${ENTITY_CARD_CLASS} justify-start gap-3 ${!c.isActive ? "bg-surface-hover/30" : ""} ${busy ? "opacity-60 pointer-events-none" : ""}`}>
+    <article className={`${ENTITY_CARD_CLASS} justify-start gap-3 ${!c.isActive ? "bg-surface-hover/30" : ""} ${selection.ids.has(c.id) ? "border-primary-500 bg-primary-500/5" : ""} ${busy ? "opacity-60 pointer-events-none" : ""}`}>
       <header className="flex items-start gap-3">
+        {selection.active && <SelectMark selected={selection.ids.has(c.id)} label={`Select ${c.name}`} />}
         <ColorIconTile icon={Tag} name={c.name} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <button
             type="button"
-            onClick={() => onEdit(c)}
+            onClick={() => (selection.active ? selection.toggle(c.id) : onEdit(c))}
             className="rounded-md text-left outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            aria-label={`Edit ${c.name}`}
+            aria-label={selection.active ? `Select ${c.name}` : `Edit ${c.name}`}
           >
             <h4 className={`t-card font-display font-bold leading-snug line-clamp-2 break-words ${c.isActive ? "text-text" : "text-text-secondary"}`} title={c.name}>
               {c.name}
@@ -101,7 +102,7 @@ const CategoryCard = ({ category: c, busy, departmentNames, usage, onEdit, onTog
             </span>
           )}
         </div>
-        <div className="-mr-2 -mt-1">
+        {!selection.active && <div className="-mr-2 -mt-1">
           <EntityCardActions
             onEdit={() => onEdit(c)}
             onDelete={onRemove ? () => onRemove(c) : undefined}
@@ -110,7 +111,7 @@ const CategoryCard = ({ category: c, busy, departmentNames, usage, onEdit, onTog
             deleteLabel={`Delete ${c.name}`}
             extraItems={[{ label: c.isActive ? "Deactivate" : "Activate", icon: c.isActive ? CircleOff : CirclePower, onClick: () => onToggle(c) }]}
           />
-        </div>
+        </div>}
       </header>
 
       <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 border-t border-border/50 pt-3">
@@ -165,22 +166,6 @@ const CategoryCard = ({ category: c, busy, departmentNames, usage, onEdit, onTog
               <Users className="size-3.5 shrink-0" aria-hidden />
               Department head picks
             </span>
-          )}
-        </dd>
-
-        <dt className={ROW_LABEL}>Labels</dt>
-        <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {c.tags.length > 0 ? (
-            <>
-              {c.tags.slice(0, MAX_VISIBLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
-              {c.tags.length > MAX_VISIBLE_LABELS && (
-                <span className="t-meta font-semibold tabular-nums text-text-muted" title={c.tags.slice(MAX_VISIBLE_LABELS).map((tag) => tag.name).join(", ")}>
-                  +{c.tags.length - MAX_VISIBLE_LABELS}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="t-meta font-display font-semibold text-text-muted">None</span>
           )}
         </dd>
       </dl>
@@ -317,15 +302,30 @@ export const CategoryList = () => {
     if (force) deleteMut.mutate({ id: c.id, detachTickets: true });
   };
 
-  const replaceAll = async () => {
+  const [selectMode, setSelectMode] = useState(false);
+  const [pickedIds, setPickedIds] = useState<ReadonlySet<string>>(new Set());
+  const selectedIds = useMemo(() => new Set(categories.filter((c) => pickedIds.has(c.id)).map((c) => c.id)), [categories, pickedIds]);
+  const toggleSelected = useCallback((id: string) => setPickedIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  }), []);
+  const selection = useMemo(() => ({ active: selectMode, ids: selectedIds, toggle: toggleSelected }), [selectMode, selectedIds, toggleSelected]);
+  const allShownSelected = shown.length > 0 && shown.every((c) => selectedIds.has(c.id));
+  const toggleSelectAll = () => setPickedIds(allShownSelected ? new Set() : new Set(shown.map((c) => c.id)));
+  const exitSelectMode = () => { setSelectMode(false); setPickedIds(new Set()); };
+
+  const removeMany = async (list: Category[], thenImport: boolean) => {
+    if (list.length === 0) return;
+    const all = list.length === categories.length;
     const ok = await confirm({
-      title: `Remove all ${categories.length} categories?`,
-      description: "Categories no ticket ever used are deleted for good. Ones with tickets are turned off, so old tickets keep their category. This can't be undone. The import opens next so you can add the new set.",
-      confirmLabel: "Remove all and import",
+      title: all ? `Remove all ${list.length} categories?` : `Remove ${list.length} ${list.length === 1 ? "category" : "categories"}?`,
+      description: `Categories no ticket ever used are deleted for good. Ones with tickets are turned off, so old tickets keep their category. This can't be undone.${thenImport ? " The import opens next so you can add the new set." : ""}`,
+      confirmLabel: thenImport ? "Remove all and import" : "Remove",
       variant: "danger",
     });
     if (!ok) return;
-    const first = await clearMut.mutateAsync({ targets: categories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive })) });
+    const first = await clearMut.mutateAsync({ targets: list.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive })) });
     if (first.failed.length > 0) return;
     if (first.kept.length > 0) {
       const force = await confirm({
@@ -340,8 +340,11 @@ export const CategoryList = () => {
         if (second.failed.length > 0) return;
       }
     }
-    setShowImport(true);
+    exitSelectMode();
+    if (thenImport) setShowImport(true);
   };
+
+  const replaceAll = () => removeMany(categories, true);
 
   const closeForm = () => {
     setShowForm(false);
@@ -369,7 +372,7 @@ export const CategoryList = () => {
     const onRemove = user?.role === "ADMIN" ? (category: Category) => { void remove(category); } : undefined;
     if (view !== "cards") {
       const Rows = view === "table" ? CategoryTable : CategoryRows;
-      return <Rows items={shown} usageById={usageById} busyId={busyId} onEdit={setEditingCategory} onToggle={toggleActive} onRemove={onRemove} />;
+      return <Rows items={shown} selection={selection} usageById={usageById} busyId={busyId} onEdit={setEditingCategory} onToggle={toggleActive} onRemove={onRemove} />;
     }
 
     return (
@@ -385,6 +388,7 @@ export const CategoryList = () => {
                 <CategoryCard
                   key={c.id}
                   category={c}
+                  selection={selection}
                   departmentNames={departmentNames}
                   usage={usageById.get(c.id)}
                   busy={(updateMut.isPending && updateMut.variables?.id === c.id) || (deleteMut.isPending && deleteMut.variables?.id === c.id)}
@@ -408,8 +412,40 @@ export const CategoryList = () => {
     ...(categories.length > 0 && user?.role === "ADMIN" ? [{ label: "Remove all categories", icon: Trash2, variant: "destructive" as const, separatorBefore: true, onClick: () => { void replaceAll(); } }] : []),
   ];
 
-  const actions = (
+  const canSelect = user?.role === "ADMIN" && categories.length > 0;
+
+  const selectBar = (
+    <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      <span className="t-meta font-display font-semibold tabular-nums text-text-secondary" aria-live="polite">{selectedIds.size} selected</span>
+      <Button variant="outline" size="sm" onClick={toggleSelectAll} className="h-9 font-display font-semibold">
+        {allShownSelected ? "Clear all" : "Select all"}
+      </Button>
+      <Button
+        variant="danger"
+        size="sm"
+        disabled={selectedIds.size === 0}
+        isLoading={clearMut.isPending}
+        onClick={() => { void removeMany(categories.filter((c) => selectedIds.has(c.id)), false); }}
+        className="h-9 font-display font-semibold"
+      >
+        {!clearMut.isPending && <Trash2 size={15} aria-hidden />}
+        Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+      </Button>
+      <Button variant="outline" size="sm" onClick={exitSelectMode} aria-label="Cancel selection" className="h-9 font-display font-semibold">
+        <X size={15} aria-hidden />
+        Cancel
+      </Button>
+    </div>
+  );
+
+  const actions = selectMode ? selectBar : (
     <div className="flex items-center gap-2 sm:ml-auto">
+      {tab === "list" && canSelect && (
+        <Button variant="outline" size="sm" onClick={() => setSelectMode(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
+          <ListChecks size={15} aria-hidden />
+          Select
+        </Button>
+      )}
       {tab === "list" && (
         <Button variant="outline" size="sm" onClick={() => setShowImport(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
           <FileUp size={15} aria-hidden />

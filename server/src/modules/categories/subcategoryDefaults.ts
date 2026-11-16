@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { categorySubcategories, users } from "../../db/schema/core.js"
-import { categorySubcategoryTags } from "../../db/schema/ticket.js"
 import type { CategoryDefaults } from "./categoryDefaults.js"
 
 export type SubcategoryOverrides = {
@@ -13,10 +12,9 @@ export type SubcategoryOverrides = {
     tatHours: number | null
     assigneeId: string | null
     departmentId: string | null
-    tagIds: string[]
 }
 
-export const mergeSubcategory = (base: CategoryDefaults, sub: (Pick<SubcategoryOverrides, "priority" | "tatHours" | "assigneeId"> & { departmentId?: string | null; tagIds?: readonly string[] }) | null): CategoryDefaults =>
+export const mergeSubcategory = (base: CategoryDefaults, sub: (Pick<SubcategoryOverrides, "priority" | "tatHours" | "assigneeId"> & { departmentId?: string | null }) | null): CategoryDefaults =>
     sub
         ? {
             ...base,
@@ -24,7 +22,6 @@ export const mergeSubcategory = (base: CategoryDefaults, sub: (Pick<SubcategoryO
             tatHours: sub.tatHours ?? base.tatHours,
             departmentId: sub.departmentId ?? base.departmentId,
             assigneeId: sub.assigneeId ?? (sub.departmentId && sub.departmentId !== base.departmentId ? null : base.assigneeId),
-            tagIds: [...new Set([...base.tagIds, ...(sub.tagIds ?? [])])],
         }
         : base
 
@@ -47,8 +44,7 @@ export const loadSubcategory = async (subcategoryId: string | null | undefined):
         .limit(1)
     if (!row) return null
     const { assigneeActive, ...rest } = row
-    const links = await db.select({ tagId: categorySubcategoryTags.tagId }).from(categorySubcategoryTags).where(eq(categorySubcategoryTags.subcategoryId, subcategoryId))
-    return { ...rest, assigneeId: rest.assigneeId && assigneeActive ? rest.assigneeId : null, tagIds: links.map((link) => link.tagId) }
+    return { ...rest, assigneeId: rest.assigneeId && assigneeActive ? rest.assigneeId : null }
 }
 
 export const activeSubcategoryCount = async (categoryId: string): Promise<number> => {

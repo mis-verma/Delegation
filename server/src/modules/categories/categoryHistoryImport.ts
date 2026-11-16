@@ -1,9 +1,6 @@
 import { readTable } from "../../utils/readTable.js"
 import { MAX_TAT_HOURS } from "../../utils/tatLimits.js"
 import { matchExactOrFuzzy, type MatchConfidence } from "../../utils/fuzzyMatch.js"
-import { db } from "../../config/db.js"
-import { tags } from "../../db/schema/task.js"
-import { asc } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { isDepartmentHeadRole } from "../../utils/roles.js"
 import { categoryService } from "./category.service.js"
@@ -18,15 +15,12 @@ const HOURS_COLUMNS = ["due hours", "due time (hours)", "tat hours", "tat (hours
 const PERSON_COLUMNS = ["completed by (claimed by)", "completed by", "assignee", "assigned to", "person", "person email", "assignee email", "email"]
 const DEPARTMENT_COLUMNS = ["store / department", "department", "department name", "dept", "team"]
 const SUBCATEGORY_COLUMNS = ["sub category", "subcategory", "sub-category"]
-const LABEL_COLUMNS = ["labels", "label", "tags"]
 const PRIORITY_COLUMNS = ["priority", "usual priority"]
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const
-const MAX_LABELS = 12
 const UNUSABLE_NAMES = new Set(["not set in source", "unclear request (no detail in source)", "n/a", "na", "-"])
 
 export type HistoryPerson = { id: string; name: string; email: string; departmentId: string | null; role?: string }
 export type HistoryDepartment = { id: string; name: string }
-export type HistoryTag = { id: string; name: string }
 export type HistoryExisting = { id: string; subcategoryKeys: Set<string> }
 export type CategoryPriorityValue = (typeof PRIORITIES)[number]
 
@@ -35,7 +29,6 @@ export type CategoryProposalSubcategory = {
     exists: boolean
     tatHours: number | null
     priority: CategoryPriorityValue | null
-    labels: { name: string; tagId: string | null }[]
     personName: string | null
     assigneeId: string | null
     assigneeSource: "column" | "head" | "none"
@@ -59,7 +52,6 @@ export type CategoryProposal = {
     existingCategoryId: string | null
     subcategories: CategoryProposalSubcategory[]
     priority: CategoryPriorityValue | null
-    labels: { name: string; tagId: string | null }[]
     warnings: string[]
 }
 
@@ -99,12 +91,6 @@ export const priorityFrom = (raw: string): CategoryPriorityValue | null => {
 
 const PARENT_COLUMNS = ["category", "category name"]
 
-const DERIVED_LABELS: { label: string; pattern: RegExp }[] = [
-    { label: "Networking", pattern: /\b(internet|wi-?fi|lan|network(ing)?|router|vpn|phone|intercom|ivr|dialer|sim)\b/i },
-]
-
-export const derivedLabelsFor = (name: string): string[] => DERIVED_LABELS.filter((rule) => rule.pattern.test(name)).map((rule) => rule.label)
-
 export const pickNameColumn = (records: Record<string, string>[], available: string[]): string => {
     const lower = (header: string) => header.trim().toLowerCase()
     const parent = available.find((h) => PARENT_COLUMNS.includes(lower(h)))
@@ -116,10 +102,6 @@ export const pickNameColumn = (records: Record<string, string>[], available: str
     return available[0]!
 }
 
-const labelsIn = (cell: string): string[] => cell.split(/[,;|]/).map(squash).filter(Boolean)
-
-const matchTag = (label: string, tags: HistoryTag[]): string | null => tags.find((tag) => keyOf(tag.name) === keyOf(label))?.id ?? null
-
 const peopleIn = (cell: string): string[] => cell.split(/[,;&]|\sand\s/i).map(squash).filter(Boolean)
 
 export const buildCategoryProposals = (
@@ -130,7 +112,6 @@ export const buildCategoryProposals = (
         departments: HistoryDepartment[]
         existingNames: Set<string>
         existing?: Map<string, HistoryExisting>
-        tags?: HistoryTag[]
         heads?: ReadonlyMap<string, HistoryPerson>
     },
 ): CategoryProposal[] => {
@@ -141,13 +122,10 @@ export const buildCategoryProposals = (
     const departmentColumn = findColumn(headers, DEPARTMENT_COLUMNS)
     const nameIsCategory = ["category", "category name", "name"].includes(nameColumn.trim().toLowerCase())
     const subcategoryColumn = nameIsCategory ? findColumn(headers, SUBCATEGORY_COLUMNS) : null
-    const labelColumn = findColumn(headers, LABEL_COLUMNS)
-    const nameIsSubcategory = SUBCATEGORY_COLUMNS.includes(nameColumn.trim().toLowerCase())
-    const parentColumn = nameIsSubcategory ? findColumn(headers, PARENT_COLUMNS) : null
     const priorityColumn = findColumn(headers, PRIORITY_COLUMNS)
-    const listFormat = !!(subcategoryColumn || labelColumn || priorityColumn || hoursColumn)
+    const listFormat = !!(subcategoryColumn || priorityColumn || hoursColumn)
 
-    type SubRow = { hours: number | null; priority: string; labels: string[]; person: string; department: string }
+    type SubRow = { hours: number | null; priority: string; person: string; department: string }
     type Group = {
         name: string
         sla: number[]
@@ -155,11 +133,9 @@ export const buildCategoryProposals = (
         departments: string[]
         priorities: CategoryPriorityValue[]
         badPriorities: Set<string>
-        labels: Map<string, string>
         subcategories: Map<string, string>
         subRows: Map<string, SubRow>
         rowHours: (number | null)[]
-        rowLabelKeys: Set<string>[]
         rows: number
     }
     const groups = new Map<string, Group>()
@@ -174,19 +150,15 @@ export const buildCategoryProposals = (
             departments: [],
             priorities: [],
             badPriorities: new Set<string>(),
-            labels: new Map<string, string>(),
             subcategories: new Map<string, string>(),
             subRows: new Map<string, SubRow>(),
             rowHours: [],
-            rowLabelKeys: [],
             rows: 0,
         }
         group.rows += 1
         const hours = hoursColumn ? hoursFromHours(record[hoursColumn] ?? "") : slaColumn ? hoursFromSlaMinutes(record[slaColumn] ?? "") : null
         if (hours !== null) group.sla.push(hours)
         group.rowHours.push(hours)
-        const rowLabels = labelColumn ? labelsIn(record[labelColumn] ?? "") : []
-        group.rowLabelKeys.push(new Set(rowLabels.map(keyOf)))
         if (personColumn) group.people.push(...peopleIn(record[personColumn] ?? ""))
         if (departmentColumn) {
             const department = squash(record[departmentColumn] ?? "")
@@ -199,7 +171,6 @@ export const buildCategoryProposals = (
                 group.subRows.set(keyOf(subcategory), {
                     hours,
                     priority: priorityColumn ? squash(record[priorityColumn] ?? "") : "",
-                    labels: rowLabels,
                     person: personColumn ? peopleIn(record[personColumn] ?? "")[0] ?? "" : "",
                     department: departmentColumn ? squash(record[departmentColumn] ?? "") : "",
                 })
@@ -211,14 +182,6 @@ export const buildCategoryProposals = (
                 const priority = priorityFrom(raw)
                 if (priority) group.priorities.push(priority)
                 else group.badPriorities.add(raw)
-            }
-        }
-        const parentName = parentColumn ? squash(record[parentColumn] ?? "") : ""
-        if (parentName && !group.labels.has(keyOf(parentName))) group.labels.set(keyOf(parentName), parentName)
-        for (const derived of derivedLabelsFor(name)) if (!group.labels.has(keyOf(derived))) group.labels.set(keyOf(derived), derived)
-        if (labelColumn) {
-            for (const label of labelsIn(record[labelColumn] ?? "")) {
-                if (!group.labels.has(keyOf(label))) group.labels.set(keyOf(label), label)
             }
         }
         groups.set(key, group)
@@ -261,16 +224,10 @@ export const buildCategoryProposals = (
         const perRow = listFormat && group.subcategories.size > 1
         if (!perRow) for (const bad of group.badPriorities) warnings.push(`Priority "${bad}" is not Low, Medium, High or Critical, so it was left empty.`)
         if (topPerson && !person) warnings.push(`No active person matches "${topPerson}".`)
-        const sharedLabelKeys = perRow ? group.rowLabelKeys.reduce<Set<string> | null>((acc, keys) => acc ? new Set([...acc].filter((k) => keys.has(k))) : new Set(keys), null) : null
-        const labels = [...group.labels.entries()]
-            .filter(([labelKey]) => !sharedLabelKeys || sharedLabelKeys.has(labelKey))
-            .map(([, label]) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) }))
-        if (labels.length > MAX_LABELS) warnings.push(`Only the first ${MAX_LABELS} labels are used.`)
-
         const subcategories: CategoryProposalSubcategory[] = [...group.subcategories.entries()].map(([subKey, subName]) => {
             const exists = found?.subcategoryKeys.has(subKey) ?? false
             const row = group.subRows.get(subKey)
-            if (!perRow || !row) return { name: subName, exists, tatHours: null, priority: null, labels: [], personName: null, assigneeId: null, assigneeSource: "none", departmentName: null, departmentId: null }
+            if (!perRow || !row) return { name: subName, exists, tatHours: null, priority: null, personName: null, assigneeId: null, assigneeSource: "none", departmentName: null, departmentId: null }
             let rowDepartmentId: string | null = null
             if (row.department) {
                 const hit = matchExactOrFuzzy(row.department, ctx.departments, (d) => d.name)
@@ -293,7 +250,6 @@ export const buildCategoryProposals = (
                 exists,
                 tatHours: row.hours,
                 priority: rowPriority,
-                labels: row.labels.map((label) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) })),
                 personName: row.person || rowHead?.name || null,
                 assigneeId: rowPerson?.id ?? rowHead?.id ?? null,
                 assigneeSource: rowPerson ? "column" : rowHead ? "head" : "none",
@@ -318,7 +274,6 @@ export const buildCategoryProposals = (
             existingCategoryId: found?.id ?? null,
             subcategories,
             priority: modeOf(group.priorities),
-            labels: labels.slice(0, MAX_LABELS),
             warnings,
         })
     }
@@ -337,11 +292,10 @@ export const categoryHistoryImportService = {
         }
         const nameColumn = requestedColumn && available.includes(requestedColumn) ? requestedColumn : pickNameColumn(records, available)
 
-        const [assignable, { data: departments }, existing, tagRows] = await Promise.all([
+        const [assignable, { data: departments }, existing] = await Promise.all([
             userService.listAssignable(actor),
             departmentService.list(),
             categoryService.list(),
-            db.select({ id: tags.id, name: tags.name }).from(tags).orderBy(asc(tags.name)),
         ])
         const people: HistoryPerson[] = assignable.map((u) => ({
             id: u.id,
@@ -355,8 +309,8 @@ export const categoryHistoryImportService = {
         const departmentList: HistoryDepartment[] = departments.map((d) => ({ id: d.id, name: d.name }))
         const existingNames = new Set(existing.map((c) => keyOf(c.name)))
         const existingMap = new Map(existing.map((c) => [keyOf(c.name), { id: c.id, subcategoryKeys: new Set(c.subcategories.map((sub) => keyOf(sub.name))) }]))
-        const proposals = buildCategoryProposals(records, nameColumn, { people, departments: departmentList, existingNames, existing: existingMap, tags: tagRows, heads })
-        const knownColumns = [...SUBCATEGORY_COLUMNS, ...LABEL_COLUMNS, ...PRIORITY_COLUMNS, ...HOURS_COLUMNS]
+        const proposals = buildCategoryProposals(records, nameColumn, { people, departments: departmentList, existingNames, existing: existingMap, heads })
+        const knownColumns = [...SUBCATEGORY_COLUMNS, ...PRIORITY_COLUMNS, ...HOURS_COLUMNS]
         const isList = !headers.some((h) => SLA_COLUMNS.includes(h.trim().toLowerCase())) && headers.some((h) => knownColumns.includes(h.trim().toLowerCase()))
 
         return {
@@ -365,7 +319,6 @@ export const categoryHistoryImportService = {
             totalRows: records.length,
             isList,
             proposals,
-            tags: tagRows,
             departments: departmentList,
             people: people.map((p) => ({ id: p.id, name: p.name, email: p.email })),
             heads: [...heads].map(([departmentId, person]) => ({ departmentId, personId: person.id, name: person.name })),

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { CategoryDefaults } from "./categoryDefaults.js"
 import { checkSubcategoryChoice, mergeSubcategory } from "./subcategoryDefaults.js"
 
-const base: CategoryDefaults = { found: true, isActive: true, priority: "MEDIUM", tagIds: ["t"], departmentId: "d", tatHours: 24, assigneeId: "a" }
+const base: CategoryDefaults = { found: true, isActive: true, priority: "MEDIUM", departmentId: "d", tatHours: 24, assigneeId: "a" }
 
 describe("mergeSubcategory", () => {
     it("keeps the category values when the subcategory sets nothing", () => {
@@ -13,12 +13,6 @@ describe("mergeSubcategory", () => {
     it("lets the subcategory override only what it sets", () => {
         const merged = mergeSubcategory(base, { priority: "HIGH", tatHours: null, assigneeId: "b" })
         expect(merged).toEqual({ ...base, priority: "HIGH", assigneeId: "b" })
-    })
-
-    it("adds the subcategory labels on top of the category labels without repeats", () => {
-        const merged = mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null, tagIds: ["t", "u"] })
-        expect(merged.tagIds).toEqual(["t", "u"])
-        expect(mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null }).tagIds).toEqual(["t"])
     })
 
     it("uses the subcategory department and drops the category assignee when it differs", () => {
