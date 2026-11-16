@@ -2,7 +2,7 @@ import { Fragment, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertCircle, Building2, ChevronDown, Clock, Download, FileSpreadsheet, FileUp, User } from 'lucide-react';
-import { Button, Combobox, IconChip, Modal, PriorityChip, TagChip } from '../../components';
+import { Button, Combobox, IconChip, Modal, PriorityChip, Switch, TagChip } from '../../components';
 import { notifyError } from '../../lib/queryHelpers';
 import { categoryApi, type CategoryHistoryPreview, type CategoryPriority, type CategoryProposal, type ProposalSubcategory } from '../../api/categories';
 import { tagApi } from '../../api/tags';
@@ -41,13 +41,34 @@ const newSubcategories = (row: CategoryProposal) => row.subcategories.filter((su
 
 const isActionable = (row: CategoryProposal) => !row.exists || newSubcategories(row).length > 0;
 
-const toRows = (data: CategoryHistoryPreview): Row[] => {
+interface RowOptions {
+  departmentId: string;
+  fillHead: boolean;
+}
+
+const OPERATIONS = 'operations';
+
+const defaultOptions = (data: CategoryHistoryPreview): RowOptions => ({
+  departmentId: data.isList ? (data.departments.find((d) => d.name.trim().toLowerCase() === OPERATIONS)?.id ?? '') : '',
+  fillHead: true,
+});
+
+const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
   const minRows = data.isList ? 1 : MIN_ROWS_BY_DEFAULT;
-  return data.proposals.map((p) => ({
-    ...p,
-    selected: p.exists ? newSubcategories(p).length > 0 : !!p.departmentId && p.rowCount >= minRows,
-    hours: p.tatHours ? String(p.tatHours) : '',
-  }));
+  const headNames = new Map(data.heads.map((h) => [h.departmentId, h]));
+  return data.proposals.map((p) => {
+    const departmentId = options.departmentId || p.departmentId;
+    const keepsPerson = p.assigneeSource === 'column';
+    const head = !keepsPerson && options.fillHead && departmentId ? headNames.get(departmentId) : undefined;
+    return {
+      ...p,
+      departmentId,
+      assigneeId: keepsPerson ? p.assigneeId : (head?.personId ?? null),
+      personName: keepsPerson ? p.personName : (head?.name ?? null),
+      selected: p.exists ? newSubcategories(p).length > 0 : !!departmentId && p.rowCount >= minRows,
+      hours: p.tatHours ? String(p.tatHours) : '',
+    };
+  });
 };
 
 const labelKey = (name: string) => name.trim().toLowerCase();
@@ -95,6 +116,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CategoryHistoryPreview | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [options, setOptions] = useState<RowOptions>({ departmentId: '', fillHead: true });
   const [reading, setReading] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -108,15 +130,24 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
     setReading(true);
     try {
       const data = await categoryApi.historyPreview(next, column);
+      const initial = defaultOptions(data);
       setFile(next);
       setPreview(data);
-      setRows(toRows(data));
+      setOptions(initial);
+      setRows(toRows(data, initial));
       setOpen(new Set());
     } catch (err) {
       notifyError(err, "Couldn't read that file. Check it and try again.");
     } finally {
       setReading(false);
     }
+  };
+
+  const changeOptions = (change: Partial<RowOptions>) => {
+    if (!preview) return;
+    const next = { ...options, ...change };
+    setOptions(next);
+    setRows(toRows(preview, next));
   };
 
   const toggleOpen = (key: string) =>
@@ -283,6 +314,23 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3 sm:flex-row sm:items-end sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="t-meta font-display font-semibold text-text-secondary">Team for every category</span>
+              <Combobox
+                value={options.departmentId}
+                onChange={(value) => changeOptions({ departmentId: value })}
+                options={departmentOptions}
+                emptyOptionLabel="As written in the file"
+                placeholder="As written in the file"
+              />
+            </div>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 sm:pb-0.5">
+              <Switch checked={options.fillHead} onChange={(next) => changeOptions({ fillHead: next })} />
+              <span className="t-meta font-display font-semibold text-text-secondary">Blank person goes to the team head</span>
+            </label>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-border">

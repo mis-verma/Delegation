@@ -5,6 +5,7 @@ import { db } from "../../config/db.js"
 import { tags } from "../../db/schema/task.js"
 import { asc } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
+import { isDepartmentHeadRole } from "../../utils/roles.js"
 import { categoryService } from "./category.service.js"
 import { userService } from "../users/user.service.js"
 import { departmentService } from "../departments/department.service.js"
@@ -23,7 +24,7 @@ const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const
 const MAX_LABELS = 12
 const UNUSABLE_NAMES = new Set(["not set in source", "unclear request (no detail in source)", "n/a", "na", "-"])
 
-export type HistoryPerson = { id: string; name: string; email: string; departmentId: string | null }
+export type HistoryPerson = { id: string; name: string; email: string; departmentId: string | null; role?: string }
 export type HistoryDepartment = { id: string; name: string }
 export type HistoryTag = { id: string; name: string }
 export type HistoryExisting = { id: string; subcategoryKeys: Set<string> }
@@ -48,6 +49,7 @@ export type CategoryProposal = {
     tatHours: number | null
     personName: string | null
     assigneeId: string | null
+    assigneeSource: "column" | "head" | "none"
     departmentId: string | null
     departmentSource: "person" | "column" | "none"
     departmentMatch: MatchConfidence
@@ -95,6 +97,12 @@ export const priorityFrom = (raw: string): CategoryPriorityValue | null => {
 
 const PARENT_COLUMNS = ["category", "category name"]
 
+const DERIVED_LABELS: { label: string; pattern: RegExp }[] = [
+    { label: "Networking", pattern: /\b(internet|wi-?fi|lan|network(ing)?|router|vpn|phone|intercom|ivr|dialer|sim)\b/i },
+]
+
+export const derivedLabelsFor = (name: string): string[] => DERIVED_LABELS.filter((rule) => rule.pattern.test(name)).map((rule) => rule.label)
+
 export const pickNameColumn = (records: Record<string, string>[], available: string[]): string => {
     const lower = (header: string) => header.trim().toLowerCase()
     const parent = available.find((h) => PARENT_COLUMNS.includes(lower(h)))
@@ -121,6 +129,7 @@ export const buildCategoryProposals = (
         existingNames: Set<string>
         existing?: Map<string, HistoryExisting>
         tags?: HistoryTag[]
+        heads?: ReadonlyMap<string, HistoryPerson>
     },
 ): CategoryProposal[] => {
     const headers = records.length ? Object.keys(records[0]!) : []
@@ -204,6 +213,7 @@ export const buildCategoryProposals = (
         }
         const parentName = parentColumn ? squash(record[parentColumn] ?? "") : ""
         if (parentName && !group.labels.has(keyOf(parentName))) group.labels.set(keyOf(parentName), parentName)
+        for (const derived of derivedLabelsFor(name)) if (!group.labels.has(keyOf(derived))) group.labels.set(keyOf(derived), derived)
         if (labelColumn) {
             for (const label of labelsIn(record[labelColumn] ?? "")) {
                 if (!group.labels.has(keyOf(label))) group.labels.set(keyOf(label), label)
@@ -242,8 +252,10 @@ export const buildCategoryProposals = (
             }
         }
 
+        const head = !person && departmentId ? ctx.heads?.get(departmentId) ?? null : null
         const found = ctx.existing?.get(key)
         const warnings: string[] = []
+        if (!person && departmentId && ctx.heads && !head) warnings.push("This department has no head, so nobody is assigned by default.")
         const perRow = listFormat && group.subcategories.size > 1
         if (!perRow) for (const bad of group.badPriorities) warnings.push(`Priority "${bad}" is not Low, Medium, High or Critical, so it was left empty.`)
         if (topPerson && !person) warnings.push(`No active person matches "${topPerson}".`)
@@ -291,8 +303,9 @@ export const buildCategoryProposals = (
             name: group.name,
             rowCount: group.rows,
             tatHours: perRow && group.rowHours.some((h) => h === null) ? null : modeOf(group.sla),
-            personName: topPerson,
-            assigneeId: person?.id ?? null,
+            personName: topPerson ?? head?.name ?? null,
+            assigneeId: person?.id ?? head?.id ?? null,
+            assigneeSource: person ? "column" : head ? "head" : "none",
             departmentId,
             departmentSource,
             departmentMatch,
@@ -330,11 +343,14 @@ export const categoryHistoryImportService = {
             name: `${u.firstName} ${u.lastName ?? ""}`.trim(),
             email: u.email,
             departmentId: u.departmentId ?? null,
+            role: u.role,
         }))
+        const heads = new Map<string, HistoryPerson>()
+        for (const person of people) if (person.departmentId && isDepartmentHeadRole(person.role as Parameters<typeof isDepartmentHeadRole>[0]) && !heads.has(person.departmentId)) heads.set(person.departmentId, person)
         const departmentList: HistoryDepartment[] = departments.map((d) => ({ id: d.id, name: d.name }))
         const existingNames = new Set(existing.map((c) => keyOf(c.name)))
         const existingMap = new Map(existing.map((c) => [keyOf(c.name), { id: c.id, subcategoryKeys: new Set(c.subcategories.map((sub) => keyOf(sub.name))) }]))
-        const proposals = buildCategoryProposals(records, nameColumn, { people, departments: departmentList, existingNames, existing: existingMap, tags: tagRows })
+        const proposals = buildCategoryProposals(records, nameColumn, { people, departments: departmentList, existingNames, existing: existingMap, tags: tagRows, heads })
         const knownColumns = [...SUBCATEGORY_COLUMNS, ...LABEL_COLUMNS, ...PRIORITY_COLUMNS, ...HOURS_COLUMNS]
         const isList = !headers.some((h) => SLA_COLUMNS.includes(h.trim().toLowerCase())) && headers.some((h) => knownColumns.includes(h.trim().toLowerCase()))
 
@@ -347,6 +363,7 @@ export const categoryHistoryImportService = {
             tags: tagRows,
             departments: departmentList,
             people: people.map((p) => ({ id: p.id, name: p.name, email: p.email })),
+            heads: [...heads].map(([departmentId, person]) => ({ departmentId, personId: person.id, name: person.name })),
         }
     },
 }

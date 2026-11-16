@@ -97,6 +97,7 @@ export type CategoryProposal = {
     tatHours: number | null;
     personName: string | null;
     assigneeId: string | null;
+    assigneeSource: "column" | "head" | "none";
     departmentId: string | null;
     departmentSource: "person" | "column" | "none";
     exists: boolean;
@@ -116,6 +117,7 @@ export type CategoryHistoryPreview = {
     proposals: CategoryProposal[];
     departments: { id: string; name: string }[];
     people: { id: string; name: string; email: string }[];
+    heads: { departmentId: string; personId: string; name: string }[];
 };
 
 export type CategoryTatReport = { rows: CategoryTatRow[]; total: CategoryTatRow };

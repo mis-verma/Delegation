@@ -1,0 +1,50 @@
+Category,Sub Category,Department,Assigned To,Priority,Due Hours
+Issue Ticket,Acme billing / POS down – counter cannot bill,IT – ERP,,Critical,4
+Issue Ticket,Acme error – module / report / document not working,IT – ERP,,High,24
+Issue Ticket,"Login, user ID, role & rights",IT – ERP,,High,24
+Issue Ticket,Jewello app / payment gateway / WhatsApp-SMS-OTP / Power BI not working,IT – ERP,,High,24
+Issue Ticket,Payment details – wrong bank / UPI / UTR / payment mode,Accounts,,Medium,24
+Issue Ticket,Wrong transaction / payment date,Accounts,,Medium,24
+Issue Ticket,Savings scheme – cancel enrollment / change plan / edit installment,Jewel Club + Accounts,,Medium,24
+Issue Ticket,"Cancel receipt / voucher / bill (duplicate, wrong customer)",Accounts,,High,24
+Issue Ticket,Edit bill – salesperson / customer name / mobile,Accounts,,Medium,24
+Issue Ticket,Edit bill – weight / rate / discount / making / value,Accounts,,High,24
+Issue Ticket,URD / old gold / purchase document edit or cancel,Accounts,,Medium,24
+Issue Ticket,Item / tag / weight / stock record correction,Merchandising,,Medium,48
+Issue Ticket,PC / laptop not working or slow,IT – Support,,High,24
+Issue Ticket,Printer / tag printer not working,IT – Support,,High,24
+Issue Ticket,"Peripherals – monitor, mouse, keyboard, cable, UPS, headset",IT – Support,,Medium,72
+Issue Ticket,"Store devices – barcode scanner, weighing scale, karat meter",IT – Support,,Critical,4
+Issue Ticket,Software install – MS Office / Windows / Excel / PDF,IT – Support,,Medium,72
+Issue Ticket,New device / system shifting / allocation,IT – Support,,Low,168
+Issue Ticket,Internet / Wi-Fi / LAN down or slow,IT – Network,,Critical,4
+Issue Ticket,"Phone, intercom, IVR, dialer, SIM",IT – Network,,High,24
+Issue Ticket,CCTV offline / not recording / freeze,IT – Security Systems,,Critical,4
+Issue Ticket,CCTV footage review request,IT – Security Systems,,High,24
+Issue Ticket,New camera / view change / access,IT – Security Systems,,Low,168
+Issue Ticket,Biometric / attendance device offline,IT – Security Systems,,Medium,72
+Issue Ticket,Strongroom / shutter / safe / display lock fault,Admin – Facilities,,Critical,4
+Issue Ticket,"Electrical – lights, switchboard, socket, wiring",Admin – Facilities,,High,24
+Issue Ticket,"Plumbing – leakage, drain, washroom, RO",Admin – Facilities,,High,24
+Issue Ticket,AC / heater,Admin – Facilities,,Medium,72
+Issue Ticket,"Machines – melting, soldering, generator/servo, pantry",Admin – Facilities,,High,24
+Issue Ticket,"Civil & furniture – doors, drawers, chairs, tiles, paint",Admin – Facilities,,Medium,72
+Issue Ticket,Housekeeping & deep cleaning,Admin – Facilities,,Low,168
+Issue Ticket,Stock movement – inter-store,Admin – Transport,,High,4
+Issue Ticket,Stock movement – exhibition,Admin – Transport,,High,4
+Issue Ticket,Refinery / lab / karigar / repair run,Admin – Transport,,Medium,4
+Issue Ticket,Customer delivery,Admin – Transport,,High,4
+Issue Ticket,Official travel,Admin – Transport,,Low,4
+Issue Ticket,Payslip / salary / incentive query,HR,,Medium,72
+Issue Ticket,Leave / attendance correction (Keka),HR,,Medium,72
+Issue Ticket,PF / ESI / UAN / bank details,HR,,Medium,72
+Issue Ticket,Uniform / ID card / visiting card / employee records,HR,,Low,168
+Issue Ticket,New / modified report or dashboard,IT – ERP / MIS,,Low,
+Issue Ticket,Print format change,IT – ERP,,Low,
+Issue Ticket,"Master / configuration – category, tax, discount slab, scheme, bank",IT – ERP,,Low,
+Issue Ticket,"Data extraction – customer lists, campaign data",MIS,,Low,
+Issue Ticket,New feature / integration / automation,IT – ERP,,Low,
+Issue Ticket,Cash shortage / excess at counter,Operations Manager,,Critical,4
+Issue Ticket,Stock / piece missing or weight mismatch,Operations Manager,,Critical,4
+Issue Ticket,Theft / suspicious activity / key or strongroom breach,Operations Manager,,Critical,4
+Issue Ticket,L10 / delegation / scorecard / strategy / hiring tasks,,,,
