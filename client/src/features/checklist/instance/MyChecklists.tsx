@@ -3,7 +3,7 @@ import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { AlertCircle, Undo2, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
-import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
+import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab, PageBackButton } from '../../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../../components/createdRangeBanner';
 import { useCreatedRange } from '../../../lib/createdRange';
 import {
@@ -306,6 +306,7 @@ export const MyChecklists = () => {
 
   return (
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width)">
+      <PageBackButton />
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="checklists" />
       <div className="flex flex-col gap-3">
         <h1 className="sr-only">My Checklists</h1>

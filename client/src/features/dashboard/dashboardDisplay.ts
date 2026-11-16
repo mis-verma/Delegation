@@ -1,8 +1,6 @@
-import type { Ticket, TicketStatus } from '../../api/ticket';
+import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 import { PANEL_CLASS } from '../../components/entityCard';
-import type { DrilldownRow } from './DrilldownModal';
-import { isTaskHandedIn } from '../../lib/handedIn';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 
 export const DASHBOARD_CARD_CLASS = `${PANEL_CLASS} h-full`;
@@ -20,25 +18,8 @@ export const formatRelativeTime = (isoDate: string) => {
   return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const SHORT_DATE = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-const shortDate = (isoDate: string) => SHORT_DATE.format(new Date(isoDate)).replace(',', '');
-
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 const calendarDaysBetween = (from: number, to: number) => Math.round((startOfDay(new Date(to)) - startOfDay(new Date(from))) / 86_400_000);
-
-const pastDayLabel = (isoDate: string, now: number): string => {
-  const at = new Date(isoDate).getTime();
-  const minutes = Math.floor((now - at) / 60_000);
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const days = calendarDaysBetween(at, now);
-  if (days === 0) {
-    const hours = Math.floor(minutes / 60);
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-  }
-  if (days === 1) return 'Yesterday';
-  return shortDate(isoDate);
-};
 
 export const waitingFor = (isoDate: string, now: number): string => {
   const hours = Math.floor((now - new Date(isoDate).getTime()) / 3_600_000);
@@ -48,24 +29,12 @@ export const waitingFor = (isoDate: string, now: number): string => {
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 };
 
-const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg';
-const CARD_TILE_TONE = {
-  primary: 'bg-primary-500/12 text-primary-700 dark:text-primary-300',
-  warning: 'bg-warning/12 text-warning',
-  danger: 'bg-danger/12 text-danger',
-} as const;
-export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
-
 export const greeting = (at: Date) => {
   const hour = at.getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 };
-
-export type FeedItem =
-  | { kind: 'ticket'; id: string; title: string; status: TicketStatus; createdAt: string }
-  | { kind: 'task'; id: string; title: string; status: Task['status']; createdAt: string };
 
 export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -112,33 +81,6 @@ export const dueLabel = (isoDate: string, now: number, late: boolean): string =>
   return `Due ${dayMonth(due)}, ${clockLabel(due)}`;
 };
 
-export const doneLabel = (isoDate: string, now: number): string => {
-  const when = pastDayLabel(isoDate, now);
-  return `Done ${when === 'Yesterday' || when === 'Just now' ? when.toLowerCase() : when}`;
-};
-
-export const taskDrilldownRow = (task: Task, now: number): DrilldownRow => {
-  const completed = isTaskHandedIn(task);
-  const overdue = isTaskOverdue(task, now);
-  const meta = task.status === 'pending_approval'
-    ? 'Handed in, waiting for approval'
-    : completed
-      ? doneLabel(task.verifiedAt ?? task.updatedAt, now)
-      : task.dueDate
-        ? dueLabel(task.dueDate, now, overdue)
-        : 'No due date';
-  return {
-    id: task.id,
-    title: task.title,
-    link: `/tasks?open=${task.id}`,
-    createdAt: task.createdAt,
-    completed,
-    overdue,
-    meta,
-    dueAt: task.dueDate ? new Date(task.dueDate).getTime() : null,
-  };
-};
-
 export const isTicketLate = (ticket: Pick<Ticket, 'status' | 'isOverdue' | 'closedAt' | 'tatDueAt'>): boolean => {
   if (ticket.status === 'CLOSED') {
     if (!ticket.closedAt || !ticket.tatDueAt) return false;
@@ -170,14 +112,6 @@ export const bucketKeyFor = (period: CompliancePeriod, date: Date): string => {
   }
 };
 
-export type ActivityGroupBy = 'day' | 'month' | 'quarter' | 'year';
-
-export interface ActivityBucket {
-  label: string;
-  start: Date;
-  end: Date;
-}
-
 export type ActivityCategory = 'checklist' | 'todo' | 'ticket' | 'delegation';
 export const ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
   checklist: 'Checklist',
@@ -191,20 +125,6 @@ export const ACTIVITY_CATEGORY_DOT_CLASS: Record<ActivityCategory, string> = {
   delegation: 'bg-activity-delegation',
   todo: 'bg-activity-todo',
 };
-
-export interface ActivityWorkItem {
-  id: string;
-  title: string;
-  link: string;
-  category: ActivityCategory;
-  createdAt: string;
-  completed: boolean;
-  overdue: boolean;
-  late?: boolean;
-  userIds: string[];
-  departmentId: string | null;
-  storeId: string | null;
-}
 
 export type RateTone = 'success' | 'warning' | 'danger' | 'neutral';
 

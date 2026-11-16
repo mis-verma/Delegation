@@ -1,7 +1,8 @@
 import { memo, useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { NavLink, useLocation, useNavigate } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
+import { useGoBack } from '../../lib/historyBack';
 import {
   ArrowLeft,
   ChevronDown,
@@ -62,13 +63,8 @@ const HeaderImpl = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const firstName = (user?.name ?? '').split(' ')[0];
   const isHome = location.pathname === '/';
-  const navigate = useNavigate();
   const showBack = hasBackArrow(location.pathname);
-  const goBack = () => {
-    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-    if (idx > 0) void navigate(-1);
-    else void navigate(parentPath(location.pathname), { replace: true });
-  };
+  const goBack = useGoBack(parentPath(location.pathname), { replace: true });
   const phoneTitle = isHome ? timeGreeting(now) : pageLabel;
   const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
   const phoneDate = isHome && firstName ? `${firstName}, ${phoneDateOnly}` : phoneDateOnly;

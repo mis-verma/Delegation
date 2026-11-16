@@ -1,11 +1,11 @@
 import { memo, useMemo } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, Siren } from 'lucide-react';
 import { StatBoard, type BoardApprovalPart, type BoardColumn, type BoardRow, type BoardSummary } from './StatBoard';
 import { buildModuleRoute, buildWorkRoute, type StatScopeKey, type StatTargetContext } from './work/statTargets';
 import {
-  APPROVALS_LABEL, APPROVAL_PARAMS, APPROVAL_STATUS_FIELD, COUNT_FIELD, MODULE_STATS_SCHEMA, SCOPE_MODULES, STATUS_LABEL, STATUS_TONE, SUMMARY_MODULES,
-  type ApprovalParam, type ModuleKey, type StatusKey,
-} from './work/statsConfig';
+  APPROVALS_LABEL, APPROVAL_PARAMS, APPROVAL_STATUS_FIELD, COUNT_FIELD, MODULE_STATS_SCHEMA, SCOPE_MODULES, STATS_VIEW_SCHEMA, STATUS_LABEL, STATUS_TONE, SUMMARY_MODULES,
+  type ApprovalParam, type ModuleKey, type StatsView, type StatusKey,
+} from './work/statsRegistry';
 import type { ApprovalFigure } from './approvalFigures';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardSummaries } from './useDashboardSummaries';
@@ -43,19 +43,27 @@ const normalise = (source: Source | undefined): ModuleState => {
 
 const sumOf = (values: number[]) => values.reduce((n, v) => n + v, 0);
 
+const approvalValue = (approval: ApprovalFigure, status: StatusKey): number => {
+  const field = APPROVAL_STATUS_FIELD[status];
+  const kinds = field ? sumOf(APPROVAL_PARAMS.map((p) => approval.kinds?.[p.key][field] ?? 0)) : 0;
+  return status === 'pending' || status === 'total' ? approval.value : status === 'delayed' ? approval.delayed : kinds;
+};
+
 interface HomeStatsProps {
   kpi: DashboardSummaries['kpi'];
   scope: StatScope;
   teamLabel: string;
+  view?: StatsView;
   approval?: ApprovalFigure;
 }
 
-export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsProps) => {
+export const HomeStats = memo(({ kpi, scope, teamLabel, view = 'work', approval }: HomeStatsProps) => {
   const { user } = useAuth();
   const userId = user?.id;
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
   const overall = scope === 'overall';
   const workScope: StatScopeKey = overall ? 'visible' : 'mine';
+  const viewSchema = STATS_VIEW_SCHEMA[view];
 
   const metricsByModule = useMemo<Record<ModuleKey, ModuleState>>(() => {
     const checklist = !overall || !canSeeTeam ? kpi.checklistToday : kpi.scopeChecklistToday;
@@ -78,39 +86,41 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
     return keys.map((key): BoardColumn => {
       const schema = MODULE_STATS_SCHEMA[key];
       const state = metricsByModule[key];
+      const statuses = viewSchema.statuses?.[key] ?? schema.statuses;
+      const totalStatus = viewSchema.totalStatus[key] ?? viewSchema.totalStatus.default;
       const route = (status: StatusKey, sub?: ApprovalParam) =>
         buildModuleRoute(key, status, sub, key === 'approvals' ? { ...ctx, routeOverride: approval?.href } : ctx);
-
-      if (key === 'approvals' && approval) {
-        const fieldTotal = (status: StatusKey) => {
-          const field = APPROVAL_STATUS_FIELD[status];
-          return field ? sumOf(APPROVAL_PARAMS.map((p) => approval.kinds?.[p.key][field] ?? 0)) : 0;
-        };
-        const rows: BoardRow[] = schema.statuses.map((status) => ({
-          key: status,
-          label: schema.statusLabels?.[status] ?? STATUS_LABEL[status],
-          value: status === 'pending' ? approval.value : status === 'delayed' ? approval.delayed : fieldTotal(status),
-          href: route(status),
-          tone: STATUS_TONE[status],
-          loading: approval.loading,
-          missing: approval.failed,
-        }));
-        const pills: BoardApprovalPart[] = APPROVAL_PARAMS.map((p) => ({ key: p.key, label: p.label, value: approval.kinds?.[p.key].pending ?? 0, href: route('pending', p.key) }));
-        return { key, label: schema.label, icon: schema.icon, tone: schema.tone, total: approval.value, totalLabel: schema.totalLabel, href: route('total'), rows, pills, loading: approval.loading, failed: approval.failed };
-      }
-
-      const rows: BoardRow[] = schema.statuses.map((status) => ({
+      const isApprovals = key === 'approvals' && !!approval;
+      const loading = isApprovals ? approval.loading : state.loading;
+      const failed = isApprovals ? approval.failed : state.failed;
+      const valueOf = (status: StatusKey) => (isApprovals ? approvalValue(approval, status) : state.counts[status]);
+      const rows: BoardRow[] = statuses.map((status) => ({
         key: status,
         label: schema.statusLabels?.[status] ?? STATUS_LABEL[status],
-        value: state.counts[status],
+        value: valueOf(status),
         href: route(status),
         tone: STATUS_TONE[status],
-        loading: state.loading,
-        missing: state.failed,
+        loading,
+        missing: failed,
       }));
-      return { key, label: schema.label, icon: schema.icon, tone: schema.tone, total: state.counts.total, totalLabel: schema.totalLabel, href: route('total'), rows, loading: state.loading, failed: state.failed };
+      const pills: BoardApprovalPart[] | undefined = isApprovals
+        ? APPROVAL_PARAMS.map((p) => ({ key: p.key, label: p.label, value: approval.kinds?.[p.key].pending ?? 0, href: route('pending', p.key) }))
+        : undefined;
+      return {
+        key,
+        label: schema.label,
+        icon: schema.icon,
+        tone: schema.tone,
+        total: valueOf(totalStatus),
+        totalLabel: viewSchema.totalLabels?.[key] ?? schema.totalLabel,
+        href: route(totalStatus),
+        rows,
+        pills,
+        loading,
+        failed,
+      };
     });
-  }, [scope, metricsByModule, approval, ctx]);
+  }, [scope, metricsByModule, approval, ctx, viewSchema]);
 
   const summary = useMemo<BoardSummary>(() => {
     const modules = SUMMARY_MODULES.filter((k) => metricsByModule[k].present);
@@ -128,18 +138,20 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
           parts: APPROVAL_PARAMS.map((p) => ({ key: p.key, label: p.label, value: approval.kinds?.[p.key].pending ?? 0, href: buildModuleRoute('approvals', 'pending', p.key, approvalCtx) })),
         }
       : undefined;
+    const status = viewSchema.summaryStatus;
+    const actionable = view === 'attention' && approval ? approval.value : 0;
     return {
-      label: 'Total',
-      caption: loaded.length < modules.length && loaded.length > 0 ? 'Everything in this view, some not loaded' : 'Everything in this view',
-      icon: Layers,
-      total: sumOf(loaded.map((k) => metricsByModule[k].counts.total)),
-      href: buildWorkRoute('total', workScope),
+      label: viewSchema.summaryLabel,
+      caption: loaded.length < modules.length && loaded.length > 0 ? `${viewSchema.summaryCaption}, some not loaded` : viewSchema.summaryCaption,
+      icon: view === 'attention' ? Siren : Layers,
+      total: sumOf(loaded.map((k) => metricsByModule[k].counts[status])) + actionable,
+      href: buildWorkRoute(status, workScope),
       parts: modules.map((k) => ({
         key: k,
         label: k === 'checklist' ? 'Checklists, today' : MODULE_STATS_SCHEMA[k].label,
         icon: MODULE_STATS_SCHEMA[k].icon,
-        value: metricsByModule[k].counts.total,
-        href: buildModuleRoute(k, 'total', undefined, ctx),
+        value: metricsByModule[k].counts[status],
+        href: buildModuleRoute(k, status, undefined, ctx),
         missing: metricsByModule[k].failed,
         loading: metricsByModule[k].loading,
       })),
@@ -147,14 +159,14 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
       loading,
       failed,
     };
-  }, [metricsByModule, approval, ctx, workScope]);
+  }, [metricsByModule, approval, ctx, workScope, viewSchema, view]);
 
   return (
     <StatBoard
       label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
       summary={summary}
       columns={columns}
-      note={overall ? 'To-dos are personal, so they show under My own.' : undefined}
+      note={overall && view === 'work' ? 'To-dos are personal, so they show under My own.' : undefined}
     />
   );
 });

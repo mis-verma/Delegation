@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { canGoBack as hasHistory } from './historyBack';
 import { hasBackArrow, parentPath } from './appNav';
 
 const EDGE_PX = 22;
@@ -29,8 +30,7 @@ export const useEdgeSwipeBack = (enabled: boolean) => {
       const dy = Math.abs(t.clientY - start.y);
       start = null;
       if (dx < TRIGGER_PX || dy > MAX_DRIFT_PX) return;
-      const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-      if (idx > 0) void navigate(-1);
+      if (hasHistory()) void navigate(-1);
       else void navigate(parentPath(pathname), { replace: true });
     };
     const onCancel = () => { start = null; };

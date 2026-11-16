@@ -1,13 +1,12 @@
 import { memo } from 'react';
-import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useStatCountFormat } from '../../lib/statCount';
 import { Skeleton } from '../../components/skeleton';
 import { STAT_FIGURE, STAT_PHONE_CENTER } from '../../components/statSurface';
 import { ApprovalPills } from './ApprovalPills';
-import { TONE, pathOf } from './boardLook';
-import type { RowTone } from './work/statsConfig';
+import { StatLink } from './StatLink';
+import { TONE } from './boardLook';
+import type { RowTone } from './work/statsRegistry';
 import type { BoardColumn, BoardRow } from './boardTypes';
 
 const ROW_BASE = 'relative z-10 -mx-1 flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-md px-1 t-meta outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/50 pointer-fine:min-h-6';
@@ -32,10 +31,8 @@ interface ModuleStatCardProps {
 
 const ModuleStatCardComponent = ({ column, className }: ModuleStatCardProps) => {
   const formatCount = useStatCountFormat();
-  const warm = usePrefetchRoute();
   const Icon = column.icon;
   const tone = TONE[column.tone];
-  const prefetch = (href: string) => () => warm(pathOf(href));
 
   return (
     <div
@@ -45,13 +42,9 @@ const ModuleStatCardComponent = ({ column, className }: ModuleStatCardProps) => 
         className,
       )}
     >
-      <Link
+      <StatLink
         to={column.href}
-        viewTransition
         aria-label={`${column.label}: ${column.failed ? 'could not load' : column.loading ? 'loading' : column.total}. ${column.totalLabel}`}
-        onPointerEnter={prefetch(column.href)}
-        onFocus={prefetch(column.href)}
-        onTouchStart={prefetch(column.href)}
         className="absolute inset-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50"
       />
 
@@ -64,18 +57,15 @@ const ModuleStatCardComponent = ({ column, className }: ModuleStatCardProps) => 
 
       <span className="flex min-w-0 flex-col gap-0.5">
         {column.rows.map((row) => (
-          <Link
+          <StatLink
             key={row.key}
             to={row.href}
-            viewTransition
-            onPointerEnter={prefetch(row.href)}
-            onFocus={prefetch(row.href)}
             aria-label={`${column.label}, ${row.label}: ${row.loading ? 'loading' : row.missing ? 'could not load' : row.value}. Open`}
             className={ROW_BASE}
           >
             <span className="min-w-0 truncate text-text-muted">{row.label}</span>
             <RowCount row={row} />
-          </Link>
+          </StatLink>
         ))}
       </span>
 

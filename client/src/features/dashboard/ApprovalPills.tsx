@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
+import { StatLink } from './StatLink';
 import type { BoardApprovalPart } from './boardTypes';
 
 interface ApprovalPillsProps {
@@ -31,15 +31,14 @@ const ApprovalPillsComponent = ({ parts, missing = false, tone = 'light' }: Appr
       );
       const base = cn('inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 py-0.5 t-meta font-medium leading-none', PILL[tone]);
       return p.href ? (
-        <Link
+        <StatLink
           key={p.key}
           to={p.href}
-          viewTransition
           aria-label={`${p.label}: ${missing ? 'could not load' : p.value}. Open`}
           className={cn(base, 'relative z-10 outline-none transition-colors duration-150 focus-visible:ring-2', LINK[tone])}
         >
           {content}
-        </Link>
+        </StatLink>
       ) : (
         <span key={p.key} className={base} aria-hidden="true">{content}</span>
       );

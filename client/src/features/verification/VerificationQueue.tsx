@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCheck } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useGoBack } from '../../lib/historyBack';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '../../components';
@@ -339,7 +339,7 @@ export const VerificationQueue = () => {
     if (ticketsFailed) void ticketsQuery.refetch();
     if (tasksFailed) void tasksQuery.refetch();
   };
-  const navigate = useNavigate();
+  const goBack = useGoBack('/');
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   if (openRow && params.view === 'waiting') {
@@ -365,7 +365,7 @@ export const VerificationQueue = () => {
   return (
     <div className="view-enter flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <div className="flex items-center justify-between gap-3">
-        <button type="button" onClick={() => navigate(-1)} className={BACK_BUTTON}>
+        <button type="button" onClick={goBack} className={BACK_BUTTON}>
           <ArrowLeft size={15} aria-hidden />
           Back
         </button>

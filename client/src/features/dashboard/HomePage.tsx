@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, lazy, startTransition, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { Briefcase, Globe2, Siren, SlidersHorizontal, User, Users } from 'lucide-react';
 import { HomeSection } from './HomeSection';
@@ -9,7 +9,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useNow } from '../../lib/useNow';
 import { SlidingTabs, Skeleton, type SlidingTabOption } from '../../components';
 import { useTicketsPagedQuery } from '../tickets/hook';
-import { HomeStats, type StatScope } from './HomeStats';
+import { NumbersTodaySection } from './NumbersTodaySection';
+import type { StatScope } from './HomeStats';
+import { clearDashboardOrigin } from '../../lib/dashboardOrigin';
 import { teamApprovalFigure } from './approvalFigures';
 import { OvertimeNotice } from './OvertimeNotice';
 import { OverdueTicketsPopup } from './OverdueTicketsPopup';
@@ -23,6 +25,7 @@ import { useExceptionTotalsQuery } from './useExceptionsQuery';
 import { useApprovalSources } from './useApprovalSources';
 import { usePcApprovalBuckets } from '../pc/usePcApprovalBuckets';
 import type { Ticket } from '../../api/ticket';
+import type { StatsView } from './work/statsRegistry';
 
 const ExceptionsCard = lazy(() => import('./ExceptionsCard').then((m) => ({ default: m.ExceptionsCard })));
 const TeamWeekHeat = lazy(() => import('./TeamWeekHeat').then((m) => ({ default: m.TeamWeekHeat })));
@@ -69,13 +72,17 @@ export const HomePage = () => {
   const changeTab = (next: HomeTab) => {
     if (next === tab) return;
     haptic('tap');
-    setParams((prev) => {
-      const out = new URLSearchParams(prev);
-      if (next === 'work') out.delete('tab');
-      else out.set('tab', next);
-      return out;
-    }, { replace: true });
+    startTransition(() => {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev);
+        if (next === 'work') out.delete('tab');
+        else out.set('tab', next);
+        return out;
+      }, { replace: true });
+    });
   };
+
+  useEffect(() => clearDashboardOrigin(), []);
 
   const layout = useHomeLayout(userId);
   const [customizing, setCustomizing] = useState<HomeSectionId | 'menu' | null>(null);
@@ -85,7 +92,7 @@ export const HomePage = () => {
   const changeStatScope = (next: StatScope) => {
     if (next === statScope) return;
     haptic('tap');
-    setStatScope(next);
+    startTransition(() => setStatScope(next));
     try {
       window.localStorage.setItem(STAT_SCOPE_KEY, next);
     } catch {
@@ -132,24 +139,18 @@ export const HomePage = () => {
     [approvalTotal, approvalBuckets.delegation, approvalBuckets.ticket, approvalBuckets.checklist, queueHref, approvalSourcesLoading, approvalFailed],
   );
   const currentScope: StatScope = hasTabs ? statScope : 'mine';
-  const overview = (
-    <HomeStats
-      kpi={summaries.kpi}
+  const teamLabel = dashboardView.orgWide ? 'Overall' : 'My team';
+  const statSection = (view: StatsView) => (
+    <NumbersTodaySection
+      view={view}
       scope={currentScope}
-      teamLabel={dashboardView.orgWide ? 'Overall' : 'My team'}
-      approval={currentScope === 'mine' ? undefined : teamApproval}
+      teamLabel={teamLabel}
+      kpi={summaries.kpi}
+      approval={teamApproval}
+      scopeOptions={hasTabs ? scopeOptions : undefined}
+      onScopeChange={hasTabs ? changeStatScope : undefined}
     />
   );
-
-  const statSection = hasTabs ? (
-    <section aria-labelledby="home-stats-heading" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h2 id="home-stats-heading" className="t-section font-display font-bold text-text">Numbers today</h2>
-        <SlidingTabs label="Whose numbers to show" value={statScope} options={scopeOptions} onChange={changeStatScope} size="sm" fill="phone" className="max-sm:w-full" />
-      </div>
-      {overview}
-    </section>
-  ) : overview;
 
   const sectionIds: readonly HomeSectionId[] = hasTabs
     ? ['stats', 'streak', ...(dashboardView.isHod ? (['myTeam'] as const) : []), 'teamWeek']
@@ -199,7 +200,7 @@ export const HomePage = () => {
           <div key={tab} className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none">
             {tab === 'work' && (
               <>
-                {section('stats', statSection)}
+                {section('stats', statSection('work'))}
                 {section('streak', <StreakGoalCard />)}
                 <Suspense fallback={PANEL_FALLBACK}>
                   {dashboardView.isHod && section('myTeam', <MyTeamCard />)}
@@ -209,15 +210,18 @@ export const HomePage = () => {
               </>
             )}
             {tab === 'attention' && (
-              <Suspense fallback={PANEL_FALLBACK}>
-                <ExceptionsCard limit={ATTENTION_TAB_LIMIT} />
-              </Suspense>
+              <>
+                {statSection('attention')}
+                <Suspense fallback={PANEL_FALLBACK}>
+                  <ExceptionsCard limit={ATTENTION_TAB_LIMIT} />
+                </Suspense>
+              </>
             )}
           </div>
         </>
       ) : (
         <>
-          {section('stats', statSection)}
+          {section('stats', statSection('work'))}
           {section('streak', <StreakGoalCard />)}
           {customizeFooter}
         </>

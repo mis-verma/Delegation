@@ -22,9 +22,3 @@ export const CATEGORY_PILL: Record<ActivityCategory, string> = {
   todo: 'bg-surface-hover text-text-secondary',
 };
 
-export const CATEGORY_ACCENT: Record<ActivityCategory, string> = {
-  checklist: 'bg-vivid-blue',
-  delegation: 'bg-vivid-green',
-  ticket: 'bg-vivid-sky',
-  todo: 'bg-text-muted',
-};

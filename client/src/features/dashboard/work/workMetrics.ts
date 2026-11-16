@@ -1,10 +1,10 @@
 import { AlertTriangle, CalendarClock, Clock3, Layers, type LucideIcon } from 'lucide-react';
 import type { WorkKind, WorkMetric } from '../../../api/dashboard';
 import type { BoardTone } from '../boardTypes';
-import { buildModuleRoute, buildWorkRoute } from './statTargets';
-import type { ModuleKey } from './statsConfig';
+import { buildModuleRoute } from './statTargets';
+import type { ModuleKey } from './statsRegistry';
 
-export interface MetricLook {
+interface MetricLook {
   key: WorkMetric;
   label: string;
   caption: string;
@@ -24,9 +24,7 @@ export const isWorkMetric = (value: string | null): value is WorkMetric =>
 
 export type WorkScope = 'mine' | 'visible';
 
-export const workListHref = (metric: WorkMetric, scope: WorkScope) => buildWorkRoute(metric, scope);
-
-export interface CountsLike {
+interface CountsLike {
   pending: number;
   overdue: number;
   due: number;

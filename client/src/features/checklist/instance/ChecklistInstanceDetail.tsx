@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
+import { useGoBack } from '../../../lib/historyBack';
 import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
@@ -127,11 +128,8 @@ export const ChecklistInstanceDetail = () => {
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set());
   const [doneOpen, setDoneOpen] = useState(true);
   const [editAnswers, setEditAnswers] = useState(false);
-  const goBackAfterDecision = () => {
-    const hasHistory = typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0;
-    if (hasHistory) navigate(-1);
-    else navigate(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
-  };
+  const goBackAfterDecision = useGoBack(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
+  const goBackToList = useGoBack('/checklists', { replace: true });
 
   const rowIsBusy = useRowActivity(rowDomId);
   const { pending: pendingItems, done: answeredItems, settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowIsBusy);
@@ -316,7 +314,7 @@ export const ChecklistInstanceDetail = () => {
   return (
     <div className="flex flex-col gap-6 w-full">
       <div className={'flex items-center justify-between gap-3 max-md:hidden'}>
-        <Button variant="ghost" size="sm" className="max-md:hidden" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/checklists', { replace: true }))} aria-label="Back">
+        <Button variant="ghost" size="sm" className="max-md:hidden" onClick={goBackToList} aria-label="Back">
           <ArrowLeft size={15} aria-hidden />
           Back
         </Button>

@@ -1,18 +1,9 @@
 import { OWN_SCOPE_ROLES, type Role } from '../../api/auth';
-import { DEFAULT_CARD_ORDER, FRONT_LINE_CARD_ORDER, type DashboardCardId } from './dashboardLayout';
 
-export type DashboardView = 'user' | 'admin';
-
-export interface DashboardViewConfig {
-  view: DashboardView;
+interface DashboardViewConfig {
   frontLine: boolean;
   orgWide: boolean;
   isHod: boolean;
-  isPc: boolean;
-  reviewsTicketRequests: boolean;
-  order: readonly DashboardCardId[];
-  layoutKeyPrefix: string;
-  showOversightCards: boolean;
   scores: {
     simple: boolean;
     canExport: boolean;
@@ -26,15 +17,9 @@ export const dashboardViewFor = (role: Role | undefined): DashboardViewConfig =>
   const orgWide = role === 'ADMIN' || role === 'PC' || role === 'OWNER';
   const isHod = role === 'MANAGER' || role === 'SENIOR';
   return {
-    view: frontLine ? 'user' : 'admin',
     frontLine,
     orgWide,
     isHod,
-    isPc: role === 'PC',
-    reviewsTicketRequests:isHod || role === 'ADMIN',
-    order: frontLine ? FRONT_LINE_CARD_ORDER : DEFAULT_CARD_ORDER,
-    layoutKeyPrefix: frontLine ? 'tm-dashboard-layout-user' : 'tm-dashboard-layout',
-    showOversightCards: orgWide,
     scores: {
       simple: frontLine,
       canExport: orgWide || isHod,

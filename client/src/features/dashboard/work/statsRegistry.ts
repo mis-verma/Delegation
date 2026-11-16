@@ -37,7 +37,7 @@ export const STATUS_TONE: Record<StatusKey, RowTone> = {
   total: 'neutral',
 };
 
-export type CountField = 'pending' | 'overdue' | 'due' | 'missed' | 'completed' | 'total';
+type CountField = 'pending' | 'overdue' | 'due' | 'missed' | 'completed' | 'total';
 
 export const COUNT_FIELD: Record<StatusKey, CountField> = {
   pending: 'pending',
@@ -48,7 +48,7 @@ export const COUNT_FIELD: Record<StatusKey, CountField> = {
   total: 'total',
 };
 
-export type ApprovalField = 'pending' | 'old' | 'fresh';
+type ApprovalField = 'pending' | 'old' | 'fresh';
 
 export const APPROVAL_STATUS_FIELD: Partial<Record<StatusKey, ApprovalField>> = { pending: 'pending', delayed: 'old', due: 'fresh', total: 'pending' };
 
@@ -68,7 +68,7 @@ export interface RouteQuery {
   solo?: { name: string; value: string };
 }
 
-export interface ModuleSchema {
+interface ModuleSchema {
   key: ModuleKey;
   label: string;
   icon: LucideIcon;
@@ -140,3 +140,40 @@ export const SCOPE_MODULES: Readonly<Record<'overall' | 'mine', readonly ModuleK
 export const SUMMARY_MODULES: readonly ModuleKey[] = ['delegation', 'tickets', 'checklist', 'todo'];
 
 export const APPROVALS_LABEL = 'Approvals';
+
+export type StatsView = 'work' | 'attention';
+
+interface StatsViewSchema {
+  heading: string;
+  summaryLabel: string;
+  summaryCaption: string;
+  summaryStatus: StatusKey;
+  statuses?: Partial<Record<ModuleKey, readonly StatusKey[]>>;
+  totalStatus: Partial<Record<ModuleKey, StatusKey>> & { default: StatusKey };
+  totalLabels?: Partial<Record<ModuleKey, string>>;
+}
+
+export const STATS_VIEW_SCHEMA: Readonly<Record<StatsView, StatsViewSchema>> = {
+  work: {
+    heading: 'Numbers today',
+    summaryLabel: 'Total',
+    summaryCaption: 'Everything in this view',
+    summaryStatus: 'total',
+    totalStatus: { default: 'total' },
+  },
+  attention: {
+    heading: 'Needs attention',
+    summaryLabel: 'Needs action',
+    summaryCaption: 'Past the deadline or waiting for you',
+    summaryStatus: 'delayed',
+    statuses: {
+      todo: ['delayed', 'due'],
+      tickets: ['delayed', 'due'],
+      delegation: ['delayed', 'due'],
+      checklist: ['delayed', 'pending'],
+      approvals: ['pending', 'delayed'],
+    },
+    totalStatus: { default: 'delayed', approvals: 'pending' },
+    totalLabels: { todo: 'Past deadline', tickets: 'Past deadline', delegation: 'Past deadline', checklist: 'Past deadline', approvals: 'Waiting for you' },
+  },
+};

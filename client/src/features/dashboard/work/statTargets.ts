@@ -1,4 +1,4 @@
-import { MODULE_STATS_SCHEMA, STAT_ROUTES, VIEWER, type ApprovalParam, type ModuleKey, type RouteQuery, type StatusKey } from './statsConfig';
+import { MODULE_STATS_SCHEMA, STAT_ROUTES, VIEWER, type ApprovalParam, type ModuleKey, type RouteQuery, type StatusKey } from './statsRegistry';
 
 export type { ApprovalParam };
 

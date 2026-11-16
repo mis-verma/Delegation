@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PageBackButton } from '../../components';
 import { CreateButton } from '../../components/createButton';
 import { TaskTeamStrip } from './TaskTeamStrip';
 import { useSearchParams } from "react-router";
@@ -578,6 +579,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
   return (
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+      <PageBackButton />
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="delegations" />
       <ScoreDrillBanner drill={scoreDrill} noun="delegations" />
 

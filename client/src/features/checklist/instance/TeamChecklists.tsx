@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Repeat, Search, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, type SlidingTabOption } from '../../../components';
+import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, type SlidingTabOption, PageBackButton } from '../../../components';
 import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
 import { RunVerificationChip } from './RunVerificationChip';
 import { PANEL_CLASS } from '../../../components/entityCard';
@@ -138,6 +138,7 @@ export const TeamChecklists = () => {
 
   return (
     <div className="mx-auto flex w-full max-w-(--container-width) flex-col gap-4 pt-2.5">
+      <PageBackButton />
       <PageHeader
         icon={ClipboardList}
         title="Team checklists"

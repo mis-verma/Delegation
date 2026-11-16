@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateButton } from '../../components/createButton';
 import { useSearchParams } from 'react-router';
 import { Plus, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock, Hand } from 'lucide-react';
-import { PageNav, Fab, ViewToggle, EmptyState, InlineError, Button, SearchField, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, EmptyState, InlineError, Button, SearchField, type ViewTab, PageBackButton } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { ticketMatchesDrill, useScoreDrill } from '../../lib/scoreDrill';
@@ -192,6 +192,7 @@ export const TicketList = () => {
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-(--container-width) flex-col gap-4 pt-2.5">
+      <PageBackButton />
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="tickets" />
       <ScoreDrillBanner
         drill={scoreDrill}

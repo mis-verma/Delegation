@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { useGoBack } from '../../../lib/historyBack';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AlarmClock, ArrowLeft, CalendarClock, ChevronRight, Clock3, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -123,7 +124,6 @@ const LoadingGroups = () => (
 );
 
 export const WorkListPage = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const ownOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
@@ -176,7 +176,7 @@ export const WorkListPage = () => {
     }, { replace: true });
   };
 
-  const goBack = () => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true }));
+  const goBack = useGoBack('/', { replace: true });
 
   return (
     <div className="view-enter flex w-full max-w-4xl flex-col gap-4 pt-2.5 mx-auto sm:gap-5">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Flag, ArrowUpDown, FileSpreadsheet, Plus, SquarePen, X } from 'lucide-react';
-import { Button, Fab, SearchField } from '../../components';
+import { Button, Fab, SearchField, PageBackButton } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -86,6 +86,7 @@ export const TodoPage = () => {
   return (
     <div className="flex flex-col gap-4 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       <h1 className="sr-only">To-Do</h1>
+      <PageBackButton />
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
 
       <Fab

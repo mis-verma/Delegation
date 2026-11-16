@@ -4,4 +4,3 @@ const alertOnly = (alert: string): Record<CardAccent, string> => ({ blue: '', sk
 
 export const CARD_TOP_BAR = alertOnly('border-t-2 border-t-vivid-red');
 
-export const CARD_HEAD_TINT = alertOnly('bg-vivid-red/5');

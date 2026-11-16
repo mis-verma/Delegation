@@ -78,6 +78,7 @@ export { ConfirmDialogProvider, useConfirm } from './confirmDialog';
 export { InlineError } from './inlineError';
 export { NoticeBanner } from './noticeBanner';
 export { PageHeader } from './pageHeader';
+export { PageBackButton } from './pageBackButton';
 export { SearchField } from './searchField';
 export { AppliedFilters, AppliedFilterChip } from './appliedFilters';
 export type { AppliedFilter } from './appliedFilters';

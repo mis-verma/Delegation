@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router';
 import { ShieldCheck } from 'lucide-react';
-import { PageHeader, Skeleton } from '../../components';
+import { PageHeader, Skeleton, PageBackButton } from '../../components';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import { TicketApprovals } from './TicketApprovals';
 
@@ -23,6 +23,7 @@ export const TeamApprovalsPage = () => {
 
   return (
     <div className="flex w-full flex-col gap-5">
+      <PageBackButton />
       <PageHeader icon={ShieldCheck} title="Team approvals" subtitle="Decide on new requests, approve finished work and review checklists for your department." />
       <Suspense fallback={null}>
         <ApprovalCoverCard />

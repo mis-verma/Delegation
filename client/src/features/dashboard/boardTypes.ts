@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { RowTone } from './work/statsConfig';
+import type { RowTone } from './work/statsRegistry';
 
 export type BoardTone = 'primary' | 'danger' | 'coral' | 'success';
 
