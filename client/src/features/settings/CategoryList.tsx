@@ -2,11 +2,11 @@ import { startTransition, useCallback, useEffect, useMemo, useState, lazy, Suspe
 import { useSearchParams } from "react-router";
 import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download, Trash2 } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download, Trash2, MoreHorizontal } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
+  Button, Dropdown, type DropdownAction, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useClearCategoriesMutation, useDeleteCategoryMutation, useDepartmentsQuery, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
@@ -402,31 +402,35 @@ export const CategoryList = () => {
 
   const activeModal = showForm || editingCategory;
 
+  const moreItems: DropdownAction[] = [
+    ...(missingStarter > 0 && categories.length > 0 ? [{ label: `Add the usual categories (${missingStarter})`, icon: ListPlus, onClick: () => setShowStarter(true) }] : []),
+    ...(categories.length > 0 ? [{ label: "Export to Excel", icon: Download, onClick: () => exportFile.mutate("xlsx") }] : []),
+    ...(categories.length > 0 && user?.role === "ADMIN" ? [{ label: "Remove all categories", icon: Trash2, variant: "destructive" as const, separatorBefore: true, onClick: () => { void replaceAll(); } }] : []),
+  ];
+
   const actions = (
     <div className="flex items-center gap-2 sm:ml-auto">
-      {missingStarter > 0 && categories.length > 0 && tab === "list" && (
-        <Button variant="outline" size="sm" onClick={() => setShowStarter(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
-          <Plus size={15} aria-hidden />
-          Add usual ({missingStarter})
-        </Button>
-      )}
       {tab === "list" && (
         <Button variant="outline" size="sm" onClick={() => setShowImport(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
           <FileUp size={15} aria-hidden />
           Import from file
         </Button>
       )}
-      {tab === "list" && categories.length > 0 && user?.role === "ADMIN" && (
-        <Button variant="outline" size="sm" isLoading={clearMut.isPending} onClick={() => { void replaceAll(); }} className="hidden h-9 md:inline-flex font-display font-semibold">
-          <Trash2 size={15} aria-hidden />
-          Replace all
-        </Button>
-      )}
-      {tab === "list" && categories.length > 0 && (
-        <Button variant="outline" size="sm" isLoading={exportFile.isPending} onClick={() => exportFile.mutate("xlsx")} className="hidden h-9 md:inline-flex font-display font-semibold">
-          <Download size={15} aria-hidden />
-          Export
-        </Button>
+      {tab === "list" && moreItems.length > 0 && (
+        <Dropdown
+          align="end"
+          items={moreItems}
+          trigger={
+            <button
+              type="button"
+              aria-label="More category actions"
+              disabled={clearMut.isPending || exportFile.isPending}
+              className="hidden size-9 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface text-text-muted outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 md:flex"
+            >
+              <MoreHorizontal className="size-4" aria-hidden />
+            </button>
+          }
+        />
       )}
       {tab === "list" && <CreateButton label="New category" onClick={() => setShowForm(true)} className="hidden md:inline-flex" />}
     </div>

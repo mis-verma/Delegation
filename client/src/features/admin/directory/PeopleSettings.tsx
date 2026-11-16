@@ -6,6 +6,7 @@ import { IdCard } from 'lucide-react';
 import { Button, InlineError, Input, Skeleton } from '../../../components';
 import { SettingsCard } from '../../settings/SettingsCard';
 import { useSettingsQuery, useUpdateSettingsMutation } from '../hook';
+import { CategorySettingsCard } from './CategorySettingsCard';
 
 const schema = z.object({
   employeeIdPrefix: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, 'Use 1 to 12 letters or numbers'),
@@ -33,7 +34,8 @@ export const PeopleSettings = () => {
   const onSubmit = (data: Fields) => mutation.mutate({ employeeIdPrefix: data.employeeIdPrefix.toUpperCase() }, { onSuccess: (updated) => reset({ employeeIdPrefix: updated.employeeIdPrefix }) });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex w-full max-w-xl flex-col gap-4">
+    <div className="flex w-full max-w-xl flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex w-full flex-col gap-4">
       <SettingsCard icon={IdCard} title="Employee IDs" hint="Every person gets an ID like EMP-0001 when they are added. Changing the prefix only applies to people added after the change. Existing IDs stay as they are.">
         <Input id="employeeIdPrefix" label="ID prefix" placeholder="EMP" autoComplete="off" error={errors.employeeIdPrefix?.message} {...register('employeeIdPrefix')} />
         <div className="flex justify-end">
@@ -41,5 +43,7 @@ export const PeopleSettings = () => {
         </div>
       </SettingsCard>
     </form>
+    <CategorySettingsCard />
+    </div>
   );
 };

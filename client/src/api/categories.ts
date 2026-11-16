@@ -99,6 +99,8 @@ export type CategoryProposal = {
     assigneeId: string | null;
     assigneeSource: "column" | "head" | "none";
     departmentId: string | null;
+    departmentText: string | null;
+    departmentMatch: "exact" | "fuzzy" | "none";
     departmentSource: "person" | "column" | "none";
     exists: boolean;
     existingCategoryId: string | null;

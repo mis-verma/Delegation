@@ -51,6 +51,7 @@ export type CategoryProposal = {
     assigneeId: string | null
     assigneeSource: "column" | "head" | "none"
     departmentId: string | null
+    departmentText: string | null
     departmentSource: "person" | "column" | "none"
     departmentMatch: MatchConfidence
     exists: boolean
@@ -307,6 +308,7 @@ export const buildCategoryProposals = (
             assigneeId: person?.id ?? head?.id ?? null,
             assigneeSource: person ? "column" : head ? "head" : "none",
             departmentId,
+            departmentText: topDepartmentName,
             departmentSource,
             departmentMatch,
             exists: ctx.existingNames.has(key),

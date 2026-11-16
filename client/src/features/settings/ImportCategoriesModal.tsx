@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertCircle, Building2, ChevronDown, Clock, Download, FileSpreadsheet, FileUp, User } from 'lucide-react';
@@ -9,6 +9,7 @@ import { tagApi } from '../../api/tags';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { useCreateManyCategoriesMutation, useDownloadCategoriesMutation } from './hook';
 import { formatTatHours } from './tatFormat';
+import { readCategorySettings } from './categorySettings';
 
 interface ImportCategoriesModalProps {
   onClose: () => void;
@@ -44,15 +45,28 @@ const isActionable = (row: CategoryProposal) => !row.exists || newSubcategories(
 interface RowOptions {
   departmentId: string;
   fillHead: boolean;
+  defaultHours: string;
+  mapping: Record<string, string>;
 }
 
-const defaultOptions = (): RowOptions => ({ departmentId: '', fillHead: true });
+const EMPTY_OPTIONS: RowOptions = { departmentId: '', fillHead: true, defaultHours: '', mapping: {} };
+
+const defaultOptions = (data: CategoryHistoryPreview): RowOptions => {
+  const saved = readCategorySettings();
+  return {
+    departmentId: data.departments.some((d) => d.id === saved.defaultDepartmentId) ? saved.defaultDepartmentId : '',
+    fillHead: saved.fillHead,
+    defaultHours: saved.defaultHours,
+    mapping: {},
+  };
+};
 
 const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
   const minRows = data.isList ? 1 : MIN_ROWS_BY_DEFAULT;
   const headNames = new Map(data.heads.map((h) => [h.departmentId, h]));
   return data.proposals.map((p) => {
-    const departmentId = options.departmentId || p.departmentId;
+    const mapped = p.departmentText ? options.mapping[p.departmentText] : undefined;
+    const departmentId = options.departmentId || mapped || p.departmentId;
     const keepsPerson = p.assigneeSource === 'column';
     const head = !keepsPerson && options.fillHead && departmentId ? headNames.get(departmentId) : undefined;
     return {
@@ -61,7 +75,7 @@ const toRows = (data: CategoryHistoryPreview, options: RowOptions): Row[] => {
       assigneeId: keepsPerson ? p.assigneeId : (head?.personId ?? null),
       personName: keepsPerson ? p.personName : (head?.name ?? null),
       selected: p.exists ? newSubcategories(p).length > 0 : !!departmentId && p.rowCount >= minRows,
-      hours: p.tatHours ? String(p.tatHours) : '',
+      hours: p.tatHours ? String(p.tatHours) : options.defaultHours,
     };
   });
 };
@@ -111,7 +125,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CategoryHistoryPreview | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
-  const [options, setOptions] = useState<RowOptions>({ departmentId: '', fillHead: true });
+  const [options, setOptions] = useState<RowOptions>(EMPTY_OPTIONS);
   const [reading, setReading] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -125,7 +139,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
     setReading(true);
     try {
       const data = await categoryApi.historyPreview(next, column);
-      const initial = defaultOptions();
+      const initial = defaultOptions(data);
       setFile(next);
       setPreview(data);
       setOptions(initial);
@@ -144,6 +158,17 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
     setOptions(next);
     setRows(toRows(preview, next));
   };
+
+  const unmatched = useMemo(() => {
+    const found = new Map<string, { rows: number; guess: string }>();
+    for (const p of preview?.proposals ?? []) {
+      if (!p.departmentText || p.departmentMatch === 'exact') continue;
+      const entry = found.get(p.departmentText) ?? { rows: 0, guess: p.departmentId ?? '' };
+      entry.rows += 1;
+      found.set(p.departmentText, entry);
+    }
+    return [...found].map(([text, entry]) => ({ text, ...entry }));
+  }, [preview]);
 
   const toggleOpen = (key: string) =>
     setOpen((prev) => {
@@ -327,6 +352,32 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
               <span className="t-meta font-display font-semibold text-text-secondary">Blank person goes to the team head</span>
             </label>
           </div>
+
+          {unmatched.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-3">
+              <p className="t-card font-display font-semibold text-text">
+                {unmatched.length} {unmatched.length === 1 ? 'team name in your file is' : 'team names in your file are'} not an exact match
+              </p>
+              <ul className="flex flex-col gap-2">
+                {unmatched.map(({ text, rows: count, guess }) => (
+                  <li key={text} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                    <span className="min-w-0 flex-1 break-words t-meta font-display font-semibold text-text-secondary">
+                      "{text}" <span className="font-medium text-text-muted">on {count} {count === 1 ? 'row' : 'rows'}</span>
+                    </span>
+                    <div className="sm:w-64">
+                      <Combobox
+                        value={options.mapping[text] ?? guess}
+                        onChange={(value) => changeOptions({ mapping: { ...options.mapping, [text]: value } })}
+                        options={departmentOptions}
+                        emptyOptionLabel="Pick the team"
+                        placeholder="Pick the team"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[62rem] t-meta">
