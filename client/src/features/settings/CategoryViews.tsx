@@ -37,6 +37,8 @@ const Actions = ({ c, onEdit, onToggle, onRemove }: { c: Category } & Pick<Categ
   />
 );
 
+const hasSla = (usage?: CategoryTatRow): boolean => !!usage && usage.total > 0 && usage.slaMetPct !== null;
+
 const SlaText = ({ usage }: { usage?: CategoryTatRow }) =>
   usage && usage.total > 0 && usage.slaMetPct !== null ? (
     <span className={cn('font-bold tabular-nums', SLA_TEXT[slaTone(usage.slaMetPct)])}>{usage.slaMetPct}%</span>
@@ -118,8 +120,8 @@ export const CategoryRows = memo(({ items, usageById, busyId, onEdit, onToggle, 
             {departmentSummary(c, names) && <span className="hidden truncate sm:inline">{`· ${departmentSummary(c, names)}`}</span>}
           </span>
         </button>
-        <span className="hidden shrink-0 t-meta font-display font-semibold tabular-nums text-text-secondary sm:inline">Due {dueText(c)}</span>
-        <span className="hidden shrink-0 t-meta font-display md:inline"><SlaText usage={usageById.get(c.id)} /></span>
+        <span className="hidden shrink-0 t-meta font-display font-semibold tabular-nums text-text-secondary sm:inline">{c.tatHours ? `Due ${dueText(c)}` : 'Default due time'}</span>
+        {hasSla(usageById.get(c.id)) && <span className="hidden shrink-0 t-meta font-display md:inline"><SlaText usage={usageById.get(c.id)} /></span>}
         <StateChip active={c.isActive} label={c.isActive ? 'Active' : 'Inactive'} size="sm" />
         <Actions c={c} onEdit={onEdit} onToggle={onToggle} onRemove={onRemove} />
       </li>

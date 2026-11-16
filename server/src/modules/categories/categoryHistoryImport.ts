@@ -93,6 +93,19 @@ export const priorityFrom = (raw: string): CategoryPriorityValue | null => {
     return (PRIORITIES as readonly string[]).includes(value) ? (value as CategoryPriorityValue) : null
 }
 
+const PARENT_COLUMNS = ["category", "category name"]
+
+export const pickNameColumn = (records: Record<string, string>[], available: string[]): string => {
+    const lower = (header: string) => header.trim().toLowerCase()
+    const parent = available.find((h) => PARENT_COLUMNS.includes(lower(h)))
+    const child = available.find((h) => SUBCATEGORY_COLUMNS.includes(lower(h)))
+    if (parent && child) {
+        const distinct = (column: string) => new Set(records.map((r) => keyOf(r[column] ?? "")).filter(Boolean)).size
+        if (distinct(parent) <= 1 && distinct(child) > 1) return child
+    }
+    return available[0]!
+}
+
 const labelsIn = (cell: string): string[] => cell.split(/[,;|]/).map(squash).filter(Boolean)
 
 const matchTag = (label: string, tags: HistoryTag[]): string | null => tags.find((tag) => keyOf(tag.name) === keyOf(label))?.id ?? null
@@ -118,6 +131,8 @@ export const buildCategoryProposals = (
     const nameIsCategory = ["category", "category name", "name"].includes(nameColumn.trim().toLowerCase())
     const subcategoryColumn = nameIsCategory ? findColumn(headers, SUBCATEGORY_COLUMNS) : null
     const labelColumn = findColumn(headers, LABEL_COLUMNS)
+    const nameIsSubcategory = SUBCATEGORY_COLUMNS.includes(nameColumn.trim().toLowerCase())
+    const parentColumn = nameIsSubcategory ? findColumn(headers, PARENT_COLUMNS) : null
     const priorityColumn = findColumn(headers, PRIORITY_COLUMNS)
     const listFormat = !!(subcategoryColumn || labelColumn || priorityColumn || hoursColumn)
 
@@ -187,6 +202,8 @@ export const buildCategoryProposals = (
                 else group.badPriorities.add(raw)
             }
         }
+        const parentName = parentColumn ? squash(record[parentColumn] ?? "") : ""
+        if (parentName && !group.labels.has(keyOf(parentName))) group.labels.set(keyOf(parentName), parentName)
         if (labelColumn) {
             for (const label of labelsIn(record[labelColumn] ?? "")) {
                 if (!group.labels.has(keyOf(label))) group.labels.set(keyOf(label), label)
@@ -300,7 +317,7 @@ export const categoryHistoryImportService = {
         if (!available.length) {
             throw AppError.unprocessable("Couldn't find a category column. The file needs a column named Category, Sub Category (Filled) or Category (Refined).")
         }
-        const nameColumn = requestedColumn && available.includes(requestedColumn) ? requestedColumn : available[0]!
+        const nameColumn = requestedColumn && available.includes(requestedColumn) ? requestedColumn : pickNameColumn(records, available)
 
         const [assignable, { data: departments }, existing, tagRows] = await Promise.all([
             userService.listAssignable(actor),

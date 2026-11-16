@@ -172,8 +172,8 @@ export const categoryApi = {
         apiFetch<ApiResponse<CategoryRow>>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(payload) }).then((r) => ({ ...r, data: normalizeCategory(r.data) })),
     tatReport: (days: TatWindowDays, tagId?: string) =>
         apiFetch<ApiResponse<CategoryTatReport>>(`/categories/tat-report?days=${days}${tagId ? `&tagId=${encodeURIComponent(tagId)}` : ""}`),
-    delete: (id: string) =>
-        apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}`, { method: "DELETE" }),
+    delete: (id: string, options: { detachTickets?: boolean } = {}) =>
+        apiFetch<ApiResponse<{ deleted: boolean }>>(`/categories/${id}${options.detachTickets ? "?detachTickets=true" : ""}`, { method: "DELETE" }),
     createSubcategory: (categoryId: string, payload: SubcategoryPayload & { name: string }) =>
         apiFetch<ApiResponse<Subcategory>>(`/categories/${categoryId}/subcategories`, { method: "POST", body: JSON.stringify(payload) }).then((r) => r.data),
     updateSubcategory: (categoryId: string, id: string, payload: SubcategoryPayload) =>

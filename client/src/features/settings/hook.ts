@@ -196,29 +196,33 @@ export type ClearTarget = { id : string; name : string; isActive : boolean };
 export const useClearCategoriesMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn : async (targets : ClearTarget[]) => {
+        mutationFn : async ({ targets, detachTickets } : { targets : ClearTarget[]; detachTickets? : boolean }) => {
             let deleted = 0;
             let turnedOff = 0;
             const failed : string[] = [];
+            const kept : ClearTarget[] = [];
             for (const target of targets) {
-                const removed = await categoryApi.delete(target.id).then(() => true, () => false);
+                const removed = await categoryApi.delete(target.id, { detachTickets }).then(() => true, () => false);
                 if (removed) {
                     deleted += 1;
                     continue;
                 }
                 if (!target.isActive) {
                     turnedOff += 1;
+                    kept.push(target);
                     continue;
                 }
                 const off = await categoryApi.update(target.id, { isActive : false }).then(() => true, () => false);
-                if (off) turnedOff += 1;
-                else failed.push(target.name);
+                if (off) {
+                    turnedOff += 1;
+                    kept.push(target);
+                } else failed.push(target.name);
             }
-            return { deleted, turnedOff, failed };
+            return { deleted, turnedOff, failed, kept };
         },
         onSuccess : ({ deleted, turnedOff, failed }) => {
             queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
-            toast.success(`${deleted} deleted, ${turnedOff} turned off because tickets use them`);
+            toast.success(turnedOff > 0 ? `${deleted} deleted, ${turnedOff} kept because tickets use them` : `${deleted} deleted`);
             if (failed.length > 0) toast.error(`Couldn't remove: ${failed.join(", ")}`);
         },
     })
@@ -242,13 +246,14 @@ export const useUpdateCategoryMutation = () => {
 export const useDeleteCategoryMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn : (id : string) => categoryApi.delete(id),
+        mutationFn : ({ id, detachTickets } : { id : string; detachTickets? : boolean; quiet? : boolean }) => categoryApi.delete(id, { detachTickets }),
         onSuccess : () => {
             queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
             toast.success("Category deleted");
-
         },
-        onError : (err) => toast.error(errorMessage(err, "Failed to delete category")),
+        onError : (err, variables) => {
+            if (!variables.quiet) toast.error(errorMessage(err, "Failed to delete category"));
+        },
 
     })
 }

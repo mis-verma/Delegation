@@ -304,10 +304,19 @@ export const categoryService = {
         return after;
     },
 
-    async remove(id: string, actorId: string) {
+    async remove(id: string, actorId: string, options: { detachTickets?: boolean } = {}) {
         const category = await getByIdOrThrow(id);
         const [filed] = await db.select({ count: sql<number>`count(*)` }).from(tickets).where(eq(tickets.categoryId, id));
         const count = Number(filed?.count ?? 0);
+        if (count > 0 && options.detachTickets) {
+            await db.transaction(async (tx) => {
+                await tx.update(tickets).set({ categoryId: null, subcategoryId: null }).where(eq(tickets.categoryId, id));
+                await tx.delete(categories).where(eq(categories.id, id));
+            });
+            await auditService.record({ entityType: "Category", entityId: id, action: "DELETE", actorId, before: category, after: { detachedTickets: count } });
+            await dropCache();
+            return category;
+        }
         if (count > 0) {
             throw AppError.conflict(`${count} ${count === 1 ? "ticket was" : "tickets were"} filed under "${category.name}", so it can't be deleted. Turn it off instead and it stops showing on new tickets.`);
         }

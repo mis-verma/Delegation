@@ -85,7 +85,7 @@ export const categoryController = {
     }),
 
     remove : asyncHandler(async (req : Request , res : Response) => {
-        await categoryService.remove(routeParam(req, "id"), req.user!.sub)
+        await categoryService.remove(routeParam(req, "id"), req.user!.sub, { detachTickets : req.query.detachTickets === "true" })
         res.json({ success : true, data : { deleted : true}})
     })
 

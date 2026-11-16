@@ -11,6 +11,8 @@ import {
 } from "../../components";
 import { useCategoriesQuery, useCategoryTatQuery, useClearCategoriesMutation, useDeleteCategoryMutation, useDepartmentsQuery, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
 import type { Category, CategoryTatRow } from "../../api/categories";
+import { ApiError } from "../../api/http";
+import { toast } from "sonner";
 import { CardChip } from "../admin/directory/orgScores";
 import { getInitials } from "../../lib/getInitials";
 import { PRIORITY_CONFIG } from "../tickets/ticketDisplay";
@@ -43,8 +45,6 @@ const TAB_OPTIONS: readonly CategoryTab[] = ["list", "tat"];
 const TAB_LABELS: Record<CategoryTab, string> = { list: "Categories", tat: "Time report" };
 
 type StatusFilter = "all" | "active" | "inactive" | "head";
-type PillFilter = Exclude<StatusFilter, "head">;
-const STATUS_OPTIONS: readonly PillFilter[] = ["all", "active", "inactive"];
 
 type CategoryView = "cards" | "list" | "table";
 const VIEW_TABS: ViewTab<CategoryView>[] = [
@@ -301,7 +301,20 @@ export const CategoryList = () => {
       confirmLabel: "Delete",
       variant: "danger",
     });
-    if (ok) deleteMut.mutate(c.id);
+    if (!ok) return;
+    const blocked = await deleteMut.mutateAsync({ id: c.id, quiet: true }).then(() => false, (err: unknown) => {
+      if (err instanceof ApiError && err.status === 409) return true;
+      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+      return false;
+    });
+    if (!blocked) return;
+    const force = await confirm({
+      title: `Delete "${c.name}" anyway?`,
+      description: "Tickets are filed under it. They stay, with everything on them, but lose this category. This can't be undone.",
+      confirmLabel: "Delete and detach tickets",
+      variant: "danger",
+    });
+    if (force) deleteMut.mutate({ id: c.id, detachTickets: true });
   };
 
   const replaceAll = async () => {
@@ -312,9 +325,22 @@ export const CategoryList = () => {
       variant: "danger",
     });
     if (!ok) return;
-    clearMut.mutate(categories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive })), {
-      onSuccess: ({ failed }) => { if (failed.length === 0) setShowImport(true); },
-    });
+    const first = await clearMut.mutateAsync({ targets: categories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive })) });
+    if (first.failed.length > 0) return;
+    if (first.kept.length > 0) {
+      const force = await confirm({
+        title: `Delete ${first.kept.length} more that tickets use?`,
+        description: `${first.kept.map((c) => c.name).join(", ")}. Their tickets stay, with everything on them, but lose the category. This can't be undone.`,
+        confirmLabel: "Delete and detach tickets",
+        cancelLabel: "Keep them turned off",
+        variant: "danger",
+      });
+      if (force) {
+        const second = await clearMut.mutateAsync({ targets: first.kept, detachTickets: true });
+        if (second.failed.length > 0) return;
+      }
+    }
+    setShowImport(true);
   };
 
   const closeForm = () => {
@@ -339,7 +365,7 @@ export const CategoryList = () => {
       return <EmptyState icon={Search} title="No categories match" description="Try another name or department." action={{ label: "Clear search and filter", onClick: clearFilters }} />;
     }
 
-    const busyId = (updateMut.isPending ? updateMut.variables?.id : undefined) ?? (deleteMut.isPending ? deleteMut.variables : undefined);
+    const busyId = (updateMut.isPending ? updateMut.variables?.id : undefined) ?? (deleteMut.isPending ? deleteMut.variables?.id : undefined);
     const onRemove = user?.role === "ADMIN" ? (category: Category) => { void remove(category); } : undefined;
     if (view !== "cards") {
       const Rows = view === "table" ? CategoryTable : CategoryRows;
@@ -361,7 +387,7 @@ export const CategoryList = () => {
                   category={c}
                   departmentNames={departmentNames}
                   usage={usageById.get(c.id)}
-                  busy={(updateMut.isPending && updateMut.variables?.id === c.id) || (deleteMut.isPending && deleteMut.variables === c.id)}
+                  busy={(updateMut.isPending && updateMut.variables?.id === c.id) || (deleteMut.isPending && deleteMut.variables?.id === c.id)}
                   onEdit={setEditingCategory}
                   onToggle={toggleActive}
                   onRemove={user?.role === "ADMIN" ? (category) => { void remove(category); } : undefined}
@@ -446,12 +472,6 @@ export const CategoryList = () => {
                   <SelectDropdown aria-label="Filter by department" value={departmentId} options={departmentOptions} onChange={setDepartmentId} />
                 </div>
               )}
-              <PeriodTabControl
-                value={status === "head" ? "all" : status}
-                options={STATUS_OPTIONS}
-                labels={{ all: `All ${categories.length}`, active: `Active ${activeCount}`, inactive: `Inactive ${categories.length - activeCount}` }}
-                onChange={(next: PillFilter) => setStatus(next)}
-              />
               <div className="sm:ml-auto">
                 <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey="view:categories" />
               </div>
