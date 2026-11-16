@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Check, Search, SearchX } from 'lucide-react';
+import { filterOptions } from './optionFilter';
 import { cn } from '@/lib/utils';
 
 export interface ListOption {
@@ -75,7 +76,7 @@ export const OptionList = ({
   const needle = query.trim().toLowerCase();
 
   const filtered = useMemo(
-    () => (needle ? options.filter((o) => `${o.label} ${o.hint ?? ''} ${o.group ?? ''}`.toLowerCase().includes(needle)) : options),
+    () => filterOptions(options, needle),
     [options, needle],
   );
   const shown = filtered.length > MAX_ROWS ? filtered.slice(0, MAX_ROWS) : filtered;

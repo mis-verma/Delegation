@@ -13,6 +13,7 @@ import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner,
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, useDepartmentsWithHeadQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
+import { buildCategoryIndex, departmentIdOf, hasActiveSubcategory } from './ticketCategoryIndex';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { DepartmentField } from '../departments/DepartmentField';
@@ -66,6 +67,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const { data: departments } = useDepartmentsQuery();
   const { data: headDepartmentIds } = useDepartmentsWithHeadQuery();
   const { data: categories } = useCategoriesQuery();
+  const categoryIndex = useMemo(() => buildCategoryIndex(categories), [categories]);
   const { data: tags } = useTagsQuery(!ownScopeOnly);
   const mutation = useCreateTicketMutation();
   const saveDraft = useSaveDraftMutation('TICKET');
@@ -74,8 +76,8 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   const [creating, setCreating] = useState<'category' | 'department' | null>(null);
   const headCanPick = useCallback((departmentId: string | undefined) => !!departmentId, []);
   const subcategoryRequired = useCallback(
-    (id: string | undefined) => !!id && !!categories?.find((c) => c.id === id)?.subcategories.some((s) => s.isActive),
-    [categories],
+    (id: string | undefined) => !!id && hasActiveSubcategory(categoryIndex.byId.get(id)),
+    [categoryIndex],
   );
   const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly, headCanPick, subcategoryRequired }), [ownScopeOnly, headCanPick, subcategoryRequired]);
   const formRef = useRef<HTMLFormElement>(null);
@@ -161,7 +163,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
 
   const subcategoryId = useWatch({ control, name: 'subcategoryId' });
   const [justCreated, setJustCreated] = useState<Category | null>(null);
-  const selectedCategory = categories?.find(c => c.id === categoryId) ?? (justCreated && justCreated.id === categoryId ? justCreated : undefined);
+  const selectedCategory = categoryIndex.byId.get(categoryId ?? '') ?? (justCreated && justCreated.id === categoryId ? justCreated : undefined);
 
   const categoryPeople = useMemo<AssignableUser[]>(() => (selectedCategory?.assigneeIds ?? []).map(a => {
     const known = assignableUsers?.find(u => u.id === a.id);
@@ -206,7 +208,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft, prefill }: TicketFo
   }, [setValue]);
 
   const applyCategory = useCallback((category: Category) => {
-    const deptId = typeof category.departmentId === 'object' ? category.departmentId.id : String(category.departmentId);
+    const deptId = departmentIdOf(category);
     const opts = { shouldValidate: true, shouldDirty: true };
     const sameCategory = getValues('categoryId') === category.id;
     if (!sameCategory) setValue('subcategoryId', '', { shouldDirty: true });
@@ -259,13 +261,21 @@ Who is affected: `;
   };
 
   const selectCategory = (id: string) => {
-    const category = categories?.find(c => c.id === id);
+    const category = categoryIndex.byId.get(id);
     if (category) {
       applyCategory(category);
-      if (category.subcategories.some((s) => s.isActive) && getValues('subcategoryId') === '') focusField('subcategoryId');
+      if (hasActiveSubcategory(category) && getValues('subcategoryId') === '') focusField('subcategoryId');
     } else {
       setValue('categoryId', id, { shouldValidate: true, shouldDirty: true });
     }
+  };
+
+  const pickProblem = (subcategoryId: string) => {
+    const entry = categoryIndex.problemById.get(subcategoryId);
+    if (!entry) return;
+    applyCategory(entry.category);
+    setValue('subcategoryId', entry.subcategory.id, { shouldValidate: true, shouldDirty: true });
+    applyOverrides(entry.category, entry.subcategory);
   };
 
   const sendToDepartment = (yes: boolean) => {
@@ -448,7 +458,7 @@ Who is affected: `;
     </div>
   );
 
-  const targetDepartmentId = departmentId || (selectedCategory ? (typeof selectedCategory.departmentId === 'object' ? selectedCategory.departmentId.id : String(selectedCategory.departmentId)) : '');
+  const targetDepartmentId = departmentId || (selectedCategory ? departmentIdOf(selectedCategory) : '');
   const isTargetHead = (user?.role === 'MANAGER' || user?.role === 'SENIOR') && user.departmentId === targetDepartmentId;
   const noActiveHead = !!headDepartmentIds && !!targetDepartmentId && !headDepartmentIds.has(targetDepartmentId);
   const needsHeadOk = !!targetDepartmentId && !isTargetHead && !noActiveHead;
@@ -488,6 +498,11 @@ Who is affected: `;
     [categories, categoryId],
   );
 
+  const problemOptions = useMemo(
+    () => categoryIndex.problems.map(({ category, subcategory }) => ({ value: subcategory.id, label: subcategory.name, group: category.name })),
+    [categoryIndex],
+  );
+
   const categoryField = (label: string, hint: string, required: boolean) => (
     <div data-field="categoryId">
       <FormField
@@ -498,6 +513,17 @@ Who is affected: `;
         hint={hint}
         error={errors.categoryId?.message}
       >
+        <div className="flex flex-col gap-2">
+        {!categoryId && problemOptions.length > 0 && (
+          <Combobox
+            value=""
+            onChange={pickProblem}
+            label="Find the problem"
+            placeholder="Search any problem…"
+            options={problemOptions}
+            className={`w-full ${FIELD_TRIGGER_CLASS}`}
+          />
+        )}
         <Combobox
           value={categoryId ?? ''}
           onChange={selectCategory}
@@ -508,6 +534,7 @@ Who is affected: `;
           createNewLabel="New category"
           className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.categoryId ? 'border-danger/60' : ''}`}
         />
+        </div>
       </FormField>
     </div>
   );

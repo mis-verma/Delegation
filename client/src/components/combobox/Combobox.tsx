@@ -6,6 +6,7 @@ import { Loader } from '../loaders/Loader';
 import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover';
 import { PickerShell } from '../dateTime/PickerShell';
 import { OptionList } from '../dropdown/OptionList';
+import { filterOptions } from '../dropdown/optionFilter';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 
 function cn(...inputs: ClassValue[]) {
@@ -79,10 +80,7 @@ export const Combobox = ({
   const listRef = useRef<HTMLUListElement>(null);
 
   const trimmedQuery = query.trim();
-  const filtered = useMemo(
-    () => (trimmedQuery ? allOptions.filter((o) => `${o.label} ${o.hint ?? ''} ${o.group ?? ''}`.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
-    [allOptions, trimmedQuery]
-  );
+  const filtered = useMemo(() => filterOptions(allOptions, trimmedQuery), [allOptions, trimmedQuery]);
   const shown = useMemo(() => {
     if (filtered.length <= MAX_ROWS) return filtered;
     const head = filtered.slice(0, MAX_ROWS);
@@ -133,14 +131,14 @@ export const Combobox = ({
       disabled={disabled || isLoading}
       aria-expanded={open}
       className={cn(
-        'press-feedback flex items-center gap-2 w-full h-10 pointer-coarse:min-h-11 pl-3 pr-2 rounded-xl border bg-surface text-sm transition-colors cursor-pointer',
+        'press-feedback flex items-center gap-2 w-full min-h-10 pointer-coarse:min-h-11 py-1 pl-3 pr-2 rounded-xl border bg-surface text-sm transition-colors cursor-pointer',
         'focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
         'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border',
         open ? 'border-primary-500' : 'border-border/70 hover:border-primary-400/70',
         className,
       )}
     >
-      <span className={cn('flex-1 text-left truncate', selected?.label ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+      <span className={cn('flex-1 min-w-0 text-left line-clamp-2 break-words leading-snug', selected?.label ? 'text-text font-medium' : 'text-text-muted font-medium')}>
         {isLoading ? 'Loading...' : (selected?.label || placeholder)}
       </span>
       {isLoading ? (
