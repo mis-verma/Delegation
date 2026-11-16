@@ -1,7 +1,8 @@
 import { AlertTriangle, CalendarClock, Clock3, Layers, type LucideIcon } from 'lucide-react';
 import type { WorkKind, WorkMetric } from '../../../api/dashboard';
 import type { BoardTone } from '../boardTypes';
-import { STAT_ROUTES } from './statsConfig';
+import { buildModuleRoute, buildWorkRoute } from './statTargets';
+import type { ModuleKey } from './statsConfig';
 
 export interface MetricLook {
   key: WorkMetric;
@@ -23,7 +24,7 @@ export const isWorkMetric = (value: string | null): value is WorkMetric =>
 
 export type WorkScope = 'mine' | 'visible';
 
-export const workListHref = (metric: WorkMetric, scope: WorkScope) => `${STAT_ROUTES.work}?metric=${metric}&scope=${scope}`;
+export const workListHref = (metric: WorkMetric, scope: WorkScope) => buildWorkRoute(metric, scope);
 
 export interface CountsLike {
   pending: number;
@@ -35,18 +36,7 @@ export interface CountsLike {
 export const metricValue = (counts: CountsLike | undefined, metric: WorkMetric) =>
   !counts ? 0 : metric === 'pending' ? counts.pending : metric === 'delayed' ? counts.overdue : metric === 'due' ? counts.due : counts.total;
 
-const checklistListHref = (metric: WorkMetric, team: boolean) => {
-  const base = team ? STAT_ROUTES.checklistTeam : STAT_ROUTES.checklist;
-  if (metric === 'pending' || metric === 'due') return `${base}?status=pending`;
-  if (metric === 'delayed') return `${base}?status=overdue`;
-  return team ? `${base}?status=all` : base;
-};
+const MODULE_OF: Record<WorkKind, ModuleKey> = { delegation: 'delegation', ticket: 'tickets', checklist: 'checklist', todo: 'todo' };
 
-export const moduleListHref = (kind: WorkKind, metric: WorkMetric, team: boolean, userId?: string): string => {
-  if (kind === 'checklist') return checklistListHref(metric, team);
-  if (kind === 'todo') return STAT_ROUTES.todo;
-  const params = new URLSearchParams({ quickFilter: metric === 'total' ? 'all' : metric });
-  if (!team && kind === 'delegation') params.set('mine', '1');
-  if (!team && kind === 'ticket' && userId) params.set('assigneeIds', userId);
-  return `${kind === 'ticket' ? STAT_ROUTES.ticket : STAT_ROUTES.delegation}?${params.toString()}`;
-};
+export const moduleListHref = (kind: WorkKind, metric: WorkMetric, team: boolean, userId?: string): string =>
+  buildModuleRoute(MODULE_OF[kind], metric, undefined, { scope: team ? 'visible' : 'mine', team, userId });

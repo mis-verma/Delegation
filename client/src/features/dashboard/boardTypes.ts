@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { RowTone } from './work/statsConfig';
 
 export type BoardTone = 'primary' | 'danger' | 'coral' | 'success';
 
@@ -28,19 +29,38 @@ export interface BoardApprovals {
   failed?: boolean;
 }
 
-export interface BoardTile {
+export interface BoardRow {
   key: string;
   label: string;
   value: number;
-  caption: string;
+  href: string;
+  tone: RowTone;
+  loading?: boolean;
+  missing?: boolean;
+}
+
+export interface BoardColumn {
+  key: string;
+  label: string;
   icon: LucideIcon;
   tone: BoardTone;
-  breakdown?: readonly BoardPart[];
-  approvals?: BoardApprovals;
-  href?: string;
-  onSelect?: () => void;
-  selected?: boolean;
+  total: number;
+  totalLabel: string;
+  href: string;
+  rows: readonly BoardRow[];
+  pills?: readonly BoardApprovalPart[];
   loading?: boolean;
   failed?: boolean;
-  hideOnPhone?: boolean;
+}
+
+export interface BoardSummary {
+  label: string;
+  caption: string;
+  icon: LucideIcon;
+  total: number;
+  href: string;
+  parts: readonly BoardPart[];
+  approvals?: BoardApprovals;
+  loading?: boolean;
+  failed?: boolean;
 }

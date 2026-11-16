@@ -1,25 +1,18 @@
 import { memo, useMemo } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import { StatBoard, type BoardApprovals, type BoardTile } from './StatBoard';
-import { WORK_METRIC_LOOK, metricValue, type WorkScope } from './work/workMetrics';
-import { getStatTargetUrl, type StatTargetContext } from './work/statTargets';
-import type { WorkKind, WorkMetric } from '../../api/dashboard';
+import { Layers } from 'lucide-react';
+import { StatBoard, type BoardApprovalPart, type BoardColumn, type BoardRow, type BoardSummary } from './StatBoard';
+import { buildModuleRoute, buildWorkRoute, type StatScopeKey, type StatTargetContext } from './work/statTargets';
+import {
+  APPROVALS_LABEL, APPROVAL_PARAMS, APPROVAL_STATUS_FIELD, COUNT_FIELD, MODULE_STATS_SCHEMA, SCOPE_MODULES, STATUS_LABEL, STATUS_TONE, SUMMARY_MODULES,
+  type ApprovalParam, type ModuleKey, type StatusKey,
+} from './work/statsConfig';
 import type { ApprovalFigure } from './approvalFigures';
-import { APPROVALS_LABEL, APPROVAL_FIELD, APPROVAL_PARAMS } from './work/statsConfig';
-import { CATEGORY_ICON } from './categoryLook';
 import { useAuth } from '../../context/AuthContext';
 import type { DashboardSummaries } from './useDashboardSummaries';
 
 export type StatScope = 'overall' | 'mine';
-type Metric = WorkMetric;
-type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
 
-interface Counts {
-  pending: number;
-  overdue: number;
-  due: number;
-  total: number;
-}
+type Counts = Partial<Record<(typeof COUNT_FIELD)[StatusKey], number>>;
 
 interface Source {
   data: Counts | undefined;
@@ -27,31 +20,28 @@ interface Source {
   isError: boolean;
 }
 
-interface ModuleRow {
-  key: ModuleKey;
-  label: string;
-  icon: LucideIcon;
-  counts: Counts | undefined;
-  team?: boolean;
+interface ModuleState {
+  counts: Record<StatusKey, number>;
   loading: boolean;
   failed: boolean;
+  present: boolean;
 }
 
-const METRICS = WORK_METRIC_LOOK;
+const STATUS_KEYS = Object.keys(STATUS_LABEL) as StatusKey[];
 
-const KIND_OF: Record<ModuleKey, WorkKind> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist', todo: 'todo' };
+const EMPTY_COUNTS = Object.fromEntries(STATUS_KEYS.map((s) => [s, 0])) as Record<StatusKey, number>;
 
-const hrefFor = (module: ModuleRow, metric: Metric, ctx: StatTargetContext): string => getStatTargetUrl(KIND_OF[module.key], metric, undefined, { ...ctx, team: module.team === true });
-
-const approvalsFor = (approval: ApprovalFigure | undefined, metric: Metric, ctx: StatTargetContext): BoardApprovals | undefined => {
-  if (!approval) return undefined;
-  const field = APPROVAL_FIELD[metric];
-  const parts = APPROVAL_PARAMS.map((k) => ({ key: k.key, label: k.label, value: approval.kinds?.[k.key][field] ?? 0, href: getStatTargetUrl('approvals', metric, k.key, ctx) }));
-  const value = field === 'pending' ? approval.value : field === 'old' ? approval.delayed : parts.reduce((n, p) => n + p.value, 0);
-  return { label: APPROVALS_LABEL, value, parts, href: getStatTargetUrl('approvals', metric, undefined, ctx), loading: approval.loading, failed: approval.failed };
+const normalise = (source: Source | undefined): ModuleState => {
+  const data = source?.data;
+  return {
+    present: !!source,
+    loading: !!source && source.isPending && !data,
+    failed: !!source && !data && source.isError,
+    counts: data ? (Object.fromEntries(STATUS_KEYS.map((s) => [s, data[COUNT_FIELD[s]] ?? 0])) as Record<StatusKey, number>) : EMPTY_COUNTS,
+  };
 };
 
-const valueOf = (counts: Counts | undefined, metric: Metric) => metricValue(counts, metric);
+const sumOf = (values: number[]) => values.reduce((n, v) => n + v, 0);
 
 interface HomeStatsProps {
   kpi: DashboardSummaries['kpi'];
@@ -64,55 +54,107 @@ export const HomeStats = memo(({ kpi, scope, teamLabel, approval }: HomeStatsPro
   const { user } = useAuth();
   const userId = user?.id;
   const canSeeTeam = user?.role === 'ADMIN' || user?.role === 'PC' || user?.role === 'MANAGER' || user?.role === 'SENIOR';
+  const overall = scope === 'overall';
+  const workScope: StatScopeKey = overall ? 'visible' : 'mine';
 
-  const modules = useMemo<ModuleRow[]>(() => {
-    const row = (key: ModuleKey, label: string, icon: LucideIcon, source: Source, team = false): ModuleRow => ({
-      key, label, icon, team, counts: source.data, loading: source.isPending && !source.data, failed: !source.data && source.isError,
-    });
-    const checklistSource = scope === 'mine' || !canSeeTeam ? kpi.checklistToday : kpi.scopeChecklistToday;
-    const rows = [
-      row('delegation', 'Delegation', CATEGORY_ICON.delegation, kpi.tasks),
-      row('tickets', 'Tickets', CATEGORY_ICON.ticket, kpi.tickets),
-      row('checklist', 'Checklists, today', CATEGORY_ICON.checklist, checklistSource, canSeeTeam && scope === 'overall'),
-    ];
-    if (scope === 'mine') rows.push(row('todo', 'To-do', CATEGORY_ICON.todo, kpi.todos));
-    return rows;
-  }, [kpi, scope, canSeeTeam]);
+  const metricsByModule = useMemo<Record<ModuleKey, ModuleState>>(() => {
+    const checklist = !overall || !canSeeTeam ? kpi.checklistToday : kpi.scopeChecklistToday;
+    return {
+      delegation: normalise(kpi.tasks),
+      tickets: normalise(kpi.tickets),
+      checklist: normalise(checklist),
+      todo: normalise(overall ? undefined : kpi.todos),
+      approvals: normalise(undefined),
+    };
+  }, [kpi, overall, canSeeTeam]);
 
-  const workScope: WorkScope = scope === 'mine' ? 'mine' : 'visible';
-  const items = useMemo<BoardTile[]>(
-    () => METRICS.map((m) => {
-      const ctx: StatTargetContext = { scope: workScope, userId, approvalsBase: approval?.href };
-      const loaded = modules.filter((r) => r.counts);
-      const total = loaded.reduce((sum, r) => sum + valueOf(r.counts, m.key), 0);
-      const loading = loaded.length === 0 && modules.some((r) => r.loading);
-      const failed = loaded.length === 0 && !loading;
-      const partial = loaded.length < modules.length && loaded.length > 0;
-      return {
-        key: m.key,
-        label: m.label,
-        value: total,
-        approvals: approvalsFor(approval, m.key, ctx),
-        breakdown: modules.map((r) => ({ key: r.key, label: r.label, icon: r.icon, href: hrefFor(r, m.key, ctx), value: valueOf(r.counts, m.key), missing: !r.counts && !r.loading, loading: r.loading && !r.counts })),
-        caption: partial ? `${m.caption}, some not loaded` : m.caption,
-        icon: m.icon,
-        tone: m.key === 'delayed' && total === 0 ? 'success' : m.tint,
-        href: getStatTargetUrl('work', m.key, undefined, ctx),
-        loading,
-        failed,
-        hideOnPhone: m.key === 'total',
-      };
-    }),
-    [modules, workScope, userId, approval],
+  const ctx = useMemo<StatTargetContext>(
+    () => ({ scope: workScope, team: overall, userId }),
+    [workScope, overall, userId],
   );
 
-  const active = items[0];
+  const columns = useMemo<BoardColumn[]>(() => {
+    const keys = SCOPE_MODULES[scope].filter((k) => k !== 'approvals' || !!approval);
+    return keys.map((key): BoardColumn => {
+      const schema = MODULE_STATS_SCHEMA[key];
+      const state = metricsByModule[key];
+      const route = (status: StatusKey, sub?: ApprovalParam) =>
+        buildModuleRoute(key, status, sub, key === 'approvals' ? { ...ctx, routeOverride: approval?.href } : ctx);
+
+      if (key === 'approvals' && approval) {
+        const fieldTotal = (status: StatusKey) => {
+          const field = APPROVAL_STATUS_FIELD[status];
+          return field ? sumOf(APPROVAL_PARAMS.map((p) => approval.kinds?.[p.key][field] ?? 0)) : 0;
+        };
+        const rows: BoardRow[] = schema.statuses.map((status) => ({
+          key: status,
+          label: schema.statusLabels?.[status] ?? STATUS_LABEL[status],
+          value: status === 'pending' ? approval.value : status === 'delayed' ? approval.delayed : fieldTotal(status),
+          href: route(status),
+          tone: STATUS_TONE[status],
+          loading: approval.loading,
+          missing: approval.failed,
+        }));
+        const pills: BoardApprovalPart[] = APPROVAL_PARAMS.map((p) => ({ key: p.key, label: p.label, value: approval.kinds?.[p.key].pending ?? 0, href: route('pending', p.key) }));
+        return { key, label: schema.label, icon: schema.icon, tone: schema.tone, total: approval.value, totalLabel: schema.totalLabel, href: route('total'), rows, pills, loading: approval.loading, failed: approval.failed };
+      }
+
+      const rows: BoardRow[] = schema.statuses.map((status) => ({
+        key: status,
+        label: schema.statusLabels?.[status] ?? STATUS_LABEL[status],
+        value: state.counts[status],
+        href: route(status),
+        tone: STATUS_TONE[status],
+        loading: state.loading,
+        missing: state.failed,
+      }));
+      return { key, label: schema.label, icon: schema.icon, tone: schema.tone, total: state.counts.total, totalLabel: schema.totalLabel, href: route('total'), rows, loading: state.loading, failed: state.failed };
+    });
+  }, [scope, metricsByModule, approval, ctx]);
+
+  const summary = useMemo<BoardSummary>(() => {
+    const modules = SUMMARY_MODULES.filter((k) => metricsByModule[k].present);
+    const loaded = modules.filter((k) => !metricsByModule[k].loading && !metricsByModule[k].failed);
+    const loading = loaded.length === 0 && modules.some((k) => metricsByModule[k].loading);
+    const failed = loaded.length === 0 && !loading;
+    const approvalCtx: StatTargetContext = { ...ctx, routeOverride: approval?.href };
+    const approvals = approval
+      ? {
+          label: APPROVALS_LABEL,
+          value: approval.value,
+          href: buildModuleRoute('approvals', 'pending', undefined, approvalCtx),
+          loading: approval.loading,
+          failed: approval.failed,
+          parts: APPROVAL_PARAMS.map((p) => ({ key: p.key, label: p.label, value: approval.kinds?.[p.key].pending ?? 0, href: buildModuleRoute('approvals', 'pending', p.key, approvalCtx) })),
+        }
+      : undefined;
+    return {
+      label: 'Total',
+      caption: loaded.length < modules.length && loaded.length > 0 ? 'Everything in this view, some not loaded' : 'Everything in this view',
+      icon: Layers,
+      total: sumOf(loaded.map((k) => metricsByModule[k].counts.total)),
+      href: buildWorkRoute('total', workScope),
+      parts: modules.map((k) => ({
+        key: k,
+        label: k === 'checklist' ? 'Checklists, today' : MODULE_STATS_SCHEMA[k].label,
+        icon: MODULE_STATS_SCHEMA[k].icon,
+        value: metricsByModule[k].counts.total,
+        href: buildModuleRoute(k, 'total', undefined, ctx),
+        missing: metricsByModule[k].failed,
+        loading: metricsByModule[k].loading,
+      })),
+      approvals,
+      loading,
+      failed,
+    };
+  }, [metricsByModule, approval, ctx, workScope]);
+
   return (
     <StatBoard
       label={scope === 'mine' ? 'My own numbers' : `${teamLabel} numbers`}
-      active={active}
-      tiles={items}
-      note={scope === 'overall' ? 'To-dos are personal, so they show under My own.' : undefined}
+      summary={summary}
+      columns={columns}
+      note={overall ? 'To-dos are personal, so they show under My own.' : undefined}
     />
   );
 });

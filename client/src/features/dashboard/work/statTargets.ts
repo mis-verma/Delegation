@@ -1,36 +1,45 @@
-import type { WorkKind, WorkMetric } from '../../../api/dashboard';
-import { moduleListHref, workListHref, type WorkScope } from './workMetrics';
-import { APPROVAL_PARAMS, QUEUE_PARAM, STAT_ROUTES, type ApprovalParam } from './statsConfig';
-
-export type StatModule = WorkKind | 'approvals' | 'work';
-
-export interface StatTargetContext {
-  scope: WorkScope;
-  team?: boolean;
-  userId?: string;
-  approvalsBase?: string;
-}
-
-const QUEUE_TAB = Object.fromEntries(APPROVAL_PARAMS.map((a) => [a.key, a.queueTab])) as Record<ApprovalParam, string>;
+import { MODULE_STATS_SCHEMA, STAT_ROUTES, VIEWER, type ApprovalParam, type ModuleKey, type RouteQuery, type StatusKey } from './statsConfig';
 
 export type { ApprovalParam };
 
-const approvalsHref = (status: WorkMetric, param: ApprovalParam | undefined, base: string | undefined): string => {
-  const target = base ?? STAT_ROUTES.approvalQueue;
-  const [path = STAT_ROUTES.approvalQueue, existing = ''] = target.split('?');
-  const params = new URLSearchParams(existing);
-  if (path === STAT_ROUTES.approvalQueue) {
-    if (param) params.set(QUEUE_PARAM.tab, QUEUE_TAB[param]);
-    if (status === 'delayed') params.set(QUEUE_PARAM.age, QUEUE_PARAM.olderThanDay);
-  } else if (param === 'checklist') {
-    params.set(QUEUE_PARAM.tab, QUEUE_TAB.checklist);
-  }
-  const query = params.toString();
-  return query ? `${path}?${query}` : path;
+export type StatScopeKey = 'mine' | 'visible';
+
+export interface StatTargetContext {
+  scope: StatScopeKey;
+  team?: boolean;
+  userId?: string;
+  routeOverride?: string;
+}
+
+const EMPTY: RouteQuery = {};
+
+const withStatus = (params: URLSearchParams, query: RouteQuery, status: StatusKey) => {
+  const value = query.status?.values[status];
+  if (query.status && value) params.set(query.status.name, value);
 };
 
-export const getStatTargetUrl = (module: StatModule, status: WorkMetric, subParam: ApprovalParam | undefined, ctx: StatTargetContext): string => {
-  if (module === 'work') return workListHref(status, ctx.scope);
-  if (module === 'approvals') return approvalsHref(status, subParam, ctx.approvalsBase);
-  return moduleListHref(module, status, ctx.team === true, ctx.userId);
+const withSub = (params: URLSearchParams, query: RouteQuery, sub: ApprovalParam | undefined) => {
+  const value = sub ? query.sub?.values[sub] : undefined;
+  if (query.sub && value) params.set(query.sub.name, value);
 };
+
+const withSolo = (params: URLSearchParams, query: RouteQuery, ctx: StatTargetContext) => {
+  const value = query.solo?.value === VIEWER ? ctx.userId : query.solo?.value;
+  if (query.solo && !ctx.team && value) params.set(query.solo.name, value);
+};
+
+export const buildModuleRoute = (module: ModuleKey, status: StatusKey, subParam: ApprovalParam | undefined, ctx: StatTargetContext): string => {
+  const schema = MODULE_STATS_SCHEMA[module];
+  const target = ctx.routeOverride ?? (ctx.team ? schema.teamRoute : undefined) ?? schema.route;
+  const [path = schema.route, existing = ''] = target.split('?');
+  const query = schema.routes[path] ?? EMPTY;
+  const params = new URLSearchParams(existing);
+  withStatus(params, query, status);
+  withSub(params, query, subParam);
+  withSolo(params, query, ctx);
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+};
+
+export const buildWorkRoute = (status: StatusKey, scope: StatScopeKey): string =>
+  `${STAT_ROUTES.work}?${new URLSearchParams({ metric: status, scope }).toString()}`;
