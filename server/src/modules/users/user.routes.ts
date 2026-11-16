@@ -1,7 +1,7 @@
 import { Router } from "express"
 import { userController } from "./user.controller.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
-import { avatarUpload } from "../../config/upload.js"
+import { avatarUpload, checklistBulkImportUpload } from "../../config/upload.js"
 import { protectAdminAccounts } from "./adminAccountGuard.js"
 import { limitPcUserChanges } from "./userAccess.js"
 
@@ -18,6 +18,9 @@ userRouter.post("/me/avatar", avatarUpload, userController.uploadMyAvatar)
 userRouter.delete("/me/avatar", userController.removeMyAvatar)
 
 userRouter.use(requireRole('ADMIN', 'PC'))
+userRouter.get("/import/template", requireRole('ADMIN'), userController.importTemplate)
+userRouter.post("/import/preview", requireRole('ADMIN'), checklistBulkImportUpload, userController.importPreview)
+userRouter.post("/import", requireRole('ADMIN'), userController.importMany)
 userRouter.get("/", userController.list)
 userRouter.get("/presence", userController.presence)
 userRouter.patch("/bulk", protectAdminAccounts, limitPcUserChanges, userController.bulkUpdate)

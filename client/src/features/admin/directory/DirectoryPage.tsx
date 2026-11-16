@@ -1,10 +1,12 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio } from 'lucide-react';
+import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio, Upload } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { IconChip, PageHeader, Skeleton } from '../../../components';
-import { UserList } from '../users';
+import { Button, IconChip, PageHeader, Skeleton } from '../../../components';
+import { useAuth } from '../../../context/AuthContext';
+import { UserImportModal, UserList } from '../users';
 import { DirectoryStats } from './DirectoryStats';
+import { countOrg } from './orgCounts';
 import { DepartmentList } from '../department';
 import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
@@ -41,14 +43,17 @@ export const DirectoryPage = () => {
     return params;
   }, { replace: true });
 
+  const { user } = useAuth();
+  const [importing, setImporting] = useState(false);
   const { data: users } = useUsersQuery();
   const { data: departments } = useDepartmentsQuery();
   const { data: stores } = useStoresQuery();
 
+  const org = countOrg(users, departments, stores);
   const counts: Record<TabValue, number | undefined> = {
-    users: users?.length,
-    departments: departments?.length,
-    stores: stores?.length,
+    users: users ? org.activePeople : undefined,
+    departments: departments ? org.activeDepartments : undefined,
+    stores: stores ? org.activeStores : undefined,
     structure: undefined,
     online: undefined,
   };
@@ -60,7 +65,17 @@ export const DirectoryPage = () => {
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <PageHeader icon={Contact} title="People & Teams" subtitle="Add people, place them in departments and stores, and choose what each person can see." />
+      <PageHeader
+        icon={Contact}
+        title="People & Teams"
+        subtitle="Add people, place them in departments and stores, and choose what each person can see."
+        actions={user?.role === 'ADMIN' ? (
+          <Button variant="outline" size="sm" onClick={() => setImporting(true)} className="gap-1.5 max-sm:h-11">
+            <Upload size={15} aria-hidden="true" />
+            Import people
+          </Button>
+        ) : undefined}
+      />
 
       <DirectoryStats onOpen={setTab} />
 
@@ -105,6 +120,8 @@ export const DirectoryPage = () => {
           </Suspense>
         </TabsContent>
       </Tabs>
+
+      {importing && <UserImportModal onClose={() => setImporting(false)} />}
     </div>
   );
 };

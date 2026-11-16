@@ -1,3 +1,5 @@
+import { userImportService, importUsersSchema } from './userImport.service.js';
+import { USER_IMPORT_TEMPLATE } from './userImport.js';
 import { passwordOtpService } from "../../middleware/auth/passwordOtp.service.js"
 import type { Request , Response} from 'express'
 import { userService } from './user.service.js'
@@ -53,6 +55,24 @@ export const userController = {
         const data = await userService.presence();
         res.json({ success : true , data })
     }),
+
+    importPreview : asyncHandler(async (req : Request , res : Response) => {
+        if (!req.file) throw AppError.badRequest("Choose a CSV or Excel (.xlsx) file.");
+        const data = await userImportService.preview(req.file.buffer, req.file.mimetype);
+        res.json({ success : true , data });
+    }),
+
+    importMany : asyncHandler(async (req : Request , res : Response) => {
+        const input = importUsersSchema.parse(req.body);
+        const data = await userImportService.importMany(input, req.user!.sub);
+        res.status(201).json({ success : true , data });
+    }),
+
+    importTemplate : (_req : Request , res : Response) => {
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", "attachment; filename=people-import-template.csv");
+        res.send(USER_IMPORT_TEMPLATE);
+    },
 
     create : asyncHandler(async (req : Request , res : Response) => {
         const input = createUserSchema.parse(req.body);

@@ -61,6 +61,46 @@ export type BulkUpdateUsersPayload = {
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
+export type ImportRole = 'USER' | 'AGENT' | 'MANAGER' | 'SENIOR' | 'APPROVAL_MANAGER';
+
+export type UserImportRow = {
+    rowIndex: number;
+    email: string;
+    firstName: string;
+    lastName: string | null;
+    role: ImportRole;
+    roleText: string | null;
+    roleMatched: boolean;
+    departmentText: string | null;
+    departmentId: string | null;
+    storeText: string | null;
+    storeId: string | null;
+    phone: string | null;
+    phoneInvalid: boolean;
+    phoneText: string | null;
+    gender: Gender | null;
+    emailInvalid: boolean;
+    duplicateInFile: boolean;
+    alreadyExists: boolean;
+};
+
+export type UserImportPreview = {
+    rows: UserImportRow[];
+    skippedEmpty: number;
+    truncated: boolean;
+    unknownColumns: string[];
+    departments: string[];
+    stores: string[];
+};
+
+export type ImportUserPayload = Pick<UserImportRow, 'rowIndex' | 'email' | 'firstName' | 'lastName' | 'role' | 'departmentId' | 'storeId' | 'phone' | 'gender'>;
+
+export type UserImportResult = {
+    created: number;
+    setupCodesSent: number;
+    failed: { rowIndex: number; email: string; reason: string }[];
+};
+
 export type PaginatedResponse<T> = {
     success: boolean;
     data:    T[];
@@ -89,6 +129,13 @@ export const adminApi = {
         apiFetch<PaginatedResponse<AdminUser>>(`/users?page=${page}&limit=${limit}`),
 
     getOne: (id: string) => apiFetch<ApiResponse<AdminUser>>(`/users/${id}`),
+    importPreview: (file: File) => {
+        const body = new FormData();
+        body.append('file', file);
+        return apiFetch<ApiResponse<UserImportPreview>>('/users/import/preview', { method: 'POST', body });
+    },
+    importMany: (users: ImportUserPayload[], sendSetupCode: boolean) =>
+        apiFetch<ApiResponse<UserImportResult>>('/users/import', { method: 'POST', body: JSON.stringify({ users, sendSetupCode }) }),
 
     create: (payload: CreateUserPayload) =>
         apiFetch<ApiResponse<AdminUser> & { setupCodeSent?: boolean }>("/users", { method: "POST", body: JSON.stringify(payload) }),

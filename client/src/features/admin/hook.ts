@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
-import { adminApi, type AdminUser, type BulkUpdateUsersPayload, type CreateUserPayload, type UpdateUserPayload } from "../../api/admin";
+import { adminApi, type AdminUser, type BulkUpdateUsersPayload, type CreateUserPayload, type ImportUserPayload, type UpdateUserPayload } from "../../api/admin";
 import { departmentApi, type CreateDepartmentPayload, type UpdateDepartmentPayload } from "../../api/departments";
 import { storeApi, type CreateStorePayload, type UpdateStorePayload } from "../../api/stores";
 import {
@@ -143,6 +143,25 @@ export const useCreateUserMutation = () => {
             toast.success('User created');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to create user')),
+    });
+};
+
+export const useUserImportPreviewMutation = () =>
+    useMutation({
+        mutationFn: (file: File) => adminApi.importPreview(file).then((r) => r.data),
+        onError: (err) => toast.error(errorMessage(err, "Couldn't read that file. Check it is a CSV or Excel (.xlsx) file and try again.")),
+    });
+
+export const useImportUsersMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ users, sendSetupCode }: { users: ImportUserPayload[]; sendSetupCode: boolean }) => adminApi.importMany(users, sendSetupCode).then((r) => r.data),
+        onError: (err) => toast.error(errorMessage(err, "Couldn't add these people. Try again.")),
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
+            queryClient.invalidateQueries({ queryKey: ['org-structure'] });
+        },
     });
 };
 

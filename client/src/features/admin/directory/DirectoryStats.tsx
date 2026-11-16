@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { CountUp, IconChip, PANEL_CLASS, Skeleton } from '../../../components';
 import { useDepartmentsQuery, usePresenceQuery, useUsersQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
+import { countOrg, onlineActive, unplacedCaption } from './orgCounts';
 
 type StatTab = 'users' | 'departments' | 'stores' | 'online';
 
@@ -32,38 +33,34 @@ export const DirectoryStats = ({ onOpen }: { onOpen: (tab: StatTab) => void }) =
   const presence = usePresenceQuery();
 
   const tiles = useMemo<Tile[]>(() => {
-    const people = users.data;
-    const activePeople = people?.filter((u) => u.isActive);
-    const unplaced = activePeople?.filter((u) => !u.departmentId || !u.storeId).length ?? null;
-    const online = presence.data ? presence.data.filter((p) => p.online).length : null;
-    const deptOff = departments.data?.filter((d) => !d.isActive).length ?? 0;
-    const storeOff = stores.data?.filter((s) => !s.isActive).length ?? 0;
+    const c = countOrg(users.data, departments.data, stores.data);
+    const online = onlineActive(users.data, presence.data);
     const offCaption = (n: number) => (n > 0
       ? { text: `${n} inactive`, tone: 'bg-text-muted' as const, icon: CircleAlert }
       : { text: 'All active', tone: 'bg-success' as const, icon: CircleCheck });
     return [
       {
-        key: 'people', icon: Users, tile: TILE.primary, label: 'People', value: activePeople?.length ?? null, tab: 'users',
-        caption: people ? (people.length - (activePeople?.length ?? 0) > 0
-          ? { text: `${people.length - (activePeople?.length ?? 0)} deactivated`, tone: 'bg-text-muted', icon: CircleAlert }
+        key: 'people', icon: Users, tile: TILE.primary, label: 'People', value: users.data ? c.activePeople : null, tab: 'users',
+        caption: users.data ? (c.deactivated > 0
+          ? { text: `${c.deactivated} deactivated`, tone: 'bg-text-muted', icon: CircleAlert }
           : { text: 'All active', tone: 'bg-success', icon: CircleCheck }) : null,
       },
       {
         key: 'online', icon: Radio, tile: TILE.success, label: 'Online now', value: online, tab: 'online',
-        caption: online !== null && activePeople ? { text: `of ${activePeople.length} active`, tone: 'bg-primary-600', icon: Users } : null,
+        caption: online !== null ? { text: `of ${c.activePeople} active`, tone: 'bg-primary-600', icon: Users } : null,
       },
       {
-        key: 'departments', icon: Building2, tile: TILE.coral, label: 'Departments', value: departments.data ? departments.data.length - deptOff : null, tab: 'departments',
-        caption: departments.data ? offCaption(deptOff) : null,
+        key: 'departments', icon: Building2, tile: TILE.coral, label: 'Departments', value: departments.data ? c.activeDepartments : null, tab: 'departments',
+        caption: departments.data ? offCaption(c.inactiveDepartments) : null,
       },
       {
-        key: 'stores', icon: Store, tile: TILE.info, label: 'Stores', value: stores.data ? stores.data.length - storeOff : null, tab: 'stores',
-        caption: stores.data ? offCaption(storeOff) : null,
+        key: 'stores', icon: Store, tile: TILE.info, label: 'Stores', value: stores.data ? c.activeStores : null, tab: 'stores',
+        caption: stores.data ? offCaption(c.inactiveStores) : null,
       },
       {
-        key: 'unplaced', icon: MapPinOff, tile: unplaced ? TILE.warning : TILE.success, label: 'To place', value: unplaced, tab: 'users',
-        caption: unplaced === null ? null : unplaced > 0
-          ? { text: 'No department or store', tone: 'bg-warning', icon: CircleAlert }
+        key: 'unplaced', icon: MapPinOff, tile: c.unplaced ? TILE.warning : TILE.success, label: 'To place', value: users.data ? c.unplaced : null, tab: 'users',
+        caption: !users.data ? null : c.unplaced > 0
+          ? { text: unplacedCaption(c), tone: 'bg-warning', icon: CircleAlert }
           : { text: 'Everyone placed', tone: 'bg-success', icon: CircleCheck },
       },
     ];

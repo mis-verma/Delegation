@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { MotionConfig } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { countOrg, unplacedCaption } from '../directory/orgCounts';
 import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, UserX, TriangleAlert, CircleCheck } from 'lucide-react';
 import { Button, EmptyState, IconChip, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, useConfirm } from '../../../components';
 import { StatCard } from '../../dashboard';
@@ -83,12 +84,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   const visibleTree = useMemo(() => filterOrgTree(tree, deferredQuery), [tree, deferredQuery]);
   const forceOpen = deferredQuery.trim().length > 0;
 
-  const people = useMemo(() => {
-    const all = users ?? [];
-    const active = all.filter((u) => u.isActive).length;
-    const unplaced = all.filter((u) => u.isActive && !u.departmentId && !u.storeId).length;
-    return { active, deactivated: all.length - active, unplaced };
-  }, [users]);
+  const people = useMemo(() => countOrg(users, departments, stores), [users, departments, stores]);
 
   const attention = useMemo(() => {
     const activeDepartments = (departments ?? []).filter((d) => d.isActive);
@@ -342,9 +338,9 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
           <div className="grid grid-cols-4 gap-1.5 sm:hidden" aria-label="Org at a glance">
             {[
-              { icon: Users, label: 'People', value: users ? people.active : null, tile: 'from-primary-500 to-primary-700' },
-              { icon: Store, label: 'Stores', value: stores ? stores.length : null, tile: 'from-coral-400 to-coral-600' },
-              { icon: Layers, label: 'Depts', value: departments ? departments.length : null, tile: 'from-primary-400 to-primary-600' },
+              { icon: Users, label: 'People', value: users ? people.activePeople : null, tile: 'from-primary-500 to-primary-700' },
+              { icon: Store, label: 'Stores', value: stores ? people.activeStores : null, tile: 'from-coral-400 to-coral-600' },
+              { icon: Layers, label: 'Depts', value: departments ? people.activeDepartments : null, tile: 'from-primary-400 to-primary-600' },
               { icon: UserX, label: 'Unplaced', value: users ? people.unplaced : null, tile: people.unplaced > 0 ? 'from-warning to-warning' : 'from-success to-success' },
             ].map(({ icon: Icon, label, value, tile }) => (
               <div key={label} className={`${PANEL_CLASS} flex flex-col items-center gap-1 px-1 py-2.5`}>
@@ -361,7 +357,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             <StatCard modern
               icon={Users}
               label="People"
-              value={users ? people.active : 'No data'}
+              value={users ? people.activePeople : 'No data'}
               caption={people.deactivated > 0 ? `${people.deactivated} deactivated` : 'Active across your org'}
               isLoading={usersPending}
               compact
@@ -372,8 +368,8 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               icon={Store}
               iconTint="text-coral-600 dark:text-coral-400"
               label="Stores"
-              value={stores ? stores.length : 'No data'}
-              caption={stores?.length === 1 ? '1 location' : `${stores?.length ?? 0} locations`}
+              value={stores ? people.activeStores : 'No data'}
+              caption={people.activeStores === 1 ? '1 location' : `${people.activeStores} locations`}
               isLoading={storesPending}
               compact
             />
@@ -381,7 +377,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               icon={Layers}
               iconTint="text-primary-600 dark:text-primary-400"
               label="Departments"
-              value={departments ? departments.length : 'No data'}
+              value={departments ? people.activeDepartments : 'No data'}
               caption="Org-wide"
               isLoading={deptsPending}
               compact
@@ -391,7 +387,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               iconTint={people.unplaced > 0 ? 'text-warning' : 'text-success'}
               label="Unassigned"
               value={users ? people.unplaced : 'No data'}
-              caption={people.unplaced > 0 ? 'No department or store' : 'Everyone is placed'}
+              caption={people.unplaced > 0 ? unplacedCaption(people) : 'Everyone is placed'}
               isLoading={usersPending}
               compact
             />
