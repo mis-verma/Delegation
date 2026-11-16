@@ -140,6 +140,12 @@ const assertAssignee = async (assigneeId: string | null | undefined) => {
     if (!person || !person.isActive) throw AppError.badRequest("Pick an active person for this subcategory.");
 };
 
+const assertDepartment = async (departmentId: string | null | undefined) => {
+    if (!departmentId) return;
+    const [found] = await db.select({ id: departments.id }).from(departments).where(eq(departments.id, departmentId)).limit(1);
+    if (!found) throw AppError.badRequest("Pick an existing department for this subcategory.");
+};
+
 const assertSubcategoryNameFree = async (categoryId: string, name: string, exceptId?: string) => {
     const conditions = [eq(categorySubcategories.categoryId, categoryId), eq(categorySubcategories.name, name)];
     if (exceptId) conditions.push(ne(categorySubcategories.id, exceptId));
@@ -152,6 +158,7 @@ export const categoryService = {
         await getByIdOrThrow(categoryId);
         await assertSubcategoryNameFree(categoryId, input.name);
         await assertAssignee(input.assigneeId);
+        await assertDepartment(input.departmentId);
         const id = createId();
         const [last] = await db.select({ top: sql<number>`COALESCE(MAX(${categorySubcategories.sortOrder}), -1)` })
             .from(categorySubcategories).where(eq(categorySubcategories.categoryId, categoryId));
@@ -163,6 +170,7 @@ export const categoryService = {
                 priority: input.priority ?? null,
                 tatHours: input.tatHours ?? null,
                 assigneeId: input.assigneeId ?? null,
+                departmentId: input.departmentId ?? null,
                 isActive: input.isActive ?? true,
                 sortOrder: input.sortOrder ?? Number(last?.top ?? -1) + 1,
             });
@@ -178,6 +186,7 @@ export const categoryService = {
         const before = await getSubcategoryOrThrow(categoryId, id);
         if (input.name !== undefined && input.name !== before.name) await assertSubcategoryNameFree(categoryId, input.name, id);
         if (input.assigneeId !== undefined) await assertAssignee(input.assigneeId);
+        if (input.departmentId !== undefined) await assertDepartment(input.departmentId);
         const { tagIds, ...fields } = input;
         await db.transaction(async (tx) => {
             await tx.update(categorySubcategories).set({ ...fields, updatedAt: new Date() }).where(eq(categorySubcategories.id, id));
@@ -207,6 +216,30 @@ export const categoryService = {
             const rows = await db.select().from(categories).orderBy(asc(categories.name));
             return attachRelations(rows);
         });
+    },
+
+    async listForExport() {
+        const all = await categoryService.list();
+        const deptIds = new Set<string>();
+        const userIds = new Set<string>();
+        for (const category of all) for (const sub of category.subcategories) {
+            if (sub.departmentId) deptIds.add(sub.departmentId);
+            if (sub.assigneeId) userIds.add(sub.assigneeId);
+        }
+        const [deptRows, userRows] = await Promise.all([
+            deptIds.size ? db.select({ id: departments.id, name: departments.name }).from(departments).where(inArray(departments.id, [...deptIds])) : [],
+            userIds.size ? db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, [...userIds])) : [],
+        ]);
+        const deptName = new Map(deptRows.map((d) => [d.id, d.name]));
+        const userEmail = new Map(userRows.map((u) => [u.id, u.email]));
+        return all.map((category) => ({
+            ...category,
+            subcategories: category.subcategories.map((sub) => ({
+                ...sub,
+                departmentName: sub.departmentId ? deptName.get(sub.departmentId) ?? null : null,
+                assigneeEmail: sub.assigneeId ? userEmail.get(sub.assigneeId) ?? null : null,
+            })),
+        }));
     },
 
     async getById(id: string) {

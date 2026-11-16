@@ -1,6 +1,6 @@
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
-import { CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, IdCard } from 'lucide-react';
+import { CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone } from 'lucide-react';
 import { Input, Textarea } from '../../../components';
 import { useSettingsQuery, useUploadLogoMutation, useRemoveLogoMutation } from '../hook';
 import { resolveLogoUrl } from '../../../lib/uploadsBase';
@@ -62,7 +62,7 @@ const Divider = () => <div className="h-px w-full bg-border" />;
 
 const TwoColumns = ({ children }: { children: ReactNode }) => <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 
-export const GeneralSection = ({ isAdmin }: SectionProps) => {
+export const GeneralSection = () => {
   const { register, formState: { errors } } = useFormContext<SettingsFields>();
   const { data: settings } = useSettingsQuery();
   const uploadLogoMutation = useUploadLogoMutation();
@@ -88,18 +88,6 @@ export const GeneralSection = ({ isAdmin }: SectionProps) => {
         <Input id="iosAppUrl" label="iPhone App Store link" placeholder="https://apps.apple.com/..." inputMode="url" error={errors.iosAppUrl?.message} {...register('iosAppUrl')} />
       </SettingsCard>
 
-      <AdminOnly show={isAdmin}>
-        <SettingsCard icon={IdCard} title="Employee IDs" hint="Every person gets an ID like EMP-0001 when they are added. Changing the prefix only applies to people added after the change. Existing IDs stay as they are.">
-          <Input
-            id="employeeIdPrefix"
-            label="ID prefix"
-            placeholder="EMP"
-            autoComplete="off"
-            error={errors.employeeIdPrefix?.message}
-            {...register('employeeIdPrefix', { setValueAs: (v: string) => (typeof v === 'string' ? v.trim().toUpperCase() : v) })}
-          />
-        </SettingsCard>
-      </AdminOnly>
     </>
   );
 };

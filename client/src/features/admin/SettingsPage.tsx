@@ -17,7 +17,7 @@ interface SectionDef {
 }
 
 const SECTIONS: Record<SectionKey, SectionDef> = {
-  general: { label: 'General', icon: Building2, render: (isAdmin) => <GeneralSection isAdmin={isAdmin} /> },
+  general: { label: 'General', icon: Building2, render: () => <GeneralSection /> },
   tickets: { label: 'Tickets', icon: Upload, render: (isAdmin) => <TicketsSection isAdmin={isAdmin} /> },
   notifications: { label: 'Notifications', icon: Bell, render: (isAdmin) => <NotificationsSection isAdmin={isAdmin} /> },
   security: { label: 'Security', icon: KeyRound, adminOnly: true, render: () => <SecuritySection /> },

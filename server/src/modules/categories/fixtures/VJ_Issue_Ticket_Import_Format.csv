@@ -1,0 +1,50 @@
+Category,Sub Category,Department,Assigned To,Labels,Priority,Due Hours
+Issue Ticket,Acme billing / POS down – counter cannot bill,IT – ERP,,"ERP & App Issue, Incident",Critical,4
+Issue Ticket,Acme error – module / report / document not working,IT – ERP,,"ERP & App Issue, Incident",High,24
+Issue Ticket,"Login, user ID, role & rights",IT – ERP,,"ERP & App Issue, Service Request",High,24
+Issue Ticket,Jewello app / payment gateway / WhatsApp-SMS-OTP / Power BI not working,IT – ERP,,"ERP & App Issue, Incident",High,24
+Issue Ticket,Payment details – wrong bank / UPI / UTR / payment mode,Accounts,,"Transaction Correction, Correction",Medium,24
+Issue Ticket,Wrong transaction / payment date,Accounts,,"Transaction Correction, Correction",Medium,24
+Issue Ticket,Savings scheme – cancel enrollment / change plan / edit installment,Jewel Club + Accounts,,"Transaction Correction, Correction",Medium,24
+Issue Ticket,"Cancel receipt / voucher / bill (duplicate, wrong customer)",Accounts,,"Transaction Correction, Correction",High,24
+Issue Ticket,Edit bill – salesperson / customer name / mobile,Accounts,,"Transaction Correction, Correction",Medium,24
+Issue Ticket,Edit bill – weight / rate / discount / making / value,Accounts,,"Transaction Correction, Correction",High,24
+Issue Ticket,URD / old gold / purchase document edit or cancel,Accounts,,"Transaction Correction, Correction",Medium,24
+Issue Ticket,Item / tag / weight / stock record correction,Merchandising,,"Transaction Correction, Correction",Medium,48
+Issue Ticket,PC / laptop not working or slow,IT – Support,,"IT Hardware & Devices, Incident",High,24
+Issue Ticket,Printer / tag printer not working,IT – Support,,"IT Hardware & Devices, Incident",High,24
+Issue Ticket,"Peripherals – monitor, mouse, keyboard, cable, UPS, headset",IT – Support,,"IT Hardware & Devices, Incident",Medium,72
+Issue Ticket,"Store devices – barcode scanner, weighing scale, karat meter",IT – Support,,"IT Hardware & Devices, Incident",Critical,4
+Issue Ticket,Software install – MS Office / Windows / Excel / PDF,IT – Support,,"IT Hardware & Devices, Service Request",Medium,72
+Issue Ticket,New device / system shifting / allocation,IT – Support,,"IT Hardware & Devices, Service Request",Low,168
+Issue Ticket,Internet / Wi-Fi / LAN down or slow,IT – Network,,"Network & Telephony, Incident",Critical,4
+Issue Ticket,"Phone, intercom, IVR, dialer, SIM",IT – Network,,"Network & Telephony, Incident",High,24
+Issue Ticket,CCTV offline / not recording / freeze,IT – Security Systems,,"CCTV & Biometric, Incident",Critical,4
+Issue Ticket,CCTV footage review request,IT – Security Systems,,"CCTV & Biometric, Service Request",High,24
+Issue Ticket,New camera / view change / access,IT – Security Systems,,"CCTV & Biometric, Service Request",Low,168
+Issue Ticket,Biometric / attendance device offline,IT – Security Systems,,"CCTV & Biometric, Incident",Medium,72
+Issue Ticket,Strongroom / shutter / safe / display lock fault,Admin – Facilities,,"Facilities & Maintenance, Incident",Critical,4
+Issue Ticket,"Electrical – lights, switchboard, socket, wiring",Admin – Facilities,,"Facilities & Maintenance, Incident",High,24
+Issue Ticket,"Plumbing – leakage, drain, washroom, RO",Admin – Facilities,,"Facilities & Maintenance, Incident",High,24
+Issue Ticket,AC / heater,Admin – Facilities,,"Facilities & Maintenance, Incident",Medium,72
+Issue Ticket,"Machines – melting, soldering, generator/servo, pantry",Admin – Facilities,,"Facilities & Maintenance, Incident",High,24
+Issue Ticket,"Civil & furniture – doors, drawers, chairs, tiles, paint",Admin – Facilities,,"Facilities & Maintenance, Incident",Medium,72
+Issue Ticket,Housekeeping & deep cleaning,Admin – Facilities,,"Facilities & Maintenance, Service Request",Low,168
+Issue Ticket,Stock movement – inter-store,Admin – Transport,,"Vehicle & Logistics, Service Request",High,4
+Issue Ticket,Stock movement – exhibition,Admin – Transport,,"Vehicle & Logistics, Service Request",High,4
+Issue Ticket,Refinery / lab / karigar / repair run,Admin – Transport,,"Vehicle & Logistics, Service Request",Medium,4
+Issue Ticket,Customer delivery,Admin – Transport,,"Vehicle & Logistics, Service Request",High,4
+Issue Ticket,Official travel,Admin – Transport,,"Vehicle & Logistics, Service Request",Low,4
+Issue Ticket,Payslip / salary / incentive query,HR,,"HR & Employee Services, Service Request",Medium,72
+Issue Ticket,Leave / attendance correction (Keka),HR,,"HR & Employee Services, Service Request",Medium,72
+Issue Ticket,PF / ESI / UAN / bank details,HR,,"HR & Employee Services, Service Request",Medium,72
+Issue Ticket,Uniform / ID card / visiting card / employee records,HR,,"HR & Employee Services, Service Request",Low,168
+Issue Ticket,New / modified report or dashboard,IT – ERP / MIS,,"Change & Enhancement Request, Change",Low,
+Issue Ticket,Print format change,IT – ERP,,"Change & Enhancement Request, Change",Low,
+Issue Ticket,"Master / configuration – category, tax, discount slab, scheme, bank",IT – ERP,,"Change & Enhancement Request, Change",Low,
+Issue Ticket,"Data extraction – customer lists, campaign data",MIS,,"Change & Enhancement Request, Change",Low,
+Issue Ticket,New feature / integration / automation,IT – ERP,,"Change & Enhancement Request, Change",Low,
+Issue Ticket,Cash shortage / excess at counter,Operations Manager,,"Security & Loss Incident, Incident – Confidential",Critical,4
+Issue Ticket,Stock / piece missing or weight mismatch,Operations Manager,,"Security & Loss Incident, Incident – Confidential",Critical,4
+Issue Ticket,Theft / suspicious activity / key or strongroom breach,Operations Manager,,"Security & Loss Incident, Incident – Confidential",Critical,4
+Issue Ticket,L10 / delegation / scorecard / strategy / hiring tasks,,,"Not a ticket → Task tracker, Block in tool",,

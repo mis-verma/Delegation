@@ -1,4 +1,4 @@
-import type { CategoryTatRow } from '../../api/categories';
+import type { Category, CategoryTatRow } from '../../api/categories';
 
 export const formatMinutes = (minutes: number | null): string => {
   if (minutes === null) return '–';
@@ -89,3 +89,12 @@ export const tatExportRow = (row: CategoryTatRow) => [
   row.slaBreached,
   row.slaMetPct,
 ];
+
+export const departmentSummary = (c: Category, names: ReadonlyMap<string, string>): string | null => {
+  const ids = new Set<string>();
+  for (const sub of c.subcategories) if (sub.isActive && sub.departmentId && sub.departmentId !== c.departmentId?.id) ids.add(sub.departmentId);
+  if (ids.size === 0) return null;
+  const labels = [c.departmentId?.name, ...[...ids].map((id) => names.get(id))].filter((n): n is string => !!n);
+  if (labels.length <= 2) return labels.join(', ');
+  return `${labels[0]} +${labels.length - 1}`;
+};

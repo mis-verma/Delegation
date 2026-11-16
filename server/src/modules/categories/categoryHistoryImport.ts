@@ -29,6 +29,18 @@ export type HistoryTag = { id: string; name: string }
 export type HistoryExisting = { id: string; subcategoryKeys: Set<string> }
 export type CategoryPriorityValue = (typeof PRIORITIES)[number]
 
+export type CategoryProposalSubcategory = {
+    name: string
+    exists: boolean
+    tatHours: number | null
+    priority: CategoryPriorityValue | null
+    labels: { name: string; tagId: string | null }[]
+    personName: string | null
+    assigneeId: string | null
+    departmentName: string | null
+    departmentId: string | null
+}
+
 export type CategoryProposal = {
     key: string
     name: string
@@ -41,7 +53,7 @@ export type CategoryProposal = {
     departmentMatch: MatchConfidence
     exists: boolean
     existingCategoryId: string | null
-    subcategories: { name: string; exists: boolean }[]
+    subcategories: CategoryProposalSubcategory[]
     priority: CategoryPriorityValue | null
     labels: { name: string; tagId: string | null }[]
     warnings: string[]
@@ -109,6 +121,7 @@ export const buildCategoryProposals = (
     const priorityColumn = findColumn(headers, PRIORITY_COLUMNS)
     const listFormat = !!(subcategoryColumn || labelColumn || priorityColumn || hoursColumn)
 
+    type SubRow = { hours: number | null; priority: string; labels: string[]; person: string; department: string }
     type Group = {
         name: string
         sla: number[]
@@ -118,6 +131,9 @@ export const buildCategoryProposals = (
         badPriorities: Set<string>
         labels: Map<string, string>
         subcategories: Map<string, string>
+        subRows: Map<string, SubRow>
+        rowHours: (number | null)[]
+        rowLabelKeys: Set<string>[]
         rows: number
     }
     const groups = new Map<string, Group>()
@@ -134,11 +150,17 @@ export const buildCategoryProposals = (
             badPriorities: new Set<string>(),
             labels: new Map<string, string>(),
             subcategories: new Map<string, string>(),
+            subRows: new Map<string, SubRow>(),
+            rowHours: [],
+            rowLabelKeys: [],
             rows: 0,
         }
         group.rows += 1
         const hours = hoursColumn ? hoursFromHours(record[hoursColumn] ?? "") : slaColumn ? hoursFromSlaMinutes(record[slaColumn] ?? "") : null
         if (hours !== null) group.sla.push(hours)
+        group.rowHours.push(hours)
+        const rowLabels = labelColumn ? labelsIn(record[labelColumn] ?? "") : []
+        group.rowLabelKeys.push(new Set(rowLabels.map(keyOf)))
         if (personColumn) group.people.push(...peopleIn(record[personColumn] ?? ""))
         if (departmentColumn) {
             const department = squash(record[departmentColumn] ?? "")
@@ -148,6 +170,13 @@ export const buildCategoryProposals = (
             const subcategory = squash(record[subcategoryColumn] ?? "")
             if (subcategory && !UNUSABLE_NAMES.has(subcategory.toLowerCase()) && !group.subcategories.has(keyOf(subcategory))) {
                 group.subcategories.set(keyOf(subcategory), subcategory)
+                group.subRows.set(keyOf(subcategory), {
+                    hours,
+                    priority: priorityColumn ? squash(record[priorityColumn] ?? "") : "",
+                    labels: rowLabels,
+                    person: personColumn ? peopleIn(record[personColumn] ?? "")[0] ?? "" : "",
+                    department: departmentColumn ? squash(record[departmentColumn] ?? "") : "",
+                })
             }
         }
         if (priorityColumn) {
@@ -198,16 +227,53 @@ export const buildCategoryProposals = (
 
         const found = ctx.existing?.get(key)
         const warnings: string[] = []
-        for (const bad of group.badPriorities) warnings.push(`Priority "${bad}" is not Low, Medium, High or Critical, so it was left empty.`)
+        const perRow = listFormat && group.subcategories.size > 1
+        if (!perRow) for (const bad of group.badPriorities) warnings.push(`Priority "${bad}" is not Low, Medium, High or Critical, so it was left empty.`)
         if (topPerson && !person) warnings.push(`No active person matches "${topPerson}".`)
-        const labels = [...group.labels.values()].map((label) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) }))
+        const sharedLabelKeys = perRow ? group.rowLabelKeys.reduce<Set<string> | null>((acc, keys) => acc ? new Set([...acc].filter((k) => keys.has(k))) : new Set(keys), null) : null
+        const labels = [...group.labels.entries()]
+            .filter(([labelKey]) => !sharedLabelKeys || sharedLabelKeys.has(labelKey))
+            .map(([, label]) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) }))
         if (labels.length > MAX_LABELS) warnings.push(`Only the first ${MAX_LABELS} labels are used.`)
+
+        const subcategories: CategoryProposalSubcategory[] = [...group.subcategories.entries()].map(([subKey, subName]) => {
+            const exists = found?.subcategoryKeys.has(subKey) ?? false
+            const row = group.subRows.get(subKey)
+            if (!perRow || !row) return { name: subName, exists, tatHours: null, priority: null, labels: [], personName: null, assigneeId: null, departmentName: null, departmentId: null }
+            let rowDepartmentId: string | null = null
+            if (row.department) {
+                const hit = matchExactOrFuzzy(row.department, ctx.departments, (d) => d.name)
+                if (hit.confidence === "exact" && hit.match) rowDepartmentId = hit.match.id
+                else warnings.push(`Row "${subName}": department "${row.department}" is not an existing department, so it uses the category's department.`)
+            }
+            let rowPerson: HistoryPerson | null = null
+            if (row.person) {
+                rowPerson = ctx.people.find((p) => p.email.toLowerCase() === row.person.toLowerCase()) ?? matchExactOrFuzzy(row.person, ctx.people, (p) => p.name).match
+                if (!rowPerson) warnings.push(`Row "${subName}": no active person matches "${row.person}".`)
+            }
+            let rowPriority: CategoryPriorityValue | null = null
+            if (row.priority) {
+                rowPriority = priorityFrom(row.priority)
+                if (!rowPriority) warnings.push(`Row "${subName}": priority "${row.priority}" is not Low, Medium, High or Critical, so it was left empty.`)
+            }
+            return {
+                name: subName,
+                exists,
+                tatHours: row.hours,
+                priority: rowPriority,
+                labels: row.labels.map((label) => ({ name: label, tagId: matchTag(label, ctx.tags ?? []) })),
+                personName: row.person || null,
+                assigneeId: rowPerson?.id ?? null,
+                departmentName: row.department || null,
+                departmentId: rowDepartmentId,
+            }
+        })
 
         proposals.push({
             key,
             name: group.name,
             rowCount: group.rows,
-            tatHours: modeOf(group.sla),
+            tatHours: perRow && group.rowHours.some((h) => h === null) ? null : modeOf(group.sla),
             personName: topPerson,
             assigneeId: person?.id ?? null,
             departmentId,
@@ -215,7 +281,7 @@ export const buildCategoryProposals = (
             departmentMatch,
             exists: ctx.existingNames.has(key),
             existingCategoryId: found?.id ?? null,
-            subcategories: [...group.subcategories.entries()].map(([subKey, subName]) => ({ name: subName, exists: found?.subcategoryKeys.has(subKey) ?? false })),
+            subcategories,
             priority: modeOf(group.priorities),
             labels: labels.slice(0, MAX_LABELS),
             warnings,

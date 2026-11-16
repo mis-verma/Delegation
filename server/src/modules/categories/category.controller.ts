@@ -25,7 +25,7 @@ const exportQuerySchema = z.object({ format: z.enum(["csv", "xlsx"]).default("xl
 export const categoryController = {
     export : asyncHandler(async (req : Request, res : Response) => {
         const { format } = exportQuerySchema.parse(req.query)
-        const rows = categoryFileRows(await categoryService.list())
+        const rows = categoryFileRows(await categoryService.listForExport())
         const datePart = new Date().toISOString().slice(0, 10)
         res.setHeader("Content-Type", format === "csv" ? "text/csv; charset=utf-8" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         res.setHeader("Content-Disposition", `attachment; filename="categories-${datePart}.${format}"`)

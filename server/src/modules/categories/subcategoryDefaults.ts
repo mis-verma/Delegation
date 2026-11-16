@@ -12,16 +12,18 @@ export type SubcategoryOverrides = {
     priority: CategoryDefaults["priority"]
     tatHours: number | null
     assigneeId: string | null
+    departmentId: string | null
     tagIds: string[]
 }
 
-export const mergeSubcategory = (base: CategoryDefaults, sub: (Pick<SubcategoryOverrides, "priority" | "tatHours" | "assigneeId"> & { tagIds?: readonly string[] }) | null): CategoryDefaults =>
+export const mergeSubcategory = (base: CategoryDefaults, sub: (Pick<SubcategoryOverrides, "priority" | "tatHours" | "assigneeId"> & { departmentId?: string | null; tagIds?: readonly string[] }) | null): CategoryDefaults =>
     sub
         ? {
             ...base,
             priority: sub.priority ?? base.priority,
             tatHours: sub.tatHours ?? base.tatHours,
-            assigneeId: sub.assigneeId ?? base.assigneeId,
+            departmentId: sub.departmentId ?? base.departmentId,
+            assigneeId: sub.assigneeId ?? (sub.departmentId && sub.departmentId !== base.departmentId ? null : base.assigneeId),
             tagIds: [...new Set([...base.tagIds, ...(sub.tagIds ?? [])])],
         }
         : base
@@ -36,6 +38,7 @@ export const loadSubcategory = async (subcategoryId: string | null | undefined):
         priority: categorySubcategories.priority,
         tatHours: categorySubcategories.tatHours,
         assigneeId: categorySubcategories.assigneeId,
+        departmentId: categorySubcategories.departmentId,
         assigneeActive: users.isActive,
     })
         .from(categorySubcategories)

@@ -28,7 +28,6 @@ export const settingsSchema = z.object({
   notificationRetentionDays: retentionDays,
   inboundMessageRetentionDays: retentionDays,
   autoCloseDays: z.number().int().min(0, 'Use 0 to turn it off').max(30, 'Must be 30 days or less'),
-  employeeIdPrefix: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, 'Use 1 to 12 letters or numbers'),
   androidAppUrl: appLink,
   iosAppUrl: appLink,
 });
@@ -41,7 +40,6 @@ export const FIELD_SECTION: Record<keyof SettingsFields, SectionKey> = {
   orgName: 'general',
   androidAppUrl: 'general',
   iosAppUrl: 'general',
-  employeeIdPrefix: 'general',
   defaultTatHours: 'tickets',
   maxUploadSizeMb: 'tickets',
   maxUploadFiles: 'tickets',

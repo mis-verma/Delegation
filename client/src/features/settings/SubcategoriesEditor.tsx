@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
-import { Button, Input, Switch, useConfirm } from '../../components';
+import { Building2, ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button, IconChip, Input, SelectDropdown, Switch, useConfirm } from '../../components';
 import { cn } from '@/lib/utils';
-import { useDeleteSubcategoryMutation, useSaveSubcategoryMutation } from './hook';
+import { useDeleteSubcategoryMutation, useDepartmentsQuery, useSaveSubcategoryMutation } from './hook';
 import type { Subcategory } from '@/api/categories';
 
 
@@ -10,9 +10,10 @@ const ICON_BUTTON = 'flex size-9 pointer-coarse:size-11 shrink-0 items-center ju
 
 interface Draft {
   name: string;
+  departmentId: string;
 }
 
-const draftOf = (sub?: Subcategory): Draft => ({ name: sub?.name ?? '' });
+const draftOf = (sub?: Subcategory): Draft => ({ name: sub?.name ?? '', departmentId: sub?.departmentId ?? '' });
 
 interface EditorRowProps {
   categoryId: string;
@@ -23,6 +24,8 @@ interface EditorRowProps {
 const EditorRow = ({ categoryId, sub, onDone }: EditorRowProps) => {
   const [draft, setDraft] = useState<Draft>(() => draftOf(sub));
   const save = useSaveSubcategoryMutation();
+  const { data: departments = [] } = useDepartmentsQuery();
+  const departmentOptions = [{ value: '', label: 'Same as category' }, ...departments.map((d) => ({ value: d.id, label: d.name }))];
   const nameMissing = !draft.name.trim();
 
   const submit = () => {
@@ -33,6 +36,7 @@ const EditorRow = ({ categoryId, sub, onDone }: EditorRowProps) => {
         id: sub?.id,
         payload: {
           name: draft.name.trim(),
+          departmentId: draft.departmentId || null,
         },
       },
       { onSuccess: onDone },
@@ -50,6 +54,15 @@ const EditorRow = ({ categoryId, sub, onDone }: EditorRowProps) => {
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
         autoFocus
       />
+      <div className="flex flex-col gap-1.5">
+        <span className="t-meta font-display font-semibold text-text-secondary">Department</span>
+        <SelectDropdown
+          aria-label="Subcategory department"
+          value={draft.departmentId}
+          options={departmentOptions}
+          onChange={(departmentId) => setDraft((d) => ({ ...d, departmentId }))}
+        />
+      </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onDone} className="max-sm:h-11">Cancel</Button>
         <Button type="button" variant="primary" size="sm" onClick={submit} isLoading={save.isPending} disabled={nameMissing} className="max-sm:h-11">
@@ -62,14 +75,17 @@ const EditorRow = ({ categoryId, sub, onDone }: EditorRowProps) => {
 
 interface SubcategoryItemProps {
   categoryId: string;
+  categoryDepartmentId?: string;
   sub: Subcategory;
 }
 
-const SubcategoryItem = ({ categoryId, sub }: SubcategoryItemProps) => {
+const SubcategoryItem = ({ categoryId, categoryDepartmentId, sub }: SubcategoryItemProps) => {
   const [editing, setEditing] = useState(false);
   const save = useSaveSubcategoryMutation();
   const remove = useDeleteSubcategoryMutation();
   const confirm = useConfirm();
+  const { data: departments = [] } = useDepartmentsQuery();
+  const ownDepartment = sub.departmentId && sub.departmentId !== categoryDepartmentId ? departments.find((d) => d.id === sub.departmentId) : undefined;
 
   if (editing) return <EditorRow categoryId={categoryId} sub={sub} onDone={() => setEditing(false)} />;
 
@@ -88,6 +104,11 @@ const SubcategoryItem = ({ categoryId, sub }: SubcategoryItemProps) => {
     <div className={cn('flex items-center gap-2 rounded-lg border border-border/60 bg-surface px-3 py-2', !sub.isActive && 'opacity-70')}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug break-words">{sub.name}</span>
+        {ownDepartment && (
+          <span className="w-fit max-w-full">
+            <IconChip icon={Building2} label={ownDepartment.name} title="Department" />
+          </span>
+        )}
       </div>
       <Switch
         checked={sub.isActive}
@@ -107,10 +128,11 @@ const SubcategoryItem = ({ categoryId, sub }: SubcategoryItemProps) => {
 
 interface SubcategoriesEditorProps {
   categoryId: string;
+  categoryDepartmentId?: string;
   subcategories: Subcategory[];
 }
 
-export const SubcategoriesEditor = ({ categoryId, subcategories }: SubcategoriesEditorProps) => {
+export const SubcategoriesEditor = ({ categoryId, categoryDepartmentId, subcategories }: SubcategoriesEditorProps) => {
   const [adding, setAdding] = useState(false);
 
   return (
@@ -135,7 +157,7 @@ export const SubcategoriesEditor = ({ categoryId, subcategories }: Subcategories
         <p className="rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 t-meta text-text-muted">No subcategories yet.</p>
       )}
       {subcategories.map((sub) => (
-        <SubcategoryItem key={sub.id} categoryId={categoryId} sub={sub} />
+        <SubcategoryItem key={sub.id} categoryId={categoryId} categoryDepartmentId={categoryDepartmentId} sub={sub} />
       ))}
       {adding && <EditorRow categoryId={categoryId} onDone={() => setAdding(false)} />}
     </section>

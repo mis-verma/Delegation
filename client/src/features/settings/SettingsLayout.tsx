@@ -1,27 +1,22 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { Tag, UserCircle, Monitor } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { UserCircle, Monitor } from 'lucide-react';
 import { Breadcrumbs } from '../../components/breadcrumbs';
 
 const NAV = [
   { to: '/settings/account', icon: UserCircle, label: 'Account' },
   { to: '/settings/appearance', icon: Monitor, label: 'Appearance' },
-  { to: '/settings/categories', icon: Tag, label: 'Categories', staff: true },
 ];
 
 export const SettingsLayout = () => {
-  const { user } = useAuth();
-  const isStaff = user?.role === 'ADMIN' || user?.role === 'PC';
-  const items = NAV.filter((item) => !item.staff || isStaff);
   const { pathname } = useLocation();
-  const current = items.find((item) => pathname.startsWith(item.to))?.label;
+  const current = NAV.find((item) => pathname.startsWith(item.to))?.label;
   const trail = [{ label: 'Home', to: '/' }, { label: 'Settings', to: '/settings' }, ...(current ? [{ label: current }] : [])];
   return (
     <div className="flex flex-col gap-3 sm:gap-4 w-full max-w-(--container-width) mx-auto">
       <Breadcrumbs items={trail} />
       <nav aria-label="Settings sections" className="max-w-full">
-        <div className={`grid ${items.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-1 p-1 rounded-xl border border-border/60 bg-surface-hover/60 sm:inline-grid`}>
-          {items.map(({ to, icon: Icon, label }) => (
+        <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl border border-border/60 bg-surface-hover/60 sm:inline-grid`}>
+          {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}

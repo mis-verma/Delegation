@@ -18,6 +18,7 @@ export const createSubcategorySchema = z.object({
     priority : z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).nullable().optional(),
     tatHours : tatHoursSchema.nullable().optional(),
     assigneeId : z.string().min(1).nullable().optional(),
+    departmentId : z.string().min(1).nullable().optional(),
     tagIds : z.array(z.string().min(1)).max(12).optional(),
     isActive : z.boolean().optional(),
     sortOrder : z.number().int().min(0).max(10000).optional()

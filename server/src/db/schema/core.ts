@@ -199,6 +199,7 @@ export const categorySubcategories = mysqlTable(
     priority: mysqlEnum('priority', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
     tatHours: float('tatHours'),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
+    departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id, { onDelete: 'set null' }),
     isActive: boolean('isActive').notNull().default(true),
     sortOrder: int('sortOrder').notNull().default(0),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),

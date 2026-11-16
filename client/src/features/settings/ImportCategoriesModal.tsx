@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertCircle, Download, FileSpreadsheet, FileUp } from 'lucide-react';
-import { Button, Combobox, Modal, TagChip } from '../../components';
+import { AlertCircle, Building2, ChevronDown, Clock, Download, FileSpreadsheet, FileUp, User } from 'lucide-react';
+import { Button, Combobox, IconChip, Modal, PriorityChip, TagChip } from '../../components';
 import { notifyError } from '../../lib/queryHelpers';
-import { categoryApi, type CategoryHistoryPreview, type CategoryPriority, type CategoryProposal } from '../../api/categories';
+import { categoryApi, type CategoryHistoryPreview, type CategoryPriority, type CategoryProposal, type ProposalSubcategory } from '../../api/categories';
 import { tagApi } from '../../api/tags';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
 import { useCreateManyCategoriesMutation, useDownloadCategoriesMutation } from './hook';
@@ -52,6 +52,45 @@ const toRows = (data: CategoryHistoryPreview): Row[] => {
 
 const labelKey = (name: string) => name.trim().toLowerCase();
 
+const hasOwnValues = (sub: ProposalSubcategory) =>
+  !!sub.departmentId || !!sub.priority || sub.tatHours !== null || sub.labels.length > 0 || !!sub.assigneeId;
+
+interface SubcategoryBreakdownProps {
+  rowName: string;
+  subcategories: ProposalSubcategory[];
+}
+
+const SubcategoryBreakdown = ({ rowName, subcategories }: SubcategoryBreakdownProps) => (
+  <ul className="flex flex-col rounded-lg border border-border bg-surface" aria-label={`Sub category details of ${rowName}`}>
+    {subcategories.map((sub) => (
+      <li key={sub.name} className="flex flex-col gap-1.5 border-b border-border/60 px-3 py-2 last:border-b-0 sm:flex-row sm:items-start sm:gap-3">
+        <div className="flex min-w-0 flex-col sm:w-56 sm:shrink-0">
+          <span className={`break-words font-display font-semibold ${sub.exists ? 'text-text-muted line-through' : 'text-text'}`}>{sub.name}</span>
+          {sub.exists && <span className="t-meta text-text-muted">Already added</span>}
+        </div>
+        {!sub.exists && (
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            {sub.departmentId ? (
+              <IconChip icon={Building2} label={sub.departmentName ?? 'Department'} title="Department" />
+            ) : (
+              <IconChip icon={Building2} tone="bg-border" label="Uses category department" title={sub.departmentName ? `"${sub.departmentName}" did not match a department` : 'No department on this row'} />
+            )}
+            {sub.priority && <PriorityChip meta={PRIORITY_CONFIG[sub.priority]} />}
+            {sub.tatHours !== null && <IconChip icon={Clock} label={formatTatHours(sub.tatHours)} title="Due time" />}
+            {(sub.personName || sub.assigneeId) && <IconChip icon={User} label={sub.personName ?? 'Person'} title="Goes to" />}
+            {sub.labels.map((label) => (
+              <span key={label.name} className="flex items-center gap-1">
+                <TagChip tag={{ id: label.tagId ?? label.name, name: label.name, color: null }} showLabelOnMobile />
+                {!label.tagId && <span className="t-meta text-text-muted">new</span>}
+              </span>
+            ))}
+          </div>
+        )}
+      </li>
+    ))}
+  </ul>
+);
+
 export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CategoryHistoryPreview | null>(null);
@@ -59,6 +98,7 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
   const [reading, setReading] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const createMany = useCreateManyCategoriesMutation();
@@ -71,12 +111,21 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
       setFile(next);
       setPreview(data);
       setRows(toRows(data));
+      setOpen(new Set());
     } catch (err) {
       notifyError(err, "Couldn't read that file. Check it and try again.");
     } finally {
       setReading(false);
     }
   };
+
+  const toggleOpen = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const patch = (key: string, change: Partial<Row>) => setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...change } : r)));
 
@@ -110,7 +159,14 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
           assigneeIds: r.assigneeId ? [r.assigneeId] : undefined,
           tagIds: r.labels.map((l) => l.tagId ?? made.get(labelKey(l.name))).filter((id): id is string => !!id),
           existingCategoryId: r.existingCategoryId ?? undefined,
-          subcategories: newSubcategories(r).map((sub) => ({ name: sub.name })),
+          subcategories: newSubcategories(r).map((sub) => ({
+            name: sub.name,
+            tatHours: sub.tatHours,
+            priority: sub.priority,
+            assigneeId: sub.assigneeId,
+            departmentId: sub.departmentId,
+            labels: sub.labels.map((l) => l.name),
+          })),
         })),
         { onSuccess: ({ failed }) => { if (failed.length === 0) onClose(); } },
       );
@@ -246,8 +302,11 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                 {rows.map((row) => {
                   const locked = row.exists;
                   const fresh = newSubcategories(row);
+                  const expanded = open.has(row.key);
+                  const custom = row.subcategories.filter((sub) => !sub.exists && hasOwnValues(sub)).length;
                   return (
-                    <tr key={row.key} className={`border-b border-border/60 align-top last:border-b-0 ${locked ? 'opacity-70' : ''}`}>
+                    <Fragment key={row.key}>
+                    <tr className={`border-b border-border/60 align-top last:border-b-0 ${locked ? 'opacity-70' : ''}`}>
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
@@ -274,12 +333,27 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                             ))}
                           </ul>
                         )}
-                        {row.warnings.map((warning) => (
-                          <p key={warning} className="mt-1 flex items-start gap-1 t-meta text-danger">
-                            <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
-                            {warning}
-                          </p>
-                        ))}
+                        {row.subcategories.length > 0 && (
+                          <button
+                            type="button"
+                            aria-expanded={expanded}
+                            onClick={() => toggleOpen(row.key)}
+                            className="mt-1.5 flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md t-meta font-display font-semibold text-primary-700 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300"
+                          >
+                            <ChevronDown size={14} className={`transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+                            {expanded ? 'Hide details' : custom > 0 ? `See what each of ${custom} gets` : 'See details'}
+                          </button>
+                        )}
+                        {row.warnings.length > 0 && (
+                          <ul className="mt-1.5 flex flex-col gap-1 rounded-md border border-danger/40 bg-danger/5 px-2 py-1.5" aria-label={`Warnings for ${row.name}`}>
+                            {row.warnings.map((warning) => (
+                              <li key={warning} className="flex items-start gap-1 t-meta text-danger">
+                                <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
+                                {warning}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </td>
                       <td className="min-w-44 px-3 py-2">
                         <Combobox
@@ -341,6 +415,15 @@ export const ImportCategoriesModal = ({ onClose }: ImportCategoriesModalProps) =
                         {Number(row.hours) > 0 && <span className="mt-0.5 block t-meta text-text-light">{formatTatHours(Number(row.hours))}</span>}
                       </td>
                     </tr>
+                    {expanded && row.subcategories.length > 0 && (
+                      <tr className="border-b border-border/60 bg-surface-hover/20 last:border-b-0">
+                        <td />
+                        <td colSpan={6} className="px-3 py-2">
+                          <SubcategoryBreakdown rowName={row.name} subcategories={row.subcategories} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

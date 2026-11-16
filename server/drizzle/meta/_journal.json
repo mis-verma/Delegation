@@ -757,6 +757,13 @@
       "when": 1793160000000,
       "tag": "0107_twice_recurrence",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "5",
+      "when": 1793250000000,
+      "tag": "0108_subcategory_department",
+      "breakpoints": true
     }
   ]
 }

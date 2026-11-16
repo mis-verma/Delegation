@@ -5,7 +5,8 @@ import { ColorIconTile, EntityCardActions, PriorityChip, StateChip } from '../..
 import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TR_CLASS, TD_STICKY_CLASS, NUM_CLASS, FIRST_COL_WIDTH_CLASS, activateOnKey } from '../../components/dataTable';
 import type { Category, CategoryTatRow } from '../../api/categories';
 import { PRIORITY_CONFIG } from '../tickets/ticketDisplay';
-import { SLA_TEXT, formatTatHours, slaTone } from './tatFormat';
+import { useDepartmentsQuery } from './hook';
+import { SLA_TEXT, departmentSummary, formatTatHours, slaTone } from './tatFormat';
 
 export interface CategoryViewProps {
   items: readonly Category[];
@@ -43,7 +44,14 @@ const SlaText = ({ usage }: { usage?: CategoryTatRow }) =>
     <span className="text-text-muted">–</span>
   );
 
-export const CategoryTable = memo(({ items, usageById, busyId, onEdit, onToggle, onRemove }: CategoryViewProps) => (
+const useDepartmentNames = (): ReadonlyMap<string, string> => {
+  const { data: departments = [] } = useDepartmentsQuery();
+  return new Map(departments.map((d) => [d.id, d.name]));
+};
+
+export const CategoryTable = memo(({ items, usageById, busyId, onEdit, onToggle, onRemove }: CategoryViewProps) => {
+  const names = useDepartmentNames();
+  return (
   <div className={TABLE_FRAME_CLASS}>
     <table className="w-full min-w-[52rem] border-collapse">
       <caption className="sr-only">Ticket categories</caption>
@@ -74,7 +82,7 @@ export const CategoryTable = memo(({ items, usageById, busyId, onEdit, onToggle,
                 <span className={cn('min-w-0 break-words text-sm font-display font-bold leading-snug line-clamp-2', c.isActive ? 'text-text' : 'text-text-secondary')} title={c.name}>{c.name}</span>
               </div>
             </td>
-            <td className={TD_CLASS}>{c.departmentId?.name ?? 'No department'}</td>
+            <td className={TD_CLASS}>{departmentSummary(c, names) ?? c.departmentId?.name ?? 'No department'}</td>
             <td className={cn(TD_CLASS, 'tabular-nums')}>{dueText(c)}</td>
             <td className={TD_CLASS}>{c.priority ? <PriorityChip meta={PRIORITY_CONFIG[c.priority]} /> : <span className="text-text-muted">Not set</span>}</td>
             <td className={cn(TD_CLASS, 'max-w-48 truncate')} title={peopleText(c)}>{peopleText(c)}</td>
@@ -88,10 +96,13 @@ export const CategoryTable = memo(({ items, usageById, busyId, onEdit, onToggle,
       </tbody>
     </table>
   </div>
-));
+  );
+});
 CategoryTable.displayName = 'CategoryTable';
 
-export const CategoryRows = memo(({ items, usageById, busyId, onEdit, onToggle, onRemove }: CategoryViewProps) => (
+export const CategoryRows = memo(({ items, usageById, busyId, onEdit, onToggle, onRemove }: CategoryViewProps) => {
+  const names = useDepartmentNames();
+  return (
   <ul className="flex flex-col gap-2">
     {items.map((c) => (
       <li
@@ -104,6 +115,7 @@ export const CategoryRows = memo(({ items, usageById, busyId, onEdit, onToggle, 
           <span className="flex min-w-0 items-center gap-1.5 truncate t-meta font-display text-text-muted">
             <Users className="size-3.5 shrink-0" aria-hidden />
             <span className="truncate">{peopleText(c)}</span>
+            {departmentSummary(c, names) && <span className="hidden truncate sm:inline">{`· ${departmentSummary(c, names)}`}</span>}
           </span>
         </button>
         <span className="hidden shrink-0 t-meta font-display font-semibold tabular-nums text-text-secondary sm:inline">Due {dueText(c)}</span>
@@ -113,5 +125,6 @@ export const CategoryRows = memo(({ items, usageById, busyId, onEdit, onToggle, 
       </li>
     ))}
   </ul>
-));
+  );
+});
 CategoryRows.displayName = 'CategoryRows';

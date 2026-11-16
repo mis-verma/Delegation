@@ -17,7 +17,16 @@ export type ExportableCategory = {
     department: { name: string } | null
     assignees: { email: string }[]
     tags: { name: string }[]
-    subcategories: { name: string }[]
+    subcategories: ExportableSubcategory[]
+}
+
+export type ExportableSubcategory = {
+    name: string
+    priority?: string | null
+    tatHours?: number | null
+    departmentName?: string | null
+    assigneeEmail?: string | null
+    tags?: { name: string }[]
 }
 
 export const categoryFileRows = (categories: ExportableCategory[]): Record<string, unknown>[] => {
@@ -32,7 +41,18 @@ export const categoryFileRows = (categories: ExportableCategory[]): Record<strin
             dueHours: category.tatHours ?? "",
         }
         if (category.subcategories.length === 0) rows.push({ ...base, subCategory: "" })
-        else for (const sub of category.subcategories) rows.push({ ...base, subCategory: sub.name })
+        else for (const sub of category.subcategories) {
+            const labels = [...new Set([...category.tags, ...(sub.tags ?? [])].map((t) => t.name))]
+            rows.push({
+                ...base,
+                subCategory: sub.name,
+                department: sub.departmentName ?? base.department,
+                assignedTo: sub.assigneeEmail ?? base.assignedTo,
+                labels: labels.join(", "),
+                priority: sub.priority ?? base.priority,
+                dueHours: sub.tatHours ?? base.dueHours,
+            })
+        }
     }
     return rows
 }

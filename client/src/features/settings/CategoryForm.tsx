@@ -155,7 +155,7 @@ export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps
         </div>
 
         {isEditing && category ? (
-          <SubcategoriesEditor categoryId={category.id} subcategories={liveSubcategories} />
+          <SubcategoriesEditor categoryId={category.id} categoryDepartmentId={category.departmentId?.id} subcategories={liveSubcategories} />
         ) : (
           <div className="flex flex-col gap-1.5">
             <FieldLabel icon={ListTree} htmlFor="category-subcategory" optional>Subcategory</FieldLabel>

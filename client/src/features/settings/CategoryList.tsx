@@ -2,14 +2,14 @@ import { startTransition, useCallback, useEffect, useMemo, useState, lazy, Suspe
 import { useSearchParams } from "react-router";
 import { preloadWhenIdle } from "../../lib/preloadWhenIdle";
 import { CreateButton } from '../../components/createButton';
-import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download } from "lucide-react";
+import { Tag, Users, Search, CircleOff, CirclePower, ListPlus, Plus, FileUp, Download, Trash2 } from "lucide-react";
 import { PeriodTabControl } from "../dashboard/PeriodTabControl";
 import { useAuth } from "@/context/AuthContext";
 import {
   Button, Input, Skeleton, SelectDropdown, PriorityChip, TagChip, Fab, EmptyState, InlineError, useConfirm, ViewToggle, type ViewTab,
   ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
-import { useCategoriesQuery, useCategoryTatQuery, useDeleteCategoryMutation, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
+import { useCategoriesQuery, useCategoryTatQuery, useClearCategoriesMutation, useDeleteCategoryMutation, useDepartmentsQuery, useDownloadCategoriesMutation, useUpdateCategoryMutation } from "./hook";
 import type { Category, CategoryTatRow } from "../../api/categories";
 import { CardChip } from "../admin/directory/orgScores";
 import { getInitials } from "../../lib/getInitials";
@@ -18,7 +18,7 @@ import { avatarColorClass } from "../../lib/avatarColors";
 import { STARTER_CATEGORIES, normalizeCategoryName } from "./starterCategories";
 import { CategoryStats, type CategoryStatKey } from "./CategoryStats";
 import { CategoryRows, CategoryTable } from "./CategoryViews";
-import { SLA_BAR, SLA_TEXT, formatTatHours, slaTone } from "./tatFormat";
+import { SLA_BAR, SLA_TEXT, departmentSummary, formatTatHours, slaTone } from "./tatFormat";
 
 const loadCategoryForm = () => import("./CategoryForm");
 const CategoryForm = lazy(() =>
@@ -67,16 +67,18 @@ const ROW_LABEL = "t-meta font-display font-medium text-text-muted";
 interface CategoryCardProps {
   category: Category;
   busy: boolean;
+  departmentNames: ReadonlyMap<string, string>;
   usage?: CategoryTatRow;
   onEdit: (category: Category) => void;
   onToggle: (category: Category) => void;
   onRemove?: (category: Category) => void;
 }
 
-const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: CategoryCardProps) => {
+const CategoryCard = ({ category: c, busy, departmentNames, usage, onEdit, onToggle, onRemove }: CategoryCardProps) => {
   const people = c.assigneeIds ?? [];
   const names = people.map((p) => `${p.firstName} ${p.lastName ?? ""}`.trim());
   const tone = slaTone(usage?.slaMetPct ?? null);
+  const departmentsLine = departmentSummary(c, departmentNames);
 
   return (
     <article className={`${ENTITY_CARD_CLASS} justify-start gap-3 ${!c.isActive ? "bg-surface-hover/30" : ""} ${busy ? "opacity-60 pointer-events-none" : ""}`}>
@@ -128,6 +130,13 @@ const CategoryCard = ({ category: c, busy, usage, onEdit, onToggle, onRemove }: 
             <dd className="min-w-0 t-meta font-display font-semibold text-text-secondary line-clamp-2 leading-snug">
               {c.subcategories.filter((sub) => sub.isActive).map((sub) => sub.name).join(", ") || "All turned off"}
             </dd>
+          </>
+        )}
+
+        {departmentsLine && (
+          <>
+            <dt className={ROW_LABEL}>Departments</dt>
+            <dd className="min-w-0 t-meta font-display font-semibold text-text-secondary line-clamp-2 leading-snug">{departmentsLine}</dd>
           </>
         )}
 
@@ -198,7 +207,7 @@ export const CategoryList = () => {
   const { user } = useAuth();
   const canSeeReport = user?.role === "ADMIN" || user?.role === "PC";
   const [params, setParams] = useSearchParams();
-  const rawTab = params.get("tab");
+  const rawTab = params.get("pane");
   const tab: CategoryTab = canSeeReport && isOneOf(TAB_OPTIONS, rawTab) ? rawTab : "list";
   const rawStatus = params.get("status");
   const status: StatusFilter = isOneOf(FILTER_KEYS, rawStatus) ? rawStatus : "all";
@@ -216,7 +225,7 @@ export const CategoryList = () => {
       }, { replace: true });
     });
   }, [setParams]);
-  const setTab = (next: CategoryTab) => setParam("tab", next, "list");
+  const setTab = (next: CategoryTab) => setParam("pane", next, "list");
   const setStatus = (next: StatusFilter) => setParam("status", next, "all");
   const setView = (next: CategoryView) => setParam("view", next, "cards");
   const setQuery = (next: string) => setParam("q", next);
@@ -234,8 +243,11 @@ export const CategoryList = () => {
 
   const { data: categories = [], isPending, isError, refetch } = useCategoriesQuery();
   const { data: usageReport } = useCategoryTatQuery(90, canSeeReport);
+  const { data: departmentList = [] } = useDepartmentsQuery();
+  const departmentNames = useMemo(() => new Map(departmentList.map((d) => [d.id, d.name])), [departmentList]);
   const updateMut = useUpdateCategoryMutation();
   const deleteMut = useDeleteCategoryMutation();
+  const clearMut = useClearCategoriesMutation();
 
   const usageById = useMemo(() => new Map((usageReport?.rows ?? []).flatMap((row) => (row.categoryId ? [[row.categoryId, row] as const] : []))), [usageReport]);
 
@@ -292,6 +304,19 @@ export const CategoryList = () => {
     if (ok) deleteMut.mutate(c.id);
   };
 
+  const replaceAll = async () => {
+    const ok = await confirm({
+      title: `Remove all ${categories.length} categories?`,
+      description: "Categories no ticket ever used are deleted for good. Ones with tickets are turned off, so old tickets keep their category. This can't be undone. The import opens next so you can add the new set.",
+      confirmLabel: "Remove all and import",
+      variant: "danger",
+    });
+    if (!ok) return;
+    clearMut.mutate(categories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive })), {
+      onSuccess: ({ failed }) => { if (failed.length === 0) setShowImport(true); },
+    });
+  };
+
   const closeForm = () => {
     setShowForm(false);
     setEditingCategory(null);
@@ -334,6 +359,7 @@ export const CategoryList = () => {
                 <CategoryCard
                   key={c.id}
                   category={c}
+                  departmentNames={departmentNames}
                   usage={usageById.get(c.id)}
                   busy={(updateMut.isPending && updateMut.variables?.id === c.id) || (deleteMut.isPending && deleteMut.variables === c.id)}
                   onEdit={setEditingCategory}
@@ -362,6 +388,12 @@ export const CategoryList = () => {
         <Button variant="outline" size="sm" onClick={() => setShowImport(true)} className="hidden h-9 md:inline-flex font-display font-semibold">
           <FileUp size={15} aria-hidden />
           Import from file
+        </Button>
+      )}
+      {tab === "list" && categories.length > 0 && user?.role === "ADMIN" && (
+        <Button variant="outline" size="sm" isLoading={clearMut.isPending} onClick={() => { void replaceAll(); }} className="hidden h-9 md:inline-flex font-display font-semibold">
+          <Trash2 size={15} aria-hidden />
+          Replace all
         </Button>
       )}
       {tab === "list" && categories.length > 0 && (

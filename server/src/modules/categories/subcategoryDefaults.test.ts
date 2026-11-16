@@ -21,6 +21,22 @@ describe("mergeSubcategory", () => {
         expect(mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null }).tagIds).toEqual(["t"])
     })
 
+    it("uses the subcategory department and drops the category assignee when it differs", () => {
+        const merged = mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null, departmentId: "d2" })
+        expect(merged.departmentId).toBe("d2")
+        expect(merged.assigneeId).toBeNull()
+    })
+
+    it("keeps the category assignee when the subcategory department is the same or unset", () => {
+        expect(mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null, departmentId: "d" }).assigneeId).toBe("a")
+        expect(mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: null, departmentId: null })).toEqual(base)
+    })
+
+    it("keeps an assignee set on the subcategory even with another department", () => {
+        const merged = mergeSubcategory(base, { priority: null, tatHours: null, assigneeId: "b", departmentId: "d2" })
+        expect(merged).toMatchObject({ departmentId: "d2", assigneeId: "b" })
+    })
+
     it("treats a zero tat as a value, not as empty", () => {
         expect(mergeSubcategory(base, { priority: null, tatHours: 0, assigneeId: null }).tatHours).toBe(0)
     })

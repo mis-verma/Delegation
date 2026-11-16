@@ -19,6 +19,7 @@ export type Subcategory = {
     priority: CategoryPriority | null;
     tatHours: number | null;
     assigneeId: string | null;
+    departmentId: string | null;
     sortOrder: number;
     tags: Tag[];
     tagIds: string[];
@@ -29,6 +30,7 @@ export type SubcategoryPayload = {
     priority?: CategoryPriority | null;
     tatHours?: number | null;
     assigneeId?: string | null;
+    departmentId?: string | null;
     tagIds?: string[];
     isActive?: boolean;
 };
@@ -76,6 +78,18 @@ export type CategoryTatRow = {
     suggestedTatHours: number | null;
 };
 
+export type ProposalSubcategory = {
+    name: string;
+    exists: boolean;
+    tatHours: number | null;
+    priority: CategoryPriority | null;
+    labels: { name: string; tagId: string | null }[];
+    personName: string | null;
+    assigneeId: string | null;
+    departmentName: string | null;
+    departmentId: string | null;
+};
+
 export type CategoryProposal = {
     key: string;
     name: string;
@@ -87,7 +101,7 @@ export type CategoryProposal = {
     departmentSource: "person" | "column" | "none";
     exists: boolean;
     existingCategoryId: string | null;
-    subcategories: { name: string; exists: boolean }[];
+    subcategories: ProposalSubcategory[];
     priority: CategoryPriority | null;
     labels: { name: string; tagId: string | null }[];
     warnings: string[];

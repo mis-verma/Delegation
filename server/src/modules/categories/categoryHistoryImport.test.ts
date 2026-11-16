@@ -113,12 +113,14 @@ describe("category file with sub category, labels and priority", () => {
     const bank = proposals.find((p) => p.name === "Bank change")!
 
     it("collects each sub category once and marks the ones already saved", () => {
-        expect(printer.subcategories).toEqual([{ name: "Toner", exists: true }, { name: "Paper jam", exists: false }])
+        expect(printer.subcategories.map((sub) => [sub.name, sub.exists])).toEqual([["Toner", true], ["Paper jam", false]])
         expect(printer.existingCategoryId).toBe("c1")
         expect(bank.subcategories).toEqual([])
     })
     it("matches labels to saved ones and keeps unknown names", () => {
-        expect(printer.labels).toEqual([{ name: "Hardware", tagId: "t1" }, { name: "Urgent", tagId: null }])
+        expect(printer.subcategories[0]!.labels).toEqual([{ name: "Hardware", tagId: "t1" }, { name: "Urgent", tagId: null }])
+        expect(printer.subcategories[1]!.labels).toEqual([])
+        expect(printer.labels).toEqual([])
     })
     it("reads priority and warns about a value it cannot use", () => {
         expect(printer.priority).toBe("HIGH")

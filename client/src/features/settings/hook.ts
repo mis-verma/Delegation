@@ -1,6 +1,6 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload, type CategoryFileFormat } from "@/api/categories";
+import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload, type TatWindowDays, type SubcategoryPayload, type CategoryFileFormat, type CategoryPriority } from "@/api/categories";
 import { tagApi } from "@/api/tags";
 import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
@@ -114,7 +114,16 @@ export const useDownloadCategoriesMutation = () =>
 export type CategoryJob = CreateCategoryPayload & {
     existingCategoryId?: string;
     labels?: readonly string[];
-    subcategories?: { name: string; tatHours?: number | null; labels?: readonly string[] }[];
+    subcategories?: JobSubcategory[];
+};
+
+type JobSubcategory = {
+    name: string;
+    tatHours?: number | null;
+    labels?: readonly string[];
+    priority?: CategoryPriority | null;
+    assigneeId?: string | null;
+    departmentId?: string | null;
 };
 
 const labelKey = (name : string) => name.trim().toLowerCase();
@@ -158,7 +167,14 @@ export const useCreateManyCategoriesMutation = () => {
                 }
                 for (const subcategory of subcategories ?? []) {
                     try {
-                        await categoryApi.createSubcategory(categoryId, { name: subcategory.name, tatHours: subcategory.tatHours ?? null, tagIds : idsFor(subcategory.labels, labelIds) });
+                        await categoryApi.createSubcategory(categoryId, {
+                            name: subcategory.name,
+                            tatHours: subcategory.tatHours ?? null,
+                            priority: subcategory.priority ?? null,
+                            assigneeId: subcategory.assigneeId ?? null,
+                            departmentId: subcategory.departmentId ?? null,
+                            tagIds : idsFor(subcategory.labels, labelIds),
+                        });
                     } catch {
                         failed.push(`${payload.name} / ${subcategory.name}`);
                     }
@@ -171,6 +187,39 @@ export const useCreateManyCategoriesMutation = () => {
             if (created > 0) toast.success(`${created} ${created === 1 ? "category" : "categories"} added`);
             else if (failed.length === 0) toast.success("Subcategories added");
             if (failed.length > 0) toast.error(`Couldn't add: ${failed.join(", ")}`);
+        },
+    })
+}
+
+export type ClearTarget = { id : string; name : string; isActive : boolean };
+
+export const useClearCategoriesMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : async (targets : ClearTarget[]) => {
+            let deleted = 0;
+            let turnedOff = 0;
+            const failed : string[] = [];
+            for (const target of targets) {
+                const removed = await categoryApi.delete(target.id).then(() => true, () => false);
+                if (removed) {
+                    deleted += 1;
+                    continue;
+                }
+                if (!target.isActive) {
+                    turnedOff += 1;
+                    continue;
+                }
+                const off = await categoryApi.update(target.id, { isActive : false }).then(() => true, () => false);
+                if (off) turnedOff += 1;
+                else failed.push(target.name);
+            }
+            return { deleted, turnedOff, failed };
+        },
+        onSuccess : ({ deleted, turnedOff, failed }) => {
+            queryClient.invalidateQueries({queryKey : CATEGORY_KEY.all});
+            toast.success(`${deleted} deleted, ${turnedOff} turned off because tickets use them`);
+            if (failed.length > 0) toast.error(`Couldn't remove: ${failed.join(", ")}`);
         },
     })
 }

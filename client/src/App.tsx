@@ -43,7 +43,6 @@ const TeamApprovalsPage = lazy(() => import('./features/tickets/TeamApprovalsPag
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
-const CategoryList = lazy(() => import('./features/settings/CategoryList').then(m => ({ default: m.CategoryList })));
 const AccountSettings = lazy(() => import('./features/settings/AccountSettings').then(m => ({ default: m.AccountSettings })));
 const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSettings').then(m => ({ default: m.AppearanceSettings })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
@@ -239,7 +238,7 @@ const router = createBrowserRouter([
               { index : true, element : <Navigate to="/settings/account" replace />},
               { path : "account", element : <AccountSettings/>},
               { path : "appearance", element : <AppearanceSettings/>},
-              { element : <PcDeskRoute/>, children : [{ path : "categories", element : <CategoryList/> }] },
+              { path : "categories", element : <Navigate to="/admin/directory?tab=categories" replace /> },
 
           ] },
           { path: '/tickets', element: <TicketList /> },

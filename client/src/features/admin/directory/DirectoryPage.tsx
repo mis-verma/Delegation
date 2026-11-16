@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio, Upload } from 'lucide-react';
+import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio, Upload, Tag, SlidersHorizontal } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, IconChip, PageHeader, Skeleton } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
@@ -14,6 +14,8 @@ import { useStoresQuery } from '../../tickets/hook';
 
 const PresenceOverview = lazy(() => import('../presence').then((m) => ({ default: m.PresenceOverview })));
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
+const CategoryList = lazy(() => import('../../settings/CategoryList').then((m) => ({ default: m.CategoryList })));
+const PeopleSettings = lazy(() => import('./PeopleSettings').then((m) => ({ default: m.PeopleSettings })));
 
 const TABS = [
   { value: 'users', label: 'Users', short: 'People', icon: Users },
@@ -21,11 +23,16 @@ const TABS = [
   { value: 'stores', label: 'Stores', short: 'Stores', icon: Store },
   { value: 'structure', label: 'Org structure', short: 'Structure', icon: Network },
   { value: 'online', label: "Who's online", short: 'Online', icon: Radio },
+  { value: 'categories', label: 'Ticket categories', short: 'Tickets', icon: Tag },
+  { value: 'settings', label: 'Settings', short: 'Settings', icon: SlidersHorizontal },
 ] as const;
 
 type TabValue = (typeof TABS)[number]['value'];
 
-const isTabValue = (v: string | null): v is TabValue => TABS.some((t) => t.value === v);
+const TAB_ROLES: Partial<Record<TabValue, readonly string[]>> = {
+  categories: ['ADMIN', 'PC'],
+  settings: ['ADMIN'],
+};
 
 const summarize = (rows: { isActive: boolean }[] | undefined, offWord: string) => {
   if (!rows) return null;
@@ -35,11 +42,12 @@ const summarize = (rows: { isActive: boolean }[] | undefined, offWord: string) =
 
 export const DirectoryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const visibleTabs = TABS.filter((t) => !TAB_ROLES[t.value] || (!!user && TAB_ROLES[t.value]!.includes(user.role)));
   const tabParam = searchParams.get('tab');
-  const tab: TabValue = isTabValue(tabParam) ? tabParam : 'users';
+  const tab: TabValue = visibleTabs.find((t) => t.value === tabParam)?.value ?? 'users';
   const setTab = (next: TabValue) => setSearchParams(new URLSearchParams({ tab: next }), { replace: true });
 
-  const { user } = useAuth();
   const [importing, setImporting] = useState(false);
   const { data: users } = useUsersQuery();
   const { data: departments } = useDepartmentsQuery();
@@ -52,6 +60,8 @@ export const DirectoryPage = () => {
     stores: stores ? org.activeStores : undefined,
     structure: undefined,
     online: undefined,
+    categories: undefined,
+    settings: undefined,
   };
 
   const summary = tab === 'users' ? summarize(users, 'deactivated')
@@ -77,8 +87,8 @@ export const DirectoryPage = () => {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <TabsList className="grid w-full grid-cols-5 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
-            {TABS.map(({ value, label, short, icon: Icon }) => (
+          <TabsList className="grid w-full grid-cols-4 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:flex-wrap sm:rounded-full">
+            {visibleTabs.map(({ value, label, short, icon: Icon }) => (
               <TabsTrigger
                 key={value}
                 value={value}
@@ -108,6 +118,16 @@ export const DirectoryPage = () => {
         <TabsContent value="online">
           <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
             <PresenceOverview />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="categories">
+          <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+            <CategoryList />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="settings">
+          <Suspense fallback={<Skeleton className="h-48 max-w-xl rounded-2xl" />}>
+            <PeopleSettings />
           </Suspense>
         </TabsContent>
         <TabsContent value="structure">
