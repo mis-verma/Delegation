@@ -247,6 +247,7 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
       total: sql<number>`COUNT(*)`,
       completed: sql<number>`SUM(CASE WHEN ${tickets.status} IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
       overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
+      onTime: sql<number>`SUM(CASE WHEN ${tickets.tatDueAt} IS NOT NULL AND NOT ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
       newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
     }).from(tickets).where(where)
 
@@ -257,7 +258,7 @@ export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScop
       total,
       pending: total - completed,
       newToday: Number(row?.newToday ?? 0),
-      due: total - completed - overdue,
+      due: Number(row?.onTime ?? 0),
       overdue,
       completed,
     }

@@ -4,8 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
 import type { ApprovalBucket } from '../pc/usePcApprovalBuckets';
+import type { ApprovalParam } from './work/statsConfig';
 
-export type ApprovalKind = 'delegation' | 'tickets' | 'checklist';
+export type ApprovalKind = ApprovalParam;
 
 export type ApprovalKinds = Record<ApprovalKind, ApprovalBucket>;
 

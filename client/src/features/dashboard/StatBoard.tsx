@@ -72,22 +72,22 @@ export const StatBoard = memo(({ active, tiles, label, note }: StatBoardProps) =
           })}
         </ul>
         {approvals && (
-          <Link
-            to={approvals.href ?? '/verify'}
-            viewTransition
-            onPointerEnter={() => warm(pathOf(approvals.href ?? '/verify'))}
-            onTouchStart={() => warm(pathOf(approvals.href ?? '/verify'))}
-            aria-label={`${approvals.label}: ${approvals.failed ? 'could not load' : approvals.value}. Open`}
-            className="group flex flex-col gap-1.5 rounded-xl bg-white/5 px-3 py-2 outline-none transition-colors duration-150 hover:bg-white/10 focus-visible:bg-white/10 active:bg-white/15"
-          >
-            <span className="flex min-h-8 items-center gap-2.5">
+          <div className="flex flex-col gap-1.5 rounded-xl bg-white/5 px-3 py-2">
+            <Link
+              to={approvals.href ?? '/verify'}
+              viewTransition
+              onPointerEnter={() => warm(pathOf(approvals.href ?? '/verify'))}
+              onTouchStart={() => warm(pathOf(approvals.href ?? '/verify'))}
+              aria-label={`${approvals.label}: ${approvals.failed ? 'could not load' : approvals.value}. Open`}
+              className="group -mx-1 flex min-h-8 items-center gap-2.5 rounded-lg px-1 outline-none transition-colors duration-150 hover:bg-white/10 focus-visible:bg-white/10 active:bg-white/15"
+            >
               <ShieldCheck size={15} className="shrink-0 text-white/70" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate t-card font-display font-semibold">{approvals.label}</span>
               <span className="t-card font-figure font-extrabold tabular-nums">{approvals.failed || approvals.loading ? '-' : approvals.value}</span>
               <ChevronRight size={15} className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
-            </span>
+            </Link>
             <ApprovalPills parts={approvals.parts} missing={approvals.failed || approvals.loading} tone="dark" />
-          </Link>
+          </div>
         )}
         {note && <p className="t-meta text-white/60">{note}</p>}
       </section>

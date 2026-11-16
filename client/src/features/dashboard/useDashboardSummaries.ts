@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { SummaryScope } from '../../api/http';
@@ -44,7 +44,7 @@ export const useDashboardSummaries = (scopeOverride?: SummaryScope) => {
     queryFn: () => dashboardApi.summaries({ scope: kpiScope, today: todayBound }),
     enabled: !!token,
     retry: handleQueryRetry,
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === kpiScope ? previous : undefined),
     ...DASHBOARD_QUERY_OPTIONS,
     staleTime: 15_000,
   });

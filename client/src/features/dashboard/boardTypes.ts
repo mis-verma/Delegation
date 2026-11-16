@@ -9,12 +9,14 @@ export interface BoardPart {
   icon: LucideIcon;
   href: string;
   missing?: boolean;
+  loading?: boolean;
 }
 
 export interface BoardApprovalPart {
   key: string;
   label: string;
   value: number;
+  href?: string;
 }
 
 export interface BoardApprovals {
