@@ -125,7 +125,8 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   useEffect(() => { selectedRef.current = selectedIds; }, [selectedIds]);
 
   const byId = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
-  const selected = selectedIds.map((id) => byId.get(id)).filter((t): t is Tag => !!t);
+  const chosen = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selected = useMemo(() => selectedIds.map((id) => byId.get(id)).filter((t): t is Tag => !!t), [selectedIds, byId]);
   const atCap = selectedIds.length >= MAX_LABELS;
 
   const trimmed = name.trim();
@@ -138,6 +139,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   }, [tags, pinnedIds]);
 
   const locked = useMemo(() => new Set(lockedIds ?? []), [lockedIds]);
+  const cloud = useMemo(() => [...selected, ...tags.filter((t) => !chosen.has(t.id)).sort((a, b) => a.name.localeCompare(b.name))], [selected, tags, chosen]);
 
   const toggle = (id: string) => {
     if (locked.has(id)) return;
@@ -184,8 +186,9 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const removeAllLabels = () => {
     bulkDelete.mutate(tags.map((tag) => tag.id), {
       onSuccess: (result) => {
-        queryClient.setQueryData<Tag[]>(['tags'], (old) => old?.filter((t) => result.kept.includes(t.name)));
-        onChange(selectedRef.current.filter((id) => result.kept.includes(byId.get(id)?.name ?? '')));
+        const keptIds = new Set(result.keptIds);
+        queryClient.setQueryData<Tag[]>(['tags'], (old) => old?.filter((t) => keptIds.has(t.id)));
+        onChange(selectedRef.current.filter((id) => keptIds.has(id)));
         setConfirmingAll(false);
         toast.success(result.kept.length
           ? `${result.deleted} deleted. ${result.kept.length} stayed, because tickets or delegations still use them.`
@@ -199,7 +202,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     updateTag.mutate({ id: tag.id, payload: { color } });
   };
 
-  const options: ListOption[] = orderedTags.map((t) => ({
+  const options: ListOption[] = useMemo(() => orderedTags.map((t) => ({
     value: t.id,
     label: t.name,
     hint: locked.has(t.id) ? 'Added, stays on this ticket' : undefined,
@@ -208,7 +211,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
         <span className={cn('size-2.5 rounded-full', labelDotClass(t))} />
       </span>
     ),
-  }));
+  })), [orderedTags, locked]);
 
   const heading = !hideHeading && (
     <label className={FIELD_LABEL_CLASS}>
@@ -307,7 +310,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
         <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-surface-hover/40 px-3 py-2">
           <span className="t-meta font-medium text-text-secondary">“{clash.name}” already exists. Use it instead of making another spelling.</span>
           <Button type="button" variant="outline" size="sm" onClick={() => { toggle(clash.id); setView('pick'); }}>
-            {selectedIds.includes(clash.id) ? 'Already added' : 'Use it'}
+            {chosen.has(clash.id) ? 'Already added' : 'Use it'}
           </Button>
         </div>
       ) : (
@@ -402,7 +405,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     </div>
   );
 
-  const cloud = [...selected, ...tags.filter((t) => !selectedIds.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name))];
   const shownPills = cloud.slice(0, Math.max(PILL_LIMIT, selected.length));
   const foldedCount = cloud.length - shownPills.length;
   const pillTrigger = (
@@ -425,7 +427,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
           <LabelPill
             key={t.id}
             tag={t}
-            on={selectedIds.includes(t.id)}
+            on={chosen.has(t.id)}
             lockedOn={locked.has(t.id)}
             disabled={atCap}
             onToggle={() => toggle(t.id)}

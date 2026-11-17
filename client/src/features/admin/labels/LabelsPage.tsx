@@ -105,7 +105,7 @@ export const LabelsPage = () => {
               {shown.length} of {tags.length} shown, {unusedShown.length} unused
             </span>
             {isAdmin && (
-              <div className="flex items-center gap-2 sm:ml-auto">
+              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -113,7 +113,7 @@ export const LabelsPage = () => {
                   onClick={() => setPicked(new Set(unusedShown.map((tag) => tag.id)))}
                   className="h-9 font-display font-semibold max-sm:h-11"
                 >
-                  Select unused ({unusedShown.length})
+                  <span className="truncate">Select unused ({unusedShown.length})</span>
                 </Button>
                 {picked.size > 0 && (
                   <>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-const SETTLE_MS = 450;
+import { SETTLE_MS, shouldKeepHolding } from './settleHold';
 
 interface HasId {
   id: string;
@@ -25,15 +24,16 @@ export const useDoneLast = <T extends HasId>(items: readonly T[], isDone: (item:
     heldRef.current = isHeld;
   }, [isHeld]);
 
-  const arm = useCallback(function arm(id: string) {
+  const arm = useCallback(function arm(id: string, startedAt: number = Date.now()) {
     window.clearTimeout(timers.current.get(id));
     timers.current.set(id, window.setTimeout(() => {
       timers.current.delete(id);
-      if (heldRef.current?.(id)) {
-        arm(id);
+      if (shouldKeepHolding(startedAt, Date.now(), heldRef.current?.(id) === true)) {
+        arm(id, startedAt);
         return;
       }
       setSettling((prev) => {
+        if (!prev.has(id)) return prev;
         const next = new Set(prev);
         next.delete(id);
         return next;
@@ -46,7 +46,8 @@ export const useDoneLast = <T extends HasId>(items: readonly T[], isDone: (item:
     known.current = snapshot(items, isDone);
     if (flipped.length === 0) return;
     setSettling((prev) => new Set([...prev, ...flipped]));
-    for (const id of flipped) arm(id);
+    const startedAt = Date.now();
+    for (const id of flipped) arm(id, startedAt);
   }, [items, isDone, arm]);
 
   useEffect(() => {

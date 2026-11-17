@@ -133,6 +133,13 @@ export const TeamChecklists = () => {
     });
   }, [rows, search, onlyNotStarted, storeNames, peopleNames]);
 
+  const onPageFilters = !!search || onlyNotStarted;
+  const hiddenOnThisPage = (rows?.length ?? 0) - visible.length;
+  const clearPageFilters = () => {
+    setSearch('');
+    patch({ started: null });
+  };
+
   const tabCounts: Record<Tab, number> = { pending: s?.pending ?? 0, due: s?.due ?? 0, overdue: s?.missed ?? 0, completed: s?.completed ?? 0, all: s?.total ?? 0 };
 
   const role = user?.role;
@@ -203,8 +210,15 @@ export const TeamChecklists = () => {
         ) : visible.length === 0 ? (
           <EmptyState
             icon={ClipboardList}
-            title={search || onlyNotStarted || storeId ? 'No checklists match' : tab === 'pending' ? 'Nothing pending' : 'Nothing here'}
-            description={search || onlyNotStarted || storeId ? 'Try clearing a filter or the search.' : windowKey === 'today' ? 'Try This month to see earlier runs.' : 'No checklists in this period.'}
+            title={hiddenOnThisPage > 0 ? `Nothing on page ${page} matches` : onPageFilters ? 'No checklists match' : tab === 'pending' ? 'Nothing pending' : 'Nothing here'}
+            description={hiddenOnThisPage > 0
+              ? `${hiddenOnThisPage} on this page ${hiddenOnThisPage === 1 ? 'was' : 'were'} hidden by your search or the Not started filter. There ${totalPages - page === 1 ? 'is 1 more page' : `are ${totalPages - page} more pages`} to look through.`
+              : onPageFilters ? 'Try clearing a filter or the search.' : windowKey === 'today' ? 'Try This month to see earlier runs.' : 'No checklists in this period.'}
+            action={hiddenOnThisPage > 0 && page < totalPages
+              ? { label: 'Look on the next page', onClick: () => setPage(page + 1) }
+              : onPageFilters
+                ? { label: 'Clear the search and filter', onClick: clearPageFilters }
+                : undefined}
           />
         ) : (
           <ul className="flex flex-col divide-y divide-border/60">

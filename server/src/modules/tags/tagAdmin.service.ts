@@ -37,14 +37,16 @@ export const deleteUnusedTags = async (ids: string[]) => {
     assertKnown(ids, new Set(all.map((tag) => tag.id)))
     const byId = new Map(all.map((tag) => [tag.id, tag]))
     const removable = ids.filter((id) => { const tag = byId.get(id); return tag ? tag.tickets + tag.tasks === 0 : false })
-    const kept = ids.filter((id) => !removable.includes(id)).map((id) => byId.get(id)!.name)
+    const removing = new Set(removable)
+    const keptIds = ids.filter((id) => !removing.has(id))
+    const kept = keptIds.map((id) => byId.get(id)!.name)
     if (removable.length) {
         await db.delete(categoryTags).where(inArray(categoryTags.tagId, removable))
         await db.delete(categorySubcategoryTags).where(inArray(categorySubcategoryTags.tagId, removable))
         await db.delete(tags).where(inArray(tags.id, removable))
         await dropCaches()
     }
-    return { deleted: removable.length, kept }
+    return { deleted: removable.length, kept, keptIds }
 }
 
 export const mergeTags = async (fromIds: string[], intoId: string) => {

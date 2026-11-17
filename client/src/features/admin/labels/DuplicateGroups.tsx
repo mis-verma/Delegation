@@ -24,7 +24,7 @@ export const DuplicateGroups = ({ groups, busyKey, canMerge, onMerge }: Duplicat
       <ul className="flex flex-col gap-2">
         {groups.map((group) => (
           <li key={group.key} className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface p-2.5 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-hidden">
               {group.merge.map((tag) => (
                 <IconChip key={tag.id} icon={false} label={tag.name} title={`${tag.tickets + tag.tasks} in use`} />
               ))}
@@ -37,10 +37,10 @@ export const DuplicateGroups = ({ groups, busyKey, canMerge, onMerge }: Duplicat
                 size="sm"
                 isLoading={busyKey === group.key}
                 onClick={() => onMerge(group)}
-                className="h-9 shrink-0 font-display font-semibold max-sm:h-11"
+                className="h-9 w-full min-w-0 font-display font-semibold max-sm:h-11 sm:w-auto sm:max-w-56 sm:shrink-0"
               >
-                <Merge size={15} aria-hidden />
-                Merge into "{group.keep.name}"
+                <Merge size={15} aria-hidden className="shrink-0" />
+                <span className="truncate">Merge into “{group.keep.name}”</span>
               </Button>
             )}
           </li>

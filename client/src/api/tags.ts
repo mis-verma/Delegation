@@ -21,7 +21,7 @@ export const tagApi = {
   cleanup: () => apiFetch<ApiResponse<TagCleanup>>('/tags/cleanup').then((r) => r.data),
 
   bulkDelete: (ids: string[]) =>
-    apiFetch<ApiResponse<{ deleted: number; kept: string[] }>>('/tags/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }).then((r) => r.data),
+    apiFetch<ApiResponse<{ deleted: number; kept: string[]; keptIds: string[] }>>('/tags/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }).then((r) => r.data),
 
   merge: (fromIds: string[], intoId: string) =>
     apiFetch<ApiResponse<{ merged: number; movedTickets: number; movedTasks: number }>>('/tags/merge', { method: 'POST', body: JSON.stringify({ fromIds, intoId }) }).then((r) => r.data),
