@@ -18,6 +18,19 @@ export const canClaim = (user: Claimer, ticket: ClaimFields & Pick<Ticket, 'depa
   return !!user.departmentId && user.departmentId === ticket.departmentId && isClaimable(ticket);
 };
 
+type HeadFields = Pick<Ticket, 'awaitingHeadApproval' | 'declinedAt' | 'departmentId' | 'headClaimedBy'>;
+
+const HEAD_ROLES: readonly Role[] = ['MANAGER', 'SENIOR'];
+const ORG_WIDE_ROLES: readonly Role[] = ['ADMIN', 'PC'];
+
+export const canHeadDecide = (user: Claimer, ticket: HeadFields): boolean => {
+  if (!user || !ticket.awaitingHeadApproval || ticket.declinedAt) return false;
+  if (ORG_WIDE_ROLES.includes(user.role)) return true;
+  if (!HEAD_ROLES.includes(user.role)) return false;
+  if (!user.departmentId || user.departmentId !== ticket.departmentId) return false;
+  return !ticket.headClaimedBy || ticket.headClaimedBy === user.id;
+};
+
 export const wholeHours = (hours: number | null | undefined): number | null => (hours ? Math.max(1, Math.round(hours)) : null);
 
 export const tatText = (hours: number | null | undefined): string | null => {

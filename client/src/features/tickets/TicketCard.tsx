@@ -10,6 +10,7 @@ import { avatarColorClass } from '../../lib/avatarColors';
 import { cn } from '@/lib/utils';
 import { usePrefetchTicket } from './hook';
 import { isAwaitingAssigneeClaim, isClaimable, tatText } from './claim/ticketClaim';
+import { CardClaimAction } from './claim/CardClaimAction';
 import { PRIORITY_CONFIG, formatDueLabel, formatAge } from './ticketDisplay';
 import { StatusChip, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
@@ -147,6 +148,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
               +{ticket.tags.length - 1}
             </span>
           )}
+        </span>
+
+        <span className="shrink-0" onClick={(event) => event.stopPropagation()} role="presentation">
+          <CardClaimAction ticket={ticket} departmentName={departmentName} />
         </span>
 
         {progress !== null && (

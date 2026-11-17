@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Repeat, Search, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, type SlidingTabOption, PageBackButton } from '../../../components';
+import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, ViewToggle, type SlidingTabOption, type ViewTab, PageBackButton } from '../../../components';
+import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
 import { RunVerificationChip } from './RunVerificationChip';
 import { PANEL_CLASS } from '../../../components/entityCard';
@@ -30,6 +31,12 @@ const SERVER_STATUS: Record<Tab, ChecklistInstanceStatus | undefined> = {
 };
 
 const isTab = (value: string | null): value is Tab => !!value && (TABS as readonly string[]).includes(value);
+
+type View = 'list' | 'table';
+const VIEW_TABS: ViewTab<View>[] = [
+  { key: 'list', label: 'List' },
+  { key: 'table', label: 'Table', mobileHidden: true },
+];
 
 interface StateLook {
   tone: string;
@@ -82,6 +89,7 @@ export const TeamChecklists = () => {
   const requested = params.get('status');
   const tab: Tab = isTab(requested) ? requested : 'pending';
   const windowKey: Window = params.get('window') === 'month' ? 'month' : 'today';
+  const layout: View = params.get('view') === 'table' ? 'table' : 'list';
   const storeId = params.get('store') ?? '';
   const onlyNotStarted = params.get('started') === '0';
   const [search, setSearch] = useState('');
@@ -199,6 +207,9 @@ export const TeamChecklists = () => {
             <CircleDashed className="size-3.5" aria-hidden="true" />
             Not started
           </ToggleChip>
+          <div className="shrink-0 sm:ml-auto">
+            <ViewToggle tabs={VIEW_TABS} value={layout} onChange={(next) => patch({ view: next === 'list' ? null : next })} storageKey="view:team-checklists" />
+          </div>
         </div>
       </div>
 
@@ -219,6 +230,13 @@ export const TeamChecklists = () => {
               : onPageFilters
                 ? { label: 'Clear the search and filter', onClick: clearPageFilters }
                 : undefined}
+          />
+        ) : layout === 'table' ? (
+          <ChecklistInstanceTable
+            instances={visible}
+            storeNameById={storeNames}
+            peopleNameById={peopleNames}
+            lookupsPending={!stores || !people}
           />
         ) : (
           <ul className="flex flex-col divide-y divide-border/60">
