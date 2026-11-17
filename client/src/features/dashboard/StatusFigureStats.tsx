@@ -25,6 +25,7 @@ interface StatusFigureStatsProps<K extends string> {
   error?: boolean;
   onRetry?: () => void;
   label: string;
+  phoneColumns?: 2 | 4;
 }
 
 const ACCENT: Record<StatusKind, string> = {
@@ -51,11 +52,16 @@ const GRID_BY_COUNT: Record<number, string> = {
   5: 'grid-cols-2 sm:grid-cols-5 [&>:last-child]:max-sm:col-span-2',
 };
 
-export const StatusFigureStats = <K extends string>({ items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label }: StatusFigureStatsProps<K>) => {
+const gridClass = (count: number, phoneColumns: 2 | 4): string => {
+  if (count === 4 && phoneColumns === 2) return 'grid-cols-2 sm:grid-cols-4';
+  return GRID_BY_COUNT[count] ?? GRID_BY_COUNT[4];
+};
+
+export const StatusFigureStats = <K extends string>({ items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label, phoneColumns = 4 }: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
   const formatCount = useStatCountFormat();
   return (
-    <div className={cn('grid w-full gap-1.5 sm:gap-2', GRID_BY_COUNT[items.length] ?? GRID_BY_COUNT[4])} role="group" aria-label={label}>
+    <div className={cn('grid w-full gap-1.5 sm:gap-2', gridClass(items.length, phoneColumns))} role="group" aria-label={label}>
       {items.map((item) => {
         const count = counts[item.key] ?? 0;
         const shown = display?.[item.key] ?? formatCount(count);

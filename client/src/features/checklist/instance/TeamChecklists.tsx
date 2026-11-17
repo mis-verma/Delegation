@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Kanban, LayoutGrid, LayoutList, Repeat, Search, Table2, type LucideIcon } from 'lucide-react';
+import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Kanban, LayoutGrid, LayoutList, Repeat, Store, Table2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, ViewToggle, type SlidingTabOption, type ViewTab, PageBackButton } from '../../../components';
+import { AppliedFilters, EmptyState, IconChip, InlineError, PageHeader, SearchField, Skeleton, SlidingTabs, ViewToggle, type AppliedFilter, type SlidingTabOption, type ViewTab, PageBackButton } from '../../../components';
+import { ChoiceChip, ChoiceClear, ChoiceIcon, ChoiceWrap, OptionSection, OptionsSheet } from '../../../components/optionsSheet';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
@@ -133,6 +134,7 @@ export const TeamChecklists = () => {
   const onlyNotStarted = params.get('started') === '0';
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
 
   const patch = (next: Record<string, string | null>) => {
     setParams((prev) => {
@@ -187,6 +189,17 @@ export const TeamChecklists = () => {
     patch({ started: null });
   };
 
+  const activeFilterCount = (storeId ? 1 : 0) + (onlyNotStarted ? 1 : 0);
+  const clearFilters = () => {
+    setSearch('');
+    patch({ store: null, started: null });
+  };
+
+  const appliedFilters: AppliedFilter[] = [];
+  if (storeId) appliedFilters.push({ key: 'store', label: storeNames.get(storeId) ?? 'One store', onRemove: () => patch({ store: null }) });
+  if (onlyNotStarted) appliedFilters.push({ key: 'started', label: 'Not started', onRemove: () => patch({ started: null }) });
+  if (search.trim()) appliedFilters.push({ key: 'search', label: `"${search.trim()}"`, onRemove: () => setSearch('') });
+
   const bodyEmpty = (list.isError && !rows) || (!list.isPending && visible.length === 0);
   const framed = layout === 'list' || layout === 'table' || bodyEmpty;
 
@@ -220,40 +233,68 @@ export const TeamChecklists = () => {
         label="Team checklist numbers"
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="relative flex min-h-11 flex-1 items-center sm:max-w-sm">
-          <span className="sr-only">Search checklists, stores or people</span>
-          <Search className="pointer-events-none absolute left-3 size-4 text-text-muted" aria-hidden="true" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search checklist, store or person"
-            className="h-11 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-text outline-none transition-colors duration-150 placeholder:text-text-muted focus:border-primary-600 focus:ring-2 focus:ring-primary-500/30 pointer-fine:h-9"
-          />
-        </label>
-        <div className="sm:w-56">
-          <Combobox value={storeId} onChange={(v) => patch({ store: v || null })} options={storeOptions} emptyOptionLabel="All stores" placeholder="All stores" />
-        </div>
-        <div className="flex items-center gap-2">
-          <SlidingTabs
-            label="Period"
-            value={windowKey}
-            options={WINDOW_OPTIONS}
-            onChange={(key) => patch({ window: key === 'today' ? null : key })}
-            size="sm"
-            fill="phone"
-            className="max-sm:min-w-0 max-sm:flex-1"
-          />
-          <ToggleChip on={onlyNotStarted} onClick={() => patch({ started: onlyNotStarted ? null : '0' })} className="min-h-11 shrink-0 gap-1.5 rounded-full font-semibold sm:min-h-9">
-            <CircleDashed className="size-3.5" aria-hidden="true" />
-            Not started
-          </ToggleChip>
-          <div className="shrink-0 sm:ml-auto">
-            <ViewToggle tabs={VIEW_TABS} value={layout} onChange={(next) => patch({ view: next === 'list' ? null : next })} storageKey="view:team-checklists" />
-          </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          label="Search checklists, stores or people"
+          placeholder="Search checklist, store or person"
+          className="w-full flex-none sm:w-auto sm:flex-1"
+        />
+        <SlidingTabs
+          label="Period"
+          value={windowKey}
+          options={WINDOW_OPTIONS}
+          onChange={(key) => patch({ window: key === 'today' ? null : key })}
+          size="sm"
+          fill="phone"
+          className="min-w-0 flex-1 sm:flex-none"
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <OptionsSheet
+            isOpen={showFilters}
+            setIsOpen={setShowFilters}
+            activeCount={activeFilterCount}
+            subtitle={`${visible.length} on this page`}
+            onReset={clearFilters}
+            canReset={activeFilterCount > 0}
+            triggerLabel="Filters"
+            showLabel={`Show ${visible.length} ${visible.length === 1 ? 'checklist' : 'checklists'}`}
+            iconOnly
+          >
+            {storeOptions.length > 0 && (
+              <OptionSection icon={Store} label="Store" aside={!!storeId && <ChoiceClear onClick={() => patch({ store: null })} />}>
+                <ChoiceWrap>
+                  {storeOptions.map((o) => (
+                    <ChoiceChip
+                      key={o.value}
+                      active={storeId === o.value}
+                      onClick={() => patch({ store: storeId === o.value ? null : o.value })}
+                      lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                    >
+                      {o.label}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
+            )}
+            <OptionSection icon={CircleDashed} label="Progress">
+              <ChoiceWrap>
+                <ChoiceChip
+                  active={onlyNotStarted}
+                  onClick={() => patch({ started: onlyNotStarted ? null : '0' })}
+                  lead={<ChoiceIcon icon={CircleDashed} tone="bg-coral-400" />}
+                >
+                  Not started
+                </ChoiceChip>
+              </ChoiceWrap>
+            </OptionSection>
+          </OptionsSheet>
+          <ViewToggle tabs={VIEW_TABS} value={layout} onChange={(next) => patch({ view: next === 'list' ? null : next })} storageKey="view:team-checklists" />
         </div>
       </div>
+
+      <AppliedFilters items={appliedFilters} onClearAll={clearFilters} />
 
       <section aria-label="Checklists" className={cn('flex flex-col', framed ? cn(PANEL_CLASS, 'overflow-hidden') : 'gap-4')}>
         {list.isError && !rows ? (
@@ -331,7 +372,7 @@ export const TeamChecklists = () => {
           </ul>
         )}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2 sm:px-5">
+          <div className={cn('flex items-center justify-between gap-3 py-2', framed ? 'border-t border-border/60 px-4 sm:px-5' : 'rounded-xl border border-border bg-surface px-3')}>
             <button
               type="button"
               disabled={page <= 1}

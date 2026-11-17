@@ -379,7 +379,7 @@ export const MyChecklists = () => {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="hidden sm:block">
+        <div className="shrink-0">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey={`view:checklists:${user?.id ?? "anon"}`} />
         </div>
 
