@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ShieldQuestion, ListTree, Sparkles, X } from 'lucide-react';
 
-import { Button, Modal, Input, Combobox, DepartmentChip, IconChip, NoticeBanner, PriorityChip } from '../../components';
+import { Button, Modal, Input, Combobox, ColorIconTile, DepartmentChip, IconChip, NoticeBanner, PriorityChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery, useDepartmentsWithHeadQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
@@ -50,6 +50,9 @@ const toDateInput = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-$
 const toTimeInput = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 const SUGGEST_DELAY_MS = 400;
+
+const dueHint = (hours: number | null | undefined): string | undefined =>
+  hours ? `Due in ${hours % 24 === 0 ? `${hours / 24}d` : `${hours}h`}` : undefined;
 
 const FIELD_ORDER = ['title', 'description', 'categoryId', 'subcategoryId', 'departmentId', 'assigneeId', 'dueDate', 'dueTime', 'startDate'] as const;
 const anchorFor = (field: (typeof FIELD_ORDER)[number]) => (field === 'dueTime' || field === 'startDate' ? 'dueDate' : field);
@@ -506,12 +509,20 @@ Who is affected: `;
         value: c.id,
         label: c.name,
         group: c.departmentId?.name || 'No department',
-        hint: c.tatHours ? `Due in ${c.tatHours % 24 === 0 ? `${c.tatHours / 24}d` : `${c.tatHours}h`}` : undefined,
+        hint: dueHint(c.tatHours),
         keywords: c.subcategories.filter((s) => s.isActive).map((s) => s.name),
+        lead: <ColorIconTile icon={Route} name={c.name} size="xs" />,
       }))
       .sort((a, b) => (a.group === 'No department' ? 1 : b.group === 'No department' ? -1 : a.group.localeCompare(b.group)) || a.label.localeCompare(b.label)),
     [categories, categoryId],
   );
+
+  const subcategoryOptions = activeSubcategories.map((s) => ({
+    value: s.id,
+    label: s.name,
+    hint: dueHint(s.tatHours ?? selectedCategory?.tatHours ?? null),
+    lead: <ColorIconTile icon={ListTree} name={s.name} size="xs" />,
+  }));
 
   const categoryField = (label: string, hint: string, required: boolean) => (
     <div data-field="categoryId">
@@ -549,7 +560,9 @@ Who is affected: `;
         <Combobox
           value={categoryId ?? ''}
           onChange={selectCategory}
-          placeholder="Search the list..."
+          label="Category"
+          placeholder="Choose a category"
+          searchPlaceholder="Search a problem, like printer or Wi-Fi"
           emptyOptionLabel={required ? 'Choose one' : 'No category'}
           options={categoryOptions}
           onCreateNew={isVerifier ? () => setCreating('category') : undefined}
@@ -572,9 +585,11 @@ Who is affected: `;
         <Combobox
           value={subcategoryId ?? ''}
           onChange={selectSubcategory}
-          placeholder="Search the list..."
+          label="Subcategory"
+          placeholder="Choose the problem"
+          searchPlaceholder="Search the problem"
           emptyOptionLabel="Choose one"
-          options={activeSubcategories.map((s) => ({ value: s.id, label: s.name }))}
+          options={subcategoryOptions}
           className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.subcategoryId ? 'border-danger/60' : ''}`}
         />
       </FormField>

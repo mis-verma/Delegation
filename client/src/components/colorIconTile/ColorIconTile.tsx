@@ -12,19 +12,15 @@ const tileColor = (name: string) => {
 interface ColorIconTileProps {
   icon: LucideIcon;
   name: string;
-  size?: 'md' | 'sm';
+  size?: 'md' | 'sm' | 'xs';
   className?: string;
 }
 
+const BOX_CLASS = { md: 'size-10 rounded-xl', sm: 'size-8 rounded-lg', xs: 'size-6 rounded-md' } as const;
+const GLYPH_CLASS = { md: 'size-5', sm: 'size-4', xs: 'size-3.5' } as const;
+
 export const ColorIconTile = ({ icon: Icon, name, size = 'md', className }: ColorIconTileProps) => (
-  <span
-    className={cn(
-      'flex items-center justify-center shrink-0 text-white',
-      size === 'sm' ? 'size-8 rounded-lg' : 'size-10 rounded-xl',
-      tileColor(name),
-      className,
-    )}
-  >
-    <Icon className={size === 'sm' ? 'size-4' : 'size-5'} strokeWidth={2.25} aria-hidden />
+  <span className={cn('flex items-center justify-center shrink-0 text-white', BOX_CLASS[size], tileColor(name), className)}>
+    <Icon className={GLYPH_CLASS[size]} strokeWidth={2.25} aria-hidden />
   </span>
 );

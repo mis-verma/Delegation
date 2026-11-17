@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronDown, CornerDownLeft, Plus, Search, SearchX, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,6 +20,7 @@ export interface ComboboxOption {
   hint?: string;
   group?: string;
   keywords?: readonly string[];
+  lead?: ReactNode;
 }
 
 const MAX_ROWS = 60;
@@ -152,6 +153,7 @@ export const Combobox = ({
         className,
       )}
     >
+      {!isLoading && selected?.value && selected.lead}
       <span className={cn('flex-1 min-w-0 text-left line-clamp-2 break-words leading-snug', selected?.label ? 'text-text font-medium' : 'text-text-muted font-medium')}>
         {isLoading ? 'Loading...' : (selected?.label || placeholder)}
       </span>
@@ -185,7 +187,7 @@ export const Combobox = ({
           options={allOptions}
           selected={[value]}
           onToggle={(v) => { onChange(v); setOpen(false); }}
-          searchable={allOptions.length > 5}
+          searchable={allOptions.length > 5 || allOptions.some((o) => !!o.keywords?.length)}
           searchPlaceholder={typePlaceholder}
           topActions={onCreateNew ? [{
             key: 'create',
@@ -292,7 +294,7 @@ export const Combobox = ({
                   }}
                   onMouseEnter={() => setHighlightedIndex(i)}
                   className={cn(
-                    'flex items-center justify-between gap-3 px-3 py-2 min-h-10 pointer-coarse:min-h-11 rounded-lg text-sm leading-snug font-display font-medium cursor-pointer transition-colors duration-150',
+                    'flex items-center gap-2.5 px-3 py-2 min-h-10 pointer-coarse:min-h-11 rounded-lg text-sm leading-snug font-display font-medium cursor-pointer transition-colors duration-150',
                     isSelected
                       ? 'bg-primary-500/12 text-primary-800 dark:text-primary-200 font-semibold'
                       : isHighlighted
@@ -302,7 +304,8 @@ export const Combobox = ({
                     option.group && 'pl-5'
                   )}
                 >
-                  <span className="flex min-w-0 flex-col">
+                  {option.lead}
+                  <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 break-words" title={option.label}>{highlightTerms(option.label, terms, MARK_CLASS)}</span>
                     {via && (
                       <span className="t-meta font-normal text-text-muted line-clamp-1 break-words">
