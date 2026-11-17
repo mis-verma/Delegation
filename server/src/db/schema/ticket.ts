@@ -37,6 +37,8 @@ export const tickets = mysqlTable(
     closedAt: datetime('closedAt', { mode: 'date' }),
     submittedAt: datetime('submittedAt', { mode: 'date' }),
     reopenCount: int('reopenCount').notNull().default(0),
+    reopenedAssigneeId: varchar('reopenedAssigneeId', { length: 191 }).references(() => users.id),
+    sameAssigneeReopens: int('sameAssigneeReopens').notNull().default(0),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
@@ -90,6 +92,7 @@ export const tickets = mysqlTable(
     index('Ticket_tatDueAt_idx').on(table.tatDueAt),
     index('Ticket_isOverdue_tatDueAt_idx').on(table.isOverdue, table.tatDueAt),
     index('Ticket_departmentId_claimOpenedAt_idx').on(table.departmentId, table.claimOpenedAt),
+    index('Ticket_assignmentApprovedAt_idx').on(table.assignmentApprovedAt),
   ],
 );
 

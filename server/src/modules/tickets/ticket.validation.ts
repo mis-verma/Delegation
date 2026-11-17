@@ -76,6 +76,13 @@ export const tatReportQuerySchema = z.object({
     storeId : objectId.optional(),
 })
 
+export const tatLegReportQuerySchema = z.object({
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional(),
+    departmentId : objectId.optional(),
+    storeId : objectId.optional(),
+})
+
 export const ownerStatsQuerySchema = z.object({
     scope : z.enum(["department", "store", "user", "org"]).default("org"),
     from : z.string().datetime().optional(),
@@ -120,6 +127,7 @@ export type DeclineTicketInput = z.infer<typeof declineTicketSchema>;
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export type TatReportQuery = z.infer<typeof tatReportQuerySchema>;
+export type TatLegReportQuery = z.infer<typeof tatLegReportQuerySchema>;
 export type OwnerStatsQuery = z.infer<typeof ownerStatsQuerySchema>;
 export type VerifyTicketInput = z.infer<typeof verifyTicketSchema>;
 export type StatusUpdateInput = z.infer<typeof statusUpdateSchema>;

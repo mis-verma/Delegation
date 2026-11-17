@@ -48,6 +48,7 @@ const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSett
 const LabelsPage = lazy(() => import('./features/admin/labels').then(m => ({ default: m.LabelsPage })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
+const TatLegReportPage = lazy(() => import('./features/tickets/reports/TatLegReportPage').then(m => ({ default: m.TatLegReportPage })));
 const TestDataCleanupPage = lazy(() => import('./features/checklist/testData').then(m => ({ default: m.TestDataCleanupPage })));
 const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
@@ -109,6 +110,7 @@ const AdminOrOwnerRoute = createRoleGuard('ADMIN', 'OWNER');
 const PcDeskRoute = createRoleGuard('ADMIN', 'PC');
 const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
 const TicketApprovalsRoute = createRoleGuard('MANAGER', 'SENIOR');
+const TatReportRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const ChecklistApprovalsRoute = () => {
   const { user } = useAuth();
@@ -309,6 +311,12 @@ const router = createBrowserRouter([
             element: <TicketApprovalsRoute />,
             children: [
               { path: '/tickets/approvals', element: <TeamApprovalsPage /> },
+            ],
+          },
+          {
+            element: <TatReportRoute />,
+            children: [
+              { path: '/tickets/turnaround', element: <TatLegReportPage /> },
             ],
           },
           { path: '/leave', element: <LeavePage /> },

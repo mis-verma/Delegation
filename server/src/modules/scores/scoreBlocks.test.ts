@@ -64,6 +64,21 @@ describe("foldTickets window", () => {
         expect(t.compliancePct).toBe(0)
     })
 
+    it("takes the hit off the person it came back to", () => {
+        const t = foldTickets([ticket({ status: "CLOSED", tatDueAt: d("2026-10-06T10:00:00"), submittedAt: d("2026-10-05T09:00:00"), closedAt: d("2026-10-05T12:00:00"), reopenCount: 1, sameAssigneeReopens: 1 })], now, win)
+        expect(t.onTime).toBe(0)
+        expect(t.compliancePct).toBe(0)
+        expect(t.cameBack).toBe(1)
+    })
+
+    it("leaves a new person clean when the reopened ticket went to somebody else", () => {
+        const t = foldTickets([ticket({ status: "CLOSED", tatDueAt: d("2026-10-06T10:00:00"), submittedAt: d("2026-10-05T09:00:00"), closedAt: d("2026-10-05T12:00:00"), reopenCount: 1, sameAssigneeReopens: 0 })], now, win)
+        expect(t.onTime).toBe(1)
+        expect(t.compliancePct).toBe(100)
+        expect(t.reopened).toBe(1)
+        expect(t.cameBack).toBe(0)
+    })
+
     it("keeps a reopened ticket out of on time even after it is handed in again and closed", () => {
         const t = foldTickets([ticket({ status: "CLOSED", tatDueAt: d("2026-10-06T10:00:00"), submittedAt: d("2026-10-05T09:00:00"), closedAt: d("2026-10-05T12:00:00"), reopenCount: 1 })], now, win)
         expect(t.done).toBe(1)

@@ -29,8 +29,8 @@ interface FillAsideProps {
 export const FillAside = ({
   progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, title,
 }: FillAsideProps) => (
-  <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start flex-col gap-3">
-    <div className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4')}>
+  <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-hidden">
+    <div className={cn(PANEL_CLASS, 'flex shrink-0 flex-col gap-4 p-4')}>
       <div className="flex flex-col gap-1.5">
         <span className="t-meta font-display font-semibold text-text-muted">Completion</span>
         <span className="flex flex-wrap items-baseline gap-x-2.5 tabular-nums">
@@ -62,7 +62,11 @@ export const FillAside = ({
     </div>
 
     {sections.length > 1 && (
-      <nav aria-label="Sections" className={cn(PANEL_CLASS, 'flex flex-col gap-1 p-2')}>
+      <nav aria-label="Sections" className={cn(PANEL_CLASS, 'flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain p-2')}>
+        <span className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-surface px-2.5 pb-1 pt-1 t-meta font-display font-bold text-text-muted">
+          Sections
+          <span className="tabular-nums">{sections.filter((s) => s.done === s.total).length}/{sections.length}</span>
+        </span>
         {sections.map((section) => {
           const finished = section.done === section.total;
           const active = activeSection === section.key;

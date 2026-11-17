@@ -523,7 +523,7 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
   const renderContent = (isDrawer: boolean) => (
     <div className="flex flex-col gap-3 h-full w-full justify-between">
       <div className="relative flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
-        {(hasMainItems || isDrawer) && (
+        {(hasMainItems || isDrawer) && (isDrawer || isOpen) && (
         <div className="flex items-center justify-between px-3 shrink-0">
           {hasMainItems ? (
             <p
@@ -551,9 +551,9 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
         )}
 
         <nav
-          ref={isDrawer ? undefined : navRef}
+          ref={navRef}
           aria-label="Main"
-          className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto pr-1.5 -mr-1.5 [&::-webkit-scrollbar]:hidden"
+          className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1.5 -mr-1.5 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {navItems.map((item) => renderNavItem(item, isDrawer))}
@@ -596,14 +596,14 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
           })}
         </nav>
 
-        {!isDrawer && navOverflowsAbove && (
+        {navOverflowsAbove && (
           <div
             aria-hidden="true"
             className="absolute top-0 left-0 right-1.5 z-10 h-6 bg-gradient-to-b from-surface to-transparent pointer-events-none"
           />
         )}
 
-        {!isDrawer && navOverflowsBelow && (
+        {navOverflowsBelow && (
           <div
             aria-hidden="true"
             className="absolute bottom-0 left-0 right-1.5 h-6 bg-gradient-to-t from-surface to-transparent pointer-events-none"

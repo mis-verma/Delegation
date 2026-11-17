@@ -1,7 +1,6 @@
 import type { Ticket } from '../../../api/ticket';
-import { isAwaitingClaim } from './ticketClaim';
 
-export type TatStageKey = 'head' | 'member' | 'total';
+export type TatStageKey = 'hod' | 'user' | 'total';
 
 export interface TatStage {
   key: TatStageKey;
@@ -9,10 +8,15 @@ export interface TatStage {
   hint: string;
   ms: number;
   running: boolean;
+  late: boolean;
   by: string | null;
+  note: string;
 }
 
-type StageFields = Pick<Ticket, 'createdAt' | 'closedAt' | 'status' | 'assigneeId' | 'awaitingHeadApproval' | 'claimOpenedAt' | 'claimedAt' | 'declinedAt' | 'headClaimedAt' | 'headClaimer' | 'assignee'>;
+type StageFields = Pick<Ticket,
+  'createdAt' | 'closedAt' | 'status' | 'submittedAt' | 'tatDueAt' | 'awaitingHeadApproval'
+  | 'claimOpenedAt' | 'claimedAt' | 'declinedAt' | 'assignmentApprovedAt' | 'assignmentApprover'
+  | 'headClaimedAt' | 'headClaimer' | 'assignee'>;
 
 const at = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -24,43 +28,54 @@ const span = (start: number, end: number | null, now: number) => Math.max(0, (en
 
 export const ticketTatStages = (ticket: StageFields, now: number): TatStage[] => {
   const created = at(ticket.createdAt) ?? now;
-  const closed = ticket.status === 'CLOSED' ? at(ticket.closedAt) ?? at(ticket.declinedAt) : null;
+  const closed = at(ticket.closedAt);
+  const handedIn = at(ticket.submittedAt);
+  const due = at(ticket.tatDueAt);
   const stages: TatStage[] = [];
 
-  const headClaimed = at(ticket.headClaimedAt);
-  if (headClaimed !== null || ticket.awaitingHeadApproval) {
-    const end = headClaimed ?? closed;
+  const assigned = at(ticket.assignmentApprovedAt) ?? at(ticket.declinedAt);
+  if (assigned !== null || ticket.awaitingHeadApproval) {
+    const headClaimed = at(ticket.headClaimedAt);
     stages.push({
-      key: 'head',
-      label: 'Head claim',
-      hint: 'From raised to the department head claiming it',
-      ms: span(created, end, now),
-      running: end === null,
-      by: ticket.headClaimer?.firstName ?? null,
+      key: 'hod',
+      label: 'Head',
+      hint: 'From raised to the department head assigning it',
+      ms: span(created, assigned, now),
+      running: assigned === null,
+      late: false,
+      by: ticket.assignmentApprover?.firstName ?? ticket.headClaimer?.firstName ?? null,
+      note: assigned === null
+        ? headClaimed === null ? 'Waiting for the head' : 'Head is deciding'
+        : 'Assigned',
     });
   }
 
-  const offered = at(ticket.claimOpenedAt);
   const claimed = at(ticket.claimedAt);
-  const waiting = isAwaitingClaim(ticket);
-  if (offered !== null && (claimed !== null || waiting)) {
+  const offered = at(ticket.claimOpenedAt);
+  if (claimed !== null || offered !== null) {
+    const end = closed ?? handedIn;
+    const finished = end ?? now;
     stages.push({
-      key: 'member',
-      label: 'Team claim',
-      hint: 'From being given to the team to someone claiming it',
-      ms: span(offered, claimed, now),
-      running: claimed === null,
+      key: 'user',
+      label: 'Person',
+      hint: 'From the person claiming it to handing it in',
+      ms: claimed === null ? 0 : span(claimed, end, now),
+      running: claimed !== null && end === null,
+      late: due !== null && finished > due,
       by: claimed !== null ? ticket.assignee?.firstName ?? null : null,
+      note: claimed === null ? 'Nobody has claimed it' : end === null ? 'Working on it' : closed ? 'Closed' : 'Handed in',
     });
   }
 
   stages.push({
     key: 'total',
-    label: 'Total time',
+    label: 'Total',
     hint: 'From when the ticket was raised',
-    ms: span(created, closed, now),
-    running: closed === null,
+    ms: span(created, closed ?? at(ticket.declinedAt), now),
+    running: closed === null && ticket.status !== 'CLOSED',
+    late: false,
     by: null,
+    note: closed === null ? 'Still open' : 'Closed',
   });
   return stages;
 };

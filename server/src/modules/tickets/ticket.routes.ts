@@ -14,6 +14,7 @@ ticketRouter.get('/', ticketController.list);
 ticketRouter.get('/summary', ticketController.summary);
 ticketRouter.get('/pending-approval', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.pendingApproval);
 ticketRouter.get('/reports/tat', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.tatReport);
+ticketRouter.get('/reports/tat-legs', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.tatLegReport);
 ticketRouter.get('/reports/by-owner', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.ownerStats);
 ticketRouter.get('/:id', ticketController.getOne);
 

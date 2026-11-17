@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowRight, FileDown, Ticket, ClipboardList, ListChecks, Trophy, Grid3x3, Check, type LucideIcon } from 'lucide-react';
+import { ArrowRight, FileDown, Ticket, ClipboardList, ListChecks, Timer, Trophy, Grid3x3, Check, type LucideIcon } from 'lucide-react';
 import { PageHeader, IconChip } from '../../components';
 import { cn } from '@/lib/utils';
 import { ReportExportPanel } from './ReportExportPanel';
@@ -43,6 +43,7 @@ const MODULES: ModuleDef[] = [
 ];
 
 const MORE: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
+  { to: '/tickets/turnaround', label: 'Turnaround breaches', hint: 'Head time and person time per person and department', icon: Timer },
   { to: '/admin/scores', label: 'Scores tables', hint: 'Department, store and people rankings, with their own Export', icon: Trophy },
   { to: '/team/fill/checklists', label: 'Checklist fill report', hint: 'Mon to Sun fill matrix, with its own Export', icon: Grid3x3 },
 ];

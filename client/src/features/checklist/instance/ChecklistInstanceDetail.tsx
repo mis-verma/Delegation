@@ -367,17 +367,25 @@ export const ChecklistInstanceDetail = () => {
           )}
         </div>
 
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums sm:hidden">
-          {compliance !== null && (
+        <div className={cn('grid gap-2 tabular-nums sm:hidden', compliance !== null && 'grid-cols-2')}>
+          <span className="flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
             <span className="flex items-baseline gap-1.5">
-              <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
-              <span className="t-meta font-medium text-text-secondary">compliance</span>
+              <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
+              <span className="t-meta font-medium text-text-secondary">done</span>
+            </span>
+            <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
+            <span className="t-meta text-text-muted">{done} of {total}</span>
+          </span>
+          {compliance !== null && (
+            <span className="flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
+              <span className="flex items-baseline gap-1.5">
+                <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
+                <span className="t-meta font-medium text-text-secondary">right</span>
+              </span>
+              <ChecklistProgressBar done={good} total={scored} tone="auto" bare />
+              <span className="t-meta text-text-muted">{good} of {scored}</span>
             </span>
           )}
-          <span className="flex items-baseline gap-1.5">
-            <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
-            <span className="t-meta font-medium text-text-secondary">complete</span>
-          </span>
         </div>
 
         <div className={cn('hidden gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid lg:hidden', compliance !== null && 'sm:grid-cols-2')}>

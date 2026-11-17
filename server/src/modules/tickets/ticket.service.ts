@@ -27,6 +27,8 @@ import { type TicketRow, NOT_DELETED, CLAIM_POOL, AWAITING_CLAIM, assertAssignab
 import { visibilityFilter, assertCanVerify, assertCanMutate, isVerifierRole, assertCanSetReviewers } from "./ticketAccess.js"
 import { syncTicketTags, ticketTagIds, ticketReviewerIds, syncTicketReviewers, populateTickets, getPopulatedTicket, getTicketChecklistsWithItems } from "./ticketRelations.js"
 import { dropTicketSummaries, tatReport, ownerStats, summary, pendingApproval } from "./ticketReports.js"
+import { tatLegReport } from "./ticketTatReport.js"
+import { reassignPatch, reopenPatch } from "./ticketReopen.js"
 import { categoryDefaults } from "../categories/categoryDefaults.js"
 import { resolveDescription } from "./ticketDescription.js"
 import { activeSubcategoryCount, checkSubcategoryChoice, loadSubcategory, mergeSubcategory } from "../categories/subcategoryDefaults.js"
@@ -296,7 +298,9 @@ export const ticketService = {
     if (input.departmentId !== undefined) patch.departmentId = input.departmentId
     if (input.status !== undefined) patch.status = input.status
     if (input.status !== undefined && (before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "CLOSED" && input.status !== "PENDING_APPROVAL") {
-      patch.reopenCount = before.reopenCount + 1
+      Object.assign(patch, reopenPatch(before, input.assigneeId))
+    } else if (input.assigneeId !== undefined) {
+      Object.assign(patch, reassignPatch(before, input.assigneeId) ?? {})
     }
 
     if (input.status === "CLOSED" && before.status !== "CLOSED") {
@@ -515,7 +519,7 @@ export const ticketService = {
       }
     }
     if ((before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "PENDING_APPROVAL") {
-      patch.reopenCount = before.reopenCount + 1
+      Object.assign(patch, reopenPatch(before, undefined))
     }
     if (before.status === "CLOSED") {
       patch.closedAt = null;
@@ -700,6 +704,7 @@ export const ticketService = {
     const [result] = await db.update(tickets).set({
       assigneeId: user.sub,
       claimedAt: now,
+      ...(reassignPatch(ticket, user.sub) ?? {}),
       tatDueAt: ticket.tatDueAt ?? deriveTatDueAt(ticket.tatHours, now),
       isOverdue: false,
       dueSoonNotifiedAt: null,
@@ -823,7 +828,7 @@ export const ticketService = {
       patch.approvalStage = null
     } else {
       patch.status = "IN_PROGRESS";
-      patch.reopenCount = ticket.reopenCount + 1;
+      Object.assign(patch, reopenPatch(ticket, undefined))
       patch.approvalStage = null
       patch.hodApprovedBy = null
       patch.hodApprovedAt = null
@@ -902,6 +907,7 @@ export const ticketService = {
   },
 
   tatReport,
+  tatLegReport,
   ownerStats,
   summary,
   pendingApproval,

@@ -137,6 +137,7 @@ export type Ticket = {
   closedAt:       string | null;
   submittedAt?: string | null;
   reopenCount?: number;
+  sameAssigneeReopens?: number;
   declinedAt?: string | null;
   declinedBy?: string | null;
   declineReason?: string | null;
@@ -308,6 +309,29 @@ const ticketArrayDefaults = withArrayDefaults({
 });
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 
+export interface TatLegNumbers {
+  measured: number;
+  avgHours: number | null;
+  breaches: number;
+  breachPct: number | null;
+}
+
+export interface TatLegRow {
+  id: string;
+  name: string;
+  departmentName: string | null;
+  hod: TatLegNumbers;
+  user: TatLegNumbers;
+}
+
+export interface TatLegReport {
+  from: string;
+  to: string;
+  hodTargetHours: number;
+  people: TatLegRow[];
+  departments: TatLegRow[];
+}
+
 export const ticketApi = {
   awaitingHead: () =>
     apiFetch<PaginatedResponse<Ticket>>(`/tickets?awaitingHead=true&limit=500&page=1`).then((r) => r.data.map(normalizeTicket)),
@@ -430,6 +454,15 @@ export const ticketApi = {
     if (departmentId) params.set('departmentId', departmentId);
     if (storeId) params.set('storeId', storeId);
     return apiFetch<ApiResponse<TatReportRow[]>>(`/tickets/reports/tat?${params.toString()}`);
+  },
+
+  getTatLegReport : (from?: string, to?: string, departmentId?: string, storeId?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (departmentId) params.set('departmentId', departmentId);
+    if (storeId) params.set('storeId', storeId);
+    return apiFetch<ApiResponse<TatLegReport>>(`/tickets/reports/tat-legs?${params.toString()}`);
   },
 
   getOwnerStats : (scope : OwnerStatsScope, from?: string, to?: string, departmentId?: string, storeId?: string) => {

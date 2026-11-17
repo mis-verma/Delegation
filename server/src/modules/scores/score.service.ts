@@ -80,7 +80,7 @@ const finishedAt = (t: Finished) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
 const DELEGATION_ONLY = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), isNull(tasks.parentTaskId), eq(tasks.awaitingHeadApproval, false), isNull(tasks.declinedAt))
 
 const taskCols = { status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt }
-const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, reopenCount: tickets.reopenCount }
+const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, reopenCount: tickets.reopenCount, sameAssigneeReopens: tickets.sameAssigneeReopens }
 
 const groupRows = <T,>(rows: readonly T[], keyOf: (r: T) => string | null | undefined) => {
     const map = new Map<string, T[]>()

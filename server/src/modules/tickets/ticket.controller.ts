@@ -1,7 +1,7 @@
 import { runWithCover, mergePendingApprovals } from "../approvalCover/coverAuthority.js"
 import { type Request , type Response } from "express"
 import { ticketService } from "./ticket.service.js"
-import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema, approveAssignmentSchema } from "./ticket.validation.js"
+import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, tatLegReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema, approveAssignmentSchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 import { routeParam } from "../../utils/routeParam.js"
@@ -90,6 +90,13 @@ export const ticketController = {
         const { groupBy, from , to, departmentId, storeId } = tatReportQuerySchema.parse(req.query);
         const scope = resolveReportScope(req.user!, { departmentId, storeId });
         const data = await ticketService.tatReport(groupBy, from, to, scope.departmentId, scope.storeId);
+        res.json({ success : true, data})
+    }),
+
+    tatLegReport : asyncHandler(async (req : Request , res : Response) => {
+        const { from , to, departmentId, storeId } = tatLegReportQuerySchema.parse(req.query);
+        const scope = resolveReportScope(req.user!, { departmentId, storeId });
+        const data = await ticketService.tatLegReport(from, to, scope.departmentId, scope.storeId);
         res.json({ success : true, data})
     }),
 

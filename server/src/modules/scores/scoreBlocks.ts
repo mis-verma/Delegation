@@ -41,6 +41,7 @@ export type TicketScore = {
     late: number
     waitingOnTime: number
     reopened: number
+    cameBack: number
     open: number
 }
 export type DelegationScore = {
@@ -96,7 +97,7 @@ export const foldChecklist = (m: ReportMetrics | null | undefined): ChecklistSco
 }
 
 export type TaskLike = { status: string; dueDate: Date | null; finishedAt: Date | null }
-export type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null; submittedAt: Date | null; reopenCount?: number }
+export type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null; submittedAt: Date | null; reopenCount?: number; sameAssigneeReopens?: number }
 export type ScoreWindow = { start: Date; end: Date }
 
 const inWindow = (d: Date | null, win: ScoreWindow): d is Date => d !== null && d >= win.start && d < win.end
@@ -130,15 +131,16 @@ export const foldTasks = (rows: readonly TaskLike[], now: Date, win: ScoreWindow
 export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWindow): TicketScore => {
     const inside = rows.filter((t) => inWindow(t.tatDueAt, win))
     const reopened = (t: TicketLike) => (t.reopenCount ?? 0) > 0
+    const cameBack = (t: TicketLike) => (t.sameAssigneeReopens ?? t.reopenCount ?? 0) > 0
     const due = inside.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL" || reopened(t) || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
     const done = due.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL")
     const onTime = closed.filter((t) => {
-        if (reopened(t)) return false
+        if (cameBack(t)) return false
         const finished = t.submittedAt ?? t.closedAt
         return finished && t.tatDueAt && finished <= t.tatDueAt
     }).length
-    const waitingOnTime = due.filter((t) => t.status === "PENDING_APPROVAL" && !reopened(t) && t.submittedAt !== null && t.tatDueAt !== null && t.submittedAt <= t.tatDueAt).length
+    const waitingOnTime = due.filter((t) => t.status === "PENDING_APPROVAL" && !cameBack(t) && t.submittedAt !== null && t.tatDueAt !== null && t.submittedAt <= t.tatDueAt).length
     const compliancePct = pct(onTime + waitingOnTime, due.length)
     return {
         score: compliancePct,
@@ -155,6 +157,7 @@ export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWi
         late: lateOf(done.length, onTime + waitingOnTime),
         waitingOnTime,
         reopened: due.filter(reopened).length,
+        cameBack: due.filter(cameBack).length,
         open: inside.length - due.length,
     }
 }
