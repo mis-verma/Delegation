@@ -16,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { UserCard, UserCardSkeleton } from './UserCard';
 import { UserTable } from './UserTable';
 import { UserRows } from './UserRows';
+import { UserDepartmentGroups } from './UserDepartmentGroups';
 
 import { UserToolbar } from './UserToolbar';
 import { BulkBar } from './BulkBar';
@@ -256,6 +257,7 @@ export const UserList = () => {
   const renderContent = () => {
     if (isPending) return view === 'table' ? <UserTableSkeleton /> : <UserGridSkeleton />;
 
+
     if (!hasData) {
       return <InlineError message="We couldn’t load your people just now. Check your connection and try again." onRetry={() => refetch()} />;
     }
@@ -302,6 +304,8 @@ export const UserList = () => {
             onReactivate={handleReactivate}
             onDelete={handleDelete}
           />
+        ) : view === 'group' ? (
+          <UserDepartmentGroups users={filtered} departmentNames={departmentNames} renderCard={renderCard} />
         ) : view === 'list' ? (
           <UserRows
             users={pageRows}
@@ -364,7 +368,9 @@ export const UserList = () => {
 
       {renderContent()}
 
-      <PageNav page={list.page} totalPages={list.totalPages} onPageChange={list.setPage} className="pt-1" />
+      {view !== 'group' && (
+        <PageNav page={list.page} totalPages={list.totalPages} onPageChange={list.setPage} className="pt-1" />
+      )}
 
       {view === 'table' && selectedPeople.length > 0 && (
         <BulkBar

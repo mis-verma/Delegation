@@ -44,6 +44,7 @@ interface UserToolbarProps {
 
 const VIEW_TABS: ViewTab<UserView>[] = [
   { key: 'cards', label: 'Cards', icon: LayoutGrid },
+  { key: 'group', label: 'Teams', icon: Building2 },
   { key: 'list', label: 'List', icon: ListIcon },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
@@ -111,10 +112,10 @@ export const UserToolbar = ({
           onChange={onSearchText}
           label="Search people by name, email, phone or employee ID"
           placeholder="Search name, email, phone or ID"
-          className="basis-40 sm:basis-64 sm:max-w-sm"
+          className="basis-full sm:basis-64 sm:max-w-sm"
         />
 
-        <div className="hidden sm:block">
+        <div className="shrink-0">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} storageKey="view:people" />
         </div>
 

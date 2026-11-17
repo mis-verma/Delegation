@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Check, Search, SearchX } from 'lucide-react';
 import { buildSearchIndex, filterOptions, matchedKeyword, searchTerms } from './optionFilter';
@@ -63,7 +63,14 @@ export const OptionList = ({
   options, selected, onToggle, multiple = false, searchable, searchPlaceholder = 'Search…', emptyText = 'No options', isLoading = false, actions, topActions,
 }: OptionListProps) => {
   const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
   const showSearch = searchable ?? options.length > SEARCH_THRESHOLD;
+
+  useEffect(() => {
+    if (!showSearch) return;
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    searchRef.current?.focus();
+  }, [showSearch]);
   const terms = useMemo(() => searchTerms(query), [query]);
   const needle = query.trim();
 
@@ -82,6 +89,7 @@ export const OptionList = ({
           <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" aria-hidden />
           <input
+            ref={searchRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

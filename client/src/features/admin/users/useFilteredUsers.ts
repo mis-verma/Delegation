@@ -7,7 +7,7 @@ import { fullName } from './userDisplay';
 
 export type UserSortKey = 'name' | 'role' | 'department' | 'store' | 'status' | 'newest' | 'lastActive';
 export type SortDir = 'asc' | 'desc';
-export type UserView = 'cards' | 'list' | 'table';
+export type UserView = 'cards' | 'group' | 'list' | 'table';
 
 const SORT_KEYS: UserSortKey[] = ['name', 'role', 'department', 'store', 'status', 'newest', 'lastActive'];
 
@@ -79,7 +79,7 @@ export const useFilteredUsers = ({ users, departmentNames, storeNames, presenceB
   const sort: UserSortKey = isSortKey(sortParam) ? sortParam : 'name';
   const dir: SortDir = dirParam === 'asc' || dirParam === 'desc' ? dirParam : DEFAULT_DIR[sort];
   const viewParam = params.get('view');
-  const view: UserView = viewParam === 'table' || viewParam === 'list' ? viewParam : 'cards';
+  const view: UserView = viewParam === 'table' || viewParam === 'list' || viewParam === 'group' ? viewParam : 'cards';
 
   const update = useCallback((patch: Record<string, string | null>, keepPage = false) => {
     setParams((prev) => {

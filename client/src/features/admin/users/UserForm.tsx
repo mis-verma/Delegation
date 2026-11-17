@@ -1,5 +1,5 @@
 import { DepartmentField } from '../../departments/DepartmentField';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -213,10 +213,20 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   const reportsToOptions = useMemo(
     () =>
       (allUsers ?? [])
-        .filter((u) => u.id !== user?.id && (u.id === user?.reportsToId || (u.isActive && (isDepartmentHead(u.role) || u.role === 'PC' || u.role === 'ADMIN'))))
+        .filter((u) => u.id !== user?.id && u.reportsToId !== user?.id && (u.id === user?.reportsToId || (u.isActive && (isDepartmentHead(u.role) || u.role === 'PC' || u.role === 'ADMIN'))))
         .map((u) => ({ value: u.id, label: `${fullName(u)} (${ROLE_META[u.role].label})` })),
     [allUsers, user?.id, user?.reportsToId],
   );
+
+  const departmentHead = useMemo(
+    () => (allUsers ?? []).find((u) => u.isActive && u.id !== user?.id && isDepartmentHead(u.role) && !!departmentId && u.departmentId === departmentId) ?? null,
+    [allUsers, departmentId, user?.id],
+  );
+  const reportsToId = useWatch({ control, name: 'reportsToId' });
+  const reportsToPerson = (allUsers ?? []).find((u) => u.id === reportsToId) ?? null;
+  const [overrideReportsTo, setOverrideReportsTo] = useState(false);
+  const autoPicked = !!reportsToPerson && !!departmentHead && reportsToPerson.id === departmentHead.id;
+  const showHeadSummary = !overrideReportsTo && !!reportsToPerson;
 
   const requestClose = async () => {
     if (isPending) return;
@@ -245,10 +255,32 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   };
 
   const autoFilledStore = useRef<string | null>(null);
+  const autoFilledHead = useRef<string | null>(null);
+
+  const fillHeadFor = (id: string) => {
+    const head = (allUsers ?? []).find((u) => u.isActive && u.id !== user?.id && isDepartmentHead(u.role) && !!id && u.departmentId === id) ?? null;
+    const current = getValues('reportsToId');
+    if (current && current !== autoFilledHead.current) return;
+    setValue('reportsToId', head?.id ?? '', { shouldDirty: true });
+    autoFilledHead.current = head?.id ?? null;
+  };
+
+  const seededHead = useRef(false);
+  useEffect(() => {
+    if (seededHead.current || isEditing || !allUsers || !departmentId || getValues('reportsToId')) return;
+    seededHead.current = true;
+    fillHeadFor(departmentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allUsers, departmentId, isEditing]);
+
   const handleDepartmentChange = (id: string, apply: (value: string) => void) => {
     apply(id);
+    fillHeadFor(id);
     const dept = departments?.find((d) => d.id === id);
-    if (!dept?.storeId) return;
+    if (!dept?.storeId) {
+      autoFilledStore.current = null;
+      return;
+    }
     const current = getValues('storeId');
     if (!current || current === autoFilledStore.current) {
       setValue('storeId', dept.storeId, { shouldDirty: true });
@@ -629,25 +661,48 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
 
                 <FormField
                   htmlFor="reportsToId"
-                  label="Reports to (optional)"
+                  label="Reports to"
                   icon={Network}
-                  hint="Their own head. A late approval in their area is flagged to this person as well."
+                  hint={
+                    autoPicked
+                      ? `Set from ${departmentName}. A late approval in their area is flagged to this person as well.`
+                      : departmentId && !departmentHead && !reportsToPerson
+                        ? `${departmentName} has no head yet, so pick someone or leave it empty.`
+                        : 'Their own head. A late approval in their area is flagged to this person as well.'
+                  }
                 >
-                  <Controller
-                    control={control}
-                    name="reportsToId"
-                    render={({ field }) => (
-                      <Combobox
-                        id="reportsToId"
-                        value={field.value}
-                        onChange={field.onChange}
-                        isLoading={isUsersLoading}
-                        placeholder="Nobody"
-                        emptyOptionLabel="Nobody"
-                        options={reportsToOptions}
-                      />
-                    )}
-                  />
+                  {showHeadSummary ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-surface-hover/40 px-2.5 py-2">
+                      <Avatar name={fullName(reportsToPerson!)} src={resolveAvatarUrl(reportsToPerson!.avatarUrl)} size="sm" />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate t-meta font-display font-semibold text-text">{fullName(reportsToPerson!)}</span>
+                        <span className="truncate t-meta text-text-muted">{ROLE_META[reportsToPerson!.role].label}{autoPicked ? ` · ${departmentName} head` : ''}</span>
+                      </span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setOverrideReportsTo(true)}>
+                        Change
+                      </Button>
+                    </div>
+                  ) : (
+                    <Controller
+                      control={control}
+                      name="reportsToId"
+                      render={({ field }) => (
+                        <Combobox
+                          id="reportsToId"
+                          value={field.value}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            autoFilledHead.current = null;
+                          }}
+                          label="Reports to"
+                          isLoading={isUsersLoading}
+                          placeholder="Nobody"
+                          emptyOptionLabel="Nobody"
+                          options={reportsToOptions}
+                        />
+                      )}
+                    />
+                  )}
                 </FormField>
 
                 <FormField
