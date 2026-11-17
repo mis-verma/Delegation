@@ -9,7 +9,7 @@ import {
   Camera, Image as ImageIcon, RotateCcw, ListChecks, AlertCircle, Library,
 } from 'lucide-react';
 import {
-  Button, EmptyState,
+  Button,
   ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft,
 } from '../../components';
 import { DETAIL_SECTION_HEADING } from './detail/detailConstants';
@@ -566,12 +566,9 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
       )}
 
       {checklists.length === 0 && !adding && (
-        <EmptyState
-          icon={ListChecks}
-          title="No checklists yet"
-          description={isAdmin ? 'Add a checklist to track sub-tasks and required evidence.' : 'Nothing to check off on this ticket yet.'}
-          size="compact"
-        />
+        <p className="t-meta text-text-muted">
+          {isAdmin ? 'No checklist yet. Add one to track sub-tasks and required evidence.' : 'Nothing to check off on this ticket yet.'}
+        </p>
       )}
 
       {openItems.length > 0 && (

@@ -31,13 +31,13 @@ const COMPLIANCE: Record<Compliance, { word: string; tone: Tone; icon: LucideIco
 };
 
 const Cell = ({ label, word, tone, icon: Icon }: { label: string; word: string; tone: Tone; icon: LucideIcon }) => (
-  <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border/50 bg-surface px-2 py-1.5">
+  <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border/50 bg-surface px-2 py-1.5">
     <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md', TONE[tone].icon)} aria-hidden="true">
       <Icon size={13} strokeWidth={2.5} />
     </span>
-    <span className="flex min-w-0 flex-col">
-      <span className="t-meta text-text-muted leading-tight">{label}</span>
-      <span className={cn('truncate t-meta font-display font-semibold leading-tight', TONE[tone].text)}>{word}</span>
+    <span className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
+      <span className="truncate t-meta leading-tight text-text-muted">{label}</span>
+      <span className={cn('shrink-0 t-meta font-display font-semibold leading-tight', TONE[tone].text)}>{word}</span>
     </span>
   </div>
 );
@@ -60,7 +60,7 @@ export const ItemScoreCard = ({ scoreAt, noun }: ItemScoreCardProps) => {
   const compliance = COMPLIANCE[score.compliance];
   const urgent = score.compliance === 'not_counted' && score.dueAt && score.dueAt.getTime() - now < 3 * 3_600_000;
   return (
-    <section aria-label="Score" className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/40 p-2.5">
+    <section aria-label="Score" className="@container flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/40 p-2.5">
       <div className="flex items-center gap-2">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-800 text-white" aria-hidden="true">
           <Gauge size={13} strokeWidth={2.25} />
@@ -74,7 +74,7 @@ export const ItemScoreCard = ({ scoreAt, noun }: ItemScoreCardProps) => {
           Live
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-1 gap-1.5 @sm:grid-cols-2">
         <Cell label="Completion" {...completion} />
         <Cell label="Compliance" {...compliance} />
       </div>
