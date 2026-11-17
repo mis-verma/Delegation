@@ -114,38 +114,18 @@ jobs:
           echo "::error::Could not reach the VPS over SSH from GitHub. Check: (1) VPS_HOST is the server's public IP or hostname with no http:// or spaces, (2) VPS_PORT matches the SSH port, (3) the VPS firewall (CloudPanel > Security) allows SSH from GitHub's runners, (4) the server is up."
           exit 1
 
-      # CloudPanel gives each site its own unprivileged SSH user (auto-named at site-creation
-      # time — e.g. karyaos-in / api-karyaos-in, whatever CloudPanel actually calls them; see
-      # docs/CICD_DEPLOYMENT.md). Two sites, two users, so two rsync targets. `~/` resolves to
-      # each user's own home on the remote side — no need to know/hardcode the generated
-      # username here, only the two secrets below.
-      - name: Rsync client build to the static site
+      - name: Upload server release next to the live one
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           install -m 600 /dev/null ~/.ssh/deploy_key
           echo "$SSH_KEY" > ~/.ssh/deploy_key
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
-            artifact/client/dist/ "${{ secrets.VPS_CLIENT_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/karyaos.in/"
+          cp artifact/server/package.json artifact/server/package-lock.json artifact/server/dist/
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}"             artifact/server/dist/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/dist.next/"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}"             artifact/server/drizzle/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/drizzle/"
+          rsync -az -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}"             artifact/server/ecosystem.config.cjs             "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/"
 
-      - name: Rsync server build to the Node.js site
-        env:
-          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          install -m 600 /dev/null ~/.ssh/deploy_key
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
-          # --delete only on dist/ — never on the site root, so the real .env (DATABASE_URL, JWT
-          # secret, ...) and anything the app writes locally (server/uploads-equivalent, if any)
-          # survive every deploy untouched.
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
-            artifact/server/dist/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/dist/"
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
-            artifact/server/drizzle/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/drizzle/"
-          rsync -az -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
-            artifact/server/package.json artifact/server/package-lock.json artifact/server/ecosystem.config.cjs \
-            "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/"
-
-      - name: Install prod deps, migrate, reload PM2
+      - name: Install, migrate, switch and verify the server
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT || 22 }}
@@ -156,8 +136,32 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           cd ~/htdocs/api.karyaos.in
-          npm ci --omit=dev < /dev/null
-          node dist/src/db/migrate.js < /dev/null
+          (cd dist.next && npm ci --omit=dev < /dev/null)
+          node dist.next/src/db/migrate.js < /dev/null
+          rm -rf dist.prev
+          if [ -d dist ]; then mv dist dist.prev; fi
+          mv dist.next dist
           pm2 reload ecosystem.config.cjs --update-env < /dev/null || pm2 start ecosystem.config.cjs < /dev/null
+          app_state() { pm2 jlist | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const a=JSON.parse(d).find(p=>p.name==="karya-server");console.log(a?`${a.pm2_env.status}:${a.pm2_env.restart_time}`:"missing")})'; }
+          sleep 8
+          first=$(app_state)
+          sleep 12
+          second=$(app_state)
+          if [ "${first%%:*}" != "online" ] || [ "$first" != "$second" ]; then
+            echo "Server is not staying up ($first then $second). Rolling back to the previous release."
+            if [ -d dist.prev ]; then
+              rm -rf dist.failed
+              mv dist dist.failed
+              mv dist.prev dist
+              pm2 reload ecosystem.config.cjs --update-env < /dev/null || pm2 start ecosystem.config.cjs < /dev/null
+            fi
+            exit 1
+          fi
           pm2 save < /dev/null
           REMOTE
+
+      - name: Rsync client build to the static site
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}"             artifact/client/dist/ "${{ secrets.VPS_CLIENT_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/karyaos.in/"

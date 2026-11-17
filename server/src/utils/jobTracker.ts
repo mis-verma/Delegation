@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import { jobRuns } from "../db/schema/core.js"
 import { env } from "../config/env.js"
+import { withJobLock } from "./jobLock.js"
 
 type RegisteredJob = { name: string; expression: string; everyMinutes: number }
 const registry = new Map<string, RegisteredJob>()
@@ -62,14 +63,15 @@ export const scheduleJob = (name: string, expression: string, everyMinutes: numb
         runningSince.set(name, startedAtMs)
         const startedAt = new Date(startedAtMs)
         let error: unknown = null
+        let skipped = false
         try {
-            await run()
+            skipped = (await withJobLock(name, async () => { await run(); return true })) === null
         } catch (err) {
             error = err
             console.error(`Job ${name} failed`, err)
         } finally {
             if (runningSince.get(name) === startedAtMs) runningSince.delete(name)
         }
-        await recordRun(job, startedAt, error)
+        if (!skipped) await recordRun(job, startedAt, error)
     }, env.CRON_TIMEZONE ? { timezone: env.CRON_TIMEZONE } : undefined)
 }

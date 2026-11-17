@@ -5,7 +5,7 @@ import { env } from './env.js'
 import * as schema from '../db/schema/index.js'
 import * as relations from '../db/schema/relations.js'
 
-const pool = mysql.createPool({
+export const pool = mysql.createPool({
     uri: env.DATABASE_URL,
     connectionLimit: env.DB_CONNECTION_LIMIT,
     connectTimeout: 10_000,
