@@ -42,6 +42,11 @@ const getTransporter = () => {
     return transporterPromise;
 };
 
+export const verifyMailer = async () => {
+    const transporter = await getTransporter();
+    await transporter.verify();
+};
+
 export const sendMail = async ({ to, subject, html }: { to: string; subject: string; html: string }) => {
     const transporter = await getTransporter();
     const info = await transporter.sendMail({

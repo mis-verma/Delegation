@@ -4,6 +4,9 @@ import { updateSettingsSchema } from "./settings.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../utils/AppError.js";
 import { env } from "../../config/env.js";
+import { verifyMailer } from "../../config/mailer.js";
+import { issueLoginCode, maskEmail } from "../../middleware/auth/loginCode.service.js";
+import { userService } from "../users/user.service.js";
 
 const ADMIN_ONLY_SETTINGS = [
     "requireAdminLoginCode",
@@ -22,6 +25,18 @@ const ADMIN_ONLY_SETTINGS = [
 
 export const settingsController = {
     
+
+    sendLoginCodeTest : asyncHandler(async (req : Request, res : Response) => {
+        if (!env.SMTP_HOST) throw AppError.badRequest("Email is not set up on the server. Add the mail settings first.")
+        const user = await userService.getById(req.user!.sub)
+        try {
+            await verifyMailer()
+        } catch {
+            throw AppError.badRequest("The mail server did not answer. Check the SMTP settings on the server.")
+        }
+        await issueLoginCode({ id: user.id, email: user.email, firstName: user.firstName }, { enforceCooldown : true })
+        res.json({ success : true, data : { sentTo : maskEmail(user.email) } })
+    }),
 
     get : asyncHandler(async (_req : Request , res : Response) => {
         const settings = await settingsService.get()

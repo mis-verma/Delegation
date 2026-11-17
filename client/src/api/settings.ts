@@ -30,10 +30,13 @@ export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMess
     & Partial<Pick<Settings, 'maxUploadSizeMb' | 'maxUploadFiles'>>;
 
 export type ApiResponse<T> = { success : boolean; data : T};
-export type UpdateSettingsPayload = Partial<Settings>;
+export type UpdateSettingsPayload = Partial<Settings> & { loginCodeProof? : string };
 
 export const settingApi = {
     get : () => apiFetch<ApiResponse <Settings>>('/settings'),
+
+    sendLoginCodeTest : () =>
+        apiFetch<ApiResponse<{ sentTo : string }>>('/settings/login-code/test', { method : "POST" }).then((r) => r.data),
 
     update : (payload : UpdateSettingsPayload) =>
         apiFetch<ApiResponse <Settings>>('/settings', {method : "PATCH", body: JSON.stringify(payload)}),

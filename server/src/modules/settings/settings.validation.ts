@@ -22,6 +22,7 @@ export const updateSettingsSchema = z.object({
     notificationRetentionDays : z.number().int().min(0).max(3650).optional(),
     inboundMessageRetentionDays : z.number().int().min(0).max(3650).optional(),
     autoCloseDays : z.number().int().min(0).max(30).optional(),
+    loginCodeProof : z.string().trim().regex(/^[0-9]{6}$/, "Enter the 6-digit code from your email.").optional(),
     employeeIdPrefix : z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,12}$/, "Use 1 to 12 letters or numbers.").optional(),
 })
 

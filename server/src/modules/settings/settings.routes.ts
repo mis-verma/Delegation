@@ -12,5 +12,6 @@ settingsRouter.use(authenticate)
 
 settingsRouter.get("/", requireRole("ADMIN", "PC"), settingsController.get)
 settingsRouter.patch("/", requireRole("ADMIN", "PC"), limitPcSettings, settingsController.update)
+settingsRouter.post("/login-code/test", requireRole("ADMIN"), settingsController.sendLoginCodeTest)
 settingsRouter.post("/logo", requireRole("ADMIN", "PC"), logoUpload, settingsController.uploadLogo)
 settingsRouter.delete("/logo", requireRole("ADMIN", "PC"), settingsController.removeLogo)

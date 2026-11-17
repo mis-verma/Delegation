@@ -7,6 +7,7 @@ import { resolveLogoUrl } from '../../../lib/uploadsBase';
 import { SettingsCard } from '../../settings/SettingsCard';
 import { LogoUpload } from './LogoUpload';
 import { SwitchRow } from './SwitchRow';
+import { AdminCodeCheck } from './AdminCodeCheck';
 import { IMAGE_TYPE_OPTIONS, type SettingsFields } from './schema';
 
 type NumericField =
@@ -167,10 +168,21 @@ export const NotificationsSection = ({ isAdmin }: SectionProps) => (
 );
 
 export const SecuritySection = () => {
-  const { control } = useFormContext<SettingsFields>();
+  const { control, setValue } = useFormContext<SettingsFields>();
   const { data: settings } = useSettingsQuery();
   const emailConfigured = Boolean(settings?.emailConfigured);
   const requireCode = useWatch({ control, name: 'requireAdminLoginCode' });
+  const alreadyOn = Boolean(settings?.requireAdminLoginCode);
+  const [checking, setChecking] = useState(false);
+
+  const changeRequireCode = (next: boolean) => {
+    if (next && !alreadyOn) {
+      setChecking(true);
+      return;
+    }
+    setValue('requireAdminLoginCode', next, { shouldDirty: true });
+    setValue('loginCodeProof', undefined, { shouldDirty: true });
+  };
   return (
     <SettingsCard
       icon={KeyRound}
@@ -182,12 +194,23 @@ export const SecuritySection = () => {
         <NumberField name="refreshTokenExpiresDays" label="Stay signed in for" suffix="days" />
       </TwoColumns>
       <Divider />
-      <SwitchFieldRow
-        name="requireAdminLoginCode"
+      <SwitchRow
+        id="requireAdminLoginCode"
         icon={KeyRound}
         label="Email code for Admin sign-in"
         description={emailConfigured ? 'Admins enter a 6-digit code from their email after the password. A device can be trusted for 30 days.' : 'Email is not set up on the server, so codes cannot be sent. Add the mail settings first.'}
+        checked={requireCode}
+        onChange={changeRequireCode}
         disabled={!emailConfigured && !requireCode}
+      />
+      <AdminCodeCheck
+        open={checking}
+        onCancel={() => setChecking(false)}
+        onVerified={(code) => {
+          setValue('requireAdminLoginCode', true, { shouldDirty: true });
+          setValue('loginCodeProof', code, { shouldDirty: true });
+          setChecking(false);
+        }}
       />
     </SettingsCard>
   );

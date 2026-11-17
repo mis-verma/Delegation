@@ -5,8 +5,9 @@ import { and, eq, isNull } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { UpdateSettingsInput } from "./settings.validation.js"
 import { env } from "../../config/env.js"
-import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js";
+import { verifyLoginCode } from "../../middleware/auth/loginCode.service.js";
+import { assertLoginCodeChangeAllowed, turningLoginCodeOn } from "./loginCodeGuard.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -53,12 +54,12 @@ export const settingsService = {
 
     async update(input: UpdateSettingsInput, actorId: string) {
         if (!cache) await this.init();
-        if (input.requireAdminLoginCode === true && !env.SMTP_HOST) {
-            throw AppError.badRequest("Email is not set up on the server, so sign-in codes cannot be sent. Add the mail settings first.");
-        }
+        const { loginCodeProof, ...fields } = input;
+        assertLoginCodeChangeAllowed(input, cache!, !!env.SMTP_HOST);
+        if (turningLoginCodeOn(input, cache!)) await verifyLoginCode(actorId, loginCodeProof!);
         const id = cache!.id;
         const before = cache!;
-        await db.update(settings).set({ ...input, updatedAt: new Date() }).where(eq(settings.id, id));
+        await db.update(settings).set({ ...fields, updatedAt: new Date() }).where(eq(settings.id, id));
         const [updated] = await db.select().from(settings).where(eq(settings.id, id)).limit(1);
         cache = updated!;
         if (before.autoCloseDays === 0 && cache.autoCloseDays > 0) await restartAutoCloseClock();

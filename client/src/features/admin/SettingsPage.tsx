@@ -100,7 +100,10 @@ export const SettingsPage = () => {
     const androidAppUrl = data.androidAppUrl.trim() || null;
     const iosAppUrl = data.iosAppUrl.trim() || null;
     if (isAdmin) {
-      mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null, androidAppUrl, iosAppUrl });
+      mutation.mutate(
+        { ...data, maintenanceMessage: data.maintenanceMessage.trim() || null, androidAppUrl, iosAppUrl },
+        { onSuccess: () => methods.setValue('loginCodeProof', undefined) },
+      );
       return;
     }
     mutation.mutate({
