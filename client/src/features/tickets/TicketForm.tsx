@@ -512,11 +512,6 @@ Who is affected: `;
     [categories, categoryId],
   );
 
-  const problemOptions = useMemo(
-    () => categoryIndex.problems.map(({ category, subcategory }) => ({ value: subcategory.id, label: subcategory.name, group: category.name })),
-    [categoryIndex],
-  );
-
   const categoryField = (label: string, hint: string, required: boolean) => (
     <div data-field="categoryId">
       <FormField
@@ -527,7 +522,6 @@ Who is affected: `;
         hint={hint}
         error={errors.categoryId?.message}
       >
-        <div className="flex flex-col gap-2">
         {suggestion && assignmentMode === 'AUTO' && !categoryId && suggestion.entry.subcategory.id !== dismissedProblemId && (
           <div role="status" className="flex items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/5 p-2.5">
             <Sparkles className="size-4 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden />
@@ -551,16 +545,6 @@ Who is affected: `;
             </button>
           </div>
         )}
-        {!categoryId && problemOptions.length > 0 && (
-          <Combobox
-            value=""
-            onChange={pickProblem}
-            label="Find the problem"
-            placeholder="Search any problem…"
-            options={problemOptions}
-            className={`w-full ${FIELD_TRIGGER_CLASS}`}
-          />
-        )}
         <Combobox
           value={categoryId ?? ''}
           onChange={selectCategory}
@@ -571,7 +555,6 @@ Who is affected: `;
           createNewLabel="New category"
           className={`w-full ${FIELD_TRIGGER_CLASS} ${errors.categoryId ? 'border-danger/60' : ''}`}
         />
-        </div>
       </FormField>
     </div>
   );

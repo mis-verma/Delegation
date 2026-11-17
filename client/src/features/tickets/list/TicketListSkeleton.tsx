@@ -33,7 +33,7 @@ const ListSkeleton = () => (
       {Array.from({ length: 8 }).map((_, i) => (
         <CardSkeleton
           key={i}
-          className={i >= 6 ? 'hidden lg:flex' : i >= 3 ? 'hidden sm:flex' : undefined}
+          className={i >= 6 ? 'hidden xl:flex' : i >= 4 ? 'hidden lg:flex' : i >= 2 ? 'hidden sm:flex' : undefined}
         />
       ))}
     </div>
