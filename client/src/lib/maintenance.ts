@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { settingApi } from '../api/settings';
+import { setOrgTzOffsetMinutes } from '../features/checklist/orgTime';
 
 const parsePages = (raw: string): string[] =>
   raw
@@ -27,7 +28,10 @@ export const maintenancePageLabel = (pathname: string): string => {
 export const usePublicSettingsQuery = () =>
   useQuery({
     queryKey: ['public-settings'],
-    queryFn: () => settingApi.status().then((r) => r.data),
+    queryFn: () => settingApi.status().then((r) => {
+      setOrgTzOffsetMinutes(r.data.orgTimezoneOffsetMinutes);
+      return r.data;
+    }),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });

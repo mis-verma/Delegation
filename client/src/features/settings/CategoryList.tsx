@@ -287,15 +287,15 @@ export const CategoryList = () => {
       variant: "danger",
     });
     if (!ok) return;
-    const blocked = await deleteMut.mutateAsync({ id: c.id, quiet: true }).then(() => false, (err: unknown) => {
-      if (err instanceof ApiError && err.status === 409) return true;
+    const blocked = await deleteMut.mutateAsync({ id: c.id, quiet: true }).then(() => null, (err: unknown) => {
+      if (err instanceof ApiError && err.status === 409) return err.message;
       toast.error(err instanceof Error ? err.message : "Failed to delete category");
-      return false;
+      return null;
     });
     if (!blocked) return;
     const force = await confirm({
       title: `Delete "${c.name}" anyway?`,
-      description: "Tickets are filed under it. They stay, with everything on them, but lose this category. This can't be undone.",
+      description: `${blocked} They stay, with everything on them, but lose this category, so they drop out of reports counted by category. This can't be undone.`,
       confirmLabel: "Delete and detach tickets",
       variant: "danger",
     });

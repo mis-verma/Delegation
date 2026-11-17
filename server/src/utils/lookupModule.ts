@@ -24,6 +24,7 @@ export type LookupOptions = {
     normalize?: (input: Record<string, unknown>) => Record<string, unknown>
     afterChange?: (before: LookupRow | undefined, after: LookupRow) => Promise<void>
     deleteBlockers?: (row: { id: string; name: string }) => Promise<string | null>
+    beforeDelete?: (row: { id: string; name: string }) => Promise<void>
 }
 
 export const describeBlockers = (name: string, parts: { count: number; one: string; many: string }[]): string | null => {
@@ -122,6 +123,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, 
         if (!existing) throw AppError.notFound("Not Found")
         const blocked = await options.deleteBlockers?.({ id: existing.id, name: String(existing.name) })
         if (blocked) throw AppError.conflict(blocked)
+        await options.beforeDelete?.({ id: existing.id, name: String(existing.name) })
         try {
             await db.delete(table).where(eq(table.id, routeParam(req, "id")));
         } catch (err) {

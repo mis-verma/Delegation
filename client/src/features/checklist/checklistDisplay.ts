@@ -4,6 +4,7 @@ import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../a
 import type { StatusChipStatus } from '../../components/statusChip';
 import { runScores } from './checklistCompliance';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { ORG_TZ_OFFSET_MS, orgDayKey, startOfOrgDay } from './orgTime';
 import { leadMs, trailMs } from './recurrenceRegistry';
 
 export { RECURRENCE_LABEL } from './recurrenceRegistry';
@@ -119,11 +120,7 @@ type InstanceWindow = {
   lateUntilTime?: string | null;
 };
 
-export const ORG_TZ_OFFSET_MS = 330 * 60_000;
-
-export const orgDayKey = (ms: number): string => new Date(ms + ORG_TZ_OFFSET_MS).toISOString().slice(0, 10);
-
-export const orgWeekday = (ms: number = Date.now()): number => new Date(ms + ORG_TZ_OFFSET_MS).getUTCDay();
+export { ORG_TZ_OFFSET_MS, orgDayKey, orgWeekday, setOrgTzOffsetMinutes } from './orgTime';
 
 export const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -198,10 +195,7 @@ type EndableInstance = InstanceWindow & {
   items: Pick<ChecklistInstanceItem, 'isDone'>[];
 };
 
-export const instanceStartOfOrgDay = (now: number = Date.now()): number => {
-  const local = new Date(now + ORG_TZ_OFFSET_MS);
-  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ORG_TZ_OFFSET_MS;
-};
+export const instanceStartOfOrgDay = startOfOrgDay;
 
 export const instanceDueInDays = (instance: OpeningInstance, now: number = Date.now()): number | null => {
   if (leadMs(instance.recurrence) === 0) return null;

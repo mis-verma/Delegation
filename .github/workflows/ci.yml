@@ -37,6 +37,7 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
+      - run: npm test
 
       # tsc -b (project references) + vite build — this is the real typecheck. Plain
       # `tsc --noEmit` is a near no-op here since client/tsconfig.json is a references-only file

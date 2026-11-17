@@ -57,6 +57,7 @@ export const settingsController = {
                 liveOnlyAttachments: settings!.liveOnlyAttachments,
                 maxUploadSizeMb: settings!.maxUploadSizeMb,
                 maxUploadFiles: settings!.maxUploadFiles,
+                orgTimezoneOffsetMinutes: env.CHECKLIST_TIMEZONE_OFFSET_MINUTES,
             },
         })
     }),
