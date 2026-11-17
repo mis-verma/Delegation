@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Repeat, Search, type LucideIcon } from 'lucide-react';
+import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Kanban, LayoutGrid, LayoutList, Repeat, Search, Table2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, IconChip, InlineError, PageHeader, Skeleton, SlidingTabs, ToggleChip, ViewToggle, type SlidingTabOption, type ViewTab, PageBackButton } from '../../../components';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
+import { ChecklistInstanceCard } from './ChecklistInstanceCard';
+import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { StatusFigureStats, type StatusFigureItem } from '../../dashboard/StatusFigureStats';
 import { RunVerificationChip } from './RunVerificationChip';
 import { PANEL_CLASS } from '../../../components/entityCard';
@@ -32,11 +34,17 @@ const SERVER_STATUS: Record<Tab, ChecklistInstanceStatus | undefined> = {
 
 const isTab = (value: string | null): value is Tab => !!value && (TABS as readonly string[]).includes(value);
 
-type View = 'list' | 'table';
+type View = 'list' | 'card' | 'board' | 'table';
 const VIEW_TABS: ViewTab<View>[] = [
-  { key: 'list', label: 'List' },
-  { key: 'table', label: 'Table', mobileHidden: true },
+  { key: 'list', label: 'List', icon: LayoutList },
+  { key: 'card', label: 'Cards', icon: LayoutGrid },
+  { key: 'board', label: 'Board', icon: Kanban },
+  { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
+const VIEW_KEYS = new Set<string>(VIEW_TABS.map((t) => t.key));
+const isView = (value: string | null): value is View => !!value && VIEW_KEYS.has(value);
+
+const CARD_GRID_CLASS = 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3';
 
 interface StateLook {
   tone: string;
@@ -75,6 +83,36 @@ const RowSkeleton = () => (
   </div>
 );
 
+const CardSkeleton = () => (
+  <div className="flex flex-col gap-3 rounded-xl border border-border p-4" aria-hidden="true">
+    <div className="flex items-center gap-3">
+      <Skeleton className="size-10 shrink-0 rounded-xl" />
+      <Skeleton className="h-4 flex-1" />
+    </div>
+    <Skeleton className="h-6 w-2/3 rounded-full" />
+    <Skeleton className="h-2 w-full rounded-full" />
+    <Skeleton className="h-2 w-4/5 rounded-full" />
+  </div>
+);
+
+const BodySkeleton = ({ view }: { view: View }) => {
+  if (view === 'list') return <div className="flex flex-col divide-y divide-border/60">{Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)}</div>;
+  if (view === 'table') return <div className="flex flex-col divide-y divide-border/60">{Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)}</div>;
+  if (view === 'board') {
+    return (
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        {[2, 1, 1].map((cards, col) => (
+          <div key={col} className="flex flex-col gap-3 lg:rounded-2xl lg:border lg:border-border/60 lg:p-2.5">
+            <Skeleton className="h-4 w-24" />
+            {Array.from({ length: cards }, (_, i) => <CardSkeleton key={i} />)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <div className={CARD_GRID_CLASS}>{Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />)}</div>;
+};
+
 const namesOf = (ids: readonly string[], names: Map<string, string>): string => {
   const known = ids.map((id) => names.get(id)).filter((n): n is string => !!n);
   if (known.length === 0) return ids.length === 0 ? 'Nobody assigned' : `${ids.length} ${ids.length === 1 ? 'person' : 'people'}`;
@@ -89,7 +127,8 @@ export const TeamChecklists = () => {
   const requested = params.get('status');
   const tab: Tab = isTab(requested) ? requested : 'pending';
   const windowKey: Window = params.get('window') === 'month' ? 'month' : 'today';
-  const layout: View = params.get('view') === 'table' ? 'table' : 'list';
+  const requestedView = params.get('view');
+  const layout: View = isView(requestedView) ? requestedView : 'list';
   const storeId = params.get('store') ?? '';
   const onlyNotStarted = params.get('started') === '0';
   const [search, setSearch] = useState('');
@@ -147,6 +186,9 @@ export const TeamChecklists = () => {
     setSearch('');
     patch({ started: null });
   };
+
+  const bodyEmpty = (list.isError && !rows) || (!list.isPending && visible.length === 0);
+  const framed = layout === 'list' || layout === 'table' || bodyEmpty;
 
   const tabCounts: Record<Tab, number> = { pending: s?.pending ?? 0, due: s?.due ?? 0, overdue: s?.missed ?? 0, completed: s?.completed ?? 0, all: s?.total ?? 0 };
 
@@ -213,11 +255,11 @@ export const TeamChecklists = () => {
         </div>
       </div>
 
-      <section aria-label="Checklists" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
+      <section aria-label="Checklists" className={cn('flex flex-col', framed ? cn(PANEL_CLASS, 'overflow-hidden') : 'gap-4')}>
         {list.isError && !rows ? (
           <div className="p-4"><InlineError message="Couldn't load the checklists." onRetry={() => void list.refetch()} /></div>
         ) : list.isPending ? (
-          <div className="flex flex-col divide-y divide-border/60">{Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)}</div>
+          <BodySkeleton view={layout} />
         ) : visible.length === 0 ? (
           <EmptyState
             icon={ClipboardList}
@@ -238,6 +280,12 @@ export const TeamChecklists = () => {
             peopleNameById={peopleNames}
             lookupsPending={!stores || !people}
           />
+        ) : layout === 'card' ? (
+          <div className={cn(CARD_GRID_CLASS, 'animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none')}>
+            {visible.map((instance) => <ChecklistInstanceCard key={instance.id} instance={instance} />)}
+          </div>
+        ) : layout === 'board' ? (
+          <ChecklistInstanceBoard instances={visible} />
         ) : (
           <ul className="flex flex-col divide-y divide-border/60">
             {visible.map((instance) => {
