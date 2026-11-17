@@ -507,6 +507,7 @@ Who is affected: `;
         label: c.name,
         group: c.departmentId?.name || 'No department',
         hint: c.tatHours ? `Due in ${c.tatHours % 24 === 0 ? `${c.tatHours / 24}d` : `${c.tatHours}h`}` : undefined,
+        keywords: c.subcategories.filter((s) => s.isActive).map((s) => s.name),
       }))
       .sort((a, b) => (a.group === 'No department' ? 1 : b.group === 'No department' ? -1 : a.group.localeCompare(b.group)) || a.label.localeCompare(b.label)),
     [categories, categoryId],

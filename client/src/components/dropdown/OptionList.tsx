@@ -1,7 +1,8 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Check, Search, SearchX } from 'lucide-react';
-import { filterOptions } from './optionFilter';
+import { buildSearchIndex, filterOptions, matchedKeyword, searchTerms } from './optionFilter';
+import { highlightTerms } from './highlightTerms';
 import { cn } from '@/lib/utils';
 
 export interface ListOption {
@@ -9,6 +10,7 @@ export interface ListOption {
   label: string;
   hint?: string;
   group?: string;
+  keywords?: readonly string[];
   lead?: ReactNode;
 }
 
@@ -36,18 +38,7 @@ interface OptionListProps {
 const MAX_ROWS = 80;
 const SEARCH_THRESHOLD = 7;
 
-const highlight = (label: string, query: string): ReactNode => {
-  if (!query) return label;
-  const idx = label.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return label;
-  return (
-    <>
-      {label.slice(0, idx)}
-      <mark className="font-bold bg-transparent text-text">{label.slice(idx, idx + query.length)}</mark>
-      {label.slice(idx + query.length)}
-    </>
-  );
-};
+const MARK_CLASS = 'rounded-[3px] bg-primary-500/20 px-0.5 font-bold text-primary-800 dark:bg-primary-400/25 dark:text-primary-100';
 
 const ActionRow = ({ action }: { action: ListAction }) => {
   const Icon = action.icon;
@@ -73,11 +64,13 @@ export const OptionList = ({
 }: OptionListProps) => {
   const [query, setQuery] = useState('');
   const showSearch = searchable ?? options.length > SEARCH_THRESHOLD;
-  const needle = query.trim().toLowerCase();
+  const terms = useMemo(() => searchTerms(query), [query]);
+  const needle = query.trim();
 
+  const index = useMemo(() => buildSearchIndex(options), [options]);
   const filtered = useMemo(
-    () => filterOptions(options, needle),
-    [options, needle],
+    () => filterOptions(options, query, index),
+    [options, query, index],
   );
   const shown = filtered.length > MAX_ROWS ? filtered.slice(0, MAX_ROWS) : filtered;
   const hidden = filtered.length - shown.length;
@@ -110,11 +103,12 @@ export const OptionList = ({
         ) : shown.length === 0 ? (
           <li className="flex items-center gap-2 px-3 py-3 text-sm font-display text-text-muted">
             <SearchX size={15} className="shrink-0 text-text-light" aria-hidden />
-            <span className="truncate">{needle ? `No matches for "${query.trim()}"` : emptyText}</span>
+            <span className="truncate">{needle ? `No match for "${needle}"` : emptyText}</span>
           </li>
         ) : (
           shown.map((option, index) => {
             const isSelected = selected.includes(option.value);
+            const via = matchedKeyword(option, terms);
             return (
               <Fragment key={option.value || '__empty__'}>
               {option.group && option.group !== shown[index - 1]?.group && (
@@ -135,8 +129,9 @@ export const OptionList = ({
                 >
                   {option.lead}
                   <span className="flex flex-1 min-w-0 flex-col">
-                    <span className="line-clamp-2 break-words leading-snug">{highlight(option.label, query.trim())}</span>
+                    <span className="line-clamp-2 break-words leading-snug">{highlightTerms(option.label, terms, MARK_CLASS)}</span>
                     {option.hint && <span className="t-meta font-medium text-text-secondary line-clamp-1 break-words">{option.hint}</span>}
+                    {via && <span className="t-meta font-normal text-text-muted line-clamp-1 break-words">has {highlightTerms(via, terms, MARK_CLASS)}</span>}
                   </span>
                   {multiple ? (
                     <span
