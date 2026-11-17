@@ -42,3 +42,29 @@ export const useDeleteTagMutation = () =>
         successMessage: null,
         errorFallback: "Couldn't delete that label. Try again.",
     });
+
+export const useTagCleanupQuery = (enabled: boolean = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tags', 'cleanup'] as const,
+        queryFn: () => tagApi.cleanup(),
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
+export const useBulkDeleteTagsMutation = () =>
+    useEntityMutation({
+        mutationFn: (ids: string[]) => tagApi.bulkDelete(ids),
+        invalidateKeys: [['tags'], ['tasks'], ['tickets']],
+        successMessage: null,
+        errorFallback: "Couldn't delete those labels. Try again.",
+    });
+
+export const useMergeTagsMutation = () =>
+    useEntityMutation({
+        mutationFn: ({ fromIds, intoId }: { fromIds: string[]; intoId: string }) => tagApi.merge(fromIds, intoId),
+        invalidateKeys: [['tags'], ['tasks'], ['tickets']],
+        successMessage: null,
+        errorFallback: "Couldn't merge those labels. Try again.",
+    });

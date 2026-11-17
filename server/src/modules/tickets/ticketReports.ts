@@ -13,6 +13,8 @@ import { isAdminOrPc } from "../../utils/roles.js"
 import { dropScoreCache } from "../scores/scoreCache.js"
 import { NOT_DELETED, NOT_GATED, round1 } from "./ticketShared.js"
 import { visibilityFilter } from "./ticketAccess.js"
+import { ticketBucketCondition } from "./ticketListQuery.js"
+import type { TicketListBucket } from "./ticketListParams.js"
 
 export type OwnerStatsRow = {
   ownerId: string | null
@@ -241,26 +243,26 @@ export const ticketScopeWhere = async (user: AccessTokenPayload, scope: TicketSu
 export const summary = async (user: AccessTokenPayload, scope: TicketSummaryScope = "mine"): Promise<TicketSummaryRow> => {
   const version = await versionTag(TICKET_SUMMARY_VERSION)
   return cached(cacheKey(TICKET_SUMMARY_PREFIX, `v${version}`, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
-    const where = await ticketScopeWhere(user, scope)
+    const scopeCondition = scope === "visible" ? await visibilityFilter(user) : eq(tickets.assigneeId, user.sub)
+    const where = and(NOT_DELETED, scopeCondition)
+    const inBucket = (bucket: TicketListBucket) => sql<number>`SUM(CASE WHEN ${ticketBucketCondition(bucket)} THEN 1 ELSE 0 END)`
 
     const [row] = await db.select({
       total: sql<number>`COUNT(*)`,
-      completed: sql<number>`SUM(CASE WHEN ${tickets.status} IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
-      overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
-      onTime: sql<number>`SUM(CASE WHEN ${tickets.tatDueAt} IS NOT NULL AND NOT ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
+      completed: inBucket("completed"),
+      overdue: inBucket("delayed"),
+      onTime: inBucket("due"),
+      pending: inBucket("pending"),
       newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
     }).from(tickets).where(where)
 
-    const total = Number(row?.total ?? 0)
-    const completed = Number(row?.completed ?? 0)
-    const overdue = Number(row?.overdue ?? 0)
     return {
-      total,
-      pending: total - completed,
+      total: Number(row?.total ?? 0),
+      pending: Number(row?.pending ?? 0),
       newToday: Number(row?.newToday ?? 0),
       due: Number(row?.onTime ?? 0),
-      overdue,
-      completed,
+      overdue: Number(row?.overdue ?? 0),
+      completed: Number(row?.completed ?? 0),
     }
   })
 }

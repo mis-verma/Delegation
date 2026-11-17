@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { ShieldCheck } from 'lucide-react';
-import { PageHeader } from '../../../components';
+import { PageHeader, SearchField } from '../../../components';
+import { ChecklistApprovalStats, type ApprovalStatKey } from './ChecklistApprovalStats';
 import { ChecklistList } from '../../verification/ChecklistList';
 import { ReviewSheet, type SendBackPayload } from '../../verification/ReviewPane';
 import { approveRun, rejectRun, sendBackRun } from '../../verification/decisionRequests';
@@ -17,6 +19,10 @@ const NO_INSTANCES: ChecklistInstance[] = [];
 
 const OLDEST_FIRST: ChecklistFilters = { q: '', store: null, dept: null, person: null, age: 'any', attention: false, sort: 'oldest' };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const isStatKey = (value: string | null): value is ApprovalStatKey => value === 'old' || value === 'attention';
+
 export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean }) => {
   const now = useNow();
   const query = useChecklistQueueQuery();
@@ -27,7 +33,27 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
 
   const refresh = useRefreshAfterDecision();
   const { heldIds, schedule } = useDeferredDecisions({ afterSaved: refresh });
-  const rows = useVisibleChecklistRows(allRows, OLDEST_FIRST, heldIds, now);
+
+  const [params, setParams] = useSearchParams();
+  const search = params.get('q') ?? '';
+  const stat = isStatKey(params.get('show')) ? (params.get('show') as ApprovalStatKey) : null;
+  const patch = useCallback((key: string, value: string) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (value) next.set(key, value); else next.delete(key);
+    return next;
+  }, { replace: true }), [setParams]);
+
+  const filters = useMemo<ChecklistFilters>(
+    () => ({ ...OLDEST_FIRST, q: search, age: stat === 'old' ? '1' : 'any', attention: stat === 'attention' }),
+    [search, stat],
+  );
+  const rows = useVisibleChecklistRows(allRows, filters, heldIds, now);
+  const queueRows = useMemo(() => allRows.filter((row) => !heldIds.has(row.id)), [allRows, heldIds]);
+  const counts = useMemo(() => ({
+    waiting: queueRows.length,
+    old: queueRows.filter((row) => now - row.waitingSince >= DAY_MS).length,
+    attention: queueRows.filter((row) => row.risk.needsAttention).length,
+  }), [queueRows, now]);
 
   const [openId, setOpenId] = useState<string | null>(null);
   const openRow = useMemo(() => rows.find((r) => r.id === openId) ?? null, [rows, openId]);
@@ -76,14 +102,33 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
         <PageHeader icon={ShieldCheck} title="Checklist approvals" subtitle={subtitle} />
       )}
 
+      <div className="flex flex-col gap-3">
+        <ChecklistApprovalStats
+          counts={counts}
+          active={stat}
+          onToggle={(key) => patch('show', key === 'waiting' || key === stat ? '' : key)}
+          isLoading={query.isPending && !query.data}
+          error={query.isError && !query.data}
+          onRetry={() => { void query.refetch(); }}
+        />
+        <div className="sm:max-w-sm">
+          <SearchField value={search} onChange={(value) => patch('q', value)} label="Search checklists" placeholder="Search checklist, store or person..." />
+        </div>
+      </div>
+
       <ChecklistList
         rows={rows}
         activeId={openId}
         isPending={query.isPending}
         loadFailed={query.isError && !query.data}
         onRetry={() => { void query.refetch(); }}
-        filtersActive={false}
-        onClearFilters={() => undefined}
+        filtersActive={!!search || !!stat}
+        onClearFilters={() => setParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('q');
+          next.delete('show');
+          return next;
+        }, { replace: true })}
         hasMore={!!query.hasNextPage}
         remaining={Math.max(0, total - instances.length)}
         isFetchingMore={query.isFetchingNextPage}

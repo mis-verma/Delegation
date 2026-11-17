@@ -16,12 +16,12 @@ interface PickerShellProps {
   title: string;
   sheetFooter?: ReactNode;
   popoverClassName?: string;
-  popoverContainer?: HTMLElement | null;
+  collisionBoundary?: HTMLElement | null;
   children: ReactNode;
 }
 
 export const PickerShell = ({
-  open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, popoverContainer, children,
+  open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, collisionBoundary, children,
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
   useCloseOnBack(open && isPhone, () => onOpenChange(false));
@@ -74,7 +74,7 @@ export const PickerShell = ({
         align="start"
         sideOffset={6}
         collisionPadding={12}
-        container={popoverContainer}
+        collisionBoundary={collisionBoundary ?? undefined}
         className={cn(
           'w-auto max-w-[calc(100vw-1.5rem)] max-h-[min(36rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain custom-scrollbar p-3',
           popoverClassName,

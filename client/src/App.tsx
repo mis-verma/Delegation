@@ -45,6 +45,7 @@ const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
 const AccountSettings = lazy(() => import('./features/settings/AccountSettings').then(m => ({ default: m.AccountSettings })));
 const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSettings').then(m => ({ default: m.AppearanceSettings })));
+const LabelsPage = lazy(() => import('./features/admin/labels').then(m => ({ default: m.LabelsPage })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
 const TestDataCleanupPage = lazy(() => import('./features/checklist/testData').then(m => ({ default: m.TestDataCleanupPage })));
@@ -372,6 +373,7 @@ const router = createBrowserRouter([
               { path: '/admin/checklist-weekly', element: <WeeklyRedirect /> },
               { path: '/admin/presence', element: <Navigate to="/admin/directory?tab=online" replace /> },
               { path: '/admin/settings', element: <SettingsPage /> },
+              { path: '/admin/labels', element: <LabelsPage /> },
             ],
           },
         ],

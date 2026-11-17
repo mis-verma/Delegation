@@ -1,4 +1,7 @@
 import { z } from "zod"
+import { asyncHandler } from "../../utils/asyncHandler.js"
+import { requireRole } from "../../middleware/auth/auth.js"
+import { deleteUnusedTags, mergeTags, tagCleanupReport } from "./tagAdmin.service.js"
 import { count, eq } from "drizzle-orm"
 import { invalidate } from "../../config/queryCache.js"
 import { createLookupRouter } from "../../utils/lookupModule.js";
@@ -26,3 +29,20 @@ export const tagRouter = createLookupRouter(tags, tagBodySchema, {
     await invalidate("lookup:Category")
   },
 })
+
+const idListSchema = z.object({ ids: z.array(z.string().min(1)).min(1).max(500) })
+const mergeSchema = z.object({ fromIds: z.array(z.string().min(1)).min(1).max(500), intoId: z.string().min(1) })
+
+tagRouter.get("/cleanup", requireRole("ADMIN", "PC"), asyncHandler(async (_req, res) => {
+  res.json({ success: true, data: await tagCleanupReport() })
+}))
+
+tagRouter.post("/bulk-delete", requireRole("ADMIN"), asyncHandler(async (req, res) => {
+  const { ids } = idListSchema.parse(req.body)
+  res.json({ success: true, data: await deleteUnusedTags(ids) })
+}))
+
+tagRouter.post("/merge", requireRole("ADMIN"), asyncHandler(async (req, res) => {
+  const { fromIds, intoId } = mergeSchema.parse(req.body)
+  res.json({ success: true, data: await mergeTags(fromIds, intoId) })
+}))

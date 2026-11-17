@@ -245,7 +245,7 @@ export const DepartmentField = ({
       onOpenChange={setOpen}
       trigger={trigger}
       title={multiple ? 'Choose departments' : 'Choose a department'}
-      popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+      collisionBoundary={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]')}
       popoverClassName="w-[min(22rem,calc(100vw-2rem))] max-h-80"
       sheetFooter={isPhone && multiple && (
         <Button variant="primary" onClick={() => setOpen(false)} className="w-full h-11 font-display">

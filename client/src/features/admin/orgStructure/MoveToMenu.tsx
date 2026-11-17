@@ -64,7 +64,7 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
       onOpenChange={setOpen}
       trigger={trigger}
       title={`Move ${userName} to`}
-      popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+      collisionBoundary={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]')}
       popoverClassName="w-[min(22rem,calc(100vw-2rem))] max-h-80"
     >
       <OptionList

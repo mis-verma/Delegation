@@ -199,7 +199,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
             onOpenChange={onPickerOpenChange}
             trigger={triggerButton}
             title={pickerTitle ?? (single ? 'Assign to' : 'Assign to (pick one or more)')}
-            popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+            collisionBoundary={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]')}
             popoverClassName="w-[min(22rem,calc(100vw-2rem))]"
             sheetFooter={isPhone && !single && (
               <Button variant="primary" onClick={() => onPickerOpenChange(false)} className="w-full h-11 font-display">

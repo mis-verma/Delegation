@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Tag as TagIcon, Plus, Loader2, Trash2, Settings2, Check, ChevronLeft, X, Lock, Search } from 'lucide-react';
-import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
+import { useBulkDeleteTagsMutation, useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
+import { findLabelClash } from '../../lib/labelKey';
 import { LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
 import { PickerShell } from '../../components/dateTime/PickerShell';
@@ -105,6 +107,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
   const deleteTag = useDeleteTagMutation();
+  const bulkDelete = useBulkDeleteTagsMutation();
   const canDeleteLabels = useAuth().user?.role === 'ADMIN';
   const updateTag = useUpdateTagMutation();
 
@@ -116,7 +119,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const [newColor, setNewColor] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [recolorId, setRecolorId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [confirmingAll, setConfirmingAll] = useState(false);
 
   const selectedRef = useRef(selectedIds);
   useEffect(() => { selectedRef.current = selectedIds; }, [selectedIds]);
@@ -126,7 +129,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const atCap = selectedIds.length >= MAX_LABELS;
 
   const trimmed = name.trim();
-  const clash = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+  const clash = findLabelClash(tags, trimmed);
   const chosenColor = newColor ?? suggestedLabelColor(trimmed || 'label').key;
 
   const orderedTags = useMemo(() => {
@@ -150,6 +153,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
       setNewColor(null);
       setConfirmingId(null);
       setRecolorId(null);
+      setConfirmingAll(false);
     }
     setOpen(next);
   };
@@ -173,6 +177,19 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
         queryClient.setQueryData<Tag[]>(['tags'], (old) => old?.filter((t) => t.id !== tag.id));
         if (selectedRef.current.includes(tag.id)) onChange(selectedRef.current.filter((x) => x !== tag.id));
         setConfirmingId(null);
+      },
+    });
+  };
+
+  const removeAllLabels = () => {
+    bulkDelete.mutate(tags.map((tag) => tag.id), {
+      onSuccess: (result) => {
+        queryClient.setQueryData<Tag[]>(['tags'], (old) => old?.filter((t) => result.kept.includes(t.name)));
+        onChange(selectedRef.current.filter((id) => result.kept.includes(byId.get(id)?.name ?? '')));
+        setConfirmingAll(false);
+        toast.success(result.kept.length
+          ? `${result.deleted} deleted. ${result.kept.length} stayed, because tickets or delegations still use them.`
+          : `${result.deleted} ${result.deleted === 1 ? 'label' : 'labels'} deleted.`);
       },
     });
   };
@@ -288,7 +305,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
       <ColorSwatches value={chosenColor} onPick={setNewColor} label="Label colour" />
       {clash ? (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-surface-hover/40 px-3 py-2">
-          <span className="t-meta font-medium text-text-secondary">“{clash.name}” already exists.</span>
+          <span className="t-meta font-medium text-text-secondary">“{clash.name}” already exists. Use it instead of making another spelling.</span>
           <Button type="button" variant="outline" size="sm" onClick={() => { toggle(clash.id); setView('pick'); }}>
             {selectedIds.includes(clash.id) ? 'Already added' : 'Use it'}
           </Button>
@@ -312,6 +329,27 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     <div className="flex flex-col gap-3">
       <BackBar title="Manage labels" onBack={() => { setView('pick'); setConfirmingId(null); setRecolorId(null); }} />
       <p className="px-1 t-meta font-medium text-text-muted">Tap a dot to change its colour. Deleting a label removes it from every delegation. A label used on a ticket can't be deleted.</p>
+      {canDeleteLabels && tags.length > 0 && (
+        confirmingAll ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-danger/40 bg-danger/5 p-2.5">
+            <p className="t-meta font-display font-medium text-text-secondary">
+              Delete all {tags.length} labels? Ones a ticket or a delegation still uses are kept. This can't be undone.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="danger" disabled={bulkDelete.isPending} onClick={removeAllLabels}>
+                {bulkDelete.isPending && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
+                Yes, delete them
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={bulkDelete.isPending} onClick={() => setConfirmingAll(false)}>Keep them</Button>
+            </div>
+          </div>
+        ) : (
+          <Button type="button" size="sm" variant="outline" onClick={() => setConfirmingAll(true)} className="w-fit">
+            <Trash2 size={13} aria-hidden="true" />
+            Delete all labels
+          </Button>
+        )
+      )}
       <ul className="flex flex-col gap-1">
         {tags.map((tag) => {
           const confirming = confirmingId === tag.id;
@@ -365,7 +403,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   );
 
   const cloud = [...selected, ...tags.filter((t) => !selectedIds.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name))];
-  const shownPills = showAll ? cloud : cloud.slice(0, Math.max(PILL_LIMIT, selected.length));
+  const shownPills = cloud.slice(0, Math.max(PILL_LIMIT, selected.length));
   const foldedCount = cloud.length - shownPills.length;
   const pillTrigger = (
     <button
@@ -394,13 +432,12 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
           />
         ))}
         {foldedCount > 0 && (
-          <button type="button" onClick={() => setShowAll(true)} className="inline-flex items-center h-8 pointer-coarse:h-9 px-2.5 rounded-lg t-meta font-display font-semibold text-primary-600 hover:bg-primary-500/10 dark:text-primary-300 cursor-pointer">
-            +{foldedCount} more
-          </button>
-        )}
-        {showAll && cloud.length > PILL_LIMIT && (
-          <button type="button" onClick={() => setShowAll(false)} className="inline-flex items-center h-8 pointer-coarse:h-9 px-2.5 rounded-lg t-meta font-display font-semibold text-text-muted hover:bg-surface-hover cursor-pointer">
-            Show less
+          <button
+            type="button"
+            onClick={() => { onOpenChange(true); setView('pick'); }}
+            className="inline-flex h-8 cursor-pointer items-center rounded-lg px-2.5 t-meta font-display font-semibold text-primary-600 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:h-9 dark:text-primary-300"
+          >
+            Search {cloud.length} labels
           </button>
         )}
         {(canCreate || cloud.length > PILL_LIMIT) && (
@@ -411,7 +448,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
         trigger={pillTrigger}
         title={view === 'pick' ? 'Labels' : view === 'create' ? 'New label' : 'Manage labels'}
         popoverClassName="w-[min(22rem,calc(100vw-1.5rem))]"
-        popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
+        collisionBoundary={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]')}
         sheetFooter={
           view === 'pick' ? (
             <Button variant="primary" onClick={() => setOpen(false)} className="h-11 w-full font-display">
