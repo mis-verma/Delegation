@@ -1,10 +1,16 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useCloseOnBack } from '../../lib/useCloseOnBack';
 import { cn } from '@/lib/utils';
+
+const focusSearchInput = (container: HTMLElement | null) => {
+  if (!container) return;
+  if (window.matchMedia('(pointer: coarse)').matches) return;
+  container.querySelector<HTMLInputElement>('input[type="search"], input[type="text"]')?.focus();
+};
 
 interface PickerShellProps {
   open: boolean;
@@ -25,6 +31,8 @@ export const PickerShell = ({
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
   useCloseOnBack(open && isPhone, () => onOpenChange(false));
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   if (isPhone) {
     return (
@@ -39,6 +47,10 @@ export const PickerShell = ({
         )}
         <DialogContent
           showCloseButton={false}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            focusSearchInput(bodyRef.current);
+          }}
           className="p-0 gap-0 flex flex-col rounded-t-2xl max-h-[92dvh] overflow-hidden"
         >
           <div className="shrink-0 flex items-center justify-between gap-3 pl-5 pr-2 pt-3 pb-1">
@@ -51,7 +63,7 @@ export const PickerShell = ({
             </DialogClose>
           </div>
           <DialogDescription className="sr-only">Make your choice below.</DialogDescription>
-          <div className={cn('flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 flex flex-col gap-3', sheetFooter ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]')}>{children}</div>
+          <div ref={bodyRef} className={cn('flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 flex flex-col gap-3', sheetFooter ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]')}>{children}</div>
           {sheetFooter && (
             <div className="shrink-0 border-t border-border/60 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{sheetFooter}</div>
           )}
@@ -71,10 +83,15 @@ export const PickerShell = ({
         </div>
       )}
       <PopoverContent
+        ref={popoverRef}
         align="start"
         sideOffset={6}
         collisionPadding={12}
         collisionBoundary={collisionBoundary ?? undefined}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          focusSearchInput(popoverRef.current);
+        }}
         className={cn(
           'w-auto max-w-[calc(100vw-1.5rem)] max-h-[min(36rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain custom-scrollbar p-3',
           popoverClassName,
