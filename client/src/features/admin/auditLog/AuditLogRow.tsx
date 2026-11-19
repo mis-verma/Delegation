@@ -53,8 +53,8 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
 
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 min-w-0 flex-1 p-3.5 transition-colors duration-200 hover:border-border-hover')}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-3">
-          <p className="min-w-0 text-sm font-display leading-snug text-text-secondary break-words">
-            <Avatar name={actorName} size="xs" className="mr-1.5 align-text-bottom shadow-none" />
+          <div className="min-w-0 text-sm font-display leading-snug text-text-secondary break-words">
+            <Avatar name={actorName} size="xs" className="mr-1.5 inline-flex align-text-bottom shadow-none" />
             <span className="font-semibold text-text">{actorName}</span>{' '}
             {actionVerb(log.action)}{' '}
             <span className="font-medium text-text-muted">{entity.label}</span>{' '}
@@ -67,7 +67,7 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
                 {name.isId ? name.text : `'${name.text}'`}
               </span>
             )}
-          </p>
+          </div>
 
           <span className="flex items-center gap-1.5 shrink-0 t-meta font-medium text-text-muted tabular-nums" title={formatFullDateTime(log.createdAt)}>
             <time dateTime={log.createdAt} className="font-semibold text-text-secondary">{formatClock(log.createdAt)}</time>
@@ -91,10 +91,7 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
 
         {isDelete && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger/10 px-2 py-1.5 t-meta font-display font-semibold text-danger">
-              <Trash2 size={12} aria-hidden />
-              Removed
-            </span>
+            <IconChip icon={Trash2} tone="bg-danger" label="Removed for good" labelClassName="text-danger" />
           </div>
         )}
 

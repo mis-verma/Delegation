@@ -1,7 +1,7 @@
 import { scheduleJob } from '../utils/jobTracker.js';
 import { isDuplicateEntryError } from '../utils/dbErrors.js';
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, notInArray, asc, lte, gt, isNull, or, sql } from "drizzle-orm"
+import { eq, and, inArray, notInArray, asc, lte, gt, isNull, ne, or, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -32,6 +32,7 @@ import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 import { leaveUserIdsOn } from "../modules/leave/leaveLookup.js"
+import { holidayApplies, isScheduledDay, storesWithoutAssigneesOn, workingPeople } from "../modules/scores/workingDayRules.js"
 import { isOvernightWindow, windowTimesFor } from "../modules/checklistDefinitions/lateWindow.js"
 import { runDeadlineMs } from "../modules/checklistInstances/checklistRunEnd.js"
 
@@ -397,18 +398,20 @@ const isHoliday = async (dateStr: string): Promise<boolean> => {
 }
 
 const applyWorkingDayRules = async (definition: GenerationDefinition, period: Period): Promise<GenerationDefinition | null> => {
-    if (definition.recurrence !== "DAILY") return definition
+    if (!holidayApplies(definition.recurrence)) return definition
     const dateStr = period.periodStart.toISOString().slice(0, 10)
+    const daily = definition.recurrence === "DAILY"
+    const holiday = await isHoliday(dateStr)
+    if (!daily && !holiday) return definition
     const weekday = period.periodStart.getUTCDay()
-    const extras = await db.select({ scope: extraWorkingDays.scope, targetIds: extraWorkingDays.targetIds })
-        .from(extraWorkingDays).where(eq(extraWorkingDays.date, dateStr))
-    const dayOn = !(await isHoliday(dateStr)) && (!definition.activeWeekdays || definition.activeWeekdays.includes(weekday))
+    const extras = (await db.select({ scope: extraWorkingDays.scope, targetIds: extraWorkingDays.targetIds })
+        .from(extraWorkingDays).where(eq(extraWorkingDays.date, dateStr)))
+        .map((e) => ({ scope: e.scope, targetIds: e.targetIds ?? [] }))
+    const day = { daily, holiday, weekday, activeWeekdays: definition.activeWeekdays }
 
     if (!definition.assigneeIds.length) {
-        if (dayOn) return definition
-        if (extras.some((e) => e.scope === "ALL")) return definition
-        const extraStores = new Set(extras.filter((e) => e.scope === "STORE").flatMap((e) => e.targetIds ?? []))
-        const storeIds = definition.storeIds.filter((id) => extraStores.has(id))
+        if (isScheduledDay(day)) return definition
+        const storeIds = storesWithoutAssigneesOn(definition.storeIds, extras)
         return storeIds.length ? { ...definition, storeIds } : null
     }
 
@@ -422,39 +425,43 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
     ])
     const departmentDays = new Map(departmentOff.map((d) => [d.id, d.days]))
     const storeDays = new Map(storeOff.map((s) => [s.id, s.days]))
-    const offDaysOf = (p: (typeof people)[number]) => effectiveWeekOff(p.weekOffDays, p.storeId ? storeDays.get(p.storeId) : null, p.departmentId ? departmentDays.get(p.departmentId) : null)
-    const coveredByExtra = (p: (typeof people)[number]) => extras.some((e) => {
-        const ids = e.targetIds ?? []
-        if (e.scope === "ALL") return true
-        if (e.scope === "PEOPLE") return ids.includes(p.id)
-        if (e.scope === "DEPARTMENT") return !!p.departmentId && ids.includes(p.departmentId)
-        return !!p.storeId && ids.includes(p.storeId)
-    })
     const onLeave = await leaveUserIdsOn(dateStr, people.map((p) => p.id))
-    const workingIds = new Set(people
-        .filter((p) => p.isActive && !onLeave.has(p.id) && ((dayOn && !offDaysOf(p).includes(weekday)) || coveredByExtra(p)))
-        .map((p) => p.id))
-    const working = definition.assigneeIds.filter((id) => workingIds.has(id))
-    if (!working.length) return null
-    return working.length === definition.assigneeIds.length ? definition : { ...definition, assigneeIds: working }
+    const working = workingPeople(people, {
+        ...day,
+        extras,
+        onLeave,
+        offDaysOf: (p) => effectiveWeekOff(p.weekOffDays, p.storeId ? storeDays.get(p.storeId) : null, p.departmentId ? departmentDays.get(p.departmentId) : null),
+    })
+    const workingIds = new Set(working.map((p) => p.id))
+    const assigneeIds = definition.assigneeIds.filter((id) => workingIds.has(id))
+    if (!assigneeIds.length) return null
+    if (assigneeIds.length === definition.assigneeIds.length) return definition
+    const activePeople = people.filter((p) => p.isActive)
+    const liveStoreIds = definition.storeIds.length > 1
+        ? definition.storeIds.filter((s) => peopleAtStore(working, s, definition.storeIds).length > 0 || peopleAtStore(activePeople, s, definition.storeIds).length === 0)
+        : definition.storeIds
+    return liveStoreIds.length ? { ...definition, assigneeIds, storeIds: liveStoreIds } : null
 }
 
 export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number> => {
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
-    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId, definitionId: checklistInstances.definitionId })
+    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId, definitionId: checklistInstances.definitionId, scopeKey: checklistInstances.scopeKey })
         .from(checklistInstances)
-        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
+        .where(and(ne(checklistInstances.recurrence, "ONE_TIME"), eq(checklistInstances.periodStart, dayStart)))
     if (!runs.length) return 0
     const definitions = await loadDefinitionsForGeneration([...new Set(runs.map((r) => r.definitionId))])
     const fakePeriod = { periodKey: dateStr, periodStart: dayStart, periodEnd: dayStart } as Period
-    const workingByDef = new Map<string, GenerationDefinition | null>()
-    for (const [id, def] of definitions) workingByDef.set(id, await applyWorkingDayRules(def, fakePeriod))
+    const liveByDef = new Map<string, { storeIds: Set<string>; scopesAt: (storeId: string) => RunScope[] }>()
+    for (const [id, def] of definitions) {
+        const working = await applyWorkingDayRules(def, fakePeriod)
+        if (working) liveByDef.set(id, { storeIds: new Set(working.storeIds), scopesAt: await buildScopeResolver(working) })
+    }
 
     let removed = 0
     const affected = new Set<string>()
     for (const run of runs) {
-        const working = workingByDef.get(run.definitionId)
-        if (working && working.storeIds.includes(run.storeId)) continue
+        const live = liveByDef.get(run.definitionId)
+        if (live?.storeIds.has(run.storeId) && live.scopesAt(run.storeId).some((sc) => sc.key === run.scopeKey)) continue
         try {
             const gone = await db.transaction(async (tx) => {
                 const [row] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, run.id)).for("update").limit(1)
@@ -470,10 +477,10 @@ export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number
                 emitChecklistEvent("checklist-instance:updated", { storeId: run.storeId }, { instanceId: run.id })
             }
         } catch (err) {
-            console.error(`Removing extra-day run ${run.id} failed:`, err)
+            console.error(`Removing off-day run ${run.id} failed:`, err)
         }
     }
-    if (affected.size) await dropChecklistSummaries([...affected]).catch((err) => console.error("Clearing checklist summary cache after an extra working day was removed failed:", err))
+    if (affected.size) await dropChecklistSummaries([...affected]).catch((err) => console.error("Clearing checklist summary cache after an off-day change failed:", err))
     return removed
 }
 
@@ -850,36 +857,6 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     return summary
 }
 
-export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number> => {
-    const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
-    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
-        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
-
-    let removed = 0
-    const affectedAssignees = new Set<string>()
-    for (const { id, storeId } of runs) {
-        try {
-            const gone = await db.transaction(async (tx) => {
-                const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
-                if (!run || await runHasProgress(tx, run)) return false
-                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
-                    .where(eq(checklistInstanceAssignees.instanceId, id))
-                await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
-                for (const l of links) affectedAssignees.add(l.userId)
-                return true
-            })
-            if (gone) {
-                removed++
-                emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
-            }
-        } catch (err) {
-            console.error(`Removing holiday run ${id} failed:`, err)
-        }
-    }
-    if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a holiday failed:", err))
-    return removed
-}
-
 export const dropRunsOfPeopleOnLeaveOn = async (dateStr: string, userIds: string[], apply = true): Promise<number> => {
     if (!userIds.length) return 0
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
@@ -996,10 +973,10 @@ export const clearSummariesForDefinition = async (definitionId: string): Promise
     if (everyone.length) await dropChecklistSummaries(everyone.map((e) => e.userId)).catch((err) => console.error("Clearing checklist summary cache failed:", err))
 }
 
-export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRuns: number; startedRuns: number }> => {
+export const previewRunsOn = async (dateStr: string): Promise<{ untouchedRuns: number; startedRuns: number }> => {
     const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
     const runs = await db.select().from(checklistInstances)
-        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
+        .where(and(ne(checklistInstances.recurrence, "ONE_TIME"), eq(checklistInstances.periodStart, dayStart)))
     let untouchedRuns = 0
     let startedRuns = 0
     await db.transaction(async (tx) => {

@@ -102,8 +102,12 @@ export type BuilderSnapshot = {
 };
 export const snapshotKey = (f: BuilderSnapshot) => JSON.stringify(f);
 
+export const DEFAULT_OPENS_TIME = '09:30';
+export const DEFAULT_CUTOFF_TIME = '18:30';
+export const DEFAULT_LATE_UNTIL_TIME = '21:00';
+
 export const BLANK_SNAPSHOT: BuilderSnapshot = {
   name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-  opensTime: '', cutoffTime: '', lateUntilTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, occurrenceDays: [], responseMode: 'SHARED',
+  opensTime: DEFAULT_OPENS_TIME, cutoffTime: DEFAULT_CUTOFF_TIME, lateUntilTime: DEFAULT_LATE_UNTIL_TIME, activeWeekdays: DEFAULT_WORKING_WEEKDAYS, occurrenceDays: [], responseMode: 'SHARED',
   assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
 };

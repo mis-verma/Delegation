@@ -1,7 +1,8 @@
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
-import { CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone } from 'lucide-react';
+import { Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, ImageIcon } from 'lucide-react';
 import { Input, Textarea } from '../../../components';
+import { ChoiceChip, ChoiceIcon, ChoiceWrap } from '../../../components/optionsSheet';
 import { useSettingsQuery, useUploadLogoMutation, useRemoveLogoMutation } from '../hook';
 import { resolveLogoUrl } from '../../../lib/uploadsBase';
 import { SettingsCard } from '../../settings/SettingsCard';
@@ -110,34 +111,22 @@ export const TicketsSection = ({ isAdmin }: SectionProps) => {
           name="allowedImageTypes"
           render={({ field }) => (
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-display font-medium text-text-secondary">Allowed image types</span>
-              <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-display font-semibold text-text-secondary">Allowed image types</span>
+              <ChoiceWrap>
                 {IMAGE_TYPE_OPTIONS.map((opt) => {
                   const checked = field.value?.includes(opt.value) ?? false;
                   return (
-                    <label
+                    <ChoiceChip
                       key={opt.value}
-                      className={`flex items-center gap-2 h-10 pointer-coarse:h-11 px-3.5 rounded-xl border text-sm font-display font-medium cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary-500/40 ${
-                        checked ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover'
-                      }`}
+                      active={checked}
+                      onClick={() => field.onChange(checked ? (field.value ?? []).filter((v: string) => v !== opt.value) : [...(field.value ?? []), opt.value])}
+                      lead={<ChoiceIcon icon={ImageIcon} tone={checked ? 'bg-primary-600' : 'bg-text-muted'} />}
                     >
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={checked}
-                        onChange={(e) => {
-                          const next = e.target.checked ? [...(field.value ?? []), opt.value] : (field.value ?? []).filter((v: string) => v !== opt.value);
-                          field.onChange(next);
-                        }}
-                      />
-                      <span className={`flex items-center justify-center size-4 rounded border ${checked ? 'bg-primary-500 border-primary-500' : 'bg-surface border-border'}`}>
-                        {checked && <CheckSquare size={11} className="text-white" />}
-                      </span>
                       {opt.label}
-                    </label>
+                    </ChoiceChip>
                   );
                 })}
-              </div>
+              </ChoiceWrap>
               {errors.allowedImageTypes && <span className="t-meta font-medium text-danger">{errors.allowedImageTypes.message}</span>}
             </div>
           )}
@@ -152,18 +141,19 @@ export const TicketsSection = ({ isAdmin }: SectionProps) => {
 
 export const NotificationsSection = ({ isAdmin }: SectionProps) => (
   <SettingsCard icon={Bell} title="Notification defaults">
-    <SwitchFieldRow name="notifyTaskDeadlineReminders" icon={Clock} label="Delegation deadline reminders" description="Notify assignees as a delegation's due date approaches." />
+    <SwitchFieldRow name="notifyTaskDeadlineReminders" icon={Clock} tone="bg-primary-700 dark:bg-primary-400" label="Delegation deadline reminders" description="Notify assignees as a delegation's due date approaches." />
     <AdminOnly show={isAdmin}>
       <Divider />
       <SwitchFieldRow
         name="liveOnlyAttachments"
         icon={Camera}
+        tone="bg-coral-500"
         label="Live camera only for ticket photos"
         description="Ticket and delegation photos must be taken with the camera. The Gallery button is hidden."
       />
     </AdminOnly>
     <Divider />
-    <SwitchFieldRow name="notifyChecklistOverdueReminders" icon={ListChecks} label="Checklist overdue reminders" description="Notify assignees and store PCs when a checklist runs past its deadline." />
+    <SwitchFieldRow name="notifyChecklistOverdueReminders" icon={ListChecks} tone="bg-success" label="Checklist overdue reminders" description="Notify assignees and store PCs when a checklist runs past its deadline." />
   </SettingsCard>
 );
 
@@ -197,6 +187,7 @@ export const SecuritySection = () => {
       <SwitchRow
         id="requireAdminLoginCode"
         icon={KeyRound}
+        tone="bg-primary-800 dark:bg-primary-400"
         label="Email code for Admin sign-in"
         description={emailConfigured ? 'Admins enter a 6-digit code from their email after the password. A device can be trusted for 30 days.' : 'Email is not set up on the server, so codes cannot be sent. Add the mail settings first.'}
         checked={requireCode}
@@ -235,7 +226,7 @@ export const SystemSection = () => {
       </SettingsCard>
 
       <SettingsCard icon={Construction} title="Maintenance" tone="warning">
-        <SwitchFieldRow name="maintenanceMode" icon={Construction} iconClassName="text-warning" label="Maintenance mode" description="Takes the app down for everyone except admins and PC." />
+        <SwitchFieldRow name="maintenanceMode" icon={Construction} tone="bg-warning" label="Maintenance mode" description="Takes the app down for everyone except admins and PC." />
         {maintenanceMode && (
           <Textarea
             id="maintenanceMessage"

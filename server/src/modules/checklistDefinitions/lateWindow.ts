@@ -8,6 +8,8 @@ export type LateWindowInput = {
 
 export const END_OF_DAY_CUTOFF = "00:00"
 
+export const DEFAULT_SCHEDULE_TIMES = { opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: "21:00" } as const
+
 export const isOvernightWindow = (opensTime: string | null | undefined, cutoffTime: string | null | undefined): boolean =>
     !!opensTime && !!cutoffTime && cutoffTime !== END_OF_DAY_CUTOFF && cutoffTime < opensTime
 

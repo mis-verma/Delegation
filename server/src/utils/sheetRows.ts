@@ -3,6 +3,8 @@ import ExcelJS from "exceljs"
 import { PDFParse } from "pdf-parse"
 import { AppError } from "./AppError.js"
 
+const cellText = (value: unknown): string => (value instanceof Date ? value.toISOString() : String(value ?? "").trim())
+
 export type SheetRecord = Record<string, string>
 
 const parseCsvRecords = (buffer: Buffer): SheetRecord[] =>
@@ -16,7 +18,7 @@ const parseXlsxRecords = async (buffer: Buffer): Promise<SheetRecord[]> => {
 
     const headers: string[] = []
     sheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        headers[colNumber] = String(cell.value ?? "").trim()
+        headers[colNumber] = cellText(cell.value)
     })
 
     const records: SheetRecord[] = []
@@ -24,7 +26,7 @@ const parseXlsxRecords = async (buffer: Buffer): Promise<SheetRecord[]> => {
         const record: SheetRecord = {}
         sheet.getRow(r).eachCell({ includeEmpty: true }, (cell, colNumber) => {
             const header = headers[colNumber]
-            if (header) record[header] = String(cell.value ?? "").trim()
+            if (header) record[header] = cellText(cell.value)
         })
         records.push(record)
     }

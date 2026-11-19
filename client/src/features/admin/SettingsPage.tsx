@@ -2,9 +2,9 @@ import { useEffect, type ReactNode } from 'react';
 import { useSearchParams, useBlocker } from 'react-router';
 import { useForm, FormProvider, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Settings as SettingsIcon, Building2, Upload, Bell, KeyRound, Database, type LucideIcon } from 'lucide-react';
+import { Loader2, Settings as SettingsIcon, Building2, Upload, Bell, KeyRound, Database, Construction, CircleDot, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Button, Skeleton, PageHeader, InlineError, Breadcrumbs, SlidingTabs, useConfirm } from '../../components';
+import { Button, Skeleton, PageHeader, InlineError, SlidingTabs, IconChip, StateChip, useConfirm } from '../../components';
 import { useSettingsQuery, useUpdateSettingsMutation } from './hook';
 import { settingsSchema, FIELD_SECTION, type SettingsFields, type SectionKey } from './settings/schema';
 import { GeneralSection, TicketsSection, NotificationsSection, SecuritySection, SystemSection } from './settings/sections';
@@ -28,8 +28,6 @@ const SECTION_KEYS = Object.keys(SECTIONS) as SectionKey[];
 
 const SUBTITLE = 'Branding, defaults, notifications, sessions and retention. These apply to everyone.';
 
-const TRAIL = [{ label: 'Home', to: '/' }, { label: 'Admin', to: '/admin' }, { label: 'Settings' }];
-
 const toFormValues = (settings: NonNullable<ReturnType<typeof useSettingsQuery>['data']>) => ({
   ...settings,
   maintenanceMessage: settings.maintenanceMessage ?? '',
@@ -37,12 +35,24 @@ const toFormValues = (settings: NonNullable<ReturnType<typeof useSettingsQuery>[
   iosAppUrl: settings.iosAppUrl ?? '',
 });
 
-const PageTop = () => (
-  <>
-    <Breadcrumbs items={TRAIL} />
-    <PageHeader icon={SettingsIcon} title="Settings" subtitle={SUBTITLE} />
-  </>
+type SavedSettings = NonNullable<ReturnType<typeof useSettingsQuery>['data']>;
+
+const SettingsGlance = ({ settings, isAdmin }: { settings: SavedSettings; isAdmin: boolean }) => (
+  <div role="list" aria-label="Settings at a glance" className="flex flex-wrap items-center gap-2">
+    {isAdmin && (
+      <span role="listitem">
+        {settings.maintenanceMode
+          ? <IconChip icon={Construction} tone="bg-warning" label="Maintenance on" labelClassName="text-warning" />
+          : <StateChip active label="App is live" />}
+      </span>
+    )}
+    {isAdmin && <span role="listitem"><StateChip active={settings.requireAdminLoginCode} label={settings.requireAdminLoginCode ? 'Admin email code on' : 'Admin email code off'} /></span>}
+    <span role="listitem"><StateChip active={settings.notifyChecklistOverdueReminders} label={settings.notifyChecklistOverdueReminders ? 'Checklist reminders on' : 'Checklist reminders off'} /></span>
+    <span role="listitem"><StateChip active={settings.notifyTaskDeadlineReminders} label={settings.notifyTaskDeadlineReminders ? 'Delegation reminders on' : 'Delegation reminders off'} /></span>
+  </div>
 );
+
+const PageTop = () => <PageHeader icon={SettingsIcon} title="Settings" subtitle={SUBTITLE} />;
 
 export const SettingsPage = () => {
   const { user } = useAuth();
@@ -125,7 +135,7 @@ export const SettingsPage = () => {
     return (
       <div className="flex flex-col gap-5 w-full">
         <PageTop />
-        <InlineError message="Could not load the settings. Check your connection and try again." onRetry={() => void refetch()} />
+        <InlineError message="We couldn't load the settings. Check your connection and try again." onRetry={() => void refetch()} />
       </div>
     );
   }
@@ -152,6 +162,7 @@ export const SettingsPage = () => {
   return (
     <div className="flex flex-col gap-5 sm:gap-6 w-full">
       <PageTop />
+      {settings && <SettingsGlance settings={settings} isAdmin={isAdmin} />}
 
       <SlidingTabs
         label="Settings sections"
@@ -171,13 +182,13 @@ export const SettingsPage = () => {
 
           {mutation.isError && (
             <p role="alert" className="text-sm text-danger text-center">
-              {mutation.error instanceof Error ? mutation.error.message : 'Failed to save settings.'}
+              {mutation.error instanceof Error ? mutation.error.message : "Couldn't save the settings. Check your connection and try again."}
             </p>
           )}
 
           {(isDirty || mutation.isPending) && (
             <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
-              <p className="text-sm font-display font-medium text-text-secondary">You have unsaved changes</p>
+              <IconChip icon={CircleDot} tone="bg-warning" label="Unsaved changes" />
               <div className="flex items-center gap-2">
                 <Button type="button" variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => settings && reset(toFormValues(settings))}>
                   Discard

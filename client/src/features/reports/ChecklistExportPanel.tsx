@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Store, UserRound } from 'lucide-react';
 import { Button, SelectDropdown } from '../../components';
 import { useReportExportMutation } from './useReportExport';
 import { useExportRange } from './useExportRange';
-import { ExportField, FormatField, PeriodField } from './ExportFields';
+import { ExportField, ExportSummary, FormatField, PeriodField } from './ExportFields';
 import { useStoresQuery, useAssignableUsersQuery } from '../checklist/hook';
 import type { ReportFormat } from '../../api/reports';
 import type { ReportPreset } from './dateRangePresets';
@@ -21,6 +21,8 @@ export const ChecklistExportPanel = ({ description }: { description: string }) =
   const { data: stores = [] } = useStoresQuery();
   const { data: people = [] } = useAssignableUsersQuery(undefined, storeId === NO_STORE_FILTER ? undefined : storeId);
   const exportMutation = useReportExportMutation('checklists');
+  const picked = people.find((p) => p.id === assigneeId);
+  const personLabel = picked ? `${picked.firstName} ${picked.lastName ?? ''}`.trim() : 'All people';
 
   const handleDownload = () => {
     if (!range.ready) return;
@@ -60,6 +62,15 @@ export const ChecklistExportPanel = ({ description }: { description: string }) =
 
       <FormatField value={format} onChange={setFormat} />
 
+      <ExportSummary
+        period={range.label}
+        format={format}
+        scope={[
+          { key: 'store', icon: Store, label: stores.find((st) => st.id === storeId)?.name ?? 'All stores' },
+          { key: 'person', icon: UserRound, label: personLabel },
+        ]}
+      />
+
       <Button
         variant="primary"
         className="w-full gap-1.5 font-display pointer-coarse:min-h-11 sm:w-fit"
@@ -68,7 +79,7 @@ export const ChecklistExportPanel = ({ description }: { description: string }) =
         disabled={!range.ready || exportMutation.isPending}
       >
         {!exportMutation.isPending && <Download size={15} aria-hidden="true" />}
-        {exportMutation.isPending ? 'Preparing download…' : `Download ${range.label}`}
+        {exportMutation.isPending ? 'Preparing download' : `Download ${range.label}`}
       </Button>
     </div>
   );

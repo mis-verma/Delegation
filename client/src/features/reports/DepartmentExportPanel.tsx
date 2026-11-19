@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Download, Layers } from 'lucide-react';
+import { Building2, Download, Layers, Rows3 } from 'lucide-react';
 import { Button, NoticeBanner, Segmented, SelectDropdown } from '../../components';
 import { useDepartmentReportMutation } from './useReportExport';
 import { useExportRange } from './useExportRange';
-import { ExportField, FormatField, PeriodField } from './ExportFields';
+import { ExportField, ExportSummary, FormatField, PeriodField } from './ExportFields';
 import { useDepartmentsQuery } from '../tickets/hook';
 import type {
   DepartmentReportContent,
@@ -117,6 +117,15 @@ export const DepartmentExportPanel = ({ reportModule, description, filters }: De
         </ExportField>
       )}
 
+      <ExportSummary
+        period={range.label}
+        format={format}
+        scope={[
+          { key: 'department', icon: Building2, label: departmentOptions.find((o) => o.value === departmentId)?.label ?? 'All departments' },
+          { key: 'group', icon: Rows3, label: `Grouped ${(GRANULARITY_OPTIONS.find((o) => o.value === granularity)?.label ?? 'Auto').toLowerCase()}` },
+        ]}
+      />
+
       <Button
         variant="primary"
         className="w-full gap-1.5 font-display pointer-coarse:min-h-11 sm:w-fit"
@@ -125,7 +134,7 @@ export const DepartmentExportPanel = ({ reportModule, description, filters }: De
         disabled={!range.ready || exportMutation.isPending}
       >
         {!exportMutation.isPending && <Download size={15} aria-hidden="true" />}
-        {exportMutation.isPending ? 'Preparing download…' : `Download ${range.label}`}
+        {exportMutation.isPending ? 'Preparing download' : `Download ${range.label}`}
       </Button>
     </div>
   );

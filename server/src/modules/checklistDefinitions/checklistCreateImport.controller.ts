@@ -24,8 +24,8 @@ export const checklistCreateImportController = {
     publish: asyncHandler(async (req: Request, res: Response) => {
         const input = checklistCreateImportPublishSchema.parse(req.body)
         const summary = await checklistCreateImportService.applyBatch(
-            input.groups.map((g) => ({ name: g.name, recurrence: g.recurrence, storeIds: g.storeIds, assigneeIds: g.assigneeIds, items: g.items })),
-            { startDate: input.startDate, opensTime: input.opensTime, cutoffTime: input.cutoffTime, responseMode: input.responseMode },
+            input.groups.map((g) => ({ name: g.name, recurrence: g.recurrence, storeIds: g.storeIds, assigneeIds: g.assigneeIds, items: g.items, opensTime: g.opensTime, cutoffTime: g.cutoffTime, lateUntilTime: g.lateUntilTime })),
+            { startDate: input.startDate, opensTime: input.opensTime, cutoffTime: input.cutoffTime, lateUntilTime: input.lateUntilTime, responseMode: input.responseMode },
             req.user!,
         )
         res.json({ success: true, data: summary })

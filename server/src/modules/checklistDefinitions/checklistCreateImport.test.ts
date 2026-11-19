@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildGroupPreviews, groupKeyOf, parseRecurrenceText, type CreateImportMatchedRow } from "./checklistCreateImport.service.js"
+import { buildGroupPreviews, groupKeyOf, parseRecurrenceText, readRowTimes, scheduleTimesFor, type CreateImportMatchedRow } from "./checklistCreateImport.service.js"
 
 const row = (over: Partial<CreateImportMatchedRow["raw"]> & { rowIndex: number; personId?: string | null; storeId?: string | null }): CreateImportMatchedRow => ({
     rowIndex: over.rowIndex,
@@ -95,5 +95,45 @@ describe("grouping rows into checklists", () => {
         const rows = [row({ rowIndex: 1, recurrenceText: "Daily" }), row({ rowIndex: 2, recurrenceText: "Not a real type" })]
         expect(buildGroupPreviews(rows)).toHaveLength(2)
         expect(groupKeyOf("Stock & Tagging", null)).not.toBe(groupKeyOf("Stock & Tagging", "DAILY"))
+    })
+})
+
+describe("times from the sheet", () => {
+    it("reads Opens/Closes columns and a time slot column", () => {
+        expect(readRowTimes({ opensText: "9:30 AM", closesText: "6:30 PM", lateText: "9 PM", slotText: "" }))
+            .toEqual({ opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: "21:00", problems: [] })
+        expect(readRowTimes({ opensText: "", closesText: "", lateText: "", slotText: "9:30 AM – 6:30 PM" }))
+            .toEqual({ opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: null, problems: [] })
+    })
+
+    it("lists a time it could not read instead of guessing", () => {
+        expect(readRowTimes({ opensText: "", closesText: "evening", lateText: "", slotText: "" }).problems).toEqual(['Closes "evening"'])
+    })
+
+    it("flags rows of one checklist that disagree on time", () => {
+        const a = { ...row({ rowIndex: 1 }), times: { opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: null, problems: [] } }
+        const b = { ...row({ rowIndex: 2, question: "Other" }), times: { opensTime: "09:30", cutoffTime: "17:00", lateUntilTime: null, problems: [] } }
+        const [group] = buildGroupPreviews([a, b])
+        expect(group!.cutoffTime).toBe("18:30")
+        expect(group!.timeConflict).toBe(true)
+    })
+})
+
+describe("times used when creating", () => {
+    it("falls back to 9:30, 6:30 PM and late till 9 PM for daily checklists", () => {
+        expect(scheduleTimesFor({ recurrence: "DAILY" }, {})).toEqual({ opensTime: "09:30", cutoffTime: "18:30", lateUntilTime: "21:00" })
+    })
+
+    it("lets the sheet beat the batch and the batch beat the default", () => {
+        expect(scheduleTimesFor({ recurrence: "DAILY", cutoffTime: "17:00" }, { opensTime: "10:00", cutoffTime: "19:00" }))
+            .toEqual({ opensTime: "10:00", cutoffTime: "17:00", lateUntilTime: "21:00" })
+    })
+
+    it("drops a late window that would not be valid instead of failing", () => {
+        expect(scheduleTimesFor({ recurrence: "DAILY", opensTime: "18:00", cutoffTime: "23:00" }, {}).lateUntilTime).toBeUndefined()
+    })
+
+    it("never sets times on weekly or monthly checklists", () => {
+        expect(scheduleTimesFor({ recurrence: "WEEKLY", cutoffTime: "17:00" }, {})).toEqual({ opensTime: undefined, cutoffTime: undefined, lateUntilTime: undefined })
     })
 })

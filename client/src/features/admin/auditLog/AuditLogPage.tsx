@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { History, ListTree } from 'lucide-react';
+import { CalendarDays, History, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageNav, EmptyState, IconChip, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
@@ -130,11 +130,12 @@ export const AuditLogPage = () => {
             {groups.map((group) => (
               <section key={group.key} aria-label={group.heading} className="flex flex-col gap-3">
                 <h2 className="sticky top-0 z-10 -mx-1 px-1 py-1 w-fit">
-                  <span className="inline-flex items-center gap-2 h-7 px-3 rounded-full border border-border bg-surface t-meta font-display font-bold text-text-secondary">
-                    <span aria-hidden className="size-1.5 rounded-full bg-primary-500" />
-                    {group.heading}
-                    <span className="tabular-nums font-semibold text-text-muted">{group.logs.length}</span>
-                  </span>
+                  <IconChip
+                    icon={CalendarDays}
+                    tone="bg-primary-800 dark:bg-primary-400"
+                    label={`${group.heading}, ${group.logs.length} ${group.logs.length === 1 ? 'change' : 'changes'}`}
+                    labelClassName="font-bold tabular-nums"
+                  />
                 </h2>
                 <div className="flex flex-col">
                   {group.logs.map((log) => (

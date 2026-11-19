@@ -22,6 +22,7 @@ import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.j
 import { isRankable, pooledCompliancePct, round1 } from "../scores/scoreFormulas.js"
 import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { auditFractionSql, auditPassSql } from "./auditScore.js"
+import { notIdleHolidayRunSql } from "../scores/offDayRules.js"
 
 const ROUND = (n: number, d: number) => (d ? round1((n / d) * 100) : null)
 
@@ -90,7 +91,7 @@ const filterConditions = (
     activeStoresOnly: boolean,
     assigneeId?: string,
 ): SQL[] => {
-    const conditions: SQL[] = [sql`ci.periodStart >= ${window.fromDate}`, sql`ci.periodStart < ${window.toExclusive}`]
+    const conditions: SQL[] = [sql`ci.periodStart >= ${window.fromDate}`, sql`ci.periodStart < ${window.toExclusive}`, notIdleHolidayRunSql("ci")]
     if (!includeDeleted) conditions.push(sql`d.deletedAt IS NULL`)
     if (activeStoresOnly) conditions.push(sql`st.isActive = 1`)
     if (scope.storeId) conditions.push(sql`ci.storeId = ${scope.storeId}`)

@@ -3,7 +3,7 @@ import {
   Contact, Sparkles, Building2, CalendarClock, FolderKanban, Settings,
   Plus, Pencil, Trash2, ShieldCheck, ShieldX, Power, PowerOff, KeyRound,
   Store, CalendarOff, CheckCheck, Camera, ImageIcon, Send, Undo2, RotateCcw, ArrowRightLeft, UserMinus,
-  MessageCircle, Bot, UserRound, Shirt, Ban, Activity, Eye, Hand,
+  MessageCircle, Bot, UserRound, Shirt, Ban, Activity, Eye, Hand, TicketPlus, ArchiveRestore, Eraser,
   type LucideIcon,
 } from 'lucide-react';
 import type { AuditEntityType, AuditAction, AuditLog, AuditLogFilter } from '../../../api/auditLogs';
@@ -31,7 +31,10 @@ export const ENTITY_TYPE_CONFIG: Record<AuditEntityType, { label: string; icon: 
   Settings: { label: 'Settings', icon: Settings },
 };
 
-export const ACTION_CONFIG: Record<AuditAction, { label: string; icon: LucideIcon; tone: string }> = {
+type ExtraAuditAction = 'COMPLETE_ALL' | 'RAISE_TICKET' | 'RESTORE' | 'REVOKE' | 'CLEAN_LONG_RUNS';
+type KnownAuditAction = AuditAction | ExtraAuditAction;
+
+export const ACTION_CONFIG: Record<KnownAuditAction, { label: string; icon: LucideIcon; tone: string }> = {
   CREATE: { label: 'Created', icon: Plus, tone: 'bg-success' },
   UPDATE: { label: 'Updated', icon: Pencil, tone: 'bg-primary-600' },
   DELETE: { label: 'Deleted', icon: Trash2, tone: 'bg-danger' },
@@ -55,9 +58,16 @@ export const ACTION_CONFIG: Record<AuditAction, { label: string; icon: LucideIco
   VIEW_AS: { label: 'Preview', icon: Eye, tone: 'bg-primary-600' },
   CLAIM: { label: 'Claimed', icon: Hand, tone: 'bg-primary-600' },
   HEAD_CLAIM: { label: 'Head claimed', icon: Hand, tone: 'bg-primary-600' },
+  COMPLETE_ALL: { label: 'Completed all', icon: ListChecks, tone: 'bg-success' },
+  RAISE_TICKET: { label: 'Raised a ticket', icon: TicketPlus, tone: 'bg-primary-600' },
+  RESTORE: { label: 'Restored', icon: ArchiveRestore, tone: 'bg-success' },
+  REVOKE: { label: 'Taken back', icon: Undo2, tone: 'bg-warning' },
+  CLEAN_LONG_RUNS: { label: 'Cleaned old runs', icon: Eraser, tone: 'bg-text-muted' },
 };
 
-const ACTION_VERB: Record<AuditAction, string> = {
+export const ACTION_KEYS = Object.keys(ACTION_CONFIG) as KnownAuditAction[];
+
+const ACTION_VERB: Record<KnownAuditAction, string> = {
   CREATE: 'created',
   UPDATE: 'updated',
   DELETE: 'deleted',
@@ -81,10 +91,15 @@ const ACTION_VERB: Record<AuditAction, string> = {
   VIEW_AS: 'previewed the account of',
   CLAIM: 'claimed',
   HEAD_CLAIM: 'claimed as head',
+  COMPLETE_ALL: 'closed every open question on',
+  RAISE_TICKET: 'raised a ticket from',
+  RESTORE: 'restored',
+  REVOKE: 'took back',
+  CLEAN_LONG_RUNS: 'cleaned old runs of',
 };
 
 export const actionVerb = (action: string) =>
-  ACTION_VERB[action as AuditAction] ?? action.toLowerCase().replace(/_/g, ' ');
+  ACTION_VERB[action as KnownAuditAction] ?? action.toLowerCase().replace(/_/g, ' ');
 
 export const SOURCE_CONFIG: Record<string, { label: string; icon: LucideIcon; tone: string }> = {
   WHATSAPP: { label: 'WhatsApp', icon: MessageCircle, tone: 'bg-success' },
@@ -97,7 +112,7 @@ export const entityTypeConfig = (entityType: string) =>
   ENTITY_TYPE_CONFIG[entityType as AuditEntityType] ?? { label: entityType, icon: ClipboardList };
 
 export const actionConfig = (action: string) =>
-  ACTION_CONFIG[action as AuditAction] ?? { label: action, icon: Pencil, tone: 'bg-text-muted' };
+  ACTION_CONFIG[action as KnownAuditAction] ?? { label: action, icon: Pencil, tone: 'bg-text-muted' };
 
 const KEY_LABEL_OVERRIDES: Record<string, string> = {
   tagIds: 'Labels',
@@ -174,7 +189,7 @@ const resolveId = (key: string, id: unknown, resolvers: AuditIdResolvers | undef
 
 const isShoutingEnum = (value: string): boolean => /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/.test(value);
 const humanizeEnum = (value: string) =>
-  value.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  value.length <= 3 ? value : value.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 export const EMPTY_MARK = '—';
 const EMPTY_LABEL = 'Empty';

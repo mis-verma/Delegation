@@ -14,10 +14,14 @@ export const checklistCreateImportPublishSchema = z.object({
             label: z.string().trim().min(1).max(191),
             photoRequired: z.boolean(),
         })).min(1, "Needs at least one question").max(200, "A checklist can have at most 200 items"),
+        opensTime: timeOfDay.optional(),
+        cutoffTime: timeOfDay.optional(),
+        lateUntilTime: timeOfDay.optional(),
     })).min(1, "Nothing to create").max(100, "At most 100 checklists in one batch"),
     startDate: z.string().optional(),
     opensTime: timeOfDay.optional(),
     cutoffTime: timeOfDay.optional(),
+    lateUntilTime: timeOfDay.optional(),
     responseMode: z.enum(CHECKLIST_RESPONSE_MODES).optional(),
 })
 

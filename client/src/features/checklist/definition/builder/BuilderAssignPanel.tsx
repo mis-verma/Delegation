@@ -10,6 +10,7 @@ import { SelectedPeopleChips } from '../form/SelectedPeopleChips';
 import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from '../form/formConstants';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { BuilderSection } from './BuilderSection';
+import { BuilderQuickAdd } from './BuilderQuickAdd';
 import { onRadioKeyDown } from './radioGroupKeys';
 import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
 import type { ChecklistResponseMode } from '../../../../api/checklistDefinitions';
@@ -119,6 +120,12 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
               </span>
             </div>
           }
+        />
+
+        <BuilderQuickAdd
+          kinds={['person', 'department']}
+          storeIds={storeIds}
+          onPersonCreated={(person) => onAssigneeIdsChange(assigneeIds.includes(person.id) ? assigneeIds : [...assigneeIds, person.id])}
         />
       </BuilderSection>
 

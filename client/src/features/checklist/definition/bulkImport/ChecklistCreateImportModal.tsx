@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { UploadCloud, FileSpreadsheet, AlertCircle, ChevronLeft, PartyPopper, Download, Camera, Trash2, Store as StoreIcon, User, Repeat, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, AlertCircle, ChevronLeft, PartyPopper, Download, Camera, Trash2, Store as StoreIcon, User, Repeat, CheckCircle2, Clock, ClipboardPaste } from 'lucide-react';
 import {
   Modal, Button, DatePicker, TimePicker, InlineError, NoticeBanner, Switch, IconChip, useConfirm,
 } from '../../../../components';
@@ -18,6 +18,8 @@ import {
 import { checklistCreateImportApi } from '../../../../api/checklistCreateImport';
 import type { CreateImportGroupPreview, CreateImportMatchedRow, CreateImportSummary } from '../../../../api/checklistCreateImport';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
+import { pastedRowsToCsv } from './pastedTable';
+import { DEFAULT_CUTOFF_TIME, DEFAULT_LATE_UNTIL_TIME, DEFAULT_OPENS_TIME } from '../builder/builderModel';
 
 interface ChecklistCreateImportModalProps {
   open: boolean;
@@ -38,6 +40,18 @@ type EditableGroup = {
   items: { label: string; photoRequired: boolean; conflict: boolean }[];
   personIds: string[];
   storeIds: string[];
+  opensTime: string;
+  cutoffTime: string;
+  lateUntilTime: string;
+  timeConflict: boolean;
+  timeProblems: string[];
+};
+
+const TIMED: ReadonlySet<ChecklistRecurrence | ''> = new Set(['DAILY', 'ONE_TIME']);
+
+const clock12 = (hhmm: string) => {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 };
 
 const toEditable = (g: CreateImportGroupPreview): EditableGroup => ({
@@ -48,6 +62,11 @@ const toEditable = (g: CreateImportGroupPreview): EditableGroup => ({
   items: g.items.map((i) => ({ ...i })),
   personIds: g.personIds,
   storeIds: g.storeIds,
+  opensTime: g.opensTime ?? '',
+  cutoffTime: g.cutoffTime ?? '',
+  lateUntilTime: g.lateUntilTime ?? '',
+  timeConflict: g.timeConflict,
+  timeProblems: g.timeProblems,
 });
 
 const groupProblem = (g: EditableGroup): string | null => {
@@ -73,8 +92,10 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
   const [warnings, setWarnings] = useState<string[]>([]);
   const [storeOptions, setStoreOptions] = useState<{ id: string; name: string }[]>([]);
   const [startDate, setStartDate] = useState('');
-  const [opensTime, setOpensTime] = useState('');
-  const [cutoffTime, setCutoffTime] = useState('');
+  const [opensTime, setOpensTime] = useState(DEFAULT_OPENS_TIME);
+  const [cutoffTime, setCutoffTime] = useState(DEFAULT_CUTOFF_TIME);
+  const [lateUntilTime, setLateUntilTime] = useState(DEFAULT_LATE_UNTIL_TIME);
+  const [pasted, setPasted] = useState('');
   const [responseMode, setResponseMode] = useState<ResponseMode>('SHARED');
   const [summary, setSummary] = useState<CreateImportSummary | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -101,8 +122,10 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
     setRawRows([]);
     setWarnings([]);
     setStartDate('');
-    setOpensTime('');
-    setCutoffTime('');
+    setOpensTime(DEFAULT_OPENS_TIME);
+    setCutoffTime(DEFAULT_CUTOFF_TIME);
+    setLateUntilTime(DEFAULT_LATE_UNTIL_TIME);
+    setPasted('');
     setResponseMode('SHARED');
     setSummary(null);
     previewMutation.reset();
@@ -135,6 +158,12 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
         setStep('review');
       },
     });
+  };
+
+  const pastedTable = useMemo(() => (pasted.trim() ? pastedRowsToCsv(pasted) : null), [pasted]);
+  const handlePasted = () => {
+    if (!pastedTable) return;
+    handleFile(new File([pastedTable.csv], 'pasted-rows.csv', { type: 'text/csv' }));
   };
 
   const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
@@ -175,10 +204,14 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
           storeIds: g.storeIds,
           assigneeIds: g.personIds,
           items: g.items.map((i) => ({ label: i.label, photoRequired: i.photoRequired })),
+          opensTime: g.opensTime || undefined,
+          cutoffTime: g.cutoffTime || undefined,
+          lateUntilTime: g.lateUntilTime || undefined,
         })),
         startDate: startDate ? new Date(startDate).toISOString() : undefined,
         opensTime: opensTime || undefined,
         cutoffTime: cutoffTime || undefined,
+        lateUntilTime: lateUntilTime || undefined,
         responseMode,
       },
       { onSuccess: (data) => { setSummary(data); setStep('done'); } },
@@ -285,6 +318,31 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
               </p>
             </div>
           </label>
+
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+            <label htmlFor="create-import-paste" className="flex items-center gap-1.5 t-card font-display font-bold text-text">
+              <ClipboardPaste size={15} aria-hidden className="text-text-muted" />
+              Or paste rows from Excel or Google Sheets
+            </label>
+            <p className="t-meta text-text-secondary">Copy the cells including the header row, then paste them here.</p>
+            <textarea
+              id="create-import-paste"
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              rows={5}
+              spellCheck={false}
+              placeholder={'Checklist Name	Type	Question	Photos Required	Person	Store	Time Slot'}
+              className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm text-text outline-none focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="t-meta text-text-muted">
+                {!pasted.trim() ? 'Nothing pasted yet.' : pastedTable ? `${pastedTable.dataRows} row${pastedTable.dataRows === 1 ? '' : 's'} found.` : 'Paste a header row and at least one row under it.'}
+              </p>
+              <Button type="button" size="sm" onClick={handlePasted} disabled={!pastedTable} isLoading={previewMutation.isPending} className="max-sm:h-11">
+                Read pasted rows
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -333,6 +391,20 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
                       {g.excluded ? 'Include' : 'Exclude'}
                     </Button>
                   </div>
+
+                  {TIMED.has(g.recurrence) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <IconChip
+                        icon={Clock}
+                        tone="bg-primary-600"
+                        label={g.cutoffTime || g.opensTime
+                          ? `${g.opensTime ? clock12(g.opensTime) : 'Start of day'} to ${g.cutoffTime ? clock12(g.cutoffTime) : 'end of day'}${g.lateUntilTime ? `, late till ${clock12(g.lateUntilTime)}` : ''}`
+                          : 'Uses the default times on the next step'}
+                      />
+                      {g.timeConflict && <IconChip icon={AlertCircle} tone="bg-warning" label="Rows gave different times, the first one is used" labelClassName="text-warning" />}
+                      {g.timeProblems.length > 0 && <IconChip icon={AlertCircle} tone="bg-warning" label={`Couldn't read: ${g.timeProblems.join(', ')}`} labelClassName="text-warning" />}
+                    </div>
+                  )}
 
                   {problem && !g.excluded && (
                     <p className="t-meta font-display text-warning flex items-center gap-1.5">
@@ -426,7 +498,7 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
           )}
 
           <p className="t-meta font-display text-text-muted">
-            Applies to all {includedGroups.length} checklist{includedGroups.length === 1 ? '' : 's'} in this batch.
+            Applies to all {includedGroups.length} checklist{includedGroups.length === 1 ? '' : 's'} in this batch. Times from the sheet win over these, and only daily and one-time checklists use times.
           </p>
 
           <div role="group" aria-labelledby="create-start-date-label" className="flex flex-col gap-1.5">
@@ -439,7 +511,7 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div role="group" aria-labelledby="create-opens-label" className="flex flex-col gap-1.5">
               <span id="create-opens-label" className="t-meta font-display font-semibold text-text-muted px-1">Opens</span>
               <TimePicker label="Opens" value={opensTime} onChange={setOpensTime} placeholder="Open all day" />
@@ -447,6 +519,10 @@ export const ChecklistCreateImportModal = ({ open, onClose }: ChecklistCreateImp
             <div role="group" aria-labelledby="create-closes-label" className="flex flex-col gap-1.5">
               <span id="create-closes-label" className="t-meta font-display font-semibold text-text-muted px-1">Closes</span>
               <TimePicker label="Closes" value={cutoffTime} onChange={setCutoffTime} placeholder="Open all day" />
+            </div>
+            <div role="group" aria-labelledby="create-late-label" className="flex flex-col gap-1.5">
+              <span id="create-late-label" className="t-meta font-display font-semibold text-text-muted px-1">Late until</span>
+              <TimePicker label="Late until" value={lateUntilTime} onChange={setLateUntilTime} placeholder="No late window" />
             </div>
           </div>
 

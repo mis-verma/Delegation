@@ -1,5 +1,6 @@
 import { ChecklistReviewersField } from '../form/ChecklistReviewersField';
-import { ShieldCheck } from 'lucide-react';
+import { ArrowRight, Crown, ShieldCheck } from 'lucide-react';
+import { IconChip } from '../../../../components';
 import { HiddenPeopleNotice } from './HiddenPeopleNotice';
 import { BuilderSection } from './BuilderSection';
 import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
@@ -23,6 +24,12 @@ export const BuilderReviewersPanel = ({ storeIds, reviewerIds, onReviewerIdsChan
         />
       )}
       <BuilderSection icon={ShieldCheck} title="Who reviews each run" hint="Optional. They approve or send back a filled-in run.">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2.5">
+        <IconChip icon={Crown} tone="bg-primary-600" label="Department head" />
+        <ArrowRight size={14} className="text-text-muted" aria-hidden />
+        <IconChip icon={ShieldCheck} tone="bg-success" label="PC" />
+        <span className="t-meta text-text-muted">Every run goes here automatically. When a department has no head, it goes straight to PC. People you add below can approve at any stage.</span>
+      </div>
       <ChecklistReviewersField
         hideTitle
         storeIds={storeIds}

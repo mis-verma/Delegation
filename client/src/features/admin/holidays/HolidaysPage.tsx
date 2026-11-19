@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState, type FormEvent } from 'react';
-import { CalendarClock, CalendarDays, CalendarOff, CalendarPlus, ChevronDown, Info, Timer, Trash2, Wand2, type LucideIcon } from 'lucide-react';
+import { BriefcaseBusiness, CalendarClock, CalendarDays, CalendarOff, CalendarPlus, ChevronDown, Info, Timer, Trash2, Wand2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -8,7 +8,7 @@ import {
 import { useConfirm } from '@/components/confirmDialog';
 import { StatCard } from '../../dashboard';
 import { useOrgToday } from '../../checklist/useOrgToday';
-import { useCreateHolidayMutation, useCreateHolidaysMutation, useDeleteHolidayMutation, useHolidaysQuery, previewHolidayClears } from './hook';
+import { useCreateHolidayMutation, useCreateHolidaysMutation, useDeleteHolidayMutation, useExtraWorkingDaysQuery, useHolidaysQuery, previewHolidayClears } from './hook';
 import type { Holiday } from '../../../api/holidays';
 import { ExtraWorkingDaysSection } from './ExtraWorkingDaysSection';
 
@@ -34,10 +34,17 @@ const fromDateKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 
+const MAX_RANGE_DAYS = 60;
+const datesBetween = (from: string, to: string): string[] => {
+  const out: string[] = [];
+  for (let d = dayNumber(from); d <= dayNumber(to) && out.length < MAX_RANGE_DAYS; d++) out.push(new Date(d * DAY_MS).toISOString().slice(0, 10));
+  return out;
+};
+
 const daysUntil = (date: string, today: string) => Math.round(dayNumber(date) - dayNumber(today));
 const whenLabel = (diff: number) => (diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff > 1 ? `In ${diff} days` : null);
 
-const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday; today: string; onDelete: (h: Holiday) => void; busy: boolean }) => {
+const HolidayRow = memo(({ holiday, today, extraReason, onDelete, busy }: { holiday: Holiday; today: string; extraReason?: string; onDelete: (h: Holiday) => void; busy: boolean }) => {
   const diff = daysUntil(holiday.date, today);
   const past = diff < 0;
   const soon = diff >= 0 && diff <= 7;
@@ -63,6 +70,7 @@ const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday;
           {WEEKDAY.format(day)}
           {when && <span className="sm:hidden"> · {when}</span>}
         </p>
+        {extraReason && <IconChip icon={BriefcaseBusiness} tone="bg-success" label={`Some people still work: ${extraReason}`} className="mt-1" />}
       </div>
       {when && (
         <span className={cn(
@@ -110,6 +118,7 @@ export const HolidaysPage = () => {
   const thisYear = useMemo(() => Number(today.slice(0, 4)), [today]);
   const [year, setYear] = useState(thisYear);
   const [date, setDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [name, setName] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -118,6 +127,9 @@ export const HolidaysPage = () => {
   const createOne = useCreateHolidayMutation();
   const createMany = useCreateHolidaysMutation();
   const { mutate: removeHoliday, isPending: removing } = useDeleteHolidayMutation();
+  const { data: extraDays } = useExtraWorkingDaysQuery(year);
+  const extraReasonByDate = useMemo(() => new Map((extraDays ?? []).map((d) => [d.date, d.reason])), [extraDays]);
+  const holidayNames = useMemo(() => new Map((holidays ?? []).map((h) => [h.date, h.name])), [holidays]);
 
   const months = useMemo(() => {
     const groups: { key: string; label: string; items: Holiday[] }[] = [];
@@ -137,6 +149,8 @@ export const HolidaysPage = () => {
   const total = holidays?.length ?? 0;
   const remaining = useMemo(() => (holidays ?? []).filter(h => h.date >= today).length, [holidays, today]);
   const dateValue = useMemo(() => (date ? fromDateKey(date) : null), [date]);
+  const endValue = useMemo(() => (endDate ? fromDateKey(endDate) : null), [endDate]);
+  const pickedDates = useMemo(() => (date ? (endDate > date ? datesBetween(date, endDate) : [date]) : []), [date, endDate]);
 
   const confirmClears = useCallback(async (dates: string[], label: string): Promise<boolean> => {
     const known = new Set((holidays ?? []).map(h => h.date));
@@ -165,9 +179,14 @@ export const HolidaysPage = () => {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!date || !name.trim() || checking) return;
-    if (!(await confirmClears([date], `Add ${name.trim()} on ${FULL_DAY.format(asUtc(date))}?`))) return;
-    createOne.mutate({ date, name: name.trim() }, { onSuccess: () => { setDate(''); setName(''); setFormOpen(false); } });
+    if (!pickedDates.length || !name.trim() || checking) return;
+    const label = pickedDates.length === 1
+      ? `Add ${name.trim()} on ${FULL_DAY.format(asUtc(date))}?`
+      : `Add ${name.trim()} for ${pickedDates.length} days?`;
+    if (!(await confirmClears(pickedDates, label))) return;
+    const done = { onSuccess: () => { setDate(''); setEndDate(''); setName(''); setFormOpen(false); } };
+    if (pickedDates.length === 1) createOne.mutate({ date, name: name.trim() }, done);
+    else createMany.mutate(pickedDates.map((d) => ({ date: d, name: name.trim() })), done);
   };
 
   const addNational = async () => {
@@ -254,7 +273,7 @@ export const HolidaysPage = () => {
               <section key={group.key} aria-label={group.label} className="flex flex-col gap-2.5">
                 <h2 className="flex items-center gap-2 t-card font-display font-bold text-text">{group.label}<IconChip icon={CalendarDays} tone="bg-primary-600" label={`${group.items.length} ${group.items.length === 1 ? 'day' : 'days'}`} /></h2>
                 <ul className="flex flex-col gap-2">
-                  {group.items.map(h => <HolidayRow key={h.id} holiday={h} today={today} onDelete={handleDelete} busy={removing} />)}
+                  {group.items.map(h => <HolidayRow key={h.id} holiday={h} today={today} extraReason={extraReasonByDate.get(h.date)} onDelete={handleDelete} busy={removing} />)}
                 </ul>
               </section>
             ))}
@@ -282,7 +301,12 @@ export const HolidaysPage = () => {
             </div>
             <div role="group" aria-labelledby="holiday-date-label" className="flex flex-col gap-1.5">
               <span id="holiday-date-label" className={FIELD_LABEL}>Date</span>
-              <DatePicker value={dateValue} onChange={d => setDate(d ? toDateKey(d) : '')} placeholder="Pick a date" triggerClassName="h-11 rounded-xl" />
+              <DatePicker value={dateValue} onChange={d => { const key = d ? toDateKey(d) : ''; setDate(key); if (endDate && key && endDate < key) setEndDate(''); }} placeholder="Pick a date" triggerClassName="h-11 rounded-xl" />
+            </div>
+            <div role="group" aria-labelledby="holiday-end-label" className="flex flex-col gap-1.5">
+              <span id="holiday-end-label" className={FIELD_LABEL}>Last day (only if it runs several days)</span>
+              <DatePicker value={endValue} onChange={d => setEndDate(d ? toDateKey(d) : '')} placeholder="Same day" minDate={dateValue ?? undefined} disabled={!date} triggerClassName="h-11 rounded-xl" />
+              {pickedDates.length > 1 && <span className="t-meta font-display text-text-muted">{pickedDates.length} days, each added as its own holiday.</span>}
             </div>
             <Input
               id="holiday-name"
@@ -294,8 +318,8 @@ export const HolidaysPage = () => {
               placeholder="e.g. Diwali"
               className="h-11"
             />
-            <Button type="submit" variant="primary" size="lg" disabled={!date || !name.trim()} isLoading={createOne.isPending || checking}>
-              Add holiday
+            <Button type="submit" variant="primary" size="lg" disabled={!pickedDates.length || !name.trim()} isLoading={createOne.isPending || createMany.isPending || checking}>
+              {pickedDates.length > 1 ? `Add ${pickedDates.length} holidays` : 'Add holiday'}
             </Button>
             <div className="flex flex-col gap-2.5 pt-4 border-t border-border/60">
               <Button type="button" variant="outline" size="sm" onClick={() => void addNational()} isLoading={createMany.isPending || checking} className="self-start">
@@ -310,15 +334,16 @@ export const HolidaysPage = () => {
 
           <div className="hidden lg:block">
             <NoticeBanner tone="info" icon={Info}>
-              Nobody can miss a checklist that does not exist, so scores do not drop. One a person has already started that
-              day stays. Adding a date that has passed also clears that day's unfilled checklists.
+              No repeating checklist runs on a holiday, daily, weekly or monthly, so nobody misses one and scores do not drop.
+              One-time checklists still run. A checklist someone already started that day stays. Adding a date that has
+              passed also clears that day's unfilled checklists. To keep some people working, add an extra working day below.
             </NoticeBanner>
           </div>
         </aside>
       </div>
 
       <div className="border-t border-border/60 pt-6">
-        <ExtraWorkingDaysSection year={year} today={today} />
+        <ExtraWorkingDaysSection year={year} today={today} holidayNames={holidayNames} />
       </div>
     </div>
   );

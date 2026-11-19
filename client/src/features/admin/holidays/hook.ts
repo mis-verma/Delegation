@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { holidayApi, type NewHoliday } from '../../../api/holidays';
-import { extraWorkingDayApi, type NewExtraWorkingDay } from '../../../api/extraWorkingDays';
+import { extraWorkingDayApi, type NewExtraWorkingDays } from '../../../api/extraWorkingDays';
 import { handleQueryRetry, invalidateScoreCaches } from '../../../lib/queryHelpers';
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
@@ -109,10 +109,11 @@ const useRefreshAfterExtraChange = () => {
 export const useCreateExtraWorkingDayMutation = () => {
   const refresh = useRefreshAfterExtraChange();
   return useMutation({
-    mutationFn: (payload: NewExtraWorkingDay) => extraWorkingDayApi.create(payload),
-    onSuccess: () => {
+    mutationFn: (payload: NewExtraWorkingDays) => extraWorkingDayApi.create(payload),
+    onSuccess: (res) => {
       refresh();
-      toast.success('Extra working day added', { description: "Checklists for the people working that day are created on the day. Today's appear in a moment." });
+      const n = res.data.length;
+      toast.success(n === 1 ? 'Extra working day added' : `${n} extra working days added`, { description: "Checklists for the people working are created on each day. Today's appear in a moment." });
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't add the extra working day")),
   });

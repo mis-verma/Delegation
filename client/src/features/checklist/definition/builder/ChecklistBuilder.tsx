@@ -28,6 +28,7 @@ import { BuilderSchedulePanel } from './BuilderSchedulePanel';
 import { canOfferLateWindow, hasScheduleTimeMismatch, isDateBeforeToday, isTimedRecurrence, lateWindowProblem } from './scheduleWindow';
 import { PICKER_SIZE, RECURRENCE_REGISTRY } from '../../recurrenceRegistry';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
+import { BuilderQuickAdd } from './BuilderQuickAdd';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
@@ -37,9 +38,12 @@ import { BuilderHeader } from './BuilderHeader';
 import { BuilderSkeleton } from './BuilderSkeleton';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
 import {
-  ALL_WEEKDAYS, DEFAULT_WORKING_WEEKDAYS, STEPS, STEP_BLOCK_REASON, BLANK_SNAPSHOT, snapshotKey,
+  ALL_WEEKDAYS, DEFAULT_WORKING_WEEKDAYS, STEPS, STEP_BLOCK_REASON, BLANK_SNAPSHOT, snapshotKey, DEFAULT_OPENS_TIME, DEFAULT_CUTOFF_TIME, DEFAULT_LATE_UNTIL_TIME,
   toItemDraft, copiedChecklistName, buildItemPayloads, firstItemProblem, type BuilderSnapshot,
 } from './builderModel';
+import { todayPeriodBoundIso } from '../../checklistDisplay';
+
+const orgTodayKey = () => todayPeriodBoundIso().slice(0, 10);
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
@@ -68,10 +72,10 @@ export const ChecklistBuilder = () => {
   const [icon, setIcon] = useState<ChecklistIcon>('store');
   const [storeIds, setStoreIds] = useState<string[]>([]);
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence>('DAILY');
-  const [startDate, setStartDate] = useState('');
-  const [opensTime, setOpensTime] = useState('');
-  const [cutoffTime, setCutoffTime] = useState('');
-  const [lateUntilTime, setLateUntilTime] = useState('');
+  const [startDate, setStartDate] = useState(orgTodayKey);
+  const [opensTime, setOpensTime] = useState(DEFAULT_OPENS_TIME);
+  const [cutoffTime, setCutoffTime] = useState(DEFAULT_CUTOFF_TIME);
+  const [lateUntilTime, setLateUntilTime] = useState(DEFAULT_LATE_UNTIL_TIME);
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [occurrenceDays, setOccurrenceDays] = useState<number[]>([]);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
@@ -99,7 +103,7 @@ export const ChecklistBuilder = () => {
   const [loadedVersion, setLoadedVersion] = useState<number | undefined>(undefined);
 
   const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
-  const [baseline, setBaseline] = useState(() => snapshotKey(BLANK_SNAPSHOT));
+  const [baseline, setBaseline] = useState(() => snapshotKey({ ...BLANK_SNAPSHOT, startDate: orgTodayKey() }));
 
   const draftParam = isEditing || isCopying ? '' : searchParams.get('draft') ?? '';
   const { data: savedDrafts } = useDraftsQuery('CHECKLIST', !!draftParam);
@@ -563,6 +567,9 @@ export const ChecklistBuilder = () => {
               occurrenceDays={occurrenceDays}
               onOccurrenceDaysChange={setOccurrenceDays}
             />
+            <div className="mt-4">
+              <BuilderQuickAdd kinds={['store']} onStoreCreated={(store) => setStoreIds((prev) => (prev.includes(store.id) ? prev : [...prev, store.id]))} />
+            </div>
           </BuilderStepFrame>
         );
       case 2:

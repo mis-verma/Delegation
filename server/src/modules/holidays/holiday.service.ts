@@ -4,7 +4,7 @@ import { asc, eq, inArray, like } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
-import { dropUntouchedDailyRunsOn, previewDailyRunsOn } from "../../jobs/checklistInstanceGenerator.job.js"
+import { dropRunsNoLongerWorkingOn, previewRunsOn } from "../../jobs/checklistInstanceGenerator.job.js"
 import { orgLocalDate } from "../checklistInstances/checklistReportRange.js"
 import type { CreateHolidayInput } from "./holiday.validation.js"
 
@@ -23,7 +23,7 @@ export const holidayService = {
         const [holiday] = await db.select().from(holidays).where(eq(holidays.id, id)).limit(1)
 
         await auditService.record({ entityType: "Holiday", entityId: id, action: "CREATE", actorId, after: holiday })
-        const removedRuns = await dropUntouchedDailyRunsOn(input.date)
+        const removedRuns = await dropRunsNoLongerWorkingOn(input.date)
         return { holiday, removedRuns }
     },
 
@@ -39,13 +39,13 @@ export const holidayService = {
             const id = createId()
             await db.insert(holidays).values({ id, date: entry.date, name: entry.name, createdBy: actorId })
             await auditService.record({ entityType: "Holiday", entityId: id, action: "CREATE", actorId, after: { date: entry.date, name: entry.name } })
-            removedRuns += await dropUntouchedDailyRunsOn(entry.date)
+            removedRuns += await dropRunsNoLongerWorkingOn(entry.date)
         }
         return { created: fresh.length, skipped: unique.length - fresh.length, removedRuns }
     },
 
     async preview(date: string) {
-        return previewDailyRunsOn(date)
+        return previewRunsOn(date)
     },
 
     async remove(id: string, actorId: string) {

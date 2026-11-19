@@ -66,7 +66,7 @@ export const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }:
                 disabled={busy}
                 className="t-meta font-display font-medium text-danger hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline cursor-pointer"
               >
-                {isRemoving ? 'Removing…' : 'Remove'}
+                {isRemoving ? 'Removing' : 'Remove'}
               </button>
             </>
           )}

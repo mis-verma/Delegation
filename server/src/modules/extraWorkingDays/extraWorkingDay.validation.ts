@@ -9,7 +9,7 @@ const calendarDay = z.string()
     }, "That isn't a real date")
 
 export const createExtraWorkingDaySchema = z.object({
-    date: calendarDay,
+    dates: z.array(calendarDay).min(1, "Pick at least one date").max(31, "Pick 31 dates or fewer").transform((d) => [...new Set(d)].sort()),
     reason: z.string().trim().min(1, "Say why people are working that day").max(100),
     scope: z.enum(EXTRA_WORKING_DAY_SCOPES),
     targetIds: z.array(z.string().min(1).max(191)).max(500).default([]),

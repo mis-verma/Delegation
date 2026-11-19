@@ -27,6 +27,11 @@ export type CreateImportGroupPreview = {
   unmatchedPeople: string[];
   storeIds: string[];
   unmatchedStores: string[];
+  opensTime: string | null;
+  cutoffTime: string | null;
+  lateUntilTime: string | null;
+  timeConflict: boolean;
+  timeProblems: string[];
 };
 
 export type CreateImportPreviewResponse = {
@@ -43,6 +48,9 @@ export type CreateImportGroupPayload = {
   storeIds: string[];
   assigneeIds: string[];
   items: { label: string; photoRequired: boolean }[];
+  opensTime?: string;
+  cutoffTime?: string;
+  lateUntilTime?: string;
 };
 
 export type CreateImportPublishPayload = {
@@ -50,6 +58,7 @@ export type CreateImportPublishPayload = {
   startDate?: string;
   opensTime?: string;
   cutoffTime?: string;
+  lateUntilTime?: string;
   responseMode?: 'SHARED' | 'PER_DEPARTMENT' | 'PER_USER';
 };
 

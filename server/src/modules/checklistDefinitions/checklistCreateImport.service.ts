@@ -7,6 +7,8 @@ import { matchExactOrFuzzy, looksLikeEmail, type MatchConfidence } from "../../u
 import { checklistDefinitionService } from "./checklistDefinition.service.js"
 import type { CreateChecklistDefinitionInput } from "./checklistDefinition.validation.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
+import { DEFAULT_SCHEDULE_TIMES, isTimedRecurrence, lateWindowProblem, sameOpenAndCloseProblem } from "./lateWindow.js"
+import { parseClockText, parseTimeSlot } from "./checklistImportTimes.js"
 
 export type CreateImportRawRow = {
     rowIndex: number
@@ -16,11 +18,18 @@ export type CreateImportRawRow = {
     photoRequired: boolean
     personName: string
     storeName: string
+    opensText: string
+    closesText: string
+    lateText: string
+    slotText: string
 }
+
+export type RowTimes = { opensTime: string | null; cutoffTime: string | null; lateUntilTime: string | null; problems: string[] }
 
 export type CreateImportMatchedRow = {
     rowIndex: number
     raw: { checklistName: string; recurrenceText: string; question: string; photoRequired: boolean; personName: string; storeName: string }
+    times?: RowTimes
     recurrence: ChecklistRecurrence | null
     personId: string | null
     personMatchConfidence: MatchConfidence
@@ -38,6 +47,11 @@ export type CreateImportGroupPreview = {
     unmatchedPeople: string[]
     storeIds: string[]
     unmatchedStores: string[]
+    opensTime: string | null
+    cutoffTime: string | null
+    lateUntilTime: string | null
+    timeConflict: boolean
+    timeProblems: string[]
 }
 
 export type CreateImportPreviewResult = {
@@ -53,9 +67,12 @@ export type CreateImportGroupInput = {
     storeIds: string[]
     assigneeIds: string[]
     items: { label: string; photoRequired: boolean }[]
+    opensTime?: string
+    cutoffTime?: string
+    lateUntilTime?: string
 }
 
-export type CreateImportSchedule = { startDate?: string; opensTime?: string; cutoffTime?: string; responseMode?: ChecklistResponseMode }
+export type CreateImportSchedule = { startDate?: string; opensTime?: string; cutoffTime?: string; lateUntilTime?: string; responseMode?: ChecklistResponseMode }
 
 export type CreateImportSummary = {
     created: number
@@ -87,6 +104,30 @@ const HEADER_ALIASES: Record<string, keyof Omit<CreateImportRawRow, "rowIndex">>
     "store": "storeName",
     "stores": "storeName",
     "location": "storeName",
+    "opens": "opensText",
+    "opens at": "opensText",
+    "open time": "opensText",
+    "start time": "opensText",
+    "start": "opensText",
+    "closes": "closesText",
+    "closes at": "closesText",
+    "close time": "closesText",
+    "cutoff": "closesText",
+    "due time": "closesText",
+    "due by": "closesText",
+    "deadline": "closesText",
+    "end time": "closesText",
+    "late until": "lateText",
+    "late till": "lateText",
+    "overdue until": "lateText",
+    "overdue till": "lateText",
+    "fill until": "lateText",
+    "time slot": "slotText",
+    "time": "slotText",
+    "timing": "slotText",
+    "timings": "slotText",
+    "hours": "slotText",
+    "slot": "slotText",
 }
 
 const EMPTY_ITEM_DEFAULTS = {
@@ -146,11 +187,35 @@ const buildRowFromRecord = (record: SheetRecord, rowIndex: number): CreateImport
         photoRequired: parsePhotoRequired(mapped.photoRequired ?? ""),
         personName: mapped.personName ?? "",
         storeName: mapped.storeName ?? "",
+        opensText: mapped.opensText ?? "",
+        closesText: mapped.closesText ?? "",
+        lateText: mapped.lateText ?? "",
+        slotText: mapped.slotText ?? "",
+    }
+}
+
+export const readRowTimes = (row: Pick<CreateImportRawRow, "opensText" | "closesText" | "lateText" | "slotText">): RowTimes => {
+    const problems: string[] = []
+    const slot = row.slotText ? parseTimeSlot(row.slotText) : null
+    if (row.slotText && !slot) problems.push(`Time slot "${row.slotText}"`)
+    const one = (text: string, label: string) => {
+        if (!text) return null
+        const parsed = parseClockText(text)
+        if (!parsed) problems.push(`${label} "${text}"`)
+        return parsed
+    }
+    return {
+        opensTime: one(row.opensText, "Opens") ?? slot?.opensTime ?? null,
+        cutoffTime: one(row.closesText, "Closes") ?? slot?.cutoffTime ?? null,
+        lateUntilTime: one(row.lateText, "Late until"),
+        problems,
     }
 }
 
 export const groupKeyOf = (checklistName: string, recurrence: ChecklistRecurrence | null): string =>
     `${checklistName.trim().toLowerCase()}::${recurrence ?? ""}`
+
+const TIME_FIELDS = ["opensTime", "cutoffTime", "lateUntilTime"] as const
 
 export const buildGroupPreviews = (rows: CreateImportMatchedRow[]): CreateImportGroupPreview[] => {
     const groups = new Map<string, CreateImportGroupPreview>()
@@ -158,7 +223,7 @@ export const buildGroupPreviews = (rows: CreateImportMatchedRow[]): CreateImport
         const key = groupKeyOf(row.raw.checklistName, row.recurrence)
         let group = groups.get(key)
         if (!group) {
-            group = { key, checklistName: row.raw.checklistName, recurrence: row.recurrence, rowIndexes: [], items: [], personIds: [], unmatchedPeople: [], storeIds: [], unmatchedStores: [] }
+            group = { key, checklistName: row.raw.checklistName, recurrence: row.recurrence, rowIndexes: [], items: [], personIds: [], unmatchedPeople: [], storeIds: [], unmatchedStores: [], opensTime: null, cutoffTime: null, lateUntilTime: null, timeConflict: false, timeProblems: [] }
             groups.set(key, group)
         }
         group.rowIndexes.push(row.rowIndex)
@@ -178,8 +243,28 @@ export const buildGroupPreviews = (rows: CreateImportMatchedRow[]): CreateImport
             if (row.storeId && !group.storeIds.includes(row.storeId)) group.storeIds.push(row.storeId)
             else if (!row.storeId && !group.unmatchedStores.includes(row.raw.storeName)) group.unmatchedStores.push(row.raw.storeName)
         }
+
+        if (row.times) {
+            for (const field of TIME_FIELDS) {
+                const value = row.times[field]
+                if (!value) continue
+                if (group[field] === null) group[field] = value
+                else if (group[field] !== value) group.timeConflict = true
+            }
+            for (const problem of row.times.problems) if (!group.timeProblems.includes(problem)) group.timeProblems.push(problem)
+        }
     }
     return [...groups.values()]
+}
+
+export const scheduleTimesFor = (group: Pick<CreateImportGroupInput, "recurrence" | "opensTime" | "cutoffTime" | "lateUntilTime">, schedule: Pick<CreateImportSchedule, "opensTime" | "cutoffTime" | "lateUntilTime">) => {
+    if (!isTimedRecurrence(group.recurrence)) return { opensTime: undefined, cutoffTime: undefined, lateUntilTime: undefined }
+    const opensTime = group.opensTime ?? schedule.opensTime ?? DEFAULT_SCHEDULE_TIMES.opensTime
+    const cutoffTime = group.cutoffTime ?? schedule.cutoffTime ?? DEFAULT_SCHEDULE_TIMES.cutoffTime
+    if (sameOpenAndCloseProblem({ opensTime, cutoffTime })) throw AppError.badRequest("Opening and closing can't be the same time.")
+    const wantedLate = group.lateUntilTime ?? schedule.lateUntilTime ?? DEFAULT_SCHEDULE_TIMES.lateUntilTime
+    const lateUntilTime = lateWindowProblem({ recurrence: group.recurrence, opensTime, cutoffTime, lateUntilTime: wantedLate }) ? undefined : wantedLate
+    return { opensTime, cutoffTime, lateUntilTime }
 }
 
 export const checklistCreateImportService = {
@@ -207,6 +292,7 @@ export const checklistCreateImportService = {
             return {
                 rowIndex: raw.rowIndex,
                 raw: { checklistName: raw.checklistName, recurrenceText: raw.recurrenceText, question: raw.question, photoRequired: raw.photoRequired, personName: raw.personName, storeName: raw.storeName },
+                times: readRowTimes(raw),
                 recurrence: parseRecurrenceText(raw.recurrenceText),
                 personId: personMatch.match?.id ?? null,
                 personMatchConfidence: personMatch.confidence,
@@ -237,8 +323,7 @@ export const checklistCreateImportService = {
                     storeIds: group.storeIds,
                     assigneeIds: group.assigneeIds,
                     startDate,
-                    opensTime: schedule.opensTime,
-                    cutoffTime: schedule.cutoffTime,
+                    ...scheduleTimesFor(group, schedule),
                     responseMode: schedule.responseMode,
                     items: group.items.map((item, index) => ({
                         ...EMPTY_ITEM_DEFAULTS,
