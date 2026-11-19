@@ -152,6 +152,9 @@ export type UpdateChecklistDefinitionPayload = CreateChecklistDefinitionPayload 
 
 export type ListChecklistDefinitionsParams = {
   storeId?: string;
+  departmentId?: string;
+  assigneeId?: string;
+  search?: string;
   recurrence?: ChecklistRecurrence;
   isActive?: boolean;
   draft?: boolean;
@@ -223,6 +226,9 @@ export const checklistDefinitionApi = {
   getAll: (params: ListChecklistDefinitionsParams = {}) =>
     apiFetch<ApiResponse<ChecklistDefinition[]> & { meta: ChecklistDefinitionsPage }>(`/checklist-definitions${buildQuery({
       storeId: params.storeId,
+      departmentId: params.departmentId,
+      assigneeId: params.assigneeId,
+      search: params.search,
       recurrence: params.recurrence,
       isActive: params.isActive === undefined ? undefined : String(params.isActive),
       draft: params.draft === undefined ? undefined : String(params.draft),

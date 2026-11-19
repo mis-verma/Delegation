@@ -38,6 +38,9 @@ export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
 
 export type ListChecklistDefinitionsFilter = {
     storeId?: string
+    departmentId?: string
+    assigneeId?: string
+    search?: string
     recurrence?: ChecklistRecurrence
     isActive?: boolean
     draft?: boolean

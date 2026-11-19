@@ -15,10 +15,13 @@ export const checklistDefinitionController = {
     }),
 
     list: asyncHandler(async (req: Request, res: Response) => {
-        const { storeId, recurrence, isActive, draft } = req.query
+        const { storeId, departmentId, assigneeId, search, recurrence, isActive, draft } = req.query
         const { page, limit } = listChecklistDefinitionsQuerySchema.parse(req.query)
         const result = await checklistDefinitionService.list({
             storeId: storeId as string | undefined,
+            departmentId: departmentId as string | undefined,
+            assigneeId: assigneeId as string | undefined,
+            search: search as string | undefined,
             recurrence: recurrence as ChecklistRecurrence | undefined,
             isActive: isActive === undefined ? undefined : isActive === "true",
             draft: draft === undefined ? undefined : draft === "true",

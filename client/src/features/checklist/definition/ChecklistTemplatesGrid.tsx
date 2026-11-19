@@ -3,17 +3,19 @@ import { CreateButton } from '../../../components/createButton';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateScoreCaches } from '../../../lib/queryHelpers';
+import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { toast } from 'sonner';
 import { DraftsDialog } from '../../drafts/DraftsDialog';
 import { useDraftsQuery } from '../../drafts/hook';
-import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown } from 'lucide-react';
-import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ViewToggle, ENTITY_CARD_CLASS, type ViewTab } from '../../../components';
+import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown, Store, Building2, User } from 'lucide-react';
+import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ViewToggle, ENTITY_CARD_CLASS, SearchField, AppliedFilters, type AppliedFilter, type ViewTab } from '../../../components';
+import { ChoiceChip, ChoiceClear, ChoiceIcon, ChoiceWrap, OptionSection, OptionsSheet } from '../../../components/optionsSheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../context/AuthContext';
-import { useChecklistDefinitionsQuery } from '../hook';
+import { useChecklistDefinitionsQuery, useStoresQuery, useDepartmentsQuery, useAssignableUsersQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
 import { ChecklistCreateImportModal } from './bulkImport/ChecklistCreateImportModal';
@@ -81,30 +83,52 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const recurrence = RECURRENCE_TABS.find((r) => r.toLowerCase() === recurrenceParam) ?? 'all';
   const statusParam = searchParams.get('status');
   const status: StatusFilter = statusParam === 'active' || statusParam === 'draft' || statusParam === 'paused' ? statusParam : 'all';
-  const isFiltered = recurrence !== 'all' || status !== 'all';
+  const storeId = searchParams.get('store') ?? '';
+  const departmentId = searchParams.get('department') ?? '';
+  const assigneeId = searchParams.get('user') ?? '';
   const viewParam = searchParams.get('view');
   const view: DefinitionView = VIEW_KEYS.includes(viewParam ?? '') ? (viewParam as DefinitionView) : 'cards';
 
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const isFiltered = recurrence !== 'all' || status !== 'all' || !!storeId || !!departmentId || !!assigneeId || !!search.trim();
+  const [showFilters, setShowFilters] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const { data: stores } = useStoresQuery();
+  const { data: departments } = useDepartmentsQuery();
+  const { data: people } = useAssignableUsersQuery();
+  const storeOptions = useMemo(() => (stores ?? []).filter((s) => s.isActive).map((s) => ({ value: s.id, label: s.name })), [stores]);
+  const departmentOptions = useMemo(() => (departments ?? []).filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.name })), [departments]);
+  const peopleOptions = useMemo(() => (people ?? []).map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName ?? ''}`.trim() })), [people]);
+  const storeNames = useMemo(() => new Map(storeOptions.map((o) => [o.value, o.label])), [storeOptions]);
+  const departmentNames = useMemo(() => new Map(departmentOptions.map((o) => [o.value, o.label])), [departmentOptions]);
+  const peopleNames = useMemo(() => new Map(peopleOptions.map((o) => [o.value, o.label])), [peopleOptions]);
+
   const { data, isPending, isError, isPlaceholderData, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery({
     ...(recurrence === 'all' ? {} : { recurrence }),
     ...(status === 'all' ? {} : status === 'active' ? { isActive: true } : { isActive: false, draft: status === 'draft' }),
+    ...(storeId ? { storeId } : {}),
+    ...(departmentId ? { departmentId } : {}),
+    ...(assigneeId ? { assigneeId } : {}),
+    ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
   });
   const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.meta?.total ?? definitions.length;
   const isRefreshing = isPlaceholderData;
+  const activeFilterCount = (storeId ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeId ? 1 : 0);
 
   const selection = useMemo(() => {
     const loaded = new Set(definitions.map((d) => d.id));
     return new Set([...selectedIds].filter((id) => loaded.has(id)));
   }, [definitions, selectedIds]);
 
-  const setFilter = (key: 'recurrence' | 'status' | 'view', value: string) => {
+  const setFilter = (key: 'recurrence' | 'status' | 'view' | 'store' | 'department' | 'user', value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value === 'all' || (key === 'view' && value === 'cards')) next.delete(key); else next.set(key, value);
+      if (value === 'all' || value === '' || (key === 'view' && value === 'cards')) next.delete(key); else next.set(key, value);
       return next;
     }, { replace: true });
     if (key !== 'view') setSelectedIds(new Set());
@@ -114,10 +138,19 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       const next = new URLSearchParams(prev);
       next.delete('recurrence');
       next.delete('status');
+      next.delete('store');
+      next.delete('department');
+      next.delete('user');
       return next;
     }, { replace: true });
+    setSearch('');
     setSelectedIds(new Set());
   };
+
+  const appliedFilters: AppliedFilter[] = [];
+  if (storeId) appliedFilters.push({ key: 'store', label: storeNames.get(storeId) ?? 'One store', onRemove: () => setFilter('store', '') });
+  if (departmentId) appliedFilters.push({ key: 'department', label: departmentNames.get(departmentId) ?? 'One department', onRemove: () => setFilter('department', '') });
+  if (assigneeId) appliedFilters.push({ key: 'user', label: peopleNames.get(assigneeId) ?? 'One person', onRemove: () => setFilter('user', '') });
 
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
   const toggleSelected = useCallback((id: string) => {
@@ -240,6 +273,75 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       />
 
       <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            label="Search checklists"
+            placeholder="Search checklists"
+            className="w-full flex-none sm:w-auto sm:flex-1 sm:max-w-sm"
+          />
+          <OptionsSheet
+            isOpen={showFilters}
+            setIsOpen={setShowFilters}
+            activeCount={activeFilterCount}
+            subtitle={plural(total, 'checklist')}
+            onReset={clearFilters}
+            canReset={activeFilterCount > 0}
+            triggerLabel="Store, department or person"
+            showLabel={`Show ${plural(total, 'checklist')}`}
+          >
+            {storeOptions.length > 0 && (
+              <OptionSection icon={Store} label="Store" aside={!!storeId && <ChoiceClear onClick={() => setFilter('store', '')} />}>
+                <ChoiceWrap>
+                  {storeOptions.map((o) => (
+                    <ChoiceChip
+                      key={o.value}
+                      active={storeId === o.value}
+                      onClick={() => setFilter('store', storeId === o.value ? '' : o.value)}
+                      lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                    >
+                      {o.label}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
+            )}
+            {departmentOptions.length > 0 && (
+              <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => setFilter('department', '')} />}>
+                <ChoiceWrap>
+                  {departmentOptions.map((o) => (
+                    <ChoiceChip
+                      key={o.value}
+                      active={departmentId === o.value}
+                      onClick={() => setFilter('department', departmentId === o.value ? '' : o.value)}
+                      lead={<ChoiceIcon icon={Building2} tone="bg-coral-400" />}
+                    >
+                      {o.label}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
+            )}
+            {peopleOptions.length > 0 && (
+              <OptionSection icon={User} label="Person" aside={!!assigneeId && <ChoiceClear onClick={() => setFilter('user', '')} />}>
+                <ChoiceWrap>
+                  {peopleOptions.map((o) => (
+                    <ChoiceChip
+                      key={o.value}
+                      active={assigneeId === o.value}
+                      onClick={() => setFilter('user', assigneeId === o.value ? '' : o.value)}
+                      lead={<ChoiceIcon icon={User} tone="bg-success" />}
+                    >
+                      {o.label}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
+            )}
+          </OptionsSheet>
+        </div>
+
         <Tabs value={recurrence} onValueChange={(v) => setFilter('recurrence', v === 'all' ? 'all' : v.toLowerCase())}>
           <div className="overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
             <TabsList className="w-fit">
@@ -274,6 +376,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           </span>
         </div>
       </div>
+
+      <AppliedFilters items={appliedFilters} onClearAll={clearFilters} />
 
       {isError && (
         <InlineError message="We couldn't load your checklists. Check your connection and try again." onRetry={() => refetch()} />

@@ -8,9 +8,10 @@ import {
     checklistDefinitionItemAuditUsers,
 
     checklistInstances,
+    users,
 
 } from "../../db/schema/index.js"
-import { eq, and, asc, count, inArray, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
+import { eq, and, asc, count, inArray, notInArray, isNull, isNotNull, like, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -86,6 +87,24 @@ export const checklistDefinitionService = {
             if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
             conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
         }
+        if (filter.assigneeId) {
+            const links = await db
+                .select({ definitionId: checklistDefinitionAssignees.definitionId })
+                .from(checklistDefinitionAssignees)
+                .where(eq(checklistDefinitionAssignees.userId, filter.assigneeId))
+            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
+            conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
+        }
+        if (filter.departmentId) {
+            const links = await db
+                .select({ definitionId: checklistDefinitionAssignees.definitionId })
+                .from(checklistDefinitionAssignees)
+                .innerJoin(users, eq(users.id, checklistDefinitionAssignees.userId))
+                .where(eq(users.departmentId, filter.departmentId))
+            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
+            conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
+        }
+        if (filter.search?.trim()) conditions.push(like(checklistDefinitions.name, `%${filter.search.trim()}%`))
 
         const where = conditions.length ? and(...conditions) : undefined
         const [{ value: total } = { value: 0 }] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistDefinitions).where(where)
