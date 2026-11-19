@@ -1,7 +1,8 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, testRunPeopleSchema, deleteRunSchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, completeAllChecklistSchema, snoozeAlarmSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, testRunPeopleSchema, deleteRunSchema } from "./checklistInstance.validation.js"
 import { dayRange, deleteRun, deleteTestRuns, peopleForCleanup, previewTestRuns, runChecklistsForCleanup } from "./checklistRunDeletion.js"
+import { myRingingAlarms, snoozeAlarm } from "./checklistAlarm.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -217,6 +218,18 @@ export const checklistInstanceController = {
     }),
     unwaiveItem: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.unwaiveItem(routeParam(req, "id"), routeParam(req, "itemId"), req.user!)
+        res.json({ success: true, data: instance })
+    }),
+    myAlarms: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await myRingingAlarms(req.user!) })
+    }),
+    snoozeAlarm: asyncHandler(async (req: Request, res: Response) => {
+        const { minutes } = snoozeAlarmSchema.parse(req.body)
+        res.json({ success: true, data: await snoozeAlarm(routeParam(req, "id"), minutes, req.user!) })
+    }),
+    completeAll: asyncHandler(async (req: Request, res: Response) => {
+        const input = completeAllChecklistSchema.parse(req.body)
+        const instance = await checklistInstanceService.completeAll(routeParam(req, "id"), input, req.user!)
         res.json({ success: true, data: instance })
     }),
     raiseTicket: asyncHandler(async (req: Request, res: Response) => {

@@ -29,6 +29,7 @@ import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, asser
 import { loadAuditItemScore } from "./auditScore.js"
 import { revokeWindowOpen } from "./checklistRevokeWindow.js"
 import { approveOutcome, canSendBackAt, firstApprovalStage, stageAuthority, stageHeadIds, stageOf } from "./checklistApprovalStage.js"
+import { isAdminOrPc } from "../../utils/roles.js"
 
 export const setItemDone = async (itemId: string, isDone: boolean, user: AccessTokenPayload, values: ItemValueInput = {}) => {
     const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
@@ -499,14 +500,70 @@ export const waiveItem = async (id: string, itemId: string, input: { reason: str
 export const unwaiveItem = async (id: string, itemId: string, user: AccessTokenPayload) => {
     const { instance, item } = await loadWaivable(id, itemId, user)
     if (!item.waivedAt) throw AppError.badRequest("This question is not waived.")
-    await db.update(checklistInstanceItems).set({ waivedAt: null, waivedBy: null, waiveReason: null, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
+    const closedByWaive = !!item.completedBy && item.completedBy === item.waivedBy
+    if (closedByWaive && instance.verificationStatus === "APPROVED") {
+        throw AppError.badRequest("This question was closed with Complete all on an approved checklist. Reopen the approval first.")
+    }
+    const reopen = closedByWaive ? { isDone: false, completedAt: null, completedBy: null } : {}
+    await db.update(checklistInstanceItems).set({ waivedAt: null, waivedBy: null, waiveReason: null, ...reopen, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
+    if (closedByWaive) await syncVerificationStatus(id)
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: "UNWAIVE", actorId: user.sub,
         before: { itemId, waived: true, reason: item.waiveReason },
-        after: { itemId, question: item.label, waived: false },
+        after: { itemId, question: item.label, waived: false, reopened: closedByWaive },
     })
     await dropChecklistSummaries(instance.assigneeIds)
     emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+    return getPopulatedInstanceById(id)
+}
+
+export const completeAll = async (id: string, input: { reason: string }, user: AccessTokenPayload) => {
+    const [[instance], assigneeLinks, reviewerLinks, [actor]] = await Promise.all([
+        db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1),
+        db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id)),
+        db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id)),
+        db.select({ canCompleteAll: users.canCompleteAll }).from(users).where(eq(users.id, user.sub)).limit(1),
+    ])
+    if (!instance) throw AppError.notFound("Checklist instance not found")
+    const assigneeIds = assigneeLinks.map((l) => l.userId)
+    if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You can't use Complete all on a checklist you fill in yourself.")
+    if (!isAdminOrPc(user.role)) {
+        if (!actor?.canCompleteAll) throw AppError.forbidden("Only an Admin, a PC or someone given Complete all can close every question at once.")
+        await assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+    }
+    await assertCoordinatorRunReviewer(id, user)
+    if (instance.verificationStatus === "APPROVED") throw AppError.badRequest("This checklist is already approved.")
+    assertInstanceOpen(instance)
+
+    const now = new Date()
+    const reason = input.reason.trim()
+    const closedIds = await db.transaction(async (tx) => {
+        const open = await tx.select({ id: checklistInstanceItems.id }).from(checklistInstanceItems)
+            .where(and(eq(checklistInstanceItems.instanceId, id), eq(checklistInstanceItems.isDone, false)))
+            .for("update")
+        if (!open.length) return []
+        const ids = open.map((row) => row.id)
+        await tx.update(checklistInstanceItems).set({
+            isDone: true, isNotApplicable: false, completedAt: now, completedBy: user.sub,
+            waivedAt: now, waivedBy: user.sub, waiveReason: reason,
+            sendBackNote: null, sendBackPhotoOnly: false, updatedAt: now,
+        }).where(inArray(checklistInstanceItems.id, ids))
+        return ids
+    })
+    if (!closedIds.length) throw AppError.badRequest("Every question on this checklist is already done.")
+
+    await syncVerificationStatus(id)
+    await auditService.record({
+        entityType: "ChecklistInstance", entityId: id, action: "COMPLETE_ALL", actorId: user.sub,
+        before: { openItems: closedIds.length, verificationStatus: instance.verificationStatus },
+        after: { closedItemIds: closedIds, reason },
+    })
+    if (instance.verificationStatus === "NOT_SUBMITTED" || instance.verificationStatus === "REJECTED") {
+        await commitSubmission(instance, assigneeIds, user.sub)
+    } else {
+        await dropChecklistSummaries(assigneeIds)
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+    }
     return getPopulatedInstanceById(id)
 }
 

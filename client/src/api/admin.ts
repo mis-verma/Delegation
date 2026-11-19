@@ -20,6 +20,7 @@ export type AdminUser = {
     reportsToId?: string | null;
     weekOffDays?: number[] | null;
     employeeId?: string | null;
+    canCompleteAll?: boolean;
     createdAt: string;
 };
 
@@ -51,6 +52,7 @@ export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "de
     dressTypeId?: string | null;
     weekOffDays?: number[];
     employeeId?: string;
+    canCompleteAll?: boolean;
 };
 export type BulkUpdateUsersPayload = {
     ids: string[];

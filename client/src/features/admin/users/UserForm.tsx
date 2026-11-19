@@ -49,6 +49,7 @@ const buildUserSchema = (isEditing: boolean) =>
       dressTypeId: z.string(),
       reportsToId: z.string(),
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
+      canCompleteAll: z.boolean(),
     })
     .superRefine((data, ctx) => {
       if (isEditing) return;
@@ -181,6 +182,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       dressTypeId: user?.dressTypeId ?? '',
       reportsToId: user?.reportsToId ?? '',
       weekOffDays: user?.weekOffDays ? [...user.weekOffDays] : [],
+      canCompleteAll: user?.canCompleteAll ?? false,
       password: '',
     },
   });
@@ -311,6 +313,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
       const employeeId = data.employeeId?.trim().toUpperCase() ?? '';
       if (me?.role === 'ADMIN' && employeeId && employeeId !== (user.employeeId ?? '')) payload.employeeId = employeeId;
+      if (me?.role === 'ADMIN' && data.canCompleteAll !== (user.canCompleteAll ?? false)) payload.canCompleteAll = data.canCompleteAll;
 
       if (Object.keys(payload).length === 0) {
         onClose();
@@ -557,6 +560,22 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                     render={({ field }) => <RolePicker value={field.value} onChange={field.onChange} roles={roleChoices} />}
                   />
                 </FormField>
+
+                {isEditing && me?.role === 'ADMIN' && (
+                  <Controller
+                    control={control}
+                    name="canCompleteAll"
+                    render={({ field }) => (
+                      <label htmlFor="can-complete-all" className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2.5 cursor-pointer">
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="t-meta font-display font-semibold text-text">Can use Complete all</span>
+                          <span className="t-meta text-text-muted">Lets them close every open question on checklists they review, with a reason. Never on their own checklists.</span>
+                        </span>
+                        <Switch id="can-complete-all" checked={field.value} onChange={field.onChange} />
+                      </label>
+                    )}
+                  />
+                )}
               </FormSection>
               )}
 

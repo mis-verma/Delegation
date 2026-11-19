@@ -92,6 +92,7 @@ export const departmentService = {
                 isActive: input.isActive,
                 storeId: input.storeId ?? null,
                 headOptional: input.headOptional ?? false,
+                alarmReminders: input.alarmReminders ?? false,
                 weekOffDays: normalizeWeekOff(input).weekOffDays ?? null,
             });
         } catch (err) {

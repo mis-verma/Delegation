@@ -13,7 +13,9 @@ import {
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
-import { canWaiveRun } from './canWaive';
+import { canCompleteAllRun, canWaiveRun } from './canWaive';
+import { CompleteAllAction } from './CompleteAllAction';
+import { useMyProfileQuery } from '../../settings/hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { CompletedGroup } from './CompletedGroup';
@@ -122,6 +124,7 @@ export const ChecklistInstanceDetail = () => {
     }
   }, [status, instance?.submittedBy, user?.id]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
+  const { data: myProfile } = useMyProfileQuery();
   const [pickedShow, setShow] = useState<ShowMode | null>(null);
   const [oneIndex, setOneIndex] = useState(0);
   const [pickedSection, setPickedSection] = useState<string | null>(null);
@@ -194,6 +197,7 @@ export const ChecklistInstanceDetail = () => {
   const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
+  const showCompleteAll = left > 0 && !notYetOpen && canCompleteAllRun(user, instance, myProfile?.canCompleteAll === true);
   const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items) };
   const filling = canWork && !isLocked && total > 0 && !canReview;
   const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
@@ -430,6 +434,15 @@ export const ChecklistInstanceDetail = () => {
               {editAnswers ? <Eye size={13} aria-hidden /> : <Pencil size={13} aria-hidden />}
               {editAnswers ? 'Done editing' : 'Edit answers'}
             </Button>
+          </div>
+        )}
+
+        {showCompleteAll && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+            <p className="t-meta font-display text-text-muted">
+              {left} {left === 1 ? 'question is' : 'questions are'} still open.
+            </p>
+            <CompleteAllAction instanceId={instance.id} openCount={left} />
           </div>
         )}
       </div>

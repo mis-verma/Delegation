@@ -431,6 +431,16 @@ export type WeeklyReport = {
   summary: ReportScore;
 };
 
+export type AlarmSnoozeMinutes = 10 | 30;
+
+export type ChecklistAlarm = {
+  instanceId: string;
+  title: string;
+  deadlineAt: string;
+  openItems: number;
+  snoozedUntil: string | null;
+};
+
 export const checklistInstanceApi = {
   getMine: (
     filter: {
@@ -596,6 +606,20 @@ export const checklistInstanceApi = {
   unwaiveItem: (id: string, itemId: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/waive`, { method: 'DELETE' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  completeAll: (id: string, reason: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/complete-all`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  myAlarms: () => apiFetch<ApiResponse<ChecklistAlarm[]>>('/checklist-instances/mine/alarms').then(r => r.data),
+
+  snoozeAlarm: (id: string, minutes: AlarmSnoozeMinutes) =>
+    apiFetch<ApiResponse<{ instanceId: string; snoozedUntil: string }>>(`/checklist-instances/${id}/alarm/snooze`, {
+      method: 'POST',
+      body: JSON.stringify({ minutes }),
+    }).then(r => r.data),
 
   raiseTicket: (id: string, itemId: string, payload: { note: string; tatHours: number; priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/raise-ticket`, {

@@ -8,6 +8,8 @@ import { escapeHtml } from "../../utils/escapeHtml.js"
 
 export const URGENT_TYPE = /ESCALATION|OVERDUE|CRITICAL|FAILED/
 
+export const ALARM_TYPE = "CHECKLIST_ALARM"
+
 type UrgentRow = { recipientId: string; type: string; title: string; message: string }
 
 const emailBody = (rows: UrgentRow[]) => {

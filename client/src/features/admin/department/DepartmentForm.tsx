@@ -28,6 +28,7 @@ const buildDepartmentSchema = (existing: Department[] | undefined, ignoreId: str
       }),
     storeId: z.string().optional(),
     headOptional: z.boolean(),
+    alarmReminders: z.boolean(),
     weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
   });
 
@@ -81,7 +82,7 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: 
     formState: { errors, isDirty },
   } = useForm<DepartmentFields>({
     resolver: zodResolver(schema),
-    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false, weekOffDays: department?.weekOffDays ? [...department.weekOffDays] : [] }
+    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false, alarmReminders: department?.alarmReminders ?? false, weekOffDays: department?.weekOffDays ? [...department.weekOffDays] : [] }
   });
 
   const [headOptional, nameValue, storeIdValue, weekOffValue] = useWatch({ control, name: ['headOptional', 'name', 'storeId', 'weekOffDays'] });
@@ -97,12 +98,12 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: 
 
     if (isEditing && department) {
       updateMutation.mutate(
-        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null, headOptional: data.headOptional, weekOffDays: data.weekOffDays } },
+        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null, headOptional: data.headOptional, alarmReminders: data.alarmReminders, weekOffDays: data.weekOffDays } },
         { onSuccess: onClose }
       );
     } else {
       createMutation.mutate(
-        { name: data.name, storeId: storePayload, headOptional: data.headOptional, weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined },
+        { name: data.name, storeId: storePayload, headOptional: data.headOptional, alarmReminders: data.alarmReminders, weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined },
         { onSuccess: (created) => { onCreated?.(created); onClose(); } }
       );
     }
@@ -201,6 +202,25 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: 
                     <span className="t-card font-display font-semibold text-text">This department does not need a head</span>
                     <span className="t-meta font-display text-text-muted">
                       Turn this on when Admin or PC approve its work, so it stays out of the "no head" warning.
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="alarmReminders"
+              render={({ field }) => (
+                <label
+                  htmlFor="alarmReminders"
+                  className="flex items-start gap-3 min-h-11 px-3 py-2.5 rounded-xl border border-border bg-surface hover:border-border-hover cursor-pointer transition-colors duration-150"
+                >
+                  <Switch id="alarmReminders" checked={field.value} onChange={field.onChange} className="mt-0.5" />
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span className="t-card font-display font-semibold text-text">Checklist alarms</span>
+                    <span className="t-meta font-display text-text-muted">
+                      Rings on this team's phones 30 minutes before a checklist closes, every 10 minutes until it is done. They can snooze it.
                     </span>
                   </span>
                 </label>

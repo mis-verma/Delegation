@@ -6,6 +6,7 @@ export type Department = {
   isActive: boolean;
   storeId: string | null;
   headOptional?: boolean;
+  alarmReminders?: boolean;
   weekOffDays?: number[] | null;
 };
 
@@ -21,6 +22,7 @@ export type CreateDepartmentPayload = {
   name: string;
   storeId?: string;
   headOptional?: boolean;
+  alarmReminders?: boolean;
   weekOffDays?: number[];
 }
 

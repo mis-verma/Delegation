@@ -15,6 +15,7 @@ import { startTaskAutoClose } from "./src/jobs/taskAutoClose.job.js";
 import { backfillEmployeeIds } from "./src/modules/users/employeeId.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
 import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
+import { startChecklistAlarms } from "./src/jobs/checklistAlarm.job.js";
 import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
 import { startDueReminders } from "./src/jobs/dueReminders.job.js";
@@ -67,6 +68,7 @@ class ServerBootstrap {
       backfillEmployeeIds().catch((err) => console.error("Employee ID backfill failed:", err));
       startChecklistInstanceGenerator();
       startChecklistOverdueNotifier();
+      startChecklistAlarms();
       startChecklistDraftReminder();
       startChecklistApprovalReminder();
       startTaskDeadlineReminder();

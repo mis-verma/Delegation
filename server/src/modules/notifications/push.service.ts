@@ -4,7 +4,7 @@ import { and, count, eq, inArray } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { notificationPreferences, notifications, pushSubscriptions } from "../../db/schema/core.js"
-import { URGENT_TYPE, emailUrgentWithoutPush } from "./urgentEmail.js"
+import { ALARM_TYPE, URGENT_TYPE, emailUrgentWithoutPush } from "./urgentEmail.js"
 
 export type PushSubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } }
 export type NotificationPrefs = { quietStart: string | null; quietEnd: string | null; morningDigest: boolean }
@@ -107,8 +107,10 @@ export const pushService = {
         const now = new Date()
         const jobs: Promise<void>[] = []
         for (const row of rows) {
-            if (!URGENT.test(row.type) && inQuietHours(prefsOf.get(row.recipientId), now)) continue
-            const payload = { title: row.title, body: row.message.slice(0, 180), url: pathFor(row), tag: `n-${row.type}-${row.ticketId ?? row.taskId ?? row.checklistInstanceId ?? row.recipientId}`, urgent: URGENT.test(row.type), badge: unread.get(row.recipientId) ?? 1 }
+            const alarm = row.type === ALARM_TYPE
+            const urgent = alarm || URGENT.test(row.type)
+            if (!urgent && inQuietHours(prefsOf.get(row.recipientId), now)) continue
+            const payload = { title: row.title, body: row.message.slice(0, 180), url: pathFor(row), tag: `n-${row.type}-${row.ticketId ?? row.taskId ?? row.checklistInstanceId ?? row.recipientId}`, urgent, alarm, badge: unread.get(row.recipientId) ?? 1 }
             for (const sub of subs.filter((s) => s.userId === row.recipientId)) jobs.push(sendOne(sub, payload))
         }
         await Promise.all(jobs)

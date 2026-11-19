@@ -11,7 +11,7 @@ import {
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstanceImage, type PhotoReviewReason, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, checklistItemHistoryApi, type AlarmSnoozeMinutes, type ChecklistInstanceImage, type PhotoReviewReason, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory, TestRunFilter } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
@@ -21,6 +21,7 @@ import { checklistCreateImportApi, type CreateImportPublishPayload } from '../..
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import { pushUndo } from '../../lib/undoRedo';
 import { useCanReopen } from './instance/useCanReopen';
+import { CHECKLIST_ALARMS_KEY } from './alarmKeys';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -741,6 +742,37 @@ export const useUnwaiveChecklistItemMutation = () =>
     invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
     successMessage: 'Waiver taken back',
     errorFallback: "Couldn't take the waiver back. Try again.",
+    retryable: true,
+  });
+
+export const useCompleteAllMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => checklistInstanceApi.completeAll(id, reason).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
+    successMessage: 'Checklist completed',
+    errorFallback: "Couldn't complete the checklist. Try again.",
+    retryable: true,
+  });
+
+export const useMyChecklistAlarmsQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: CHECKLIST_ALARMS_KEY,
+    queryFn: () => checklistInstanceApi.myAlarms(),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+};
+
+export const useSnoozeAlarmMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, minutes }: { id: string; minutes: AlarmSnoozeMinutes }) => checklistInstanceApi.snoozeAlarm(id, minutes),
+    invalidateKeys: [CHECKLIST_ALARMS_KEY],
+    successMessage: 'Alarm snoozed',
+    errorFallback: "Couldn't snooze the alarm. Try again.",
     retryable: true,
   });
 

@@ -58,6 +58,7 @@ const publicUserColumns = {
     deactivatedAt: users.deactivatedAt,
     employeeId: users.employeeId,
     mustChangePassword: users.mustChangePassword,
+    canCompleteAll: users.canCompleteAll,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
 };
@@ -69,7 +70,7 @@ const getSafeById = async (id: string) => {
 
 const userSnapshot = (u: {
     email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
-    phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null; employeeId?: string | null;
+    phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null; employeeId?: string | null; canCompleteAll?: boolean;
 }) => ({
     email: u.email,
     role: u.role,
@@ -85,6 +86,7 @@ const userSnapshot = (u: {
     weekOffDays: u.weekOffDays,
     rank: u.rank ?? null,
     employeeId: u.employeeId ?? null,
+    canCompleteAll: u.canCompleteAll ?? false,
 });
 
 const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined) =>
@@ -235,6 +237,9 @@ export const userService = {
             if (owner) throw AppError.conflict(`Employee ID ${nextEmployeeId} already belongs to ${[owner.firstName, owner.lastName].filter(Boolean).join(' ')}.`);
         }
 
+        const completeAllChanged = input.canCompleteAll !== undefined && input.canCompleteAll !== before.canCompleteAll;
+        if (completeAllChanged && actorRole !== 'ADMIN') throw AppError.forbidden("Only an admin can give or remove Complete all.");
+
         const newRole = input.role ?? before.role;
         const roleChanged = newRole !== before.role;
         if (roleChanged && id === actorId) throw AppError.badRequest("You can't change your own role.");
@@ -269,6 +274,7 @@ export const userService = {
         if (input.phone !== undefined) set.phone = input.phone;
         if (input.isActive !== undefined) set.isActive = input.isActive;
         if (employeeIdChanged) set.employeeId = nextEmployeeId;
+        if (completeAllChanged) set.canCompleteAll = input.canCompleteAll;
         if (roleChanged) {
             set.role = newRole;
             set.rank = deriveDefaultRank(newRole, input.rank);
@@ -278,7 +284,7 @@ export const userService = {
         if (deactivating) set.deactivatedAt = new Date();
         if (reactivating) set.deactivatedAt = null;
 
-        const sensitive = roleChanged || deactivating || reactivating;
+        const sensitive = roleChanged || deactivating || reactivating || completeAllChanged;
         const leavesAdmin = before.role === 'ADMIN' && before.isActive && roleChanged;
 
         let user: Awaited<ReturnType<typeof getSafeById>>;

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
 const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
@@ -83,6 +83,7 @@ self.addEventListener('push', (event) => {
   }
   const title = data.title || 'KaryaOS';
   const badge = typeof data.badge === 'number' ? data.badge : 0;
+  const alarm = !!data.alarm;
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(title, {
@@ -91,8 +92,9 @@ self.addEventListener('push', (event) => {
         badge: '/icon-192.png',
         tag: data.tag || undefined,
         renotify: !!data.tag,
-        vibrate: [200, 100, 200],
-        requireInteraction: !!data.urgent,
+        vibrate: alarm ? [600, 250, 600, 250, 600, 250, 600] : [200, 100, 200],
+        silent: false,
+        requireInteraction: alarm || !!data.urgent,
         timestamp: Date.now(),
         actions: [{ action: 'open', title: 'Open' }],
         data: { url: data.url || '/' },

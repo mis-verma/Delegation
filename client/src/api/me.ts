@@ -14,6 +14,7 @@ export type MyProfile = {
   phone: string | null;
   avatarUrl: string | null;
   weekOffDays: number[] | null;
+  canCompleteAll?: boolean;
   createdAt: string;
 };
 

@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect, useMemo, useRef, type MouseEvent } from 'react';
+import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef, type MouseEvent } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,8 @@ import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
 import { directionBetween, hasBackArrow, type NavDirection } from '../../lib/appNav';
 import { useEdgeSwipeOpen } from '../../lib/useEdgeSwipeOpen';
 import { useEdgeSwipeBack } from '../../lib/useEdgeSwipeBack';
+
+const ChecklistAlarmBanner = lazy(() => import('../checklist/instance/ChecklistAlarmBanner').then((m) => ({ default: m.ChecklistAlarmBanner })));
 
 const SIDEBAR_KEY = 'karya-app-sidebar';
 const RAIL_QUERY = '(min-width: 1024px)';
@@ -118,6 +120,9 @@ export const Dashboard = () => {
                   </span>
                 </div>
               )}
+              <Suspense fallback={null}>
+                <ChecklistAlarmBanner />
+              </Suspense>
               <Suspense fallback={<RouteFallback />}>
                 <div
                   ref={pageRef}

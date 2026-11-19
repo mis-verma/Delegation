@@ -81,6 +81,14 @@ export const raiseChecklistTicketSchema = z.object({
     priority: z.enum(TICKET_PRIORITIES).optional(),
 })
 
+export const snoozeAlarmSchema = z.object({
+    minutes: z.union([z.literal(10), z.literal(30)]),
+})
+
+export const completeAllChecklistSchema = z.object({
+    reason: z.string().trim().min(5, "Say why you're closing the open questions.").max(500),
+})
+
 export const waiveChecklistItemSchema = z.object({
     reason: z.string().trim().min(5, "Say why this is being waived.").max(500),
 })

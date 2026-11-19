@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { connectSocket, releaseSocket } from "../../lib/socket";
 import { notificationApi, type Notification } from "../../api/notifications";
 import { notificationPath } from "./notificationDisplay";
+import { CHECKLIST_ALARMS_KEY } from "../checklist/alarmKeys";
 
 interface Options {
     onArrive?: () => void;
@@ -25,6 +26,7 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
         const socket = connectSocket(token);
         const handleNew = (n?: Partial<Notification>) => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            if (n?.type === "CHECKLIST_ALARM") queryClient.invalidateQueries({ queryKey: CHECKLIST_ALARMS_KEY });
             onArriveRef.current?.();
             haptic("warning");
 

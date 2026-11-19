@@ -95,6 +95,8 @@ export const checklistInstanceAssignees = mysqlTable(
       .notNull()
       .references(() => checklistInstances.id, { onDelete: 'cascade' }),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    alarmRungAt: datetime('alarmRungAt', { mode: 'date' }),
+    alarmSnoozedUntil: datetime('alarmSnoozedUntil', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [

@@ -6,6 +6,7 @@ export const createDepartmentSchema = z.object({
     isActive: z.boolean().optional(),
     storeId: objectId.optional(),
     headOptional: z.boolean().optional(),
+    alarmReminders: z.boolean().optional(),
     weekOffDays: z.array(z.number().int().min(0).max(6)).max(6, "Leave at least one working day").optional(),
 })
 
