@@ -1,4 +1,4 @@
-import { Layers, Clock, CalendarClock, CheckCircle2, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Layers, Clock, CalendarClock, CheckCircle2, AlertTriangle, FileClock, PauseCircle, type LucideIcon } from 'lucide-react';
 import type { QuickFilterTile } from './QuickFilterStats';
 
 export const TONE = {
@@ -9,7 +9,7 @@ export const TONE = {
   danger: { bgTint: 'bg-vivid-red/12', accentBar: 'bg-vivid-red', accentBorder: 'border-vivid-red/70', ring: 'border-vivid-red/40', iconTint: 'text-vivid-red-text' },
 } as const;
 
-export type StatusTileKey = 'all' | 'pending' | 'due' | 'completed' | 'delayed' | 'overdue';
+export type StatusTileKey = 'all' | 'pending' | 'due' | 'completed' | 'delayed' | 'overdue' | 'active' | 'draft' | 'paused';
 
 const STATUS_TILE: Record<StatusTileKey, { label: string; shortLabel?: string; tone: keyof typeof TONE; icon: LucideIcon }> = {
   all: { label: 'All', tone: 'neutral', icon: Layers },
@@ -18,6 +18,9 @@ const STATUS_TILE: Record<StatusTileKey, { label: string; shortLabel?: string; t
   completed: { label: 'Completed', shortLabel: 'Done', tone: 'success', icon: CheckCircle2 },
   delayed: { label: 'Delayed', tone: 'danger', icon: AlertTriangle },
   overdue: { label: 'Overdue', tone: 'danger', icon: AlertTriangle },
+  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
+  draft: { label: 'Draft', tone: 'todo', icon: FileClock },
+  paused: { label: 'Paused', tone: 'warning', icon: PauseCircle },
 };
 
 export const statusTiles = <K extends StatusTileKey>(

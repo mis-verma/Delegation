@@ -8,14 +8,15 @@ import { toast } from 'sonner';
 import { DraftsDialog } from '../../drafts/DraftsDialog';
 import { useDraftsQuery } from '../../drafts/hook';
 import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown, Store, Building2, User } from 'lucide-react';
-import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ViewToggle, ENTITY_CARD_CLASS, SearchField, AppliedFilters, type AppliedFilter, type ViewTab } from '../../../components';
+import { Button, Skeleton, EmptyState, InlineError, PageHeader, ViewToggle, ENTITY_CARD_CLASS, SearchField, AppliedFilters, type AppliedFilter, type ViewTab } from '../../../components';
 import { ChoiceChip, ChoiceClear, ChoiceIcon, ChoiceWrap, OptionSection, OptionsSheet } from '../../../components/optionsSheet';
+import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../context/AuthContext';
-import { useChecklistDefinitionsQuery, useStoresQuery, useDepartmentsQuery, useAssignableUsersQuery } from '../hook';
+import { useChecklistDefinitionsQuery, useChecklistDefinitionsSummaryQuery, useStoresQuery, useDepartmentsQuery, useAssignableUsersQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
 import { ChecklistCreateImportModal } from './bulkImport/ChecklistCreateImportModal';
@@ -40,11 +41,7 @@ const VIEW_TABS: ViewTab<DefinitionView>[] = [
 const VIEW_KEYS: readonly string[] = VIEW_TABS.map((t) => t.key);
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'paused';
-const STATUS_CHIPS: Array<{ value: Exclude<StatusFilter, 'all'>; label: string }> = [
-  { value: 'active', label: 'Active' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'paused', label: 'Paused' },
-];
+const STATUS_TILES = statusTiles<Exclude<StatusFilter, 'all'>>(['active', 'draft', 'paused']);
 
 const BUILDER_PATH = '/admin/scheduled-checklists/builder';
 
@@ -119,6 +116,14 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const total = data?.pages[0]?.meta?.total ?? definitions.length;
   const isRefreshing = isPlaceholderData;
   const activeFilterCount = (storeId ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeId ? 1 : 0);
+
+  const { data: statusSummary, isPending: isSummaryPending } = useChecklistDefinitionsSummaryQuery({
+    ...(recurrence === 'all' ? {} : { recurrence }),
+    ...(storeId ? { storeId } : {}),
+    ...(departmentId ? { departmentId } : {}),
+    ...(assigneeId ? { assigneeId } : {}),
+    ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+  });
 
   const selection = useMemo(() => {
     const loaded = new Set(definitions.map((d) => d.id));
@@ -272,6 +277,19 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         actions={actions}
       />
 
+      <QuickFilterStats
+        tiles={STATUS_TILES}
+        counts={{ active: statusSummary?.active ?? 0, draft: statusSummary?.draft ?? 0, paused: statusSummary?.paused ?? 0 }}
+        active={status === 'all' ? null : status}
+        onToggle={(key) => setFilter('status', status === key ? 'all' : key)}
+        onClearFilter={() => setFilter('status', 'all')}
+        total={statusSummary?.total}
+        totalLabel="All"
+        itemLabel="checklists"
+        variant="navy"
+        isLoading={isSummaryPending && !statusSummary}
+      />
+
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <SearchField
@@ -355,23 +373,12 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="t-meta font-display font-medium text-text-muted pr-1">Status</span>
-          {STATUS_CHIPS.map((chip) => (
-            <ToggleChip key={chip.value} on={status === chip.value} onClick={() => setFilter('status', status === chip.value ? 'all' : chip.value)}>
-              {chip.label}
-            </ToggleChip>
-          ))}
           {isFiltered && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>
               Clear filters
             </Button>
           )}
-          <span className="ml-auto flex items-center gap-2">
-            {!isPending && !isError && (
-              <span aria-live="polite">
-                <IconChip icon={Repeat} tone="bg-primary-600" label={plural(total, 'checklist')} labelClassName="tabular-nums" />
-              </span>
-            )}
+          <span className="ml-auto">
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={(next) => setFilter('view', next)} storageKey="view:recurring-checklists" />
           </span>
         </div>

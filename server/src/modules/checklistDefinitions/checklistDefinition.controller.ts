@@ -31,6 +31,18 @@ export const checklistDefinitionController = {
         res.json({ success: true, ...result })
     }),
 
+    summary: asyncHandler(async (req: Request, res: Response) => {
+        const { storeId, departmentId, assigneeId, search, recurrence } = req.query
+        const data = await checklistDefinitionService.summary({
+            storeId: storeId as string | undefined,
+            departmentId: departmentId as string | undefined,
+            assigneeId: assigneeId as string | undefined,
+            search: search as string | undefined,
+            recurrence: recurrence as ChecklistRecurrence | undefined,
+        })
+        res.json({ success: true, data })
+    }),
+
     scoringGaps: asyncHandler(async (_req: Request, res: Response) => {
         const data = await checklistDefinitionService.scoringGaps()
         res.json({ success: true, data })

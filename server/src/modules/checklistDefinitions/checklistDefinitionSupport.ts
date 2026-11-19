@@ -12,7 +12,7 @@ import {
     departments,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, count, inArray, isNull, sql } from "drizzle-orm"
+import { eq, and, asc, count, inArray, isNull, like, sql, type SQL } from "drizzle-orm"
 import { cached, cacheKey } from "../../config/queryCache.js"
 import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
@@ -63,6 +63,39 @@ export const buildDefinitionsMeta = (p: { page: number; limit: number }, total: 
     totalPages: Math.max(1, Math.ceil(total / p.limit)),
     hasNext: p.page * p.limit < total,
 })
+
+export const noAssigneesExpr = sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitionAssignees} a WHERE a.definitionId = ${checklistDefinitions.id})`
+
+export type DefinitionScopeFilter = Pick<ListChecklistDefinitionsFilter, "storeId" | "departmentId" | "assigneeId" | "search" | "recurrence">
+
+export const scopeConditionsFor = async (filter: DefinitionScopeFilter): Promise<SQL[] | null> => {
+    const conditions: SQL[] = [NOT_DELETED]
+    if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
+    if (filter.storeId) {
+        const links = await db.select({ definitionId: checklistDefinitionStores.definitionId })
+            .from(checklistDefinitionStores)
+            .where(eq(checklistDefinitionStores.storeId, filter.storeId))
+        if (!links.length) return null
+        conditions.push(inArray(checklistDefinitions.id, links.map((l) => l.definitionId)))
+    }
+    if (filter.assigneeId) {
+        const links = await db.select({ definitionId: checklistDefinitionAssignees.definitionId })
+            .from(checklistDefinitionAssignees)
+            .where(eq(checklistDefinitionAssignees.userId, filter.assigneeId))
+        if (!links.length) return null
+        conditions.push(inArray(checklistDefinitions.id, links.map((l) => l.definitionId)))
+    }
+    if (filter.departmentId) {
+        const links = await db.select({ definitionId: checklistDefinitionAssignees.definitionId })
+            .from(checklistDefinitionAssignees)
+            .innerJoin(users, eq(users.id, checklistDefinitionAssignees.userId))
+            .where(eq(users.departmentId, filter.departmentId))
+        if (!links.length) return null
+        conditions.push(inArray(checklistDefinitions.id, links.map((l) => l.definitionId)))
+    }
+    if (filter.search?.trim()) conditions.push(like(checklistDefinitions.name, `%${filter.search.trim()}%`))
+    return conditions
+}
 
 export type DefinitionStats = { completionRate: number | null; qualityRate: number | null; issueRate: number | null; currentRate: number | null }
 

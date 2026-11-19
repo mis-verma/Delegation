@@ -7,6 +7,7 @@ import {
   type CreateChecklistDefinitionPayload,
   type UpdateChecklistDefinitionPayload,
   type ListChecklistDefinitionsParams,
+  type ChecklistDefinitionsSummaryParams,
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
@@ -24,6 +25,7 @@ import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
   definitions:            (filters: ListChecklistDefinitionsParams) => ['checklist-definitions', filters] as const,
+  definitionsSummary:     (filters: ChecklistDefinitionsSummaryParams) => ['checklist-definitions', 'summary', filters] as const,
   definitionDetail:       (id: string) => ['checklist-definitions', 'detail', id] as const,
   myInstances:            (status?: ChecklistInstanceStatus) => ['checklist-instances', 'mine', status ?? 'all'] as const,
   instanceDetail:         (id: string) => ['checklist-instances', 'detail', id] as const,
@@ -56,6 +58,18 @@ export const useChecklistDefinitionsQuery = (filters: Omit<ListChecklistDefiniti
     enabled: !!token,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
+  });
+};
+
+export const useChecklistDefinitionsSummaryQuery = (filters: ChecklistDefinitionsSummaryParams = {}) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: KEYS.definitionsSummary(filters),
+    queryFn: () => checklistDefinitionApi.getSummary(filters),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
   });
 };
 

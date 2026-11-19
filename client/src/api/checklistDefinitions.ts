@@ -170,6 +170,15 @@ export type ChecklistDefinitionsPage = {
   hasNext: boolean;
 };
 
+export type ChecklistDefinitionsSummary = {
+  total: number;
+  active: number;
+  draft: number;
+  paused: number;
+};
+
+export type ChecklistDefinitionsSummaryParams = Pick<ListChecklistDefinitionsParams, 'storeId' | 'departmentId' | 'assigneeId' | 'search' | 'recurrence'>;
+
 const buildQuery = (params: Record<string, string | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -235,6 +244,15 @@ export const checklistDefinitionApi = {
       page: params.page === undefined ? undefined : String(params.page),
       limit: params.limit === undefined ? undefined : String(params.limit),
     })}`).then((r) => ({ ...r, data: normalizeDefinitions(r.data) })),
+
+  getSummary: (params: ChecklistDefinitionsSummaryParams = {}) =>
+    apiFetch<ApiResponse<ChecklistDefinitionsSummary>>(`/checklist-definitions/summary${buildQuery({
+      storeId: params.storeId,
+      departmentId: params.departmentId,
+      assigneeId: params.assigneeId,
+      search: params.search,
+      recurrence: params.recurrence,
+    })}`).then((r) => r.data),
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<ChecklistDefinition>>(`/checklist-definitions/${id}`).then((r) => ({

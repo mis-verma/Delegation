@@ -8,10 +8,9 @@ import {
     checklistDefinitionItemAuditUsers,
 
     checklistInstances,
-    users,
 
 } from "../../db/schema/index.js"
-import { eq, and, asc, count, inArray, notInArray, isNull, isNotNull, like, sql } from "drizzle-orm"
+import { eq, and, asc, count, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -21,7 +20,8 @@ import { clearSummariesForDefinition, dropUntouchedCurrentRunsFor, generateInsta
 import { env } from "../../config/env.js"
 import { isBeforeToday, sameLocalDate, windowTimesFor } from "./lateWindow.js"
 import { auditService } from "../audit/audit.service.js";
-import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, pickedDaysFor, type ListChecklistDefinitionsFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid } from "./checklistDefinitionSupport.js"
+import { emitToStores, NOT_DELETED, DEFAULT_WORKING_WEEKDAYS, pickedDaysFor, type ListChecklistDefinitionsFilter, type DefinitionScopeFilter, paginateDefinitions, buildDefinitionsMeta, hydrateDefinitions, assertUsersBelongToStores, closedForToday, countActiveUsers, assertReviewersValid, scopeConditionsFor, noAssigneesExpr } from "./checklistDefinitionSupport.js"
+import { cached, cacheKey } from "../../config/queryCache.js"
 
 const SCORABLE_TYPES = new Set(["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN", "NUMBER_ENTRY", "RATING"])
 const RANGE_TYPES = new Set(["NUMBER_ENTRY", "RATING"])
@@ -72,47 +72,37 @@ export const checklistDefinitionService = {
 
     async list(filter: ListChecklistDefinitionsFilter) {
         const p = paginateDefinitions(filter.page, filter.limit)
-        const conditions = [NOT_DELETED]
-        if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
+        const scope = await scopeConditionsFor(filter)
+        if (!scope) return { data: [], meta: buildDefinitionsMeta(p, 0) }
+        const conditions = [...scope]
         if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
         if (filter.draft !== undefined) {
-            const noPeople = sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitionAssignees} a WHERE a.definitionId = ${checklistDefinitions.id})`
-            conditions.push(filter.draft ? and(eq(checklistDefinitions.isActive, false), noPeople)! : sql`NOT (${checklistDefinitions.isActive} = 0 AND ${noPeople})`)
+            conditions.push(filter.draft ? and(eq(checklistDefinitions.isActive, false), noAssigneesExpr)! : sql`NOT (${checklistDefinitions.isActive} = 0 AND ${noAssigneesExpr})`)
         }
-        if (filter.storeId) {
-            const links = await db
-                .select({ definitionId: checklistDefinitionStores.definitionId })
-                .from(checklistDefinitionStores)
-                .where(eq(checklistDefinitionStores.storeId, filter.storeId))
-            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
-            conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
-        }
-        if (filter.assigneeId) {
-            const links = await db
-                .select({ definitionId: checklistDefinitionAssignees.definitionId })
-                .from(checklistDefinitionAssignees)
-                .where(eq(checklistDefinitionAssignees.userId, filter.assigneeId))
-            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
-            conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
-        }
-        if (filter.departmentId) {
-            const links = await db
-                .select({ definitionId: checklistDefinitionAssignees.definitionId })
-                .from(checklistDefinitionAssignees)
-                .innerJoin(users, eq(users.id, checklistDefinitionAssignees.userId))
-                .where(eq(users.departmentId, filter.departmentId))
-            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
-            conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
-        }
-        if (filter.search?.trim()) conditions.push(like(checklistDefinitions.name, `%${filter.search.trim()}%`))
 
-        const where = conditions.length ? and(...conditions) : undefined
+        const where = and(...conditions)
         const [{ value: total } = { value: 0 }] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistDefinitions).where(where)
         const definitionRows = await db.select().from(checklistDefinitions)
             .where(where)
             .orderBy(asc(checklistDefinitions.name))
             .limit(p.limit).offset(p.offset)
         return { data: await hydrateDefinitions(definitionRows), meta: buildDefinitionsMeta(p, Number(total ?? 0)) }
+    },
+
+    async summary(filter: DefinitionScopeFilter) {
+        return cached(cacheKey("checklist-definitions-summary", filter.storeId, filter.departmentId, filter.assigneeId, filter.recurrence, filter.search), 15, async () => {
+            const scope = await scopeConditionsFor(filter)
+            if (!scope) return { total: 0, active: 0, draft: 0, paused: 0 }
+            const [row] = await db.select({
+                total: sql<number>`COUNT(*)`,
+                active: sql<number>`SUM(CASE WHEN ${checklistDefinitions.isActive} = 1 THEN 1 ELSE 0 END)`,
+                draft: sql<number>`SUM(CASE WHEN ${checklistDefinitions.isActive} = 0 AND ${noAssigneesExpr} THEN 1 ELSE 0 END)`,
+            }).from(checklistDefinitions).where(and(...scope))
+            const total = Number(row?.total ?? 0)
+            const active = Number(row?.active ?? 0)
+            const draft = Number(row?.draft ?? 0)
+            return { total, active, draft, paused: Math.max(0, total - active - draft) }
+        })
     },
 
     async getById(id: string) {
