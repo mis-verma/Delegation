@@ -103,6 +103,8 @@ describe("ticket raised to a department user", () => {
         expect(approved.body.data.awaitingHeadApproval).toBe(false)
         expect(approved.body.data.assignmentApprovedBy).toBe(people.headB!.id)
 
+        expect((await start("workerB", id)).status).toBe(400)
+        expect((await as("workerB", request(app).post(`/tickets/${id}/claim`))).status).toBe(200)
         expect((await start("workerB", id)).status).toBe(200)
     })
 
@@ -120,6 +122,34 @@ describe("ticket raised to a department user", () => {
         const reopened = await as("headB", request(app).post(`/tickets/${id}/reopen-declined`))
         expect(reopened.status).toBe(200)
         expect(reopened.body.data.declinedAt).toBeNull()
+    })
+
+    it("starts a reopened person's clock at their claim, not at the reopen", async () => {
+        const res = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b, tatHours: 8 })
+        const id = res.body.data.id as string
+
+        const approved = await as("headB", request(app).post(`/tickets/${id}/approve-assignment`)).send({ tatHours: 8 })
+        expect(approved.body.data.claimOpenedAt).not.toBeNull()
+        expect(approved.body.data.tatDueAt).toBeNull()
+
+        const declined = await as("headB", request(app).post(`/tickets/${id}/decline`)).send({ reason: "Checking something" })
+        expect(declined.status).toBe(200)
+
+        const reopened = await as("headB", request(app).post(`/tickets/${id}/reopen-declined`))
+        expect(reopened.status).toBe(200)
+        const reopenedAt = Date.now()
+
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+
+        const claimedAt = Date.now()
+        const claimed = await as("workerB", request(app).post(`/tickets/${id}/claim`))
+        expect(claimed.status).toBe(200)
+        expect(claimed.body.data.claimedAt).not.toBeNull()
+
+        const due = new Date(claimed.body.data.tatDueAt as string).getTime()
+        expect(due).toBeGreaterThan(reopenedAt + 8 * 3_600_000 + 500)
+        expect(due).toBeGreaterThanOrEqual(claimedAt + 8 * 3_600_000 - 5_000)
+        expect(due).toBeLessThanOrEqual(claimedAt + 8 * 3_600_000 + 5_000)
     })
 
     it("does not let the raiser or an outsider decline it", async () => {
@@ -140,6 +170,7 @@ describe("ticket raised to a department user", () => {
         expect((await start("workerB", res.body.data.id as string)).status).toBe(403)
         const approved = await as("headB", request(app).post(`/tickets/${res.body.data.id as string}/approve-assignment`))
         expect(approved.status).toBe(200)
+        expect((await as("workerB", request(app).post(`/tickets/${res.body.data.id as string}/claim`))).status).toBe(200)
         expect((await start("workerB", res.body.data.id as string)).status).toBe(200)
     })
 
@@ -181,12 +212,14 @@ describe("ticket raised to a department user", () => {
         expect(row!.departmentId).toBe(departmentIds.b)
     })
 
-    it("shows a senior the requests raised for their department, but not its other tickets", async () => {
+    it("shows a senior the requests raised for their department, but not another department's", async () => {
         const gated = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
-        const other = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
-        await as("headB", request(app).post(`/tickets/${other.body.data.id}/approve-assignment`))
+        const approved = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
+        await as("headB", request(app).post(`/tickets/${approved.body.data.id}/approve-assignment`))
+        const elsewhere = await raise("headA", { assigneeId: people.workerC!.id, departmentId: departmentIds.c })
         expect((await as("seniorB", request(app).get(`/tickets/${gated.body.data.id}`))).status).toBe(200)
-        expect((await as("seniorB", request(app).get(`/tickets/${other.body.data.id}`))).status).toBe(403)
+        expect((await as("seniorB", request(app).get(`/tickets/${approved.body.data.id}`))).status).toBe(200)
+        expect((await as("seniorB", request(app).get(`/tickets/${elsewhere.body.data.id}`))).status).toBe(403)
     })
 
     it("lists only the tickets still waiting for the head when asked", async () => {
@@ -230,13 +263,13 @@ describe("ticket raised to a department user", () => {
         expect(forB).not.toContain(`ticket:${waiting.body.data.id}`)
     })
 
-    it("leaves declined tickets out of the summary counts", async () => {
+    it("counts a declined ticket in total but never as completed", async () => {
         const before = await as("headB", request(app).get("/tickets/summary?scope=visible"))
         const res = await raise("headA", { assigneeId: people.workerB!.id, departmentId: departmentIds.b })
         const declined = await as("headB", request(app).post(`/tickets/${res.body.data.id}/decline`)).send({ reason: "Not our work" })
         expect(declined.status).toBe(200)
         const after = await as("headB", request(app).get("/tickets/summary?scope=visible"))
-        expect(after.body.data.total).toBe(before.body.data.total)
+        expect(after.body.data.total).toBe(before.body.data.total + 1)
         expect(after.body.data.completed).toBe(before.body.data.completed)
     })
 })
@@ -283,12 +316,19 @@ describe("ticket opened for the team to claim", () => {
         expect((await start("headB", id)).status).toBe(400)
     })
 
-    it("starts the clock at once when the head gives it to a person", async () => {
+    it("makes a named person claim it before the clock starts", async () => {
         const res = await raise("headA", { departmentId: departmentIds.b })
         const given = await as("headB", request(app).post(`/tickets/${res.body.data.id}/approve-assignment`)).send({ tatHours: 4, assigneeId: people.workerB!.id })
         expect(given.status).toBe(200)
         expect(given.body.data.assigneeId).toBe(people.workerB!.id)
-        expect(given.body.data.claimOpenedAt).toBeNull()
-        expect(given.body.data.tatDueAt).not.toBeNull()
+        expect(given.body.data.claimOpenedAt).not.toBeNull()
+        expect(given.body.data.claimedAt).toBeNull()
+        expect(given.body.data.tatDueAt).toBeNull()
+
+        expect((await as("workerC", request(app).post(`/tickets/${res.body.data.id}/claim`))).status).toBe(409)
+        const claimed = await as("workerB", request(app).post(`/tickets/${res.body.data.id}/claim`))
+        expect(claimed.status).toBe(200)
+        expect(claimed.body.data.claimedAt).not.toBeNull()
+        expect(claimed.body.data.tatDueAt).not.toBeNull()
     })
 })

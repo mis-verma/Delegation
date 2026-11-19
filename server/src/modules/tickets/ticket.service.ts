@@ -705,7 +705,7 @@ export const ticketService = {
       assigneeId: user.sub,
       claimedAt: now,
       ...(reassignPatch(ticket, user.sub) ?? {}),
-      tatDueAt: ticket.tatDueAt ?? deriveTatDueAt(ticket.tatHours, now),
+      tatDueAt: deriveTatDueAt(ticket.tatHours, now),
       isOverdue: false,
       dueSoonNotifiedAt: null,
       overdueNotifiedAt: null,

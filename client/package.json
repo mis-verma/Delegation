@@ -82,5 +82,8 @@
     "vite": "^8.0.12",
     "vitest": "^4.1.12"
   },
-  "keywords": []
+  "keywords": [],
+  "overrides": {
+    "@radix-ui/react-focus-scope": "1.1.16"
+  }
 }
