@@ -3,9 +3,17 @@ import { asyncHandler } from "../../utils/asyncHandler.js"
 import { AppError } from "../../utils/AppError.js"
 import { checklistBulkImportService } from "./checklistBulkImport.service.js"
 import { checklistBulkImportPublishSchema } from "./checklistBulkImport.validation.js"
+import { buildChecklistImportTemplate } from "./checklistImportTemplate.js"
 
 export const checklistBulkImportController = {
-    
+
+    template: asyncHandler(async (_req: Request, res: Response) => {
+        const file = await buildChecklistImportTemplate()
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        res.setHeader("Content-Disposition", 'attachment; filename="checklist-import-template.xlsx"')
+        res.send(file)
+    }),
+
     preview: asyncHandler(async (req: Request, res: Response) => {
         if (!req.file) throw AppError.badRequest("A file is required.")
         const { rows: rawRows, warnings } = await checklistBulkImportService.parseFile(req.file.buffer, req.file.mimetype)

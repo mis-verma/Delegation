@@ -1,12 +1,14 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { UploadCloud, FileSpreadsheet, AlertCircle, X, ChevronLeft, PartyPopper } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, AlertCircle, X, ChevronLeft, PartyPopper, Download } from 'lucide-react';
 import { Modal, Button, DatePicker, TimePicker, Combobox, InlineError, NoticeBanner, useConfirm } from '../../../../components';
 import { cn } from '@/lib/utils';
+import { notifyError } from '../../../../lib/queryHelpers';
 import {
   useChecklistBulkImportPreviewMutation,
   useChecklistBulkImportPublishMutation,
 } from '../../hook';
+import { checklistBulkImportApi } from '../../../../api/checklistBulkImport';
 import type { BulkImportMatchedRow, BulkImportMatchConfidence, BulkImportSummary } from '../../../../api/checklistBulkImport';
 
 interface ChecklistBulkImportModalProps {
@@ -121,11 +123,23 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
   const [opensTime, setOpensTime] = useState('');
   const [cutoffTime, setCutoffTime] = useState('');
   const [summary, setSummary] = useState<BulkImportSummary | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
 
   const previewMutation = useChecklistBulkImportPreviewMutation();
   const publishMutation = useChecklistBulkImportPublishMutation();
+
+  const handleTemplate = async () => {
+    setDownloading(true);
+    try {
+      await checklistBulkImportApi.downloadTemplate();
+    } catch (err) {
+      notifyError(err, "Couldn't download the template. Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const reset = () => {
     setStep('upload');
@@ -228,7 +242,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
       open={open}
       onClose={handleClose}
       title="Bulk import checklist assignments"
-      description="Upload a spreadsheet to assign a checklist to a bunch of stores or people in one go."
+      description="Download the template, fill one assignment per row, then upload it."
       icon={<UploadCloud size={18} className="text-primary-600" />}
       size="3xl"
       footer={
@@ -266,12 +280,35 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
       }
     >
       {step === 'upload' && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-5">
           {previewMutation.isError && (
             <InlineError
               message={previewMutation.error instanceof Error ? previewMutation.error.message : "We couldn't read that file. Make sure it has the right columns and try again."}
             />
           )}
+
+          <ol className="grid gap-3 sm:grid-cols-3">
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 1</span>
+              <p className="t-card font-display font-bold text-text">Get the template</p>
+              <p className="t-meta text-text-secondary">An Excel sheet with dropdown lists for checklist, store and person.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleTemplate()} isLoading={downloading} className="mt-auto max-sm:h-11">
+                <Download size={15} aria-hidden />
+                Download template
+              </Button>
+            </li>
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 2</span>
+              <p className="t-card font-display font-bold text-text">Fill one assignment per row</p>
+              <p className="t-meta text-text-secondary">Checklist Name, Store and Person are needed. Department is optional, just for reference.</p>
+            </li>
+            <li className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+              <span className="t-meta font-display font-bold text-text-muted">Step 3</span>
+              <p className="t-card font-display font-bold text-text">Upload and check</p>
+              <p className="t-meta text-text-secondary">You see every row and can fix anything before it is applied.</p>
+            </li>
+          </ol>
+
           <label
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -298,9 +335,6 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
               </p>
               <p className="t-meta font-display text-text-muted">
                 CSV or Excel works best · PDFs are okay too, but less reliable
-              </p>
-              <p className="t-meta font-display text-text-light">
-                Your file should have columns for Checklist Name, Store, and Person (email or name). Department is optional and just for reference.
               </p>
             </div>
           </label>

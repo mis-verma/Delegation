@@ -336,17 +336,17 @@ export const BuilderSchedulePanel = ({
           </Field>
           {timed && (
             <Field label="Opens">
-              <TimePicker popover value={opensTime} onChange={onOpensTimeChange} placeholder="Any time" />
+              <TimePicker popover label="Opens" value={opensTime} onChange={onOpensTimeChange} placeholder="Any time" />
             </Field>
           )}
           {timed && (
             <Field label="Closes">
-              <TimePicker popover value={cutoffTime} onChange={onCutoffTimeChange} placeholder="Any time" />
+              <TimePicker popover label="Closes" value={cutoffTime} onChange={onCutoffTimeChange} placeholder="Any time" />
             </Field>
           )}
           {offerLate && (
             <Field label="Late until">
-              <TimePicker popover value={lateUntilTime} onChange={onLateUntilTimeChange} placeholder="None" />
+              <TimePicker popover label="Late until" value={lateUntilTime} onChange={onLateUntilTimeChange} placeholder="None" />
             </Field>
           )}
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Clock as ClockIcon, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { PickerShell } from '../dateTime/PickerShell';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -16,6 +17,8 @@ interface TimePickerProps {
   disabled?: boolean;
   popover?: boolean;
   prefix?: string;
+  label?: string;
+  collisionBoundary?: HTMLElement | null;
 }
 
 const TIME_PRESETS = [
@@ -125,6 +128,8 @@ export function TimePicker({
   disabled = false,
   popover = false,
   prefix,
+  label,
+  collisionBoundary,
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const [dialMode, setDialMode] = useState<'hour' | 'minute'>('hour');
@@ -156,7 +161,7 @@ export function TimePicker({
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || popover) return;
     const handlePointerDown = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -169,58 +174,57 @@ export function TimePicker({
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [open, popover]);
 
   const period: 'AM' | 'PM' = draft.h >= 12 ? 'PM' : 'AM';
   const hour12 = draft.h % 12 === 0 ? 12 : draft.h % 12;
   const handAngleDeg = dialMode === 'hour' ? (hour12 % 12) * 30 : (draft.m / 60) * 360;
+  const sheetTitle = label ?? prefix ?? (placeholder === 'Select a time' ? 'Choose a time' : placeholder);
 
-  return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={toggleOpen}
-        aria-expanded={open}
-        className={cn(
-          'flex items-center gap-2.5 w-full h-11 px-4 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
-          'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
-          open ? 'border-primary-500' : 'border-border hover:border-border-hover',
-          triggerClassName,
-        )}
-      >
-        <ClockIcon size={16} className="text-text-light shrink-0" />
-        <span className={cn('truncate', hasValue ? 'text-text font-medium' : 'text-text-muted font-medium')}>
-          {prefix && <span className="text-text-muted font-medium">{prefix} </span>}
-          {hasValue ? formatDisplay(draft.h, draft.m) : placeholder}
-        </span>
-        {hasValue && (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label="Clear time"
-            className="ml-auto p-1.5 text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-            onClick={(e) => {
+  const triggerButton = (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={popover ? undefined : toggleOpen}
+      aria-expanded={open}
+      className={cn(
+        'flex items-center gap-2.5 w-full h-11 px-4 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
+        open ? 'border-primary-500' : 'border-border hover:border-border-hover',
+        popover && className,
+        triggerClassName,
+      )}
+    >
+      <ClockIcon size={16} className="text-text-light shrink-0" />
+      <span className={cn('truncate', hasValue ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+        {prefix && <span className="text-text-muted font-medium">{prefix} </span>}
+        {hasValue ? formatDisplay(draft.h, draft.m) : placeholder}
+      </span>
+      {hasValue && (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Clear time"
+          className="ml-auto p-1.5 text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange('');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
               e.stopPropagation();
               onChange('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.stopPropagation();
-                onChange('');
-              }
-            }}
-          >
-            <X size={14} />
-          </span>
-        )}
-      </button>
+            }
+          }}
+        >
+          <X size={14} />
+        </span>
+      )}
+    </button>
+  );
 
-      <div className={popover
-        ? cn('absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-3 origin-top transition-[opacity,transform] duration-150', open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95 invisible')
-        : cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-        <div className={popover ? '' : 'overflow-hidden'}>
-          <div className={cn('flex flex-col gap-2.5', !popover && 'mt-3 pt-3 border-t border-border/60')}>
+  const panelContent = (
+    <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <button
@@ -330,8 +334,36 @@ export function TimePicker({
               })}
             </div>
 
-            <ExactTimeField value={value} onCommit={onChange} />
-          </div>
+      <ExactTimeField value={value} onCommit={onChange} />
+    </div>
+  );
+
+  if (popover) {
+    return (
+      <PickerShell
+        bare
+        open={open}
+        onOpenChange={(next) => {
+          if (disabled) return;
+          if (next) setDialMode('hour');
+          setOpen(next);
+        }}
+        trigger={triggerButton}
+        title={sheetTitle}
+        collisionBoundary={collisionBoundary}
+        popoverClassName="w-64"
+      >
+        {panelContent}
+      </PickerShell>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className={cn('relative', className)}>
+      {triggerButton}
+      <div className={cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+        <div className="overflow-hidden">
+          <div className="mt-3 pt-3 border-t border-border/60">{panelContent}</div>
         </div>
       </div>
     </div>
