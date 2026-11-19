@@ -16,6 +16,7 @@ import type { ChecklistImagePurpose, ChecklistInstanceItemSubmissionAccessory, T
 import type { CaptureMethod } from '../../api/ticket';
 import { weakPhotoMessage } from './photoQuality';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
+import { checklistCreateImportApi, type CreateImportPublishPayload } from '../../api/checklistCreateImport';
 import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import { pushUndo } from '../../lib/undoRedo';
 import { useCanReopen } from './instance/useCanReopen';
@@ -179,6 +180,26 @@ export const useChecklistBulkImportPublishMutation = () => {
       invalidateScoreCaches(queryClient);
     },
     onError: (err) => notifyError(err, "Couldn't publish this batch. Try again."),
+  });
+};
+
+export const useChecklistCreateImportPreviewMutation = () =>
+  useMutation({
+    mutationFn: (file: File) => checklistCreateImportApi.preview(file).then(r => r.data),
+    onError: (err) => notifyError(err, "Couldn't read that file. Try again."),
+  });
+
+export const useChecklistCreateImportPublishMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateImportPublishPayload) => checklistCreateImportApi.publish(payload).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      invalidateScoreCaches(queryClient);
+    },
+    onError: (err) => notifyError(err, "Couldn't create these checklists. Try again."),
   });
 };
 

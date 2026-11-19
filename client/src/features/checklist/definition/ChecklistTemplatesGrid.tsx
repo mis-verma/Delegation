@@ -6,15 +6,17 @@ import { invalidateScoreCaches } from '../../../lib/queryHelpers';
 import { toast } from 'sonner';
 import { DraftsDialog } from '../../drafts/DraftsDialog';
 import { useDraftsQuery } from '../../drafts/hook';
-import { Plus, ClipboardList, FileClock, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
+import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown } from 'lucide-react';
 import { Button, Skeleton, EmptyState, IconChip, InlineError, PageHeader, ToggleChip, ViewToggle, ENTITY_CARD_CLASS, type ViewTab } from '../../../components';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../context/AuthContext';
 import { useChecklistDefinitionsQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
+import { ChecklistCreateImportModal } from './bulkImport/ChecklistCreateImportModal';
 import { ExportDialog } from '../../reports';
 import { plural } from '../checklistDisplay';
 import { RECURRENCE_LABEL, RECURRENCE_ORDER } from '../recurrenceRegistry';
@@ -72,6 +74,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showCreateImport, setShowCreateImport] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
   const { data: checklistDrafts } = useDraftsQuery('CHECKLIST', canManage);
   const recurrenceParam = searchParams.get('recurrence')?.toLowerCase();
@@ -187,10 +190,31 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           <FileDown size={14} className="text-text-muted" />
           <span className="hidden sm:inline">Export</span>
         </Button>
-        <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setShowBulkImport(true)} aria-label="Import">
-          <Upload size={14} className="text-text-muted" />
-          <span className="hidden sm:inline">Import</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" aria-label="Bulk upload options">
+              <Upload size={14} className="text-text-muted" />
+              <span className="hidden sm:inline">Import</span>
+              <ChevronDown size={12} className="hidden text-text-muted sm:inline" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuItem onClick={() => setShowBulkImport(true)}>
+              <Upload size={14} className="shrink-0 text-text-muted" />
+              <span className="flex min-w-0 flex-col">
+                <span className="font-display font-semibold text-text">Assign an existing checklist</span>
+                <span className="t-meta text-text-muted">Give a checklist you already built to more stores or people</span>
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowCreateImport(true)}>
+              <UserPlus size={14} className="shrink-0 text-text-muted" />
+              <span className="flex min-w-0 flex-col">
+                <span className="font-display font-semibold text-text">Create new checklists</span>
+                <span className="t-meta text-text-muted">Build whole new checklists, with their questions, from a sheet</span>
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {definitions.length > 0 && (
           <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setSelectMode(true)} aria-label="Select checklists to delete">
             <SelectIcon size={14} className="text-text-muted" />
@@ -327,6 +351,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       )}
 
       <ChecklistBulkImportModal open={showBulkImport} onClose={() => setShowBulkImport(false)} />
+      <ChecklistCreateImportModal open={showCreateImport} onClose={() => setShowCreateImport(false)} />
       <DraftsDialog kind="CHECKLIST" open={showDrafts} onClose={() => setShowDrafts(false)} onOpenDraft={(d) => { setShowDrafts(false); navigate(`${BUILDER_PATH}?draft=${d.id}`); }} />
     </div>
   );

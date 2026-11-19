@@ -2,10 +2,8 @@ import { lateWindowProblem } from "./lateWindow.js"
 import { db } from "../../config/db.js"
 import { stores, users } from "../../db/schema/index.js"
 import { and, eq, inArray } from "drizzle-orm"
-import { parse as parseCsv } from "csv-parse/sync"
-import ExcelJS from "exceljs"
-import { PDFParse } from "pdf-parse"
 import { AppError } from "../../utils/AppError.js"
+import { parseSheetRecords, type SheetRecord } from "../../utils/sheetRows.js"
 import { checklistDefinitionService, listAllChecklistDefinitions, toItemInput } from "./checklistDefinition.service.js"
 import type { UpdateChecklistDefinitionInput } from "./checklistDefinition.validation.js"
 import { matchExactOrFuzzy, looksLikeEmail, type MatchConfidence } from "../../utils/fuzzyMatch.js"
@@ -61,7 +59,7 @@ const HEADER_ALIASES: Record<string, "checklistName" | "storeName" | "personName
     "dept": "department",
 }
 
-const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): BulkImportRawRow | null => {
+const buildRowFromRecord = (record: SheetRecord, rowIndex: number): BulkImportRawRow | null => {
     const mapped: Partial<Record<"checklistName" | "storeName" | "personName" | "department", string>> = {}
     for (const [key, value] of Object.entries(record)) {
         const canonical = HEADER_ALIASES[key.trim().toLowerCase()]
@@ -79,91 +77,13 @@ const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): B
     }
 }
 
-const parseCsvRows = (buffer: Buffer): BulkImportRawRow[] => {
-    const records = parseCsv(buffer, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[]
-    return records
-        .map((r, i) => buildRowFromRecord(r, i + 1))
-        .filter((r): r is BulkImportRawRow => r !== null)
-}
-
-const parseXlsxRows = async (buffer: Buffer): Promise<BulkImportRawRow[]> => {
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
-    const sheet = workbook.worksheets[0]
-    if (!sheet) return []
-
-    const headers: string[] = []
-    sheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        headers[colNumber] = String(cell.value ?? "").trim()
-    })
-
-    const rows: BulkImportRawRow[] = []
-    for (let r = 2; r <= sheet.rowCount; r++) {
-        const record: Record<string, string> = {}
-        sheet.getRow(r).eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            const header = headers[colNumber]
-            if (header) record[header] = String(cell.value ?? "").trim()
-        })
-        const built = buildRowFromRecord(record, r - 1)
-        if (built) rows.push(built)
-    }
-    return rows
-}
-
-const splitPdfLine = (line: string): string[] => {
-    if (line.includes(",")) return line.split(",").map((s) => s.trim())
-    if (line.includes("\t")) return line.split("\t").map((s) => s.trim())
-    return line.split(/\s{2,}/).map((s) => s.trim())
-}
-
-const rowsFromHeaderedLines = (headerCells: string[], dataRows: string[][]): BulkImportRawRow[] => {
-    const rows: BulkImportRawRow[] = []
-    dataRows.forEach((cells, i) => {
-        const record: Record<string, string> = {}
-        headerCells.forEach((h, idx) => { record[h] = cells[idx] ?? "" })
-        const built = buildRowFromRecord(record, i + 1)
-        if (built) rows.push(built)
-    })
-    return rows
-}
-
-const parsePdfRows = async (buffer: Buffer): Promise<{ rows: BulkImportRawRow[]; warnings: string[] }> => {
-    const warnings = ["PDF parsing is best-effort — double-check the rows below, or re-upload as CSV/Excel for reliable results."]
-    const parser = new PDFParse({ data: buffer })
-    try {
-        const tableResult = await parser.getTable()
-        const table = tableResult.pages?.[0]?.tables?.[0]
-        if (table && table.length >= 2) {
-            const [headerCells = [], ...dataCells] = table as string[][]
-            const rows = rowsFromHeaderedLines(headerCells.map((c) => String(c ?? "").trim()), dataCells)
-            if (rows.length) return { rows, warnings }
-        }
-
-        const textResult = await parser.getText()
-        const lines = textResult.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-        if (!lines.length) return { rows: [], warnings: [...warnings, "No readable text found in this PDF."] }
-
-        const [headerLine = "", ...dataLines] = lines
-        const rows = rowsFromHeaderedLines(splitPdfLine(headerLine), dataLines.map(splitPdfLine))
-        return { rows, warnings }
-    } finally {
-        await parser.destroy()
-    }
-}
-
 export const checklistBulkImportService = {
     async parseFile(buffer: Buffer, mimetype: string): Promise<{ rows: BulkImportRawRow[]; warnings: string[] }> {
-       
-        if (mimetype === "text/csv" || mimetype === "application/vnd.ms-excel") {
-            return { rows: parseCsvRows(buffer), warnings: [] }
-        }
-        if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-            return { rows: await parseXlsxRows(buffer), warnings: [] }
-        }
-        if (mimetype === "application/pdf") {
-            return parsePdfRows(buffer)
-        }
-        throw AppError.unprocessable("Unsupported file type — upload a CSV, Excel (.xlsx), or PDF file.")
+        const { records, warnings } = await parseSheetRecords(buffer, mimetype)
+        const rows = records
+            .map((r, i) => buildRowFromRecord(r, i + 1))
+            .filter((r): r is BulkImportRawRow => r !== null)
+        return { rows, warnings }
     },
 
     async matchRows(rawRows: BulkImportRawRow[]): Promise<BulkImportPreviewResult> {
