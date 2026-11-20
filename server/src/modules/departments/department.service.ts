@@ -8,6 +8,7 @@ import { AppError } from "../../utils/AppError.js";
 import type { CreateDepartmentInput, UpdateDepartmentInput } from "./department.validation.js";
 import { auditService } from "../audit/audit.service.js";
 import { cached, invalidate, cacheKey } from "../../config/queryCache.js";
+import { emitOrgChanged } from "../../sockets/socket.js";
 import { normalizeWeekOff, refreshAfterOrgWeekOffChange, sameWeekOff } from "../users/orgWeekOff.js";
 
 const CACHE_PREFIX = "lookup:Department";
@@ -103,6 +104,7 @@ export const departmentService = {
         const created = await getByIdOrThrow(id);
         await auditService.record({ entityType: "Department", entityId: id, action: "CREATE", actorId, after: created });
         await dropCache();
+        emitOrgChanged("department", id);
         return created;
     },
 
@@ -127,6 +129,7 @@ export const departmentService = {
         const after = await getByIdOrThrow(id);
         await auditService.record({ entityType: "Department", entityId: id, action: "UPDATE", actorId, before, after });
         await dropCache();
+        emitOrgChanged("department", id);
         if (!sameWeekOff(before.weekOffDays, after.weekOffDays)) await refreshAfterOrgWeekOffChange("department", id, after.name);
         return after;
     },
@@ -145,6 +148,7 @@ export const departmentService = {
         }
         await auditService.record({ entityType: "Department", entityId: id, action: "DELETE", actorId, before: department });
         await dropCache();
+        emitOrgChanged("department", id);
         return department;
     },
 

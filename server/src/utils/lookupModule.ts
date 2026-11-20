@@ -25,6 +25,7 @@ export type LookupOptions = {
     afterChange?: (before: LookupRow | undefined, after: LookupRow) => Promise<void>
     deleteBlockers?: (row: { id: string; name: string }) => Promise<string | null>
     beforeDelete?: (row: { id: string; name: string }) => Promise<void>
+    onChanged?: (id: string) => void
 }
 
 export const describeBlockers = (name: string, parts: { count: number; one: string; many: string }[]): string | null => {
@@ -93,6 +94,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, 
         await dropCache()
         if (item) await audit(req, item.id, "CREATE", undefined, item)
         if (item) await options.afterChange?.(undefined, item as LookupRow)
+        if (item) options.onChanged?.(item.id)
         res.status(201).json({ success: true, data: item })
     }))
 
@@ -115,6 +117,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, 
         await dropCache()
         await audit(req, item.id, "UPDATE", before, item)
         await options.afterChange?.(before as LookupRow, item as LookupRow)
+        options.onChanged?.(item.id)
         res.json({ success: true, data: item })
     }))
 
@@ -134,6 +137,7 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.ZodObject, 
         }
         await dropCache()
         await audit(req, existing.id, "DELETE", existing, undefined)
+        options.onChanged?.(existing.id)
         res.json({ success: true, data: { delete: true } })
     }))
 

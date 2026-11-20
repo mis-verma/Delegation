@@ -7,8 +7,8 @@ import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { toast } from 'sonner';
 import { DraftsDialog } from '../../drafts/DraftsDialog';
 import { useDraftsQuery } from '../../drafts/hook';
-import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown, Store, Building2, User } from 'lucide-react';
-import { Button, Skeleton, EmptyState, InlineError, PageHeader, ViewToggle, ENTITY_CARD_CLASS, SearchField, AppliedFilters, type AppliedFilter, type ViewTab } from '../../../components';
+import { Plus, ClipboardList, FileClock, FileDown, Upload, UserPlus, ListChecks as SelectIcon, X, Trash2, Repeat, ChevronDown, Store, Building2, User, Layers } from 'lucide-react';
+import { Button, Skeleton, EmptyState, InlineError, PageHeader, ViewToggle, ENTITY_CARD_CLASS, SearchField, AppliedFilters, SlidingTabs, type AppliedFilter, type SlidingTabOption, type ViewTab } from '../../../components';
 import { ChoiceChip, ChoiceClear, ChoiceIcon, ChoiceWrap, OptionSection, OptionsSheet } from '../../../components/optionsSheet';
 import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +42,25 @@ const VIEW_KEYS: readonly string[] = VIEW_TABS.map((t) => t.key);
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'paused';
 const STATUS_TILES = statusTiles<Exclude<StatusFilter, 'all'>>(['active', 'draft', 'paused']);
+
+type Period = 'all' | 'week' | 'month' | 'year';
+const PERIOD_OPTIONS: readonly SlidingTabOption<Period>[] = [
+  { value: 'all', label: 'All time', shortLabel: 'All' },
+  { value: 'week', label: 'This week', shortLabel: 'Week' },
+  { value: 'month', label: 'This month', shortLabel: 'Month' },
+  { value: 'year', label: 'This year', shortLabel: 'Year' },
+];
+
+const periodStartIso = (period: Period): string | undefined => {
+  if (period === 'all') return undefined;
+  const now = new Date();
+  if (period === 'week') {
+    const mondayOffset = (now.getDay() + 6) % 7;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset).toISOString();
+  }
+  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  return new Date(now.getFullYear(), 0, 1).toISOString();
+};
 
 const BUILDER_PATH = '/admin/scheduled-checklists/builder';
 
@@ -85,10 +104,13 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const assigneeId = searchParams.get('user') ?? '';
   const viewParam = searchParams.get('view');
   const view: DefinitionView = VIEW_KEYS.includes(viewParam ?? '') ? (viewParam as DefinitionView) : 'cards';
+  const periodParam = searchParams.get('period');
+  const period: Period = periodParam === 'week' || periodParam === 'month' || periodParam === 'year' ? periodParam : 'all';
+  const groupByStore = searchParams.get('group') === 'store';
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
-  const isFiltered = recurrence !== 'all' || status !== 'all' || !!storeId || !!departmentId || !!assigneeId || !!search.trim();
+  const isFiltered = recurrence !== 'all' || status !== 'all' || period !== 'all' || !!storeId || !!departmentId || !!assigneeId || !!search.trim();
   const [showFilters, setShowFilters] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -104,6 +126,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const departmentNames = useMemo(() => new Map(departmentOptions.map((o) => [o.value, o.label])), [departmentOptions]);
   const peopleNames = useMemo(() => new Map(peopleOptions.map((o) => [o.value, o.label])), [peopleOptions]);
 
+  const createdFrom = useMemo(() => periodStartIso(period), [period]);
+
   const { data, isPending, isError, isPlaceholderData, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery({
     ...(recurrence === 'all' ? {} : { recurrence }),
     ...(status === 'all' ? {} : status === 'active' ? { isActive: true } : { isActive: false, draft: status === 'draft' }),
@@ -111,6 +135,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
     ...(departmentId ? { departmentId } : {}),
     ...(assigneeId ? { assigneeId } : {}),
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+    ...(createdFrom ? { createdFrom } : {}),
   });
   const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.meta?.total ?? definitions.length;
@@ -123,20 +148,36 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
     ...(departmentId ? { departmentId } : {}),
     ...(assigneeId ? { assigneeId } : {}),
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+    ...(createdFrom ? { createdFrom } : {}),
   });
+
+  const storeSections = useMemo(() => {
+    if (!groupByStore) return null;
+    const byStore = new Map<string, typeof definitions>();
+    const noStore: typeof definitions = [];
+    for (const d of definitions) {
+      if (!d.storeIds.length) { noStore.push(d); continue; }
+      for (const sid of d.storeIds) byStore.set(sid, [...(byStore.get(sid) ?? []), d]);
+    }
+    const sections = [...byStore.entries()]
+      .map(([id, defs]) => ({ id, name: storeNames.get(id) ?? 'Unknown store', defs }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (noStore.length) sections.push({ id: 'none', name: 'No store yet', defs: noStore });
+    return sections;
+  }, [groupByStore, definitions, storeNames]);
 
   const selection = useMemo(() => {
     const loaded = new Set(definitions.map((d) => d.id));
     return new Set([...selectedIds].filter((id) => loaded.has(id)));
   }, [definitions, selectedIds]);
 
-  const setFilter = (key: 'recurrence' | 'status' | 'view' | 'store' | 'department' | 'user', value: string) => {
+  const setFilter = (key: 'recurrence' | 'status' | 'view' | 'store' | 'department' | 'user' | 'period' | 'group', value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (value === 'all' || value === '' || (key === 'view' && value === 'cards')) next.delete(key); else next.set(key, value);
       return next;
     }, { replace: true });
-    if (key !== 'view') setSelectedIds(new Set());
+    if (key !== 'view' && key !== 'group') setSelectedIds(new Set());
   };
   const clearFilters = () => {
     setSearchParams((prev) => {
@@ -146,6 +187,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       next.delete('store');
       next.delete('department');
       next.delete('user');
+      next.delete('period');
       return next;
     }, { replace: true });
     setSearch('');
@@ -373,6 +415,26 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
+          <SlidingTabs
+            label="Period"
+            value={period}
+            options={PERIOD_OPTIONS}
+            onChange={(next) => setFilter('period', next)}
+            size="sm"
+            fill="phone"
+            className="min-w-0 flex-1 sm:flex-none"
+          />
+          {view !== 'table' && (
+            <Button
+              size="sm"
+              variant={groupByStore ? 'secondary' : 'ghost'}
+              aria-pressed={groupByStore}
+              onClick={() => setFilter('group', groupByStore ? '' : 'store')}
+            >
+              <Layers size={14} className={groupByStore ? 'text-primary-600' : 'text-text-muted'} />
+              Group by store
+            </Button>
+          )}
           {isFiltered && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>
               Clear filters
@@ -427,22 +489,60 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       )}
 
       {definitions.length > 0 && view === 'list' && (
-        <div className={cn('transition-opacity', isRefreshing && 'opacity-60')}>
-          <ChecklistDefinitionRows definitions={definitions} selectionMode={selectMode} selection={selection} onToggleSelected={toggleSelected} />
+        <div className={cn('flex flex-col gap-5 transition-opacity', isRefreshing && 'opacity-60')}>
+          {storeSections ? (
+            storeSections.map((section) => (
+              <div key={section.id} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 px-1">
+                  <Store size={14} className="text-text-muted shrink-0" aria-hidden />
+                  <h3 className="t-card font-display font-bold text-text">{section.name}</h3>
+                  <span className="t-meta font-display text-text-muted">{plural(section.defs.length, 'checklist')}</span>
+                </div>
+                <ChecklistDefinitionRows definitions={section.defs} selectionMode={selectMode} selection={selection} onToggleSelected={toggleSelected} />
+              </div>
+            ))
+          ) : (
+            <ChecklistDefinitionRows definitions={definitions} selectionMode={selectMode} selection={selection} onToggleSelected={toggleSelected} />
+          )}
         </div>
       )}
 
       {definitions.length > 0 && view === 'cards' && (
-        <div className={cn('grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 transition-opacity', isRefreshing && 'opacity-60')}>
-          {definitions.map((d) => (
-            <ChecklistDefinitionCard
-              key={d.id}
-              definition={d}
-              selectionMode={selectMode}
-              selected={selection.has(d.id)}
-              onToggleSelected={toggleSelected}
-            />
-          ))}
+        <div className={cn('flex flex-col gap-6 transition-opacity', isRefreshing && 'opacity-60')}>
+          {storeSections ? (
+            storeSections.map((section) => (
+              <div key={section.id} className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 px-1">
+                  <Store size={14} className="text-text-muted shrink-0" aria-hidden />
+                  <h3 className="t-card font-display font-bold text-text">{section.name}</h3>
+                  <span className="t-meta font-display text-text-muted">{plural(section.defs.length, 'checklist')}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
+                  {section.defs.map((d) => (
+                    <ChecklistDefinitionCard
+                      key={d.id}
+                      definition={d}
+                      selectionMode={selectMode}
+                      selected={selection.has(d.id)}
+                      onToggleSelected={toggleSelected}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
+              {definitions.map((d) => (
+                <ChecklistDefinitionCard
+                  key={d.id}
+                  definition={d}
+                  selectionMode={selectMode}
+                  selected={selection.has(d.id)}
+                  onToggleSelected={toggleSelected}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

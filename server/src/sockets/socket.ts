@@ -104,6 +104,17 @@ export const initSocket =async (httpServer: HttpServer, useRedisAdapter: boolean
     return io;
 }
 
+export type OrgEntity = "store" | "department" | "user"
+
+export const emitOrgChanged = (entity: OrgEntity, id?: string) => {
+    if (!io) return;
+    try {
+        io.emit("org:changed", { entity, id: id ?? null });
+    } catch (err) {
+        console.error("Failed to broadcast org change", entity, err);
+    }
+}
+
 export const getIO = (): SocketIOServer => {
     if (!io) throw new Error("Socket.io not initialized");
     return io;

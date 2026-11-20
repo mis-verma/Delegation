@@ -44,7 +44,7 @@ export const checklistInstanceController = {
     }),
 
     list: asyncHandler(async (req: Request, res: Response) => {
-        const { page, limit, from, to, status, definitionId, storeId, assigneeId } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit, from, to, status, definitionId, storeId, assigneeId, q } = listChecklistInstancesQuerySchema.parse(req.query)
         const isOrgWide = isAdminOrPc(req.user!.role)
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
         const result = await checklistInstanceService.listAll({
@@ -57,6 +57,7 @@ export const checklistInstanceController = {
             from,
             to,
             includeDeleted,
+            q,
             page,
             limit,
         })

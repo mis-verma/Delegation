@@ -12,7 +12,7 @@ import {
     departments,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, count, inArray, isNull, like, sql, type SQL } from "drizzle-orm"
+import { eq, and, asc, count, gte, inArray, isNull, like, lte, sql, type SQL } from "drizzle-orm"
 import { cached, cacheKey } from "../../config/queryCache.js"
 import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
@@ -44,6 +44,8 @@ export type ListChecklistDefinitionsFilter = {
     recurrence?: ChecklistRecurrence
     isActive?: boolean
     draft?: boolean
+    createdFrom?: string
+    createdTo?: string
     page?: number
     limit?: number
 }
@@ -66,7 +68,7 @@ export const buildDefinitionsMeta = (p: { page: number; limit: number }, total: 
 
 export const noAssigneesExpr = sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitionAssignees} a WHERE a.definitionId = ${checklistDefinitions.id})`
 
-export type DefinitionScopeFilter = Pick<ListChecklistDefinitionsFilter, "storeId" | "departmentId" | "assigneeId" | "search" | "recurrence">
+export type DefinitionScopeFilter = Pick<ListChecklistDefinitionsFilter, "storeId" | "departmentId" | "assigneeId" | "search" | "recurrence" | "createdFrom" | "createdTo">
 
 export const scopeConditionsFor = async (filter: DefinitionScopeFilter): Promise<SQL[] | null> => {
     const conditions: SQL[] = [NOT_DELETED]
@@ -94,6 +96,14 @@ export const scopeConditionsFor = async (filter: DefinitionScopeFilter): Promise
         conditions.push(inArray(checklistDefinitions.id, links.map((l) => l.definitionId)))
     }
     if (filter.search?.trim()) conditions.push(like(checklistDefinitions.name, `%${filter.search.trim()}%`))
+    if (filter.createdFrom) {
+        const from = new Date(filter.createdFrom)
+        if (!Number.isNaN(from.getTime())) conditions.push(gte(checklistDefinitions.createdAt, from))
+    }
+    if (filter.createdTo) {
+        const to = new Date(filter.createdTo)
+        if (!Number.isNaN(to.getTime())) conditions.push(lte(checklistDefinitions.createdAt, to))
+    }
     return conditions
 }
 

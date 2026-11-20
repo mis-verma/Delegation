@@ -2,6 +2,7 @@ import { z } from "zod"
 import { normalizeWeekOff, refreshAfterOrgWeekOffChange, sameWeekOff } from "../users/orgWeekOff.js"
 import { and, eq, isNull, ne, sql } from "drizzle-orm"
 import { createLookupRouter, describeBlockers } from "../../utils/lookupModule.js";
+import { emitOrgChanged } from "../../sockets/socket.js"
 import { db } from "../../config/db.js"
 import {
     stores,
@@ -48,6 +49,7 @@ export const StoreRouter = createLookupRouter(stores, storeBodySchema, {
     entityType: "Store",
     deleteBlockers: storeBlockers,
     normalize: normalizeWeekOff,
+    onChanged: (id) => emitOrgChanged("store", id),
     afterChange: async (before, after) => {
         if (sameWeekOff(before?.weekOffDays as number[] | null | undefined, after.weekOffDays as number[] | null | undefined)) return
         await refreshAfterOrgWeekOffChange("store", after.id, String(after.name))

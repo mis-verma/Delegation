@@ -109,6 +109,7 @@ export const listChecklistInstancesQuerySchema = z.object({
     storeId: objectId.optional(),
     assigneeId: objectId.optional(),
     personId: objectId.optional(),
+    q: z.string().trim().max(100).optional().transform((s) => s || undefined),
 })
 
 export const summaryQuerySchema = z.object({

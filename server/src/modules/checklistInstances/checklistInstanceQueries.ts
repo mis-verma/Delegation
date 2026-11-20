@@ -23,6 +23,7 @@ import { runSelect, runGroupBy, runFlagsOf, loadExtraDayAssignees } from "../che
 import { orgLocalDate, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { loadOffDayRules } from "../scores/offDayRules.js"
 import { runCompletionPct } from "../scores/scoreFormulas.js"
+import { instanceSearchCondition } from "./checklistInstanceSearch.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 import { type InstanceStatusFilter, type ChecklistPendingApprovalRow, hydrateInstances, getPopulatedInstanceById, describeItemChange, parentNotDeletedExpr, paginate, buildMeta, countInstances, isHod, assertCanView, DECISIONS_MAX, DECISION_ACTIONS, type ChecklistDecision, type InstanceRecurrence, type InstanceVerificationStatus, type InstanceListFilter, instanceConditions, pendingApprovalScope, SUMMARY_TTL_SECONDS, CHECKLIST_SUMMARY_PREFIX, summaryOwnerKey, SUMMARY_VERSION_ALL, summaryVersionOf } from "./checklistInstanceShared.js"
 
@@ -76,9 +77,9 @@ export const getMyFocus = async (userId: string, options: { hideEnded: boolean }
     return hydrateInstances([...byId.values()])
 }
 
-export const listAll = async (filter: InstanceListFilter & { page?: number; limit?: number }) => {
+export const listAll = async (filter: InstanceListFilter & { page?: number; limit?: number; q?: string }) => {
     const p = paginate(filter.page, filter.limit)
-    const where = instanceConditions(filter)
+    const where = filter.q ? and(instanceConditions(filter), instanceSearchCondition(filter.q)) : instanceConditions(filter)
     const total = await countInstances(where)
     const instanceRows = await db.select().from(checklistInstances)
         .where(where)

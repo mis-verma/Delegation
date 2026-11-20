@@ -80,6 +80,7 @@ export type ChecklistDefinition = {
   departmentNames: string[];
   version: number;
   createdBy: string;
+  createdAt: string;
   items: ChecklistDefinitionItem[];
   completionRate: number | null;
   currentRate: number | null;
@@ -158,6 +159,8 @@ export type ListChecklistDefinitionsParams = {
   recurrence?: ChecklistRecurrence;
   isActive?: boolean;
   draft?: boolean;
+  createdFrom?: string;
+  createdTo?: string;
   page?: number;
   limit?: number;
 };
@@ -177,7 +180,7 @@ export type ChecklistDefinitionsSummary = {
   paused: number;
 };
 
-export type ChecklistDefinitionsSummaryParams = Pick<ListChecklistDefinitionsParams, 'storeId' | 'departmentId' | 'assigneeId' | 'search' | 'recurrence'>;
+export type ChecklistDefinitionsSummaryParams = Pick<ListChecklistDefinitionsParams, 'storeId' | 'departmentId' | 'assigneeId' | 'search' | 'recurrence' | 'createdFrom' | 'createdTo'>;
 
 const buildQuery = (params: Record<string, string | undefined>) => {
   const search = new URLSearchParams();
@@ -241,6 +244,8 @@ export const checklistDefinitionApi = {
       recurrence: params.recurrence,
       isActive: params.isActive === undefined ? undefined : String(params.isActive),
       draft: params.draft === undefined ? undefined : String(params.draft),
+      createdFrom: params.createdFrom,
+      createdTo: params.createdTo,
       page: params.page === undefined ? undefined : String(params.page),
       limit: params.limit === undefined ? undefined : String(params.limit),
     })}`).then((r) => ({ ...r, data: normalizeDefinitions(r.data) })),
@@ -252,6 +257,8 @@ export const checklistDefinitionApi = {
       assigneeId: params.assigneeId,
       search: params.search,
       recurrence: params.recurrence,
+      createdFrom: params.createdFrom,
+      createdTo: params.createdTo,
     })}`).then((r) => r.data),
 
   getOne: (id: string) =>
