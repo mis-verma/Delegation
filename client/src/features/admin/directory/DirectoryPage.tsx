@@ -13,7 +13,7 @@ import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 
 const PresenceOverview = lazy(() => import('../presence').then((m) => ({ default: m.PresenceOverview })));
-const CustomRoleList = lazy(() => import('../customRoles/CustomRoleList').then((m) => ({ default: m.CustomRoleList })));
+const RolesPage = lazy(() => import('../customRoles/RolesPage').then((m) => ({ default: m.RolesPage })));
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
 const CategoryList = lazy(() => import('../../settings/CategoryList').then((m) => ({ default: m.CategoryList })));
 const PeopleSettings = lazy(() => import('./PeopleSettings').then((m) => ({ default: m.PeopleSettings })));
@@ -131,7 +131,7 @@ export const DirectoryPage = () => {
         </TabsContent>
         <TabsContent value="roles">
           <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-            <CustomRoleList />
+            <RolesPage />
           </Suspense>
         </TabsContent>
         <TabsContent value="settings">
