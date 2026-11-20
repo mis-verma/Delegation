@@ -24,10 +24,11 @@ interface FillAsideProps {
   submit: SubmitRun;
   onNext?: () => void;
   title: string;
+  selfCompleteAll?: ReactNode;
 }
 
 export const FillAside = ({
-  progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, title,
+  progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, title, selfCompleteAll,
 }: FillAsideProps) => (
   <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-hidden">
     <div className={cn(PANEL_CLASS, 'flex shrink-0 flex-col gap-4 p-4')}>
@@ -59,6 +60,7 @@ export const FillAside = ({
           <ArrowDown size={14} aria-hidden />
         </Button>
       ) : null}
+      {selfCompleteAll}
     </div>
 
     {sections.length > 1 && (

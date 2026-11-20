@@ -526,13 +526,24 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
     ])
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeIds = assigneeLinks.map((l) => l.userId)
-    if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You can't use Complete all on a checklist you fill in yourself.")
-    if (!isAdminOrPc(user.role)) {
-        if (!actor?.canCompleteAll) throw AppError.forbidden("Only an Admin, a PC or someone given Complete all can close every question at once.")
-        await assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+
+    // Two ways in: a reviewer closing out someone else's open questions (needs review authority), or the
+    // person filling it closing their own remaining questions right at submit time (needs none of that,
+    // but only works before it's gone to approval).
+    const isSelfService = assigneeIds.includes(user.sub)
+    if (isSelfService) {
+        if (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED") {
+            throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved." : "This checklist has already been submitted.")
+        }
+        await assertRunOpenForUser(id, user)
+    } else {
+        if (!isAdminOrPc(user.role)) {
+            if (!actor?.canCompleteAll) throw AppError.forbidden("Only an Admin, a PC or someone given Complete all can close every question at once.")
+            await assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+        }
+        await assertCoordinatorRunReviewer(id, user)
+        if (instance.verificationStatus === "APPROVED") throw AppError.badRequest("This checklist is already approved.")
     }
-    await assertCoordinatorRunReviewer(id, user)
-    if (instance.verificationStatus === "APPROVED") throw AppError.badRequest("This checklist is already approved.")
     assertInstanceOpen(instance)
 
     const now = new Date()
@@ -556,7 +567,7 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: "COMPLETE_ALL", actorId: user.sub,
         before: { openItems: closedIds.length, verificationStatus: instance.verificationStatus },
-        after: { closedItemIds: closedIds, reason },
+        after: { closedItemIds: closedIds, reason, ...(isSelfService ? { selfService: true } : {}) },
     })
     if (instance.verificationStatus === "NOT_SUBMITTED" || instance.verificationStatus === "REJECTED") {
         await commitSubmission(instance, assigneeIds, user.sub)

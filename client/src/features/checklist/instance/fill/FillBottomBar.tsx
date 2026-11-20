@@ -13,6 +13,7 @@ interface FillBottomBarProps {
   submit: SubmitRun;
   onNext?: () => void;
   late?: ReactNode;
+  selfCompleteAll?: ReactNode;
 }
 
 export const FillProgressText = ({ progress, className }: { progress: FillProgress; className?: string }) => {
@@ -35,7 +36,7 @@ export const FillProgressText = ({ progress, className }: { progress: FillProgre
   );
 };
 
-export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, late }: FillBottomBarProps) => (
+export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, late, selfCompleteAll }: FillBottomBarProps) => (
   <div
     className={cn(
       PANEL_CLASS,
@@ -57,5 +58,6 @@ export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, l
         </Button>
       ) : null}
     </div>
+    {selfCompleteAll && <div className="pt-0.5">{selfCompleteAll}</div>}
   </div>
 );

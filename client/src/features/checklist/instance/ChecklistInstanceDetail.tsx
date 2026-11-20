@@ -13,8 +13,9 @@ import {
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
-import { canCompleteAllRun, canWaiveRun } from './canWaive';
+import { canCompleteAllRun, canSelfCompleteAllRun, canWaiveRun } from './canWaive';
 import { CompleteAllAction } from './CompleteAllAction';
+import { SelfCompleteAllAction } from './SelfCompleteAllAction';
 import { useMyProfileQuery } from '../../settings/hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
@@ -198,6 +199,7 @@ export const ChecklistInstanceDetail = () => {
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
   const showCompleteAll = left > 0 && !notYetOpen && canCompleteAllRun(user, instance, myProfile?.canCompleteAll === true);
+  const showSelfCompleteAll = left > 0 && !notYetOpen && canWork && !canReview && canSelfCompleteAllRun(user, instance);
   const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items) };
   const filling = canWork && !isLocked && total > 0 && !canReview;
   const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
@@ -665,6 +667,7 @@ export const ChecklistInstanceDetail = () => {
               submit={submit}
               onNext={left > 0 ? goToNext : undefined}
               late={lateChip}
+              selfCompleteAll={showSelfCompleteAll ? <SelfCompleteAllAction instanceId={instance.id} openCount={left} onDone={goBackToList} /> : undefined}
             />
           )}
 
@@ -690,6 +693,7 @@ export const ChecklistInstanceDetail = () => {
             resubmit={resubmit}
             submit={submit}
             onNext={filling && left > 0 ? goToNext : undefined}
+            selfCompleteAll={showSelfCompleteAll ? <SelfCompleteAllAction instanceId={instance.id} openCount={left} onDone={goBackToList} /> : undefined}
           />
         )}
       </div>

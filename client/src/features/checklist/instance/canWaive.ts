@@ -21,3 +21,10 @@ export const canCompleteAllRun = (user: Viewer, instance: ClosableRun, optedIn: 
   if (user.role === 'ADMIN' || user.role === 'PC') return true;
   return optedIn && (instance.reviewerIds.includes(user.id) || user.role === 'MANAGER' || user.role === 'SENIOR');
 };
+
+/** The person filling the checklist, closing their own remaining questions right at submit time. */
+export const canSelfCompleteAllRun = (user: Viewer, instance: Pick<ChecklistInstance, 'assigneeIds' | 'verificationStatus'>): boolean => {
+  if (!user) return false;
+  if (!instance.assigneeIds.includes(user.id)) return false;
+  return instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED';
+};
