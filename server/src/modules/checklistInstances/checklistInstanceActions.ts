@@ -532,6 +532,7 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
     // but only works before it's gone to approval).
     const isSelfService = assigneeIds.includes(user.sub)
     if (isSelfService) {
+        if (!isAdminOrPc(user.role)) throw AppError.forbidden("Only an Admin or a PC can close their own remaining questions this way.")
         if (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED") {
             throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved." : "This checklist has already been submitted.")
         }
