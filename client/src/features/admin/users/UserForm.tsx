@@ -23,6 +23,8 @@ import { DressTypeFormDialog } from '../dressTypes/DressTypeFormDialog';
 import { useDressTypesQuery } from '../dressTypes/hook';
 import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
+import { useCustomRolesQuery } from '../hook';
+import type { CustomRole } from '../../../api/customRoles';
 import { useAuth } from '../../../context/AuthContext';
 import { FormField, FormPreview, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
@@ -43,6 +45,7 @@ const buildUserSchema = (isEditing: boolean) =>
       password: z.string().optional(),
       employeeId: z.string().trim().refine((v) => !v || /^[A-Za-z0-9][A-Za-z0-9-]{0,31}$/.test(v), 'Use letters, numbers and dashes only, up to 32 characters').optional(),
       role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC', 'OWNER'] as const),
+      customRoleId: z.string(),
       departmentId: z.string().optional(),
       storeId: z.string().optional(),
       gender: z.enum(['', 'FEMALE', 'MALE']),
@@ -110,6 +113,58 @@ const RolePicker = ({ value, onChange, roles }: { value: Role; onChange: (role: 
   </div>
 );
 
+const CustomRolePicker = ({
+  role,
+  customRoleId,
+  customRoles,
+  onPickCustomRole,
+  onClearCustomRole,
+  roleChoices,
+  onRoleChange,
+}: {
+  role: Role;
+  customRoleId: string;
+  customRoles: CustomRole[];
+  onPickCustomRole: (customRole: CustomRole) => void;
+  onClearCustomRole: () => void;
+  roleChoices: Role[];
+  onRoleChange: (role: Role) => void;
+}) => {
+  const picked = customRoles.find((r) => r.id === customRoleId);
+  if (picked) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface-hover/40 px-3 py-2.5">
+        <RoleChip role={picked.baseRole} label={picked.name} />
+        <span className="t-meta font-display text-text-muted">Acts as {ROLE_META[picked.baseRole].label}</span>
+        <Button type="button" variant="outline" size="sm" onClick={onClearCustomRole} className="ml-auto">
+          Change
+        </Button>
+      </div>
+    );
+  }
+  const options = customRoles.filter((r) => r.isActive);
+  return (
+    <div className="flex flex-col gap-2">
+      <RolePicker value={role} onChange={onRoleChange} roles={roleChoices} />
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {options.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onPickCustomRole(r)}
+              className="flex items-center gap-1.5 min-h-9 px-2.5 rounded-lg border border-border bg-surface hover:border-primary-300 t-meta font-display font-semibold text-text-secondary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              {r.name}
+              <span className="text-text-light font-normal">· {ROLE_META[r.baseRole].label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const GENDER_CHOICES = [
   { value: '', label: 'Not set' },
   { value: 'FEMALE', label: 'Female' },
@@ -150,6 +205,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
 
   const { data: departments, isPending: isDepartmentsLoading } = useDepartmentsQuery();
   const { data: stores, isPending: isStoresLoading } = useStoresQuery();
+  const { data: customRoles } = useCustomRolesQuery();
 
   const schema = useMemo(() => buildUserSchema(isEditing), [isEditing]);
 
@@ -176,6 +232,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       phone: user?.phone ?? '',
       employeeId: user?.employeeId ?? '',
       role: user?.role ?? 'USER',
+      customRoleId: user?.customRoleId ?? '',
       departmentId: user?.departmentId ?? prefill?.departmentId ?? '',
       storeId: user?.storeId ?? '',
       gender: user?.gender ?? '',
@@ -187,10 +244,11 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     },
   });
 
-  const [role, departmentId, storeId, passwordValue, genderValue, dressTypeValue, firstNameValue, lastNameValue, emailValue, weekOffValue] = useWatch({
+  const [role, customRoleId, departmentId, storeId, passwordValue, genderValue, dressTypeValue, firstNameValue, lastNameValue, emailValue, weekOffValue] = useWatch({
     control,
-    name: ['role', 'departmentId', 'storeId', 'password', 'gender', 'dressTypeId', 'firstName', 'lastName', 'email', 'weekOffDays'],
+    name: ['role', 'customRoleId', 'departmentId', 'storeId', 'password', 'gender', 'dressTypeId', 'firstName', 'lastName', 'email', 'weekOffDays'],
   });
+  const pickedCustomRole = customRoleId ? customRoles?.find((r) => r.id === customRoleId) : undefined;
   const isPending = mutation.isPending || isSubmitting;
 
   const inheritedOff = useMemo(() => {
@@ -305,6 +363,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if (!isPcEditing && data.email.trim().toLowerCase() !== user.email.toLowerCase()) payload.email = data.email;
       if ((phone ?? null) !== ((user.phone?.trim() || null))) payload.phone = phone ?? '';
       if (!isPcEditing && data.role !== user.role) payload.role = data.role;
+      if (!isPcEditing && (data.customRoleId || null) !== (user.customRoleId ?? null)) payload.customRoleId = data.customRoleId || null;
       if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
       if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
@@ -319,10 +378,13 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         onClose();
         return;
       }
-      if (payload.role) {
+      if (payload.role || payload.customRoleId !== undefined) {
+        const fromLabel = user.customRoleId ? (customRoles?.find((r) => r.id === user.customRoleId)?.name ?? ROLE_META[user.role].label) : ROLE_META[user.role].label;
+        const toCustomRole = payload.customRoleId ? customRoles?.find((r) => r.id === payload.customRoleId) : undefined;
+        const toLabel = toCustomRole ? toCustomRole.name : ROLE_META[payload.role ?? user.role].label;
         const ok = await confirm({
-          title: `Change ${fullName(user)} to ${ROLE_META[payload.role].label}?`,
-          description: `They go from ${ROLE_META[user.role].label} to ${ROLE_META[payload.role].label}. What they can see and do changes right away.`,
+          title: `Change ${fullName(user)} to ${toLabel}?`,
+          description: `They go from ${fromLabel} to ${toLabel}. What they can see and do changes right away.`,
           confirmLabel: 'Change role',
         });
         if (!ok) return;
@@ -342,6 +404,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         phone,
         password,
         role: data.role,
+        customRoleId: data.customRoleId || undefined,
         departmentId: departmentPayload,
         storeId: storePayload,
         gender: data.gender || undefined,
@@ -437,7 +500,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 subtitle={emailValue?.trim() || 'Email not added yet'}
                 chips={
                   <>
-                    <RoleChip role={role} />
+                    <RoleChip role={role} label={pickedCustomRole?.name} />
                     {departmentName ? (
                       <DepartmentChip name={departmentName} />
                     ) : (
@@ -553,11 +616,24 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   </div>
                 )}
 
-                <FormField label="Role" icon={ShieldCheck} hint={ROLE_META[role].description}>
+                <FormField label="Role" icon={ShieldCheck} hint={pickedCustomRole ? pickedCustomRole.description ?? undefined : ROLE_META[role].description}>
                   <Controller
                     control={control}
                     name="role"
-                    render={({ field }) => <RolePicker value={field.value} onChange={field.onChange} roles={roleChoices} />}
+                    render={({ field }) => (
+                      <CustomRolePicker
+                        role={field.value}
+                        customRoleId={customRoleId}
+                        customRoles={customRoles ?? []}
+                        roleChoices={roleChoices}
+                        onRoleChange={field.onChange}
+                        onPickCustomRole={(cr) => {
+                          field.onChange(cr.baseRole);
+                          setValue('customRoleId', cr.id, { shouldDirty: true });
+                        }}
+                        onClearCustomRole={() => setValue('customRoleId', '', { shouldDirty: true })}
+                      />
+                    )}
                   />
                 </FormField>
 

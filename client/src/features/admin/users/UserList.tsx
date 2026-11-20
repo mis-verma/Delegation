@@ -26,8 +26,9 @@ import { useFilteredUsers } from './useFilteredUsers';
 import { fullName, peopleCount } from './userDisplay';
 import { presenceLabel } from '../presenceDisplay';
 import { useMonthScores } from '../directory/orgScoreData';
-import { ROLE_LABEL, ROLE_META, isDepartmentHead } from '../roleBadge';
+import { ROLE_META, isDepartmentHead } from '../roleBadge';
 import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { peopleRosterRows, type PeopleExportOrder } from './peopleExport';
 import { TableSkeleton } from '../../../components/dataTable';
 import {
   EmptyState,
@@ -124,30 +125,8 @@ export const UserList = () => {
       ? (deleteMut.variables ?? null)
       : null;
 
-  const exportRows = (): TableRows => {
-    const rows = filtered.map((u) => ({
-      name: fullName(u),
-      store: u.storeId ? storeNames.get(u.storeId) ?? '' : '',
-      department: u.departmentId ? departmentNames.get(u.departmentId) ?? '' : '',
-      user: u,
-    }));
-    const byText = (a: string, b: string) => (a === b ? 0 : !a ? 1 : !b ? -1 : a.localeCompare(b));
-    rows.sort((a, b) => byText(a.store, b.store) || byText(a.department, b.department) || a.name.localeCompare(b.name));
-    return [
-      ['Store', 'Department', 'Name', 'Employee ID', 'Email', 'Phone', 'Role', 'Status', 'Joined'],
-      ...rows.map(({ name, store, department, user: u }) => [
-        store,
-        department,
-        name,
-        u.employeeId ?? '',
-        u.email,
-        u.phone ?? '',
-        ROLE_LABEL[u.role],
-        u.isActive ? 'Active' : 'Deactivated',
-        u.createdAt.slice(0, 10),
-      ]),
-    ];
-  };
+  const peopleById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const exportRowsBy = (order: PeopleExportOrder): TableRows => peopleRosterRows(filtered, order, { departmentNames, storeNames, peopleById });
 
   const canSelect = useCallback((u: AdminUser) => u.id !== me?.id && !(me?.role === 'PC' && (u.role === 'ADMIN' || u.role === 'OWNER')), [me?.id, me?.role]);
   const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && canSelect(u)), [filtered, selectedIds, canSelect]);
@@ -358,10 +337,18 @@ export const UserList = () => {
             iconOnly
             disabled={filtered.length === 0}
             aria-label="Export the people in this list"
-            filename="people"
+            filename="people-by-department"
             sheetName="People"
-            title={exportTitle({ what: 'People', filters: { Search: list.searchText.trim() || null } })}
-            getRows={exportRows}
+            label="By department"
+            title={exportTitle({ what: 'People, by department', filters: { Search: list.searchText.trim() || null } })}
+            getRows={() => exportRowsBy('department')}
+            more={[{
+              filename: 'people-by-store',
+              sheetName: 'People',
+              label: 'By store',
+              title: exportTitle({ what: 'People, by store', filters: { Search: list.searchText.trim() || null } }),
+              getRows: () => exportRowsBy('store'),
+            }]}
           />
         }
       />

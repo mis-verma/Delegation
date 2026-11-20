@@ -25,6 +25,7 @@ import { disconnectUserSockets } from "../../sockets/socket.js"
 import { invalidateAuthUsers } from "../../middleware/auth/authCache.js"
 import { assertCanDeactivate, revokeSessions } from "./userGuards.js"
 import { refreshLiveChecklistsForDefinitions } from "./userChecklistSync.js"
+import { emitOrgChanged } from "../../sockets/socket.js"
 
 export type OffboardingSummary = {
     openTickets: number
@@ -324,6 +325,8 @@ export const userOffboardingService = {
                 }))
             }
         }
+
+        emitOrgChanged("user", userId)
 
         return {
             summary: {

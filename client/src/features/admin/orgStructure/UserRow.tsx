@@ -8,6 +8,7 @@ import type { AdminUser } from '../../../api/admin';
 import { MoveToMenu } from './MoveToMenu';
 import { useOrgMove } from './orgMoveContext';
 import { ScorePill } from '../directory/orgScores';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,6 +31,8 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
   const name = `${user.firstName} ${user.lastName ?? ''}`.trim();
   const orgApi = useOrgMove();
   const reportsToName = user.reportsToId ? orgApi?.nameOf(user.reportsToId) : undefined;
+  const customRoleNames = useCustomRoleNames();
+  const roleLabel = user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined;
 
   return (
     <div
@@ -64,7 +67,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
         <p className="t-meta font-display text-text-muted line-clamp-1 break-all">{user.email}</p>
         {reportsToName && <p className="t-meta font-display text-text-muted line-clamp-1">Reports to <span className="font-semibold text-text-secondary">{reportsToName}</span></p>}
         <div className="flex flex-wrap items-center gap-1">
-          <RoleChip role={user.role} className="@sm:hidden" />
+          <RoleChip role={user.role} label={roleLabel} className="@sm:hidden" />
           {isHead && (
             <span className={cn(CHIP, 'border-primary-500/30 bg-primary-500/10 text-primary-700 dark:text-primary-300')}>
               <Crown className="size-3" aria-hidden />
@@ -81,7 +84,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
           {!user.isActive && <StateChip active={false} label="Deactivated" size="sm" />}
         </div>
       </div>
-      <RoleChip role={user.role} className="hidden @sm:inline-flex shrink-0" />
+      <RoleChip role={user.role} label={roleLabel} className="hidden @sm:inline-flex shrink-0" />
       <ScorePill kind="person" id={user.id} name={name} />
       <MoveToMenu userId={user.id} userName={name} currentDepartmentId={user.departmentId} />
     </div>

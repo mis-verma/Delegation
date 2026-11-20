@@ -29,6 +29,6 @@ interface TicketQuickStatsProps {
 
 export const TicketQuickStats = ({ counts, total, active, onToggle, isLoading, error, onRetry }: TicketQuickStatsProps) => (
   <div className="relative w-full">
-    <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Ticket figures" />
+    <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Ticket figures" surface="light" />
   </div>
 );

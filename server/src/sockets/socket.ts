@@ -104,7 +104,7 @@ export const initSocket =async (httpServer: HttpServer, useRedisAdapter: boolean
     return io;
 }
 
-export type OrgEntity = "store" | "department" | "user"
+export type OrgEntity = "store" | "department" | "user" | "customRole"
 
 export const emitOrgChanged = (entity: OrgEntity, id?: string) => {
     if (!io) return;

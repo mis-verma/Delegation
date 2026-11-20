@@ -23,6 +23,7 @@ export const createUserSchema = z.object({
     firstName: nameSchema,
     lastName: lastNameSchema.optional(),
     role: z.enum(ROLES),
+    customRoleId: objectId.nullable().optional(),
     departmentId: objectId.optional(),
     storeId: objectId.optional(),
     gender: z.enum(GENDERS).optional(),

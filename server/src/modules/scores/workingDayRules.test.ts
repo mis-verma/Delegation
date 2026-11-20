@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { extraDayCovers, holidayApplies, isIdleHolidayRunFor, isScheduledDay, storesWithoutAssigneesOn, workingPeople, type ExtraDayRule } from "./workingDayRules.js"
+import { extraDayCovers, firstWorkingDate, holidayApplies, isIdleHolidayRunFor, isScheduledDay, storesWithoutAssigneesOn, workingPeople, type ExtraDayRule } from "./workingDayRules.js"
+const d = (s: string) => new Date(`${s}T00:00:00.000Z`)
 
 const SUNDAY = 0
 const MONDAY = 1
@@ -121,5 +122,28 @@ describe("holiday runs left out of scores", () => {
         expect(isIdleHolidayRunFor(run(), [{ scope: "DEPARTMENT", targetIds: ["accounts"] }], [anna])).toBe(false)
         expect(isIdleHolidayRunFor(run(), [{ scope: "STORE", targetIds: ["solan"] }], [])).toBe(false)
         expect(isIdleHolidayRunFor(run(), [{ scope: "PEOPLE", targetIds: ["bob"] }], [anna])).toBe(true)
+    })
+})
+
+describe("firstWorkingDate", () => {
+    it("returns the period's first day when it is not a holiday", () => {
+        expect(firstWorkingDate(d("2026-11-16"), d("2026-11-22"), new Set())).toBe("2026-11-16")
+    })
+
+    it("moves to the next day when the first day is a holiday", () => {
+        expect(firstWorkingDate(d("2026-11-16"), d("2026-11-22"), new Set(["2026-11-16"]))).toBe("2026-11-17")
+    })
+
+    it("keeps moving forward through several holidays in a row", () => {
+        expect(firstWorkingDate(d("2026-11-16"), d("2026-11-22"), new Set(["2026-11-16", "2026-11-17", "2026-11-18"]))).toBe("2026-11-19")
+    })
+
+    it("gives up (returns null) when every day of the period is a holiday", () => {
+        const holidaySet = new Set(["2026-11-16", "2026-11-17", "2026-11-18"])
+        expect(firstWorkingDate(d("2026-11-16"), d("2026-11-18"), holidaySet)).toBeNull()
+    })
+
+    it("never looks past the period's own end date", () => {
+        expect(firstWorkingDate(d("2026-11-16"), d("2026-11-16"), new Set(["2026-11-16"]))).toBeNull()
     })
 })

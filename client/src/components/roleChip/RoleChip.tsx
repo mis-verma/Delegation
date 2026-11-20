@@ -5,11 +5,12 @@ import { ROLE_LOOK } from './roleLook';
 
 interface RoleChipProps {
   role: Role;
+  label?: string;
   compact?: boolean;
   className?: string;
 }
 
-export const RoleChip = ({ role, compact = false, className }: RoleChipProps) => {
+export const RoleChip = ({ role, label, compact = false, className }: RoleChipProps) => {
   const look = ROLE_LOOK[role] ?? ROLE_LOOK.USER;
-  return <IconChip icon={compact ? false : look.icon} tone={look.tone} label={ROLE_LABEL[role] ?? role} className={className} />;
+  return <IconChip icon={compact ? false : look.icon} tone={look.tone} label={label ?? ROLE_LABEL[role] ?? role} className={className} />;
 };

@@ -8,6 +8,7 @@ import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
 import { DepartmentHeadChip } from './UserBits';
 import { deactivatedLabel, fullName } from './userDisplay';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 interface UserRowProps extends UserActionHandlers {
   user: AdminUser;
@@ -47,6 +48,7 @@ const UserRowComponent = ({
   onEdit, onResetPassword, onDeactivate, onReactivate, onDelete,
 }: UserRowProps) => {
   const name = fullName(user);
+  const customRoleNames = useCustomRoleNames();
 
   return (
     <tr
@@ -100,7 +102,7 @@ const UserRowComponent = ({
 
       <td className={CELL_CLASS}>
         <div className="flex flex-wrap items-center gap-1">
-          <RoleChip role={user.role} />
+          <RoleChip role={user.role} label={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined} />
           {isDepartmentHead(user.role) && <DepartmentHeadChip />}
         </div>
       </td>

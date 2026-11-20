@@ -531,7 +531,7 @@ export const checklistInstanceApi = {
       `/checklist-instances${buildQuery({ definitionId, ...paging })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
-  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; excludeOwn?: boolean } & PageParams = {}) =>
+  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; excludeOwn?: boolean; q?: string } & PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances${buildQuery({
         ...filter,

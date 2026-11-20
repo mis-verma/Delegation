@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
 const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
@@ -96,17 +96,40 @@ self.addEventListener('push', (event) => {
         silent: false,
         requireInteraction: alarm || !!data.urgent,
         timestamp: Date.now(),
-        actions: [{ action: 'open', title: 'Open' }],
-        data: { url: data.url || '/' },
+        actions: alarm && data.snoozeToken
+          ? [{ action: 'open', title: 'Open' }, { action: 'snooze10', title: 'Snooze 10 min' }, { action: 'snooze30', title: 'Snooze 30 min' }]
+          : [{ action: 'open', title: 'Open' }],
+        data: { url: data.url || '/', apiUrl: data.apiUrl, snoozeToken: data.snoozeToken },
       }),
       self.navigator && self.navigator.setAppBadge ? (badge > 0 ? self.navigator.setAppBadge(badge) : self.navigator.clearAppBadge()).catch(() => undefined) : Promise.resolve(),
     ]),
   );
 });
 
+const SNOOZE_MINUTES = { snooze10: 10, snooze30: 30 };
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  const data = event.notification.data || {};
+
+  if (SNOOZE_MINUTES[event.action] && data.apiUrl && data.snoozeToken) {
+    const minutes = SNOOZE_MINUTES[event.action];
+    event.waitUntil(
+      fetch(`${data.apiUrl}/checklist-alarms/snooze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: data.snoozeToken, minutes }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('snooze failed');
+          return self.registration.showNotification('Snoozed', { body: `We'll remind you again in ${minutes} minutes.`, icon: '/icon-192.png', tag: event.notification.tag });
+        })
+        .catch(() => self.registration.showNotification("Couldn't snooze", { body: 'Open the app to snooze it there instead.', icon: '/icon-192.png' })),
+    );
+    return;
+  }
+
+  const target = new URL(data.url || '/', self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       for (const client of windows) {

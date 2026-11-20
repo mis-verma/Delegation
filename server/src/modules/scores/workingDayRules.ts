@@ -4,6 +4,19 @@ export type WorkingPerson = { id: string; departmentId: string | null; storeId: 
 
 export const holidayApplies = (recurrence: string): boolean => recurrence !== "ONE_TIME"
 
+const dayStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
+const DAY_MS = 24 * 60 * 60 * 1000
+const MAX_LOOKAHEAD_DAYS = 60
+
+export const firstWorkingDate = (periodStart: Date, periodEnd: Date, holidaySet: ReadonlySet<string>): string | null => {
+    const capEndMs = Math.min(periodEnd.getTime(), periodStart.getTime() + MAX_LOOKAHEAD_DAYS * DAY_MS)
+    for (let ms = periodStart.getTime(); ms <= capEndMs; ms += DAY_MS) {
+        const ds = dayStr(ms)
+        if (!holidaySet.has(ds)) return ds
+    }
+    return null
+}
+
 export const extraDayCovers = (extra: ExtraDayRule, person: WorkingPerson): boolean => {
     if (extra.scope === "ALL") return true
     if (extra.scope === "PEOPLE") return extra.targetIds.includes(person.id)

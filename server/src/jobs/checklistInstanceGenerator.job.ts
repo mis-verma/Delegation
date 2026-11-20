@@ -1,7 +1,7 @@
 import { scheduleJob } from '../utils/jobTracker.js';
 import { isDuplicateEntryError } from '../utils/dbErrors.js';
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, notInArray, asc, lte, gt, isNull, ne, or, sql } from "drizzle-orm"
+import { eq, and, inArray, notInArray, asc, lte, gte, gt, isNull, ne, or, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -32,7 +32,7 @@ import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
 import { leaveUserIdsOn } from "../modules/leave/leaveLookup.js"
-import { holidayApplies, isScheduledDay, storesWithoutAssigneesOn, workingPeople } from "../modules/scores/workingDayRules.js"
+import { firstWorkingDate, holidayApplies, isScheduledDay, storesWithoutAssigneesOn, workingPeople } from "../modules/scores/workingDayRules.js"
 import { isOvernightWindow, windowTimesFor } from "../modules/checklistDefinitions/lateWindow.js"
 import { runDeadlineMs } from "../modules/checklistInstances/checklistRunEnd.js"
 
@@ -397,11 +397,27 @@ const isHoliday = async (dateStr: string): Promise<boolean> => {
     return !!row
 }
 
+const MAX_HOLIDAY_LOOKAHEAD_DAYS = 60
+
+const firstWorkingDateInPeriod = async (periodStart: Date, periodEnd: Date): Promise<string | null> => {
+    const capEnd = new Date(Math.min(periodEnd.getTime(), periodStart.getTime() + MAX_HOLIDAY_LOOKAHEAD_DAYS * 86_400_000))
+    const startStr = periodStart.toISOString().slice(0, 10)
+    const endStr = capEnd.toISOString().slice(0, 10)
+    const rows = await db.select({ date: holidays.date }).from(holidays).where(and(gte(holidays.date, startStr), lte(holidays.date, endStr)))
+    return firstWorkingDate(periodStart, periodEnd, new Set(rows.map((r) => r.date)))
+}
+
+// A daily checklist that falls on a holiday is simply skipped that day. A weekly, monthly or other
+// multi-day checklist instead moves to the first working day inside its own period (its periodStart/
+// periodEnd stay the same, so scores and reports still treat it as that week's/month's run); if every
+// day of the period is a holiday it falls back to the old fully-blocked behaviour below.
 const applyWorkingDayRules = async (definition: GenerationDefinition, period: Period): Promise<GenerationDefinition | null> => {
     if (!holidayApplies(definition.recurrence)) return definition
-    const dateStr = period.periodStart.toISOString().slice(0, 10)
     const daily = definition.recurrence === "DAILY"
-    const holiday = await isHoliday(dateStr)
+    const periodStartStr = period.periodStart.toISOString().slice(0, 10)
+    const firstWorking = daily ? null : await firstWorkingDateInPeriod(period.periodStart, period.periodEnd)
+    const dateStr = daily ? periodStartStr : (firstWorking ?? periodStartStr)
+    const holiday = daily ? await isHoliday(dateStr) : firstWorking === null
     if (!daily && !holiday) return definition
     const weekday = period.periodStart.getUTCDay()
     const extras = (await db.select({ scope: extraWorkingDays.scope, targetIds: extraWorkingDays.targetIds })
@@ -450,10 +466,15 @@ export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number
         .where(and(ne(checklistInstances.recurrence, "ONE_TIME"), eq(checklistInstances.periodStart, dayStart)))
     if (!runs.length) return 0
     const definitions = await loadDefinitionsForGeneration([...new Set(runs.map((r) => r.definitionId))])
+    const offset = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
     const fakePeriod = { periodKey: dateStr, periodStart: dayStart, periodEnd: dayStart } as Period
     const liveByDef = new Map<string, { storeIds: Set<string>; scopesAt: (storeId: string) => RunScope[] }>()
     for (const [id, def] of definitions) {
-        const working = await applyWorkingDayRules(def, fakePeriod)
+        // Use the definition's real period (not just this one day) so a weekly/monthly run isn't
+        // dropped just because the holiday landed on its periodStart day — applyWorkingDayRules can
+        // still find a later working day inside that same real period.
+        const realPeriod = getCurrentPeriod(def.recurrence, def.startDate, dayStart, offset, def.occurrenceDays) ?? fakePeriod
+        const working = await applyWorkingDayRules(def, realPeriod)
         if (working) liveByDef.set(id, { storeIds: new Set(working.storeIds), scopesAt: await buildScopeResolver(working) })
     }
 

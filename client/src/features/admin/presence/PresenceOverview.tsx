@@ -10,6 +10,7 @@ import { useStoresQuery } from '../../tickets/hook';
 import { presenceLabel } from '../presenceDisplay';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { Role } from '../../../api/admin';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -45,6 +46,7 @@ interface PresenceRowProps {
   email: string;
   avatarSrc: string | null | undefined;
   role: Role;
+  roleLabel?: string;
   departmentName: string | undefined;
   storeName: string | undefined;
   isActive: boolean;
@@ -52,7 +54,7 @@ interface PresenceRowProps {
   statusText: string;
 }
 
-const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeName, isActive, online, statusText }: PresenceRowProps) => (
+const PresenceRow = memo(({ name, email, avatarSrc, role, roleLabel, departmentName, storeName, isActive, online, statusText }: PresenceRowProps) => (
   <div className={cn(ROW_CLASS, 'hover:bg-surface-hover transition-colors')}>
     <div className="flex items-center gap-3 min-w-0">
       <Avatar name={name} src={avatarSrc} size="sm" online={isActive ? online : undefined} />
@@ -65,7 +67,7 @@ const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeN
     <div className={CHIPS_CLASS}>
       {departmentName ? <DepartmentChip name={departmentName} className={CHIP_CLASS} /> : <span className={MISSING_CLASS}>No department</span>}
       {storeName ? <StoreChip name={storeName} className={CHIP_CLASS} /> : <span className={MISSING_CLASS}>No store</span>}
-      <RoleChip role={role} className={CHIP_CLASS} />
+      <RoleChip role={role} label={roleLabel} className={CHIP_CLASS} />
     </div>
 
     <div className="col-start-2 row-start-1 flex justify-end md:col-start-auto md:row-start-auto">
@@ -76,6 +78,7 @@ const PresenceRow = memo(({ name, email, avatarSrc, role, departmentName, storeN
 PresenceRow.displayName = 'PresenceRow';
 
 export const PresenceOverview = () => {
+  const customRoleNames = useCustomRoleNames();
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
   const { data: presenceRows, isError: presenceError, refetch: refetchPresence } = usePresenceQuery();
   const { data: departments } = useDepartmentsQuery();
@@ -178,6 +181,7 @@ export const PresenceOverview = () => {
             email={user.email}
             avatarSrc={resolveAvatarUrl(user.avatarUrl)}
             role={user.role}
+            roleLabel={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined}
             departmentName={user.departmentId ? departmentNames.get(user.departmentId) : undefined}
             storeName={user.storeId ? storeNames.get(user.storeId) : undefined}
             isActive={user.isActive}

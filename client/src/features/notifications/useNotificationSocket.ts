@@ -8,6 +8,15 @@ import { notificationApi, type Notification } from "../../api/notifications";
 import { notificationPath } from "./notificationDisplay";
 import { CHECKLIST_ALARMS_KEY } from "../checklist/alarmKeys";
 
+type OrgEntity = "store" | "department" | "user" | "customRole";
+
+const ORG_KEYS: Record<OrgEntity, readonly (readonly unknown[])[]> = {
+    store: [["stores"], ["assignable-users"]],
+    department: [["departments"], ["assignable-users"]],
+    user: [["admin-users"], ["assignable-users"]],
+    customRole: [["custom-roles"]],
+};
+
 interface Options {
     onArrive?: () => void;
     navigate?: (path: string) => void;
@@ -24,6 +33,19 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
     useEffect(() => {
         if (!token) return;
         const socket = connectSocket(token);
+        const pendingOrgEntities = new Set<OrgEntity>();
+        let orgFlushTimer: ReturnType<typeof setTimeout> | undefined;
+        const handleOrgChanged = (payload?: { entity?: OrgEntity }) => {
+            if (!payload?.entity || !ORG_KEYS[payload.entity]) return;
+            pendingOrgEntities.add(payload.entity);
+            clearTimeout(orgFlushTimer);
+            orgFlushTimer = setTimeout(() => {
+                for (const entity of pendingOrgEntities) {
+                    for (const key of ORG_KEYS[entity]) queryClient.invalidateQueries({ queryKey: key });
+                }
+                pendingOrgEntities.clear();
+            }, 400);
+        };
         const handleNew = (n?: Partial<Notification>) => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             if (n?.type === "CHECKLIST_ALARM") queryClient.invalidateQueries({ queryKey: CHECKLIST_ALARMS_KEY });
@@ -54,9 +76,12 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
         };
 
         socket.on("notification:new", handleNew);
+        socket.on("org:changed", handleOrgChanged);
 
         return () => {
+            clearTimeout(orgFlushTimer);
             socket.off("notification:new", handleNew);
+            socket.off("org:changed", handleOrgChanged);
             releaseSocket();
         };
     }, [token, queryClient]);

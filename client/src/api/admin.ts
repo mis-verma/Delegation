@@ -9,6 +9,7 @@ export type AdminUser = {
     firstName: string;
     lastName: string | null;
     role: Role;
+    customRoleId?: string | null;
     departmentId: string | null;
     storeId: string | null;
     isActive: boolean;
@@ -32,6 +33,7 @@ export type CreateUserPayload = {
     firstName: string;
     lastName?: string;
     role: Role;
+    customRoleId?: string;
     departmentId?: string;
     storeId?: string;
     gender?: Gender;
@@ -42,10 +44,11 @@ export type CreateUserPayload = {
     sendSetupCode?: boolean;
 };
 
-export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "customRoleId" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
     reportsToId?: string | null;
     phone?: string;
     isActive?: boolean;
+    customRoleId?: string | null;
     departmentId?: string | null;
     storeId?: string | null;
     gender?: Gender | null;

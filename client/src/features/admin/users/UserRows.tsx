@@ -6,6 +6,7 @@ import type { AdminUser, UserPresence } from '../../../api/admin';
 import { presenceLabel } from '../presenceDisplay';
 import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
 import { deactivatedLabel, fullName } from './userDisplay';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 interface UserRowsProps extends UserActionHandlers {
   users: readonly AdminUser[];
@@ -16,7 +17,9 @@ interface UserRowsProps extends UserActionHandlers {
   selfId?: string;
 }
 
-export const UserRows = memo(({ users, departmentNames, storeNames, presenceById, busyId, selfId, ...handlers }: UserRowsProps) => (
+export const UserRows = memo(({ users, departmentNames, storeNames, presenceById, busyId, selfId, ...handlers }: UserRowsProps) => {
+  const customRoleNames = useCustomRoleNames();
+  return (
   <ul className="flex flex-col gap-2">
     {users.map((user) => {
       const name = fullName(user);
@@ -39,7 +42,7 @@ export const UserRows = memo(({ users, departmentNames, storeNames, presenceById
               <span className={cn('line-clamp-2 break-words t-card font-display font-bold leading-snug', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</span>
             </button>
             <span className="flex flex-wrap items-center gap-1.5">
-              <RoleChip role={user.role} compact />
+              <RoleChip role={user.role} label={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined} compact />
               {department && <DepartmentChip name={department} iconOnlyOnMobile />}
               {store && <StoreChip name={store} className="max-sm:hidden" />}
             </span>
@@ -52,5 +55,6 @@ export const UserRows = memo(({ users, departmentNames, storeNames, presenceById
       );
     })}
   </ul>
-));
+  );
+});
 UserRows.displayName = 'UserRows';

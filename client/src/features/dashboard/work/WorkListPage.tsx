@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGoBack } from '../../../lib/historyBack';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { AlarmClock, ArrowLeft, CalendarClock, ChevronRight, Clock3, Inbox } from 'lucide-react';
+import { AlarmClock, ArrowLeft, CalendarClock, ChevronRight, Clock3, Hourglass, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EmptyState, IconChip, InlineError, PANEL_CLASS, Skeleton, SlidingTabs, ToggleChip, type SlidingTabOption } from '../../../components';
+import { EmptyState, IconChip, InlineError, PANEL_CLASS, Skeleton, SlidingTabs, type SlidingTabOption } from '../../../components';
+import { ChoiceChip, ChoiceIcon } from '../../../components/optionsSheet';
 import { useAuth } from '../../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../../api/auth';
 import { dashboardApi, type WorkGroup, type WorkKind, type WorkMetric, type WorkRow } from '../../../api/dashboard';
@@ -14,6 +15,8 @@ import { todayPeriodBoundIso } from '../../checklist/checklistDisplay';
 import { CATEGORY_ICON, CATEGORY_TILE } from '../categoryLook';
 import { useDashboardSummaries } from '../useDashboardSummaries';
 import { WORK_METRIC_LOOK, isWorkMetric, metricValue, moduleListHref, type WorkScope } from './workMetrics';
+
+const SOON_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 const KIND_LABEL: Record<WorkKind, string> = {
   delegation: 'Delegation',
@@ -51,16 +54,34 @@ const dueOf = (row: WorkRow, now: Date): { text: string; tone: string; icon: typ
   return row.late ? { text: 'Late', tone: 'bg-danger', icon: AlarmClock } : null;
 };
 
+type Urgency = 'late' | 'soon' | 'ontime' | 'none';
+
+const urgencyOf = (row: WorkRow, now: Date): Urgency => {
+  if (row.late) return 'late';
+  if (!row.dueAt) return 'none';
+  const msLeft = new Date(row.dueAt).getTime() - now.getTime();
+  if (msLeft <= SOON_WINDOW_MS) return 'soon';
+  return 'ontime';
+};
+
+const URGENCY_BAR: Record<Urgency, string> = {
+  late: 'bg-danger',
+  soon: 'bg-warning',
+  ontime: 'bg-success/70',
+  none: 'bg-border',
+};
+
 const RowLink = ({ row, now }: { row: WorkRow; now: Date }) => {
   const due = dueOf(row, now);
+  const urgency = urgencyOf(row, now);
   return (
     <li>
       <Link
         to={row.href}
         viewTransition
-        className="group flex min-h-14 items-center gap-3 px-4 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 focus-visible:bg-surface-hover active:bg-surface-hover sm:px-5"
+        className="group flex min-h-16 items-center gap-3.5 px-4 py-3.5 outline-none transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:bg-surface-hover active:bg-surface-hover sm:px-5"
       >
-        <span className={cn('h-9 w-1 shrink-0 rounded-full', row.late ? 'bg-danger' : 'bg-border')} aria-hidden="true" />
+        <span className={cn('h-10 w-1 shrink-0 rounded-full', URGENCY_BAR[urgency])} aria-hidden="true" />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="t-card font-display font-semibold leading-snug text-text line-clamp-2 break-words">{row.title}</span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -81,12 +102,12 @@ const GroupSection = ({ group, metric, team, now, onRetry }: { group: WorkGroup;
   const fullList = moduleListHref(group.kind, metric, team, user?.id);
   const more = group.total - group.rows.length;
   return (
-    <section aria-label={KIND_LABEL[group.kind]} className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
-      <header className="flex items-center gap-3 border-b border-border/50 px-4 py-3 sm:px-5">
-        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', CATEGORY_TILE[KIND_ICON_KEY[group.kind]])} aria-hidden="true">
-          <Icon size={16} strokeWidth={2.4} />
+    <section aria-label={KIND_LABEL[group.kind]} className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden border-border/60')}>
+      <header className="flex items-center gap-3 border-b border-border/60 bg-surface-hover/30 px-4 py-3.5 sm:px-5">
+        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl text-white', CATEGORY_TILE[KIND_ICON_KEY[group.kind]])} aria-hidden="true">
+          <Icon size={17} strokeWidth={2.4} />
         </span>
-        <h2 className="min-w-0 flex-1 truncate t-card font-display font-bold text-text">{KIND_LABEL[group.kind]}</h2>
+        <h2 className="min-w-0 flex-1 truncate t-card font-display font-bold tracking-tight text-text">{KIND_LABEL[group.kind]}</h2>
         <span className="t-card font-figure font-extrabold tabular-nums text-text">{group.failed ? '-' : group.total}</span>
         <Link to={fullList} viewTransition className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 t-meta font-display font-semibold text-primary-700 outline-none transition-colors duration-150 hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8">
           Open list
@@ -98,12 +119,12 @@ const GroupSection = ({ group, metric, team, now, onRetry }: { group: WorkGroup;
       ) : group.rows.length === 0 ? (
         <p className="px-4 py-4 t-meta text-text-muted sm:px-5">Nothing here.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border/50">
+        <ul className="flex flex-col divide-y divide-border/60">
           {group.rows.map((row) => <RowLink key={row.id} row={row} now={now} />)}
         </ul>
       )}
       {more > 0 && (
-        <Link to={fullList} viewTransition className="flex min-h-11 items-center justify-center gap-1 border-t border-border/50 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 hover:text-text focus-visible:bg-surface-hover">
+        <Link to={fullList} viewTransition className="flex min-h-11 items-center justify-center gap-1 border-t border-border/60 bg-surface-hover/20 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover/50 hover:text-text focus-visible:bg-surface-hover">
           {more} more in {KIND_LABEL[group.kind]}
           <ChevronRight size={14} aria-hidden="true" />
         </Link>
@@ -115,9 +136,9 @@ const GroupSection = ({ group, metric, team, now, onRetry }: { group: WorkGroup;
 const LoadingGroups = () => (
   <div className="flex flex-col gap-4" aria-label="Loading" role="status">
     {[0, 1].map((g) => (
-      <div key={g} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
+      <div key={g} className={cn(PANEL_CLASS, 'flex flex-col gap-3 border-border/60 p-4 sm:p-5')}>
         <Skeleton className="h-6 w-40 rounded-md" />
-        {[0, 1, 2].map((r) => <Skeleton key={r} className="h-12 w-full rounded-lg" />)}
+        {[0, 1, 2].map((r) => <Skeleton key={r} className="h-14 w-full rounded-lg" />)}
       </div>
     ))}
   </div>
@@ -180,7 +201,7 @@ export const WorkListPage = () => {
 
   return (
     <div className="view-enter flex w-full max-w-4xl flex-col gap-4 pt-2.5 mx-auto sm:gap-5">
-      <header className="flex items-center gap-3">
+      <header className={cn(PANEL_CLASS, 'flex items-center gap-3 border-border/60 px-4 py-3.5 sm:px-5 sm:py-4')}>
         <button
           type="button"
           onClick={goBack}
@@ -190,23 +211,33 @@ export const WorkListPage = () => {
           <ArrowLeft size={18} aria-hidden="true" />
         </button>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="t-section font-display font-bold text-text">{look.label}</h1>
+          <h1 className="t-section font-display font-bold tracking-tight text-text">{look.label}</h1>
           <p className="t-meta text-text-muted">{whose} · {look.caption.toLowerCase()}</p>
         </div>
-        <span className={cn('t-figure font-figure font-extrabold tabular-nums', metric === 'delayed' && (pageTotal ?? 0) > 0 ? 'text-danger' : 'text-text')} aria-label={`${pageTotal ?? 0} in total`}>
-          {pageTotal ?? '-'}
-        </span>
+        <div className="flex flex-col items-end gap-0.5">
+          <span className={cn('t-figure font-figure font-extrabold leading-none tabular-nums', metric === 'delayed' && (pageTotal ?? 0) > 0 ? 'text-danger' : 'text-text')} aria-label={`${pageTotal ?? 0} in total`}>
+            {pageTotal ?? '-'}
+          </span>
+          <span className="t-meta font-display font-medium text-text-muted">in total</span>
+        </div>
       </header>
 
       <SlidingTabs label="Which numbers" value={metric} options={metricOptions} onChange={pickMetric} fill="phone" size="sm" className="max-sm:w-full sm:self-start" />
 
       {groups && groups.length > 1 && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
-          <ToggleChip on={kind === 'all'} onClick={() => setKind('all')}>All <span className="tabular-nums">{pageTotal}</span></ToggleChip>
+          <ChoiceChip active={kind === 'all'} onClick={() => setKind('all')} lead={<ChoiceIcon icon={Hourglass} tone="bg-linear-to-br from-text-muted to-text-secondary" />}>
+            All <span className="tabular-nums">{pageTotal}</span>
+          </ChoiceChip>
           {groups.map((g) => (
-            <ToggleChip key={g.kind} on={kind === g.kind} onClick={() => setKind(g.kind)}>
+            <ChoiceChip
+              key={g.kind}
+              active={kind === g.kind}
+              onClick={() => setKind(g.kind)}
+              lead={<ChoiceIcon icon={CATEGORY_ICON[KIND_ICON_KEY[g.kind]]} tone={CATEGORY_TILE[KIND_ICON_KEY[g.kind]]} />}
+            >
               {KIND_LABEL[g.kind]} <span className="tabular-nums">{g.failed ? '-' : g.total}</span>
-            </ToggleChip>
+            </ChoiceChip>
           ))}
         </div>
       )}

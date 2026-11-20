@@ -14,6 +14,7 @@ import { usePersonAttention } from '../../attention/useAttention';
 import { useIsReadOnlyViewer } from '../../owner/useReadOnlyViewer';
 import { fullName } from './orgStructureDisplay';
 import type { PeopleTree, PersonNode } from './peopleTree';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 const NONE = '';
 const MAX_ROWS = 5;
@@ -71,6 +72,7 @@ export const PersonDrawer = ({ userId, tree, stores, departments, online, onClos
   const user = node?.user;
   const detail = usePersonAttention(userId);
   const update = useUpdateUserMutation({ successMessage: (updated) => `${fullName(updated)} updated` });
+  const customRoleNames = useCustomRoleNames();
 
   const chain: PersonNode[] = [];
   for (let cursor = user?.reportsToId ? tree.userNodes.get(user.reportsToId) : undefined; cursor && chain.length < MAX_CHAIN && !chain.includes(cursor); cursor = cursor.user.reportsToId ? tree.userNodes.get(cursor.user.reportsToId) : undefined) {
@@ -113,7 +115,7 @@ export const PersonDrawer = ({ userId, tree, stores, departments, online, onClos
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <p className="line-clamp-2 break-words t-section font-display font-bold leading-tight text-text">{name}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <RoleChip role={user.role} />
+                  <RoleChip role={user.role} label={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined} />
                   {store && <StoreChip name={store} />}
                   {department && <DepartmentChip name={department} />}
                   <PresenceChip online={online.has(user.id)} text="" deactivated={!user.isActive} />

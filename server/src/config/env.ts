@@ -16,6 +16,7 @@ const envSchema = z.object({
     DB_TIMEZONE: z.string().optional(),
 
     CLIENT_URL: z.string().min(1),
+    PUBLIC_API_URL: z.string().min(1).optional(),
     REDIS_URL: z.string().default("redis://localhost:6379"),
     CLUSTER_WORKERS: z.coerce.number().optional(),
 
@@ -92,4 +93,4 @@ const resolvedDatabaseUrl = (() => {
     return url.toString();
 })();
 
-export const env = { ...data, DATABASE_URL: resolvedDatabaseUrl };
+export const env = { ...data, DATABASE_URL: resolvedDatabaseUrl, PUBLIC_API_URL: data.PUBLIC_API_URL ?? `http://localhost:${data.PORT}` };

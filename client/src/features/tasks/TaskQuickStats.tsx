@@ -28,5 +28,5 @@ interface TaskQuickStatsProps {
 }
 
 export const TaskQuickStats = ({ counts, total, active, onToggle, isLoading, error, onRetry }: TaskQuickStatsProps) => (
-  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Delegation figures" />
+  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Delegation figures" surface="light" />
 );

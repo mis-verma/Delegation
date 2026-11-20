@@ -28,5 +28,5 @@ interface TodoQuickStatsProps {
 }
 
 export const TodoQuickStats = ({ counts, total, active, onToggle, isLoading, error, onRetry }: TodoQuickStatsProps) => (
-  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="To-do figures" />
+  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="To-do figures" surface="light" />
 );

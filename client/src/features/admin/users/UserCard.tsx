@@ -14,6 +14,7 @@ import { scoresHref } from '../directory/orgScoreData';
 import { DepartmentHeadChip } from './UserBits';
 import { deactivatedLabel, fullName } from './userDisplay';
 import { getAppLink, shareAppLink } from '../../../lib/installPrompt';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 interface UserCardProps extends UserActionHandlers {
   user: AdminUser;
@@ -50,6 +51,7 @@ const UserCardComponent = ({
   const name = fullName(user);
   const muted = !user.isActive;
   const strip = muted ? '' : REACH_STRIP[ROLE_META[user.role].scope];
+  const customRoleNames = useCustomRoleNames();
 
   return (
     <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-4 overflow-hidden', muted && 'bg-surface-hover/30', busy && 'pointer-events-none')}>
@@ -98,7 +100,7 @@ const UserCardComponent = ({
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <RoleChip role={user.role} />
+          <RoleChip role={user.role} label={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined} />
           {isDepartmentHead(user.role) && <DepartmentHeadChip />}
         </div>
         <PresenceChip online={online} text={presenceText} deactivated={!user.isActive} deactivatedLabel={deactivatedLabel(user)} />

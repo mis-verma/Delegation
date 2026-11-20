@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio, Upload, Tag, SlidersHorizontal } from 'lucide-react';
+import { CircleAlert, CircleCheck, Contact, Users, Building2, Store, Network, Radio, Upload, Tag, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, IconChip, PageHeader, Skeleton } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
@@ -13,6 +13,7 @@ import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 
 const PresenceOverview = lazy(() => import('../presence').then((m) => ({ default: m.PresenceOverview })));
+const CustomRoleList = lazy(() => import('../customRoles/CustomRoleList').then((m) => ({ default: m.CustomRoleList })));
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
 const CategoryList = lazy(() => import('../../settings/CategoryList').then((m) => ({ default: m.CategoryList })));
 const PeopleSettings = lazy(() => import('./PeopleSettings').then((m) => ({ default: m.PeopleSettings })));
@@ -24,6 +25,7 @@ const TABS = [
   { value: 'structure', label: 'Org structure', short: 'Structure', icon: Network },
   { value: 'online', label: "Who's online", short: 'Online', icon: Radio },
   { value: 'categories', label: 'Ticket categories', short: 'Tickets', icon: Tag },
+  { value: 'roles', label: 'Roles', short: 'Roles', icon: ShieldCheck },
   { value: 'settings', label: 'Settings', short: 'Settings', icon: SlidersHorizontal },
 ] as const;
 
@@ -31,6 +33,7 @@ type TabValue = (typeof TABS)[number]['value'];
 
 const TAB_ROLES: Partial<Record<TabValue, readonly string[]>> = {
   categories: ['ADMIN', 'PC'],
+  roles: ['ADMIN'],
   settings: ['ADMIN'],
 };
 
@@ -61,6 +64,7 @@ export const DirectoryPage = () => {
     structure: undefined,
     online: undefined,
     categories: undefined,
+    roles: undefined,
     settings: undefined,
   };
 
@@ -123,6 +127,11 @@ export const DirectoryPage = () => {
         <TabsContent value="categories">
           <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
             <CategoryList />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="roles">
+          <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+            <CustomRoleList />
           </Suspense>
         </TabsContent>
         <TabsContent value="settings">

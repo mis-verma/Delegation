@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
-import { users, departments, stores, dressTypes, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
+import { users, departments, stores, dressTypes, customRoles, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
 import { eq, and, or, desc, asc, sql, inArray, ne } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
@@ -27,6 +27,7 @@ import { notificationService, notifySafely } from "../notifications/notification
 import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
 import { isAdminOrPc, isOwnScopeRole } from "../../utils/roles.js"
 import { assignEmployeeId } from "./employeeId.js";
+import { emitOrgChanged } from "../../sockets/socket.js";
 
 export { assertCanDeactivate, revokeSessions };
 
@@ -45,6 +46,7 @@ const publicUserColumns = {
     firstName: users.firstName,
     lastName: users.lastName,
     role: users.role,
+    customRoleId: users.customRoleId,
     gender: users.gender,
     dressTypeId: users.dressTypeId,
     reportsToId: users.reportsToId,
@@ -69,11 +71,12 @@ const getSafeById = async (id: string) => {
 };
 
 const userSnapshot = (u: {
-    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
+    email: string; role: string; customRoleId?: string | null; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
     phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null; employeeId?: string | null; canCompleteAll?: boolean;
 }) => ({
     email: u.email,
     role: u.role,
+    customRoleId: u.customRoleId ?? null,
     isActive: u.isActive,
     firstName: u.firstName,
     lastName: u.lastName,
@@ -88,6 +91,12 @@ const userSnapshot = (u: {
     employeeId: u.employeeId ?? null,
     canCompleteAll: u.canCompleteAll ?? false,
 });
+
+const getActiveCustomRoleOrThrow = async (id: string) => {
+    const [row] = await db.select().from(customRoles).where(eq(customRoles.id, id)).limit(1);
+    if (!row || !row.isActive) throw AppError.badRequest("That role doesn't exist or is turned off.");
+    return row;
+};
 
 const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined) =>
     JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
@@ -183,8 +192,16 @@ export const userService = {
         await assertOrgRefs(input.departmentId, input.storeId, input.dressTypeId);
         await assertReportsTo(null, input.reportsToId);
 
+        let role = input.role;
+        let customRoleId: string | null = null;
+        if (input.customRoleId) {
+            const customRole = await getActiveCustomRoleOrThrow(input.customRoleId);
+            role = customRole.baseRole;
+            customRoleId = customRole.id;
+        }
+
         const passwordHash = await hashPassword(input.password);
-        const rank = deriveDefaultRank(input.role);
+        const rank = deriveDefaultRank(role);
         const id = createId();
 
         try {
@@ -195,7 +212,8 @@ export const userService = {
                 mustChangePassword: true,
                 firstName: input.firstName,
                 lastName: input.lastName ?? null,
-                role: input.role,
+                role,
+                customRoleId,
                 departmentId: input.departmentId ?? null,
                 storeId: input.storeId ?? null,
                 gender: input.gender ?? null,
@@ -220,6 +238,7 @@ export const userService = {
             actorId,
             after: userSnapshot(user),
         });
+        emitOrgChanged("user", user.id);
 
         return user;
     },
@@ -240,7 +259,15 @@ export const userService = {
         const completeAllChanged = input.canCompleteAll !== undefined && input.canCompleteAll !== before.canCompleteAll;
         if (completeAllChanged && actorRole !== 'ADMIN') throw AppError.forbidden("Only an admin can give or remove Complete all.");
 
-        const newRole = input.role ?? before.role;
+        let newRole = input.role ?? before.role;
+        let newCustomRoleId: string | null | undefined = input.customRoleId;
+        if (input.customRoleId) {
+            const customRole = await getActiveCustomRoleOrThrow(input.customRoleId);
+            newRole = customRole.baseRole;
+            newCustomRoleId = customRole.id;
+        } else if (input.customRoleId === undefined && input.role !== undefined && before.customRoleId) {
+            newCustomRoleId = null;
+        }
         const roleChanged = newRole !== before.role;
         if (roleChanged && id === actorId) throw AppError.badRequest("You can't change your own role.");
 
@@ -281,6 +308,7 @@ export const userService = {
         } else if (input.rank !== undefined) {
             set.rank = input.rank;
         }
+        if (newCustomRoleId !== undefined && newCustomRoleId !== (before.customRoleId ?? null)) set.customRoleId = newCustomRoleId;
         if (deactivating) set.deactivatedAt = new Date();
         if (reactivating) set.deactivatedAt = null;
 
@@ -331,6 +359,7 @@ export const userService = {
         if (!sameDays(user.weekOffDays, before.weekOffDays) || user.departmentId !== before.departmentId || user.storeId !== before.storeId) {
             await refreshLiveChecklistsForUsers([id], `updating ${id}`);
         }
+        emitOrgChanged("user", id);
 
         return user;
     },
@@ -385,6 +414,7 @@ export const userService = {
         for (const move of leftTeam) {
             await notifySafely(() => notificationService.notifyAssigneeMovedTeam(move.id, move.oldDepartmentId, departmentId ?? null));
         }
+        if (changed.length) emitOrgChanged("user");
 
         return { updated: changed.length };
     },
@@ -473,6 +503,7 @@ export const userService = {
 
         unlinkAvatarFile(user.avatarUrl);
         disconnectUserSockets(id);
+        emitOrgChanged("user", id);
 
         return user;
     },

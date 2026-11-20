@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { adminApi, type AdminUser, type BulkUpdateUsersPayload, type CreateUserPayload, type ImportUserPayload, type UpdateUserPayload } from "../../api/admin";
 import { departmentApi, type CreateDepartmentPayload, type UpdateDepartmentPayload } from "../../api/departments";
+import { customRoleApi, type CreateCustomRolePayload, type UpdateCustomRolePayload } from "../../api/customRoles";
 import { storeApi, type CreateStorePayload, type UpdateStorePayload } from "../../api/stores";
 import {
     checklistTemplateApi,
@@ -353,6 +354,58 @@ export const useDeleteDepartmentMutation = () => {
             toast.success('Department deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete department')),
+    })
+}
+
+const CUSTOM_ROLE_KEY = {
+    all: ["custom-roles"] as const,
+};
+
+export const useCustomRolesQuery = () => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: CUSTOM_ROLE_KEY.all,
+        queryFn: () => customRoleApi.getAll().then(r => r.data),
+        enabled: !!token,
+        staleTime: 60_000,
+    })
+};
+
+export const useCreateCustomRoleMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: CreateCustomRolePayload) => customRoleApi.create(payload).then(r => r.data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: CUSTOM_ROLE_KEY.all });
+            toast.success('Role created');
+        },
+        onError: (err) => toast.error(errorMessage(err, 'Failed to create role')),
+    })
+}
+
+export const useUpdateCustomRoleMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, payload }: { id: string; payload: UpdateCustomRolePayload }) =>
+            customRoleApi.update(id, payload).then(r => r.data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: CUSTOM_ROLE_KEY.all });
+            invalidateUserLists(queryClient);
+            toast.success('Role updated');
+        },
+        onError: (err) => toast.error(errorMessage(err, 'Failed to update role')),
+    })
+}
+
+export const useDeleteCustomRoleMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => customRoleApi.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: CUSTOM_ROLE_KEY.all });
+            toast.success('Role deleted');
+        },
+        onError: (err) => toast.error(errorMessage(err, 'Failed to delete role')),
     })
 }
 

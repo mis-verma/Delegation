@@ -15,6 +15,7 @@ import { viewAsRouter } from "./modules/viewAs/viewAs.routes.js"
 import { errorHandler } from "./middleware/errorHandler/errorHandler.js"
 import { StoreRouter } from "./modules/stores/store.routes.js"
 import { departmentRouter } from "./modules/departments/department.routes.js"
+import { customRoleRouter } from "./modules/customRoles/customRole.routes.js"
 import { holidayRouter } from "./modules/holidays/holiday.routes.js"
 import { leaveRouter } from "./modules/leave/leave.routes.js"
 import { approvalCoverRouter } from "./modules/approvalCover/approvalCover.routes.js"
@@ -38,6 +39,7 @@ import { ticketAttachmentRouter } from "./modules/ticketAttachments/ticketAttach
 import { checklistTemplateRouter, checklistTemplateItemRouter } from "./modules/checklistTemplates/checklistTemplate.routes.js"
 import { checklistDefinitionRouter } from "./modules/checklistDefinitions/checklistDefinition.routes.js"
 import { checklistInstanceRouter, checklistInstanceItemRouter } from "./modules/checklistInstances/checklistInstance.routes.js"
+import { checklistAlarmPublicRouter } from "./modules/checklistInstances/checklistAlarmPublic.routes.js"
 import { checklistInstanceImageRouter } from "./modules/checklistInstanceImages/checklistInstanceImage.routes.js"
 import { checklistInstanceItemSubmissionRouter } from "./modules/checklistInstanceItemSubmissions/checklistInstanceItemSubmission.routes.js"
 import { checklistInstanceItemSubmissionImageRouter } from "./modules/checklistInstanceItemSubmissionImages/checklistInstanceItemSubmissionImage.routes.js"
@@ -143,6 +145,7 @@ class App {
         this.app.use('/view-as', viewAsRouter);
         this.app.use('/stores', dropScoresOnWrite, StoreRouter);
         this.app.use('/departments', dropScoresOnWrite, departmentRouter);
+        this.app.use('/custom-roles', customRoleRouter);
         this.app.use('/holidays', dropScoresOnWrite, holidayRouter);
         this.app.use('/leave', dropScoresOnWrite, leaveRouter);
         this.app.use('/approval-cover', approvalCoverRouter);
@@ -166,6 +169,7 @@ class App {
         this.app.use('/checklist-template-items', checklistTemplateItemRouter);
         this.app.use('/checklist-definitions', dropScoresOnWrite, checklistDefinitionRouter);
         this.app.use('/checklist-instances', dropScoresOnWrite, checklistInstanceRouter);
+        this.app.use('/checklist-alarms', checklistAlarmPublicRouter);
         this.app.use('/checklist-instance-items', dropScoresOnWrite, checklistInstanceItemRouter);
         this.app.use('/checklist-instance-images', checklistInstanceImageRouter);
         this.app.use('/checklist-instance-item-submissions', dropScoresOnWrite, checklistInstanceItemSubmissionRouter);

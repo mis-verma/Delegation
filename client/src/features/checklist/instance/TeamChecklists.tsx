@@ -14,6 +14,7 @@ import { PANEL_CLASS } from '../../../components/entityCard';
 import { useAuth } from '../../../context/AuthContext';
 import { useNow } from '../../../lib/useNow';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
+import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { checklistInstanceApi, type ChecklistInstanceStatus } from '../../../api/checklistInstances';
 import { useStoresQuery, useAssignableUsersQuery } from '../../tickets/hook';
 import { useChecklistInstanceSummaryQuery } from '../hook';
@@ -133,8 +134,11 @@ export const TeamChecklists = () => {
   const storeId = params.get('store') ?? '';
   const onlyNotStarted = params.get('started') === '0';
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+
+  const changeSearch = (value: string) => { setSearch(value); setPage(1); };
 
   const patch = (next: Record<string, string | null>) => {
     setParams((prev) => {
@@ -162,9 +166,10 @@ export const TeamChecklists = () => {
   const summary = useChecklistInstanceSummaryQuery({ scope: 'visible', storeId: storeId || undefined, from, to, excludeOwn }, { keepPrevious: true });
   const s = summary.data;
 
+  const q = debouncedSearch.trim() || undefined;
   const list = useQuery({
-    queryKey: ['checklist-instances', 'team', { tab, storeId, from, to, page, excludeOwn }] as const,
-    queryFn: () => checklistInstanceApi.list({ status: SERVER_STATUS[tab], storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE, excludeOwn }),
+    queryKey: ['checklist-instances', 'team', { tab, storeId, from, to, page, excludeOwn, q }] as const,
+    queryFn: () => checklistInstanceApi.list({ status: SERVER_STATUS[tab], storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE, excludeOwn, q }),
     placeholderData: keepPreviousData,
     retry: handleQueryRetry,
     staleTime: 30_000,
@@ -173,14 +178,9 @@ export const TeamChecklists = () => {
   const totalPages = Math.max(1, list.data?.meta.totalPages ?? 1);
 
   const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return (rows ?? []).filter((instance) => {
-      if (onlyNotStarted && instance.items.some((i) => i.isDone)) return false;
-      if (!term) return true;
-      const haystack = `${instance.title} ${storeNames.get(instance.storeId) ?? ''} ${namesOf(instance.assigneeIds, peopleNames)}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [rows, search, onlyNotStarted, storeNames, peopleNames]);
+    if (!onlyNotStarted) return rows ?? [];
+    return (rows ?? []).filter((instance) => !instance.items.some((i) => i.isDone));
+  }, [rows, onlyNotStarted]);
 
   const onPageFilters = !!search || onlyNotStarted;
   const hiddenOnThisPage = (rows?.length ?? 0) - visible.length;
@@ -236,7 +236,7 @@ export const TeamChecklists = () => {
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
           value={search}
-          onChange={setSearch}
+          onChange={changeSearch}
           label="Search checklists, stores or people"
           placeholder="Search checklist, store or person"
           className="w-full flex-none sm:w-auto sm:flex-1"

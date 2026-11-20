@@ -6,6 +6,7 @@ import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { PersonNode } from './peopleTree';
 import { userKey } from './peopleTree';
 import { fullName } from './orgStructureDisplay';
+import { useCustomRoleNames } from '../customRoles/useCustomRoleNames';
 
 export interface TreeContext {
   isOpen: (key: string) => boolean;
@@ -30,6 +31,7 @@ export const PersonBranch = memo(({ node, ctx }: PersonBranchProps) => {
   const matched = ctx.matches.has(node.id);
   const store = ctx.storeName(user.storeId);
   const department = ctx.departmentName(user.departmentId);
+  const customRoleNames = useCustomRoleNames();
 
   return (
     <li className="flex flex-col gap-2">
@@ -64,7 +66,7 @@ export const PersonBranch = memo(({ node, ctx }: PersonBranchProps) => {
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className={cn('line-clamp-2 break-words t-card font-display font-bold leading-snug', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</span>
             <span className="flex flex-wrap items-center gap-1.5">
-              <RoleChip role={user.role} compact />
+              <RoleChip role={user.role} label={user.customRoleId ? customRoleNames.get(user.customRoleId) : undefined} compact />
               {store && <StoreChip name={store} />}
               {department && <DepartmentChip name={department} iconOnlyOnMobile />}
               {!user.isActive && <IconChip icon={false} label="Deactivated" />}

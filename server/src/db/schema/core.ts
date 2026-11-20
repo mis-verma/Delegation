@@ -107,6 +107,20 @@ export const departments = mysqlTable(
   (table) => [uniqueIndex('Department_name_key').on(table.name)],
 );
 
+export const customRoles = mysqlTable(
+  'CustomRole',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    name: varchar('name', { length: 191 }).notNull(),
+    baseRole: mysqlEnum('baseRole', ROLES).notNull(),
+    description: varchar('description', { length: 255 }),
+    isActive: boolean('isActive').notNull().default(true),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('CustomRole_name_key').on(table.name)],
+);
+
 export const users = mysqlTable(
   'User',
   {
@@ -116,6 +130,7 @@ export const users = mysqlTable(
     firstName: varchar('firstName', { length: 191 }).notNull(),
     lastName: varchar('lastName', { length: 191 }),
     role: mysqlEnum('role', ROLES).notNull().default('USER'),
+    customRoleId: varchar('customRoleId', { length: 191 }).references(() => customRoles.id, { onDelete: 'set null' }),
     gender: mysqlEnum('gender', GENDERS),
     dressTypeId: varchar('dressTypeId', { length: 191 }).references(() => dressTypes.id, { onDelete: 'set null' }),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
