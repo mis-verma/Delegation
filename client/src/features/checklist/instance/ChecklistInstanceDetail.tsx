@@ -214,7 +214,9 @@ export const ChecklistInstanceDetail = () => {
   const activeSectionKey = pickedSection !== null && sections.some((s) => s.key === pickedSection) ? pickedSection : defaultSectionKey;
   const activeSectionIndex = Math.max(0, sections.findIndex((s) => s.key === activeSectionKey));
   const reorder = canWork && !canReview && (show === 'all' || show === 'section');
-  const doneAtBottom = reorder && show === 'all';
+  // With sections, keep each one its own accordion instead of sweeping every done question,
+  // from every section, into one combined pile at the bottom.
+  const doneAtBottom = reorder && show === 'all' && !hasSections;
   const shownItems = show === 'left'
     ? instance.items.filter((i) => !answered(i) || settling.has(i.id))
     : show === 'one'

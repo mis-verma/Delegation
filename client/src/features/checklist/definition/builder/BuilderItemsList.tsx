@@ -499,16 +499,26 @@ export const BuilderItemsList = ({
         onDragCancel={() => setActiveKey(null)}
       >
         <div className="flex flex-col gap-3">
-          <SectionContainer
-            id={UNGROUPED}
-            title="No section"
-            items={groups[UNGROUPED]}
-            otherSectionNames={sections}
-            isActive={activeSection === null}
-            onSelect={() => setActiveSection(null)}
-            renderRow={renderRow}
-            bare={sections.length === 0}
-          />
+          {sections.length === 0 || groups[UNGROUPED].length > 0 || activeSection === null ? (
+            <SectionContainer
+              id={UNGROUPED}
+              title="No section"
+              items={groups[UNGROUPED]}
+              otherSectionNames={sections}
+              isActive={activeSection === null}
+              onSelect={() => setActiveSection(null)}
+              renderRow={renderRow}
+              bare={sections.length === 0}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setActiveSection(null)}
+              className="self-start px-1 t-meta font-display font-semibold text-text-light hover:text-text-secondary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
+            >
+              + Add a question with no section
+            </button>
+          )}
           {sections.map((name, i) => (
             <SectionContainer
               key={name}
