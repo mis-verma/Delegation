@@ -31,7 +31,7 @@ export const SelfCompleteAllAction = ({ instanceId, openCount, onDone }: { insta
         size="md"
         icon={<ListChecks className="size-5" />}
         title={`Close ${openCount} remaining ${openCount === 1 ? 'question' : 'questions'}?`}
-        description="They're marked done by you and waived, so they don't count against your compliance — critical questions too. The checklist is then submitted for approval. The reason is shown on each question and kept in the audit log."
+        description="Each one is answered the way this checklist says is good, critical questions included, so they count towards your compliance. A question still waiting on a photo is marked done but left out of the score, because nobody can take that photo for you. The checklist then goes for approval, and your reason is kept in the audit log."
         footer={
           <div className="flex w-full items-center justify-end gap-2">
             <Button variant="ghost" onClick={close} disabled={completeAll.isPending}>Cancel</Button>

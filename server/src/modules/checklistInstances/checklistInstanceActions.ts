@@ -517,6 +517,36 @@ export const unwaiveItem = async (id: string, itemId: string, user: AccessTokenP
     return getPopulatedInstanceById(id)
 }
 
+type FillableItem = {
+    id: string
+    itemType: string
+    acceptableAnswers: string[] | null
+    acceptableMin: number | null
+    acceptableMax: number | null
+    requiredImageCount: number
+}
+
+/**
+ * The answer that scores as good for this question, matching the rules the reports score on. Null
+ * means the question carries no good-answer rule, so it is simply marked done and scores neither way.
+ */
+const goodAnswerPatch = (item: FillableItem): Partial<typeof checklistInstanceItems.$inferInsert> | null => {
+    const accepted = item.acceptableAnswers ?? []
+    if (item.itemType === "YES_NO" || item.itemType === "PASS_FAIL") {
+        const answer = accepted.find((value) => value === "YES" || value === "NO")
+        return answer ? { booleanAnswer: answer as "YES" | "NO" } : null
+    }
+    if (item.itemType === "MULTIPLE_CHOICE" || item.itemType === "DROPDOWN") {
+        return accepted[0] ? { textValue: accepted[0] } : null
+    }
+    if (item.itemType === "NUMBER_ENTRY" || item.itemType === "RATING") {
+        const { acceptableMin: min, acceptableMax: max } = item
+        if (min == null && max == null) return null
+        return { numericValue: min != null ? min : max! }
+    }
+    return null
+}
+
 export const completeAll = async (id: string, input: { reason: string }, user: AccessTokenPayload) => {
     const [[instance], assigneeLinks, reviewerLinks, [actor]] = await Promise.all([
         db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1),
@@ -549,18 +579,61 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
 
     const now = new Date()
     const reason = input.reason.trim()
-    const closedIds = await db.transaction(async (tx) => {
-        const open = await tx.select({ id: checklistInstanceItems.id }).from(checklistInstanceItems)
+    const { closedIds, filledIds } = await db.transaction(async (tx) => {
+        const open = await tx.select({
+            id: checklistInstanceItems.id,
+            itemType: checklistInstanceItems.itemType,
+            acceptableAnswers: checklistInstanceItems.acceptableAnswers,
+            acceptableMin: checklistInstanceItems.acceptableMin,
+            acceptableMax: checklistInstanceItems.acceptableMax,
+            requiredImageCount: checklistInstanceItems.requiredImageCount,
+        }).from(checklistInstanceItems)
             .where(and(eq(checklistInstanceItems.instanceId, id), eq(checklistInstanceItems.isDone, false)))
             .for("update")
-        if (!open.length) return []
+        if (!open.length) return { closedIds: [] as string[], filledIds: [] as string[] }
         const ids = open.map((row) => row.id)
-        await tx.update(checklistInstanceItems).set({
-            isDone: true, isNotApplicable: false, completedAt: now, completedBy: user.sub,
-            waivedAt: now, waivedBy: user.sub, waiveReason: reason,
-            sendBackNote: null, sendBackPhotoOnly: false, updatedAt: now,
-        }).where(inArray(checklistInstanceItems.id, ids))
-        return ids
+        const done = { isDone: true, isNotApplicable: false, completedAt: now, completedBy: user.sub, sendBackNote: null, sendBackPhotoOnly: false, updatedAt: now }
+
+        if (!isSelfService) {
+            await tx.update(checklistInstanceItems)
+                .set({ ...done, waivedAt: now, waivedBy: user.sub, waiveReason: reason })
+                .where(inArray(checklistInstanceItems.id, ids))
+            return { closedIds: ids, filledIds: [] as string[] }
+        }
+
+        // Photo proof can't be invented, so a question still short of its photos is waived. Everything
+        // else is answered the way the checklist says is good, so it counts towards compliance.
+        const photoRows = await tx.select({ itemId: checklistInstanceImages.checklistInstanceItemId, taken: sql<number>`count(*)` })
+            .from(checklistInstanceImages)
+            .where(and(inArray(checklistInstanceImages.checklistInstanceItemId, ids), eq(checklistInstanceImages.purpose, "GENERAL")))
+            .groupBy(checklistInstanceImages.checklistInstanceItemId)
+        const photosOf = new Map(photoRows.map((row) => [row.itemId, Number(row.taken)]))
+
+        const waived: string[] = []
+        const batches = new Map<string, { patch: Partial<typeof checklistInstanceItems.$inferInsert>; ids: string[] }>()
+        for (const item of open) {
+            if (item.requiredImageCount > 0 && (photosOf.get(item.id) ?? 0) < item.requiredImageCount) {
+                waived.push(item.id)
+                continue
+            }
+            const patch = goodAnswerPatch(item) ?? {}
+            const key = JSON.stringify(patch)
+            const batch = batches.get(key)
+            if (batch) batch.ids.push(item.id)
+            else batches.set(key, { patch, ids: [item.id] })
+        }
+
+        if (waived.length) {
+            await tx.update(checklistInstanceItems)
+                .set({ ...done, waivedAt: now, waivedBy: user.sub, waiveReason: reason })
+                .where(inArray(checklistInstanceItems.id, waived))
+        }
+        for (const { patch, ids: batchIds } of batches.values()) {
+            await tx.update(checklistInstanceItems)
+                .set({ ...done, ...patch, waivedAt: null, waivedBy: null, waiveReason: null })
+                .where(inArray(checklistInstanceItems.id, batchIds))
+        }
+        return { closedIds: ids, filledIds: ids.filter((itemId) => !waived.includes(itemId)) }
     })
     if (!closedIds.length) throw AppError.badRequest("Every question on this checklist is already done.")
 
@@ -568,7 +641,11 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: "COMPLETE_ALL", actorId: user.sub,
         before: { openItems: closedIds.length, verificationStatus: instance.verificationStatus },
-        after: { closedItemIds: closedIds, reason, ...(isSelfService ? { selfService: true } : {}) },
+        after: {
+            closedItemIds: closedIds,
+            reason,
+            ...(isSelfService ? { selfService: true, filledWithGoodAnswer: filledIds, waivedForMissingPhotos: closedIds.filter((itemId) => !filledIds.includes(itemId)) } : {}),
+        },
     })
     if (instance.verificationStatus === "NOT_SUBMITTED" || instance.verificationStatus === "REJECTED") {
         await commitSubmission(instance, assigneeIds, user.sub)
