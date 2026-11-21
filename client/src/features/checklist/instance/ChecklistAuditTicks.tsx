@@ -3,6 +3,7 @@ import { Check, Loader2, ShieldAlert, Shirt, X, type LucideIcon } from 'lucide-r
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { LivePhotoTrigger } from './LivePhotoTrigger';
+import type { CaptureMethod } from '../../../api/ticket';
 
 export const AuditUniformChip = ({ label }: { label: string }) => (
   <IconChip icon={Shirt} label={label} title="Uniform that applies" />
@@ -156,7 +157,7 @@ interface AuditCaptureButtonProps {
   label:   string;
   live:    boolean;
   accept:  string;
-  onFiles: (files: FileList | null) => void;
+  onFiles: (files: FileList | null, method: CaptureMethod) => void;
   burst?:  boolean;
   limit?:  number;
 }
@@ -187,7 +188,7 @@ export const AuditCaptureButton = ({ icon: Icon, label, live, accept, onFiles, b
         accept={accept}
         multiple
         className="sr-only"
-        onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
+        onChange={(e) => { onFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
       />
     </label>
   );

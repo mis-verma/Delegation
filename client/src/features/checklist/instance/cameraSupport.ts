@@ -7,6 +7,8 @@ export const needsDesktopCamera = (live: boolean, accept: string) =>
 
 export const MAX_LIVE_PHOTOS = 25;
 
+export type CameraFacing = 'environment' | 'user';
+
 export const canUseInAppCamera = (accept: string) =>
   accept.startsWith('image')
   && typeof navigator !== 'undefined'

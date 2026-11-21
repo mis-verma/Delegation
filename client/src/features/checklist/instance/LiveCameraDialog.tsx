@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, RefreshCw, X } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, SwitchCamera, X } from 'lucide-react';
 import { Button, Modal } from '../../../components';
-import { MAX_LIVE_PHOTOS } from './cameraSupport';
+import { MAX_LIVE_PHOTOS, type CameraFacing } from './cameraSupport';
 
 interface LiveCameraDialogProps {
   open: boolean;
@@ -32,6 +32,7 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
   const shotsRef = useRef<Shot[]>([]);
   const [state, setState] = useState<CameraState>('starting');
   const [attempt, setAttempt] = useState(0);
+  const [facing, setFacing] = useState<CameraFacing>('environment');
   const [capturing, setCapturing] = useState(false);
   const [shots, setShots] = useState<Shot[]>([]);
   const cap = Math.max(1, Math.min(limit, MAX_LIVE_PHOTOS));
@@ -54,7 +55,7 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
     if (!open) return undefined;
     let cancelled = false;
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false })
+      .getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false })
       .then((stream) => {
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
@@ -75,7 +76,12 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
       cancelled = true;
       stop();
     };
-  }, [open, attempt, stop]);
+  }, [open, attempt, facing, stop]);
+
+  const flip = () => {
+    setState('starting');
+    setFacing((f) => (f === 'environment' ? 'user' : 'environment'));
+  };
 
   const snap = () => {
     const video = videoRef.current;
@@ -173,6 +179,18 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
             <span role="status" className="absolute left-2 top-2 rounded-full bg-black/60 px-2.5 py-1 t-meta font-display font-semibold tabular-nums text-white">
               {shots.length} of {cap}
             </span>
+          )}
+          {!failed && (
+            <button
+              type="button"
+              onClick={flip}
+              disabled={state !== 'ready'}
+              aria-label={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+              title={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+              className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-black/60 text-white outline-none transition-colors duration-150 hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 disabled:opacity-50"
+            >
+              <SwitchCamera size={16} aria-hidden />
+            </button>
           )}
         </div>
         {multi && shots.length > 0 && (

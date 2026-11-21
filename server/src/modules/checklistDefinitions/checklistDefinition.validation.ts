@@ -72,7 +72,7 @@ const referenceImageUrl = z.string().max(2048).nullable().optional()
 
 const definitionItemShape = z.object({
     id: z.string().min(1).max(191).optional(),
-    label: z.string().trim().min(1).max(191),
+    label: z.string().trim().min(1).max(20000),
     order: z.number().int().min(0).optional(),
     section: z.string().trim().max(120).nullable().optional().transform((v) => (v === '' ? null : v)),
     requiredImageCount: z.number().int().min(0).optional(),

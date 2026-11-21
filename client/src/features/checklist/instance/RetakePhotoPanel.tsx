@@ -60,9 +60,9 @@ export const RetakePhotoPanel = ({ item, instanceId }: RetakePhotoPanelProps) =>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - fresh.length)} accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'LIVE')} />
+          <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - fresh.length)} accept="image/*" disabled={uploadImages.isPending} onFiles={handleFiles} />
           {!item.requiresLivePhoto && (
-            <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploadImages.isPending} onFiles={(files) => handleFiles(files, 'GALLERY')} />
+            <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploadImages.isPending} onFiles={handleFiles} />
           )}
           {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
         </div>

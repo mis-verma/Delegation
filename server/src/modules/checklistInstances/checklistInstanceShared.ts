@@ -349,10 +349,13 @@ export const isConditionTriggered = (item: ChecklistItem, values: ItemValueInput
     actionsForAnswer(item, values.booleanAnswer).length > 0
 
 export const assertConditionalActionsSatisfied = async (item: ChecklistItem, values: ItemValueInput) => {
-    if (!isConditionTriggered(item, values)) return
+    // A photo requirement on No also applies to Yes, so a person can't dodge it by picking the
+    // answer nobody configured a rule for. Every other rule (reason, ticket, alert) stays per-answer.
+    const photoRequiredAnyway = values.booleanAnswer === "YES" && (item.noActions ?? []).includes("REQUIRE_PHOTO")
+    if (!isConditionTriggered(item, values) && !photoRequiredAnyway) return
     const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
 
-    if (actions.includes("REQUIRE_PHOTO")) {
+    if (actions.includes("REQUIRE_PHOTO") || photoRequiredAnyway) {
         const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, conditionalPhotoPurposeFor(values.booleanAnswer as "YES" | "NO"))))
         const clear = passingPhotos(images)
         const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE").length : clear.length

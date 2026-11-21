@@ -149,6 +149,7 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
 export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceId, required, canEdit }: ItemRemarksFieldProps) {
   const [mode, setMode] = useState<Mode | null>(null);
   const closeDialog = useCallback(() => setMode(null), []);
+  const confirm = useConfirm();
 
   const saved = item.remarks?.trim() ?? '';
   const missing = required && !item.isDone && !saved;
@@ -184,7 +185,16 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
             {!saved && (
               <button
                 type="button"
-                onClick={() => setMode('remark')}
+                onClick={async () => {
+                  if (missing) { setMode('remark'); return; }
+                  const ok = await confirm({
+                    title: 'Add a remark?',
+                    description: 'A short note for whoever reviews this checklist. You can skip this.',
+                    confirmLabel: 'Yes, add one',
+                    cancelLabel: 'No',
+                  });
+                  if (ok) setMode('remark');
+                }}
                 className={`inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 pointer-coarse:min-h-11 px-3 rounded-full t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
                   missing
                     ? 'bg-danger/10 text-danger hover:bg-danger/15 border border-danger/25'

@@ -2,13 +2,14 @@ import type { LucideIcon } from 'lucide-react';
 import { Loader } from '../../../components';
 import { cn } from '@/lib/utils';
 import { LivePhotoTrigger } from './LivePhotoTrigger';
+import type { CaptureMethod } from '../../../api/ticket';
 
 interface CaptureButtonProps {
   icon: LucideIcon;
   label: string;
   live: boolean;
   accept: string;
-  onFiles: (files: FileList | null) => void;
+  onFiles: (files: FileList | null, method: CaptureMethod) => void;
   disabled?: boolean;
   ariaLabel?: string;
   burst?: boolean;
@@ -51,7 +52,7 @@ export const CaptureButton = ({ icon: Icon, label, live, accept, onFiles, disabl
         disabled={disabled}
         aria-label={ariaLabel}
         className="sr-only"
-        onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
+        onChange={(e) => { onFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
       />
     </label>
   );

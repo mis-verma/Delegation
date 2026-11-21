@@ -125,7 +125,7 @@ export const checklistInstanceItems = mysqlTable(
   'ChecklistInstanceItem',
   {
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-    label: varchar('label', { length: 191 }).notNull(),
+    label: text('label').notNull(),
     order: int('order').notNull().default(0),
     section: varchar('section', { length: 120 }),
     isDone: boolean('isDone').notNull().default(false),

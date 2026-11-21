@@ -86,7 +86,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const yesActions = item.yesActions ?? [];
   const noActions = item.noActions ?? [];
   const actionsFor = (value: Answer) => (value === 'YES' ? yesActions : noActions);
-  const isTriggering = (value: Answer) => actionsFor(value).length > 0;
+  // A photo required on No also applies to Yes, so staff can't dodge it by picking the answer
+  // nobody configured a rule for. No already always has to explain itself either way.
+  const photoRequiredOnYesAnyway = noActions.includes('REQUIRE_PHOTO');
+  const isTriggering = (value: Answer) => actionsFor(value).length > 0 || (value === 'YES' && photoRequiredOnYesAnyway);
 
   const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
   const [editingSaved, setEditingSaved] = useState(false);
@@ -98,8 +101,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const accepted = item.acceptableAnswers ?? [];
 
   const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
-  const activeActions = shownAnswer ? actionsFor(shownAnswer) : [];
-  const needsPhoto = activeActions.includes('REQUIRE_PHOTO');
+  const activeActions = shownAnswer === 'YES' && photoRequiredOnYesAnyway && !yesActions.includes('REQUIRE_PHOTO')
+    ? [...yesActions, 'REQUIRE_PHOTO' as const]
+    : shownAnswer ? actionsFor(shownAnswer) : [];
+  const needsPhoto = activeActions.includes('REQUIRE_PHOTO') || (shownAnswer === 'YES' && photoRequiredOnYesAnyway);
   const needsReason = activeActions.includes('ASK_REASON');
   const conditionalPurpose = shownAnswer ? (`CONDITIONAL_${shownAnswer}` as const) : null;
   const images = (item.images ?? []).filter((img) => img.purpose === conditionalPurpose);
@@ -193,7 +198,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto)) || !!savedReason;
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
   const flagged = item.isDone && isFlaggedAnswer(item);
-  const canFollowUp = yesActions.length > 0 || noActions.length > 0 || !!item.conditionalReasonValue;
+  const canFollowUp = yesActions.length > 0 || noActions.length > 0 || photoRequiredOnYesAnyway || !!item.conditionalReasonValue;
   const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending && item.allowNotApplicable !== false;
 
   const pendingTone = pendingAnswer ? toneFor(accepted, pendingAnswer) : 'plain';
@@ -276,9 +281,9 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
           {pendingAnswer && (
             <div className={cn('grid gap-2 sm:flex sm:flex-wrap sm:items-center', item.requiresLivePhoto ? 'grid-cols-1' : 'grid-cols-2')}>
-              <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={(files) => handleFiles(files, 'LIVE')} />
+              <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={handleFiles} />
               {!item.requiresLivePhoto && (
-                <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={(files) => handleFiles(files, 'GALLERY')} />
+                <CaptureButton icon={ImageUp} label="Gallery" ariaLabel={`Gallery photo: ${item.label}`} live={false} accept="image/*" disabled={uploading} onFiles={handleFiles} />
               )}
               {uploadImages.isPending && <UploadingHint progress={uploadImages.progress} />}
             </div>
@@ -370,9 +375,12 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         />
       )}
 
-      {!shownAnswer && interactive && (yesActions.length > 0 || noActions.length > 0) && (
+      {!shownAnswer && interactive && (yesActions.length > 0 || noActions.length > 0 || photoRequiredOnYesAnyway) && (
         <ul className="flex flex-wrap gap-1.5" aria-label="What each answer asks for">
-          {([['YES', labels.yes, yesActions], ['NO', labels.no, noActions]] as const).filter(([, , a]) => a.length > 0).map(([key, label, actions]) => (
+          {([
+            ['YES', labels.yes, photoRequiredOnYesAnyway && !yesActions.includes('REQUIRE_PHOTO') ? [...yesActions, 'REQUIRE_PHOTO' as const] : yesActions],
+            ['NO', labels.no, noActions],
+          ] as const).filter(([, , a]) => a.length > 0).map(([key, label, actions]) => (
             <li key={key}>
               <IconChip icon={Check} tone={key === 'YES' ? 'bg-success' : 'bg-danger'} label={`${label}: ${actions.map((a) => FOLLOW_UP[a].label.toLowerCase()).join(', ')}`} />
             </li>
