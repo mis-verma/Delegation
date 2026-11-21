@@ -52,6 +52,7 @@ const SortableItemRowImpl = ({
   validPersonIds,
   open,
   onToggleOpen,
+  className,
 }: {
   draft: ItemDraft;
   index: number;
@@ -62,6 +63,7 @@ const SortableItemRowImpl = ({
   validPersonIds?: ReadonlySet<string> | null;
   open: boolean;
   onToggleOpen: (key: string) => void;
+  className?: string;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
   const handleRemove = () => onRemove(draft.key);
@@ -70,7 +72,11 @@ const SortableItemRowImpl = ({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? 'opacity-40' : ''}
+      className={cn(
+        'rounded-2xl transition-[opacity,scale] duration-200 ease-out motion-reduce:transition-none',
+        isDragging ? 'relative z-10 scale-[1.01] opacity-70 ring-2 ring-primary-500/30' : '',
+        className,
+      )}
     >
       <ChecklistDefinitionItemDraftRow
         index={index}
@@ -349,6 +355,8 @@ export const BuilderItemsList = ({
   const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set(itemDrafts.length <= OPEN_ON_LOAD_UP_TO ? itemDrafts.map((d) => d.key) : []));
   const knownKeys = useRef<ReadonlySet<string>>(new Set(itemDrafts.map((d) => d.key)));
   const loaded = useRef(itemDrafts.length > 0);
+  // Only a freshly added question animates in; the rest must not replay on every edit.
+  const [enteringKeys, setEnteringKeys] = useState<ReadonlySet<string>>(() => new Set());
   const currentKeys = itemDrafts.map((d) => d.key).join('|');
   useEffect(() => {
     const keys = currentKeys ? currentKeys.split('|') : [];
@@ -362,6 +370,7 @@ export const BuilderItemsList = ({
       return;
     }
     setOpenKeys((prev) => new Set([...prev, ...added]));
+    setEnteringKeys(new Set(added));
   }, [currentKeys]);
   const toggleOpen = useCallback((key: string) => setOpenKeys((prev) => {
     const next = new Set(prev);
@@ -522,8 +531,9 @@ export const BuilderItemsList = ({
       validPersonIds={validPersonIds}
       open={openKeys.has(draft.key)}
       onToggleOpen={toggleOpen}
+      className={enteringKeys.has(draft.key) ? 'view-enter' : undefined}
     />
-  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds, validPersonIds, openKeys, toggleOpen]);
+  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds, validPersonIds, openKeys, toggleOpen, enteringKeys]);
 
   return (
     <div className="flex flex-col gap-4">
