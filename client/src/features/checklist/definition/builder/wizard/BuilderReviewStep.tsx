@@ -1,7 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Camera, Check, CalendarDays, CheckCircle2, Copy, Flag, Info, Layers, ListChecks, type LucideIcon,
-  Pencil, PauseCircle, Repeat, ShieldCheck, Store, Type, Users, Zap, CalendarClock,
+  Pencil, PauseCircle, Repeat, ShieldCheck, Smartphone, Store, Type, Users, Zap, CalendarClock,
 } from 'lucide-react';
 import { Button, IconChip, InlineError, NoticeBanner, Skeleton, formatWeekdays } from '../../../../../components';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ import { questionTypeOf } from '../questionTypes';
 import { WindowTimeline } from '../WindowTimeline';
 import { isOvernightWindow } from '../scheduleWindow';
 import { pickedLabel } from '../scheduleSummary';
+import { ChecklistPreviewSheet } from '../ChecklistPhonePreview';
 import { RECURRENCE_REGISTRY } from '../../../recurrenceRegistry';
 import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import type { ChecklistRecurrence, ChecklistResponseMode } from '../../../../../api/checklistDefinitions';
@@ -124,6 +125,7 @@ export const BuilderReviewStep = ({
   const storesQuery = useStoresQuery();
   const storeUsers = useAssignableUsersQuery(undefined, undefined, storeIds);
   const everyone = useAssignableUsersQuery();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const storeNames = useMemo(
     () => storeIds.map((id) => storesQuery.data?.find((s) => s.id === id)?.name ?? 'Store'),
@@ -309,6 +311,15 @@ export const BuilderReviewStep = ({
                 {stats.critical > 0 && <li><IconChip icon={Flag} tone="bg-danger" label={`${stats.critical} critical`} /></li>}
                 {stats.sections > 0 && <li><IconChip icon={Layers} tone="bg-text-muted" label={plural(stats.sections, 'section', 'sections')} /></li>}
               </ul>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreviewOpen(true)}
+                className="self-start gap-1.5 pointer-coarse:h-11"
+              >
+                <Smartphone size={13} aria-hidden />
+                See it as staff do
+              </Button>
               <ol className="flex max-h-64 flex-col divide-y divide-border/40 overflow-y-auto pr-1">
                 {named.map((item, index) => {
                   const type = questionTypeOf(item);
@@ -389,6 +400,10 @@ export const BuilderReviewStep = ({
             {isSubmitting ? 'Saving…' : isEditing ? 'Save changes' : hasPeople ? 'Create checklist' : 'Save as draft'}
           </Button>
         </div>
+      )}
+
+      {previewOpen && (
+        <ChecklistPreviewSheet open onClose={() => setPreviewOpen(false)} name={name} itemDrafts={itemDrafts} />
       )}
     </div>
   );

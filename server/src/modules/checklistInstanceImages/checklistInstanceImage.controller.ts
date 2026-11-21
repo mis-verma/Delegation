@@ -10,7 +10,9 @@ export const checklistInstanceImageController = {
         const { captureMethod, purpose, takenAt } = uploadChecklistInstanceImageSchema.parse(req.body);
         const files = (req.files as Express.Multer.File[]) ?? [];
         const images = await checklistInstanceImageService.upload(routeParam(req, "id"), files, captureMethod, purpose, req.user!, takenAt);
-        res.status(201).json({ success: true, data: images });
+        // Anything multer refused for size never reaches the service, so it is reported from here.
+        const skipped = Number(res.locals.droppedOversized) || 0;
+        res.status(201).json({ success: true, data: images, ...(skipped > 0 ? { skipped } : {}) });
     }),
 
     review: asyncHandler(async (req: Request, res: Response) => {

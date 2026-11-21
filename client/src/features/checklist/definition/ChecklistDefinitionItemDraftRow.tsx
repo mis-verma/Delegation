@@ -124,6 +124,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   return (
     <article
       aria-label={`Question ${index + 1}`}
+      data-question-key={draft.key}
       className={cn(
         PANEL_CLASS,
         'group/q relative flex flex-col overflow-hidden transition-colors duration-150',

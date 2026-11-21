@@ -70,7 +70,7 @@ export const PhotoRulesPanel = ({ draft, onChange, noun, removable = false }: Ph
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <SectionLabel>At least</SectionLabel>
-        <CountStepper value={minimum} min={isVideo ? 1 : 1} max={20} label={`Minimum ${noun}`} onChange={setMinimum} />
+        <CountStepper value={minimum} min={1} max={20} label={`Minimum ${noun}`} onChange={setMinimum} />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">

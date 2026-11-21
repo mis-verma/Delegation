@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Plus, Type, SlidersHorizontal } from 'lucide-react';
+import { Plus, Smartphone, Type, SlidersHorizontal } from 'lucide-react';
 import { Modal, Button, Input, AddChip } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
@@ -7,6 +7,7 @@ import { ItemTypeConfigFields } from './ItemTypeConfigFields';
 import { BuilderSection } from './BuilderSection';
 import { draftProblem } from '../../questionTypes/model';
 import { QuestionTypeMenu } from './QuestionTypeMenu';
+import { PhoneFrame, QuestionPreviewCard } from './QuestionPhonePreview';
 import { questionTypeOf } from './questionTypes';
 import { emptyItemDraft, patchForEntry, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import type { PaletteEntry } from './QuestionTypePalette';
@@ -77,7 +78,7 @@ export const AddQuestionModal = ({
       title="New question"
       description={type.hint}
       icon={<Icon size={18} strokeWidth={2.25} />}
-      size="lg"
+      size="2xl"
       draggable
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
@@ -91,7 +92,8 @@ export const AddQuestionModal = ({
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
+      <form onSubmit={handleSubmit} className="@container grid grid-cols-1 gap-4 py-1 @[46rem]:grid-cols-[minmax(0,1fr)_17rem] @[46rem]:items-start">
+        <div className="flex min-w-0 flex-col gap-4 @[46rem]:col-start-1">
         <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-linear-to-r from-primary-500/[0.09] via-primary-500/[0.03] to-transparent p-3">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-white" aria-hidden="true">
             <Icon size={22} strokeWidth={2.25} />
@@ -132,6 +134,17 @@ export const AddQuestionModal = ({
         {hasLabel && problem && (
           <p role="alert" className="t-meta font-display font-medium text-danger">{problem}</p>
         )}
+        </div>
+
+        <aside aria-label="How staff see it" className="flex min-w-0 flex-col gap-2 @[46rem]:col-start-2 @[46rem]:sticky @[46rem]:top-0">
+          <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-muted">
+            <Smartphone size={13} aria-hidden />
+            How staff see it
+          </span>
+          <PhoneFrame>
+            <QuestionPreviewCard draft={draft} />
+          </PhoneFrame>
+        </aside>
       </form>
     </Modal>
   );

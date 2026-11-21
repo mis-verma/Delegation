@@ -161,14 +161,16 @@ const taskCommentAttachmentStorage = multer.diskStorage({
 const CHECKLIST_VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime", "video/webm"]
 const CHECKLIST_VIDEO_MIN_SIZE_MB = 100
 
-const buildImageUpload = ( storageEngine : multer.StorageEngine, extraMimeTypes: string[] = []) => {
+const buildImageUpload = ( storageEngine : multer.StorageEngine, extraMimeTypes: string[] = [], maxFiles?: number) => {
     const settings = settingsService.getCached();
     const fileSizeMb = extraMimeTypes.length ? Math.max(settings.maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB) : settings.maxUploadSizeMb
     return multer({
         storage : storageEngine,
         limits : {
             fileSize : fileSizeMb * 1024 * 1024,
-            files : settings.maxUploadFiles,
+            // multer enforces the lower of this and the per-field count, so a route that offers 25
+            // has to raise this too or the 11th file is refused with no useful reason.
+            files : maxFiles ?? settings.maxUploadFiles,
         },
 
         fileFilter:(_req, file, cb) => {
@@ -186,12 +188,14 @@ const MAX_LIVE_PHOTO_FILES = 25
 
 export const taskImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
-    return buildImageUpload(storage).array("images" , Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, next)
+    const cap = Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES)
+    return buildImageUpload(storage, [], cap).array("images" , cap)(req, res, next)
 }
 
 export const checklistImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
-    return buildImageUpload(ticketStorage).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, next)
+    const cap = Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES)
+    return buildImageUpload(ticketStorage, [], cap).array("images", cap)(req, res, next)
 }
 
 export const ticketAttachmentUpload = (req : Request , res : Response , next : NextFunction) => {
@@ -199,26 +203,31 @@ export const ticketAttachmentUpload = (req : Request , res : Response , next : N
     return buildImageUpload(ticketAttachmentStorage).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
 }
 
-const dropOversizedImages = (req: Request, next: NextFunction) => (err?: unknown) => {
+const dropOversizedImages = (req: Request, res: Response, next: NextFunction) => (err?: unknown) => {
     if (err) return next(err)
     const capBytes = settingsService.getCached().maxUploadSizeMb * 1024 * 1024
     const files = Array.isArray(req.files) ? req.files : []
-    req.files = files.filter((file) => {
+    const kept = files.filter((file) => {
         if (file.mimetype.startsWith("video/") || file.size <= capBytes) return true
         fs.unlink(file.path, () => {})
         return false
     })
+    // Counted so the reply can say a photo was left out, instead of reporting a clean success.
+    res.locals.droppedOversized = files.length - kept.length
+    req.files = kept
     next()
 }
 
 export const checklistInstanceImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, dropOversizedImages(req, next))
+    const cap = Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES)
+    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES, cap).array("images", cap)(req, res, dropOversizedImages(req, res, next))
 }
 
 export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) => {
     res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
-    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES))(req, res, dropOversizedImages(req, next))
+    const cap = Math.max(settingsService.getCached().maxUploadFiles, MAX_LIVE_PHOTO_FILES)
+    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES, cap).array("images", cap)(req, res, dropOversizedImages(req, res, next))
 }
 
 export const checklistReferenceUpload = (req : Request , res : Response , next : NextFunction) => {

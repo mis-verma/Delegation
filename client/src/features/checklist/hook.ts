@@ -520,16 +520,27 @@ export const useUploadChecklistInstanceImagesMutation = (instanceId: string) => 
     mutationFn: async ({ itemId, files, captureMethod, purpose }: { itemId: string; files: File[]; captureMethod: CaptureMethod; purpose?: ChecklistImagePurpose }) => {
       setProgress(0);
       const saved: ChecklistInstanceImage[] = [];
+      let skipped = 0;
       try {
         for (let start = 0; start < files.length; start += UPLOAD_BATCH) {
           const batch = files.slice(start, start + UPLOAD_BATCH);
-          const images = (await checklistInstanceApi.uploadImages(itemId, batch, captureMethod, purpose, (percent) => {
+          const reply = await checklistInstanceApi.uploadImages(itemId, batch, captureMethod, purpose, (percent) => {
             setProgress(Math.round(((start + (percent / 100) * batch.length) / files.length) * 100));
-          })).data;
+          });
+          const images = reply.data;
+          skipped += reply.skipped ?? 0;
           saved.push(...images);
           showUploadedPhotos(queryClient, instanceId, itemId, images);
           const weak = weakPhotoMessage(images);
           if (weak) toast.warning(weak, { duration: 10000 });
+        }
+        if (skipped > 0) {
+          toast.warning(
+            skipped === 1
+              ? 'One photo was too big to save. Take it again.'
+              : `${skipped} photos were too big to save. Take them again.`,
+            { duration: 10000 },
+          );
         }
         return saved;
       } finally {

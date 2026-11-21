@@ -13,22 +13,26 @@ export interface PaletteEntry {
 interface QuestionTypePaletteProps {
   onAdd: (patch: Partial<ItemDraft>) => boolean;
   storeIds?: string[];
+  /** Drops the heading when the palette already sits under an "Add" tab. */
+  compact?: boolean;
 }
 
-export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, storeIds }: QuestionTypePaletteProps) {
+export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, storeIds, compact = false }: QuestionTypePaletteProps) {
   const [active, setActive] = useState<QuestionTypeEntry | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3 rounded-xl bg-linear-to-r from-primary-500/[0.09] to-transparent p-2.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
-          <PlusCircle size={18} strokeWidth={2.25} />
-        </span>
-        <div className="flex min-w-0 flex-col">
-          <h2 className="t-card font-display font-bold text-text">Add a question</h2>
-          <span className="t-meta font-display text-text-muted">Tap a type to add it</span>
+      {!compact && (
+        <div className="flex items-center gap-3 rounded-xl bg-linear-to-r from-primary-500/[0.09] to-transparent p-2.5">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white" aria-hidden="true">
+            <PlusCircle size={18} strokeWidth={2.25} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <h2 className="t-card font-display font-bold text-text">Add a question</h2>
+            <span className="t-meta font-display text-text-muted">Tap a type to add it</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {QUESTION_GROUPS.map((group) => (
         <section key={group.id} className="flex flex-col gap-2" aria-label={group.label}>

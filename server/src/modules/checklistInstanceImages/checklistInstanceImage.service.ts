@@ -20,7 +20,7 @@ import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
 import { perceptualHash } from "../../utils/imageHash.js"
 import { assessImageQuality, serializeQualityFlags } from "../../utils/imageQuality.js"
-import { findEarlierSimilar } from "./imageSimilarity.js"
+import { findEarlierSimilarEach } from "./imageSimilarity.js"
 
 const RETRY_WINDOW_MS = 10 * 60_000
 
@@ -108,7 +108,24 @@ export const checklistInstanceImageService = {
             Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? assessImageQuality(file.path) : Promise.resolve(null)))),
         ]);
 
-        const knownHashes = fileHashes.filter((h): h is string => !!h);
+        // The browser's content type is only a claim. If neither image pass could decode the bytes,
+        // it isn't really a photo, whatever the request said it was.
+        const prepared = files
+            .map((file, index) => ({ file, hash: fileHashes[index] ?? null, quality: fileQualities[index] ?? null, takenAt: takenAt[index] }))
+            .filter((entry) => {
+                const readable = !entry.file.mimetype.startsWith("image/") || !!entry.hash || !!entry.quality;
+                if (!readable) fs.unlink(entry.file.path, () => {});
+                return readable;
+            });
+        if (prepared.length === 0) {
+            throw AppError.badRequest(
+                files.length === 1
+                    ? "That file isn't a photo we can read. Take it again."
+                    : "Those files aren't photos we can read. Take them again.",
+            );
+        }
+
+        const knownHashes = prepared.map((entry) => entry.hash).filter((h): h is string => !!h);
         const alreadySaved = knownHashes.length
             ? await db.select().from(checklistInstanceImages).where(and(
                 eq(checklistInstanceImages.checklistInstanceItemId, item.id),
@@ -119,15 +136,14 @@ export const checklistInstanceImageService = {
             ))
             : [];
         const savedHashes = new Set(alreadySaved.map((img) => img.contentHash));
-        const fresh = files.map((file, index) => ({ file, hash: fileHashes[index] ?? null, quality: fileQualities[index] ?? null, takenAt: takenAt[index] }))
-            .filter((entry) => {
-                const repeated = !!entry.hash && savedHashes.has(entry.hash);
-                if (repeated) fs.unlink(entry.file.path, () => {});
-                return !repeated;
-            });
+        const fresh = prepared.filter((entry) => {
+            const repeated = !!entry.hash && savedHashes.has(entry.hash);
+            if (repeated) fs.unlink(entry.file.path, () => {});
+            return !repeated;
+        });
         if (fresh.length === 0) return alreadySaved;
 
-        const similar = await Promise.all(fresh.map((entry) => (entry.hash ? findEarlierSimilar(entry.hash, item.id) : Promise.resolve(null))));
+        const similar = await findEarlierSimilarEach(fresh.map((entry) => entry.hash), item.id);
         const rows = fresh.map(({ file, hash, quality, takenAt: taken }, index) => ({
             id: createId(),
             url: `/uploads/checklist-instances/${path.basename(file.path)}`,

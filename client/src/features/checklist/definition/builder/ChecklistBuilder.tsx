@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, ClipboardX } from 'lucide-react';
+import { ArrowLeft, ClipboardX, Smartphone } from 'lucide-react';
 import {
   ChecklistProgressBar, EmptyState, IconChip, InlineError, PANEL_CLASS,
 } from '../../../../components';
@@ -20,7 +20,8 @@ import { useDraftsQuery, useSaveDraftMutation } from '../../../drafts/hook';
 import { draftApi } from '../../../../api/drafts';
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
-import { QuestionTypePalette } from './QuestionTypePalette';
+import { BuilderQuestionsAside } from './BuilderQuestionsAside';
+import { ChecklistPreviewSheet } from './ChecklistPhonePreview';
 import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
 import { revealAfterRender, questionFieldOf } from './reveal';
 import { definitionState, STATE_LABEL } from '../definitionState';
@@ -41,7 +42,7 @@ import {
   ALL_WEEKDAYS, DEFAULT_WORKING_WEEKDAYS, STEPS, STEP_BLOCK_REASON, BLANK_SNAPSHOT, snapshotKey, DEFAULT_OPENS_TIME, DEFAULT_CUTOFF_TIME, DEFAULT_LATE_UNTIL_TIME,
   toItemDraft, copiedChecklistName, buildItemPayloads, firstItemProblem, type BuilderSnapshot,
 } from './builderModel';
-import { todayPeriodBoundIso } from '../../checklistDisplay';
+import { todayPeriodBoundIso, RECURRENCE_LABEL } from '../../checklistDisplay';
 
 const orgTodayKey = () => todayPeriodBoundIso().slice(0, 10);
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
@@ -84,6 +85,8 @@ export const ChecklistBuilder = () => {
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [activeQuestionKey, setActiveQuestionKey] = useState<string | null>(null);
+  const [previewingAll, setPreviewingAll] = useState(false);
   const [step, setStep] = useState(() => {
     if (!definitionId) return 0;
     const wanted = STEPS.findIndex((st) => st.key === searchParams.get('step'));
@@ -360,12 +363,14 @@ export const ChecklistBuilder = () => {
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
   const hasPeople = visibleAssigneeCount > 0;
   const countOf = (n: number, one: string, many: string) => (n === 0 ? '' : `${n} ${n === 1 ? one : many}`);
+  // Only questions with text get saved, so every count on screen uses the same number.
+  const namedItemCount = itemDrafts.reduce((n, d) => (d.label.trim() ? n + 1 : n), 0);
   const stepItems = STEPS.map((st) => ({
     ...st,
     summary: {
       basics: name.trim(),
-      schedule: [countOf(storeIds.length, 'store', 'stores'), recurrence === 'ONE_TIME' ? 'One-time' : recurrence.charAt(0) + recurrence.slice(1).toLowerCase()].filter(Boolean).join(' · '),
-      items: countOf(itemDrafts.length, 'question', 'questions'),
+      schedule: [countOf(storeIds.length, 'store', 'stores'), RECURRENCE_LABEL[recurrence] ?? recurrence].filter(Boolean).join(' · '),
+      items: countOf(namedItemCount, 'question', 'questions'),
       reviewers: countOf(reviewerIds.length, 'reviewer', 'reviewers'),
       assign: countOf(visibleAssigneeCount, 'person', 'people'),
       review: '',
@@ -578,18 +583,41 @@ export const ChecklistBuilder = () => {
             <div className="flex flex-col gap-6">
               <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
               <div className="grid grid-cols-1 xl:grid-cols-[19rem_1fr] gap-5 xl:gap-6 items-start">
-                <div className={`${PANEL_CLASS} order-last xl:order-first p-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto`}>
-                  <QuestionTypePalette onAdd={addItem} storeIds={storeIds} />
-                </div>
+                <BuilderQuestionsAside
+                  onAdd={addItem}
+                  storeIds={storeIds}
+                  name={name}
+                  itemDrafts={itemDrafts}
+                  activeKey={activeQuestionKey}
+                />
 
-                <div className="flex flex-col gap-3 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
+                <div
+                  className="flex flex-col gap-3 min-w-0"
+                  onFocusCapture={(e) => {
+                    const row = (e.target as HTMLElement).closest<HTMLElement>('[data-question-key]');
+                    if (row?.dataset.questionKey) setActiveQuestionKey(row.dataset.questionKey);
+                  }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="t-card font-display font-semibold text-text">
-                      Questions <span className="font-normal text-text-muted tabular-nums">· {itemDrafts.length}</span>
+                      Questions <span className="font-normal text-text-muted tabular-nums">· {namedItemCount}</span>
+                      {itemDrafts.length > namedItemCount && (
+                        <span className="font-normal text-text-light"> · {itemDrafts.length - namedItemCount} unnamed</span>
+                      )}
                     </h3>
-                    {itemDrafts.length > 1 && (
-                      <span className="hidden sm:inline t-meta font-display text-text-muted">Drag to reorder</span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {itemDrafts.length > 1 && (
+                        <span className="hidden sm:inline t-meta font-display text-text-muted">Drag to reorder</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewingAll(true)}
+                        className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border border-border/70 bg-surface px-3 t-meta font-display font-semibold text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 xl:hidden"
+                      >
+                        <Smartphone size={13} aria-hidden />
+                        Preview all
+                      </button>
+                    </div>
                   </div>
 
                   <BuilderItemsList
@@ -606,6 +634,9 @@ export const ChecklistBuilder = () => {
                   />
                 </div>
               </div>
+              {previewingAll && (
+                <ChecklistPreviewSheet open onClose={() => setPreviewingAll(false)} name={name} itemDrafts={itemDrafts} />
+              )}
             </div>
           </BuilderStepFrame>
         );

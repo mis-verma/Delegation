@@ -640,7 +640,7 @@ export const checklistInstanceApi = {
   uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod, purpose: ChecklistImagePurpose = 'GENERAL', onProgress?: UploadProgress) => {
     const taken = await Promise.all(files.map(captureTimeOf));
     const shrunk = await shrinkImages(files);
-    return uploadKeepingCopy<ApiResponse<ChecklistInstanceImage[]>>(files, {
+    return uploadKeepingCopy<ApiResponse<ChecklistInstanceImage[]> & { skipped?: number }>(files, {
       path: `/checklist-instance-items/${itemId}/images`,
       files: fileParts(shrunk, 'images'),
       fields: [

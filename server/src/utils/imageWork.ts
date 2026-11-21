@@ -1,4 +1,22 @@
-export const MAX_PARALLEL_IMAGE_JOBS = 2
+import os from "node:os"
+
+/**
+ * Sharp decodes are CPU and memory heavy, so only a few run at once. Two was a safe floor for a
+ * single-core box; on a bigger one that left a 25-photo burst waiting on an idle CPU.
+ */
+const cpuCount = (() => {
+    try {
+        return os.cpus()?.length || 1
+    } catch {
+        return 1
+    }
+})()
+
+const configured = Number(process.env.MAX_PARALLEL_IMAGE_JOBS)
+
+export const MAX_PARALLEL_IMAGE_JOBS = Number.isFinite(configured) && configured >= 1
+    ? Math.floor(configured)
+    : Math.max(2, Math.min(4, cpuCount - 1))
 
 let active = 0
 const waiting: (() => void)[] = []
