@@ -50,6 +50,8 @@ const SortableItemRowImpl = ({
   onDuplicate,
   storeIds,
   validPersonIds,
+  open,
+  onToggleOpen,
 }: {
   draft: ItemDraft;
   index: number;
@@ -58,6 +60,8 @@ const SortableItemRowImpl = ({
   onDuplicate: (key: string) => void;
   storeIds?: string[];
   validPersonIds?: ReadonlySet<string> | null;
+  open: boolean;
+  onToggleOpen: (key: string) => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
   const handleRemove = () => onRemove(draft.key);
@@ -74,6 +78,8 @@ const SortableItemRowImpl = ({
         onChange={onChange}
         storeIds={storeIds}
         validPersonIds={validPersonIds}
+        open={open}
+        onToggleOpen={() => onToggleOpen(draft.key)}
         leading={
           <button
             type="button"
@@ -86,7 +92,7 @@ const SortableItemRowImpl = ({
           </button>
         }
         trailing={
-          <div className="flex flex-row sm:flex-col gap-1 pointer-coarse:gap-2 shrink-0">
+          <div className="flex flex-row items-center gap-1 pointer-coarse:gap-2 shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -317,6 +323,8 @@ const collisionDetection: CollisionDetection = (args) => {
   return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
 };
 
+const OPEN_ON_LOAD_UP_TO = 3;
+
 const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: DRAG_SLOP_PX } };
 const TOUCH_SENSOR_OPTIONS = { activationConstraint: { delay: 220, tolerance: 6 } };
 const KEYBOARD_SENSOR_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
@@ -336,6 +344,32 @@ export const BuilderItemsList = ({
   const confirm = useConfirm();
   const [newSectionName, setNewSectionName] = useState('');
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  // A short checklist opens in full, a long one starts as a list you can read and drag. Either way
+  // a question you just added opens on its own, because you are about to type into it.
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set(itemDrafts.length <= OPEN_ON_LOAD_UP_TO ? itemDrafts.map((d) => d.key) : []));
+  const knownKeys = useRef<ReadonlySet<string>>(new Set(itemDrafts.map((d) => d.key)));
+  const loaded = useRef(itemDrafts.length > 0);
+  const currentKeys = itemDrafts.map((d) => d.key).join('|');
+  useEffect(() => {
+    const keys = currentKeys ? currentKeys.split('|') : [];
+    const added = keys.filter((key) => !knownKeys.current.has(key));
+    knownKeys.current = new Set(keys);
+    if (!added.length) return;
+    // The first batch is the saved checklist arriving, not questions somebody just added.
+    if (!loaded.current) {
+      loaded.current = true;
+      setOpenKeys(new Set(keys.length <= OPEN_ON_LOAD_UP_TO ? keys : []));
+      return;
+    }
+    setOpenKeys((prev) => new Set([...prev, ...added]));
+  }, [currentKeys]);
+  const toggleOpen = useCallback((key: string) => setOpenKeys((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  }), []);
+  const openCount = itemDrafts.reduce((n, d) => (openKeys.has(d.key) ? n + 1 : n), 0);
+  const allOpen = openCount === itemDrafts.length && itemDrafts.length > 0;
 
   const sensors = useSensors(
     useSensor(MouseSensor, MOUSE_SENSOR_OPTIONS),
@@ -486,11 +520,23 @@ export const BuilderItemsList = ({
       onDuplicate={handleDuplicateItem}
       storeIds={storeIds}
       validPersonIds={validPersonIds}
+      open={openKeys.has(draft.key)}
+      onToggleOpen={toggleOpen}
     />
-  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds, validPersonIds]);
+  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds, validPersonIds, openKeys, toggleOpen]);
 
   return (
     <div className="flex flex-col gap-4">
+      {itemDrafts.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setOpenKeys(allOpen ? new Set() : new Set(itemDrafts.map((d) => d.key)))}
+          className="inline-flex min-h-9 pointer-coarse:min-h-11 w-fit items-center gap-1.5 self-end rounded-full border border-border/70 bg-surface px-3 t-meta font-display font-semibold text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          {allOpen ? <ChevronUp size={13} aria-hidden /> : <ChevronDown size={13} aria-hidden />}
+          {allOpen ? 'Close all' : 'Open all'}
+        </button>
+      )}
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
