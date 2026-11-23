@@ -1,6 +1,7 @@
+import { AlertTriangle, CheckCheck, Clock3, Hourglass, ListChecks, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
-import { STAT_FIGURE, STAT_PHONE_CENTER, STAT_ROW_PHONE_CENTER, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
+import { STAT_FIGURE } from '../../components/statSurface';
 import { useStatCountFormat } from '../../lib/statCount';
 
 export type StatusKind = 'pending' | 'completed' | 'due' | 'late' | 'total';
@@ -18,6 +19,7 @@ interface StatusFigureStatsProps<K extends string> {
   items: readonly StatusFigureItem<K>[];
   counts: Record<K, number>;
   display?: Partial<Record<K, string>>;
+  /** Accepted so callers can pass a denominator; the cards show counts on their own. */
   total?: number;
   active?: K | null;
   onToggle?: (key: K) => void;
@@ -25,101 +27,95 @@ interface StatusFigureStatsProps<K extends string> {
   error?: boolean;
   onRetry?: () => void;
   label: string;
-  phoneColumns?: 2 | 4;
-  surface?: 'navy' | 'light';
 }
 
-const ACCENT: Record<StatusKind, string> = {
-  pending: '[--stat-accent:var(--stat-accent-pending)]',
-  completed: '[--stat-accent:var(--stat-accent-completed)]',
-  due: '[--stat-accent:var(--stat-accent-due)]',
-  late: '[--stat-accent:var(--stat-accent-late)]',
-  total: '[--stat-accent:var(--stat-accent-pending)]',
+interface KindLook {
+  icon: LucideIcon;
+  /** The solid square the icon sits on, the one piece of colour in the card. */
+  tile: string;
+  /** Border and wash once this one is the active filter. */
+  selected: string;
+  /** The bar under a selected card. Written out in full, so Tailwind can see it. */
+  bar: string;
+}
+
+/** One row per status, read once per card, so nothing here needs a branch. */
+const LOOK: Readonly<Record<StatusKind, KindLook>> = {
+  pending: { icon: Clock3, tile: 'bg-primary-600', selected: 'border-primary-500/45 bg-primary-500/[0.06]', bar: 'after:bg-primary-600' },
+  due: { icon: Hourglass, tile: 'bg-warning', selected: 'border-warning/50 bg-warning/[0.07]', bar: 'after:bg-warning' },
+  late: { icon: AlertTriangle, tile: 'bg-danger', selected: 'border-danger/50 bg-danger/[0.06]', bar: 'after:bg-danger' },
+  completed: { icon: CheckCheck, tile: 'bg-success', selected: 'border-success/50 bg-success/[0.07]', bar: 'after:bg-success' },
+  total: { icon: ListChecks, tile: 'bg-text-muted', selected: 'border-primary-500/45 bg-primary-500/[0.06]', bar: 'after:bg-primary-600' },
 };
 
-const CELL_BASE = cn(
-  'relative flex min-h-16 min-w-0 cursor-pointer flex-col justify-center gap-1 overflow-hidden rounded-2xl px-1.5 py-2 text-left outline-none touch-manipulation sm:px-2.5 sm:min-h-0 sm:gap-3 sm:p-5',
-  STAT_PHONE_CENTER,
+const CARD = cn(
+  'relative flex min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-border bg-surface p-2.5 text-left',
+  'transition-[background-color,border-color] duration-150 ease-out sm:gap-3 sm:p-3.5',
 );
 
-const CELL_NAVY = cn(
-  CELL_BASE,
-  'stat-navy ring-1 ring-inset ring-white/10',
-  'transition-[transform,filter,box-shadow] duration-200 ease-out hover:brightness-[1.12] active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-white/70',
-);
+const CARD_ACTION = 'cursor-pointer touch-manipulation outline-none hover:border-border-hover hover:bg-surface-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
-const CELL_LIGHT = cn(
-  CELL_BASE,
-  STAT_SURFACE, STAT_SURFACE_ACTION,
-  'focus-visible:ring-2 focus-visible:ring-primary-500/40',
-);
+const SELECTED_BAR = 'after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full sm:after:inset-x-4';
 
-const STATIC_NAVY = 'cursor-default hover:brightness-100 active:scale-100';
-const STATIC_LIGHT = 'cursor-default hover:bg-surface active:scale-100';
-
-const SELECTED_NAVY = 'ring-2 ring-white/85 after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-1 after:rounded-t-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5';
-const SELECTED_LIGHT = cn(STAT_SURFACE_SELECTED, 'after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-[rgb(var(--stat-accent))] sm:after:inset-x-5');
-
-const GRID_BY_COUNT: Record<number, string> = {
-  4: 'grid-cols-4',
-  5: 'grid-cols-2 sm:grid-cols-5 [&>:last-child]:max-sm:col-span-2',
+/** Five never divides into a phone's two columns, so the last one takes the spare half. */
+const GRID: Readonly<Record<number, string>> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-2 sm:grid-cols-3 [&>:last-child]:max-sm:col-span-2',
+  4: 'grid-cols-2 sm:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>:last-child]:max-sm:col-span-2',
 };
 
-const gridClass = (count: number, phoneColumns: 2 | 4): string => {
-  if (count === 4 && phoneColumns === 2) return 'grid-cols-2 sm:grid-cols-4';
-  return GRID_BY_COUNT[count] ?? GRID_BY_COUNT[4];
-};
+const gridClass = (count: number): string => GRID[count] ?? 'grid-cols-2 sm:grid-cols-4';
 
-export const StatusFigureStats = <K extends string>({ items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label, phoneColumns = 4, surface = 'navy' }: StatusFigureStatsProps<K>) => {
+export const StatusFigureStats = <K extends string>({
+  items, counts, display, active, onToggle, isLoading = false, error = false, onRetry, label,
+}: StatusFigureStatsProps<K>) => {
   const failed = error && !isLoading;
   const formatCount = useStatCountFormat();
-  const light = surface === 'light';
-  const cell = light ? CELL_LIGHT : CELL_NAVY;
-  const staticCell = light ? STATIC_LIGHT : STATIC_NAVY;
-  const selectedCell = light ? SELECTED_LIGHT : SELECTED_NAVY;
-  const labelTone = light ? 'text-text-muted' : 'text-white/80';
-  const noteTone = light ? 'text-text-light' : 'text-white/60';
-  const figureTone = light ? 'text-text' : 'text-white';
-  const figureFailedTone = light ? 'text-text-light' : 'text-white/45';
+
   return (
-    <div className={cn('grid w-full gap-1.5 sm:gap-2', gridClass(items.length, phoneColumns))} role="group" aria-label={label}>
+    <div className={cn('grid w-full gap-2', gridClass(items.length))} role="group" aria-label={label}>
       {items.map((item) => {
+        const look = LOOK[item.kind];
+        const Icon = look.icon;
         const count = counts[item.key] ?? 0;
         const shown = display?.[item.key] ?? formatCount(count);
         const selected = active === item.key && !failed;
         const alert = item.kind === 'late' && count > 0 && !failed && !isLoading;
         const retry = failed && !!onRetry;
+
         const body = (
           <>
-            <span className="flex min-w-0 max-w-full flex-col">
-              <span className={cn('flex min-w-0 items-center gap-1.5 t-meta font-display font-semibold', labelTone, STAT_ROW_PHONE_CENTER)}>
-                <span className={cn('size-1.5 shrink-0 rounded-full bg-[rgb(var(--stat-accent))]', alert && 'live-dot')} aria-hidden="true" />
-                <span className="min-w-0 truncate">
-                  <span className="sm:hidden">{item.short ?? item.label}</span>
-                  <span className="hidden sm:inline">{item.label}</span>
-                </span>
-              </span>
-              {item.note && <span className={cn('truncate t-meta', noteTone)}>{item.note}</span>}
+            <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white sm:size-9', look.tile, alert && 'live-dot')} aria-hidden="true">
+              <Icon size={15} strokeWidth={2.5} />
             </span>
-            <span className={cn('flex min-h-7 min-w-0 max-w-full shrink-0 items-center', STAT_ROW_PHONE_CENTER)}>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="min-w-0 truncate t-meta font-display font-semibold text-text-secondary">
+                <span className="sm:hidden">{item.short ?? item.label}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </span>
               {isLoading ? (
-                <Skeleton className={cn('h-6 w-12', !light && 'bg-white/15')} />
+                <Skeleton className="h-6 w-10" />
               ) : (
-                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, failed ? figureFailedTone : alert ? 'text-[rgb(var(--stat-accent))]' : figureTone)}>
+                <span className={cn('t-section sm:t-stat', STAT_FIGURE, failed ? 'text-text-light' : alert ? 'text-danger' : 'text-text')}>
                   {failed ? '-' : shown}
                 </span>
               )}
+              {item.note && <span className="truncate t-meta text-text-light">{item.note}</span>}
             </span>
           </>
         );
+
         if (!retry && !onToggle) {
           return (
-            <div key={item.key} title={item.help} className={cn(cell, staticCell, ACCENT[item.kind])}>
+            <div key={item.key} title={item.help} className={CARD}>
               <span className="sr-only">{isLoading ? item.label : `${item.label}, ${shown}`}</span>
               <span aria-hidden="true" className="contents">{body}</span>
             </div>
           );
         }
+
         return (
           <button
             key={item.key}
@@ -128,7 +124,7 @@ export const StatusFigureStats = <K extends string>({ items, counts, display, ac
             aria-pressed={retry ? undefined : selected}
             aria-label={failed ? `${item.label}, couldn't load. Tap to try again` : isLoading ? item.label : `${item.label}, ${shown}`}
             title={failed ? "Couldn't load. Tap to try again." : item.help}
-            className={cn(cell, ACCENT[item.kind], selected && selectedCell)}
+            className={cn(CARD, CARD_ACTION, selected && cn(look.selected, SELECTED_BAR, look.bar))}
           >
             {body}
           </button>

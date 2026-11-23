@@ -29,6 +29,6 @@ interface MyChecklistsQuickStatsProps {
 }
 
 export const MyChecklistsQuickStats = memo(({ counts, total, active, onToggle, isLoading = false, error, onRetry }: MyChecklistsQuickStatsProps) => (
-  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Checklist figures" surface="light" />
+  <StatusFigureStats items={ITEMS} counts={counts} total={total} active={active} onToggle={onToggle} isLoading={isLoading} error={error} onRetry={onRetry} label="Checklist figures" />
 ));
 MyChecklistsQuickStats.displayName = 'MyChecklistsQuickStats';
