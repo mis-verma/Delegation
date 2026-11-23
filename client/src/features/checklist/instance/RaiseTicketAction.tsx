@@ -38,7 +38,7 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
         to={`/tickets?open=${item.reviewTicketId}`}
         aria-label={`Open the ticket raised for: ${item.label}`}
         title="Open ticket"
-        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8 sm:min-w-0"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8 md:min-w-0"
       >
         <Ticket size={13} aria-hidden />
         <ActionLabel>Open ticket</ActionLabel>
@@ -69,7 +69,7 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
         onClick={() => setOpen(true)}
         aria-label={`Raise a ticket for: ${item.label}`}
         title="Raise ticket"
-        className="min-w-11 justify-center pointer-coarse:min-h-11 sm:min-w-0"
+        className="min-w-11 justify-center pointer-coarse:min-h-11 md:min-w-0"
       >
         <TicketPlus size={14} aria-hidden />
         <ActionLabel>Raise ticket</ActionLabel>

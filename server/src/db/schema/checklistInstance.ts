@@ -169,6 +169,8 @@ export const checklistInstanceItems = mysqlTable(
     conditionalReasonValue: text('conditionalReasonValue'),
     remarks: text('remarks'),
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
+    /** The reviewer's own note on this question, left when they approved the run. */
+    reviewRemark: text('reviewRemark'),
     sendBackNote: text('sendBackNote'),
     sendBackCount: int('sendBackCount').notNull().default(0),
     sendBackPhotoOnly: boolean('sendBackPhotoOnly').notNull().default(false),

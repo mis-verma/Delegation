@@ -71,7 +71,7 @@ export const ReviewEditsProvider = ({ instanceId, items, enabled, canUnanswer, c
 
   const value = useMemo<ReviewEdits>(
     () => (enabled
-      ? { record, undoable: stack[stack.length - 1] ?? null, undo, original, reset, saving: isPending }
+      ? { reviewing: true, record, undoable: stack[stack.length - 1] ?? null, undo, original, reset, saving: isPending }
       : NO_EDITS),
     [enabled, record, stack, undo, original, reset, isPending],
   );

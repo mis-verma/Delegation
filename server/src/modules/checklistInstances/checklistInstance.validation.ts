@@ -58,6 +58,12 @@ export const verifyChecklistInstanceSchema = z.object({
     action: z.enum(["APPROVE", "REJECT"]),
     note: z.string().optional(),
     fixByHours: z.number().int().min(1).max(72).optional(),
+    // The reviewer's per-question notes ride along with the decision, so approving with remarks
+    // is one request rather than one per question.
+    itemRemarks: z.array(z.object({
+        itemId: objectId,
+        remark: z.string().trim().max(1000),
+    })).max(200).optional(),
 }).refine(v => v.action === "APPROVE" || !!v.note?.trim(), {
     message: "A note is required when rejecting.",
     path: ["note"],

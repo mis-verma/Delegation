@@ -22,7 +22,7 @@ import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats'
 import { ReviewPane, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
-import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
+import { approveRun, rejectRun, sendBackRun, type ItemRemark } from './decisionRequests';
 import { runPaced } from './pacedRun';
 import { filterTasks, filterTickets, sortByWaiting, type TicketTaskFilter } from './ticketTaskFilters';
 import { useChecklistDecisionsQuery } from './useChecklistDecisions';
@@ -186,7 +186,7 @@ export const VerificationQueue = () => {
     focusRow(next?.id ?? null);
   }, []);
 
-  const approve = useCallback((id: string) => {
+  const approve = useCallback((id: string, itemRemarks?: ItemRemark[]) => {
     const { rows, openId, draft: current } = latest.current;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -197,7 +197,7 @@ export const VerificationQueue = () => {
     }
     if (openId === id) current?.reset();
     advanceFrom(id);
-    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id) });
+    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id, itemRemarks) });
   }, [advanceFrom, schedule]);
 
   const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
@@ -212,7 +212,7 @@ export const VerificationQueue = () => {
     });
   }, [advanceFrom, schedule]);
 
-  const approveFromPane = useCallback((row: ChecklistRow) => approve(row.id), [approve]);
+  const approveFromPane = useCallback((row: ChecklistRow, itemRemarks?: ItemRemark[]) => approve(row.id, itemRemarks), [approve]);
 
   const openRun = useCallback((id: string) => {
     setCursor(id);

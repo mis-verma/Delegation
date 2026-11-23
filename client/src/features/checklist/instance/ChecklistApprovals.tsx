@@ -5,7 +5,7 @@ import { PageHeader, SearchField } from '../../../components';
 import { ChecklistApprovalStats, type ApprovalStatKey } from './ChecklistApprovalStats';
 import { ChecklistList } from '../../verification/ChecklistList';
 import { ReviewSheet, type SendBackPayload } from '../../verification/ReviewPane';
-import { approveRun, rejectRun, sendBackRun } from '../../verification/decisionRequests';
+import { approveRun, rejectRun, sendBackRun, type ItemRemark } from '../../verification/decisionRequests';
 import {
   useChecklistQueueQuery, useChecklistRows, useNow, useQueueLookups, useVisibleChecklistRows, type ChecklistFilters,
 } from '../../verification/useChecklistQueue';
@@ -64,11 +64,11 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
   const waiting = Math.max(0, total - heldInLoaded);
   const oldest = rows.length ? rows[0].waitingSince : null;
 
-  const approve = useCallback((id: string) => {
+  const approve = useCallback((id: string, itemRemarks?: ItemRemark[]) => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
     setOpenId(null);
-    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id) });
+    schedule({ id, kind: 'checklist', verb: 'Approved', label: row.instance.title, run: approveRun(id, itemRemarks) });
   }, [rows, schedule]);
 
   const sendBack = useCallback((row: ChecklistRow, payload: SendBackPayload) => {
@@ -82,7 +82,7 @@ export const ChecklistApprovals = ({ embedded = false }: { embedded?: boolean })
     });
   }, [schedule]);
 
-  const approveFromSheet = useCallback((row: ChecklistRow) => approve(row.id), [approve]);
+  const approveFromSheet = useCallback((row: ChecklistRow, itemRemarks?: ItemRemark[]) => approve(row.id, itemRemarks), [approve]);
   const startSendBack = useCallback((id: string) => { startSendBackFor(id); setOpenId(id); }, [startSendBackFor]);
   const closeSheet = useCallback(() => setOpenId(null), []);
 

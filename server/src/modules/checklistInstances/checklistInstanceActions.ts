@@ -656,6 +656,22 @@ export const completeAll = async (id: string, input: { reason: string }, user: A
     return getPopulatedInstanceById(id)
 }
 
+/**
+ * Writes the reviewer's per-question notes. Each update is scoped to the instance as well as the
+ * item, so a remark aimed at another run's question matches nothing and changes nothing.
+ */
+const saveItemRemarks = async (instanceId: string, itemRemarks: VerifyChecklistInstanceInput["itemRemarks"]) => {
+    const written = (itemRemarks ?? []).filter((r) => r.remark.length > 0)
+    if (written.length === 0) return
+    await db.transaction(async (tx) => {
+        for (const { itemId, remark } of written) {
+            await tx.update(checklistInstanceItems)
+                .set({ reviewRemark: remark, updatedAt: new Date() })
+                .where(and(eq(checklistInstanceItems.id, itemId), eq(checklistInstanceItems.instanceId, instanceId)))
+        }
+    })
+}
+
 export const verify = async (id: string, input: VerifyChecklistInstanceInput, user: AccessTokenPayload) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
@@ -688,6 +704,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
             approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now,
         }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), stageMatches))
         if (moved.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
+        await saveItemRemarks(id, input.itemRemarks)
         notificationService
             .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds: assigneeLinks.map((l) => l.userId) })
             .catch((err) => console.error("Failed to notify PC after the head approved:", err))
@@ -711,6 +728,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
             updatedAt: now,
         }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), stageMatches))
         if (approved.affectedRows === 0) throw AppError.conflict("Someone already decided on this checklist. Refresh to see where it stands.")
+        await saveItemRemarks(id, input.itemRemarks)
     } else {
         afterRow = { ...instance, verificationStatus: "REJECTED", verificationNote: input.note ?? null, rejectionCount: instance.rejectionCount + 1, updatedAt: now }
         await db.transaction(async (tx) => {

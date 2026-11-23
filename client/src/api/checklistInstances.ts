@@ -121,6 +121,8 @@ export type ChecklistInstanceItem = {
   conditionalReasonValue: string | null;
   remarks:            string | null;
   isNotApplicable:    boolean;
+  /** The reviewer's own note on this question, left when they approved the run. */
+  reviewRemark:       string | null;
   sendBackNote:       string | null;
   sendBackCount:      number;
   sendBackPhotoOnly?: boolean;

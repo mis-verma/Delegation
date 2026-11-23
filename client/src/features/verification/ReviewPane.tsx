@@ -20,6 +20,8 @@ import { PersonContext } from './PersonContext';
 import { ReviewActions } from '../checklist/instance/ReviewActions';
 import { approveLabelFor } from '../checklist/approvalStage';
 import { CorrectionDialog } from './CorrectionDialog';
+import { ApprovalRemarksDialog } from './ApprovalRemarksDialog';
+import type { ItemRemark } from './decisionRequests';
 import { ReviewScoreStrip } from './ReviewScoreStrip';
 import { projectReviewScores } from './reviewScore';
 import { pickDefaults, runCorrectionItems, type CorrectionItem, type PickDefaults, type SendBackPayload } from './correctionItems';
@@ -235,7 +237,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
                           onClick={() => goTo(item.id)}
                           aria-label={`Go to: ${item.label}`}
                           title="Go to this question"
-                          className="inline-flex min-h-11 min-w-11 sm:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                          className="inline-flex min-h-11 min-w-11 md:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
                         >
                           <ArrowDownToLine size={13} aria-hidden />
                           <ActionLabel>Go to</ActionLabel>
@@ -247,7 +249,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
                           aria-label={isPicked ? `Sending back: ${item.label}` : `Send back: ${item.label}`}
                           title={isPicked ? 'Sending back' : 'Send back'}
                           className={cn(
-                            'inline-flex min-h-11 min-w-11 sm:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                            'inline-flex min-h-11 min-w-11 md:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
                             isPicked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
                           )}
                         >
@@ -398,7 +400,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
 interface FooterProps {
   row: ChecklistRow;
   draft: ReviewDraft;
-  onApprove: (row: ChecklistRow) => void;
+  onApprove: (row: ChecklistRow, itemRemarks?: ItemRemark[]) => void;
   onSendBack: (row: ChecklistRow, payload: SendBackPayload) => void;
 }
 
@@ -407,6 +409,8 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
   const items = useMemo(() => runCorrectionItems(row.instance.items), [row.instance.items]);
   const progress = useReviewProgress(row, draft);
   const { user: reviewer } = useAuth();
+  const [approving, setApproving] = useState(false);
+  const approveLabel = approveLabelFor(reviewer?.role, row.instance);
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -426,12 +430,20 @@ const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove,
           busy={false}
           approving={false}
           pickedCount={count}
-          approveLabel={approveLabelFor(reviewer?.role, row.instance)}
+          approveLabel={approveLabel}
           onSendBack={() => draft.setSending(true)}
-          onApprove={() => onApprove(row)}
+          onApprove={() => setApproving(true)}
         />
       </div>
       <CorrectionDialog items={items} assigneeNames={row.assigneeNames} draft={draft} onSend={(payload) => onSendBack(row, payload)} />
+      <ApprovalRemarksDialog
+        open={approving}
+        title={row.instance.title}
+        items={row.instance.items}
+        approveLabel={approveLabel}
+        onClose={() => setApproving(false)}
+        onConfirm={(itemRemarks) => { setApproving(false); onApprove(row, itemRemarks); }}
+      />
     </div>
   );
 });

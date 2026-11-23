@@ -5,8 +5,18 @@ type RunOptions = { keepalive: boolean };
 const patch = (path: string, body: unknown, { keepalive }: RunOptions) =>
   apiFetch<unknown>(path, { method: 'PATCH', body: JSON.stringify(body), keepalive });
 
-export const approveRun = (id: string) => (options: RunOptions) =>
-  patch(`/checklist-instances/${id}/verify`, { action: 'APPROVE' }, options);
+export interface ItemRemark {
+  itemId: string;
+  remark: string;
+}
+
+/** The reviewer's per-question notes ride with the decision, so approving is still one request. */
+export const approveRun = (id: string, itemRemarks?: readonly ItemRemark[]) => (options: RunOptions) =>
+  patch(
+    `/checklist-instances/${id}/verify`,
+    { action: 'APPROVE', ...(itemRemarks?.length ? { itemRemarks } : {}) },
+    options,
+  );
 
 export const rejectRun = (id: string, note: string, fixByHours?: number | null) => (options: RunOptions) =>
   patch(`/checklist-instances/${id}/verify`, { action: 'REJECT', note, ...(fixByHours ? { fixByHours } : {}) }, options);

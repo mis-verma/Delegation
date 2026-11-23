@@ -3,8 +3,8 @@ interface ActionLabelProps {
 }
 
 /**
- * The words on a small inline action, kept for pointer and screen width but dropped on a phone,
- * where the icon carries it and the row has no space for three labelled buttons. Every button
- * using this needs its own aria-label, so the accessible name survives the text being hidden.
+ * The words on a small inline action. Below md the icon carries the button on its own, because
+ * a phone row has no space for three labelled controls. Every button using this needs its own
+ * aria-label and title, so the name survives for a screen reader and appears on hover.
  */
-export const ActionLabel = ({ children }: ActionLabelProps) => <span className="hidden sm:inline">{children}</span>;
+export const ActionLabel = ({ children }: ActionLabelProps) => <span className="hidden md:inline">{children}</span>;

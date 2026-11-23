@@ -176,7 +176,9 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       return;
     }
     if (!pendingAnswer && item.isDone && item.booleanAnswer === value) return;
-    if (value === 'NO' && !isTriggering('NO')) {
+    // Staff saying No have to say why. A reviewer marking someone else's answer wrong does not:
+    // their reason belongs on the correction they send back, not on every tap.
+    if (value === 'NO' && !isTriggering('NO') && !edits.reviewing) {
       if (pendingAnswer !== null) {
         discardSession();
         closeEditor();

@@ -1,5 +1,5 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, Layers, MessageSquareText, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionLabel, IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { Switch } from '../../../components/switch';
@@ -109,7 +109,7 @@ export interface DetailItemRowProps {
 }
 
 const DECISION_PILL =
-  'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 sm:min-w-0 sm:pointer-coarse:min-h-11';
+  'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 md:min-w-0 sm:pointer-coarse:min-h-11';
 
 export const DetailItemRow = memo(({
   item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
@@ -182,6 +182,12 @@ export const DetailItemRow = memo(({
           <p className="flex flex-wrap items-center gap-2 t-meta font-display font-medium">
             <IconChip icon={ImageOff} tone="bg-warning" label="Weak photo" title="A photo looks blurry, too dark or too bright" />
             <span className="text-text-secondary">A photo may be hard to read. Open it and check, or send this question back for a clearer one.</span>
+          </p>
+        )}
+        {item.reviewRemark && (
+          <p className="flex items-start gap-2 rounded-xl border border-primary-500/25 bg-primary-500/[0.06] px-3 py-2 t-meta font-display text-text">
+            <MessageSquareText size={13} className="mt-px shrink-0 text-primary-600 dark:text-primary-300" aria-hidden />
+            <span><span className="font-semibold text-text-muted">Reviewer: </span>{item.reviewRemark}</span>
           </p>
         )}
         {selecting && !!item.definitionItemId && <PreviousAnswerPanel instanceId={instanceId} itemId={item.id} />}

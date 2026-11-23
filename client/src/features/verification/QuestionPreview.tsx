@@ -132,7 +132,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, canRaiseTi
                         onClick={() => onSendBackItem(item.id)}
                         aria-label={`Send back: ${item.label}`}
                         title="Send back"
-                        className="inline-flex h-9 min-w-11 sm:min-w-0 pointer-coarse:h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-2.5 t-meta font-display font-semibold text-danger transition-colors duration-150 hover:border-danger/50 hover:bg-danger/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                        className="inline-flex h-9 min-w-11 md:min-w-0 pointer-coarse:h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-2.5 t-meta font-display font-semibold text-danger transition-colors duration-150 hover:border-danger/50 hover:bg-danger/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                       >
                         <CornerUpLeft className="size-3.5" aria-hidden="true" />
                         <ActionLabel>Send back</ActionLabel>

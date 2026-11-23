@@ -12,6 +12,11 @@ export interface AnswerSnapshot {
 }
 
 export interface ReviewEdits {
+  /**
+   * True while a reviewer is answering someone else's run. A No then saves in one tap, where
+   * the person filling their own checklist still has to say why.
+   */
+  reviewing: boolean;
   /** Called with the item as it still stands, right before a changed answer is saved. */
   record: (item: ChecklistInstanceItem) => void;
   /** The newest recorded answer that can be put back, or null when there is nothing to undo. */
@@ -49,6 +54,7 @@ export const sameAnswer = (a: AnswerSnapshot, b: AnswerSnapshot): boolean =>
   && (a.conditionalReasonValue ?? '') === (b.conditionalReasonValue ?? '');
 
 export const NO_EDITS: ReviewEdits = {
+  reviewing: false,
   record: () => undefined,
   undoable: null,
   undo: () => undefined,
