@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Minus, Plus, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Contrast, Download, ExternalLink, FileText, Minus, Plus, RotateCcw, RotateCw, Sun, Undo2, X } from 'lucide-react';
 import { useCloseOnBack } from '../../lib/useCloseOnBack';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { mediaKindFromSrc, type LightboxItem } from './mediaKind';
@@ -11,6 +11,8 @@ interface ImageLightboxProps {
   images?: string[];
   onChange?: (src: string) => void;
   items?: LightboxItem[];
+  /** Rotate and enhance, for the people who have to judge someone else's photo. */
+  tools?: boolean;
 }
 
 interface FrameProps {
@@ -20,10 +22,13 @@ interface FrameProps {
   noun: string;
   go: (step: number) => void;
   onClose: () => void;
+  tools?: boolean;
 }
 
 interface View { scale: number; x: number; y: number }
 interface Point { x: number; y: number }
+interface Tune { brightness: number; contrast: number }
+interface Geometry { w: number; h: number; fit: number; quarter: number }
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 6;
@@ -35,6 +40,13 @@ const SWIPE_PX = 80;
 const BUTTON_STEP = 1.6;
 const FIT: View = { scale: 1, x: 0, y: 0 };
 const ZERO: Point = { x: 0, y: 0 };
+const PLAIN: Tune = { brightness: 1, contrast: 1 };
+const TUNE_STEP = 0.15;
+const TUNE_MIN = 0.4;
+const TUNE_MAX = 2.2;
+const FLAT_GEOMETRY: Geometry = { w: 0, h: 0, fit: 1, quarter: 0 };
+
+const stepped = (value: number, step: number) => Math.min(TUNE_MAX, Math.max(TUNE_MIN, Number((value + step).toFixed(2))));
 
 const CONTROL_BUTTON =
   'flex size-11 items-center justify-center rounded-full text-white transition-colors duration-150 ease-out hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/60 [-webkit-tap-highlight-color:transparent]';
@@ -107,6 +119,52 @@ const Caption = ({ name }: { name?: string | null }) =>
       <span className="max-w-full rounded-full bg-black/60 px-3 py-1.5 text-center t-meta font-display font-medium text-white line-clamp-2 break-all">{name}</span>
     </p>
   ) : null;
+
+interface ToolbarProps {
+  quarter: number;
+  tune: Tune;
+  touched: boolean;
+  onRotate: (step: number) => void;
+  onTune: (patch: Partial<Tune>) => void;
+  onReset: () => void;
+}
+
+const TuneStepper = ({ icon: Icon, name, value, onStep }: { icon: typeof Sun; name: string; value: number; onStep: (step: number) => void }) => (
+  <span className="flex items-center gap-0.5" role="group" aria-label={name}>
+    <Icon size={15} className="mx-1 shrink-0 text-white/70" aria-hidden="true" />
+    <button type="button" aria-label={`Less ${name.toLowerCase()}`} disabled={value <= TUNE_MIN} onClick={() => onStep(-TUNE_STEP)} className={CONTROL_BUTTON}>
+      <Minus size={16} aria-hidden="true" />
+    </button>
+    <span className="min-w-10 text-center t-meta font-display font-semibold tabular-nums text-white" aria-live="polite">
+      {Math.round(value * 100)}%
+    </span>
+    <button type="button" aria-label={`More ${name.toLowerCase()}`} disabled={value >= TUNE_MAX} onClick={() => onStep(TUNE_STEP)} className={CONTROL_BUTTON}>
+      <Plus size={16} aria-hidden="true" />
+    </button>
+  </span>
+);
+
+const Toolbar = ({ quarter, tune, touched, onRotate, onTune, onReset }: ToolbarProps) => (
+  <div
+    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+    className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-3"
+  >
+    <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-0.5 overflow-x-auto rounded-full bg-black/70 p-1 backdrop-blur-sm">
+      <button type="button" aria-label="Rotate left" title="Rotate left (R)" onClick={() => onRotate(-1)} className={CONTROL_BUTTON}>
+        <RotateCcw size={17} aria-hidden="true" />
+      </button>
+      <button type="button" aria-label="Rotate right" title="Rotate right (R)" onClick={() => onRotate(1)} className={CONTROL_BUTTON}>
+        <RotateCw size={17} aria-hidden="true" />
+      </button>
+      <span className="mx-1 h-6 w-px shrink-0 bg-white/20" aria-hidden="true" />
+      <TuneStepper icon={Sun} name="Brightness" value={tune.brightness} onStep={(step) => onTune({ brightness: stepped(tune.brightness, step) })} />
+      <TuneStepper icon={Contrast} name="Contrast" value={tune.contrast} onStep={(step) => onTune({ contrast: stepped(tune.contrast, step) })} />
+      <button type="button" aria-label="Undo the rotate and enhance changes" title="Reset" disabled={!touched && quarter === 0} onClick={onReset} className={CONTROL_BUTTON}>
+        <Undo2 size={16} aria-hidden="true" />
+      </button>
+    </div>
+  </div>
+);
 
 const isMediaTarget = (target: EventTarget | null) =>
   target instanceof HTMLMediaElement || target instanceof HTMLIFrameElement || target instanceof HTMLObjectElement;
@@ -202,10 +260,11 @@ const MediaFrame = ({ item, index, count, noun, go }: FrameProps) => {
   );
 };
 
-const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
+const ImageFrame = ({ item, index, count, noun, go, onClose, tools = false }: FrameProps) => {
   const src = item.src;
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const geometry = useRef<Geometry>(FLAT_GEOMETRY);
   const viewRef = useRef<View>(FIT);
   const dragRef = useRef<Point>(ZERO);
   const pointers = useRef(new Map<number, Point>());
@@ -216,6 +275,9 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
   const [view, setViewState] = useState<View>(FIT);
   const [drag, setDragState] = useState<Point>(ZERO);
   const [smooth, setSmooth] = useState(false);
+  const [quarter, setQuarter] = useState(0);
+  const [fit, setFit] = useState(1);
+  const [tune, setTune] = useState<Tune>(PLAIN);
 
   const setView = useCallback((next: View) => {
     viewRef.current = next;
@@ -227,14 +289,19 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
     setDragState(next);
   }, []);
 
+  // Panning is clamped to the box the picture really covers, which swaps width for height
+  // once it is turned a quarter turn, so a rotated photo still stops at its own edges.
   const clampView = useCallback((v: View): View => {
     const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale));
     const stage = stageRef.current;
-    const img = imgRef.current;
+    const g = geometry.current;
     if (scale <= MIN_SCALE) return FIT;
-    if (!stage || !img) return { ...v, scale };
-    const maxX = Math.max(0, (img.clientWidth * scale - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (img.clientHeight * scale - stage.clientHeight) / 2);
+    if (!stage || !g.w || !g.h) return { ...v, scale };
+    const turned = g.quarter % 2 === 1;
+    const boxW = (turned ? g.h : g.w) * g.fit * scale;
+    const boxH = (turned ? g.w : g.h) * g.fit * scale;
+    const maxX = Math.max(0, (boxW - stage.clientWidth) / 2);
+    const maxY = Math.max(0, (boxH - stage.clientHeight) / 2);
     return { scale, x: Math.min(maxX, Math.max(-maxX, v.x)), y: Math.min(maxY, Math.max(-maxY, v.y)) };
   }, []);
 
@@ -252,6 +319,40 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
   }, [clampView, setView]);
 
   const multiple = count > 1;
+
+  const rotate = useCallback((step: number) => {
+    setSmooth(true);
+    setQuarter((q) => (q + step + 4) % 4);
+    setView(FIT);
+  }, [setView]);
+
+  const resetTools = useCallback(() => {
+    setSmooth(true);
+    setQuarter(0);
+    setTune(PLAIN);
+    setView(FIT);
+  }, [setView]);
+
+  // A quarter turn stands the picture's box on its end, so shrink it back inside the stage.
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const img = imgRef.current;
+    if (!stage || !img) return undefined;
+    const measure = () => {
+      const w = img.clientWidth;
+      const h = img.clientHeight;
+      if (!w || !h) return;
+      const next = quarter % 2 === 0 ? 1 : Math.min(stage.clientWidth / h, stage.clientHeight / w, 1);
+      geometry.current = { w, h, fit: next, quarter };
+      setFit(next);
+      setView(clampView(viewRef.current));
+    };
+    measure();
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(stage);
+    watcher.observe(img);
+    return () => watcher.disconnect();
+  }, [quarter, src, clampView, setView]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -278,10 +379,11 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
       else if (e.key === '0') zoomTo(1);
       else if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
+      else if (tools && (e.key === 'r' || e.key === 'R')) rotate(e.shiftKey ? -1 : 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomTo, go]);
+  }, [zoomTo, go, tools, rotate]);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -364,8 +466,9 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
     if (started.backdrop && viewRef.current.scale === MIN_SCALE) onClose();
   };
 
-  const transform = `translate3d(${view.x + drag.x}px, ${view.y + drag.y}px, 0) scale(${view.scale})`;
+  const transform = `translate3d(${view.x + drag.x}px, ${view.y + drag.y}px, 0) scale(${view.scale * fit}) rotate(${quarter * 90}deg)`;
   const percent = Math.round(view.scale * 100);
+  const tuned = tune.brightness !== PLAIN.brightness || tune.contrast !== PLAIN.contrast;
 
   return (
     <>
@@ -385,6 +488,7 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
           style={{
             transform,
             transition: smooth ? 'transform 180ms ease-out' : 'none',
+            filter: tuned ? `brightness(${tune.brightness}) contrast(${tune.contrast})` : undefined,
             opacity: drag.y > 0 ? 1 - Math.min(0.5, drag.y / 400) : 1,
             cursor: view.scale > MIN_SCALE ? 'grab' : 'zoom-in',
           }}
@@ -412,12 +516,21 @@ const ImageFrame = ({ item, index, count, noun, go, onClose }: FrameProps) => {
         }
       />
       <NavButtons count={count} noun={noun} go={go} />
-      {view.scale === MIN_SCALE && <Caption name={item.name} />}
+      {tools ? (
+        <Toolbar
+          quarter={quarter}
+          tune={tune}
+          touched={tuned}
+          onRotate={rotate}
+          onTune={(patch) => setTune((t) => ({ ...t, ...patch }))}
+          onReset={resetTools}
+        />
+      ) : view.scale === MIN_SCALE && <Caption name={item.name} />}
     </>
   );
 };
 
-export const ImageLightbox = ({ src, onClose, images, onChange, items }: ImageLightboxProps) => {
+export const ImageLightbox = ({ src, onClose, images, onChange, items, tools = false }: ImageLightboxProps) => {
   const open = !!src;
   useCloseOnBack(open, onClose);
   const gallery = useMemo<LightboxItem[]>(() => {
@@ -459,7 +572,7 @@ export const ImageLightbox = ({ src, onClose, images, onChange, items }: ImageLi
         <DialogPrimitive.Content aria-label="Preview" aria-describedby={undefined} onCloseAutoFocus={restoreFocus} className="fixed inset-0 z-[90] outline-none">
           <DialogPrimitive.Title className="sr-only">{item?.name ?? 'Preview'}</DialogPrimitive.Title>
           {item && (item.kind === 'image'
-            ? <ImageFrame key={item.src} item={item} index={index} count={count} noun={noun} go={go} onClose={onClose} />
+            ? <ImageFrame key={item.src} item={item} index={index} count={count} noun={noun} go={go} onClose={onClose} tools={tools} />
             : <MediaFrame key={item.src} item={item} index={index} count={count} noun={noun} go={go} onClose={onClose} />)}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

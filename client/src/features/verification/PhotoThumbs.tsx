@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { ImageLightbox, ThumbImage } from '../../components';
 import { isViewableKind, mediaKindFromMime, type LightboxItem } from '../../components/imageLightbox';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
+import { useAuth } from '../../context/AuthContext';
+import { answerRightsOf } from '../checklist/instance/answerRights';
 
 export interface ThumbFile {
   id: string;
@@ -28,6 +30,8 @@ const isPhoto = (file: ThumbFile) => !file.mimeType || file.mimeType.startsWith(
 const srcOf = (file: ThumbFile) => `${UPLOADS_BASE}${file.url}`;
 
 export const PhotoThumbs = memo(function PhotoThumbs({ files, label = 'Photo', max, className }: PhotoThumbsProps) {
+  const { user } = useAuth();
+  const photoTools = answerRightsOf(user?.role).photoTools;
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState('');
   const close = useCallback(() => setOpen(false), []);
@@ -96,7 +100,7 @@ export const PhotoThumbs = memo(function PhotoThumbs({ files, label = 'Photo', m
         );
       })}
       {extra > 0 && <span className="t-meta font-display font-semibold tabular-nums text-text-muted">+{extra} more</span>}
-      {open && createPortal(<ImageLightbox src={current} items={gallery} onChange={setCurrent} onClose={close} />, document.body)}
+      {open && createPortal(<ImageLightbox src={current} items={gallery} onChange={setCurrent} onClose={close} tools={photoTools} />, document.body)}
     </div>
   );
 });

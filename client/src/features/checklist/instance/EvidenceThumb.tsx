@@ -8,6 +8,7 @@ import { formatTimeOnly } from '../checklistDisplay';
 import { REVIEW_REASONS, failureLabel, failureTitle, isFailedPhoto, qualityFlagsOf, qualityLabel, qualityTitle } from '../photoQuality';
 import { usePhotoReviewMutation } from '../usePhotoReviewMutation';
 import { usePhotoReview, type PhotoReviewState } from './photoReviewContext';
+import { answerRightsOf } from './answerRights';
 import type { CaptureMethod } from '../../../api/ticket';
 import type { PhotoReviewReason, PhotoReviewStatus } from '../../../api/checklistInstances';
 
@@ -109,6 +110,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
   const weak = isVideo ? [] : qualityFlagsOf(image);
   const failed = !isVideo && isFailedPhoto(image);
   const canDeleteFailed = user?.role === 'ADMIN' || user?.role === 'PC';
+  const photoTools = answerRightsOf(user?.role).photoTools;
   const showDelete = !!onDelete && (!failed || canDeleteFailed) && (!earlier || canDeleteFailed);
 
   return (
@@ -181,7 +183,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
           </button>
         )}
 
-        {open && !isVideo && createPortal(<ImageLightbox src={current} images={gallery} onChange={setCurrent} onClose={closeLightbox} />, document.body)}
+        {open && !isVideo && createPortal(<ImageLightbox src={current} images={gallery} onChange={setCurrent} onClose={closeLightbox} tools={photoTools} />, document.body)}
       </div>
 
       {review && !isVideo && <PhotoReviewActions image={image} state={review} />}

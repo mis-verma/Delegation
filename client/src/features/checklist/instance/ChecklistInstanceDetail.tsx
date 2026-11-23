@@ -14,6 +14,9 @@ import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
 import { canCompleteAllRun, canSelfCompleteAllRun, canWaiveRun } from './canWaive';
+import { answerRightsOf } from './answerRights';
+import { ReviewEditsProvider } from './ReviewEditsProvider';
+import { ReviewEditBar } from './ReviewEditBar';
 import { CompleteAllAction } from './CompleteAllAction';
 import { SelfCompleteAllAction } from './SelfCompleteAllAction';
 import { useMyProfileQuery } from '../../settings/hook';
@@ -187,7 +190,10 @@ export const ChecklistInstanceDetail = () => {
     !headDone &&
     !(user?.role === 'PC' && instance.coordinatorRun) &&
     !!user && (user.role === 'ADMIN' || !instance.assigneeIds.includes(user.id)) && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
-  const canWork = canWorkRaw && (!canReview || editAnswers);
+  const rights = answerRightsOf(user?.role);
+  const canWork = canWorkRaw && (rights.liveWhileReviewing || !canReview || editAnswers);
+  // An approved run is locked for everyone the server locks it for, which is everyone but an admin.
+  const answersLocked = isLocked && !rights.whenApproved;
   const notYetOpen = isInstanceNotYetOpen(instance);
   const canSubmit =
     !!user && (user.role === 'ADMIN' || instance.assigneeIds.includes(user.id)) && canWork && isComplete && !notYetOpen &&
@@ -201,7 +207,7 @@ export const ChecklistInstanceDetail = () => {
   const showCompleteAll = left > 0 && !notYetOpen && canCompleteAllRun(user, instance, myProfile?.canCompleteAll === true);
   const showSelfCompleteAll = left > 0 && !notYetOpen && canWork && !canReview && canSelfCompleteAllRun(user, instance);
   const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items) };
-  const filling = canWork && !isLocked && total > 0 && !canReview;
+  const filling = canWork && !answersLocked && total > 0 && !canReview;
   const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
   const show: ShowMode = canReview ? 'all' : pickedShow === 'section' && !hasSections ? 'all' : pickedShow ?? autoShow;
   const lastIndex = Math.max(0, instance.items.length - 1);
@@ -320,6 +326,12 @@ export const ChecklistInstanceDetail = () => {
   const activeSection = sections[activeSectionIndex];
 
   return (
+    <ReviewEditsProvider
+      instanceId={instanceId}
+      items={instance.items}
+      enabled={rights.liveWhileReviewing && canReview && canWorkRaw}
+      canUnanswer={rights.unanswer}
+    >
     <div className="flex flex-col gap-6 w-full">
       <div className={'flex items-center justify-between gap-3 max-md:hidden'}>
         <Button variant="ghost" size="sm" className="max-md:hidden" onClick={goBackToList} aria-label="Back">
@@ -430,15 +442,19 @@ export const ChecklistInstanceDetail = () => {
         )}
 
         {canReview && canWorkRaw && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-            <p className="t-meta font-display text-text-muted">
-              {editAnswers ? 'You are changing the answers. Changes save straight away.' : 'Answers are read-only while you review.'}
-            </p>
-            <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => setEditAnswers((v) => !v)} aria-pressed={editAnswers}>
-              {editAnswers ? <Eye size={13} aria-hidden /> : <Pencil size={13} aria-hidden />}
-              {editAnswers ? 'Done editing' : 'Edit answers'}
-            </Button>
-          </div>
+          rights.liveWhileReviewing ? (
+            <ReviewEditBar locked={answersLocked} />
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+              <p className="t-meta font-display text-text-muted">
+                {editAnswers ? 'You are changing the answers. Changes save straight away.' : 'Answers are read-only while you review.'}
+              </p>
+              <Button variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => setEditAnswers((v) => !v)} aria-pressed={editAnswers}>
+                {editAnswers ? <Eye size={13} aria-hidden /> : <Pencil size={13} aria-hidden />}
+                {editAnswers ? 'Done editing' : 'Edit answers'}
+              </Button>
+            </div>
+          )
         )}
 
         {showCompleteAll && (
@@ -558,7 +574,7 @@ export const ChecklistInstanceDetail = () => {
                       item={item}
                       instanceId={instanceId}
                       canWork={canWork}
-                      isLocked={isLocked}
+                      isLocked={answersLocked}
                       currentUserId={user?.id}
                       overdue={overdue}
                       showHeader={false}
@@ -700,5 +716,6 @@ export const ChecklistInstanceDetail = () => {
         )}
       </div>
     </div>
+    </ReviewEditsProvider>
   );
 };

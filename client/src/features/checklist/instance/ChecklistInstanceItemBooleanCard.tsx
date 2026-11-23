@@ -1,6 +1,6 @@
 import { memo, useCallback, useId, useRef, useState } from 'react';
 import { haptic } from '../../../lib/haptics';
-import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, Pencil, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ImageUp, MessageSquareText, Pencil, RotateCcw, TicketPlus, BellRing, X, type LucideIcon } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -20,6 +20,7 @@ import { MAX_LIVE_PHOTOS } from './cameraSupport';
 import { isFlaggedAnswer } from '../checklistDisplay';
 import { RemarkDialog } from './ItemRemarksField';
 import { isEarlierPhoto, photosInRound, useRoundStart } from './correctionRound';
+import { describeAnswer, useReviewEdits } from './reviewEdits';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 import type { CaptureMethod } from '../../../api/ticket';
@@ -78,6 +79,7 @@ const toneFor = (accepted: readonly string[], value: Answer): Tone =>
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
+  const edits = useReviewEdits();
   const uploadImages = useUploadChecklistInstanceImagesMutation(instanceId);
   const deleteImage = useDeleteChecklistInstanceImageMutation(instanceId);
   const labels = LABELS_BY_ITEM_TYPE[item.itemType] ?? LABELS_BY_ITEM_TYPE.YES_NO!;
@@ -128,12 +130,14 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
     setEditingSaved(false);
     setPendingAnswer(null);
   }, []);
+  const { record } = edits;
   const save = useCallback((answer: Answer, reason: string | undefined) => {
+    record(item);
     mutateDone(
       { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
       { onSuccess: closeEditor },
     );
-  }, [mutateDone, itemId, closeEditor]);
+  }, [record, item, mutateDone, itemId, closeEditor]);
 
   const savedDone = item.isDone;
   const savedAnswer = item.booleanAnswer;
@@ -198,6 +202,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const showFollowUp = pendingAnswer !== null || (item.isDone && isTriggering((item.booleanAnswer ?? 'YES') as Answer) && (needsReason || needsPhoto)) || !!savedReason;
   const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
   const flagged = item.isDone && isFlaggedAnswer(item);
+  const resetTo = edits.original(item);
   const canFollowUp = yesActions.length > 0 || noActions.length > 0 || photoRequiredOnYesAnyway || !!item.conditionalReasonValue;
   const canMarkNa = interactive && !item.isDone && pendingAnswer === null && !setItemDone.isPending && item.allowNotApplicable !== false;
 
@@ -353,6 +358,18 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           </button>
         )}
       </div>
+      {resetTo && interactive && (
+        <div className="view-enter flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="t-meta font-display text-text-muted">
+            You changed this. It came in as {describeAnswer(resetTo, item.itemType)}.
+          </p>
+          <Button variant="ghost" size="sm" disabled={edits.saving} onClick={() => edits.reset(item)} aria-label={`Put back the original answer: ${item.label}`}>
+            <RotateCcw size={13} aria-hidden />
+            Put it back
+          </Button>
+        </div>
+      )}
+
       {naOpen && (
         <RemarkDialog
           item={item}

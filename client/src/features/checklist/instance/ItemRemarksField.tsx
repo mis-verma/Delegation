@@ -6,6 +6,7 @@ import { Button, Textarea } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { hasInlineNa } from './fill/inlineNa';
+import { useReviewEdits } from './reviewEdits';
 
 interface ItemRemarksFieldProps {
   item: ChecklistInstanceItem;
@@ -55,6 +56,7 @@ interface RemarkDialogProps {
 export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: RemarkDialogProps) => {
   const [value, setValue] = useState(saved);
   const mutation = useSetChecklistInstanceItemDoneMutation(instanceId);
+  const { record } = useReviewEdits();
   const confirm = useConfirm();
   const dirty = value.trim() !== saved;
 
@@ -76,6 +78,7 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
   const save = () => {
     const text = value.trim();
     if (mode === 'na') {
+      record(item);
       mutation.mutate(
         { itemId: item.id, isDone: true, notApplicable: true, remarks: text },
         { onSuccess: onClose },
@@ -83,6 +86,7 @@ export const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }
       return;
     }
     if (mode === 'no') {
+      record(item);
       mutation.mutate(
         { itemId: item.id, isDone: true, booleanAnswer: 'NO', remarks: text },
         { onSuccess: onClose },
