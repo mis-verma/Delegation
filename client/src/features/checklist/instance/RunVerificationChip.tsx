@@ -20,7 +20,6 @@ export const RunVerificationChip = memo(function RunVerificationChip({
     <ApprovalStatusChip
       status={statusKey}
       label={verification.label}
-      icon={verification.icon}
       className={className}
     />
   );

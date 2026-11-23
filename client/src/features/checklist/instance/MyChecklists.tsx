@@ -36,7 +36,7 @@ import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 type View = 'list' | 'board' | 'table';
 const VIEW_TABS: ViewTab<View>[] = [
   { key: 'list', label: 'List', icon: LayoutList },
-  { key: 'board', label: 'Board', icon: Kanban },
+  { key: 'board', label: 'Board', icon: Kanban, mobileHidden: true },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 

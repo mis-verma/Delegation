@@ -376,7 +376,6 @@ export const ChecklistInstanceDetail = () => {
                   : instance.verificationStatus
               }
               label={verification.label}
-              icon={verification.icon}
             />
           )}
           {isLocked && instance.verifiedBy && (

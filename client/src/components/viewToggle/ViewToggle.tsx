@@ -95,8 +95,12 @@ export function ViewToggle<V extends string>({ tabs, value, onChange, storageKey
     buttonRefs.current[nextIndex]?.focus();
   };
 
+  // With one view left on a phone there is nothing to switch between, so the track goes too.
+  // Pure CSS, so it matches what the mobileHidden classes below already do at the same width.
+  const lockedOnPhone = tabs.filter((tab) => !tab.mobileHidden).length <= 1;
+
   return (
-    <div role="tablist" className={TOGGLE_TRACK}>
+    <div role="tablist" className={cn(TOGGLE_TRACK, lockedOnPhone && 'max-sm:hidden')}>
       {tabs.map((tab, index) => {
         const Icon = VIEW_ICONS[tab.key] ?? tab.icon;
         return (

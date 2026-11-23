@@ -13,6 +13,8 @@ export interface ApprovalStatusMeta {
   label: string;
   tone: string;
   dot: string;
+  /** Word colour. Neutral unless the status is one the reader must not miss. */
+  text: string;
   icon: LucideIcon;
 }
 
@@ -25,60 +27,70 @@ export const APPROVAL_STATUS_CONFIG: Readonly<Record<string, ApprovalStatusMeta>
     label: 'Verified',
     tone: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-500/30',
     dot: 'bg-emerald-500',
+    text: 'text-text-secondary',
     icon: ShieldCheck,
   }),
   PENDING_APPROVAL: Object.freeze({
     label: 'Pending approval',
     tone: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-500/30',
     dot: 'bg-amber-500',
+    text: 'text-text-secondary',
     icon: Clock,
   }),
   PENDING: Object.freeze({
     label: 'Pending approval',
     tone: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-500/30',
     dot: 'bg-amber-500',
+    text: 'text-text-secondary',
     icon: Clock,
   }),
   CORRECTION_REQUESTED: Object.freeze({
     label: 'Correction requested',
     tone: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-500/30',
     dot: 'bg-rose-500',
+    text: 'text-danger',
     icon: CornerUpLeft,
   }),
   REJECTED: Object.freeze({
     label: 'Sent back',
     tone: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-500/30',
     dot: 'bg-rose-500',
+    text: 'text-danger',
     icon: ShieldX,
   }),
   SENT_BACK: Object.freeze({
     label: 'Sent back',
     tone: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-500/30',
     dot: 'bg-rose-500',
+    text: 'text-danger',
     icon: CornerUpLeft,
   }),
   SELF_RECHECK_WINDOW: Object.freeze({
     label: 'Self-recheck open',
     tone: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-500/30',
     dot: 'bg-sky-500',
+    text: 'text-text-secondary',
     icon: RotateCcw,
   }),
   READY_TO_SUBMIT: Object.freeze({
     label: 'Ready to submit',
     tone: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-500/30',
     dot: 'bg-indigo-500',
+    text: 'text-text-secondary',
     icon: Send,
   }),
   NOT_SUBMITTED: Object.freeze({
     label: 'Not submitted',
     tone: 'bg-slate-100 text-slate-600 ring-slate-500/20 dark:bg-slate-800/60 dark:text-slate-400 dark:ring-slate-700',
     dot: 'bg-slate-400',
+    text: 'text-text-secondary',
     icon: CircleDashed,
   }),
   SUBMITTED: Object.freeze({
     label: 'Submitted',
     tone: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-500/30',
     dot: 'bg-blue-500',
+    text: 'text-text-secondary',
     icon: Send,
   }),
 });
@@ -87,6 +99,7 @@ export const FALLBACK_APPROVAL_CONFIG: ApprovalStatusMeta = Object.freeze({
   label: 'Pending',
   tone: 'bg-slate-100 text-slate-600 ring-slate-500/20 dark:bg-slate-800/60 dark:text-slate-400 dark:ring-slate-700',
   dot: 'bg-slate-400',
+  text: 'text-text-secondary',
   icon: Clock,
 });
 

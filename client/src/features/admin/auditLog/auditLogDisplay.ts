@@ -171,12 +171,19 @@ const ID_FIELD_RESOLVER: Record<string, keyof AuditIdResolvers> = {
   rejectedById: 'users',
   reviewedById: 'users',
   verifiedBy: 'users',
+  completedBy: 'users',
+  submittedBy: 'users',
+  waivedBy: 'users',
+  hodApprovedBy: 'users',
+  uploadedBy: 'users',
+  reviewedBy: 'users',
+  deletedBy: 'users',
   categoryId: 'categories',
   departmentId: 'departments',
   storeId: 'stores',
 };
 
-const isIdLikeKey = (key: string) => key === 'entityId' || key === 'verifiedBy' || /Ids?$/.test(key);
+const isIdLikeKey = (key: string) => key === 'entityId' || /By$/.test(key) || /Ids?$/.test(key);
 const shortId = (value: string) => `#${value.slice(0, 8)}`;
 
 const resolveId = (key: string, id: unknown, resolvers: AuditIdResolvers | undefined): string | null => {

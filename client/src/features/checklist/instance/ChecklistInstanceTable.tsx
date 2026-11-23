@@ -67,7 +67,6 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
                 : instance.verificationStatus
             }
             label={verification.label}
-            icon={verification.icon}
           />
           {instance.verifiedAt && instance.verificationStatus === 'APPROVED' && (
             <VerifiedAtChip timestamp={instance.verifiedAt} format="short" />

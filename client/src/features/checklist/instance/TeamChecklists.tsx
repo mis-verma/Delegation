@@ -37,10 +37,12 @@ const SERVER_STATUS: Record<Tab, ChecklistInstanceStatus | undefined> = {
 const isTab = (value: string | null): value is Tab => !!value && (TABS as readonly string[]).includes(value);
 
 type View = 'list' | 'card' | 'board' | 'table';
+// A phone gets cards only. A board needs columns and a table needs width, and neither survives
+// a 360px screen, so the toggle hides itself there and the view falls back to cards.
 const VIEW_TABS: ViewTab<View>[] = [
-  { key: 'list', label: 'List', icon: LayoutList },
+  { key: 'list', label: 'List', icon: LayoutList, mobileHidden: true },
   { key: 'card', label: 'Cards', icon: LayoutGrid },
-  { key: 'board', label: 'Board', icon: Kanban },
+  { key: 'board', label: 'Board', icon: Kanban, mobileHidden: true },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 const VIEW_KEYS = new Set<string>(VIEW_TABS.map((t) => t.key));

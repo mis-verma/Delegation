@@ -43,10 +43,14 @@ interface ScoreRingProps {
   className?: string;
   label: string;
   showValue?: boolean;
+  /** Overrides the colour the value would pick, so a ring can match the card it sits in. */
+  color?: string;
 }
 
-export const ScoreRing = ({ value, size = 64, stroke = 7, className, label, showValue = true }: ScoreRingProps) => {
+export const ScoreRing = ({ value, size = 64, stroke = 7, className, label, showValue = true, color }: ScoreRingProps) => {
   const rounded = roundPct(value);
+  // The number grows with the ring, so a bigger ring is a clearer one rather than a roomier one.
+  const figure = size >= 64 ? 't-card' : 't-meta';
   return (
     <span
       role="img"
@@ -55,10 +59,10 @@ export const ScoreRing = ({ value, size = 64, stroke = 7, className, label, show
       style={{ width: size, height: size }}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden="true">
-        <Arc cx={size / 2} radius={(size - stroke) / 2} stroke={stroke} value={value} color={TONE_COLOR[toneOf(value)]} />
+        <Arc cx={size / 2} radius={(size - stroke) / 2} stroke={stroke} value={value} color={color ?? TONE_COLOR[toneOf(value)]} />
       </svg>
       {showValue && (
-        <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center t-meta font-display font-extrabold tabular-nums text-text">
+        <span aria-hidden="true" className={cn('absolute inset-0 flex items-center justify-center font-display font-extrabold tabular-nums text-text', figure)}>
           {rounded === null ? 'N/A' : Math.round(rounded)}
         </span>
       )}
