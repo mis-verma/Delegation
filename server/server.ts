@@ -53,8 +53,11 @@ class ServerBootstrap {
 
     this.httpServer = http.createServer(this.appInstance.app);
     this.httpServer.requestTimeout = 600_000;
-    this.httpServer.headersTimeout = 35_000;
+    // keepAliveTimeout sits above nginx's upstream keepalive so the proxy, not the app, closes
+    // idle sockets. headersTimeout must stay above it, or a connection can be torn down while a
+    // request on it is still arriving, which shows up as sporadic resets under keep-alive load.
     this.httpServer.keepAliveTimeout = 65_000;
+    this.httpServer.headersTimeout = 70_000;
     const io = await initSocket(this.httpServer, workerCount > 1);
     this.io = io;
 

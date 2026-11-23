@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser"
 import morgan from "morgan"
 import path from "node:path"
 import { env } from "./config/env.js"
-import { pingDB } from "./config/db.js"
+import { pingDBCached } from "./config/db.js"
 import { isDraining } from "./config/lifecycle.js"
 import { discardUploadsOnFailure } from "./middleware/uploadCleanup.js"
 import { dropScoresOnWrite } from "./modules/scores/scoreCache.js"
@@ -79,8 +79,30 @@ class App {
         this.initErrorHandling()
     }
 
+    // Liveness and readiness answer before helmet, logging, compression and the rate limiter.
+    // A monitor hitting these never queues behind that stack and never spends a real user's
+    // request budget, so a burst of health checks cannot throttle the people using the app.
+    private initProbes(): void {
+        const LIVE = '{"status":"ok"}'
+        this.app.get('/health', (_req: Request, res: Response) => { res.type('json').send(LIVE) });
+
+        this.app.get('/health/ready', async (_req: Request, res: Response) => {
+            const [db, redis, draining] = [await pingDBCached(), queryCacheStatus(), isDraining()];
+            const status = draining ? 'draining' : db.ok ? 'ok' : 'degraded';
+            res.status(db.ok && !draining ? 200 : 503).json({
+                status,
+                checks: {
+                    database: db.ok ? { status: 'ok', latencyMs: db.latencyMs } : { status: 'down' },
+                    redis: { status: redis },
+                },
+            });
+        });
+    }
+
     private initMiddlewares(rateLimitStoreFactory?: (prefix: string) => Store): void {
         this.app.set("trust proxy", env.TRUST_PROXY_HOPS);
+        this.app.set("etag", false)
+        this.initProbes()
         this.app.use(helmet({
             crossOriginResourcePolicy : { policy : "cross-origin"} 
         }))
@@ -102,7 +124,6 @@ class App {
         this.app.use(cookieParser())
         this.app.use(captureRequestSource)
         this.app.use(discardUploadsOnFailure)
-        this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
         this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
         this.app.use(requireDiskSpace)
@@ -124,21 +145,6 @@ class App {
     }
 
     private initRoutes(rateLimitStoreFactory?: (prefix: string) => Store): void {
-        this.app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
-
-        this.app.get('/health/ready', async (_req: Request, res: Response) => {
-            const db = await pingDB();
-            const redis = queryCacheStatus();
-            const draining = isDraining();
-            const status = draining ? 'draining' : db.ok ? 'ok' : 'degraded';
-            res.status(db.ok && !draining ? 200 : 503).json({
-                status,
-                checks: {
-                    database: db.ok ? { status: 'ok', latencyMs: db.latencyMs } : { status: 'down' },
-                    redis: { status: redis },
-                },
-            });
-        });
         this.app.use('/auth', createAuthRouter(rateLimitStoreFactory));
         this.app.use('/users/me/password', createPasswordChangeLimiter(rateLimitStoreFactory?.('password-change')));
         this.app.use('/users', dropScoresOnWrite, userRouter);

@@ -43,7 +43,9 @@ export const disconnectDB = async () => {
     await pool.end();
 }
 
-export const pingDB = async (): Promise<{ ok: true; latencyMs: number } | { ok: false; error: string }> => {
+export type PingResult = { ok: true; latencyMs: number } | { ok: false; error: string }
+
+export const pingDB = async (): Promise<PingResult> => {
     const start = Date.now();
     try {
         const connection = await pool.getConnection();
@@ -52,4 +54,24 @@ export const pingDB = async (): Promise<{ ok: true; latencyMs: number } | { ok: 
     } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
+}
+
+const PING_TTL_MS = 2_000
+let lastPing: { at: number; result: PingResult } | null = null
+let pingInflight: Promise<PingResult> | null = null
+
+/**
+ * Readiness probes can arrive far faster than the database needs to be asked. A short cache
+ * plus single-flight means a burst of them costs one pooled connection, not one each, so a
+ * monitoring storm never competes with real traffic for the pool.
+ */
+export const pingDBCached = (): Promise<PingResult> => {
+    if (lastPing && Date.now() - lastPing.at < PING_TTL_MS) return Promise.resolve(lastPing.result)
+    pingInflight ??= pingDB()
+        .then((result) => {
+            lastPing = { at: Date.now(), result }
+            return result
+        })
+        .finally(() => { pingInflight = null })
+    return pingInflight
 }
