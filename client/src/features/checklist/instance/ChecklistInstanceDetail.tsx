@@ -9,7 +9,7 @@ import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, Fab } from '../../../components';
+  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
@@ -339,31 +339,29 @@ export const ChecklistInstanceDetail = () => {
           Back
         </Button>
 
-        {isAdminOrPC && (
-          <Fab
-            raised
-            aria-label="Edit this checklist's template"
-            actions={[{ key: 'edit-template', label: 'Edit template', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`) }]}
-          />
-        )}
-        {isAdminOrPC && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="max-md:hidden"
-            onClick={() => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`)}
-            title="Edit this checklist's template. Changes apply to future runs, not this one."
-          >
-            <Pencil size={13} aria-hidden />
-            Edit template
-          </Button>
-        )}
       </div>
 
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-5')}>
-        <div className="flex flex-col gap-1">
-          <h1 className="t-title font-display font-bold leading-snug text-text break-words">{instance.title.replace(/\.\s*$/, '')}</h1>
-          <p className="t-meta font-display text-text-muted line-clamp-2">{metaParts.join(' · ')}</p>
+        {/* Editing the template sits in the flow of the page. It used to be a floating button,
+            which on a phone covered the N/A control on whichever question it landed over. */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="t-title font-display font-bold leading-snug text-text break-words">{instance.title.replace(/\.\s*$/, '')}</h1>
+            <p className="t-meta font-display text-text-muted line-clamp-2">{metaParts.join(' · ')}</p>
+          </div>
+          {isAdminOrPC && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-11 min-w-11 shrink-0 justify-center md:h-9 md:min-w-0"
+              onClick={() => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`)}
+              aria-label="Edit this checklist's template"
+              title="Edit this checklist's template. Changes apply to future runs, not this one."
+            >
+              <Pencil size={13} aria-hidden />
+              <ActionLabel>Edit template</ActionLabel>
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
