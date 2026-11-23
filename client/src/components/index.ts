@@ -103,3 +103,4 @@ export type { PillTone } from './pill';
 export { SlidingTabs } from './slidingTabs';
 export { Collapse } from './collapse';
 export type { SlidingTabOption } from './slidingTabs';
+export { ActionLabel } from './actionLabel';

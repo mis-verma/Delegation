@@ -1,7 +1,7 @@
 import { memo, type ReactElement } from 'react';
 import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { IconChip, NoticeBanner, ToggleChip } from '../../../components';
+import { ActionLabel, IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { Switch } from '../../../components/switch';
 import { RetakePhotoPanel } from './RetakePhotoPanel';
 import { itemFlags, photoBreakdown } from './reviewFlags';
@@ -109,7 +109,7 @@ export interface DetailItemRowProps {
 }
 
 const DECISION_PILL =
-  'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 sm:pointer-coarse:min-h-11';
+  'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 sm:min-w-0 sm:pointer-coarse:min-h-11';
 
 export const DetailItemRow = memo(({
   item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
@@ -231,19 +231,23 @@ export const DetailItemRow = memo(({
                     type="button"
                     aria-pressed={looksRight}
                     onClick={() => onToggleLooksRight(item.id)}
+                    aria-label={`Looks right: ${item.label}`}
+                    title="Looks right"
                     className={cn(DECISION_PILL, looksRight ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
                   >
                     <Check size={13} strokeWidth={2.75} aria-hidden />
-                    Looks right
+                    <ActionLabel>Looks right</ActionLabel>
                   </button>
                   <button
                     type="button"
                     aria-pressed={picked}
                     onClick={() => onTogglePicked(item.id)}
+                    aria-label={picked ? `Sending back: ${item.label}` : `Send back: ${item.label}`}
+                    title={picked ? 'Sending back' : 'Send back'}
                     className={cn(DECISION_PILL, picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
                   >
                     <CornerUpLeft size={13} strokeWidth={2.5} aria-hidden />
-                    {picked ? 'Sending back' : 'Send back'}
+                    <ActionLabel>{picked ? 'Sending back' : 'Send back'}</ActionLabel>
                   </button>
                 </div>
               ) : selecting ? (
@@ -251,9 +255,12 @@ export const DetailItemRow = memo(({
                   type="button"
                   aria-pressed={picked}
                   onClick={() => onTogglePicked(item.id)}
+                  aria-label={picked ? `Sending back: ${item.label}` : `Send back: ${item.label}`}
+                  title={picked ? 'Sending back' : 'Send back'}
                   className={cn(DECISION_PILL, picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border text-text-secondary hover:border-border-hover hover:text-text')}
                 >
-                  {picked ? 'Sending back' : 'Send back'}
+                  <CornerUpLeft size={13} strokeWidth={2.5} aria-hidden />
+                  <ActionLabel>{picked ? 'Sending back' : 'Send back'}</ActionLabel>
                 </button>
               ) : <span />}
               {(canRaiseTicket || item.reviewTicketId) && <RaiseTicketAction item={item} canRaise={canRaiseTicket} />}

@@ -1,10 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router';
-import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, Layers, ArrowDownToLine } from 'lucide-react';
+import { Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, Layers, ArrowDownToLine } from 'lucide-react';
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
-import { Collapse, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
+import { ActionLabel, Collapse, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
@@ -151,38 +150,23 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
     />
   );
 
-  const fullPageLink = (
-    <Link
-      to={`/checklists/${instance.id}`}
-      className="inline-flex items-center justify-center gap-1 shrink-0 min-h-11 min-w-11 sm:min-h-8 sm:min-w-0 sm:pointer-coarse:min-h-11 px-2 rounded-md t-meta font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-    >
-      <span className="sr-only sm:not-sr-only">Open full page</span> <ExternalLink size={14} aria-hidden />
-    </Link>
-  );
-
   return (
     <PhotoReviewContext.Provider value={instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instance.id } : null}>
       <div className="flex flex-col gap-4">
         <header className="flex flex-col gap-2">
           {!hideTitle && (
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>
-              {fullPageLink}
-            </div>
+            <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>
           )}
-          <div className="flex items-start justify-between gap-3">
-            <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
-              {row.storeName && <span>{row.storeName}</span>}
-              <span>{formatPeriodSpan(instance)}</span>
-              {instance.submittedAt && (
-                <span>
-                  {instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}
-                  {formatDateTime(instance.submittedAt)}
-                </span>
-              )}
-            </p>
-            {hideTitle && fullPageLink}
-          </div>
+          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
+            {row.storeName && <span>{row.storeName}</span>}
+            <span>{formatPeriodSpan(instance)}</span>
+            {instance.submittedAt && (
+              <span>
+                {instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}
+                {formatDateTime(instance.submittedAt)}
+              </span>
+            )}
+          </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {risk.sentBackTimes > 0 && (
               <IconChip
@@ -215,22 +199,26 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
                         <button
                           type="button"
                           onClick={() => goTo(item.id)}
-                          className="inline-flex min-h-11 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center gap-1 rounded-full border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                          aria-label={`Go to: ${item.label}`}
+                          title="Go to this question"
+                          className="inline-flex min-h-11 min-w-11 sm:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 ease-out hover:border-border-hover hover:text-text active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
                         >
                           <ArrowDownToLine size={13} aria-hidden />
-                          Go to
+                          <ActionLabel>Go to</ActionLabel>
                         </button>
                         <button
                           type="button"
                           aria-pressed={isPicked}
                           onClick={() => togglePicked(item.id)}
+                          aria-label={isPicked ? `Sending back: ${item.label}` : `Send back: ${item.label}`}
+                          title={isPicked ? 'Sending back' : 'Send back'}
                           className={cn(
-                            'inline-flex min-h-11 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center gap-1 rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                            'inline-flex min-h-11 min-w-11 sm:min-w-0 sm:min-h-8 sm:pointer-coarse:min-h-11 items-center justify-center gap-1 rounded-full border px-3 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
                             isPicked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
                           )}
                         >
                           <CornerUpLeft size={13} aria-hidden />
-                          {isPicked ? 'Sending back' : 'Send back'}
+                          <ActionLabel>{isPicked ? 'Sending back' : 'Send back'}</ActionLabel>
                         </button>
                       </span>
                     </li>

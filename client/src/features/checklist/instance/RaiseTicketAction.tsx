@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button, Modal } from '../../../components';
+import { Ticket, TicketPlus } from 'lucide-react';
+import { ActionLabel, Button, Modal } from '../../../components';
 import { cn } from '@/lib/utils';
 import { TicketPriorityChipPicker } from '../../tickets/form/TicketPriorityChipPicker';
 import type { TicketPriority } from '../../tickets/form/formConstants';
@@ -35,9 +36,12 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
     return (
       <Link
         to={`/tickets?open=${item.reviewTicketId}`}
-        className="inline-flex min-h-11 items-center rounded-full px-3 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8"
+        aria-label={`Open the ticket raised for: ${item.label}`}
+        title="Open ticket"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 t-meta font-display font-semibold text-primary-700 transition-colors duration-150 outline-none hover:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 sm:min-h-8 sm:min-w-0"
       >
-        Open ticket
+        <Ticket size={13} aria-hidden />
+        <ActionLabel>Open ticket</ActionLabel>
       </Link>
     );
   }
@@ -59,8 +63,16 @@ export const RaiseTicketAction = ({ item, canRaise }: { item: Item; canRaise: bo
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} className="pointer-coarse:min-h-11">
-        Raise ticket
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen(true)}
+        aria-label={`Raise a ticket for: ${item.label}`}
+        title="Raise ticket"
+        className="min-w-11 justify-center pointer-coarse:min-h-11 sm:min-w-0"
+      >
+        <TicketPlus size={14} aria-hidden />
+        <ActionLabel>Raise ticket</ActionLabel>
       </Button>
       <Modal
         open={open}

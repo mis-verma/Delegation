@@ -192,7 +192,6 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           <QuestionPreview
             items={instance.items}
             canRaiseTicket={!!user && !instance.assigneeIds.includes(user.id)}
-            onOpen={() => onOpen(id)}
             onSendBackItem={onSendBackItem ? (itemId) => onSendBackItem(id, itemId) : undefined}
           />
         )}
