@@ -6,10 +6,15 @@ import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
 import { ActionLabel, Collapse, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { formatPeriodSpan, formatDateTime } from '../checklist/checklistDisplay';
 import { DetailItemRow } from '../checklist/instance/ChecklistDetailItemRow';
 import { PhotoReviewContext } from '../checklist/instance/photoReviewContext';
 import { canWaiveRun } from '../checklist/instance/canWaive';
+import { answerRightsOf } from '../checklist/instance/answerRights';
+import { ReviewEditsProvider } from '../checklist/instance/ReviewEditsProvider';
+import { ReviewEditBar } from '../checklist/instance/ReviewEditBar';
+import { CompletedGroup } from '../checklist/instance/CompletedGroup';
 import { ComplianceMeter } from './ComplianceMeter';
 import { PersonContext } from './PersonContext';
 import { ReviewActions } from '../checklist/instance/ReviewActions';
@@ -80,6 +85,10 @@ interface BodyProps {
 const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, photoOnlySet, looksRightSet, onTogglePicked, onPickWith, onToggleLooksRight, onTogglePhotoOnly, onItemNote, hideTitle = false }: BodyProps) {
   const { instance, risk } = row;
   const { user } = useAuth();
+  const rights = answerRightsOf(user?.role);
+  // An admin or PC reviewing someone else's run answers it here, the same as on the run's own
+  // page. Everyone else reviews read-only and sends questions back instead.
+  const canSetAnswers = rights.liveWhileReviewing && instance.verificationStatus === 'PENDING_APPROVAL';
   const canWaive = canWaiveRun(user, instance);
   const canRaiseTicket = !instance.assigneeIds.includes(user?.id ?? '');
   const items = useMemo(() => [...instance.items].sort((x, y) => x.order - y.order), [instance.items]);
@@ -88,6 +97,24 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
   const sections = useMemo(() => (hasSections ? groupSections(items) : []), [hasSections, items]);
   const sectionOf = useMemo(() => new Map(sections.flatMap((s) => s.items.map((i) => [i.id, s.key] as const))), [sections]);
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set(sections.filter((s) => s.issues > 0).map((s) => s.key)));
+  const [checkedOpen, setCheckedOpen] = useState(false);
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const summaryId = `review-summary-${instance.id}`;
+  // A question the reviewer has already judged moves out of the way, so what is left on screen
+  // is always what still needs them.
+  const isDecided = useCallback((item: ChecklistInstanceItem) => looksRightSet.has(item.id) || pickedSet.has(item.id), [looksRightSet, pickedSet]);
+  const leftToCheck = useMemo(() => items.filter((i) => !isDecided(i)), [items, isDecided]);
+  const checkedItems = useMemo(() => items.filter(isDecided), [items, isDecided]);
+  const sectionsLeft = useMemo(
+    () => sections
+      .map((s) => {
+        const left = s.items.filter((i) => !isDecided(i));
+        return { ...s, items: left, issues: left.filter(hasIssue).length };
+      })
+      .filter((s) => s.items.length > 0),
+    [sections, isDecided],
+  );
   const criticalItems = useMemo(() => items.filter((i) => itemFlags(i).criticalFailed), [items]);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
@@ -99,8 +126,10 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
 
   const goTo = useCallback((id: string) => {
     const key = sectionOf.get(id);
-    const opening = !!key && !openSections.has(key);
-    if (opening) setOpenSections((prev) => new Set([...prev, key]));
+    const inChecked = checkedItems.some((i) => i.id === id);
+    if (inChecked) setCheckedOpen(true);
+    const opening = (!!key && !openSections.has(key)) || inChecked;
+    if (key && !openSections.has(key)) setOpenSections((prev) => new Set([...prev, key]));
     const reveal = () => {
       const el = document.getElementById(`item-${id}`);
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -108,7 +137,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
     };
     if (opening) window.setTimeout(reveal, SECTION_OPEN_MS);
     else requestAnimationFrame(reveal);
-  }, [sectionOf, openSections]);
+  }, [sectionOf, openSections, checkedItems]);
 
   const jumpTo = (id: string | undefined) => (id ? () => goTo(id) : undefined);
   const firstUnanswered = items.find((i) => !i.isDone && !i.isNotApplicable)?.id;
@@ -129,8 +158,8 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
       key={item.id}
       item={item}
       instanceId={instance.id}
-      canWork={false}
-      isLocked
+      canWork={canSetAnswers}
+      isLocked={!canSetAnswers}
       currentUserId={user?.id}
       overdue={false}
       showHeader={false}
@@ -152,6 +181,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
 
   return (
     <PhotoReviewContext.Provider value={instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instance.id } : null}>
+      <ReviewEditsProvider instanceId={instance.id} items={items} enabled={canSetAnswers} canUnanswer={rights.unanswer}>
       <div className="flex flex-col gap-4">
         <header className="flex flex-col gap-2">
           {!hideTitle && (
@@ -182,6 +212,10 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
             {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="No issues" />}
           </div>
         </header>
+
+        {canSetAnswers && (
+          <ReviewEditBar locked={false} className="rounded-xl border border-border/60 bg-surface-hover/30 px-3 py-2" />
+        )}
 
         {criticalItems.length > 0 && (
           <NoticeBanner tone="danger" icon={Flag}>
@@ -229,6 +263,34 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
           </NoticeBanner>
         )}
 
+        {/* The numbers that set the review up. On a phone they fold away, so the first question
+            is on screen when the pane opens instead of a full screen below it. */}
+        <section aria-label="Run summary" className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setSummaryOpen((v) => !v)}
+            aria-expanded={summaryOpen}
+            aria-controls={summaryId}
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-surface-hover/30 px-3 text-left cursor-pointer outline-none transition-colors duration-150 ease-out hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:hidden"
+          >
+            <span className="min-w-0 flex-1 t-meta font-display font-semibold tabular-nums text-text-secondary">
+              {Math.round(risk.completion)}% done
+              <span className="text-text-muted"> · </span>
+              {risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded} photos` : 'No photos'}
+              {risk.compliance !== null && (
+                <>
+                  <span className="text-text-muted"> · </span>
+                  {Math.round(risk.compliance)}% right
+                </>
+              )}
+            </span>
+            <ChevronDown
+              size={16}
+              aria-hidden
+              className={cn('shrink-0 text-text-muted transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', summaryOpen && 'rotate-180')}
+            />
+          </button>
+          <Collapse id={summaryId} open={summaryOpen || !isPhone} innerClassName="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-2">
           <FigureCard
             label="Completion"
@@ -257,14 +319,28 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
         <ComplianceMeter risk={risk} className="rounded-lg border border-border/60 bg-surface-hover/30 p-3" />
 
         <PersonContext items={items} />
+          </Collapse>
+        </section>
 
-        <p className="t-meta font-display text-text-muted leading-relaxed">
-          Mark each question Looks right or Send back. Picked questions go back for correction together.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="min-w-0 flex-1 t-meta font-display text-text-muted leading-relaxed">
+            {leftToCheck.length === 0 ? (
+              'Every question is checked. Approve it, or send the picked ones back.'
+            ) : (
+              <>
+                Mark each question Looks right or Send back.
+                <span className="hidden sm:inline"> Picked questions go back for correction together.</span>
+              </>
+            )}
+          </p>
+          <span className="shrink-0 rounded-full bg-surface px-2.5 py-0.5 t-meta font-display font-semibold tabular-nums text-text-secondary ring-1 ring-inset ring-border/60" role="status">
+            {leftToCheck.length} of {items.length} left
+          </span>
+        </div>
 
         {hasSections ? (
           <div className="flex flex-col gap-3">
-            {sections.map((section) => {
+            {sectionsLeft.map((section) => {
               const open = openSections.has(section.key);
               const panelId = `review-section-${instance.id}-${section.key}`;
               return (
@@ -296,10 +372,25 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {items.map((item, idx) => renderRow(item, idx))}
+            {leftToCheck.map((item, idx) => renderRow(item, idx))}
           </div>
         )}
+
+        {checkedItems.length > 0 && (
+          <CompletedGroup
+            id={`review-checked-${instance.id}`}
+            count={checkedItems.length}
+            total={items.length}
+            hint="Questions you have already marked. Open it to change your mind."
+            open={checkedOpen}
+            onToggle={() => setCheckedOpen((v) => !v)}
+            bodyClassName="flex flex-col gap-3"
+          >
+            {checkedItems.map((item, idx) => renderRow(item, idx))}
+          </CompletedGroup>
+        )}
       </div>
+      </ReviewEditsProvider>
     </PhotoReviewContext.Provider>
   );
 });
