@@ -7,11 +7,11 @@ import { useMediaQuery } from '@/lib/useMediaQuery';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Avatar, Button, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, Input, PageHeader, PageNav,
-  PANEL_CLASS, RoleChip, Skeleton,
+  PANEL_CLASS, RoleChip, Skeleton, ApprovalStatusChip,
 } from '../../../components';
 import { useAuditHistoryQuery, useFormerPeopleQuery, usePersonRunsQuery } from '../hook';
 import { AuditRowCard } from '../instance/ChecklistHistory';
-import { formatDate, VERIFICATION_CHIP, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
+import { formatDate } from '../checklistDisplay';
 import type { Role } from '../../../api/admin';
 import type { FormerPerson, PersonRun } from '../../../api/checklistInstances';
 
@@ -61,7 +61,6 @@ const StatTile = ({ icon, value, label, tone }: { icon: LucideIcon; value: numbe
 );
 
 const RunRow = memo(({ run }: { run: PersonRun }) => {
-  const verification = VERIFICATION_CHIP[run.verificationStatus];
   return (
     <li>
       <Link
@@ -76,7 +75,7 @@ const RunRow = memo(({ run }: { run: PersonRun }) => {
               <span>{formatDate(run.periodStart)}</span>
             </p>
           </div>
-          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[run.verificationStatus]} className="shrink-0" />
+          <ApprovalStatusChip status={run.verificationStatus} className="shrink-0" />
         </div>
         <div className="flex items-center gap-2.5">
           <ChecklistProgressBar done={run.done} total={run.total} bare thin className="flex-1" />

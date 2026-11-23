@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarRange, Check, ClipboardX, ListChecks, Trash2, Users } from 'lucide-react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Avatar, Button, EmptyState, PageHeader, PANEL_CLASS, Pill, Skeleton, Textarea } from '../../../components';
+import { Avatar, Button, EmptyState, PageHeader, PANEL_CLASS, Pill, Skeleton, Textarea, ApprovalStatusChip } from '../../../components';
 import { DateRangePicker, type DateRangeValue } from '../../../components/dateRangePicker';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { checklistInstanceApi, type TestRunFilter } from '../../../api/checklistInstances';
 import { errorMessage } from '../../../lib/queryHelpers';
 import { useDeleteTestRunsMutation } from '../hook';
-import { formatDate, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
+import { formatDate } from '../checklistDisplay';
 import { ChecklistMultiPicker } from './ChecklistMultiPicker';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
@@ -188,7 +188,10 @@ export const TestDataCleanupPage = () => {
               {result.sample.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                   <span className="min-w-0 truncate t-card font-display font-medium text-text">{r.title}</span>
-                  <span className="shrink-0 t-meta text-text-muted">{formatDate(r.periodStart)} · {VERIFICATION_STATUS_LABEL[r.verificationStatus]}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="t-meta text-text-muted">{formatDate(r.periodStart)}</span>
+                    <ApprovalStatusChip status={r.verificationStatus} />
+                  </div>
                 </li>
               ))}
             </ul>

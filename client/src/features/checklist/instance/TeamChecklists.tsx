@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CheckCheck, CircleDashed, ClipboardList, Clock3, Eye, Hourglass, Kanban, LayoutGrid, LayoutList, Repeat, Store, Table2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AppliedFilters, EmptyState, IconChip, InlineError, PageHeader, SearchField, Skeleton, SlidingTabs, ViewToggle, type AppliedFilter, type SlidingTabOption, type ViewTab, PageBackButton } from '../../../components';
+import { AppliedFilters, EmptyState, IconChip, InlineError, PageHeader, SearchField, Skeleton, SlidingTabs, ViewToggle, type AppliedFilter, type SlidingTabOption, type ViewTab, PageBackButton, VerifiedAtChip } from '../../../components';
 import { ChoiceChip, ChoiceClear, ChoiceIcon, ChoiceWrap, OptionSection, OptionsSheet } from '../../../components/optionsSheet';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
@@ -352,6 +352,9 @@ export const TeamChecklists = () => {
                         <IconChip icon={progress.icon} tone={progress.tone} label={progress.label} />
                         {late && <IconChip icon={Hourglass} tone="bg-danger" label="Overdue" labelClassName="text-danger" />}
                         {reviewed && <RunVerificationChip instance={instance} />}
+                        {instance.verificationStatus === 'APPROVED' && instance.verifiedAt && (
+                          <VerifiedAtChip timestamp={instance.verifiedAt} format="date" className="max-sm:hidden" />
+                        )}
                         <IconChip icon={Repeat} tone="bg-primary-700" label={`${RECURRENCE_LABEL[instance.recurrence]}, ${formatPeriodSpan(instance, true)}`} className="max-sm:hidden" />
                       </span>
                       <span className="line-clamp-1 t-meta font-medium text-text-muted">

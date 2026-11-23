@@ -104,3 +104,19 @@ export { SlidingTabs } from './slidingTabs';
 export { Collapse } from './collapse';
 export type { SlidingTabOption } from './slidingTabs';
 export { ActionLabel } from './actionLabel';
+export {
+  ApprovalStatusChip,
+  VerifiedByChip,
+  VerifiedAtChip,
+  ChecklistVerificationStrip,
+  APPROVAL_STATUS_CONFIG,
+  FALLBACK_APPROVAL_CONFIG,
+} from './verificationChips';
+export type {
+  ApprovalStatusChipProps,
+  VerifiedByChipProps,
+  VerifiedAtChipProps,
+  ChecklistVerificationStripProps,
+  ApprovalStatusMeta,
+} from './verificationChips';
+

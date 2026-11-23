@@ -1,19 +1,36 @@
 import { ShieldCheck, ShieldX } from 'lucide-react';
+import { ApprovalStatusChip } from '../verificationChips/ApprovalStatusChip';
+import { VerifiedByChip } from '../verificationChips/VerifiedByChip';
+import { VerifiedAtChip } from '../verificationChips/VerifiedAtChip';
 
 interface VerificationNoteBannerProps {
   note: string | null | undefined;
   approved: boolean;
   verifiedBy?: string | null;
   title?: string;
+  verifiedAt?: string | null;
 }
 
-export const VerificationNoteBanner = ({ note, approved, verifiedBy, title }: VerificationNoteBannerProps) => {
+export const VerificationNoteBanner = ({
+  note,
+  approved,
+  verifiedBy,
+  title,
+  verifiedAt,
+}: VerificationNoteBannerProps) => {
   if (!note) return null;
 
-  const isVerified = approved && !!verifiedBy;
   const tone = approved
-    ? { shell: 'bg-success/10 border-success/30', tile: 'bg-success/15 text-success', title: 'text-success', body: 'text-success/90' }
-    : { shell: 'bg-warning/10 border-warning/30', tile: 'bg-warning/15 text-warning', title: 'text-warning', body: 'text-warning/90' };
+    ? {
+        shell: 'bg-emerald-500/10 border-emerald-500/25',
+        tile: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        body: 'text-slate-700 dark:text-slate-200',
+      }
+    : {
+        shell: 'bg-rose-500/10 border-rose-500/25',
+        tile: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+        body: 'text-slate-700 dark:text-slate-200',
+      };
 
   return (
     <div className={`flex items-start gap-3.5 p-4 rounded-2xl border transition-all ${tone.shell}`}>
@@ -21,11 +38,16 @@ export const VerificationNoteBanner = ({ note, approved, verifiedBy, title }: Ve
         {approved ? <ShieldCheck size={20} strokeWidth={2.5} /> : <ShieldX size={20} strokeWidth={2.5} />}
       </div>
 
-      <div className="flex flex-col pt-0.5 min-w-0">
-        <p className={`t-card font-bold ${tone.title}`}>
-          {title ?? (isVerified ? 'Approved' : 'Sent back for changes')}
-        </p>
-        <p className={`mt-1 text-sm leading-relaxed break-words ${tone.body}`}>{note}</p>
+      <div className="flex flex-col pt-0.5 min-w-0 flex-1 gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <ApprovalStatusChip
+            status={approved ? 'APPROVED' : 'REJECTED'}
+            label={title ?? (approved ? 'Approved' : 'Sent back for changes')}
+          />
+          {verifiedBy && <VerifiedByChip verifierName={verifiedBy} />}
+          {verifiedAt && <VerifiedAtChip timestamp={verifiedAt} />}
+        </div>
+        <p className={`text-sm leading-relaxed break-words ${tone.body}`}>{note}</p>
       </div>
     </div>
   );

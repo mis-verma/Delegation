@@ -1,7 +1,7 @@
 import { memo, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AlarmClock, AlarmClockOff, CalendarClock, Clock } from 'lucide-react';
-import { IconChip, Skeleton, StatusChip } from '../../../components';
+import { IconChip, Skeleton, StatusChip, ApprovalStatusChip, VerifiedAtChip } from '../../../components';
 import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TD_STICKY_CLASS, NUM_CLASS } from '../../../components/dataTable';
 import { cn } from '@/lib/utils';
 import {
@@ -59,7 +59,20 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
       </td>
 
       <td className={CELL_CLASS}>
-        <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
+        <div className="flex flex-col gap-1 items-start">
+          <ApprovalStatusChip
+            status={
+              isComplete && (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED')
+                ? 'READY_TO_SUBMIT'
+                : instance.verificationStatus
+            }
+            label={verification.label}
+            icon={verification.icon}
+          />
+          {instance.verifiedAt && instance.verificationStatus === 'APPROVED' && (
+            <VerifiedAtChip timestamp={instance.verifiedAt} format="short" />
+          )}
+        </div>
       </td>
 
       <td className={`${CELL_CLASS} whitespace-nowrap`}>

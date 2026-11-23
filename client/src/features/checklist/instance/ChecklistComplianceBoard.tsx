@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Button, ChecklistProgressBar, Combobox, CountBadge, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, PageHeader, PageNav,
-  PANEL_CLASS, Skeleton, StatusChip, Switch, type DateRangeValue,
+  PANEL_CLASS, Skeleton, StatusChip, Switch, ApprovalStatusChip, type DateRangeValue,
 } from '../../../components';
 import { runScores } from '../checklistCompliance';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../hook';
 import { useFormerPeopleNamesQuery } from '../former/useFormerPeopleNames';
 import {
-  formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
+  formatDeadlineTime, instanceProgressStatus,
   instanceProgressToneClass, isInstanceOverdue, isFlaggedAnswer, formatPeriodSpan } from '../checklistDisplay';
 import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey, type ComplianceQuickFilterCounts } from './ChecklistComplianceQuickStats';
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
@@ -84,7 +84,6 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
   );
   const overdue = isInstanceOverdue(instance, complete);
   const deadlineTime = formatDeadlineTime(instance);
-  const verification = VERIFICATION_CHIP[instance.verificationStatus];
 
   return (
     <Link
@@ -101,7 +100,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+          <ApprovalStatusChip status={instance.verificationStatus} />
           {overdue && <StatusChip status="overdue" />}
           {flagged > 0 && <IconChip icon={AlertTriangle} tone="bg-danger" label={`${flagged} flagged`} />}
         </div>

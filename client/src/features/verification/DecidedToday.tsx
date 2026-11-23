@@ -1,8 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
 import { CheckCircle2, CornerUpLeft, History, RotateCcw, Send, Undo2 } from 'lucide-react';
-import { Button, EmptyState, IconChip, InlineError, Skeleton, useConfirm } from '../../components';
-import { formatTimeOnly } from '../checklist/checklistDisplay';
+import { Button, EmptyState, InlineError, Skeleton, useConfirm, ApprovalStatusChip, VerifiedByChip, VerifiedAtChip } from '../../components';
 import { useCanReopen } from '../checklist/instance/useCanReopen';
 import { useReopenApprovalMutation } from '../checklist/hook';
 import { useChecklistDecisionsQuery, type ChecklistDecision } from './useChecklistDecisions';
@@ -23,11 +22,18 @@ interface DecisionRowProps {
 
 const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
   const chip = ACTION_CHIP[decision.action];
+  const statusKey = decision.action === 'APPROVE' ? 'APPROVED' : decision.action === 'SUBMIT' ? 'SUBMITTED' : 'REJECTED';
   return (
     <li className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface">
       <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <IconChip icon={chip.icon} tone={chip.tone} label={chip.label} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ApprovalStatusChip status={statusKey} label={chip.label} />
+          {decision.actorName && (
+            <VerifiedByChip verifierName={decision.actorName} />
+          )}
+          {decision.at && (
+            <VerifiedAtChip timestamp={decision.at} format="time" />
+          )}
           <Link
             to={`/checklists/${decision.instanceId}`}
             className="t-card font-display font-semibold text-text leading-snug line-clamp-2 rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
@@ -37,8 +43,6 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
         </div>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
           {decision.storeName && <span>{decision.storeName}</span>}
-          <span>{decision.action === 'SUBMIT' ? 'By' : 'Decided by'} {decision.actorName}</span>
-          <span className="tabular-nums">{formatTimeOnly(decision.at)}</span>
           {decision.itemCount != null && decision.itemCount > 0 && (
             <span>{decision.itemCount} {decision.itemCount === 1 ? 'question' : 'questions'}</span>
           )}

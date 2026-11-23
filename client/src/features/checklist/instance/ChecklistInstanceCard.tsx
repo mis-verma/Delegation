@@ -3,7 +3,7 @@ import { AlarmClockOff, Clock, Eye } from 'lucide-react';
 import { memo, useState } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
+import { ENTITY_CARD_CLASS, IconChip, StatusChip, VerifiedAtChip } from '../../../components';
 import {
   complianceToneClass,
   getInstanceView,
@@ -82,6 +82,9 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
         {showVerification && <RunVerificationChip instance={instance} />}
+        {instance.verificationStatus === 'APPROVED' && instance.verifiedAt && (
+          <VerifiedAtChip timestamp={instance.verifiedAt} format="short" className="max-sm:hidden" />
+        )}
       </div>
 
       {doneByOthers && (

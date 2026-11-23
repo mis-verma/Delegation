@@ -9,7 +9,7 @@ import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, ActionLabel, } from '../../../components';
+  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, ActionLabel, ApprovalStatusChip, VerifiedByChip, VerifiedAtChip, } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
@@ -369,19 +369,26 @@ export const ChecklistInstanceDetail = () => {
           {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
           {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} />}
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
-            <IconChip
-              icon={verification.icon}
-              tone={verification.tone}
+            <ApprovalStatusChip
+              status={
+                isComplete && (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED')
+                  ? 'READY_TO_SUBMIT'
+                  : instance.verificationStatus
+              }
               label={verification.label}
+              icon={verification.icon}
             />
           )}
-          {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && (
+          {isLocked && instance.verifiedBy && (
+            <VerifiedByChip verifierName={instance.verifiedBy} />
+          )}
+          {isLocked && instance.verifiedAt && (
+            <VerifiedAtChip timestamp={instance.verifiedAt} />
+          )}
+          {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && !instance.verifiedAt && (
             <span className="t-meta font-medium text-text-muted">
               Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
             </span>
-          )}
-          {isLocked && instance.verifiedAt && (
-            <span className="t-meta font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>
           )}
         </div>
 
@@ -506,7 +513,7 @@ export const ChecklistInstanceDetail = () => {
           )}
 
           {instance.verificationStatus === 'APPROVED' && (
-            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedBy} />
+            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedBy} verifiedAt={instance.verifiedAt} />
           )}
 
           {instance.verificationStatus === 'REJECTED' && (
