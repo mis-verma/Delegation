@@ -169,6 +169,7 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
     const nameUserIds = [...new Set([
         ...items.map((i) => i.completedBy).filter((id): id is string => !!id),
         ...instanceRows.map((i) => i.submittedBy).filter((id): id is string => !!id),
+        ...instanceRows.map((i) => i.verifiedBy).filter((id): id is string => !!id),
     ])]
     const nameRows = nameUserIds.length
         ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, nameUserIds))
@@ -200,6 +201,7 @@ export const hydrateInstances = async (instanceRows: (typeof checklistInstances.
             coordinatorRun: (assigneeIdsByInstance.get(instance.id) ?? []).some((id) => coordinatorIds.has(id)),
             reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
             submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
+            verifiedByName: instance.verifiedBy ? (nameById.get(instance.verifiedBy) ?? null) : null,
             items: runItems,
         }
     })

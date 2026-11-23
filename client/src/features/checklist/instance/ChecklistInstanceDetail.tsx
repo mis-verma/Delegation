@@ -380,7 +380,7 @@ export const ChecklistInstanceDetail = () => {
             />
           )}
           {isLocked && instance.verifiedBy && (
-            <VerifiedByChip verifierName={instance.verifiedBy} />
+            <VerifiedByChip verifierName={instance.verifiedByName ?? null} />
           )}
           {isLocked && instance.verifiedAt && (
             <VerifiedAtChip timestamp={instance.verifiedAt} />
@@ -513,7 +513,7 @@ export const ChecklistInstanceDetail = () => {
           )}
 
           {instance.verificationStatus === 'APPROVED' && (
-            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedBy} verifiedAt={instance.verifiedAt} />
+            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedByName ?? null} verifiedAt={instance.verifiedAt} />
           )}
 
           {instance.verificationStatus === 'REJECTED' && (

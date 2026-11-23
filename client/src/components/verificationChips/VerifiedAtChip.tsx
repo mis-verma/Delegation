@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VERIFICATION_CHIP, VERIFICATION_CHIP_EMPTY } from './constants';
 
 export interface VerifiedAtChipProps {
   /** Timestamp in ISO string, date object, or unix epoch */
@@ -72,15 +73,10 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
   if (!formattedText) {
     if (!showFallback) return null;
     return (
-      <span
-        title={title ?? 'Timestamp not recorded'}
-        className={cn(
-          'inline-flex h-6 sm:h-7 shrink-0 items-center gap-1.5 rounded-md border border-dashed border-slate-200/60 bg-slate-50/80 px-2.5 py-1 text-xs tabular-nums text-slate-400 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-500',
-          className,
-        )}
-      >
-        <Clock className="size-3 shrink-0" aria-hidden="true" />
-        <span>{fallbackText}</span>
+      <span title={title ?? 'Timestamp not recorded'} className={cn(VERIFICATION_CHIP_EMPTY, className)}>
+        <Clock className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+        <span>Verified at</span>
+        <span className="tabular-nums">{fallbackText}</span>
       </span>
     );
   }
@@ -90,17 +86,11 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
   return (
     <span
       title={title ?? (isoTime ? `Verified at ${isoTime}` : 'Verified timestamp')}
-      className={cn(
-        'inline-flex h-6 sm:h-7 shrink-0 items-center gap-1.5 rounded-md border border-slate-200/60 bg-slate-50 px-2.5 py-1 text-xs tabular-nums text-slate-600 transition-colors dark:border-slate-700/60 dark:bg-slate-800/50 dark:text-slate-300',
-        className,
-      )}
+      className={cn(VERIFICATION_CHIP, className)}
     >
-      <Clock
-        className="size-3 shrink-0 text-slate-400 dark:text-slate-400"
-        strokeWidth={2.25}
-        aria-hidden="true"
-      />
-      <time dateTime={isoTime} className="truncate">
+      <Clock className="size-3 shrink-0 text-text-muted" strokeWidth={2.25} aria-hidden="true" />
+      <span className="text-text-muted">Verified at</span>
+      <time dateTime={isoTime} className="truncate tabular-nums text-text">
         {formattedText}
       </time>
     </span>

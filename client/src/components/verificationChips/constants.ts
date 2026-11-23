@@ -89,3 +89,13 @@ export const FALLBACK_APPROVAL_CONFIG: ApprovalStatusMeta = Object.freeze({
   dot: 'bg-slate-400',
   icon: Clock,
 });
+
+/**
+ * One look for both verification chips: a crisp border, no fill, and nothing inside but the
+ * icon and its words. Shared so the two can never drift apart.
+ */
+export const VERIFICATION_CHIP =
+  'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 t-meta font-display text-text-secondary sm:h-7';
+
+export const VERIFICATION_CHIP_EMPTY =
+  'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 t-meta font-display text-text-light sm:h-7';

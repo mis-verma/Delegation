@@ -162,6 +162,8 @@ export type ChecklistInstance = {
   isLate?:            boolean;
   endedAt?:           string;
   verifiedBy:         string | null;
+  /** The verifier's name, resolved by the server. verifiedBy on its own is only an id. */
+  verifiedByName?:    string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;
   approvalStage?:     'HOD' | 'PC' | null;
