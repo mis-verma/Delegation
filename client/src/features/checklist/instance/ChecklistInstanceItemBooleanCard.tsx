@@ -46,8 +46,9 @@ const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: Lucid
   NOTIFY_AREA_MANAGER: { label: 'Area manager is told', icon: BellRing },
 };
 
+// 44px is the smallest comfortable touch target, and a phone has no room to spare above it.
 const ANSWER_BASE =
-  'group relative flex min-w-0 items-center justify-center gap-2 min-h-13 sm:min-h-11 pointer-coarse:min-h-13 px-3 rounded-xl border t-card font-display font-semibold tracking-tight transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
+  'group relative flex min-w-0 items-center justify-center gap-2 min-h-11 px-3 rounded-xl border t-card font-display font-semibold tracking-tight transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
 
 type Tone = 'good' | 'bad' | 'plain' | 'muted';
 
@@ -94,6 +95,9 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const isTriggering = (value: Answer) => actionsFor(value).length > 0 || (value === 'YES' && photoRequiredOnYesAnyway);
 
   const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
+  // The tapped answer lights up in the same commit as the tap. Without it the highlight waits
+  // for the mutation's optimistic write, which lands a tick later and reads as lag on a phone.
+  const [justPicked, setJustPicked] = useState<Answer | null>(null);
   const [editingSaved, setEditingSaved] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const baselinePhotos = useRef<ReadonlySet<string>>(new Set());
@@ -102,7 +106,9 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const [noOpen, setNoOpen] = useState(false);
   const accepted = item.acceptableAnswers ?? [];
 
-  const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const savedAnswerNow = item.isDone && !item.isNotApplicable ? item.booleanAnswer : null;
+  if (justPicked && (savedAnswerNow === justPicked || item.isNotApplicable)) setJustPicked(null);
+  const shownAnswer = pendingAnswer ?? justPicked ?? savedAnswerNow;
   const activeActions = shownAnswer === 'YES' && photoRequiredOnYesAnyway && !yesActions.includes('REQUIRE_PHOTO')
     ? [...yesActions, 'REQUIRE_PHOTO' as const]
     : shownAnswer ? actionsFor(shownAnswer) : [];
@@ -133,9 +139,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const { record } = edits;
   const save = useCallback((answer: Answer, reason: string | undefined) => {
     record(item);
+    setJustPicked(answer);
     mutateDone(
       { itemId, isDone: true, booleanAnswer: answer, conditionalReasonValue: reason },
-      { onSuccess: closeEditor },
+      { onSuccess: closeEditor, onError: () => setJustPicked(null) },
     );
   }, [record, item, mutateDone, itemId, closeEditor]);
 

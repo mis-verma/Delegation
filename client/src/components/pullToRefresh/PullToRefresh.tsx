@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { motion } from 'framer-motion';
 import { haptic } from '../../lib/haptics';
+import { useLayoutAnimations } from '../../lib/useLayoutAnimations';
 import { SCROLL_TOP_EVENT, recalledScroll, rememberScroll } from '../../lib/appNav';
 import { ArrowDown, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -28,6 +29,7 @@ export interface PullToRefreshProps {
 }
 
 export const PullToRefresh = ({ onRefresh, children, className, disabled, scrollKey }: PullToRefreshProps) => {
+  const animated = useLayoutAnimations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const puckRef = useRef<HTMLDivElement>(null);
@@ -129,18 +131,21 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled, scroll
     }
   };
 
-  return (
-    <motion.div
-      layoutScroll
-      ref={scrollRef}
-      data-app-scroll=""
-      className={cn("relative", className)}
-      onScroll={onScroll}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
+  // layoutScroll only exists to correct layout animations running inside this scroller. Where
+  // those are off, it is pure measuring, so the scroller is a plain div instead.
+  const shell = {
+    ref: scrollRef,
+    'data-app-scroll': '',
+    className: cn('relative', className),
+    onScroll,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    onTouchCancel: onTouchEnd,
+  };
+
+  const body = (
+    <>
       <div
         ref={trackRef}
         aria-hidden="true"
@@ -163,6 +168,8 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled, scroll
       </div>
 
       {children}
-    </motion.div>
+    </>
   );
+
+  return animated ? <motion.div layoutScroll {...shell}>{body}</motion.div> : <div {...shell}>{body}</div>;
 };
