@@ -17,6 +17,8 @@ export interface VerifiedByChipProps {
   className?: string;
   /** Accessible title override */
   title?: string;
+  /** The words beside the icon. Off where a column header already names the field. */
+  showLabel?: boolean;
 }
 
 /**
@@ -30,6 +32,7 @@ export const VerifiedByChip = memo(function VerifiedByChip({
   fallbackText = 'Unverified',
   className,
   title,
+  showLabel = true,
 }: VerifiedByChipProps) {
   const cleanName = verifierName?.trim();
 
@@ -38,7 +41,7 @@ export const VerifiedByChip = memo(function VerifiedByChip({
     return (
       <span title={title ?? fallbackText} className={cn(VERIFICATION_CHIP_EMPTY, className)}>
         <User className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-        <span>Verified by</span>
+        {showLabel && <span>Verified by</span>}
         <span className="truncate">{fallbackText}</span>
       </span>
     );
@@ -49,7 +52,7 @@ export const VerifiedByChip = memo(function VerifiedByChip({
   return (
     <span title={tooltip} className={cn(VERIFICATION_CHIP, className)}>
       <ShieldCheck className="size-3 shrink-0 text-text-muted" strokeWidth={2.25} aria-hidden="true" />
-      <span className="text-text-muted">Verified by</span>
+      {showLabel && <span className="text-text-muted">Verified by</span>}
       <span className="min-w-0 max-w-[130px] truncate font-medium text-text sm:max-w-[180px]">{cleanName}</span>
       {role && <span className="shrink-0 uppercase tracking-wide text-text-muted">{role}</span>}
     </span>

@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useStatCountFormat } from '../../lib/statCount';
 import { Skeleton } from '../../components/skeleton';
-import { STAT_FIGURE, STAT_PHONE_CENTER } from '../../components/statSurface';
+import { STAT_FIGURE } from '../../components/statSurface';
 import { ApprovalPills } from './ApprovalPills';
 import { StatLink } from './StatLink';
 import { TONE } from './boardLook';
@@ -13,7 +13,7 @@ const ROW_BASE = 'relative z-10 -mx-1 flex min-h-8 min-w-0 items-center justify-
 
 const COUNT_BY_TONE: Record<RowTone, string> = {
   neutral: 'text-text',
-  danger: 'rounded-md bg-danger/10 px-1.5 text-danger',
+  danger: 'text-danger',
   success: 'text-success',
 };
 
@@ -37,8 +37,7 @@ const ModuleStatCardComponent = ({ column, className }: ModuleStatCardProps) => 
   return (
     <div
       className={cn(
-        'relative flex min-h-44 min-w-0 flex-col justify-between gap-2.5 bg-surface p-3 text-left transition-colors duration-150 ease-out hover:bg-surface-hover/60 sm:p-4 2xl:p-5',
-        STAT_PHONE_CENTER,
+        'relative flex min-h-40 min-w-0 flex-col justify-between gap-2.5 bg-surface p-3 text-left transition-colors duration-150 ease-out hover:bg-surface-hover/60 sm:min-h-44 sm:p-4 2xl:p-5',
         className,
       )}
     >

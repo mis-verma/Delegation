@@ -69,7 +69,7 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
             label={verification.label}
           />
           {instance.verifiedAt && instance.verificationStatus === 'APPROVED' && (
-            <VerifiedAtChip timestamp={instance.verifiedAt} format="short" />
+            <VerifiedAtChip timestamp={instance.verifiedAt} format="short" showLabel={false} />
           )}
         </div>
       </td>

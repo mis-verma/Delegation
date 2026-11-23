@@ -16,6 +16,8 @@ export interface VerifiedAtChipProps {
   className?: string;
   /** Accessible title override */
   title?: string;
+  /** The words beside the icon. Off where a column header already names the field. */
+  showLabel?: boolean;
 }
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-IN', {
@@ -49,6 +51,7 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
   fallbackText = '—',
   className,
   title,
+  showLabel = true,
 }: VerifiedAtChipProps) {
   const parsedDate = useMemo(() => {
     if (!timestamp) return null;
@@ -75,7 +78,7 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
     return (
       <span title={title ?? 'Timestamp not recorded'} className={cn(VERIFICATION_CHIP_EMPTY, className)}>
         <Clock className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-        <span>Verified at</span>
+        {showLabel && <span>Verified at</span>}
         <span className="tabular-nums">{fallbackText}</span>
       </span>
     );
@@ -89,7 +92,7 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
       className={cn(VERIFICATION_CHIP, className)}
     >
       <Clock className="size-3 shrink-0 text-text-muted" strokeWidth={2.25} aria-hidden="true" />
-      <span className="text-text-muted">Verified at</span>
+      {showLabel && <span className="text-text-muted">Verified at</span>}
       <time dateTime={isoTime} className="truncate tabular-nums text-text">
         {formattedText}
       </time>
