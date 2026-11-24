@@ -21,7 +21,7 @@ export const BuilderQuestionsAside = ({ onAdd, storeIds, name, itemDrafts, activ
   const [tab, setTab] = useState<'add' | 'preview'>('add');
 
   return (
-    <div className={cn(PANEL_CLASS, 'order-last xl:order-first p-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] flex flex-col gap-3 min-h-0 shadow-inner bg-gradient-to-b from-surface to-surface-hover/30')}>
+    <div className={cn(PANEL_CLASS, 'order-last xl:order-first p-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh_-_9rem)] flex flex-col gap-3 min-h-0 shadow-inner bg-gradient-to-b from-surface to-surface-hover/30')}>
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'add' | 'preview')} className="flex min-h-0 flex-1 flex-col gap-3">
         <TabsList className="w-full shrink-0 rounded-full p-1 shadow-xs">
           <TabsTrigger value="add" className={TRIGGER}>
@@ -43,7 +43,7 @@ export const BuilderQuestionsAside = ({ onAdd, storeIds, name, itemDrafts, activ
             name={name}
             itemDrafts={itemDrafts}
             activeKey={activeKey}
-            className="max-h-[32rem] xl:max-h-[calc(100dvh-10rem)]"
+            className="max-h-[32rem] xl:max-h-[calc(100dvh_-_15rem)]"
           />
         </TabsContent>
       </Tabs>

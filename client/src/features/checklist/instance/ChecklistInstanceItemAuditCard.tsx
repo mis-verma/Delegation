@@ -155,7 +155,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
           <div
             role="group"
             aria-labelledby={peopleLabelId}
-            className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-10rem)]"
+            className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-28 lg:max-h-[calc(100dvh_-_10rem)]"
           >
             <p id={peopleLabelId} className="t-meta font-semibold text-text-secondary">People</p>
             <AuditPeopleList people={people} selectedId={selected?.id ?? null} onSelect={setSelectedId} />

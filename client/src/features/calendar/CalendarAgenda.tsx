@@ -42,7 +42,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
   return (
     <section
       aria-label={`Agenda for ${day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}`}
-      className="flex min-w-0 flex-col rounded-2xl border border-border/60 bg-surface overflow-hidden lg:sticky lg:top-4 lg:max-h-[calc(100dvh-6rem)]"
+      className="flex min-w-0 flex-col rounded-2xl border border-border/60 bg-surface overflow-hidden lg:sticky lg:top-4 lg:max-h-[calc(100dvh_-_6rem)]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 flex-col">

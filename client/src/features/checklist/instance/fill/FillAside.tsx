@@ -30,7 +30,7 @@ interface FillAsideProps {
 export const FillAside = ({
   progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, title, selfCompleteAll,
 }: FillAsideProps) => (
-  <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-hidden">
+  <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh_-_2rem)] flex-col gap-3 overflow-hidden">
     <div className={cn(PANEL_CLASS, 'flex shrink-0 flex-col gap-4 p-4')}>
       <div className="flex flex-col gap-1.5">
         <span className="t-meta font-display font-semibold text-text-muted">Completion</span>

@@ -87,7 +87,16 @@ export const ChecklistPhonePreview = ({ name, itemDrafts, activeKey, className }
 export const ChecklistPreviewSheet = ({
   open, onClose, name, itemDrafts,
 }: { open: boolean; onClose: () => void; name: string; itemDrafts: ItemDraft[] }) => (
-  <Modal open={open} onClose={onClose} title="How staff see it" description="The whole checklist, as it looks on a phone." size="sm">
-    <ChecklistPhonePreview name={name} itemDrafts={itemDrafts} className={cn('max-h-[70dvh]')} />
+  // The phone owns the scrolling. Without holding the body still the modal scrolls too, and two
+  // bars sit side by side with no way to tell which one moves the questions.
+  <Modal
+    open={open}
+    onClose={onClose}
+    title="How staff see it"
+    description="The whole checklist, as it looks on a phone."
+    size="md"
+    bodyClassName="overflow-hidden"
+  >
+    <ChecklistPhonePreview name={name} itemDrafts={itemDrafts} className={cn('h-[68dvh]')} />
   </Modal>
 );

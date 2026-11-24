@@ -471,7 +471,7 @@ const bodyProps = (row: ChecklistRow, draft: ReviewDraft) => ({
 });
 
 export const ReviewPane = ({ row, draft, onApprove, onSendBack, className }: PaneProps) => (
-  <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0 lg:max-h-[calc(100dvh-7rem)]', className)}>
+  <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0 lg:max-h-[calc(100dvh_-_7rem)]', className)}>
     <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-5">
       <PaneScore row={row} draft={draft} />
     </div>

@@ -743,6 +743,9 @@ export const ChecklistBuilder = () => {
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: shouldReduceMotion ? 0.05 : 0.2, ease: 'easeOut' }}
+            /* The footer below is sticky and floats over whatever precedes it, so the step keeps
+               a footer's worth of room underneath and never ends beneath it. */
+            className="pb-28"
           >
             {renderStep()}
           </motion.div>

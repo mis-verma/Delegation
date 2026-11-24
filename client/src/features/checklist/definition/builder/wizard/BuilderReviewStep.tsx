@@ -265,7 +265,7 @@ export const BuilderReviewStep = ({
 
       <div className="flex flex-col gap-4">
         {/* Row 1: Basics & Schedule */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
           <ReviewCard label="Basics" icon={Type} valid={sectionValidity[0]} onEdit={() => onEditSection(0)}>
             <Field label="Name">
               <p className="text-sm font-display font-bold text-text break-words">{name.trim() || <span className="font-medium italic text-text-muted">Untitled checklist</span>}</p>
@@ -299,7 +299,7 @@ export const BuilderReviewStep = ({
         </div>
 
         {/* Row 2: Reviewers & Assign (Both approval and assignment workflows with matching compact heights) */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
           <ReviewCard label="Reviewers" icon={ShieldCheck} valid={sectionValidity[3] ?? true} onEdit={() => onEditSection(3)}>
             {reviewerIds.length === 0 ? (
               <p className="t-meta font-display leading-relaxed text-text-muted">No one extra picked. PC and Admin, and each assignee’s department head, can still review.</p>
