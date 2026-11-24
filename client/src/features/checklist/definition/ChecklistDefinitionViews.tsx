@@ -60,7 +60,7 @@ const TableRow = memo(({ definition, selectionMode, selected, onToggle }: { defi
   const firstDepartment = definition.departmentNames[0];
   const moreDepartments = definition.departmentNames.length - 1;
   return (
-    <tr className={cn(TR_CLASS, 'cursor-default', selected && 'bg-primary-500/5', isDeleting && 'pointer-events-none opacity-50')}>
+    <tr className={cn(TR_CLASS, 'cursor-default transition-colors duration-150 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 even:bg-slate-50/40 dark:even:bg-slate-800/20', selected && 'bg-primary-500/5 hover:bg-primary-500/8', isDeleting && 'pointer-events-none opacity-50')}>
       <td className={cn(TD_CLASS, TD_STICKY_CLASS, FIRST_COL_WIDTH_CLASS)}>
         <NameCell definition={definition} selectionMode={selectionMode} selected={selected} onToggle={() => onToggle(definition.id)} />
       </td>
@@ -112,7 +112,12 @@ ChecklistDefinitionTable.displayName = 'ChecklistDefinitionTable';
 const ListRow = memo(({ definition, selectionMode, selected, onToggle }: { definition: ChecklistDefinition; selectionMode: boolean; selected: boolean; onToggle: (id: string) => void }) => {
   const { remove, isDeleting } = useDefinitionDelete(definition);
   return (
-    <li className={cn('flex items-center gap-3 rounded-lg border border-border/60 bg-surface p-2.5 sm:px-3', selected && 'border-primary-500 bg-primary-500/5', isDeleting && 'pointer-events-none opacity-50')}>
+    <li className={cn(
+      'flex items-center gap-3 rounded-xl border border-slate-200/70 dark:border-slate-700/50 bg-white dark:bg-slate-900/60 p-3 sm:px-4',
+      'transition-all duration-150 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 hover:shadow-sm',
+      selected && 'border-primary-500 bg-primary-500/5 hover:bg-primary-500/8',
+      isDeleting && 'pointer-events-none opacity-50',
+    )}>
       <div className="min-w-0 flex-1">
         <NameCell definition={definition} selectionMode={selectionMode} selected={selected} onToggle={() => onToggle(definition.id)} />
         <p className="mt-1 truncate t-meta font-display text-text-muted">

@@ -33,12 +33,12 @@ const PhotoButtons = ({ draft }: { draft: ItemDraft }) => {
   const isVideo = draft.itemType === 'VIDEO_UPLOAD';
   return (
     <div className="flex flex-wrap gap-2">
-      <span className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-primary-500/50 px-3 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">
+      <span className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-primary-500/50 px-3 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">
         {isVideo ? <Video size={14} aria-hidden /> : <Camera size={14} aria-hidden />}
         {isVideo ? 'Record video' : 'Take photo'}
       </span>
       {!draft.requiresLivePhoto && (
-        <span className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-3 t-meta font-display font-semibold text-text-secondary">
+        <span className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-3 t-meta font-display font-semibold text-text-secondary">
           <ImageUp size={14} aria-hidden />
           {isVideo ? 'Choose video' : 'Gallery'}
         </span>
@@ -105,10 +105,10 @@ const Body = ({ draft }: { draft: ItemDraft }) => {
       return (
         <div className="flex flex-col gap-3">
           <div className="flex gap-2">
-            <span className={cn(ANSWER, 'border-success/50 bg-success/10 text-success')}><Check size={15} strokeWidth={3} aria-hidden />{yes}</span>
-            <span className={cn(ANSWER, 'border-danger/50 bg-danger/10 text-danger')}><X size={15} strokeWidth={3} aria-hidden />{no}</span>
+            <span className={cn(ANSWER, 'rounded-2xl border-success/50 bg-success/10 text-success')}><Check size={15} strokeWidth={3} aria-hidden />{yes}</span>
+            <span className={cn(ANSWER, 'rounded-2xl border-danger/50 bg-danger/10 text-danger')}><X size={15} strokeWidth={3} aria-hidden />{no}</span>
             {draft.allowNotApplicable && (
-              <span className={cn(ANSWER, 'max-w-16 border-border/60 bg-surface-hover/40 text-text-secondary')}>N/A</span>
+              <span className={cn(ANSWER, 'max-w-16 rounded-2xl border-border/60 bg-surface-hover/40 text-text-secondary')}>N/A</span>
             )}
           </div>
           {hasRules && (
@@ -125,7 +125,7 @@ const Body = ({ draft }: { draft: ItemDraft }) => {
       return (
         <div className="flex flex-wrap gap-2">
           {(draft.options.length ? draft.options : ['Option 1', 'Option 2']).map((o) => (
-            <span key={o} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 t-meta font-display font-medium text-text-secondary">{o}</span>
+            <span key={o} className="inline-flex min-h-11 items-center rounded-xl border border-border px-3 t-meta font-display font-medium text-text-secondary">{o}</span>
           ))}
         </div>
       );
@@ -138,8 +138,8 @@ const Body = ({ draft }: { draft: ItemDraft }) => {
       );
     case 'RATING':
       return (
-        <div className="flex">
-          {Array.from({ length: Number(draft.ratingScale) || 5 }, (_, i) => <Star key={i} size={26} className="text-border" strokeWidth={1.5} aria-hidden />)}
+        <div className="flex gap-0.5">
+          {Array.from({ length: Number(draft.ratingScale) || 5 }, (_, i) => <Star key={i} size={24} className="text-warning/40" strokeWidth={1.5} aria-hidden />)}
         </div>
       );
     case 'NUMBER_ENTRY':
@@ -192,24 +192,30 @@ const QuestionPreviewCardImpl = ({ draft, index, highlighted = false }: { draft:
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-2xl border bg-surface p-3.5 transition-colors duration-200',
-        highlighted ? 'border-primary-500/70 ring-2 ring-primary-500/20' : 'border-border/60',
+        'flex flex-col gap-3.5 rounded-2xl border bg-surface p-4 shadow-xs transition-all duration-200',
+        highlighted
+          ? 'border-primary-500/70 shadow-[0_0_0_2px_rgba(var(--color-primary-500),0.15)]'
+          : 'border-border/60',
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
         {index !== undefined && (
-          <span className="mt-0.5 w-5 shrink-0 t-meta font-display font-bold tabular-nums text-text-light">{index + 1}</span>
+          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">{index + 1}</span>
         )}
         <p className="min-w-0 flex-1 t-card font-display font-semibold leading-snug text-text break-words">
           {draft.label.trim() || <span className="font-medium italic text-text-light">Your question shows here</span>}
         </p>
       </div>
-      {draft.isCritical && <span className="w-fit rounded-full bg-danger/10 px-2 py-0.5 t-meta font-display font-bold text-danger">Critical</span>}
+      {draft.isCritical && (
+        <span className="w-fit rounded-full bg-danger/15 px-2.5 py-0.5 t-meta font-display font-bold text-danger ring-1 ring-danger/20">
+          Critical
+        </span>
+      )}
       {draft.referenceImageUrl && <ExamplePhoto url={draft.referenceImageUrl} />}
       <Body draft={draft} />
       {!handlesPhotosInBody(draft) && <PhotoLine draft={draft} />}
       {markComplete && (
-        <span className="inline-flex min-h-11 w-fit items-center gap-1.5 self-end rounded-lg bg-primary-700 px-3.5 t-meta font-display font-semibold text-white dark:bg-primary-500">
+        <span className="inline-flex min-h-11 w-fit items-center gap-1.5 self-end rounded-xl bg-primary-700 px-3.5 t-meta font-display font-semibold text-white dark:bg-primary-500">
           <Check size={14} strokeWidth={2.75} aria-hidden />
           Mark complete
         </span>
@@ -223,9 +229,14 @@ const QuestionPreviewCardImpl = ({ draft, index, highlighted = false }: { draft:
 export const QuestionPreviewCard = memo(QuestionPreviewCardImpl);
 
 export const PhoneFrame = ({ children, className }: { children: ReactNode; className?: string }) => (
-  <div className={cn('mx-auto flex w-full max-w-72 flex-col gap-3 rounded-[1.75rem] border-4 border-border bg-surface-hover/40 p-3', className)}>
-    <div className="mx-auto h-1.5 w-16 shrink-0 rounded-full bg-border" aria-hidden="true" />
-    {children}
+  <div className={cn('mx-auto flex w-full max-w-72 flex-col rounded-[2rem] border-[5px] border-slate-800 dark:border-slate-600', className)}>
+    <div className="flex flex-1 flex-col gap-3 overflow-hidden rounded-[1.5rem] bg-white shadow-inner dark:bg-slate-950">
+      <div className="mx-auto mt-2.5 h-1 w-20 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-1">
+        {children}
+      </div>
+      <div className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+    </div>
   </div>
 );
 

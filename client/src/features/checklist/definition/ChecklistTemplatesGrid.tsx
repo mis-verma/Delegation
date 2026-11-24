@@ -332,7 +332,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         isLoading={isSummaryPending && !statusSummary}
       />
 
-      <div className="flex flex-col gap-3">
+      {/* Search & filter bar with surface background for visual separation */}
+      <div className="flex flex-col gap-3 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/40 p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-2">
           <SearchField
             value={search}
@@ -402,9 +403,10 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           </OptionsSheet>
         </div>
 
+        {/* Recurrence tabs with enhanced visual treatment */}
         <Tabs value={recurrence} onValueChange={(v) => setFilter('recurrence', v === 'all' ? 'all' : v.toLowerCase())}>
-          <div className="overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="w-fit">
+          <div className="overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+            <TabsList className="w-fit bg-white/70 dark:bg-slate-800/50 shadow-sm border border-slate-200/40 dark:border-slate-700/30">
               {RECURRENCE_TABS.map((r) => (
                 <TabsTrigger key={r} value={r} className="min-h-11 sm:min-h-8 font-display font-bold">
                   {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
@@ -414,7 +416,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           </div>
         </Tabs>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Period & group controls row with better spacing */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <SlidingTabs
             label="Period"
             value={period}
@@ -547,7 +550,13 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       )}
 
       {!isPending && !isError && hasNextPage && (
-        <Button variant="outline" size="sm" className="self-center" onClick={() => fetchNextPage()} isLoading={isFetchingNextPage}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-center px-6 py-2.5 font-display font-semibold border-2 border-primary-500/40 text-primary-600 dark:text-primary-400 hover:border-primary-500 hover:bg-primary-50/60 dark:hover:bg-primary-900/20 transition-all duration-200 shadow-sm hover:shadow-md"
+          onClick={() => fetchNextPage()}
+          isLoading={isFetchingNextPage}
+        >
           {isFetchingNextPage ? 'Loading' : `Load more (${total - definitions.length} remaining)`}
         </Button>
       )}

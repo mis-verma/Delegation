@@ -85,11 +85,16 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       className={cn(
         ENTITY_CARD_CLASS,
         'gap-4 justify-start',
+        'bg-white dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200',
+        'relative overflow-hidden',
         selected && 'border-primary-500 hover:border-primary-500 bg-primary-500/5',
         isDeleting && 'opacity-50 pointer-events-none',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Subtle gradient overlay at the top of the card */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-100/40 to-transparent dark:from-slate-700/20 dark:to-transparent rounded-t-2xl" aria-hidden />
+
+      <div className="relative flex items-start justify-between gap-3">
         {selectionMode ? (
           <span
             aria-hidden
@@ -107,7 +112,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         {selectionMode ? null : <DefinitionActions definition={definition} onDelete={() => { void remove(); }} deleting={isDeleting} />}
       </div>
 
-      <div className="flex flex-col gap-1 min-w-0">
+      <div className="relative flex flex-col gap-1 min-w-0">
         <h3 className="min-w-0">
           {selectionMode ? (
             <button type="button" aria-pressed={selected} onClick={handleToggleSelected} className={cn(TITLE_CLASS, STRETCH_CLASS)}>
@@ -123,7 +128,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       </div>
 
       {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="relative flex flex-wrap gap-1.5">
           {definition.assigneeIds.length === 0 && (
             <IconChip icon={FileClock} tone="bg-warning" label={state === 'draft' ? 'Draft, nobody assigned' : 'Nobody assigned'} labelClassName="text-warning" title="Saved as a draft. Add the people and it goes live." />
           )}
@@ -136,7 +141,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       )}
 
       {tags.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="relative flex flex-wrap gap-2">
           {tags.map((tag) => (
             <li key={tag} className="contents">
               <IconChip icon={TAG_ICON_BY_LABEL[tag] ?? ListChecks} tone="bg-text-muted" label={tag} />
@@ -146,17 +151,17 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       )}
 
       {hasRuns ? (
-        <div className="flex flex-col gap-3 pt-3.5 mt-auto border-t border-border/60">
-          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-            <div className="flex flex-col gap-0.5">
-              <span className="t-meta font-display font-medium text-text-muted">
+        <div className="relative flex flex-col gap-3.5 pt-4 mt-auto border-t border-slate-200/70 dark:border-slate-700/50">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <div className="flex flex-col gap-1">
+              <span className="t-meta font-display font-medium text-text-muted tracking-wide">
                 {definition.currentRate !== null ? (definition.recurrence === 'DAILY' ? 'Today' : 'This run') : 'All time'}
               </span>
-              <span className={cn('text-2xl font-display font-bold leading-none tabular-nums', headline === 100 ? 'text-success' : 'text-text')}>
+              <span className={cn('text-3xl font-display font-extrabold leading-none tabular-nums tracking-tight', headline === 100 ? 'text-success' : 'text-text')}>
                 {headline}%
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               {definition.currentRate !== null && (
                 <Stat label="All time" value={completionRate} tone={smallRateToneClass(completionRate)} />
               )}
@@ -176,7 +181,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           )}
         </div>
       ) : (
-        <p className="mt-auto pt-3.5 border-t border-border/60 t-meta font-display text-text-muted">
+        <p className="relative mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/50 t-meta font-display text-text-muted">
           {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
         </p>
       )}
@@ -186,7 +191,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 
 const Stat = ({ label, value, tone }: { label: string; value: number; tone: string }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="t-meta font-display text-text-muted">{label}</span>
+    <span className="t-meta font-display text-text-muted tracking-wide">{label}</span>
     <span className={cn('text-sm font-display font-bold tabular-nums', tone)}>{value}%</span>
   </div>
 );
