@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, ClipboardX, Smartphone } from 'lucide-react';
 import {
   EmptyState, IconChip, InlineError, PANEL_CLASS,
+  Segmented,
 } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ApiError } from '../../../../api/http';
@@ -48,7 +49,7 @@ const orgTodayKey = () => todayPeriodBoundIso().slice(0, 10);
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
-import type { ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode } from '../../../../api/checklistDefinitions';
+import type { ChecklistDefinition, ChecklistRecurrence, ChecklistScoringMode, ChecklistIcon, ChecklistResponseMode } from '../../../../api/checklistDefinitions';
 
 export const ChecklistBuilder = () => {
   const { definitionId } = useParams();
@@ -73,6 +74,7 @@ export const ChecklistBuilder = () => {
   const [icon, setIcon] = useState<ChecklistIcon>('store');
   const [storeIds, setStoreIds] = useState<string[]>([]);
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence>('DAILY');
+  const [scoringMode, setScoringMode] = useState<ChecklistScoringMode>('RULE');
   const [startDate, setStartDate] = useState(orgTodayKey);
   const [opensTime, setOpensTime] = useState(DEFAULT_OPENS_TIME);
   const [cutoffTime, setCutoffTime] = useState(DEFAULT_CUTOFF_TIME);
@@ -133,6 +135,7 @@ export const ChecklistBuilder = () => {
     setIcon(def.icon);
     setStoreIds(def.storeIds);
     setRecurrence(def.recurrence);
+    setScoringMode(def.scoringMode ?? 'RULE');
     setStartDate(nextStartDate);
     setOpensTime(def.opensTime ?? '');
     setCutoffTime(def.cutoffTime ?? '');
@@ -153,6 +156,7 @@ export const ChecklistBuilder = () => {
       icon: def.icon,
       storeIds: def.storeIds,
       recurrence: def.recurrence,
+      scoringMode: def.scoringMode ?? 'RULE',
       startDate: nextStartDate,
       opensTime: def.opensTime ?? '',
       cutoffTime: def.cutoffTime ?? '',
@@ -177,6 +181,7 @@ export const ChecklistBuilder = () => {
     setIcon(restored.icon);
     setStoreIds(restored.storeIds);
     setRecurrence(restored.recurrence);
+    setScoringMode(restored.scoringMode ?? 'RULE');
     setStartDate(restored.startDate);
     setOpensTime(restored.opensTime);
     setCutoffTime(restored.cutoffTime);
@@ -222,7 +227,7 @@ export const ChecklistBuilder = () => {
   useEffect(() => {
     liveRef.current = {
       snapshot: {
-        name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
+        name, description, icon, storeIds, recurrence, scoringMode, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
         responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
       },
       baseline,
@@ -237,13 +242,13 @@ export const ChecklistBuilder = () => {
   const markClean = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
+      name, description, icon, storeIds, recurrence, scoringMode, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
       responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
     }));
   };
 
   const isDirty = snapshotKey({
-    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
+    name, description, icon, storeIds, recurrence, scoringMode, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
     responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
   }) !== baseline;
 
@@ -446,7 +451,7 @@ export const ChecklistBuilder = () => {
 
   const saveAsDraft = () => {
     const payload: Record<string, unknown> = {
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
+      name, description, icon, storeIds, recurrence, scoringMode, startDate, opensTime, cutoffTime, lateUntilTime, activeWeekdays, occurrenceDays,
       responseMode, assigneeIds, reviewerIds, itemDrafts, sections, step,
     };
     saveDraftMutation.mutate({ id: savedDraftId, title: name.trim() || 'Untitled checklist', payload }, {
@@ -587,6 +592,28 @@ export const ChecklistBuilder = () => {
         return (
           <BuilderStepFrame stepIndex={step} stepCount={STEPS.length} icon={STEPS[step].icon} title="Questions" description="Add the questions your team needs to answer or complete, in order.">
             <div className="flex flex-col gap-6">
+              {/* How the answers are judged. An audit needs a distance, not a verdict, so its
+                  ratings are added up instead of being called acceptable or not. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border/60 bg-surface-hover/30 p-3">
+                <span className="flex min-w-0 flex-col">
+                  <span className="t-card font-display font-bold text-text">How this scores</span>
+                  <span className="t-meta text-text-muted">
+                    {scoringMode === 'POINTS'
+                      ? 'Ratings are added up, so the checklist reaches a percentage out of the points on offer.'
+                      : 'Each answer is judged against what you marked acceptable.'}
+                  </span>
+                </span>
+                <Segmented
+                  label="How this scores"
+                  value={scoringMode}
+                  onChange={setScoringMode}
+                  options={[
+                    { value: 'RULE', label: 'Acceptable answers' },
+                    { value: 'POINTS', label: 'Points out of 100' },
+                  ]}
+                />
+              </div>
+
               <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
               <div className="grid grid-cols-1 xl:grid-cols-[19rem_1fr] gap-5 xl:gap-6 items-start">
                 <BuilderQuestionsAside

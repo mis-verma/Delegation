@@ -12,7 +12,9 @@ import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api
 
 export type ItemDraft = {
   key: string;
+  floor: string | null;
   section: string | null;
+  sectionOwnerId: string | null;
   label: string;
   requiredImageCount: string;
   maxImageCount: string;
@@ -49,7 +51,9 @@ export type ItemDraft = {
 // eslint-disable-next-line react-refresh/only-export-components
 export const emptyItemDraft = (): ItemDraft => ({
   key: crypto.randomUUID(),
+  floor: null,
   section: null,
+  sectionOwnerId: null,
   label: '',
   requiredImageCount: '0',
   maxImageCount: '',

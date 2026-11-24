@@ -3,13 +3,15 @@ import { draftPayload, draftProblem } from '../../questionTypes/model';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder } from '../itemSections';
 import type {
-  ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode,
+  ChecklistRecurrence, ChecklistScoringMode, ChecklistIcon, ChecklistResponseMode,
   ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
 } from '../../../../api/checklistDefinitions';
 
 export const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   key: item.id,
+  floor: item.floor ?? null,
   section: item.section,
+  sectionOwnerId: item.sectionOwnerId ?? null,
   label: item.label,
   requiredImageCount: String(item.requiredImageCount),
   maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
@@ -63,7 +65,9 @@ export const buildItemPayloads = (
     .map(d => ({
       id: d.key,
       label: sanitizeText(d.label),
+      floor: d.floor ? sanitizeText(d.floor) : undefined,
       section: d.section ? sanitizeText(d.section) : undefined,
+      sectionOwnerId: d.sectionOwnerId || undefined,
       requiredImageCount: Number(d.requiredImageCount) || 0,
       maxImageCount: d.maxImageCount ? Number(d.maxImageCount) : undefined,
       requiresLivePhoto: d.requiresLivePhoto,
@@ -105,6 +109,7 @@ export const STEP_BLOCK_REASON: Record<number, string> = {
 
 export type BuilderSnapshot = {
   name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
+  scoringMode: ChecklistScoringMode;
   startDate: string; opensTime: string; cutoffTime: string; lateUntilTime: string; activeWeekdays: number[]; occurrenceDays: number[]; responseMode: ChecklistResponseMode;
   assigneeIds: string[]; reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
 };
@@ -115,7 +120,7 @@ export const DEFAULT_CUTOFF_TIME = '18:30';
 export const DEFAULT_LATE_UNTIL_TIME = '21:00';
 
 export const BLANK_SNAPSHOT: BuilderSnapshot = {
-  name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
+  name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', scoringMode: 'RULE', startDate: '',
   opensTime: DEFAULT_OPENS_TIME, cutoffTime: DEFAULT_CUTOFF_TIME, lateUntilTime: DEFAULT_LATE_UNTIL_TIME, activeWeekdays: DEFAULT_WORKING_WEEKDAYS, occurrenceDays: [], responseMode: 'SHARED',
   assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
 };

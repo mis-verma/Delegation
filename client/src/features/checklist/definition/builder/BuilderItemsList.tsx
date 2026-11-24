@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Copy, Plus, Pencil, Check, Layers, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Building2, GripVertical, Trash2, Copy, Plus, Pencil, Check, Layers, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,13 @@ import {
 } from '../itemSections';
 import { DRAG_SLOP_PX } from '../../../../lib/dragSlop';
 import { revealAfterRender, questionFieldOf } from './reveal';
+import { SectionSettingsDialog, type SectionSettings } from './SectionSettingsDialog';
+
+/** A section's floor and owner live on its questions, so the first one speaks for the section. */
+const sectionSettingsOf = (drafts: ItemDraft[], name: string): SectionSettings => {
+  const first = drafts.find((d) => d.section === name);
+  return { floor: first?.floor ?? null, sectionOwnerId: first?.sectionOwnerId ?? null };
+};
 
 interface BuilderItemsListProps {
   itemDrafts: ItemDraft[];
@@ -135,6 +142,9 @@ const SectionContainer = ({
   isActive,
   onSelect,
   onRename,
+  settings,
+  onSettings,
+  storeIds: sectionStoreIds,
   onDelete,
   onDuplicate,
   onMoveUp,
@@ -149,6 +159,9 @@ const SectionContainer = ({
   isActive: boolean;
   onSelect: () => void;
   onRename?: (next: string) => void;
+  settings?: SectionSettings;
+  onSettings?: (next: SectionSettings) => void;
+  storeIds?: string[];
   onDelete?: () => void;
   onDuplicate?: () => void;
   onMoveUp?: () => void;
@@ -158,6 +171,7 @@ const SectionContainer = ({
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [renaming, setRenaming] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftName, setDraftName] = useState(title);
 
   const keySig = items.map((d) => d.key).join('|');
@@ -177,10 +191,22 @@ const SectionContainer = ({
     ...(onMoveUp ? [{ label: 'Move up', icon: ChevronUp, onClick: onMoveUp }] : []),
     ...(onMoveDown ? [{ label: 'Move down', icon: ChevronDown, onClick: onMoveDown }] : []),
     { label: 'Rename', icon: Pencil, onClick: () => setRenaming(true) },
+    ...(onSettings ? [{ label: 'Floor and owner', icon: Building2, onClick: () => setSettingsOpen(true) }] : []),
     { label: 'Delete section', icon: Trash2, onClick: onDelete, variant: 'destructive', separatorBefore: true },
   ];
 
   return (
+    <>
+    {settingsOpen && onSettings && (
+      <SectionSettingsDialog
+        open
+        section={title}
+        value={settings ?? { floor: null, sectionOwnerId: null }}
+        storeIds={sectionStoreIds}
+        onClose={() => setSettingsOpen(false)}
+        onSave={onSettings}
+      />
+    )}
     <div
       data-section-name={title}
       className={cn(
@@ -321,6 +347,7 @@ const SectionContainer = ({
         </SortableContext>
       </div>
     </div>
+    </>
   );
 };
 
@@ -409,6 +436,10 @@ export const BuilderItemsList = ({
     setSections((prev) => prev.map((s) => (s === oldName ? nextName : s)));
     setItemDrafts((prev) => prev.map((d) => (d.section === oldName ? { ...d, section: nextName } : d)));
     if (activeSection === oldName) setActiveSection(nextName);
+  };
+
+  const handleSectionSettings = (name: string, next: { floor: string | null; sectionOwnerId: string | null }) => {
+    setItemDrafts((prev) => prev.map((d) => (d.section === name ? { ...d, ...next } : d)));
   };
 
   const handleDeleteSection = async (name: string) => {
@@ -585,6 +616,9 @@ export const BuilderItemsList = ({
               isActive={activeSection === name}
               onSelect={() => setActiveSection(name)}
               onRename={(next) => handleRenameSection(name, next)}
+              settings={sectionSettingsOf(itemDrafts, name)}
+              onSettings={(next) => handleSectionSettings(name, next)}
+              storeIds={storeIds}
               onDelete={() => handleDeleteSection(name)}
               onDuplicate={() => handleDuplicateSection(name)}
               onMoveUp={i > 0 ? () => moveSection(name, -1) : undefined}
