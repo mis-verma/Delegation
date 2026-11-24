@@ -64,47 +64,103 @@ const forceLogout = () => {
   window.location.href = '/login';
 };
 
+const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
+const MAX_REQUEST_RETRIES = 2;
+const inFlightGets = new Map<string, Promise<unknown>>();
+
+const backoffDelay = (attempt: number, retryAfterMs?: number) => {
+  if (retryAfterMs && retryAfterMs > 0) return Math.min(retryAfterMs, 5000);
+  return Math.min(350 * Math.pow(2, attempt) + Math.random() * 200, 3500);
+};
+
 export const apiFetch = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
+  const method = (options.method ?? 'GET').toUpperCase();
   const isAuthEndpoint = path.startsWith('/auth/');
   const previewId = isAuthEndpoint || path.startsWith('/view-as/') ? null : viewAsStore.get();
-  if (previewId && !['GET', 'HEAD'].includes((options.method ?? 'GET').toUpperCase())) {
+  if (previewId && !['GET', 'HEAD'].includes(method)) {
     throw new ApiError('You are previewing someone else’s account, so nothing can be changed. Exit the preview first.', 403);
   }
+
+  // Deduplicate identical in-flight GET requests
   const token = tokenStore.get();
-  const isFormData = options.body instanceof FormData;
-
-  const doFetch = (t: string | null) =>
-    fetch(`${BASE}${path}`, {
-      ...options,
-      credentials: 'include',
-      headers: {
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-        ...(t ? { Authorization: `Bearer ${t}` } : {}),
-        ...(previewId ? { 'X-View-As': previewId } : {}),
-        ...options.headers,
-      },
-    });
-
-  let res: Response;
-  try {
-    res = await doFetch(token);
-  } catch {
-    throw new ApiError("Couldn't reach the server. Check your connection and try again.", 0);
+  const isGet = method === 'GET';
+  const dedupKey = isGet ? `${path}::${token ?? 'anon'}::${previewId ?? 'direct'}` : null;
+  if (dedupKey && inFlightGets.has(dedupKey)) {
+    return inFlightGets.get(dedupKey) as Promise<T>;
   }
 
-  if (res.status === 401 && token && !isAuthEndpoint) {
-    const newToken = await refreshAccessToken(token);
-    if (newToken) {
-      res = await doFetch(newToken);
-    } else {
-      forceLogout();
-      throw new ApiError('Your session has ended. Please sign in again.', 401);
+  const exec = async (): Promise<T> => {
+    const isFormData = options.body instanceof FormData;
+
+    const doFetch = (t: string | null) => {
+      // 30-second defensive timeout signal
+      let timeoutSignal: AbortSignal | undefined;
+      try {
+        if (!options.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+          timeoutSignal = AbortSignal.timeout(30000);
+        }
+      } catch {
+        // Fallback for browsers without AbortSignal.timeout
+      }
+
+      return fetch(`${BASE}${path}`, {
+        ...options,
+        signal: options.signal ?? timeoutSignal,
+        credentials: 'include',
+        headers: {
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+          ...(t ? { Authorization: `Bearer ${t}` } : {}),
+          ...(previewId ? { 'X-View-As': previewId } : {}),
+          ...options.headers,
+        },
+      });
+    };
+
+    let attempt = 0;
+    while (true) {
+      let res: Response;
+      try {
+        res = await doFetch(token);
+      } catch {
+        if (attempt < MAX_REQUEST_RETRIES && (isGet || method === 'HEAD')) {
+          attempt++;
+          await sleep(backoffDelay(attempt));
+          continue;
+        }
+        throw new ApiError("Couldn't reach the server. Check your connection and try again.", 0);
+      }
+
+      if (res.status === 401 && token && !isAuthEndpoint) {
+        const newToken = await refreshAccessToken(token);
+        if (newToken) {
+          res = await doFetch(newToken);
+        } else {
+          forceLogout();
+          throw new ApiError('Your session has ended. Please sign in again.', 401);
+        }
+      }
+
+      // Retry on transient server overloads (429, 502, 503, 504) for idempotent requests
+      if (TRANSIENT_STATUSES.has(res.status) && attempt < MAX_REQUEST_RETRIES && (isGet || method === 'HEAD')) {
+        attempt++;
+        const wait = backoffDelay(attempt, retryAfterMsOf(res));
+        await sleep(wait);
+        continue;
+      }
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new ApiError(data?.message ?? 'Something went wrong. Please try again.', res.status, retryAfterMsOf(res));
+      return data as T;
     }
+  };
+
+  const promise = exec();
+  if (dedupKey) {
+    inFlightGets.set(dedupKey, promise);
+    promise.finally(() => inFlightGets.delete(dedupKey));
   }
 
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(data?.message ?? 'Something went wrong. Please try again.', res.status, retryAfterMsOf(res));
-  return data as T;
+  return promise;
 };
 
 export type UploadProgress = (fraction: number) => void;

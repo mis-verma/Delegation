@@ -10,6 +10,7 @@ import {
   type ChecklistDefinitionsSummaryParams,
   type ChecklistRecurrence,
   type LiveRunsSummary,
+  type ChecklistDefinition,
 } from '../../api/checklistDefinitions';
 import { checklistInstanceApi, checklistItemHistoryApi, type AlarmSnoozeMinutes, type ChecklistInstanceImage, type PhotoReviewReason, type ChecklistInstance, type ChecklistInstanceItem, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
@@ -140,13 +141,61 @@ export const useSetChecklistDefinitionActiveMutation = () => {
   return useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       checklistDefinitionApi.setActive(id, isActive).then(r => r.data),
+    onMutate: async ({ id, isActive }) => {
+      // 1. Cancel in-flight queries to prevent stale data race-conditions
+      await queryClient.cancelQueries({ queryKey: ['checklist-definitions'] });
+      await queryClient.cancelQueries({ queryKey: KEYS.definitionDetail(id) });
+
+      // 2. Snapshot previous state for rollback
+      const previousDetail = queryClient.getQueryData<ChecklistDefinition>(KEYS.definitionDetail(id));
+      const previousLists = queryClient.getQueriesData<{ pages: Array<{ data: ChecklistDefinition[] }> }>({ queryKey: ['checklist-definitions'] });
+
+      // 3. Optimistically update single definition cache
+      if (previousDetail) {
+        queryClient.setQueryData(KEYS.definitionDetail(id), {
+          ...previousDetail,
+          isActive,
+        });
+      }
+
+      // 4. Optimistically update all loaded definition lists
+      queryClient.setQueriesData<{ pages: Array<{ data: ChecklistDefinition[] }> }>(
+        { queryKey: ['checklist-definitions'] },
+        (old) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              data: page.data.map((item) => (item.id === id ? { ...item, isActive } : item)),
+            })),
+          };
+        },
+      );
+
+      return { previousDetail, previousLists };
+    },
+    onError: (err, { id }, context) => {
+      // Rollback to snapshot on network / authorization error
+      if (context?.previousDetail) {
+        queryClient.setQueryData(KEYS.definitionDetail(id), context.previousDetail);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      notifyError(err, "Couldn't update the checklist. Try again.");
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData(KEYS.definitionDetail(updated.id), updated);
-      queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       toast.success(updated.isActive ? "Checklist resumed. Today's run is back on people's lists." : "Checklist paused. It is off everyone's list and won't count until you resume it.");
     },
-    onError: (err) => notifyError(err, "Couldn't update the checklist. Try again."),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+    },
   });
 };
 
@@ -154,6 +203,34 @@ export const useDeleteChecklistDefinitionMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => checklistDefinitionApi.remove(id),
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['checklist-definitions'] });
+      const previousLists = queryClient.getQueriesData<{ pages: Array<{ data: ChecklistDefinition[] }> }>({ queryKey: ['checklist-definitions'] });
+
+      queryClient.setQueriesData<{ pages: Array<{ data: ChecklistDefinition[] }> }>(
+        { queryKey: ['checklist-definitions'] },
+        (old) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              data: page.data.filter((item) => item.id !== id),
+            })),
+          };
+        },
+      );
+
+      return { previousLists };
+    },
+    onError: (err, _id, context) => {
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      notifyError(err, "Couldn't delete the checklist. Try again.");
+    },
     onSuccess: (_result, id) => {
       const refresh = () => {
         queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
@@ -174,7 +251,6 @@ export const useDeleteChecklistDefinitionMutation = () => {
         },
       });
     },
-    onError: (err) => notifyError(err, "Couldn't delete the checklist. Try again."),
   });
 };
 

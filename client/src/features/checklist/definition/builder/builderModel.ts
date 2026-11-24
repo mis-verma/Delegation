@@ -45,6 +45,14 @@ export const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
 
 export const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.length).trimEnd()} (copy)`;
 
+const sanitizeText = (text: string) =>
+  Array.from(text.trim())
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join('');
+
 export const buildItemPayloads = (
   itemDrafts: ItemDraft[],
   sections: string[],
@@ -54,8 +62,8 @@ export const buildItemPayloads = (
     .filter(d => d.label.trim())
     .map(d => ({
       id: d.key,
-      label: d.label.trim(),
-      section: d.section ?? undefined,
+      label: sanitizeText(d.label),
+      section: d.section ? sanitizeText(d.section) : undefined,
       requiredImageCount: Number(d.requiredImageCount) || 0,
       maxImageCount: d.maxImageCount ? Number(d.maxImageCount) : undefined,
       requiresLivePhoto: d.requiresLivePhoto,
