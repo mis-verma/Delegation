@@ -55,6 +55,7 @@ const SECTIONS: { label: string; icon: LucideIcon }[] = [
 ];
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const unitLabel = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 const formatStart = (value: string) => {
   if (!value) return 'No date set';
@@ -230,10 +231,10 @@ export const BuilderReviewStep = ({
 
         <ul aria-label="At a glance" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { label: 'Questions', value: named.length, icon: ListChecks },
-            { label: 'Stores', value: storeIds.length, icon: Store },
-            { label: 'People', value: keptAssignees.length, icon: Users },
-            { label: 'Reviewers', value: activeReviewers.length, icon: ShieldCheck },
+            { label: unitLabel(named.length, 'Question', 'Questions'), value: named.length, icon: ListChecks },
+            { label: unitLabel(storeIds.length, 'Store', 'Stores'), value: storeIds.length, icon: Store },
+            { label: unitLabel(keptAssignees.length, 'Person', 'People'), value: keptAssignees.length, icon: Users },
+            { label: unitLabel(activeReviewers.length, 'Reviewer', 'Reviewers'), value: activeReviewers.length, icon: ShieldCheck },
           ].map((tile) => (
             <li key={tile.label} className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300" aria-hidden="true">
@@ -262,84 +263,43 @@ export const BuilderReviewStep = ({
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ReviewCard label="Basics" icon={Type} valid={sectionValidity[0]} onEdit={() => onEditSection(0)}>
-          <Field label="Name">
-            <p className="text-sm font-display font-bold text-text break-words">{name.trim() || <span className="font-medium italic text-text-muted">Untitled checklist</span>}</p>
-          </Field>
-          <Field label="Description">
-            <p className="t-meta font-display leading-relaxed text-text-secondary line-clamp-4">
-              {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
-            </p>
-          </Field>
-        </ReviewCard>
+      <div className="flex flex-col gap-4">
+        {/* Row 1: Basics & Schedule */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <ReviewCard label="Basics" icon={Type} valid={sectionValidity[0]} onEdit={() => onEditSection(0)}>
+            <Field label="Name">
+              <p className="text-sm font-display font-bold text-text break-words">{name.trim() || <span className="font-medium italic text-text-muted">Untitled checklist</span>}</p>
+            </Field>
+            <Field label="Description">
+              <p className="t-meta font-display leading-relaxed text-text-secondary line-clamp-4">
+                {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
+              </p>
+            </Field>
+          </ReviewCard>
 
-        <ReviewCard label="Schedule" icon={CalendarClock} valid={sectionValidity[1]} onEdit={() => onEditSection(1)}>
-          <Field label="Stores">
-            {storeIds.length === 0 ? (
-              <span className="t-meta font-display font-medium text-warning">No stores selected</span>
-            ) : storesQuery.isPending ? (
-              <Skeleton className="h-7 w-40 rounded-full" />
-            ) : (
-              <ul className="flex flex-wrap gap-1.5">
-                {storeNames.map((storeName, i) => <li key={`${storeName}-${i}`}><IconChip icon={Store} tone="bg-primary-600" label={storeName} /></li>)}
-              </ul>
-            )}
-          </Field>
-          <ul className="flex flex-wrap gap-1.5" aria-label="When it runs">
-            <li><IconChip icon={Repeat} tone="bg-primary-600" label={`${RECURRENCE_LABEL[recurrence] ?? recurrence}${recurrence === 'DAILY' ? ` · ${formatWeekdays(activeWeekdays)}` : ''}${RECURRENCE_REGISTRY[recurrence].picker ? ` · ${pickedLabel(recurrence, occurrenceDays)}` : ''}`} /></li>
-            <li><IconChip icon={CalendarDays} tone="bg-primary-600" label={`${recurrence === 'ONE_TIME' ? 'Due' : 'Starts'} ${formatStart(startDate)}`} /></li>
-            {overnight && <li><IconChip icon={Info} tone="bg-text-muted" label="Closes next morning" /></li>}
-          </ul>
-          <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={lateUntilTime} />
-        </ReviewCard>
+          <ReviewCard label="Schedule" icon={CalendarClock} valid={sectionValidity[1]} onEdit={() => onEditSection(1)}>
+            <Field label="Stores">
+              {storeIds.length === 0 ? (
+                <span className="t-meta font-display font-medium text-warning">No stores selected</span>
+              ) : storesQuery.isPending ? (
+                <Skeleton className="h-7 w-40 rounded-full" />
+              ) : (
+                <ul className="flex flex-wrap gap-1.5">
+                  {storeNames.map((storeName, i) => <li key={`${storeName}-${i}`}><IconChip icon={Store} tone="bg-primary-600" label={storeName} /></li>)}
+                </ul>
+              )}
+            </Field>
+            <ul className="flex flex-wrap gap-1.5" aria-label="When it runs">
+              <li><IconChip icon={Repeat} tone="bg-primary-600" label={`${RECURRENCE_LABEL[recurrence] ?? recurrence}${recurrence === 'DAILY' ? ` · ${formatWeekdays(activeWeekdays)}` : ''}${RECURRENCE_REGISTRY[recurrence].picker ? ` · ${pickedLabel(recurrence, occurrenceDays)}` : ''}`} /></li>
+              <li><IconChip icon={CalendarDays} tone="bg-primary-600" label={`${recurrence === 'ONE_TIME' ? 'Due' : 'Starts'} ${formatStart(startDate)}`} /></li>
+              {overnight && <li><IconChip icon={Info} tone="bg-text-muted" label="Closes next morning" /></li>}
+            </ul>
+            <WindowTimeline opensTime={opensTime} cutoffTime={cutoffTime} lateUntilTime={lateUntilTime} />
+          </ReviewCard>
+        </div>
 
-        <ReviewCard
-          label="Questions"
-          icon={ListChecks}
-          valid={sectionValidity[2]}
-          onEdit={() => onEditSection(2)}
-          aside={<IconChip icon={false} label={plural(named.length, 'question', 'questions')} labelClassName="tabular-nums" />}
-        >
-          {named.length === 0 ? (
-            <p className="py-3 text-center t-meta font-display italic text-text-muted">You haven’t added any questions yet.</p>
-          ) : (
-            <>
-              <ul className="flex flex-wrap gap-1.5" aria-label="Question summary">
-                {stats.proof > 0 && <li><IconChip icon={Camera} tone={stats.live > 0 ? 'bg-success' : 'bg-primary-600'} label={`${plural(stats.proof, 'photo question', 'photo questions')}${stats.live > 0 ? `, ${stats.live} live` : ''}`} /></li>}
-                {stats.rules > 0 && <li><IconChip icon={Zap} tone="bg-warning" label={plural(stats.rules, 'rule', 'rules')} /></li>}
-                {stats.critical > 0 && <li><IconChip icon={Flag} tone="bg-danger" label={`${stats.critical} critical`} /></li>}
-                {stats.sections > 0 && <li><IconChip icon={Layers} tone="bg-text-muted" label={plural(stats.sections, 'section', 'sections')} /></li>}
-              </ul>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPreviewOpen(true)}
-                className="self-start gap-1.5 pointer-coarse:h-11"
-              >
-                <Smartphone size={13} aria-hidden />
-                See it as staff do
-              </Button>
-              <ol className="flex max-h-64 flex-col divide-y divide-border/40 overflow-y-auto pr-1">
-                {named.map((item, index) => {
-                  const type = questionTypeOf(item);
-                  const TypeIcon = type.icon;
-                  return (
-                    <li key={item.key} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
-                      <span className="w-6 shrink-0 t-meta font-display font-semibold tabular-nums text-text-light">{index + 1}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-display font-medium text-text" title={item.label}>{item.label}</span>
-                      {item.section && <IconChip icon={Layers} tone="bg-text-muted" label={item.section} className="hidden max-w-32 sm:inline-flex" />}
-                      {item.isCritical && <Flag size={13} className="shrink-0 text-danger" aria-label="Critical" />}
-                      <IconChip icon={TypeIcon} tone="bg-primary-600" label={type.label} className="shrink-0" />
-                    </li>
-                  );
-                })}
-              </ol>
-            </>
-          )}
-        </ReviewCard>
-
-        <div className="flex min-w-0 flex-col gap-4">
+        {/* Row 2: Reviewers & Assign (Both approval and assignment workflows with matching compact heights) */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <ReviewCard label="Reviewers" icon={ShieldCheck} valid={sectionValidity[3] ?? true} onEdit={() => onEditSection(3)}>
             {reviewerIds.length === 0 ? (
               <p className="t-meta font-display leading-relaxed text-text-muted">No one extra picked. PC and Admin, and each assignee’s department head, can still review.</p>
@@ -382,6 +342,52 @@ export const BuilderReviewStep = ({
             )}
           </ReviewCard>
         </div>
+
+        {/* Row 3: Questions (Full width card with spacious table presentation and zero empty void) */}
+        <ReviewCard
+          label="Questions"
+          icon={ListChecks}
+          valid={sectionValidity[2]}
+          onEdit={() => onEditSection(2)}
+          aside={<IconChip icon={false} label={plural(named.length, 'question', 'questions')} labelClassName="tabular-nums" />}
+        >
+          {named.length === 0 ? (
+            <p className="py-3 text-center t-meta font-display italic text-text-muted">You haven’t added any questions yet.</p>
+          ) : (
+            <>
+              <ul className="flex flex-wrap gap-1.5" aria-label="Question summary">
+                {stats.proof > 0 && <li><IconChip icon={Camera} tone={stats.live > 0 ? 'bg-success' : 'bg-primary-600'} label={`${plural(stats.proof, 'photo question', 'photo questions')}${stats.live > 0 ? `, ${stats.live} live` : ''}`} /></li>}
+                {stats.rules > 0 && <li><IconChip icon={Zap} tone="bg-warning" label={plural(stats.rules, 'rule', 'rules')} /></li>}
+                {stats.critical > 0 && <li><IconChip icon={Flag} tone="bg-danger" label={`${stats.critical} critical`} /></li>}
+                {stats.sections > 0 && <li><IconChip icon={Layers} tone="bg-text-muted" label={plural(stats.sections, 'section', 'sections')} /></li>}
+              </ul>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreviewOpen(true)}
+                className="self-start gap-1.5 pointer-coarse:h-11"
+              >
+                <Smartphone size={13} aria-hidden />
+                See it as staff do
+              </Button>
+              <ol className="flex max-h-72 flex-col divide-y divide-border/40 overflow-y-auto pr-1">
+                {named.map((item, index) => {
+                  const type = questionTypeOf(item);
+                  const TypeIcon = type.icon;
+                  return (
+                    <li key={item.key} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
+                      <span className="w-6 shrink-0 t-meta font-display font-semibold tabular-nums text-text-light">{index + 1}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-display font-medium text-text" title={item.label}>{item.label}</span>
+                      {item.section && <IconChip icon={Layers} tone="bg-text-muted" label={item.section} className="hidden max-w-32 sm:inline-flex" />}
+                      {item.isCritical && <Flag size={13} className="shrink-0 text-danger" aria-label="Critical" />}
+                      <IconChip icon={TypeIcon} tone="bg-primary-600" label={type.label} className="shrink-0" />
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
+        </ReviewCard>
       </div>
 
       {submitError && <InlineError message={submitError} />}

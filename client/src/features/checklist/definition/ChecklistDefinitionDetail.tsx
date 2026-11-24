@@ -109,7 +109,17 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           </div>
         </>
       ) : (
-        <p className="col-span-2 t-meta font-display text-text-muted sm:py-2 italic">{emptyLabel}</p>
+        <>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-muted/40">
+              —
+            </p>
+            <span className="t-meta font-display text-text-muted text-xs truncate" title={emptyLabel}>
+              {emptyLabel}
+            </span>
+          </div>
+          <div className="col-span-2 h-1.5 w-full rounded-full bg-surface-hover/60 overflow-hidden" />
+        </>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
 import { ArrowLeft, ClipboardX, Smartphone } from 'lucide-react';
 import {
-  ChecklistProgressBar, EmptyState, IconChip, InlineError, PANEL_CLASS,
+  EmptyState, IconChip, InlineError, PANEL_CLASS,
 } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ApiError } from '../../../../api/http';
@@ -144,6 +144,9 @@ export const ChecklistBuilder = () => {
     setReviewerIds(def.reviewerIds);
     setItemDrafts(hydratedItemDrafts);
     setSections(seenSections);
+    if (seenSections.length > 0 && !hydratedItemDrafts.some((d) => !d.section)) {
+      setActiveSection(seenSections[0]);
+    }
     setBaseline(snapshotKey({
       name: nextName,
       description: nextDescription,
@@ -185,6 +188,9 @@ export const ChecklistBuilder = () => {
     setReviewerIds(restored.reviewerIds);
     setItemDrafts(restored.itemDrafts);
     setSections(restored.sections);
+    if (restored.sections.length > 0 && !restored.itemDrafts.some((d) => !d.section)) {
+      setActiveSection(restored.sections[0]);
+    }
     setBaseline(snapshotKey(restored));
     const resumeAt = Math.min(Math.max(0, p.step ?? 0), STEPS.length - 1);
     setStep(resumeAt);
@@ -729,7 +735,6 @@ export const ChecklistBuilder = () => {
             onSelect={goToStep}
             onExit={() => navigate('/admin/scheduled-checklists')}
           />
-          <ChecklistProgressBar done={step + 1} total={STEPS.length} bare thin className="hidden xl:flex" />
         </div>
 
         <div className="flex flex-col gap-6 sm:gap-8 px-4 pt-4 pb-0 sm:px-8 sm:pt-8">

@@ -555,7 +555,7 @@ export const BuilderItemsList = ({
         onDragCancel={() => setActiveKey(null)}
       >
         <div className="flex flex-col gap-3">
-          {sections.length === 0 || groups[UNGROUPED].length > 0 || activeSection === null ? (
+          {sections.length === 0 || groups[UNGROUPED].length > 0 ? (
             <SectionContainer
               id={UNGROUPED}
               title="No section"

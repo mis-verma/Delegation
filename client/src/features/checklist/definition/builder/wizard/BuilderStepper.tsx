@@ -30,11 +30,11 @@ const STATE_LABEL: Record<StepState, string> = {
 };
 
 const TILE_TONE: Record<StepState, string> = {
-  current: 'bg-vivid-blue text-white ring-4 ring-vivid-blue/20',
-  done: 'bg-vivid-blue text-white',
+  current: 'bg-primary-600 text-white ring-4 ring-primary-500/25 shadow-xs',
+  done: 'bg-primary-800 text-white',
   attention: 'bg-warning/15 text-warning border-2 border-warning/50',
-  locked: 'bg-surface-hover text-text-light border border-border',
-  upcoming: 'bg-surface text-text-secondary border border-border',
+  locked: 'bg-surface-hover text-text-light border border-border/70',
+  upcoming: 'bg-surface text-text-secondary border border-border/80 hover:border-primary-400/60',
 };
 
 const BADGE_TONE: Partial<Record<StepState, string>> = {
@@ -51,9 +51,9 @@ const BADGE_ICON: Partial<Record<StepState, LucideIcon>> = {
 
 const stateOf = (index: number, current: number, maxReached: number, allUnlocked: boolean, valid: boolean): StepState => {
   if (index === current) return 'current';
+  if (index < current) return valid ? 'done' : 'attention';
+  if (!valid && (allUnlocked || index <= maxReached)) return 'attention';
   if (index > maxReached && !allUnlocked) return 'locked';
-  if (!valid && index <= maxReached) return 'attention';
-  if (valid && (index < current || index <= maxReached)) return 'done';
   return 'upcoming';
 };
 
@@ -140,7 +140,7 @@ export const BuilderStepper = ({
                   <span
                     className={cn(
                       'flex size-5 items-center justify-center rounded-full',
-                      state === 'current' && 'bg-vivid-blue text-white',
+                      state === 'current' && 'bg-primary-600 text-white',
                       state === 'done' && 'bg-success text-white',
                       state === 'attention' && 'bg-warning text-white',
                       (state === 'locked' || state === 'upcoming') && 'bg-surface-hover text-text-light',
@@ -152,7 +152,7 @@ export const BuilderStepper = ({
                   <span
                     className={cn(
                       'h-1 w-full rounded-full transition-colors duration-200',
-                      state === 'current' && 'bg-vivid-blue',
+                      state === 'current' && 'bg-primary-600',
                       state === 'done' && 'bg-success',
                       state === 'attention' && 'bg-warning',
                       (state === 'locked' || state === 'upcoming') && 'bg-border',
@@ -171,7 +171,7 @@ export const BuilderStepper = ({
             const state = states[index];
             const locked = state === 'locked';
             const isLast = index === steps.length - 1;
-            const connectorFilled = index < current || (index < maxReached && states[index] === 'done');
+            const connectorFilled = index < current;
             return (
               <li key={step.label} className="flex flex-1 items-start last:flex-none">
                 <button
@@ -181,9 +181,9 @@ export const BuilderStepper = ({
                   aria-current={state === 'current' ? 'step' : undefined}
                   aria-label={`Step ${index + 1}: ${step.label}. ${STATE_LABEL[state]}`}
                   className={cn(
-                    'group flex shrink-0 items-center gap-3 rounded-xl p-1.5 pr-3 text-left select-none outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50',
+                    'group flex shrink-0 items-center gap-3 rounded-xl p-1.5 pr-3 text-left select-none outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/50',
                     locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-surface-hover',
-                    state === 'current' && 'bg-vivid-blue/8',
+                    state === 'current' && 'bg-primary-500/10 dark:bg-primary-500/20 ring-1 ring-primary-500/30 shadow-xs',
                   )}
                 >
                   <StepTile step={step} index={index} state={state} size="md" />
@@ -191,7 +191,7 @@ export const BuilderStepper = ({
                     <span
                       className={cn(
                         't-meta font-display whitespace-nowrap',
-                        state === 'current' && 'font-bold text-vivid-blue-text',
+                        state === 'current' && 'font-bold text-primary-700 dark:text-primary-300',
                         state === 'done' && 'font-semibold text-text',
                         state === 'attention' && 'font-semibold text-warning',
                         (state === 'locked' || state === 'upcoming') && 'font-medium text-text-muted',
@@ -199,25 +199,25 @@ export const BuilderStepper = ({
                     >
                       {step.label}
                     </span>
-                    {step.summary && state !== 'locked' ? (
-                      <span
-                        className={cn(
-                          'inline-flex max-w-32 items-center truncate rounded-full px-2 py-px text-[11px] font-display font-semibold leading-4',
-                          state === 'attention' ? 'bg-warning/15 text-warning' : 'bg-surface-hover text-text-secondary',
-                        )}
-                        title={step.summary}
-                      >
-                        {state === 'attention' ? 'Needs attention' : step.summary}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] font-display font-medium leading-4 text-text-light">{locked ? 'Locked' : state === 'done' ? 'Done' : state === 'current' ? 'In progress' : 'Not started'}</span>
-                    )}
+                    <span
+                      className={cn(
+                        'inline-flex max-w-36 items-center truncate rounded-full px-2 py-0.5 text-[11px] font-display font-medium leading-4 transition-colors',
+                        state === 'attention'
+                          ? 'bg-warning/15 text-warning font-semibold'
+                          : state === 'current'
+                            ? 'bg-primary-500/15 text-primary-700 dark:bg-primary-500/25 dark:text-primary-300 font-semibold'
+                            : 'bg-slate-100 dark:bg-slate-800 text-text-secondary',
+                      )}
+                      title={step.summary ?? STATE_LABEL[state]}
+                    >
+                      {state === 'attention' ? 'Needs attention' : step.summary || (locked ? 'Locked' : state === 'done' ? 'Done' : state === 'current' ? 'In progress' : 'Upcoming')}
+                    </span>
                   </span>
                 </button>
 
                 {!isLast && (
-                  <span aria-hidden="true" className="mx-2 mt-[1.35rem] h-0.5 min-w-4 flex-1 overflow-hidden rounded-full bg-border">
-                    <span className={cn('block h-full bg-linear-to-r from-vivid-blue to-vivid-sky transition-[width] duration-300', connectorFilled ? 'w-full' : 'w-0')} />
+                  <span aria-hidden="true" className="mx-2 mt-[1.625rem] h-0.5 min-w-4 flex-1 overflow-hidden rounded-full bg-border/80">
+                    <span className={cn('block h-full bg-linear-to-r from-primary-600 to-primary-400 transition-[width] duration-300', connectorFilled ? 'w-full' : 'w-0')} />
                   </span>
                 )}
               </li>
