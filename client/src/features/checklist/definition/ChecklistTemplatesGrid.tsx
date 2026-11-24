@@ -265,48 +265,50 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
     </>
   ) : (
     canManage && (
-      <>
-        <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setShowExport(true)} aria-label="Export">
-          <FileDown size={14} className="text-text-muted" />
-          <span className="hidden sm:inline">Export</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" aria-label="Bulk upload options">
-              <Upload size={14} className="text-text-muted" />
-              <span className="hidden sm:inline">Import</span>
-              <ChevronDown size={12} className="hidden text-text-muted sm:inline" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuItem onClick={() => setShowBulkImport(true)}>
-              <Upload size={14} className="shrink-0 text-text-muted" />
-              <span className="flex min-w-0 flex-col">
-                <span className="font-display font-semibold text-text">Assign an existing checklist</span>
-                <span className="t-meta text-text-muted">Give a checklist you already built to more stores or people</span>
-              </span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowCreateImport(true)}>
-              <UserPlus size={14} className="shrink-0 text-text-muted" />
-              <span className="flex min-w-0 flex-col">
-                <span className="font-display font-semibold text-text">Create new checklists</span>
-                <span className="t-meta text-text-muted">Build whole new checklists, with their questions, from a sheet</span>
-              </span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {definitions.length > 0 && (
-          <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setSelectMode(true)} aria-label="Select checklists to delete">
-            <SelectIcon size={14} className="text-text-muted" />
-            <span className="hidden sm:inline">Select</span>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 border-r border-slate-200/80 dark:border-slate-800 pr-2 mr-0.5">
+          <Button size="sm" variant="secondary" className="h-8 min-w-8 sm:min-w-0" onClick={() => setShowExport(true)} aria-label="Export">
+            <FileDown size={14} className="text-text-muted" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
-        )}
-        <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setShowDrafts(true)} aria-label="Drafts">
-          <FileClock size={14} className="text-text-muted" />
-          <span className="hidden sm:inline">Drafts{checklistDrafts?.length ? ` (${checklistDrafts.length})` : ''}</span>
-        </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="secondary" className="h-8 min-w-8 sm:min-w-0" aria-label="Bulk upload options">
+                <Upload size={14} className="text-text-muted" />
+                <span className="hidden sm:inline">Import</span>
+                <ChevronDown size={12} className="hidden text-text-muted sm:inline" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => setShowBulkImport(true)}>
+                <Upload size={14} className="shrink-0 text-text-muted" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-display font-semibold text-text">Assign an existing checklist</span>
+                  <span className="t-meta text-text-muted">Give a checklist you already built to more stores or people</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowCreateImport(true)}>
+                <UserPlus size={14} className="shrink-0 text-text-muted" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-display font-semibold text-text">Create new checklists</span>
+                  <span className="t-meta text-text-muted">Build whole new checklists, with their questions, from a sheet</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {definitions.length > 0 && (
+            <Button size="sm" variant="secondary" className="h-8 min-w-8 sm:min-w-0" onClick={() => setSelectMode(true)} aria-label="Select checklists to delete">
+              <SelectIcon size={14} className="text-text-muted" />
+              <span className="hidden sm:inline">Select</span>
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" className="h-8 min-w-8 sm:min-w-0" onClick={() => setShowDrafts(true)} aria-label="Drafts">
+            <FileClock size={14} className="text-text-muted" />
+            <span className="hidden sm:inline">Drafts{checklistDrafts?.length ? ` (${checklistDrafts.length})` : ''}</span>
+          </Button>
+        </div>
         <CreateButton label="New checklist" onClick={() => navigate(BUILDER_PATH)} />
-      </>
+      </div>
     )
   );
 
@@ -332,120 +334,128 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         isLoading={isSummaryPending && !statusSummary}
       />
 
-      {/* Search & filter bar with surface background for visual separation */}
-      <div className="flex flex-col gap-3 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-700/40 p-3 sm:p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchField
-            value={search}
-            onChange={setSearch}
-            label="Search checklists"
-            placeholder="Search checklists"
-            className="w-full flex-none sm:w-auto sm:flex-1 sm:max-w-sm"
-          />
-          <OptionsSheet
-            isOpen={showFilters}
-            setIsOpen={setShowFilters}
-            activeCount={activeFilterCount}
-            subtitle={plural(total, 'checklist')}
-            onReset={clearFilters}
-            canReset={activeFilterCount > 0}
-            triggerLabel="Store, department or person"
-            showLabel={`Show ${plural(total, 'checklist')}`}
-          >
-            {storeOptions.length > 0 && (
-              <OptionSection icon={Store} label="Store" aside={!!storeId && <ChoiceClear onClick={() => setFilter('store', '')} />}>
-                <ChoiceWrap>
-                  {storeOptions.map((o) => (
-                    <ChoiceChip
-                      key={o.value}
-                      active={storeId === o.value}
-                      onClick={() => setFilter('store', storeId === o.value ? '' : o.value)}
-                      lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
-                    >
-                      {o.label}
-                    </ChoiceChip>
-                  ))}
-                </ChoiceWrap>
-              </OptionSection>
+      {/* Unified Executive Command & Filter Toolbar */}
+      <div className="flex flex-col gap-3 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 shadow-xs p-3.5 sm:p-4">
+        {/* Tier 1: Search, Store/People Filters, Period Sliding Tabs, Grouping & View Toggle */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <SearchField
+              value={search}
+              onChange={setSearch}
+              label="Search checklists"
+              placeholder="Search checklists..."
+              className="w-full flex-none sm:w-auto sm:flex-1 sm:max-w-xs"
+            />
+            <OptionsSheet
+              isOpen={showFilters}
+              setIsOpen={setShowFilters}
+              activeCount={activeFilterCount}
+              subtitle={plural(total, 'checklist')}
+              onReset={clearFilters}
+              canReset={activeFilterCount > 0}
+              triggerLabel="Store, department or person"
+              showLabel={`Show ${plural(total, 'checklist')}`}
+            >
+              {storeOptions.length > 0 && (
+                <OptionSection icon={Store} label="Store" aside={!!storeId && <ChoiceClear onClick={() => setFilter('store', '')} />}>
+                  <ChoiceWrap>
+                    {storeOptions.map((o) => (
+                      <ChoiceChip
+                        key={o.value}
+                        active={storeId === o.value}
+                        onClick={() => setFilter('store', storeId === o.value ? '' : o.value)}
+                        lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                      >
+                        {o.label}
+                      </ChoiceChip>
+                    ))}
+                  </ChoiceWrap>
+                </OptionSection>
+              )}
+              {departmentOptions.length > 0 && (
+                <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => setFilter('department', '')} />}>
+                  <ChoiceWrap>
+                    {departmentOptions.map((o) => (
+                      <ChoiceChip
+                        key={o.value}
+                        active={departmentId === o.value}
+                        onClick={() => setFilter('department', departmentId === o.value ? '' : o.value)}
+                        lead={<ChoiceIcon icon={Building2} tone="bg-coral-400" />}
+                      >
+                        {o.label}
+                      </ChoiceChip>
+                    ))}
+                  </ChoiceWrap>
+                </OptionSection>
+              )}
+              {peopleOptions.length > 0 && (
+                <OptionSection icon={User} label="Person" aside={!!assigneeId && <ChoiceClear onClick={() => setFilter('user', '')} />}>
+                  <ChoiceWrap>
+                    {peopleOptions.map((o) => (
+                      <ChoiceChip
+                        key={o.value}
+                        active={assigneeId === o.value}
+                        onClick={() => setFilter('user', assigneeId === o.value ? '' : o.value)}
+                        lead={<ChoiceIcon icon={User} tone="bg-success" />}
+                      >
+                        {o.label}
+                      </ChoiceChip>
+                    ))}
+                  </ChoiceWrap>
+                </OptionSection>
+              )}
+            </OptionsSheet>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 self-end lg:self-auto shrink-0">
+            <SlidingTabs
+              label="Period"
+              value={period}
+              options={PERIOD_OPTIONS}
+              onChange={(next) => setFilter('period', next)}
+              size="sm"
+              fill="phone"
+              className="min-w-0"
+            />
+            {view !== 'table' && (
+              <Button
+                size="sm"
+                variant={groupByStore ? 'secondary' : 'ghost'}
+                aria-pressed={groupByStore}
+                onClick={() => setFilter('group', groupByStore ? '' : 'store')}
+                className="h-8"
+              >
+                <Layers size={14} className={groupByStore ? 'text-primary-600' : 'text-text-muted'} />
+                <span className="hidden sm:inline">Group by store</span>
+              </Button>
             )}
-            {departmentOptions.length > 0 && (
-              <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => setFilter('department', '')} />}>
-                <ChoiceWrap>
-                  {departmentOptions.map((o) => (
-                    <ChoiceChip
-                      key={o.value}
-                      active={departmentId === o.value}
-                      onClick={() => setFilter('department', departmentId === o.value ? '' : o.value)}
-                      lead={<ChoiceIcon icon={Building2} tone="bg-coral-400" />}
-                    >
-                      {o.label}
-                    </ChoiceChip>
-                  ))}
-                </ChoiceWrap>
-              </OptionSection>
-            )}
-            {peopleOptions.length > 0 && (
-              <OptionSection icon={User} label="Person" aside={!!assigneeId && <ChoiceClear onClick={() => setFilter('user', '')} />}>
-                <ChoiceWrap>
-                  {peopleOptions.map((o) => (
-                    <ChoiceChip
-                      key={o.value}
-                      active={assigneeId === o.value}
-                      onClick={() => setFilter('user', assigneeId === o.value ? '' : o.value)}
-                      lead={<ChoiceIcon icon={User} tone="bg-success" />}
-                    >
-                      {o.label}
-                    </ChoiceChip>
-                  ))}
-                </ChoiceWrap>
-              </OptionSection>
-            )}
-          </OptionsSheet>
+            <ViewToggle tabs={VIEW_TABS} value={view} onChange={(next) => setFilter('view', next)} storageKey="view:recurring-checklists" />
+          </div>
         </div>
 
-        {/* Recurrence tabs with enhanced visual treatment */}
-        <Tabs value={recurrence} onValueChange={(v) => setFilter('recurrence', v === 'all' ? 'all' : v.toLowerCase())}>
-          <div className="overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
-            <TabsList className="w-fit bg-white/70 dark:bg-slate-800/50 shadow-sm border border-slate-200/40 dark:border-slate-700/30">
-              {RECURRENCE_TABS.map((r) => (
-                <TabsTrigger key={r} value={r} className="min-h-11 sm:min-h-8 font-display font-bold">
-                  {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-        </Tabs>
+        {/* Tier 2: Frequency (Recurrence) Segmented Strip with Clear Action */}
+        <div className="border-t border-slate-200/70 dark:border-slate-800 pt-2.5 flex items-center justify-between gap-3">
+          <Tabs value={recurrence} onValueChange={(v) => setFilter('recurrence', v === 'all' ? 'all' : v.toLowerCase())} className="min-w-0 flex-1">
+            <div className="overflow-x-auto no-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+              <TabsList className="w-fit bg-slate-100/80 dark:bg-slate-800/60 p-0.5 rounded-xl border border-slate-200/50 dark:border-slate-700/40">
+                {RECURRENCE_TABS.map((r) => (
+                  <TabsTrigger
+                    key={r}
+                    value={r}
+                    className="min-h-8 px-3 text-xs font-display font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-xs transition-all duration-150"
+                  >
+                    {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </Tabs>
 
-        {/* Period & group controls row with better spacing */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <SlidingTabs
-            label="Period"
-            value={period}
-            options={PERIOD_OPTIONS}
-            onChange={(next) => setFilter('period', next)}
-            size="sm"
-            fill="phone"
-            className="min-w-0 flex-1 sm:flex-none"
-          />
-          {view !== 'table' && (
-            <Button
-              size="sm"
-              variant={groupByStore ? 'secondary' : 'ghost'}
-              aria-pressed={groupByStore}
-              onClick={() => setFilter('group', groupByStore ? '' : 'store')}
-            >
-              <Layers size={14} className={groupByStore ? 'text-primary-600' : 'text-text-muted'} />
-              Group by store
-            </Button>
-          )}
           {isFiltered && (
-            <Button size="sm" variant="ghost" onClick={clearFilters}>
+            <Button size="sm" variant="ghost" onClick={clearFilters} className="shrink-0 text-xs h-8 text-text-muted hover:text-text">
               Clear filters
             </Button>
           )}
-          <span className="ml-auto">
-            <ViewToggle tabs={VIEW_TABS} value={view} onChange={(next) => setFilter('view', next)} storageKey="view:recurring-checklists" />
-          </span>
         </div>
       </div>
 

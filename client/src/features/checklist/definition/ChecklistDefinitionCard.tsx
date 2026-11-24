@@ -50,7 +50,7 @@ const cardTags = (definition: ChecklistDefinition) => {
   return tags;
 };
 
-const TITLE_CLASS = 'font-display text-base font-bold text-text leading-snug line-clamp-2';
+const TITLE_CLASS = 'font-display text-base font-bold text-text leading-snug line-clamp-2 min-h-[2.5rem]';
 
 const STRETCH_CLASS =
   'text-left outline-none cursor-pointer after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/40';
@@ -181,9 +181,18 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           )}
         </div>
       ) : (
-        <p className="relative mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/50 t-meta font-display text-text-muted">
-          {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
-        </p>
+        <div className="relative flex flex-col justify-between gap-3.5 pt-4 mt-auto border-t border-slate-200/70 dark:border-slate-700/50 min-h-[5.5rem]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-1">
+              <span className="t-meta font-display font-medium text-text-muted tracking-wide">Completion</span>
+              <span className="text-3xl font-display font-bold leading-none tabular-nums text-text-muted/50">—</span>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-display font-semibold text-text-muted">
+              {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden" />
+        </div>
       )}
     </article>
   );

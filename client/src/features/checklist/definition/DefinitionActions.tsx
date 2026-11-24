@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import { Copy, FileClock, MoreVertical, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { Dropdown, IconChip, Loader, StateChip, Switch } from '../../../components';
+import { cn } from '@/lib/utils';
 import { useAuth } from '../../../context/AuthContext';
 import { useSetChecklistDefinitionActiveMutation } from '../hook';
 import { addPeoplePath, definitionState, STATE_LABEL } from './definitionState';
@@ -39,8 +40,15 @@ export const DefinitionActions = ({ definition, onDelete, deleting }: Definition
           </button>
         </div>
       ) : (
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 pl-1 pr-1 sm:min-h-9">
-          <StateChip active={definition.isActive} label={STATE_LABEL[state]} className="max-sm:hidden" />
+        <label className="flex min-h-8 cursor-pointer items-center gap-2 pl-1 pr-1" title={definition.isActive ? 'Active — click to pause' : 'Paused — click to resume'}>
+          <span
+            className={cn(
+              'text-xs font-display font-semibold transition-colors',
+              definition.isActive ? 'text-success' : 'text-text-muted',
+            )}
+          >
+            {STATE_LABEL[state]}
+          </span>
           {setActive.isPending ? (
             <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
           ) : (
