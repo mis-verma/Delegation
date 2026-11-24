@@ -131,6 +131,7 @@ const HEADER_ALIASES: Record<string, keyof Omit<CreateImportRawRow, "rowIndex">>
 }
 
 const EMPTY_ITEM_DEFAULTS = {
+    floor: undefined, sectionOwnerId: undefined,
     section: undefined, maxImageCount: undefined, requiresLivePhoto: undefined, referenceImageUrl: undefined,
     isCritical: undefined, allowNotApplicable: undefined, itemType: undefined, auditUserIds: undefined,
     accessories: undefined, accessoriesFemale: undefined, accessoriesMale: undefined, accessoriesByType: undefined,

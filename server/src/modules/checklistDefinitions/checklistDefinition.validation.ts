@@ -2,6 +2,7 @@ import { z } from "zod"
 import { lateWindowProblem, sameOpenAndCloseProblem, type LateWindowInput } from "./lateWindow.js"
 import {
     CHECKLIST_RECURRENCES,
+    CHECKLIST_SCORING_MODES,
     CHECKLIST_ASSIGNEE_ROLES,
     CHECKLIST_RESPONSE_MODES,
     CHECKLIST_ICONS,
@@ -74,7 +75,9 @@ const definitionItemShape = z.object({
     id: z.string().min(1).max(191).optional(),
     label: z.string().trim().min(1).max(20000),
     order: z.number().int().min(0).optional(),
+    floor: z.string().trim().max(120).nullable().optional().transform((v) => (v === '' ? null : v)),
     section: z.string().trim().max(120).nullable().optional().transform((v) => (v === '' ? null : v)),
+    sectionOwnerId: z.string().trim().max(191).nullable().optional().transform((v: string | null | undefined) => (v === '' ? null : v)),
     requiredImageCount: z.number().int().min(0).optional(),
     maxImageCount: z.number().int().min(0).nullable().optional(),
     requiresLivePhoto: z.boolean().optional(),
@@ -181,6 +184,7 @@ const checklistDefinitionFields = {
     description: z.string().max(16000, "Keep the description under 16,000 characters").optional(),
     storeIds: uniqueIdArray("At least one store is required"),
     recurrence: z.enum(CHECKLIST_RECURRENCES),
+    scoringMode: z.enum(CHECKLIST_SCORING_MODES).optional(),
     startDate: z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), "Start date isn't a valid date"),
     opensTime: timeOfDay.optional(),
     cutoffTime: timeOfDay.optional(),

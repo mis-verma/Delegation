@@ -15,6 +15,14 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { users, stores } from './core.js';
 
+/**
+ * RULE judges each answer against its acceptable values: good or bad, nothing in between.
+ * POINTS adds up what a rating actually scored against the most it could score, which is how
+ * an audit reaches a percentage.
+ */
+export const CHECKLIST_SCORING_MODES = ['RULE', 'POINTS'] as const;
+export type ChecklistScoringMode = (typeof CHECKLIST_SCORING_MODES)[number];
+
 export const CHECKLIST_RECURRENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME', 'TWICE_WEEKLY', 'TWICE_MONTHLY'] as const;
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number];
 export const CHECKLIST_RESPONSE_MODES = ['SHARED', 'PER_DEPARTMENT', 'PER_USER'] as const;
@@ -87,6 +95,7 @@ export const checklistDefinitions = mysqlTable(
     name: varchar('name', { length: 191 }).notNull(),
     description: text('description'),
     recurrence: mysqlEnum('recurrence', CHECKLIST_RECURRENCES).notNull(),
+    scoringMode: mysqlEnum('scoringMode', CHECKLIST_SCORING_MODES).notNull().default('RULE'),
     startDate: datetime('startDate', { mode: 'date' }).notNull(),
     opensTime: varchar('opensTime', { length: 5 }),
     cutoffTime: varchar('cutoffTime', { length: 5 }),
@@ -161,7 +170,11 @@ export const checklistDefinitionItems = mysqlTable(
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
     label: text('label').notNull(),
     order: int('order').notNull().default(0),
+    /** The level above section, so a building's floors group their own areas. */
+    floor: varchar('floor', { length: 120 }),
     section: varchar('section', { length: 120 }),
+    /** Who answers for this section. Repeated on each item, as section itself is. */
+    sectionOwnerId: varchar('sectionOwnerId', { length: 191 }),
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),

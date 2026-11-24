@@ -25,7 +25,7 @@ import {
     stores,
 } from "../db/schema/index.js"
 import { effectiveWeekOff } from "../modules/users/orgWeekOff.js"
-import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
+import type { ChecklistRecurrence, ChecklistResponseMode, ChecklistScoringMode } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
 import { getCurrentPeriod, getUpcomingPeriod, UPCOMING_LEAD_DAYS, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
@@ -45,7 +45,9 @@ type GenerationItem = {
     id: string
     label: string
     order: number
+    floor: string | null
     section: string | null
+    sectionOwnerId: string | null
     requiredImageCount: number
     maxImageCount: number | null
     requiresLivePhoto: boolean
@@ -83,6 +85,7 @@ export type GenerationDefinition = {
     id: string
     name: string
     recurrence: ChecklistRecurrence
+    scoringMode: ChecklistScoringMode
     startDate: Date
     opensTime: string | null
     cutoffTime: string | null
@@ -149,6 +152,7 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
             id: row.id,
             name: row.name,
             recurrence: row.recurrence,
+            scoringMode: row.scoringMode,
             startDate: row.startDate,
             opensTime: row.opensTime,
             cutoffTime: row.cutoffTime,
@@ -184,6 +188,8 @@ export const defaultAcceptableAnswers = (item: Pick<GenerationItem, "itemType" |
     item.acceptableAnswers?.length ? item.acceptableAnswers : item.itemType === "YES_NO" || item.itemType === "PASS_FAIL" ? ["YES"] : item.acceptableAnswers
 
 const definitionConfig = (item: GenerationItem) => ({
+    floor: item.floor ?? null,
+    sectionOwnerId: item.sectionOwnerId ?? null,
     requiredImageCount: item.requiredImageCount,
     maxImageCount: item.maxImageCount,
     requiresLivePhoto: item.requiresLivePhoto,
@@ -373,6 +379,7 @@ const generateInstanceForStore = async (
                 definitionId: definition.id,
                 title: scope.title,
                 recurrence: definition.recurrence,
+                scoringMode: definition.scoringMode,
                 storeId,
                 scopeKey: scope.key,
                 ...timeWindowFor(definition.recurrence, definition.opensTime, definition.cutoffTime, definition.lateUntilTime),
