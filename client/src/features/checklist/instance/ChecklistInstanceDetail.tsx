@@ -15,6 +15,8 @@ import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
 import { canCompleteAllRun, canSelfCompleteAllRun, canWaiveRun } from './canWaive';
 import { answerRightsOf } from './answerRights';
+import { AuditScorePanel } from './AuditScorePanel';
+import { isPointsScored } from '../pointsScore';
 import { ReviewEditsProvider } from './ReviewEditsProvider';
 import { ReviewEditBar } from './ReviewEditBar';
 import { CompleteAllAction } from './CompleteAllAction';
@@ -41,12 +43,12 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSubmitRun } from './fill/useSubmitRun';
 import { FillBottomBar } from './fill/FillBottomBar';
 import { FillAside } from './fill/FillAside';
-import { auditPeopleProgress, sectionKeyOf, sectionsOf, type FillProgress } from './fill/fillProgress';
+import { auditPeopleProgress, sectionKeyOf, sectionLabelOf, sectionsOf, type FillProgress } from './fill/fillProgress';
 
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
 type ShowMode = 'section' | 'all' | 'left' | 'one';
-type ItemGroup = { section: string | null; items: ChecklistInstanceItem[]; done?: boolean };
+type ItemGroup = { key: string; section: string | null; items: ChecklistInstanceItem[]; done?: boolean };
 const DONE_GROUP_ID = 'section-completed';
 type RunLabels = { storeName?: string | null; assigneeNames?: string[] };
 
@@ -232,19 +234,20 @@ export const ChecklistInstanceDetail = () => {
         : doneAtBottom
           ? pendingItems
           : instance.items;
+  // Grouped by floor and section together, so the same section name on two floors stays apart.
   const bySection = (items: ChecklistInstanceItem[]): ItemGroup[] =>
     items.reduce<ItemGroup[]>((groups, item) => {
       const last = groups[groups.length - 1];
-      if (last && last.section === (item.section ?? null)) last.items.push(item);
-      else groups.push({ section: item.section ?? null, items: [item] });
+      if (last && last.key === sectionKeyOf(item)) last.items.push(item);
+      else groups.push({ key: sectionKeyOf(item), section: sectionLabelOf(item), items: [item] });
       return groups;
     }, []);
   const itemGroups: ItemGroup[] = hasSections
     ? show === 'section'
-      ? sections.map((s) => ({ section: s.key === '' ? null : s.key, items: shownItems.filter((i) => sectionKeyOf(i) === s.key) }))
+      ? sections.map((s) => ({ key: s.key, section: s.label, items: shownItems.filter((i) => sectionKeyOf(i) === s.key) }))
       : bySection(shownItems)
-    : shownItems.length ? [{ section: null, items: shownItems }] : [];
-  if (doneAtBottom && answeredItems.length > 0) itemGroups.push({ section: null, items: answeredItems, done: true });
+    : shownItems.length ? [{ key: '', section: null, items: shownItems }] : [];
+  if (doneAtBottom && answeredItems.length > 0) itemGroups.push({ key: '__done__', section: null, items: answeredItems, done: true });
   const sectionCounts = new Map(sections.map((s) => [s.key, s]));
   const isCollapsed = (key: string, items: ChecklistInstanceItem[]) => {
     if (show !== 'all' || canReview || openSections.has(key)) return false;
@@ -445,6 +448,10 @@ export const ChecklistInstanceDetail = () => {
           </div>
         )}
 
+        {isPointsScored(instance) && (
+          <AuditScorePanel items={instance.items} className="border-t border-border/60 pt-3" />
+        )}
+
         {canReview && canWorkRaw && (
           rights.liveWhileReviewing ? (
             <ReviewEditBar locked={answersLocked} />
@@ -571,7 +578,7 @@ export const ChecklistInstanceDetail = () => {
                 </div>
               )}
               {itemGroups.map((group, groupIndex) => {
-                const key = group.section ?? '';
+                const key = group.key;
                 const rows = group.items.map((item, idx) => (
                   <SmoothItem key={item.id} active={reorder || show === 'left'}>
                     <DetailItemRow

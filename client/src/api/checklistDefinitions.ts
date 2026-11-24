@@ -2,6 +2,9 @@ import { apiFetch } from './http';
 import { shrinkImages } from '../lib/compressImage';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
 
+export const CHECKLIST_SCORING_MODES = ['RULE', 'POINTS'] as const;
+export type ChecklistScoringMode = (typeof CHECKLIST_SCORING_MODES)[number];
+
 export type ChecklistRecurrence = 'DAILY' | 'TWICE_WEEKLY' | 'WEEKLY' | 'TWICE_MONTHLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
 
 export type ChecklistItemType =
@@ -24,7 +27,9 @@ export type ChecklistDefinitionItem = {
   id: string;
   label: string;
   order: number;
+  floor: string | null;
   section: string | null;
+  sectionOwnerId: string | null;
   requiredImageCount: number;
   maxImageCount: number | null;
   requiresLivePhoto: boolean;
@@ -65,6 +70,7 @@ export type ChecklistDefinition = {
   description: string | null;
   storeIds: string[];
   recurrence: ChecklistRecurrence;
+  scoringMode?: ChecklistScoringMode;
   startDate: string;
   opensTime: string | null;
   cutoffTime: string | null;
@@ -96,7 +102,9 @@ export type CreateChecklistDefinitionItemPayload = {
   id?: string;
   label: string;
   order?: number;
+  floor?: string | null;
   section?: string | null;
+  sectionOwnerId?: string | null;
   requiredImageCount?: number;
   maxImageCount?: number;
   requiresLivePhoto?: boolean;
@@ -135,6 +143,7 @@ export type CreateChecklistDefinitionPayload = {
   description?: string;
   storeIds: string[];
   recurrence: ChecklistRecurrence;
+  scoringMode?: ChecklistScoringMode;
   startDate: string;
   opensTime?: string;
   cutoffTime?: string;
@@ -220,6 +229,7 @@ export type ChecklistScoringGap = {
   id: string;
   name: string;
   recurrence: ChecklistRecurrence;
+  scoringMode?: ChecklistScoringMode;
   scorable: number;
   unscored: number;
   labels: string[];

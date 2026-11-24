@@ -3,7 +3,7 @@ import { apiFetch, type PendingApprovalPreview, type UploadProgress } from './ht
 import { fileParts, uploadKeepingCopy } from '../lib/persistentUpload';
 import { captureTimeOf } from '../lib/captureTime';
 import { arrayField, withArrayDefaults, normalizeWith, n } from './normalize';
-import type { ApiResponse, ChecklistRecurrence, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
+import type { ApiResponse, ChecklistRecurrence, ChecklistScoringMode, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
 
 export type ChecklistInstanceStatus = 'OPEN' | 'DUE' | 'COMPLETED' | 'OVERDUE';
@@ -77,7 +77,11 @@ export type ChecklistInstanceItem = {
   id:                 string;
   label:              string;
   order:              number;
+  /** The level above section, so a building's floors group their own areas. */
+  floor:              string | null;
   section:            string | null;
+  /** Who answers for this section. */
+  sectionOwnerId:     string | null;
   isDone:             boolean;
   completedAt:        string | null;
   completedBy:        string | null;
@@ -142,6 +146,7 @@ export type ChecklistInstance = {
   definitionId:     string;
   title:            string;
   recurrence:       ChecklistRecurrence;
+  scoringMode?:     ChecklistScoringMode;
   storeId:          string;
   opensTime:        string | null;
   cutoffTime:       string | null;
