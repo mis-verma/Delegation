@@ -13,7 +13,9 @@ export const SectionHeader = ({ id, title, level = 'section', hint, description,
   const Heading = level === 'section' ? 'h2' : 'h3';
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div className="flex min-w-0 flex-col gap-0.5">
+      {/* flex-1 lets the title block shrink. Without it a long description takes the whole row
+          and pushes the actions onto a line of their own, where they read as orphaned. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
           <Heading id={id} className={level === 'section' ? 't-section font-display font-bold text-text' : 't-card font-display font-bold text-text'}>
             {title}

@@ -53,6 +53,9 @@ const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle' | 'covered', { ic
   idle: { icon: Minus, tone: 'bg-text-light' },
 };
 
+/** Enough faces to recognise the run, without a long roster making one card twice as tall. */
+const PEOPLE_SHOWN = 3;
+
 const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: ComplianceRowProps) => {
   const stats = useMemo(() => {
     let total = 0;
@@ -85,38 +88,35 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
   const overdue = isInstanceOverdue(instance, complete);
   const deadlineTime = formatDeadlineTime(instance);
 
+  const assigneeIds = instance.assigneeIds ?? [];
+  const shownAssignees = assigneeIds.slice(0, PEOPLE_SHOWN);
+  const hiddenAssignees = assigneeIds.length - shownAssignees.length;
+
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className={cn(ENTITY_CARD_CLASS, 'gap-3 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}
+      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2 p-3 sm:p-3.5 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <p className="t-card font-display font-bold leading-snug text-text line-clamp-2">{instance.title}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-display text-text-muted">
-            {storeName && <span className="flex items-center gap-1"><Store size={11} aria-hidden /> {storeName}</span>}
-            <span>{formatPeriodSpan(instance)}</span>
-            {!complete && deadlineTime && <span>Due {deadlineTime}</span>}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <p className="min-w-0 flex-1 truncate t-card font-display font-bold leading-snug text-text">{instance.title}</p>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           <ApprovalStatusChip status={instance.verificationStatus} />
           {overdue && <StatusChip status="overdue" />}
           {flagged > 0 && <IconChip icon={AlertTriangle} tone="bg-danger" label={`${flagged} flagged`} />}
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <ChecklistProgressBar done={progress} total={100} bare thin tone={overdue && !complete ? 'danger' : 'auto'} className="flex-1" />
-        <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums font-display">
-          <span className={cn('t-card font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
-          <span className="t-meta font-medium text-text-muted">{done}/{total}</span>
-        </span>
-      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 t-meta font-display text-text-muted">
+          {storeName && <span className="flex items-center gap-1"><Store size={11} aria-hidden /> {storeName}</span>}
+          <span>{formatPeriodSpan(instance)}</span>
+          {!complete && deadlineTime && <span>Due {deadlineTime}</span>}
+        </div>
 
-      {(instance.assigneeIds ?? []).length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-3 border-t border-border/60">
-          {(instance.assigneeIds ?? []).map(id => {
+          {assigneeIds.length > 0 && (
+            <span className="flex flex-wrap items-center gap-1.5">
+
+          {shownAssignees.map(id => {
             const theirs = byPerson.get(id);
             const completedByThem = theirs?.completed ?? 0;
             const flaggedByThem = theirs?.flagged ?? 0;
@@ -133,8 +133,20 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
               />
             );
           })}
+          {hiddenAssignees > 0 && (
+            <span className="t-meta font-display font-semibold tabular-nums text-text-muted">+{hiddenAssignees} more</span>
+          )}
+            </span>
+          )}
+        <div className="ml-auto flex min-w-40 shrink-0 items-center gap-2">
+          <ChecklistProgressBar done={progress} total={100} bare thin tone={overdue && !complete ? 'danger' : 'auto'} className="w-24 sm:w-32" />
+          <span className="flex shrink-0 items-baseline gap-1.5 tabular-nums font-display">
+            <span className={cn('t-card font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
+            <span className="t-meta font-medium text-text-muted">{done}/{total}</span>
+          </span>
         </div>
-      )}
+      </div>
+
     </Link>
   );
 });
@@ -300,12 +312,11 @@ export const ChecklistComplianceBoard = () => {
   );
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-4">
       <PageHeader
         icon={ClipboardCheck}
         title="Checklist Compliance"
         subtitle="Completion and quality trends, plus who's filled their checklist and who hasn't."
-        actions={<ChecklistReportButton />}
       />
 
       <section aria-label="Filters" className="flex flex-col gap-3">
@@ -345,6 +356,10 @@ export const ChecklistComplianceBoard = () => {
               Clear all
             </button>
           )}
+
+          <span className="ml-auto shrink-0">
+            <ChecklistReportButton />
+          </span>
         </div>
 
         {filtersOpen && (
