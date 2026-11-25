@@ -29,12 +29,4 @@ export const useStorePeople = (storeIds: string[]): StorePeople => {
   return { storePersonIds, activePersonIds, isReady, refetch };
 };
 
-export const peopleCount = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
-
-export const splitByVisible = (ids: string[], visible: ReadonlySet<string> | null) => {
-  if (!visible) return { shown: ids, hidden: [] as string[] };
-  const shown: string[] = [];
-  const hidden: string[] = [];
-  for (const id of ids) (visible.has(id) ? shown : hidden).push(id);
-  return { shown, hidden };
-};
+export { peopleCount, splitByVisible } from './peopleSplit';

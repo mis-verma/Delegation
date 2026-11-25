@@ -1,17 +1,82 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, gt, inArray, isNull, ne } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { checklistInstanceImages, checklistInstanceItems } from "../../db/schema/index.js"
 import type { CHECKLIST_ITEM_TYPES } from "../../db/schema/checklistDefinition.js"
 import { AppError } from "../../utils/AppError.js"
 import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
 
+type PhotoRule = { requiredImageCount: number; requiresLivePhoto: boolean }
+type PhotoRecord = { captureMethod?: string | null; reviewStatus?: string | null; qualityFlags?: string | null }
+
+/**
+ * How many more clear photos a question still owes. Zero means it is satisfied.
+ *
+ * Failed photos do not count, and a question that asks for live photos does not accept one from
+ * the gallery. One rule, read both by the submit check and by the per-item check.
+ */
+export const photosStillOwed = (item: PhotoRule, images: readonly PhotoRecord[]): number => {
+    if (item.requiredImageCount <= 0) return 0
+    const clear = passingPhotos(images)
+    const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE") : clear
+    return Math.max(item.requiredImageCount - qualifying.length, 0)
+}
+
+/**
+ * The questions on a run that still owe a mandatory photo.
+ *
+ * A photo no longer has to arrive with the answer, so someone can walk the floor saying yes and
+ * come back to the camera afterwards. The requirement has not gone away, it is checked once at
+ * submit instead, and this is what that check reads.
+ *
+ * Two queries and one pass over the images, so it stays linear in the size of the run.
+ */
+export const missingPhotoQuestions = async (instanceId: string): Promise<string[]> => {
+    const items = await db
+        .select({
+            id: checklistInstanceItems.id,
+            label: checklistInstanceItems.label,
+            order: checklistInstanceItems.order,
+            requiredImageCount: checklistInstanceItems.requiredImageCount,
+            requiresLivePhoto: checklistInstanceItems.requiresLivePhoto,
+        })
+        .from(checklistInstanceItems)
+        .where(and(
+            eq(checklistInstanceItems.instanceId, instanceId),
+            gt(checklistInstanceItems.requiredImageCount, 0),
+            eq(checklistInstanceItems.isNotApplicable, false),
+            isNull(checklistInstanceItems.waivedAt),
+            ne(checklistInstanceItems.itemType, "AUDIT"),
+        ))
+    if (items.length === 0) return []
+
+    const images = await db
+        .select()
+        .from(checklistInstanceImages)
+        .where(and(
+            inArray(checklistInstanceImages.checklistInstanceItemId, items.map((i) => i.id)),
+            eq(checklistInstanceImages.purpose, "GENERAL"),
+        ))
+
+    const byItem = new Map<string, typeof images>()
+    for (const image of images) {
+        const itemId = image.checklistInstanceItemId
+        if (!itemId) continue
+        const list = byItem.get(itemId)
+        if (list) list.push(image)
+        else byItem.set(itemId, [image])
+    }
+
+    return items
+        .filter((item) => photosStillOwed(item, byItem.get(item.id) ?? []) > 0)
+        .sort((a, b) => a.order - b.order)
+        .map((item) => item.label)
+}
+
 export const assertPhotosSatisfied = async (item: ChecklistItem) => {
     if (item.requiredImageCount <= 0) return
     const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, "GENERAL")))
-    const clear = passingPhotos(images)
-    const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE") : clear
-    if (qualifying.length < item.requiredImageCount) {
-        const missing = item.requiredImageCount - qualifying.length
+    const missing = photosStillOwed(item, images)
+    if (missing > 0) {
         const kind = item.requiresLivePhoto ? "live photo(s)" : "photo(s)"
         throw AppError.badRequest(`Upload ${missing} more ${kind} before this item can be marked complete`)
     }

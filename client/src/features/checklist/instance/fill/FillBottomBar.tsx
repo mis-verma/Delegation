@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowDown, CheckCheck } from 'lucide-react';
+import { ArrowDown, Camera, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, ChecklistProgressBar, PANEL_CLASS } from '../../../../components';
 import { ChecklistSubmitButton, ChecklistSubmitError } from '../ChecklistSubmitBar';
@@ -12,9 +12,46 @@ interface FillBottomBarProps {
   resubmit: boolean;
   submit: SubmitRun;
   onNext?: () => void;
+  onGoToPhoto?: (id: string) => void;
   late?: ReactNode;
   selfCompleteAll?: ReactNode;
 }
+
+/**
+ * How many questions are answered but still owe their photo, and a way straight to the first of
+ * them. Submit stays shut while this reads anything above zero, so it has to be reachable.
+ */
+export const PhotosMissingBadge = ({ progress, onGoTo, className }: { progress: FillProgress; onGoTo?: (id: string) => void; className?: string }) => {
+  const { count, firstId } = progress.photosMissing;
+  if (count === 0) return null;
+  const label = count === 1 ? '1 photo still needed' : `${count} photos still needed`;
+
+  if (!onGoTo || !firstId) {
+    return (
+      <span className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-danger/40 px-3 t-meta font-display font-semibold text-danger sm:min-h-9', className)}>
+        <Camera className="size-3.5 shrink-0" aria-hidden />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onGoTo(firstId)}
+      aria-label={`${label}. Go to the first one.`}
+      className={cn(
+        'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-danger/40 px-3 t-meta font-display font-semibold text-danger outline-none',
+        'transition-colors duration-200 ease-in-out hover:border-danger hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger/40 active:scale-[0.985] sm:min-h-9',
+        className,
+      )}
+    >
+      <Camera className="size-3.5 shrink-0" aria-hidden />
+      {label}
+      <ArrowDown className="size-3.5 shrink-0" aria-hidden />
+    </button>
+  );
+};
 
 export const FillProgressText = ({ progress, className }: { progress: FillProgress; className?: string }) => {
   const { done, total, left, overdue, people } = progress;
@@ -36,7 +73,7 @@ export const FillProgressText = ({ progress, className }: { progress: FillProgre
   );
 };
 
-export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, late, selfCompleteAll }: FillBottomBarProps) => (
+export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, onGoToPhoto, late, selfCompleteAll }: FillBottomBarProps) => (
   <div
     className={cn(
       PANEL_CLASS,
@@ -45,6 +82,7 @@ export const FillBottomBar = ({ progress, canSubmit, resubmit, submit, onNext, l
     )}
   >
     <ChecklistSubmitError submit={submit} />
+    <PhotosMissingBadge progress={progress} onGoTo={onGoToPhoto} className="w-full justify-center" />
     <ChecklistProgressBar done={progress.done} total={progress.total} tone={progress.overdue ? 'danger' : 'auto'} bare thin />
     <div className="flex items-center gap-3">
       <FillProgressText progress={progress} className="flex-1" />

@@ -11,7 +11,7 @@ import {
     users,
 
 } from "../../db/schema/index.js"
-import { assertPhotosSatisfied, VALUE_VALIDATORS_BY_ITEM_TYPE, type ItemValueInput } from "./checklistItemValidators.js"
+import { missingPhotoQuestions, VALUE_VALIDATORS_BY_ITEM_TYPE, type ItemValueInput } from "./checklistItemValidators.js"
 import { eq, and, inArray, isNull, sql } from "drizzle-orm"
 import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { AppError } from "../../utils/AppError.js"
@@ -147,7 +147,9 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     }
 
     if (isDone && !markingNotApplicable) {
-        await assertPhotosSatisfied(mergedItem)
+        // A mandatory photo no longer has to arrive with the answer. Someone can walk the floor
+        // answering, then come back to the camera. Submit still refuses the run until every
+        // required photo is there, so nothing is let through, only reordered.
         if (!photoOnly) {
             VALUE_VALIDATORS_BY_ITEM_TYPE[item.itemType]?.(mergedItem, values)
             await assertConditionalActionsSatisfied(mergedItem, values)
@@ -250,6 +252,17 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
     const open = items.filter((i) => !i.isDone).length
     if (!items.length || open > 0) {
         throw AppError.badRequest(open === 1 ? "1 question is still open. Finish it, then submit." : `${open} questions are still open. Finish them, then submit.`)
+    }
+
+    const missingPhotos = await missingPhotoQuestions(id)
+    if (missingPhotos.length > 0) {
+        const shown = missingPhotos.slice(0, 3).join(", ")
+        const rest = missingPhotos.length - Math.min(missingPhotos.length, 3)
+        throw AppError.badRequest(
+            missingPhotos.length === 1
+                ? `"${missingPhotos[0]}" still needs its photo. Add it, then submit.`
+                : `${missingPhotos.length} questions still need their photos: ${shown}${rest > 0 ? ` and ${rest} more` : ""}. Add them, then submit.`,
+        )
     }
 
     const committed = await commitSubmission(instance, assigneeIds, user.sub)

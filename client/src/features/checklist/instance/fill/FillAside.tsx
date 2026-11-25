@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Button, ChecklistProgressBar, PANEL_CLASS } from '../../../../components';
 import { complianceToneClass, instanceProgressToneClass } from '../../checklistDisplay';
 import { ChecklistSubmitButton, ChecklistSubmitError } from '../ChecklistSubmitBar';
-import { FillProgressText } from './FillBottomBar';
+import { FillProgressText, PhotosMissingBadge } from './FillBottomBar';
 import type { SubmitRun } from './useSubmitRun';
 import type { FillProgress, SectionInfo } from './fillProgress';
 
@@ -23,12 +23,13 @@ interface FillAsideProps {
   resubmit: boolean;
   submit: SubmitRun;
   onNext?: () => void;
+  onGoToPhoto?: (id: string) => void;
   title: string;
   selfCompleteAll?: ReactNode;
 }
 
 export const FillAside = ({
-  progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, title, selfCompleteAll,
+  progress, completion, isComplete, compliance, good, scored, sections, activeSection, onPickSection, late, canSubmit, resubmit, submit, onNext, onGoToPhoto, title, selfCompleteAll,
 }: FillAsideProps) => (
   <aside aria-label={title} className="hidden lg:col-span-4 lg:flex lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh_-_2rem)] flex-col gap-3 overflow-hidden">
     <div className={cn(PANEL_CLASS, 'flex shrink-0 flex-col gap-4 p-4')}>
@@ -51,6 +52,7 @@ export const FillAside = ({
         </div>
       )}
       {late}
+      <PhotosMissingBadge progress={progress} onGoTo={onGoToPhoto} className="w-full justify-center" />
       <ChecklistSubmitError submit={submit} />
       {canSubmit ? (
         <ChecklistSubmitButton submit={submit} resubmit={resubmit} className="w-full" />

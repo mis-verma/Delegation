@@ -1,7 +1,7 @@
 import type { ChecklistItemType } from '../../../api/checklistDefinitions';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ItemDraft } from '../definition/ChecklistDefinitionItemDraftRow';
-import { splitByVisible } from '../definition/builder/useStorePeople';
+import { splitByVisible } from '../definition/builder/peopleSplit';
 import { formatDateTime } from '../checklistDisplay';
 
 export type AnswerVerdict = 'good' | 'bad';

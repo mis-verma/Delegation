@@ -65,28 +65,64 @@ export const LivePhotoTrigger = ({ className, onFiles, children, accept = 'image
     );
   }
 
+  const inApp = canUseInAppCamera(accept);
+  const front = facing === 'user';
+  const flipLabel = front ? 'Switch to back camera' : 'Switch to front camera';
+
   return (
     <span className="relative inline-flex">
-      <label className={className} aria-disabled={disabled || undefined}>
-        {children}
-        <input
-          type="file"
-          accept={accept}
-          capture={facing}
-          multiple={multiple}
-          disabled={disabled}
-          aria-label={ariaLabel}
-          className="sr-only"
-          onChange={(e) => { onFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
-        />
-      </label>
-      {canUseInAppCamera(accept) && (
+      {front && inApp ? (
+        <>
+          <button type="button" onClick={() => setOpen(true)} className={className} disabled={disabled} aria-label={ariaLabel}>
+            {children}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            capture="user"
+            multiple={multiple}
+            disabled={disabled}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="sr-only"
+            onChange={(e) => { onFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
+          />
+          {open && (
+            <LiveCameraDialog
+              open
+              initialFacing="user"
+              multi={multiple}
+              limit={limit}
+              onClose={() => setOpen(false)}
+              onCapture={(file) => onFiles(toFileList(file), 'LIVE')}
+              onDone={(files) => onFiles(toFileList(files), 'LIVE')}
+              onFallback={() => { setOpen(false); inputRef.current?.click(); }}
+            />
+          )}
+        </>
+      ) : (
+        <label className={className} aria-disabled={disabled || undefined}>
+          {children}
+          <input
+            type="file"
+            accept={accept}
+            capture={facing}
+            multiple={multiple}
+            disabled={disabled}
+            aria-label={ariaLabel}
+            className="sr-only"
+            onChange={(e) => { onFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
+          />
+        </label>
+      )}
+      {inApp && (
         <button
           type="button"
           onClick={flipFacing}
           disabled={disabled}
-          aria-label={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
-          title={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+          aria-label={flipLabel}
+          title={flipLabel}
           className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-surface text-text-muted outline-none transition-colors duration-150 hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50 disabled:opacity-50"
         >
           <SwitchCamera size={12} aria-hidden />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, CameraOff, RefreshCw, SwitchCamera, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button, Modal } from '../../../components';
 import { MAX_LIVE_PHOTOS, type CameraFacing } from './cameraSupport';
 
@@ -11,6 +12,7 @@ interface LiveCameraDialogProps {
   limit?: number;
   onDone?: (files: File[]) => void;
   onFallback?: () => void;
+  initialFacing?: CameraFacing;
 }
 
 type CameraState = 'starting' | 'ready' | 'blocked' | 'missing';
@@ -26,17 +28,18 @@ const errorState = (err: unknown): CameraState => {
   return name === 'NotFoundError' || name === 'OverconstrainedError' ? 'missing' : 'blocked';
 };
 
-export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limit = MAX_LIVE_PHOTOS, onDone, onFallback }: LiveCameraDialogProps) => {
+export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limit = MAX_LIVE_PHOTOS, onDone, onFallback, initialFacing = 'environment' }: LiveCameraDialogProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const shotsRef = useRef<Shot[]>([]);
   const [state, setState] = useState<CameraState>('starting');
   const [attempt, setAttempt] = useState(0);
-  const [facing, setFacing] = useState<CameraFacing>('environment');
+  const [facing, setFacing] = useState<CameraFacing>(initialFacing);
   const [capturing, setCapturing] = useState(false);
   const [shots, setShots] = useState<Shot[]>([]);
   const cap = Math.max(1, Math.min(limit, MAX_LIVE_PHOTOS));
   const full = multi && shots.length >= cap;
+  const front = facing === 'user';
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -83,6 +86,11 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
     setFacing((f) => (f === 'environment' ? 'user' : 'environment'));
   };
 
+  /**
+   * The front preview is flipped so framing yourself feels like a mirror, but the canvas draws
+   * the frame as the camera sees it. What gets saved is the real scene, so text in a selfie
+   * reads the right way round.
+   */
   const snap = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || capturing || full) return;
@@ -158,7 +166,7 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
     >
       <div className="flex flex-col gap-3">
         <div className="relative w-full overflow-hidden rounded-xl bg-black max-sm:aspect-[3/4] sm:aspect-video">
-          <video ref={videoRef} playsInline muted className="size-full object-contain" />
+          <video ref={videoRef} playsInline muted className={cn('size-full object-contain', front && '-scale-x-100')} />
           {state === 'starting' && (
             <p className="absolute inset-0 flex items-center justify-center t-meta font-display font-semibold text-white/80">Starting the camera...</p>
           )}
@@ -185,14 +193,19 @@ export const LiveCameraDialog = ({ open, onClose, onCapture, multi = false, limi
               type="button"
               onClick={flip}
               disabled={state !== 'ready'}
-              aria-label={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
-              title={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+              aria-label={front ? 'Switch to back camera' : 'Switch to front camera'}
+              title={front ? 'Switch to back camera' : 'Switch to front camera'}
               className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-black/60 text-white outline-none transition-colors duration-150 hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 disabled:opacity-50"
             >
               <SwitchCamera size={16} aria-hidden />
             </button>
           )}
         </div>
+        {front && !failed && (
+          <p className="t-meta font-display font-medium text-text-muted">
+            The preview is flipped like a mirror so you can frame yourself. The photo saves the way the camera sees it.
+          </p>
+        )}
         {multi && shots.length > 0 && (
           <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="Photos taken">
             {shots.map((shot, index) => (

@@ -19,6 +19,7 @@ import { assertRunOpenForUser } from "../checklistInstances/checklistMissedRun.j
 import { auditService } from "../audit/audit.service.js";
 import { isAdminOrPc } from "../../utils/roles.js"
 import { perceptualHash } from "../../utils/imageHash.js"
+import { uprightAll } from "../../utils/imageOrientation.js";
 import { assessImageQuality, serializeQualityFlags } from "../../utils/imageQuality.js"
 import { findEarlierSimilarEach } from "./imageSimilarity.js"
 
@@ -102,6 +103,10 @@ export const checklistInstanceImageService = {
                 );
             }
         }
+
+        // Bake orientation into the pixels before anything reads the file, so the hash, the
+        // quality check and the stored original all describe the same upright photo.
+        await uprightAll(files.filter((f) => f.mimetype.startsWith("image/")).map((f) => f.path));
 
         const [fileHashes, fileQualities] = await Promise.all([
             Promise.all(files.map((file) => (file.mimetype.startsWith("image/") ? perceptualHash(file.path) : Promise.resolve(null)))),

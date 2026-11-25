@@ -43,7 +43,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSubmitRun } from './fill/useSubmitRun';
 import { FillBottomBar } from './fill/FillBottomBar';
 import { FillAside } from './fill/FillAside';
-import { auditPeopleProgress, sectionKeyOf, sectionLabelOf, sectionsOf, type FillProgress } from './fill/fillProgress';
+import { auditPeopleProgress, photosMissingOf, sectionKeyOf, sectionLabelOf, sectionsOf, type FillProgress } from './fill/fillProgress';
 
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
@@ -197,9 +197,11 @@ export const ChecklistInstanceDetail = () => {
   // An approved run is locked for everyone the server locks it for, which is everyone but an admin.
   const answersLocked = isLocked && !rights.whenApproved;
   const notYetOpen = isInstanceNotYetOpen(instance);
+  const photosMissing = photosMissingOf(instance.items);
   const canSubmit =
     !!user && (user.role === 'ADMIN' || instance.assigneeIds.includes(user.id)) && canWork && isComplete && !notYetOpen &&
-    (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
+    (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED') &&
+    photosMissing.count === 0;
   const resubmit = instance.verificationStatus === 'REJECTED';
   const hasSections = instance.items.some(i => i.section);
   const sections = hasSections ? sectionsOf(instance.items, isAnswered) : [];
@@ -208,7 +210,7 @@ export const ChecklistInstanceDetail = () => {
   const left = Math.max(0, total - done);
   const showCompleteAll = left > 0 && !notYetOpen && canCompleteAllRun(user, instance, myProfile?.canCompleteAll === true);
   const showSelfCompleteAll = left > 0 && !notYetOpen && canWork && !canReview && canSelfCompleteAllRun(user, instance);
-  const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items) };
+  const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items), photosMissing };
   const filling = canWork && !answersLocked && total > 0 && !canReview;
   const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
   const show: ShowMode = canReview ? 'all' : pickedShow === 'section' && !hasSections ? 'all' : pickedShow ?? autoShow;
@@ -305,6 +307,10 @@ export const ChecklistInstanceDetail = () => {
     const inSection = show === 'section' ? instance.items.find((i) => !answered(i) && sectionKeyOf(i) === activeSectionKey) : undefined;
     const next = inSection ?? instance.items.find((i) => !answered(i));
     if (next) goToItem(next);
+  };
+  const goToPhoto = (id: string) => {
+    const target = instance.items.find((i) => i.id === id);
+    if (target) goToItem(target);
   };
   const verificationNote = instance.verificationNote;
   const showBanners =
@@ -695,6 +701,7 @@ export const ChecklistInstanceDetail = () => {
               resubmit={resubmit}
               submit={submit}
               onNext={left > 0 ? goToNext : undefined}
+              onGoToPhoto={goToPhoto}
               late={lateChip}
               selfCompleteAll={showSelfCompleteAll ? <SelfCompleteAllAction instanceId={instance.id} openCount={left} onDone={goBackToList} /> : undefined}
             />
@@ -722,6 +729,7 @@ export const ChecklistInstanceDetail = () => {
             resubmit={resubmit}
             submit={submit}
             onNext={filling && left > 0 ? goToNext : undefined}
+            onGoToPhoto={goToPhoto}
             selfCompleteAll={showSelfCompleteAll ? <SelfCompleteAllAction instanceId={instance.id} openCount={left} onDone={goBackToList} /> : undefined}
           />
         )}
