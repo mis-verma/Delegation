@@ -15,6 +15,7 @@ import { LateWindowOverlay } from './LateWindowOverlay';
 import { SubmissionPreviewDialog } from './SubmissionPreviewDialog';
 import { AdminRunActionsDialog } from './AdminRunActionsDialog';
 import { RunVerificationChip } from './RunVerificationChip';
+import { revokeMsLeft } from './revokeWindow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
@@ -48,8 +49,9 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   const isSubmitter = !!user && instance.submittedBy === user.id;
   const submittedRun = !!instance.submittedAt && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'APPROVED');
   const canPreview = !!user && submittedRun && (isAdmin || isSubmitter || instance.assigneeIds.includes(user.id));
-  const submitterCanChange = isSubmitter && instance.verificationStatus === 'PENDING_APPROVAL';
-  const canChange = isAdmin || submitterCanChange;
+  const submitterCanChange = isSubmitter && instance.verificationStatus === 'PENDING_APPROVAL' && revokeMsLeft(instance.submittedAt, now) > 0;
+  const showAdminDialog = isAdmin && !isSubmitter;
+  const canChange = showAdminDialog || submitterCanChange;
   const doneByOthers = (() => {
     if (!isComplete || !user) return null;
     const names = new Set<string>();
@@ -114,16 +116,16 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         type="button"
         onClick={() => setPreviewOpen(true)}
         aria-label={`Preview submitted answers: ${instance.title}${canChange ? '. Actions available' : ''}`}
-        title={canChange ? (isAdmin ? 'Preview. Revoke or send questions back' : 'Preview. You can still take it back or correct it') : 'Preview what was submitted'}
+        title={canChange ? (showAdminDialog ? 'Preview. Revoke or send questions back' : 'Preview. You can still take it back or correct it') : 'Preview what was submitted'}
         className="absolute right-2 top-2 flex size-9 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-surface/90 text-text-muted outline-none backdrop-blur-sm transition-[color,background-color,border-color,transform] duration-150 ease-out hover:border-primary-500/40 hover:bg-primary-500/[0.06] hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 pointer-coarse:size-11 dark:hover:text-primary-300"
       >
         <Eye size={16} aria-hidden />
         {canChange && <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-surface bg-warning" aria-hidden />}
       </button>
     )}
-    {previewOpen && canPreview && (isAdmin
+    {previewOpen && canPreview && (showAdminDialog
       ? <AdminRunActionsDialog instance={instance} onClose={() => setPreviewOpen(false)} />
-      : <SubmissionPreviewDialog instance={instance} canRevoke={isSubmitter} onClose={() => setPreviewOpen(false)} />)}
+      : <SubmissionPreviewDialog instance={instance} now={now} canRevoke={isSubmitter} onClose={() => setPreviewOpen(false)} />)}
     </div>
   );
 });
