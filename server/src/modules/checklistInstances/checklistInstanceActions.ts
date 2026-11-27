@@ -11,7 +11,7 @@ import {
     users,
 
 } from "../../db/schema/index.js"
-import { missingPhotoQuestions, VALUE_VALIDATORS_BY_ITEM_TYPE, type ItemValueInput } from "./checklistItemValidators.js"
+import { missingPhotoQuestions, missingConditionalPhotoQuestions, VALUE_VALIDATORS_BY_ITEM_TYPE, type ItemValueInput } from "./checklistItemValidators.js"
 import { eq, and, inArray, isNull, sql } from "drizzle-orm"
 import { FAILED_PHOTO_SQL } from "../checklistInstanceImages/photoFailure.js"
 import { AppError } from "../../utils/AppError.js"
@@ -152,7 +152,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
         // required photo is there, so nothing is let through, only reordered.
         if (!photoOnly) {
             VALUE_VALIDATORS_BY_ITEM_TYPE[item.itemType]?.(mergedItem, values)
-            await assertConditionalActionsSatisfied(mergedItem, values)
+            assertConditionalActionsSatisfied(mergedItem, values)
         }
     }
 
@@ -254,14 +254,18 @@ export const submit = async (id: string, user: AccessTokenPayload) => {
         throw AppError.badRequest(open === 1 ? "1 question is still open. Finish it, then submit." : `${open} questions are still open. Finish them, then submit.`)
     }
 
-    const missingPhotos = await missingPhotoQuestions(id)
-    if (missingPhotos.length > 0) {
-        const shown = missingPhotos.slice(0, 3).join(", ")
-        const rest = missingPhotos.length - Math.min(missingPhotos.length, 3)
+    const [missingPhotos, missingConditionalPhotos] = await Promise.all([
+        missingPhotoQuestions(id),
+        missingConditionalPhotoQuestions(id),
+    ])
+    const missingAll = [...new Set([...missingPhotos, ...missingConditionalPhotos])]
+    if (missingAll.length > 0) {
+        const shown = missingAll.slice(0, 3).join(", ")
+        const rest = missingAll.length - Math.min(missingAll.length, 3)
         throw AppError.badRequest(
-            missingPhotos.length === 1
-                ? `"${missingPhotos[0]}" still needs its photo. Add it, then submit.`
-                : `${missingPhotos.length} questions still need their photos: ${shown}${rest > 0 ? ` and ${rest} more` : ""}. Add them, then submit.`,
+            missingAll.length === 1
+                ? `"${missingAll[0]}" still needs its photo. Add it, then submit.`
+                : `${missingAll.length} questions still need their photos: ${shown}${rest > 0 ? ` and ${rest} more` : ""}. Add them, then submit.`,
         )
     }
 
