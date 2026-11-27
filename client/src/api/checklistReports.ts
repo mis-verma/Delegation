@@ -66,7 +66,7 @@ export interface ChecklistReport {
 }
 
 export type PeriodRowKind = 'person' | 'checklist';
-export type PeriodBucketKind = 'week' | 'month' | 'quarter' | 'year';
+export type PeriodBucketKind = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface ChecklistPeriodParams {
   by: PeriodRowKind;
@@ -87,6 +87,8 @@ export interface PeriodCell {
   runsDone: number;
   runsMissed: number;
   runsOpen: number;
+  runsOnTime: number;
+  metDeadlinePct: number | null;
   weightedGood: number;
   weightedScored: number;
 }

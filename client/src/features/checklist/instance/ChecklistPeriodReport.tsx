@@ -19,9 +19,10 @@ import { scoresHref } from '../../admin/directory/orgScoreData';
 
 const ROW_KINDS: readonly PeriodRowKind[] = ['person', 'checklist'];
 const ROW_LABELS: Record<PeriodRowKind, string> = { person: 'By person', checklist: 'By checklist' };
-const BUCKETS: readonly PeriodBucketKind[] = ['week', 'month', 'quarter', 'year'];
-const BUCKET_LABELS: Record<PeriodBucketKind, string> = { week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
+const BUCKETS: readonly PeriodBucketKind[] = ['day', 'week', 'month', 'quarter', 'year'];
+const BUCKET_LABELS: Record<PeriodBucketKind, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 const DEFAULT_RANGE_TEXT: Record<PeriodBucketKind, string> = {
+  day: 'Last 14 days',
   week: 'Last 4 weeks and this week',
   month: 'Last 3 months and this month',
   quarter: 'Last 3 quarters and this one',
@@ -53,6 +54,11 @@ const CellFigures = ({ cell, align = 'end' }: { cell: PeriodCell | undefined; al
       <span className={cn('whitespace-nowrap t-meta font-display', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
         {cell.compliancePct === null ? 'Nothing checked' : `Compliance ${formatPct(cell.compliancePct)}`}
       </span>
+      {cell.runsDue > 0 && (
+        <span className={cn('whitespace-nowrap t-meta font-display', toneOf(cell.metDeadlinePct))}>
+          {cell.metDeadlinePct === null ? 'No deadline yet' : `Deadlines met ${formatPct(cell.metDeadlinePct)}`}
+        </span>
+      )}
     </span>
   );
 };
@@ -79,6 +85,46 @@ const periodCaption = (kind: PeriodBucketKind, bucket: PeriodBucket, isCurrent: 
   return `${isCurrent ? `This ${word}` : `Latest ${word}`}, ${bucket.label}`;
 };
 
+interface ScoreCardBodyProps {
+  cell: PeriodCell;
+  showRuns: boolean;
+  label: string;
+  sub: string;
+}
+
+const ScoreCardBody = ({ cell, showRuns, label, sub }: ScoreCardBodyProps) => (
+  <>
+    <RadialGauge
+      percent={cell.completionPct ?? 0}
+      size={60}
+      variant="circle"
+      thickness={6}
+      gradientFrom={ringColor(cell.completionPct)}
+      gradientTo={ringColor(cell.completionPct)}
+      ariaLabel={`${label} ${formatPct(cell.completionPct)}`}
+      className="shrink-0"
+    >
+      <span className={cn('t-meta font-display font-bold tabular-nums', toneOf(cell.completionPct))}>{formatPct(cell.completionPct)}</span>
+    </RadialGauge>
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug">{label}</span>
+      {sub && <span className="t-meta text-text-muted line-clamp-1">{sub}</span>}
+      <span className="t-meta font-display tabular-nums text-text-secondary">
+        {formatCount(cell.itemsDone)} / {formatCount(cell.itemsDue)} questions
+        {showRuns && cell.runsDue > 0 && <span className="text-text-muted"> · {cell.runsDone} of {cell.runsDue} runs</span>}
+      </span>
+      <span className={cn('t-meta font-display tabular-nums', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
+        {cell.compliancePct === null ? 'Nothing checked yet' : `Compliance ${formatPct(cell.compliancePct)}`}
+      </span>
+      {cell.runsDue > 0 && (
+        <span className={cn('t-meta font-display tabular-nums', toneOf(cell.metDeadlinePct))}>
+          {cell.metDeadlinePct === null ? 'No deadline yet' : `Deadlines met ${formatPct(cell.metDeadlinePct)}`}
+        </span>
+      )}
+    </span>
+  </>
+);
+
 interface RingCardProps {
   row: PeriodRow;
   cell: PeriodCell;
@@ -99,31 +145,21 @@ const RingCard = ({ row, cell, showRuns, label, sub, onPick }: RingCardProps) =>
         'flex w-full min-h-11 items-center gap-3 p-2.5 text-left outline-none transition-[border-color,transform] duration-150 ease-out hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
       )}
     >
-      <RadialGauge
-        percent={cell.completionPct ?? 0}
-        size={60}
-        variant="circle"
-        thickness={6}
-        gradientFrom={ringColor(cell.completionPct)}
-        gradientTo={ringColor(cell.completionPct)}
-        ariaLabel={`${label} ${formatPct(cell.completionPct)}`}
-        className="shrink-0"
-      >
-        <span className={cn('t-meta font-display font-bold tabular-nums', toneOf(cell.completionPct))}>{formatPct(cell.completionPct)}</span>
-      </RadialGauge>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug">{row.left ? `${label} (left)` : label}</span>
-        {sub && <span className="t-meta text-text-muted line-clamp-1">{sub}</span>}
-        <span className="t-meta font-display tabular-nums text-text-secondary">
-          {formatCount(cell.itemsDone)} / {formatCount(cell.itemsDue)} questions
-          {showRuns && cell.runsDue > 0 && <span className="text-text-muted"> · {cell.runsDone} of {cell.runsDue} runs</span>}
-        </span>
-        <span className={cn('t-meta font-display tabular-nums', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
-          {cell.compliancePct === null ? 'Nothing checked yet' : `Compliance ${formatPct(cell.compliancePct)}`}
-        </span>
-      </span>
+      <ScoreCardBody cell={cell} showRuns={showRuns} label={row.left ? `${label} (left)` : label} sub={sub} />
     </button>
   </li>
+);
+
+interface ModuleScoreCardProps {
+  cell: PeriodCell;
+  label: string;
+  sub: string;
+}
+
+const ModuleScoreCard = ({ cell, label, sub }: ModuleScoreCardProps) => (
+  <div className={cn(PANEL_CLASS, 'flex items-center gap-3 border-primary-400/60 bg-primary-500/5 p-3')}>
+    <ScoreCardBody cell={cell} showRuns label={label} sub={sub} />
+  </div>
 );
 
 interface ChecklistPeriodReportProps {
@@ -202,14 +238,14 @@ export const ChecklistPeriodReport = ({ storeId, departmentId, storeName, depart
   const exportRows = (): TableRows => {
     if (!data) return [];
     const head: string[] = [rowNoun, by === 'person' ? 'Department, store' : 'Repeats'];
-    for (const b of data.buckets) head.push(`${b.label} due`, `${b.label} done`, `${b.label} completion %`, `${b.label} compliance %`);
-    head.push('Total due', 'Total done', 'Total completion %', 'Total compliance %');
+    for (const b of data.buckets) head.push(`${b.label} due`, `${b.label} done`, `${b.label} completion %`, `${b.label} compliance %`, `${b.label} deadlines met %`);
+    head.push('Total due', 'Total done', 'Total completion %', 'Total compliance %', 'Total deadlines met %');
     const line = (cells: Record<string, PeriodCell>, total: PeriodCell) => [
       ...data.buckets.flatMap((b) => {
         const c = cells[b.key];
-        return c ? [c.itemsDue, c.itemsDone, exportPct(c.completionPct), exportPct(c.compliancePct)] : [0, 0, null, null];
+        return c ? [c.itemsDue, c.itemsDone, exportPct(c.completionPct), exportPct(c.compliancePct), exportPct(c.metDeadlinePct)] : [0, 0, null, null, null];
       }),
-      total.itemsDue, total.itemsDone, exportPct(total.completionPct), exportPct(total.compliancePct),
+      total.itemsDue, total.itemsDone, exportPct(total.completionPct), exportPct(total.compliancePct), exportPct(total.metDeadlinePct),
     ];
     return [
       head,
@@ -269,6 +305,15 @@ export const ChecklistPeriodReport = ({ storeId, departmentId, storeName, depart
 
       {data && data.rows.length > 0 && (
         <div className="flex flex-col gap-3" aria-busy={query.isPlaceholderData}>
+          <section className="flex flex-col gap-2" aria-labelledby="period-overall-heading">
+            <h3 id="period-overall-heading" className="t-card font-display font-bold text-text">Overall</h3>
+            <ModuleScoreCard
+              cell={data.totals.total}
+              label={`All ${by === 'person' ? 'people' : 'checklists'}`}
+              sub={`${data.from} to ${data.to}`}
+            />
+          </section>
+
           {latest && (
             <section className="flex flex-col gap-2" aria-labelledby="period-rings-heading">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">

@@ -1,9 +1,10 @@
-export const PERIOD_BUCKETS = ["week", "month", "quarter", "year"] as const
+export const PERIOD_BUCKETS = ["day", "week", "month", "quarter", "year"] as const
 export type PeriodBucketKind = (typeof PERIOD_BUCKETS)[number]
 
-export const MAX_BUCKETS: Record<PeriodBucketKind, number> = { week: 26, month: 12, quarter: 8, year: 5 }
+export const MAX_BUCKETS: Record<PeriodBucketKind, number> = { day: 60, week: 26, month: 12, quarter: 8, year: 5 }
 
 export const BUCKET_NOUN: Record<PeriodBucketKind, { one: string; many: string }> = {
+    day: { one: "day", many: "days" },
     week: { one: "week", many: "weeks" },
     month: { one: "month", many: "months" },
     quarter: { one: "quarter", many: "quarters" },
@@ -50,12 +51,13 @@ const quarterEndOf = (start: string): string => {
 }
 
 const startOf = (kind: PeriodBucketKind, day: string) =>
-    kind === "week" ? mondayOf(day) : kind === "month" ? monthStartOf(day) : kind === "quarter" ? quarterStartOf(day) : yearStartOf(day)
+    kind === "day" ? day : kind === "week" ? mondayOf(day) : kind === "month" ? monthStartOf(day) : kind === "quarter" ? quarterStartOf(day) : yearStartOf(day)
 
 const endOf = (kind: PeriodBucketKind, start: string) =>
-    kind === "week" ? addDays(start, 6) : kind === "month" ? monthEndOf(start) : kind === "quarter" ? quarterEndOf(start) : `${start.slice(0, 4)}-12-31`
+    kind === "day" ? start : kind === "week" ? addDays(start, 6) : kind === "month" ? monthEndOf(start) : kind === "quarter" ? quarterEndOf(start) : `${start.slice(0, 4)}-12-31`
 
 const labelOf = (kind: PeriodBucketKind, start: string, end: string) => {
+    if (kind === "day") return shortDay(start)
     if (kind === "week") return weekLabel(start, end)
     if (kind === "month") return `${MONTHS[Number(start.slice(5, 7)) - 1]} ${start.slice(0, 4)}`
     if (kind === "quarter") return `Q${Math.floor((Number(start.slice(5, 7)) - 1) / 3) + 1} ${start.slice(0, 4)}`
@@ -80,6 +82,7 @@ export const buildBuckets = (kind: PeriodBucketKind, from: string, to: string): 
 }
 
 export const defaultPeriodRange = (kind: PeriodBucketKind, today: string): { from: string; to: string } => {
+    if (kind === "day") return { from: addDays(today, -13), to: today }
     if (kind === "week") return { from: addDays(mondayOf(today), -28), to: today }
     const year = Number(today.slice(0, 4))
     const month = Number(today.slice(5, 7)) - 1

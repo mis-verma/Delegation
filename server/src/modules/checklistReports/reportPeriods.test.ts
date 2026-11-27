@@ -77,7 +77,7 @@ describe("report periods", () => {
     it("adds up cells and pools compliance instead of averaging percentages", () => {
         const cell = (itemsDue: number, itemsDone: number, weightedGood: number, weightedScored: number) => ({
             itemsDue, itemsDone, completionPct: null, compliancePct: null, answersChecked: weightedScored,
-            runsDue: 7, runsDone: 6, runsMissed: 1, runsOpen: 0, weightedGood, weightedScored,
+            runsDue: 7, runsDone: 6, runsMissed: 1, runsOpen: 0, runsOnTime: 5, metDeadlinePct: null, weightedGood, weightedScored,
         })
         const total = sumCells([cell(56, 49, 9, 10), cell(56, 56, 1, 10)])
         expect(total.itemsDue).toBe(112)
