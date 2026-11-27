@@ -84,13 +84,14 @@ export const ChecklistReviewBar = ({ instance, draft, onDecided }: Props) => {
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="t-meta font-display text-text-secondary">
             {count > 0
               ? `${count} ${count === 1 ? 'question' : 'questions'} picked. Send them for correction, or untick them to approve.`
               : 'Approve it, or send it for correction.'}
           </p>
           <ReviewActions
+            stretch
             pickedCount={count}
             approveLabel={approveLabelFor(reviewer?.role, instance)}
             onSendBack={() => draft.setSending(true)}
