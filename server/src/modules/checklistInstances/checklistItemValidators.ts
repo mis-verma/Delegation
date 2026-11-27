@@ -4,6 +4,7 @@ import { checklistInstanceImages, checklistInstanceItems } from "../../db/schema
 import type { CHECKLIST_ITEM_TYPES } from "../../db/schema/checklistDefinition.js"
 import { AppError } from "../../utils/AppError.js"
 import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
+import { conditionalPhotoPurposeFor } from "./booleanAnswerRules.js"
 
 type PhotoRule = { requiredImageCount: number; requiresLivePhoto: boolean }
 type PhotoRecord = { captureMethod?: string | null; reviewStatus?: string | null; qualityFlags?: string | null }
@@ -68,6 +69,77 @@ export const missingPhotoQuestions = async (instanceId: string): Promise<string[
 
     return items
         .filter((item) => photosStillOwed(item, byItem.get(item.id) ?? []) > 0)
+        .sort((a, b) => a.order - b.order)
+        .map((item) => item.label)
+}
+
+type ConditionalPhotoRule = { booleanAnswer: "YES" | "NO" | null; yesActions: string[] | null; noActions: string[] | null; requiresLivePhoto: boolean }
+
+/**
+ * Whether a Yes/No answer still owes the photo its own rule required.
+ *
+ * A photo rule on No also binds Yes, so a person can't dodge it by picking the answer nobody
+ * configured a rule for. Mirrors photosStillOwed's shape: one pure check, read by both the
+ * per-item save and the submit check.
+ */
+export const conditionalPhotoOwed = (item: ConditionalPhotoRule, images: readonly PhotoRecord[]): boolean => {
+    const answer = item.booleanAnswer
+    if (answer !== "YES" && answer !== "NO") return false
+    const actions = answer === "YES" ? item.yesActions ?? [] : item.noActions ?? []
+    const photoRequiredAnyway = answer === "YES" && (item.noActions ?? []).includes("REQUIRE_PHOTO")
+    if (!actions.includes("REQUIRE_PHOTO") && !photoRequiredAnyway) return false
+    const clear = passingPhotos(images)
+    const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE") : clear
+    return qualifying.length < 1
+}
+
+/**
+ * The Yes/No questions on a run that still owe the photo their answer required.
+ *
+ * Same deferred-to-submit shape as missingPhotoQuestions: the photo doesn't have to arrive with
+ * the tap, only before the run goes in.
+ */
+export const missingConditionalPhotoQuestions = async (instanceId: string): Promise<string[]> => {
+    const items = await db
+        .select({
+            id: checklistInstanceItems.id,
+            label: checklistInstanceItems.label,
+            order: checklistInstanceItems.order,
+            booleanAnswer: checklistInstanceItems.booleanAnswer,
+            yesActions: checklistInstanceItems.yesActions,
+            noActions: checklistInstanceItems.noActions,
+            requiresLivePhoto: checklistInstanceItems.requiresLivePhoto,
+        })
+        .from(checklistInstanceItems)
+        .where(and(
+            eq(checklistInstanceItems.instanceId, instanceId),
+            inArray(checklistInstanceItems.itemType, ["YES_NO", "PASS_FAIL"]),
+            eq(checklistInstanceItems.isDone, true),
+            eq(checklistInstanceItems.isNotApplicable, false),
+            isNull(checklistInstanceItems.waivedAt),
+        ))
+    if (items.length === 0) return []
+
+    const images = await db
+        .select()
+        .from(checklistInstanceImages)
+        .where(inArray(checklistInstanceImages.checklistInstanceItemId, items.map((i) => i.id)))
+
+    const byItem = new Map<string, typeof images>()
+    for (const image of images) {
+        const itemId = image.checklistInstanceItemId
+        if (!itemId) continue
+        const list = byItem.get(itemId)
+        if (list) list.push(image)
+        else byItem.set(itemId, [image])
+    }
+
+    return items
+        .filter((item) => {
+            const purpose = conditionalPhotoPurposeFor(item.booleanAnswer as "YES" | "NO")
+            const relevant = (byItem.get(item.id) ?? []).filter((img) => img.purpose === purpose)
+            return conditionalPhotoOwed(item, relevant)
+        })
         .sort((a, b) => a.order - b.order)
         .map((item) => item.label)
 }

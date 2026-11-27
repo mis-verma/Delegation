@@ -117,4 +117,40 @@ describe('photosMissingOf', () => {
   it('reads an empty run as nothing owing', () => {
     expect(photosMissingOf([])).toEqual({ count: 0, firstId: null });
   });
+
+  it('counts a Yes answer still owing the photo its rule required', () => {
+    const owing = item({ itemType: 'YES_NO', requiredImageCount: 0, booleanAnswer: 'YES', yesActions: ['REQUIRE_PHOTO'] });
+    expect(photosMissingOf([owing])).toEqual({ count: 1, firstId: owing.id });
+  });
+
+  it('clears once that conditional photo is there', () => {
+    const settled = item({
+      itemType: 'YES_NO',
+      requiredImageCount: 0,
+      booleanAnswer: 'YES',
+      yesActions: ['REQUIRE_PHOTO'],
+      images: [photo({ purpose: 'CONDITIONAL_YES' })],
+    });
+    expect(photosMissingOf([settled])).toEqual({ count: 0, firstId: null });
+  });
+
+  it('does not accept a photo taken for the other answer', () => {
+    const owing = item({
+      itemType: 'YES_NO',
+      requiredImageCount: 0,
+      booleanAnswer: 'YES',
+      yesActions: ['REQUIRE_PHOTO'],
+      images: [photo({ purpose: 'CONDITIONAL_NO' })],
+    });
+    expect(photosMissingOf([owing])).toEqual({ count: 1, firstId: owing.id });
+  });
+
+  it('applies a No-only photo rule to a Yes answer too', () => {
+    const owing = item({ itemType: 'YES_NO', requiredImageCount: 0, booleanAnswer: 'YES', noActions: ['REQUIRE_PHOTO'] });
+    expect(photosMissingOf([owing])).toEqual({ count: 1, firstId: owing.id });
+  });
+
+  it('leaves a plain Yes/No with no photo rule alone', () => {
+    expect(photosMissingOf([item({ itemType: 'YES_NO', requiredImageCount: 0, booleanAnswer: 'YES' })])).toEqual({ count: 0, firstId: null });
+  });
 });

@@ -1,4 +1,3 @@
-import { conditionalPhotoPurposeFor } from "./booleanAnswerRules.js"
 import { db } from "../../config/db.js"
 import {
     checklistInstances,
@@ -36,7 +35,6 @@ import { env } from "../../config/env.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { isAdminOrPc, isDepartmentHeadRole } from "../../utils/roles.js"
 import { clockParts } from "../../utils/clock.js"
-import { passingPhotos } from "../checklistInstanceImages/photoFailure.js"
 
 export type InstanceStatusFilter = "OPEN" | "DUE" | "COMPLETED" | "OVERDUE"
 
@@ -350,21 +348,12 @@ export const actionsForAnswer = (item: ChecklistItem, answer: "YES" | "NO" | und
 export const isConditionTriggered = (item: ChecklistItem, values: ItemValueInput) =>
     actionsForAnswer(item, values.booleanAnswer).length > 0
 
-export const assertConditionalActionsSatisfied = async (item: ChecklistItem, values: ItemValueInput) => {
-    // A photo requirement on No also applies to Yes, so a person can't dodge it by picking the
-    // answer nobody configured a rule for. Every other rule (reason, ticket, alert) stays per-answer.
-    const photoRequiredAnyway = values.booleanAnswer === "YES" && (item.noActions ?? []).includes("REQUIRE_PHOTO")
-    if (!isConditionTriggered(item, values) && !photoRequiredAnyway) return
+export const assertConditionalActionsSatisfied = (item: ChecklistItem, values: ItemValueInput) => {
+    // A required photo is no longer checked here: it can arrive after the answer, and submit
+    // refuses the run until it does (see missingConditionalPhotoQuestions). Only a reason still
+    // has to be given before the tap commits.
+    if (!isConditionTriggered(item, values)) return
     const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
-
-    if (actions.includes("REQUIRE_PHOTO") || photoRequiredAnyway) {
-        const images = await db.select().from(checklistInstanceImages).where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, conditionalPhotoPurposeFor(values.booleanAnswer as "YES" | "NO"))))
-        const clear = passingPhotos(images)
-        const qualifying = item.requiresLivePhoto ? clear.filter((img) => img.captureMethod === "LIVE").length : clear.length
-        if (qualifying < 1) {
-            throw AppError.badRequest("Upload a photo before completing this item. Your answer requires one")
-        }
-    }
 
     if (actions.includes("ASK_REASON")) {
         const reason = values.conditionalReasonValue ?? item.conditionalReasonValue

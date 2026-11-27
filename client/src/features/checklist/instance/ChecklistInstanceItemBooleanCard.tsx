@@ -93,6 +93,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   // nobody configured a rule for. No already always has to explain itself either way.
   const photoRequiredOnYesAnyway = noActions.includes('REQUIRE_PHOTO');
   const isTriggering = (value: Answer) => actionsFor(value).length > 0 || (value === 'YES' && photoRequiredOnYesAnyway);
+  // A mandatory photo is a separate, later step: the tap saves and Submit holds the run shut
+  // until the photo turns up (fillProgress.ts), same as an unconditional required photo. Only a
+  // reason still has to be given before the tap commits.
+  const requiresReasonToSave = (value: Answer) => actionsFor(value).includes('ASK_REASON');
 
   const [pendingAnswer, setPendingAnswer] = useState<Answer | null>(null);
   // The tapped answer lights up in the same commit as the tap. Without it the highlight waits
@@ -122,7 +126,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const roundStart = useRoundStart(item);
   const photoRoom = Math.max(0, Math.min(item.maxImageCount ?? MAX_LIVE_PHOTOS, MAX_LIVE_PHOTOS) - passingPhotos(photosInRound(images, roundStart)).length);
   const photoReady = !needsPhoto || passingPhotos(images).length > 0;
-  const readyToSave = pendingAnswer !== null && reasonReady && photoReady;
+  const readyToSave = pendingAnswer !== null && reasonReady;
 
   const discardSession = () => {
     for (const img of sessionPhotos) if (!isFailedPhoto(img)) deleteImage.mutate(img.id);
@@ -186,7 +190,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       setNoOpen(true);
       return;
     }
-    if (isTriggering(value)) {
+    if (requiresReasonToSave(value)) {
       if (pendingAnswer === null) baselinePhotos.current = new Set(images.map((img) => img.id));
       else discardSession();
       setReasonDraft(item.booleanAnswer === value ? item.conditionalReasonValue ?? '' : '');
@@ -293,7 +297,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             </div>
           )}
           <FailedPhotoNote count={images.length - passingPhotos(images).length} needsMore={passingPhotos(images).length === 0} />
-          {pendingAnswer && (
+          {interactive && (
             <div className={cn('grid gap-2 sm:flex sm:flex-wrap sm:items-center', item.requiresLivePhoto ? 'grid-cols-1' : 'grid-cols-2')}>
               <CaptureButton icon={Camera} label="Take photo" ariaLabel={`Take photo: ${item.label}`} live burst limit={photoRoom} accept="image/*" disabled={uploading || photoRoom <= 0} onFiles={handleFiles} />
               {!item.requiresLivePhoto && (
@@ -305,11 +309,13 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </div>
       )}
 
-      {pendingAnswer && needsPhoto && (
+      {needsPhoto && (
         <p className="t-meta font-display text-text-muted">
           {photoReady
-            ? `${passingPhotos(images).length} ${passingPhotos(images).length === 1 ? 'photo' : 'photos'} added. Add more if you like, then tap Save.`
-            : 'Take at least one clear photo, then tap Save.'}
+            ? `${passingPhotos(images).length} ${passingPhotos(images).length === 1 ? 'photo' : 'photos'} added.${pendingAnswer ? ' Add more if you like, then tap Save.' : ' Add more if you like.'}`
+            : pendingAnswer
+              ? 'Take at least one clear photo, then tap Save.'
+              : 'Submit stays blocked until a photo is added for this answer.'}
         </p>
       )}
     </div>
