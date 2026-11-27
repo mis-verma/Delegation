@@ -29,6 +29,7 @@ import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, asser
 import { loadAuditItemScore } from "./auditScore.js"
 import { approveOutcome, canSendBackAt, firstApprovalStage, stageAuthority, stageHeadIds, stageOf } from "./checklistApprovalStage.js"
 import { isAdminOrPc } from "../../utils/roles.js"
+import { revokeWindowOpen } from "./checklistRevokeWindow.js"
 
 export const setItemDone = async (itemId: string, isDone: boolean, user: AccessTokenPayload, values: ItemValueInput = {}) => {
     const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
@@ -287,14 +288,18 @@ export const revokeSubmission = async (id: string, input: { itemId?: string; not
     assertCanAccess({ assigneeIds }, user)
 
     const isAdmin = user.role === "ADMIN"
+    const isSelf = instance.submittedBy === user.sub
     const note = input.note?.trim() ?? ""
-    if (isAdmin && !note) throw AppError.badRequest("Say why you are revoking this checklist.")
-    const revocable = isAdmin ? ["PENDING_APPROVAL", "APPROVED"] : ["PENDING_APPROVAL"]
+    if (!isSelf && !note) throw AppError.badRequest("Say why you are revoking this checklist.")
+    const revocable = isSelf ? ["PENDING_APPROVAL"] : ["PENDING_APPROVAL", "APPROVED"]
     if (!revocable.includes(instance.verificationStatus)) {
         throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved, so it can't be taken back." : "This checklist isn't waiting for approval.")
     }
-    if (instance.submittedBy !== user.sub && !isAdmin) {
+    if (!isSelf && !isAdmin) {
         throw AppError.forbidden("Only the person who submitted this checklist can take it back.")
+    }
+    if (isSelf && !revokeWindowOpen(instance.submittedAt)) {
+        throw AppError.badRequest("The time to check it over yourself is up. Ask an admin, PC, or your department head to send it back if it still needs fixing.")
     }
     await assertRunOpenForUser(id, user)
 
@@ -308,7 +313,7 @@ export const revokeSubmission = async (id: string, input: { itemId?: string; not
     await db.transaction(async (tx) => {
         const [claimed] = await tx.update(checklistInstances).set({
             verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null,
-            verifiedBy: null, verifiedAt: null, verificationNote: isAdmin ? note : null,
+            verifiedBy: null, verifiedAt: null, verificationNote: isSelf ? null : note,
             approvalStage: null, hodApprovedBy: null, hodApprovedAt: null,
             approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now,
         }).where(and(eq(checklistInstances.id, id), inArray(checklistInstances.verificationStatus, revocable as ("PENDING_APPROVAL" | "APPROVED")[])))
@@ -329,9 +334,9 @@ export const revokeSubmission = async (id: string, input: { itemId?: string; not
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: input.itemId ? "RECORRECT" : "REVOKE", actorId: user.sub,
         before: { verificationStatus: instance.verificationStatus, submittedAt: instance.submittedAt },
-        after: { verificationStatus: "NOT_SUBMITTED", itemIds: input.itemId ? [input.itemId] : "all", ...(isAdmin ? { note } : {}) },
+        after: { verificationStatus: "NOT_SUBMITTED", itemIds: input.itemId ? [input.itemId] : "all", ...(!isSelf ? { note } : {}) },
     })
-    if (isAdmin) {
+    if (!isSelf) {
         notificationService
             .notifyChecklistVerificationResult({ _id: instance.id, title: instance.title, assigneeIds }, "REJECT", note)
             .catch((err) => console.error("Failed to notify checklist revoke:", err))

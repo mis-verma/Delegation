@@ -1,27 +1,35 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Ban, Eye, PencilLine, Undo2 } from 'lucide-react';
+import { Ban, Eye, PencilLine, Timer, Undo2 } from 'lucide-react';
 import { Button, Modal } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { useRevokeChecklistSubmissionMutation } from '../hook';
 import { answerText } from './answerText';
+import { revokeMsLeft } from './revokeWindow';
 import { RunVerificationChip } from './RunVerificationChip';
 import { EvidenceThumb } from './EvidenceThumb';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface SubmissionPreviewDialogProps {
   instance: ChecklistInstance;
+  now: number;
   canRevoke: boolean;
   onClose: () => void;
 }
 
-export const SubmissionPreviewDialog = ({ instance, canRevoke, onClose }: SubmissionPreviewDialogProps) => {
+const minutesText = (ms: number) => {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+};
+
+export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: SubmissionPreviewDialogProps) => {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const revoke = useRevokeChecklistSubmissionMutation();
   const [pickedId, setPickedId] = useState<string | null>(null);
-  const open = canRevoke;
+  const msLeft = revokeMsLeft(instance.submittedAt, now);
+  const open = canRevoke && msLeft > 0;
   const busy = revoke.isPending;
 
   const run = (itemId?: string) => {
@@ -67,13 +75,20 @@ export const SubmissionPreviewDialog = ({ instance, canRevoke, onClose }: Submis
     >
       <div className="flex flex-wrap items-center gap-2">
         <RunVerificationChip instance={instance} />
-        {open && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-500/10 px-2.5 py-1 t-meta font-display font-semibold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
-            You can still change it
+        {canRevoke && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 t-meta font-display font-semibold tabular-nums',
+              open ? 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'bg-surface-hover text-text-muted',
+            )}
+          >
+            <Timer size={12} className="shrink-0" aria-hidden="true" />
+            {open ? `${minutesText(msLeft)} left to check it yourself` : "Your time to check it yourself is up"}
           </span>
         )}
       </div>
-      {open && <p className="t-meta text-text-muted">Tap Correct on a question to reopen just that one. The rest stays as it is.</p>}
+      {open && <p className="t-meta text-text-muted">Tap Correct on a question to reopen just that one. The rest stays as it is. This doesn't count against compliance.</p>}
+      {canRevoke && !open && <p className="t-meta text-text-muted">An admin, PC, or your department head can still send questions back if something needs fixing.</p>}
 
       <ul className="flex flex-col gap-2" aria-label="Submitted answers">
         {instance.items.map((item) => {
