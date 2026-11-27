@@ -111,7 +111,7 @@ export const ChecklistInstanceDetail = () => {
     const answered = items.length - na;
     return {
       title: `Submit "${instance?.title ?? 'this checklist'}"?`,
-      description: `${answered} ${answered === 1 ? 'question' : 'questions'} answered${na ? `, ${na} not applicable` : ''}. It goes to your department head first, then PC. You have 15 minutes to take it back yourself if you spot a mistake.`,
+      description: `${answered} ${answered === 1 ? 'question' : 'questions'} answered${na ? `, ${na} not applicable` : ''}. It goes to your department head first, then PC. You have 30 minutes to take it back yourself if you spot a mistake.`,
     };
   }, [instance]);
   const submit = useSubmitRun(instanceId, submitSummary);
@@ -124,7 +124,7 @@ export const ChecklistInstanceDetail = () => {
     previousStatus.current = status;
     if (status === 'PENDING_APPROVAL' && (before === 'NOT_SUBMITTED' || before === 'REJECTED') && instance?.submittedBy === user?.id) {
       haptic('success');
-      toast.success('Sent for approval. You have 15 minutes to take it back from the Preview on the list.');
+      toast.success('Sent for approval. You have 30 minutes to take it back from the Preview on the list.');
     }
   }, [status, instance?.submittedBy, user?.id]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();

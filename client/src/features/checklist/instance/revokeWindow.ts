@@ -1,4 +1,4 @@
-export const REVOKE_WINDOW_MS = 15 * 60 * 1000;
+export const REVOKE_WINDOW_MS = 30 * 60 * 1000;
 
 export const revokeMsLeft = (submittedAt: string | null | undefined, now: number): number => {
   if (!submittedAt) return 0;
