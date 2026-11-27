@@ -44,7 +44,7 @@ const OWNER_NAV_ITEMS: NavItem[] = [
   { to: '/admin/owner', label: 'Owner view', icon: Crown, exact: true, tint: 'primary' },
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true, tint: 'info' },
   { to: '/admin/scores', label: 'Scores', icon: ListOrdered, exact: false, tint: 'success' },
-  { to: '/team/fill', label: 'Fill chart', icon: Grid3x3, exact: false, tint: 'success' },
+  { to: '/team/fill', label: 'Checklist Fill', icon: Grid3x3, exact: false, tint: 'success' },
 ];
 
 const APPROVAL_BADGE_TAB = '/';
