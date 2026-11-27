@@ -109,7 +109,8 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
   const alt = image.originalFilename ?? fallbackAlt;
   const weak = isVideo ? [] : qualityFlagsOf(image);
   const failed = !isVideo && isFailedPhoto(image);
-  const canDeleteFailed = user?.role === 'ADMIN' || user?.role === 'PC';
+  const isVerifier = user?.role === 'ADMIN' || user?.role === 'PC';
+  const canDeleteFailed = isVerifier;
   const photoTools = answerRightsOf(user?.role).photoTools;
   const showDelete = !!onDelete && (!failed || canDeleteFailed) && (!earlier || canDeleteFailed);
 
@@ -167,9 +168,11 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
             {qualityLabel(weak[0])}
           </span>
         )}
-        <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 t-meta font-display font-medium text-white whitespace-nowrap tabular-nums">
-          {formatTimeOnly(image.createdAt)}
-        </span>
+        {isVerifier && (
+          <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 t-meta font-display font-medium text-white whitespace-nowrap tabular-nums">
+            {formatTimeOnly(image.createdAt)}
+          </span>
+        )}
 
         {showDelete && (
           <button

@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, Layers, ArrowDownToLine } from 'lucide-react';
+import { Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, ArrowDownToLine } from 'lucide-react';
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
@@ -33,32 +33,7 @@ export type { SendBackPayload } from './correctionItems';
 
 const rateTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 
-const NO_SECTION = '__none__';
-const SECTION_OPEN_MS = 280;
-
-const hasIssue = (item: ChecklistInstanceItem) => {
-  const flags = itemFlags(item);
-  return flags.needsLook || flags.criticalFailed || (!item.isDone && !item.isNotApplicable);
-};
-
-interface Section {
-  key: string;
-  name: string;
-  items: ChecklistInstanceItem[];
-  issues: number;
-}
-
-const groupSections = (items: ChecklistInstanceItem[]): Section[] => {
-  const sections: Section[] = [];
-  for (const item of items) {
-    const key = item.section ?? NO_SECTION;
-    const last = sections[sections.length - 1];
-    if (last && last.key === key) last.items.push(item);
-    else sections.push({ key, name: item.section ?? 'Other questions', items: [item], issues: 0 });
-  }
-  for (const section of sections) section.issues = section.items.filter(hasIssue).length;
-  return sections;
-};
+const CHECKED_OPEN_MS = 280;
 
 const useReviewProgress = (row: ChecklistRow, draft: ReviewDraft) => {
   const items = row.instance.items;
@@ -95,10 +70,6 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
   const canRaiseTicket = !instance.assigneeIds.includes(user?.id ?? '');
   const items = useMemo(() => [...instance.items].sort((x, y) => x.order - y.order), [instance.items]);
   const correctionById = useMemo(() => new Map<string, CorrectionItem>(runCorrectionItems(items).map((c) => [c.id, c])), [items]);
-  const hasSections = items.some((i) => i.section);
-  const sections = useMemo(() => (hasSections ? groupSections(items) : []), [hasSections, items]);
-  const sectionOf = useMemo(() => new Map(sections.flatMap((s) => s.items.map((i) => [i.id, s.key] as const))), [sections]);
-  const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set(sections.filter((s) => s.issues > 0).map((s) => s.key)));
   const [checkedOpen, setCheckedOpen] = useState(false);
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -108,38 +79,20 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
   const isDecided = useCallback((item: ChecklistInstanceItem) => looksRightSet.has(item.id) || pickedSet.has(item.id), [looksRightSet, pickedSet]);
   const leftToCheck = useMemo(() => items.filter((i) => !isDecided(i)), [items, isDecided]);
   const checkedItems = useMemo(() => items.filter(isDecided), [items, isDecided]);
-  const sectionsLeft = useMemo(
-    () => sections
-      .map((s) => {
-        const left = s.items.filter((i) => !isDecided(i));
-        return { ...s, items: left, issues: left.filter(hasIssue).length };
-      })
-      .filter((s) => s.items.length > 0),
-    [sections, isDecided],
-  );
   const criticalItems = useMemo(() => items.filter((i) => itemFlags(i).criticalFailed), [items]);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
-  const toggleSection = (key: string) => setOpenSections((prev) => {
-    const next = new Set(prev);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
-
   const goTo = useCallback((id: string) => {
-    const key = sectionOf.get(id);
     const inChecked = checkedItems.some((i) => i.id === id);
     if (inChecked) setCheckedOpen(true);
-    const opening = (!!key && !openSections.has(key)) || inChecked;
-    if (key && !openSections.has(key)) setOpenSections((prev) => new Set([...prev, key]));
     const reveal = () => {
       const el = document.getElementById(`item-${id}`);
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el?.focus({ preventScroll: true });
     };
-    if (opening) window.setTimeout(reveal, SECTION_OPEN_MS);
+    if (inChecked) window.setTimeout(reveal, CHECKED_OPEN_MS);
     else requestAnimationFrame(reveal);
-  }, [sectionOf, openSections, checkedItems]);
+  }, [checkedItems]);
 
   const jumpTo = (id: string | undefined) => (id ? () => goTo(id) : undefined);
   const firstUnanswered = items.find((i) => !i.isDone && !i.isNotApplicable)?.id;
@@ -155,7 +108,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
     else onTogglePicked(itemId);
   }, [pickedSet, correctionById, onTogglePicked, onPickWith]);
 
-  const renderRow = (item: ChecklistInstanceItem, idx: number) => (
+  const renderRow = (item: ChecklistInstanceItem) => (
     <DetailItemRow
       key={item.id}
       item={item}
@@ -164,9 +117,6 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
       isLocked={!canSetAnswers}
       currentUserId={user?.id}
       overdue={false}
-      showHeader={false}
-      inSectionBox={hasSections}
-      isFirst={idx === 0}
       selecting
       picked={pickedSet.has(item.id)}
       onTogglePicked={togglePicked}
@@ -340,43 +290,9 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
           </span>
         </div>
 
-        {hasSections ? (
-          <div className="flex flex-col gap-3">
-            {sectionsLeft.map((section) => {
-              const open = openSections.has(section.key);
-              const panelId = `review-section-${instance.id}-${section.key}`;
-              return (
-                <section key={section.key} aria-label={section.name} className="flex flex-col">
-                  <button
-                    type="button"
-                    aria-expanded={open}
-                    aria-controls={panelId}
-                    onClick={() => toggleSection(section.key)}
-                    className={cn(
-                      'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl border px-3 text-left outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                      section.issues > 0 ? 'border-danger/25 bg-danger/[0.04] hover:border-danger/45' : 'border-border/60 bg-surface-hover/30 hover:border-border-hover',
-                    )}
-                  >
-                    <Layers size={14} className="shrink-0 text-text-muted" aria-hidden />
-                    <span className="min-w-0 flex-1 t-card font-display font-bold text-text line-clamp-2 leading-snug">{section.name}</span>
-                    <span className={cn('shrink-0 t-meta font-display font-semibold tabular-nums', section.issues > 0 ? 'text-danger' : 'text-success')}>
-                      {section.issues > 0 ? `${section.issues} ${section.issues === 1 ? 'issue' : 'issues'}` : 'No issues'}
-                      <span className="text-text-muted"> · {section.items.length} {section.items.length === 1 ? 'question' : 'questions'}</span>
-                    </span>
-                    <ChevronDown size={16} aria-hidden className={cn('shrink-0 text-text-muted transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', open && 'rotate-180')} />
-                  </button>
-                  <Collapse id={panelId} open={open} innerClassName="flex flex-col gap-3 pt-3">
-                    {section.items.map((item, idx) => renderRow(item, idx))}
-                  </Collapse>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {leftToCheck.map((item, idx) => renderRow(item, idx))}
-          </div>
-        )}
+        <div className="flex flex-col gap-3">
+          {leftToCheck.map((item) => renderRow(item))}
+        </div>
 
         {checkedItems.length > 0 && (
           <CompletedGroup
@@ -388,7 +304,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
             onToggle={() => setCheckedOpen((v) => !v)}
             bodyClassName="flex flex-col gap-3"
           >
-            {checkedItems.map((item, idx) => renderRow(item, idx))}
+            {checkedItems.map((item) => renderRow(item))}
           </CompletedGroup>
         )}
       </div>

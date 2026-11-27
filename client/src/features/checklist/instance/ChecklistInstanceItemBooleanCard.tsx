@@ -41,14 +41,14 @@ const LABELS_BY_ITEM_TYPE: Partial<Record<ChecklistInstanceItem['itemType'], { y
 
 const FOLLOW_UP: Record<ChecklistConditionalAction, { label: string; icon: LucideIcon }> = {
   REQUIRE_PHOTO: { label: 'Add a photo', icon: Camera },
-  ASK_REASON: { label: 'Say why', icon: MessageSquareText },
+  ASK_REASON: { label: "Explain what's wrong", icon: MessageSquareText },
   CREATE_ISSUE: { label: 'A ticket is raised', icon: TicketPlus },
   NOTIFY_AREA_MANAGER: { label: 'Area manager is told', icon: BellRing },
 };
 
 // 44px is the smallest comfortable touch target, and a phone has no room to spare above it.
 const ANSWER_BASE =
-  'group relative flex min-w-0 items-center justify-center gap-2 min-h-11 px-3 rounded-xl border t-card font-display font-semibold tracking-tight transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
+  'group relative flex min-w-0 items-center justify-center gap-2 min-h-11 px-2 sm:px-3 rounded-xl border text-sm sm:t-card font-display font-semibold tracking-tight transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]';
 
 type Tone = 'good' | 'bad' | 'plain' | 'muted';
 
@@ -222,7 +222,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const pendingTone = pendingAnswer ? toneFor(accepted, pendingAnswer) : 'plain';
   const pendingLabel = pendingAnswer === 'NO' ? labels.no : labels.yes;
   const sheetTitle = needsReason
-    ? (pendingAnswer === 'NO' ? (item.itemType === 'PASS_FAIL' ? 'Why did it fail?' : 'Why is it No?') : `Why is it ${pendingLabel}?`)
+    ? (pendingAnswer === 'NO' ? (item.itemType === 'PASS_FAIL' ? "What made it fail?" : "What's not right?") : `Why is it ${pendingLabel}?`)
     : needsPhoto ? `Add a photo for ${pendingLabel}` : `Answer ${pendingLabel}`;
 
   const cancelPending = () => {
@@ -263,7 +263,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             onChange={(e) => setReasonDraft(e.target.value)}
             rows={3}
             maxLength={1000}
-            placeholder="Say what you saw. The reviewer reads this."
+            placeholder="Describe what's wrong, so the reviewer understands why."
             className="min-h-0 px-3 py-2 rounded-lg resize-none"
           />
         ) : (
@@ -356,10 +356,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
 
       {previousAnswer && interactive && (
-        <p className="t-meta text-text-muted">Reopened. It was answered {previousAnswer} before. Answer it again.</p>
+        <p className="t-meta text-text-muted">You answered {previousAnswer} last time. Please take another look and answer again.</p>
       )}
 
-      <div className={cn('grid gap-2 sm:max-w-lg', canMarkNa ? 'grid-cols-[1fr_1fr_auto] sm:grid-cols-3' : 'grid-cols-2')} role="group" aria-label={`Answer: ${item.label}`}>
+      <div className={cn('grid gap-1.5 sm:gap-2 sm:max-w-lg', canMarkNa ? 'grid-cols-[1fr_1fr_auto] sm:grid-cols-3' : 'grid-cols-2')} role="group" aria-label={`Answer: ${item.label}`}>
         {answerButton('YES')}
         {answerButton('NO')}
         {canMarkNa && (

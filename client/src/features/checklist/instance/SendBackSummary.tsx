@@ -112,7 +112,6 @@ export const SendBackSummary = ({ instance, now, showLockNote, onGoTo }: SendBac
                         ) : (
                           <KindTag photoOnly={!!item.sendBackPhotoOnly} />
                         )}
-                        {item.section && <span className="t-meta text-text-muted">{item.section}</span>}
                       </span>
                     </span>
                     <ChevronRight size={16} className="mt-1 shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
