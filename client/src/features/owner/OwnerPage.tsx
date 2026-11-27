@@ -58,7 +58,7 @@ export const OwnerPage = () => {
   const deeper = [
     { to: scoresHref('department'), label: 'All scores' },
     { to: '/admin', label: 'Full analytics' },
-    { to: '/team/fill', label: 'Fill chart' },
+    { to: '/team/fill', label: 'Checklist Fill' },
     { to: '/admin/reports', label: 'Reports' },
   ].filter((l) => canOpen(l.to));
 

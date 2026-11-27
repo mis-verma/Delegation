@@ -221,7 +221,7 @@ export const MyTeamCard = () => {
             </Link>
             <Link to="/team/fill" viewTransition className={FOOT_LINK}>
               <Grid3x3 className="size-4" aria-hidden />
-              Fill chart
+              Checklist Fill
             </Link>
             <span className="flex-1" aria-hidden />
             <ExportMenu

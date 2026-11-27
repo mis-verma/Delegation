@@ -46,19 +46,12 @@ const CellFigures = ({ cell, align = 'end' }: { cell: PeriodCell | undefined; al
   if (!cell || cell.itemsDue === 0) return <span className="t-meta text-text-light">-</span>;
   return (
     <span className={cn('flex flex-col tabular-nums leading-tight', align === 'start' ? 'items-start' : 'items-end')}>
-      <span className="whitespace-nowrap t-meta font-display">
-        <span className="font-bold text-text">{formatCount(cell.itemsDone)}/{formatCount(cell.itemsDue)}</span>
-        <span className="text-text-light"> · </span>
-        <span className={cn('font-semibold', toneOf(cell.completionPct))}>{formatPct(cell.completionPct)}</span>
+      <span className={cn('whitespace-nowrap t-meta font-display font-semibold', toneOf(cell.completionPct))}>
+        {`Completion ${formatPct(cell.completionPct)}`}
       </span>
       <span className={cn('whitespace-nowrap t-meta font-display', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
         {cell.compliancePct === null ? 'Nothing checked' : `Compliance ${formatPct(cell.compliancePct)}`}
       </span>
-      {cell.runsDue > 0 && (
-        <span className={cn('whitespace-nowrap t-meta font-display', toneOf(cell.metDeadlinePct))}>
-          {cell.metDeadlinePct === null ? 'No deadline yet' : `Deadlines met ${formatPct(cell.metDeadlinePct)}`}
-        </span>
-      )}
     </span>
   );
 };

@@ -1,16 +1,12 @@
 import { memo, useId, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarCheck2, ChevronDown, Eye, Repeat, Trophy } from 'lucide-react';
+import { CalendarCheck2, ChevronDown, Eye, Repeat, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Collapse, EmptyState, IconChip, SelectDropdown, SlidingTabs, type SlidingTabOption } from '../../components';
+import { Collapse, IconChip } from '../../components';
 import type { DayCell, HeatmapRow } from '../../api/exceptions';
-import { FAIR_FROM } from '../../lib/scoreBands';
 import { MetricBar, ScoreBadge, ScoreTrack, StackBar } from '../checklist/instance/fillParts';
-import { FILL_SORT_OPTIONS, sortByScore, type FillSort } from '../checklist/instance/fillView';
 import { fillTone } from '../checklist/instance/fillCount';
 import { LevelAvatar } from './AttentionParts';
 import { DAY_LOOK, dayMonthOf } from './attentionDisplay';
-
-type Filter = 'all' | 'behind' | 'streak' | 'perfect';
 
 const STRIP_DAYS = 14;
 const WEEK = 7;
@@ -30,13 +26,6 @@ const weeklyTrend = (cells: DayCell[]) => {
     weeks.push({ label: `${dayMonthOf(slice[0].date)}`, pct: due ? (counts.done / due) * 100 : null });
   }
   return weeks;
-};
-
-const matchesFilter = (p: HeatmapRow, filter: Filter) => {
-  if (filter === 'behind') return p.fillRate != null && p.fillRate < FAIR_FROM;
-  if (filter === 'streak') return p.missedStreak >= 2;
-  if (filter === 'perfect') return p.due > 0 && p.missed === 0;
-  return true;
 };
 
 const DayStrip = ({ cells, today }: { cells: DayCell[]; today: string }) => {
@@ -164,44 +153,8 @@ interface FillPeopleCardsProps {
   onOpen: (userId: string) => void;
 }
 
-export const FillPeopleCards = ({ people, today, onOpen }: FillPeopleCardsProps) => {
-  const [filter, setFilter] = useState<Filter>('all');
-  const [sort, setSort] = useState<FillSort>('low');
-
-  const counts = useMemo(() => ({
-    all: people.length,
-    behind: people.filter((p) => matchesFilter(p, 'behind')).length,
-    streak: people.filter((p) => matchesFilter(p, 'streak')).length,
-    perfect: people.filter((p) => matchesFilter(p, 'perfect')).length,
-  }), [people]);
-
-  const shown = useMemo(
-    () => sortByScore(people.filter((p) => matchesFilter(p, filter)), (p) => p.fillRate, (p) => p.name, sort),
-    [people, filter, sort],
-  );
-
-  const filters: SlidingTabOption<Filter>[] = [
-    { value: 'all', label: 'Everyone', shortLabel: 'All', badge: counts.all },
-    { value: 'behind', label: 'Behind', icon: AlertTriangle, badge: counts.behind, badgeTone: 'danger' },
-    { value: 'streak', label: 'Missed in a row', shortLabel: 'In a row', icon: Repeat, badge: counts.streak },
-    { value: 'perfect', label: 'Never missed', shortLabel: 'Perfect', icon: Trophy, badge: counts.perfect },
-  ];
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <SlidingTabs label="Show" value={filter} options={filters} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
-        <div className="sm:w-44">
-          <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
-        </div>
-      </div>
-      {shown.length === 0 ? (
-        <EmptyState size="compact" icon={Trophy} title="Nobody here" description="Try another filter." action={{ label: 'Show everyone', onClick: () => setFilter('all') }} />
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {shown.map((p) => <PersonFillCard key={p.userId} person={p} today={today} onOpen={onOpen} />)}
-        </ul>
-      )}
-    </div>
-  );
-};
+export const FillPeopleCards = ({ people, today, onOpen }: FillPeopleCardsProps) => (
+  <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+    {people.map((p) => <PersonFillCard key={p.userId} person={p} today={today} onOpen={onOpen} />)}
+  </ul>
+);

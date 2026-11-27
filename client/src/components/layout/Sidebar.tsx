@@ -267,14 +267,14 @@ const SidebarImpl = ({ isOpen, user, onNavigate, onToggleCollapse }: SidebarProp
     { to: '/admin/owner', icon: Crown, label: 'Owner view', tint: 'primary' },
     { to: '/admin', icon: LayoutDashboard, label: 'Overview', tint: 'info' },
     { to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' },
-    { to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' },
+    { to: '/team/fill', icon: Grid3x3, label: 'Checklist Fill', tint: 'success' },
     { to: '/leave', icon: CalendarOff, label: 'Leave', tint: 'success' },
   ];
 
   const adminNavItems: NavItem[] = isOwner ? ownerNavItems : [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics', tint: 'info' }] : []),
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores', tint: 'warning' }] : []),
-    ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart', tint: 'success' }] : []),
+    ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Checklist Fill', tint: 'success' }] : []),
     ...(isManager || isSenior ? [{ to: '/tickets/approvals', icon: ShieldQuestion, label: 'Team approvals', tint: 'coral' }] : []),
     ...(user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue', tint: 'coral' }]

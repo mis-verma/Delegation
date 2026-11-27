@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Grid3x3, Search } from 'lucide-react';
+import { AlertTriangle, Grid3x3, Search, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, Skeleton, SlidingTabs } from '../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs } from '../../components';
 import { useStoredChoice } from '../../lib/useStoredChoice';
-import { FILL_VIEWS, FILL_VIEW_OPTIONS, type FillView } from '../checklist/instance/fillView';
+import { FILL_SORT_OPTIONS, FILL_VIEWS, FILL_VIEW_OPTIONS, sortByScore, type FillSort, type FillView } from '../checklist/instance/fillView';
 import { FillPeopleCards } from './FillPeopleCards';
+import { fillFilterCounts, fillFilterOptions, matchesFillFilter, type FillFilter } from './fillFilter';
 import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
 import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 import { FillCountCell } from '../checklist/instance/FillCountCell';
@@ -34,6 +35,8 @@ export const FillHeatmapPage = () => {
   const [query, setQuery] = useState('');
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [view, setView] = useStoredChoice<FillView>('fill-people-view', FILL_VIEWS, 'cards');
+  const [filter, setFilter] = useState<FillFilter>('all');
+  const [sort, setSort] = useState<FillSort>('low');
   const win = windowFor('month', offset, today);
   const heatmap = useFillHeatmap(win.from, win.to, departmentId, storeId);
   const departments = useDepartmentsQuery(orgWide);
@@ -45,6 +48,12 @@ export const FillHeatmapPage = () => {
     const all = data?.people ?? [];
     return q ? all.filter((p) => p.name.toLowerCase().includes(q) || p.departmentName?.toLowerCase().includes(q)) : all;
   }, [data, query]);
+
+  const filterCounts = useMemo(() => fillFilterCounts(rows), [rows]);
+  const shown = useMemo(
+    () => sortByScore(rows.filter((p) => matchesFillFilter(p, filter)), (p) => p.fillRate, (p) => p.name, sort),
+    [rows, filter, sort],
+  );
 
   const summary = useMemo(() => {
     const people = data?.people ?? [];
@@ -62,7 +71,7 @@ export const FillHeatmapPage = () => {
     { key: 'fill', kind: fillKind(summary.fill), label: 'Days filled', short: 'Filled', help: 'Days with every checklist filled, out of days due, for everyone shown' },
     { key: 'people', kind: 'total', label: 'People', help: 'People with a daily checklist in this month' },
     { key: 'perfect', kind: 'completed', label: 'Never missed', short: 'Perfect', help: 'People who filled every day that was due' },
-    { key: 'repeat', kind: 'late', label: 'Missing days in a row', short: 'In a row', help: 'People who missed two or more days in a row' },
+    { key: 'repeat', kind: 'late', label: 'People missing 2+ days', short: '2+ days', help: 'People who missed two or more days in a row' },
   ], [summary.fill]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -101,7 +110,7 @@ export const FillHeatmapPage = () => {
 
   return (
     <div className="flex w-full flex-col gap-4 pt-2.5 sm:gap-6">
-      <PageHeader icon={Grid3x3} title="Fill chart" subtitle="Who filled their daily checklists, day by day. Tap a name for their live view." />
+      <PageHeader icon={Grid3x3} title="Checklist Fill" subtitle="Who filled their daily checklists, day by day. Tap a name for their live view." />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <PeriodStepper
@@ -185,6 +194,16 @@ export const FillHeatmapPage = () => {
               <h2 className="t-section font-display font-bold text-text">{view === 'cards' ? 'People' : 'Day by day'}</h2>
               <SlidingTabs label="View" value={view} options={FILL_VIEW_OPTIONS} onChange={setView} size="sm" />
             </div>
+
+            {!heatmap.isPending && rows.length > 0 && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <SlidingTabs label="Show" value={filter} options={fillFilterOptions(filterCounts)} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
+                <div className="sm:w-44">
+                  <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-3">
               <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Legend">
                 {LEGEND.map((s) => (
@@ -202,8 +221,10 @@ export const FillHeatmapPage = () => {
               </div>
             ) : rows.length === 0 ? (
               <EmptyState size="compact" icon={Grid3x3} title={query ? 'Nobody matches' : 'No daily checklists in this month'} description={query ? 'Try another name.' : 'Pick another month or check who the daily checklists are assigned to.'} />
+            ) : shown.length === 0 ? (
+              <EmptyState size="compact" icon={Trophy} title="Nobody here" description="Try another filter." action={{ label: 'Show everyone', onClick: () => setFilter('all') }} />
             ) : view === 'cards' ? (
-              <FillPeopleCards people={rows} today={data!.today} onOpen={setOpenPerson} />
+              <FillPeopleCards people={shown} today={data!.today} onOpen={setOpenPerson} />
             ) : (
               <div ref={scrollerRef} className={cn('relative max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain rounded-2xl border border-border/60 bg-surface custom-scrollbar transition-opacity duration-200', heatmap.isFetching && 'opacity-80')}>
                 <table className="w-max min-w-full border-collapse">
@@ -222,11 +243,11 @@ export const FillHeatmapPage = () => {
                       <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Days with every checklist filled out of days due">Days filled</th>
                       <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Questions answered out of questions due on their checklists">Questions done</th>
                       <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Checklists finished before the cutoff out of checklists due">Met deadline</th>
-                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice">Answers right</th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-l border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice. Separated out: it measures accuracy, not fill">Answers right</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {rows.map((p) => (
+                    {shown.map((p) => (
                       <tr key={p.userId} className="group transition-colors duration-150 hover:bg-surface-hover/40">
                         <th scope="row" className="sticky left-0 z-10 bg-surface px-2 py-1.5 text-left font-normal transition-colors duration-150 group-hover:bg-surface-hover">
                           <button
@@ -265,7 +286,7 @@ export const FillHeatmapPage = () => {
                         <td className={COUNT_CELL_CLASS}>
                           <FillCountCell done={p.runsOnTime} due={p.runsDue} pct={p.metDeadlinePct} />
                         </td>
-                        <td className={COUNT_CELL_CLASS}>
+                        <td className={cn(COUNT_CELL_CLASS, 'border-l border-border/60')}>
                           <FillCountCell done={p.answersGood} due={p.answersChecked} pct={p.compliancePct} emptyTitle="No answers of theirs were checked in this month" />
                         </td>
                       </tr>
