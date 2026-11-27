@@ -162,53 +162,9 @@ export const ChecklistWeeklyReport = () => {
     <div className="flex w-full flex-col gap-4">
       <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in Scores." />
 
-      <section aria-label="Report controls" className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4')}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <SlidingTabs label="Report view" value={view} options={VIEW_OPTIONS} onChange={setView} size="sm" fill="phone" className="max-sm:w-full" />
-          <div className="flex items-center gap-2 max-sm:w-full">
-            {view === 'checklists' && (
-              <WeeklyExportMenu
-                period={period}
-                offset={offset}
-                storeId={storeId || undefined}
-                departmentId={appliedDepartmentId}
-                storeName={storeName}
-                departmentName={canPickDepartment ? departmentName : user?.role ? 'your department' : undefined}
-              />
-            )}
-            {(view === 'departments' || view === 'stores') && (
-              <ExportMenu
-                disabled={!boardItems?.length}
-                aria-label={`Export the ${view} scoreboard`}
-                filename={`report-${view}`}
-                sheetName="Report"
-                title={exportTitle({
-                  what: `Report, ${view === 'departments' ? 'Departments' : 'Stores'}`,
-                  from: range.from,
-                  to: range.to,
-                  period: range.label,
-                  filters: view === 'departments' ? { Store: storeName } : { Department: departmentName },
-                })}
-                getRows={exportBoard}
-                className="h-11 rounded-xl"
-              />
-            )}
-            <Dropdown
-              title="Open in Scores"
-              items={[
-                { label: 'Compare in Scores', icon: BarChart3, to: '/admin/scores?view=checklist' },
-                { label: 'Fill matrix in Scores', icon: Grid3x3, to: scoresMatrixHref },
-              ]}
-              trigger={
-                <button type="button" aria-label="More options" className="ml-auto flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border/60 bg-surface text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:ml-0">
-                  <MoreHorizontal className="size-5" aria-hidden="true" />
-                </button>
-              }
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-border/50 pt-3">
+      <section aria-label="Report controls" className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-4')}>
+        <SlidingTabs label="Report view" value={view} options={VIEW_OPTIONS} onChange={setView} size="sm" fill="phone" className="max-sm:w-full" />
+        <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -249,6 +205,45 @@ export const ChecklistWeeklyReport = () => {
               )}
             </PopoverContent>
           </Popover>
+          {view === 'checklists' && (
+            <WeeklyExportMenu
+              period={period}
+              offset={offset}
+              storeId={storeId || undefined}
+              departmentId={appliedDepartmentId}
+              storeName={storeName}
+              departmentName={canPickDepartment ? departmentName : user?.role ? 'your department' : undefined}
+            />
+          )}
+          {(view === 'departments' || view === 'stores') && (
+            <ExportMenu
+              disabled={!boardItems?.length}
+              aria-label={`Export the ${view} scoreboard`}
+              filename={`report-${view}`}
+              sheetName="Report"
+              title={exportTitle({
+                what: `Report, ${view === 'departments' ? 'Departments' : 'Stores'}`,
+                from: range.from,
+                to: range.to,
+                period: range.label,
+                filters: view === 'departments' ? { Store: storeName } : { Department: departmentName },
+              })}
+              getRows={exportBoard}
+              className="h-11 rounded-xl"
+            />
+          )}
+          <Dropdown
+            title="Open in Scores"
+            items={[
+              { label: 'Compare in Scores', icon: BarChart3, to: '/admin/scores?view=checklist' },
+              { label: 'Fill matrix in Scores', icon: Grid3x3, to: scoresMatrixHref },
+            ]}
+            trigger={
+              <button type="button" aria-label="More options" className="ml-auto flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border/60 bg-surface text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:ml-0">
+                <MoreHorizontal className="size-5" aria-hidden="true" />
+              </button>
+            }
+          />
         </div>
       </section>
 
