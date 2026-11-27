@@ -437,6 +437,7 @@ export const ChecklistComplianceBoard = () => {
         storeId={storeId || undefined}
         assigneeId={assigneeId || undefined}
         scopeLabel={scopeLabel || undefined}
+        simplified
       />
 
       <section aria-labelledby="compliance-runs-heading" className="flex flex-col gap-3 border-t border-border/60 pt-6">

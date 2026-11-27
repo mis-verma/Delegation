@@ -18,11 +18,13 @@ interface ChecklistInstanceKpiSectionProps {
   scopeLabel?: string;
   windowFrom?: string;
   windowTo?: string;
+  /** Show only Completion and Compliance, instead of the full six-card breakdown. */
+  simplified?: boolean;
 }
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
-export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, windowFrom, windowTo, linkCards = true }: ChecklistInstanceKpiSectionProps) => {
+export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, windowFrom, windowTo, linkCards = true, simplified = false }: ChecklistInstanceKpiSectionProps) => {
   const hasRange = Boolean(from || to);
   const chartQuery = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const cardQuery = useChecklistInstanceComplianceReportQuery(hasRange ? 'none' : groupBy, from, to, { includeDeleted, storeId, assigneeId });
@@ -132,9 +134,13 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
     caption: checklist ? `${checklist.done} of ${checklist.due} runs done` : undefined,
     href,
   };
-  const cards: KpiCardConfig[] = fromExplorer
-    ? [completionCard, itemsDoneCard, answersRightCard, photoCard, approvedCard, flaggedCard]
-    : [itemsDoneCard, answersRightCard, photoCard, approvedCard, flaggedCard, runsCard];
+  const simpleCompletionCard = { ...(fromExplorer ? completionCard : itemsDoneCard), label: SCORE_LABEL.completion, caption: undefined };
+  const simpleComplianceCard = { ...answersRightCard, label: SCORE_LABEL.compliance };
+  const cards: KpiCardConfig[] = simplified
+    ? [simpleCompletionCard, simpleComplianceCard]
+    : fromExplorer
+      ? [completionCard, itemsDoneCard, answersRightCard, photoCard, approvedCard, flaggedCard]
+      : [itemsDoneCard, answersRightCard, photoCard, approvedCard, flaggedCard, runsCard];
 
   return (
     <KpiSectionShell
@@ -156,12 +162,17 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
       chart={{
         data: chartQuery.data ?? [],
         groupBy,
-        series: [
-          { key: 'completionRate', label: SCORE_LABEL.itemsDone, color: 'var(--color-primary-500)' },
-          { key: 'complianceRate', label: complianceLabel('checklist'), color: 'var(--color-warning)' },
-          { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
-          { key: 'approvalRate', label: 'Approved first time', color: 'var(--color-coral-500)' },
-        ],
+        series: simplified
+          ? [
+              { key: 'completionRate', label: SCORE_LABEL.completion, color: 'var(--color-primary-500)' },
+              { key: 'complianceRate', label: SCORE_LABEL.compliance, color: 'var(--color-warning)' },
+            ]
+          : [
+              { key: 'completionRate', label: SCORE_LABEL.itemsDone, color: 'var(--color-primary-500)' },
+              { key: 'complianceRate', label: complianceLabel('checklist'), color: 'var(--color-warning)' },
+              { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
+              { key: 'approvalRate', label: 'Approved first time', color: 'var(--color-coral-500)' },
+            ],
         valueSuffix: '%',
         yDomain: [0, 100],
       }}
