@@ -89,7 +89,7 @@ export const LoginForm = () => {
                 }
                 {...register("password")}
               />
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 <Link
                   to="/reset-password"
                   className="font-display t-meta text-text-muted hover:text-text transition-colors"

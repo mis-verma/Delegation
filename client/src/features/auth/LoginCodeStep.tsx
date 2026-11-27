@@ -44,7 +44,7 @@ export const LoginCodeStep = ({ challenge, emailHint, onBack }: LoginCodeStepPro
         autoFocus
       />
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <label htmlFor="trust-device" className="t-meta font-display font-semibold text-text-secondary">Skip this code on this device for 30 days</label>
         <Switch id="trust-device" checked={remember} onChange={setRemember} />
       </div>
@@ -59,15 +59,15 @@ export const LoginCodeStep = ({ challenge, emailHint, onBack }: LoginCodeStepPro
         Verify and sign in
       </Button>
 
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={onBack} className="font-display t-meta text-text-muted hover:text-text transition-colors cursor-pointer">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center font-display t-meta text-text-muted hover:text-text transition-colors cursor-pointer">
           Use a different account
         </button>
         <button
           type="button"
           onClick={() => resend.mutate(challenge)}
           disabled={resend.isPending}
-          className="font-display t-meta text-primary-600 hover:text-primary-500 transition-colors cursor-pointer disabled:opacity-50"
+          className="inline-flex min-h-11 items-center font-display t-meta text-primary-600 hover:text-primary-500 transition-colors cursor-pointer disabled:opacity-50"
         >
           Send a new code
         </button>
