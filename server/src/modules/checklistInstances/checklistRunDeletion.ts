@@ -1,11 +1,11 @@
-import { and, asc, count, eq, gte, inArray, lt, notInArray, sql, type SQL } from "drizzle-orm"
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
-import { checklistInstances, checklistInstanceAssignees, notifications, users } from "../../db/schema/index.js"
+import { checklistInstances, checklistInstanceAssignees, stores, users } from "../../db/schema/index.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
-import { dropChecklistSummaries } from "./checklistInstanceShared.js"
+import { dropChecklistSummaries, paginate, buildMeta } from "./checklistInstanceShared.js"
 export { dayRange } from "./cleanupDays.js"
 
 const BATCH = 200
@@ -26,13 +26,13 @@ const assigneesOf = async (ids: string[]): Promise<string[]> => {
     return [...found]
 }
 
-const removeRuns = async (ids: string[]) => {
+// A deleted run is recycled, not removed: it keeps its answers, photos and score, just hidden from
+// every normal list, report and job, so an admin can restore it from the recycle bin later.
+const recycleRuns = async (ids: string[]) => {
+    const now = new Date()
     for (let i = 0; i < ids.length; i += BATCH) {
         const chunk = ids.slice(i, i + BATCH)
-        await db.transaction(async (tx) => {
-            await tx.delete(notifications).where(inArray(notifications.checklistInstanceId, chunk))
-            await tx.delete(checklistInstances).where(inArray(checklistInstances.id, chunk))
-        })
+        await db.update(checklistInstances).set({ deletedAt: now, updatedAt: now }).where(inArray(checklistInstances.id, chunk))
     }
 }
 
@@ -40,11 +40,11 @@ export const deleteRun = async (id: string, reason: string, user: AccessTokenPay
     assertAdmin(user)
     const note = reason.trim()
     if (!note) throw AppError.badRequest("Say why this run is being deleted.")
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("This checklist run was already deleted.")
     const assigneeIds = await assigneesOf([id])
 
-    await removeRuns([id])
+    await recycleRuns([id])
 
     await auditService.record({
         entityType: "ChecklistInstance", entityId: id, action: "DELETE", actorId: user.sub,
@@ -56,11 +56,60 @@ export const deleteRun = async (id: string, reason: string, user: AccessTokenPay
     return { deleted: 1 }
 }
 
+export const restoreRun = async (id: string, user: AccessTokenPayload) => {
+    assertAdmin(user)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNotNull(checklistInstances.deletedAt))).limit(1)
+    if (!instance) throw AppError.notFound("That checklist run is not in the recycle bin.")
+
+    const now = new Date()
+    await db.update(checklistInstances).set({ deletedAt: null, updatedAt: now }).where(eq(checklistInstances.id, id))
+
+    const assigneeIds = await assigneesOf([id])
+    await auditService.record({
+        entityType: "ChecklistInstance", entityId: id, action: "RESTORE", actorId: user.sub,
+        before: { deletedAt: instance.deletedAt }, after: { deletedAt: null },
+    })
+    await dropChecklistSummaries(assigneeIds)
+    emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+    return { restored: 1 }
+}
+
+export type RecycledRunFilter = { storeId?: string; q?: string; page?: number; limit?: number }
+
+export const listRecycledRuns = async (filter: RecycledRunFilter, user: AccessTokenPayload) => {
+    assertAdmin(user)
+    const p = paginate(filter.page, filter.limit)
+    const conditions: SQL[] = [isNotNull(checklistInstances.deletedAt)]
+    if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
+    if (filter.q?.trim()) conditions.push(sql`${checklistInstances.title} LIKE ${`%${filter.q.trim()}%`}`)
+    const where = and(...conditions)
+
+    const [[{ total } = { total: 0 }], rows] = await Promise.all([
+        db.select({ total: count() }).from(checklistInstances).where(where),
+        db.select({
+            id: checklistInstances.id,
+            title: checklistInstances.title,
+            storeId: checklistInstances.storeId,
+            storeName: stores.name,
+            periodStart: checklistInstances.periodStart,
+            verificationStatus: checklistInstances.verificationStatus,
+            deletedAt: checklistInstances.deletedAt,
+        })
+            .from(checklistInstances)
+            .leftJoin(stores, eq(checklistInstances.storeId, stores.id))
+            .where(where)
+            .orderBy(desc(checklistInstances.deletedAt))
+            .limit(p.limit).offset(p.offset),
+    ])
+    return { data: rows, meta: buildMeta(p, Number(total)) }
+}
+
 export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; from?: Date; to?: Date }
 
 const hasScope = (filter: TestRunFilter) => !!filter.userIds?.length || !!filter.definitionIds?.length || !!filter.to
 
 const runConditions = (filter: TestRunFilter): SQL[] => [
+    isNull(checklistInstances.deletedAt),
     ...(filter.definitionIds?.length ? [inArray(checklistInstances.definitionId, filter.definitionIds)] : []),
     ...(filter.from ? [gte(checklistInstances.periodStart, filter.from)] : []),
     ...(filter.to ? [lt(checklistInstances.periodStart, filter.to)] : []),
@@ -136,7 +185,7 @@ export const deleteTestRuns = async (filter: TestRunFilter, expectedCount: numbe
     if (!ids.length) return { deleted: 0 }
 
     const assigneeIds = filter.userIds?.length ? filter.userIds : await assigneesOf(ids)
-    await removeRuns(ids)
+    await recycleRuns(ids)
 
     await auditService.record({
         entityType: "ChecklistInstance", entityId: "bulk-cleanup", action: "DELETE", actorId: user.sub,
@@ -178,6 +227,7 @@ export const runChecklistsForCleanup = async (user: AccessTokenPayload) => {
         runs: count(),
     })
         .from(checklistInstances)
+        .where(isNull(checklistInstances.deletedAt))
         .groupBy(checklistInstances.definitionId)
         .orderBy(asc(sql`MAX(${checklistInstances.title})`))
     return rows.map((r) => ({ id: r.id, title: r.title, runs: Number(r.runs) }))

@@ -10,6 +10,7 @@ import { IconChip, PANEL_CLASS } from '../../../components';
 import { cn } from '@/lib/utils';
 import { useCanReopen } from './useCanReopen';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { itemRequirementBadges } from './checklistItemIcon';
 import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
 import { ItemActionButton } from './ItemActionButton';
@@ -105,10 +106,17 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
         >
           <Check size={13} strokeWidth={3.25} />
         </span>
-        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
           <p className={`text-sm sm:t-card font-display font-medium leading-snug ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
             {item.label}
           </p>
+          {!item.isDone && itemRequirementBadges(item).length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {itemRequirementBadges(item).map((badge) => (
+                <IconChip key={badge.label} icon={badge.icon} tone={badge.tone} label={badge.label} title={badge.title} iconOnlyOnMobile />
+              ))}
+            </div>
+          )}
           {awaitingConfirm && (
             <p className="t-meta font-display font-semibold text-primary-700 dark:text-primary-300">Tap again to confirm</p>
           )}
@@ -150,6 +158,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
         interactive={interactive}
         reopenPending={setItemDone.isPending}
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false })}
+        hidePhotoBadge
       />
 
       {images.length > 0 && (

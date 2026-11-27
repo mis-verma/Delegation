@@ -71,6 +71,7 @@ export const checklistInstances = mysqlTable(
     completedFirstAt: datetime('completedFirstAt', { mode: 'date' }),
     approvalReminderSentAt: datetime('approvalReminderSentAt', { mode: 'date' }),
     approvalEscalatedAt: datetime('approvalEscalatedAt', { mode: 'date' }),
+    deletedAt: datetime('deletedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -86,6 +87,7 @@ export const checklistInstances = mysqlTable(
     index('ChecklistInstance_verificationStatus_idx').on(table.verificationStatus),
     index('ChecklistInstance_overdueNotifiedAt_idx').on(table.overdueNotifiedAt),
     index('ChecklistInstance_draftReminderSentAt_idx').on(table.draftReminderSentAt),
+    index('ChecklistInstance_deletedAt_idx').on(table.deletedAt),
   ],
 );
 

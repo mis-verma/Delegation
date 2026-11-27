@@ -36,7 +36,7 @@ export const setItemDone = async (itemId: string, isDone: boolean, user: AccessT
     if (!item) throw AppError.notFound("Checklist item not found.")
 
     const [[instanceRow], assigneeLinkRows] = await Promise.all([
-        db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1),
+        db.select().from(checklistInstances).where(and(eq(checklistInstances.id, item.instanceId), isNull(checklistInstances.deletedAt))).limit(1),
         db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, item.instanceId)),
     ])
     if (!instanceRow) throw AppError.notFound("Checklist instance not found.")
@@ -235,7 +235,7 @@ const commitSubmission = async (instance: typeof checklistInstances.$inferSelect
 }
 
 export const submit = async (id: string, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeIds = assigneeLinks.map((l) => l.userId)
@@ -281,7 +281,7 @@ const RESET_ITEM_VALUES = {
 } as const
 
 export const revokeSubmission = async (id: string, input: { itemId?: string; note?: string }, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeIds = assigneeLinks.map((l) => l.userId)
@@ -346,7 +346,7 @@ export const revokeSubmission = async (id: string, input: { itemId?: string; not
 }
 
 export const sendBack = async (id: string, input: { itemIds: string[]; note: string; fixByHours?: number; photoOnlyItemIds?: string[] }, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const adminReopen = user.role === "ADMIN" && instance.verificationStatus === "APPROVED"
     if (instance.verificationStatus !== "PENDING_APPROVAL" && !adminReopen) {
@@ -438,7 +438,7 @@ export const sendBack = async (id: string, input: { itemIds: string[]; note: str
 }
 
 export const raiseTicket = async (id: string, itemId: string, input: RaiseChecklistTicketInput, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     if (instance.verificationStatus !== "PENDING_APPROVAL") {
         throw AppError.badRequest("A ticket can be raised only while the checklist is waiting for approval.")
@@ -566,7 +566,7 @@ const goodAnswerPatch = (item: FillableItem): Partial<typeof checklistInstanceIt
 
 export const completeAll = async (id: string, input: { reason: string }, user: AccessTokenPayload) => {
     const [[instance], assigneeLinks, reviewerLinks, [actor]] = await Promise.all([
-        db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1),
+        db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1),
         db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id)),
         db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id)),
         db.select({ canCompleteAll: users.canCompleteAll }).from(users).where(eq(users.id, user.sub)).limit(1),
@@ -690,7 +690,7 @@ const saveItemRemarks = async (instanceId: string, itemRemarks: VerifyChecklistI
 }
 
 export const verify = async (id: string, input: VerifyChecklistInstanceInput, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
 
     if (instance.verificationStatus !== "PENDING_APPROVAL") {
@@ -796,7 +796,7 @@ export const verify = async (id: string, input: VerifyChecklistInstanceInput, us
 
 export const reopenApproval = async (id: string, user: AccessTokenPayload) => {
     if (user.role !== "ADMIN") throw AppError.forbidden("Only an admin can reopen an approval.")
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     if (instance.verificationStatus !== "APPROVED") {
         throw AppError.badRequest("Only an approved checklist can be reopened for approval.")

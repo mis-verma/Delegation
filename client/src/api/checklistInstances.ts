@@ -583,6 +583,14 @@ export const checklistInstanceApi = {
   deleteRun: (id: string, reason: string) =>
     apiFetch<ApiResponse<{ deleted: number }>>(`/checklist-instances/${id}`, { method: 'DELETE', body: JSON.stringify({ reason }) }).then(r => r.data),
 
+  restoreRun: (id: string) =>
+    apiFetch<ApiResponse<{ restored: number }>>(`/checklist-instances/${id}/restore`, { method: 'POST' }).then(r => r.data),
+
+  listRecycled: (filter: { storeId?: string; q?: string } & PageParams = {}) =>
+    apiFetch<ApiResponse<RecycledRun[]> & { meta: ChecklistInstancePage }>(
+      `/checklist-instances/admin/recycle${buildQuery({ ...filter })}`,
+    ),
+
   cleanupChecklists: () =>
     apiFetch<ApiResponse<CleanupChecklist[]>>('/checklist-instances/admin/test-runs/checklists').then(r => r.data),
 
@@ -730,6 +738,16 @@ export const checklistItemHistoryApi = {
 };
 
 export type TestRunFilter = { userIds?: string[]; definitionIds?: string[]; fromDate?: string; toDate?: string };
+
+export type RecycledRun = {
+  id: string;
+  title: string;
+  storeId: string;
+  storeName: string | null;
+  periodStart: string;
+  verificationStatus: ChecklistVerificationStatus;
+  deletedAt: string;
+};
 
 export type CleanupPerson = { id: string; name: string; isActive: boolean; runs: number };
 

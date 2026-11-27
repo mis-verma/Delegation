@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, completeAllChecklistSchema, snoozeAlarmSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, testRunPeopleSchema, deleteRunSchema } from "./checklistInstance.validation.js"
-import { dayRange, deleteRun, deleteTestRuns, peopleForCleanup, previewTestRuns, runChecklistsForCleanup } from "./checklistRunDeletion.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, revokeChecklistInstanceSchema, waiveChecklistItemSchema, completeAllChecklistSchema, snoozeAlarmSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema, testRunPreviewSchema, testRunDeleteSchema, testRunPeopleSchema, deleteRunSchema, recycledRunsQuerySchema } from "./checklistInstance.validation.js"
+import { dayRange, deleteRun, deleteTestRuns, peopleForCleanup, previewTestRuns, runChecklistsForCleanup, restoreRun, listRecycledRuns } from "./checklistRunDeletion.js"
 import { myRingingAlarms, snoozeAlarm } from "./checklistAlarm.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
@@ -185,6 +185,15 @@ export const checklistInstanceController = {
     deleteRun: asyncHandler(async (req: Request, res: Response) => {
         const { reason } = deleteRunSchema.parse(req.body ?? {})
         res.json({ success: true, data: await deleteRun(routeParam(req, "id"), reason, req.user!) })
+    }),
+
+    restoreRun: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await restoreRun(routeParam(req, "id"), req.user!) })
+    }),
+
+    listRecycledRuns: asyncHandler(async (req: Request, res: Response) => {
+        const query = recycledRunsQuerySchema.parse(req.query)
+        res.json({ success: true, ...await listRecycledRuns(query, req.user!) })
     }),
 
     cleanupChecklists: asyncHandler(async (req: Request, res: Response) => {

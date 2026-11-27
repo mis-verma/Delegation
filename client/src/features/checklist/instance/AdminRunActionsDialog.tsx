@@ -7,6 +7,7 @@ import { useDeleteChecklistRunMutation, useRevokeChecklistSubmissionMutation, us
 import { answerText } from './answerText';
 import { QUICK_REASONS, hasReason, toggleReason } from './sendBackNote';
 import { RunVerificationChip } from './RunVerificationChip';
+import { EvidenceThumb } from './EvidenceThumb';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface AdminRunActionsDialogProps {
@@ -15,6 +16,7 @@ interface AdminRunActionsDialogProps {
 }
 
 const NOTE_MAX = 1000;
+export const MAX_RECORRECT_ITEMS = 10;
 
 export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDialogProps) => {
   const confirm = useConfirm();
@@ -28,13 +30,17 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
   const approved = instance.verificationStatus === 'APPROVED';
   const trimmed = note.trim();
   const count = picked.size;
+  const atCap = count >= MAX_RECORRECT_ITEMS;
   const recorrecting = count > 0;
   const ready = trimmed.length > 0 && !busy;
 
   const toggle = (id: string) => setPicked((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id);
-    else next.add(id);
+    else {
+      if (next.size >= MAX_RECORRECT_ITEMS) return prev;
+      next.add(id);
+    }
     return next;
   });
 
@@ -69,7 +75,13 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
 
   const failure = revoke.error ?? sendBack.error ?? removeRun.error;
   const errorText = failure ? (failure instanceof Error ? failure.message : 'Something went wrong. Try again.') : null;
-  const hint = !trimmed ? 'Add a note so the team knows what to fix.' : recorrecting ? `Only the ${count} ticked ${count === 1 ? 'question goes' : 'questions go'} back.` : 'Nothing ticked, so the whole checklist goes back.';
+  const hint = !trimmed
+    ? 'Add a note so the team knows what to fix.'
+    : atCap
+      ? `That's the most you can send back at once (${MAX_RECORRECT_ITEMS}). Untick one to pick another.`
+      : recorrecting
+        ? `Only the ${count} ticked ${count === 1 ? 'question goes' : 'questions go'} back.`
+        : 'Nothing ticked, so the whole checklist goes back.';
 
   return (
     <Modal
@@ -106,20 +118,30 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
       </div>
 
       <section aria-labelledby={`${noteId}-questions`} className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h3 id={`${noteId}-questions`} className="t-card font-display font-bold text-text">Tick what needs fixing</h3>
-          <span className="t-meta font-display font-semibold tabular-nums text-text-muted">{count} of {instance.items.length}</span>
+          <span
+            className={cn(
+              'rounded-full px-2.5 py-0.5 t-meta font-display font-semibold tabular-nums ring-1 ring-inset',
+              atCap ? 'bg-danger/10 text-danger ring-danger/30' : 'bg-surface text-text-secondary ring-border/60',
+            )}
+          >
+            {count} of {MAX_RECORRECT_ITEMS}
+          </span>
         </div>
+        <p className="t-meta text-text-muted">You can send back up to {MAX_RECORRECT_ITEMS} items at a time.</p>
         <ul className="flex flex-col gap-2" aria-label="Submitted answers">
           {instance.items.map((item) => {
             const on = picked.has(item.id);
+            const lockedByCap = atCap && !on;
             const answer = item.isNotApplicable ? 'Not applicable' : answerText(item) ?? (item.isDone ? 'Done' : 'No answer');
+            const images = item.images.filter((img) => img.purpose === 'GENERAL');
             return (
-              <li key={item.id}>
+              <li key={item.id} className="flex flex-col gap-2">
                 <button
                   type="button"
                   aria-pressed={on}
-                  disabled={busy}
+                  disabled={busy || lockedByCap}
                   onClick={() => toggle(item.id)}
                   className={cn(
                     'flex min-h-14 w-full cursor-pointer items-start gap-3 rounded-xl border p-3 text-left outline-none transition-colors duration-150 ease-out touch-manipulation focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-60',
@@ -141,6 +163,13 @@ export const AdminRunActionsDialog = ({ instance, onClose }: AdminRunActionsDial
                     {item.remarks && <span className="t-meta text-text-muted break-words">"{item.remarks}"</span>}
                   </span>
                 </button>
+                {images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-8">
+                    {images.map((img) => (
+                      <EvidenceThumb key={img.id} image={img} siblings={images} />
+                    ))}
+                  </div>
+                )}
               </li>
             );
           })}

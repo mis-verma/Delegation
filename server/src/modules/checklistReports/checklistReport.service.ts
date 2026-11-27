@@ -183,10 +183,10 @@ export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
 const NO_DEPARTMENT_KEY = "__none__"
 const NO_DEPARTMENT_LABEL = "No department"
 
-const parentNotDeletedExpr = sql`NOT EXISTS (
+const parentNotDeletedExpr = sql`(${checklistInstances.deletedAt} IS NULL AND NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
-)`
+))`
 
 const item = checklistInstanceItems
 
