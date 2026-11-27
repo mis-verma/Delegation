@@ -28,6 +28,7 @@ export const ScoresFillMatrix = ({ from, to, today, windowLabel, storeId, depart
   const tooLong = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS > MAX_SPAN_DAYS;
   const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(from, to, storeId, departmentId, !tooLong);
   const how = howCalculated('completion', 'checklist');
+  const csvTitle = exportTitle({ what: 'Scores, daily fill matrix', from, to, period: windowLabel, filters: { Store: storeName, Department: departmentName } });
 
   return (
     <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
@@ -54,7 +55,7 @@ export const ScoresFillMatrix = ({ from, to, today, windowLabel, storeId, depart
           label="Fill matrix"
           filename="scores-fill-matrix"
           sheetName="Fill matrix"
-          title={exportTitle({ what: 'Scores, daily fill matrix', from, to, period: windowLabel, filters: { Store: storeName, Department: departmentName } })}
+          title={csvTitle}
           getRows={() => (data ? fillMatrixRows(data) : [])}
         />
       </div>
@@ -77,7 +78,7 @@ export const ScoresFillMatrix = ({ from, to, today, windowLabel, storeId, depart
         />
       ) : data ? (
         <>
-          <FillMatrix data={data} today={today} label={windowLabel} />
+          <FillMatrix data={data} today={today} label={windowLabel} csvTitle={csvTitle} />
           {isPlaceholderData && <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These rings are for the previous period until {windowLabel} loads.</p>}
         </>
       ) : null}

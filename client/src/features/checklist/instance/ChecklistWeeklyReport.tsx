@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { BarChart3, Building2, CalendarCheck2, CalendarRange, ChevronRight, Grid3x3, ListChecks, MoreHorizontal, SearchX, Store } from 'lucide-react';
+import { BarChart3, Building2, CalendarCheck2, CalendarRange, ChevronRight, Grid3x3, ListChecks, MoreHorizontal, SearchX, SlidersHorizontal, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, Dropdown, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs, type SlidingTabOption } from '../../../components';
+import { Combobox, CountBadge, Dropdown, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs, type SlidingTabOption } from '../../../components';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { formatPct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
@@ -154,6 +155,8 @@ export const ChecklistWeeklyReport = () => {
   const showStoreFilter = view !== 'stores';
   const showDepartmentFilter = canPickDepartment && view !== 'departments';
   const departmentName = canPickDepartment ? departments.find((d) => d.id === departmentId)?.name : undefined;
+  const fillCsvTitle = exportTitle({ what: 'Checklist fill', from: range.from, to: range.to, period: range.label, filters: { Store: storeName, Department: departmentName } });
+  const controlsBadgeCount = (offset !== 0 ? 1 : 0) + (storeId ? 1 : 0) + (departmentId ? 1 : 0);
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -205,38 +208,47 @@ export const ChecklistWeeklyReport = () => {
           </div>
         </div>
 
-        <div className={cn('flex flex-col gap-2 border-t border-border/50 pt-3 lg:flex-row lg:items-center lg:justify-between', view === 'periods' && 'lg:justify-end')}>
-          {view !== 'periods' && (
-            <div className="flex items-center gap-2">
-              <div className="w-28 shrink-0">
-                <SelectDropdown aria-label="Period" label="Period" value={period} options={PERIOD_OPTIONS} onChange={(next) => { setPeriod(next); setOffset(0); }} />
-              </div>
-              <PeriodStepper
-                label={range.label}
-                onPrev={() => setOffset((o) => o - 1)}
-                onNext={() => setOffset((o) => Math.min(0, o + 1))}
-                nextDisabled={offset >= 0}
-                prevLabel={`Previous ${periodWord}`}
-                nextLabel={`Next ${periodWord}`}
-                todayLabel={offset !== 0 ? `This ${periodWord}` : undefined}
-                onToday={() => setOffset(0)}
-              />
-            </div>
-          )}
-          {(showStoreFilter || showDepartmentFilter) && (
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              {showStoreFilter && (
-                <div className={cn('min-w-0 sm:w-52', !showDepartmentFilter && 'col-span-2')}>
-                  <Combobox id="weekly-store" label="Store" value={storeId} onChange={setStoreId} options={storeOptions} emptyOptionLabel="All stores" placeholder="All stores" isLoading={storesPending} />
+        <div className="flex items-center gap-2 border-t border-border/50 pt-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Period and filters${controlsBadgeCount ? `, ${controlsBadgeCount} applied` : ''}`}
+                className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              >
+                <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">{view === 'periods' ? 'Filters' : range.label}</span>
+                <CountBadge count={controlsBadgeCount} label={`${controlsBadgeCount} filters applied`} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="flex w-80 max-w-[90vw] flex-col gap-3">
+              {view !== 'periods' && (
+                <div className="flex flex-col gap-2">
+                  <SelectDropdown aria-label="Period" label="Period" value={period} options={PERIOD_OPTIONS} onChange={(next) => { setPeriod(next); setOffset(0); }} />
+                  <PeriodStepper
+                    label={range.label}
+                    onPrev={() => setOffset((o) => o - 1)}
+                    onNext={() => setOffset((o) => Math.min(0, o + 1))}
+                    nextDisabled={offset >= 0}
+                    prevLabel={`Previous ${periodWord}`}
+                    nextLabel={`Next ${periodWord}`}
+                    todayLabel={offset !== 0 ? `This ${periodWord}` : undefined}
+                    onToday={() => setOffset(0)}
+                  />
                 </div>
               )}
-              {showDepartmentFilter && (
-                <div className={cn('min-w-0 sm:w-52', !showStoreFilter && 'col-span-2')}>
-                  <Combobox id="weekly-department" label="Department" value={departmentId} onChange={setDepartmentId} options={departmentOptions} emptyOptionLabel="All departments" placeholder="All departments" isLoading={departmentsPending} />
+              {(showStoreFilter || showDepartmentFilter) && (
+                <div className={cn('flex flex-col gap-2', view !== 'periods' && 'border-t border-border/50 pt-3')}>
+                  {showStoreFilter && (
+                    <Combobox id="weekly-store" label="Store" value={storeId} onChange={setStoreId} options={storeOptions} emptyOptionLabel="All stores" placeholder="All stores" isLoading={storesPending} />
+                  )}
+                  {showDepartmentFilter && (
+                    <Combobox id="weekly-department" label="Department" value={departmentId} onChange={setDepartmentId} options={departmentOptions} emptyOptionLabel="All departments" placeholder="All departments" isLoading={departmentsPending} />
+                  )}
                 </div>
               )}
-            </div>
-          )}
+            </PopoverContent>
+          </Popover>
         </div>
       </section>
 
@@ -305,7 +317,7 @@ export const ChecklistWeeklyReport = () => {
                 aria-label="Export the fill table"
                 filename="checklist-fill"
                 sheetName="Fill"
-                title={exportTitle({ what: 'Checklist fill', from: range.from, to: range.to, period: range.label, filters: { Store: storeName, Department: departmentName } })}
+                title={fillCsvTitle}
                 getRows={() => fillMatrixRows(data)}
                 className="h-11 rounded-lg sm:h-9"
               />
@@ -316,8 +328,8 @@ export const ChecklistWeeklyReport = () => {
             <FillChecklistCards data={data} />
           ) : (
             <>
-              <p className="t-meta font-display text-text-muted">Each row shows questions answered, days that met the deadline and answers right, with the counts behind each %.</p>
-              <FillMatrix data={data} today={today} label={range.label} />
+              <p className="t-meta font-display text-text-muted">Each row shows Completion (checklists filled out of due) and Compliance (answers right). Click Completion to download the full breakdown as CSV.</p>
+              <FillMatrix data={data} today={today} label={range.label} csvTitle={fillCsvTitle} />
             </>
           )}
 
