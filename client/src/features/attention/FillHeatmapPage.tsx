@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Grid3x3, Search, Trophy } from 'lucide-react';
+import { AlertTriangle, Download, Grid3x3, SlidersHorizontal, Search, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs } from '../../components';
+import { Combobox, CountBadge, EmptyState, ExportMenu, InlineError, Input, NoticeBanner, PageHeader, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs } from '../../components';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { useStoredChoice } from '../../lib/useStoredChoice';
 import { FILL_SORT_OPTIONS, FILL_VIEWS, FILL_VIEW_OPTIONS, sortByScore, type FillSort, type FillView } from '../checklist/instance/fillView';
 import { FillPeopleCards } from './FillPeopleCards';
 import { fillFilterCounts, fillFilterOptions, matchesFillFilter, type FillFilter } from './fillFilter';
-import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
+import { downloadCsvNow, exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
 import { StatusFigureStats, type StatusFigureItem } from '../dashboard/StatusFigureStats';
 import { FillCountCell } from '../checklist/instance/FillCountCell';
 import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, countText, fillKind } from '../checklist/instance/fillCount';
@@ -88,8 +89,8 @@ export const FillHeatmapPage = () => {
   const exportRows = (): TableRows => [
     [
       'Person', 'Department', 'Store', ...(data?.days ?? []),
-      'Days filled', 'Filled %', 'Questions done', 'Questions due', 'Questions done %',
-      'Met deadline (days)', 'Met deadline %', 'Answers right (good/checked)', 'Answers right %',
+      'Days filled', 'Completion %', 'Questions done', 'Questions due', 'Questions done %',
+      'Met deadline (days)', 'Met deadline %', 'Answers right (good/checked)', 'Compliance %',
     ],
     ...rows.map((p) => [
       p.name,
@@ -108,47 +109,78 @@ export const FillHeatmapPage = () => {
     ]),
   ];
 
+  const exportTitleLines = exportTitle({
+    what: 'Checklist fill by person',
+    from: win.from,
+    to: win.to,
+    period: win.label,
+    filters: {
+      Department: departments.data?.find((d) => d.id === departmentId)?.name,
+      Store: stores.data?.find((st) => st.id === storeId)?.name,
+      Search: query.trim() || null,
+    },
+  });
+  const downloadCompletionCsv = () => downloadCsvNow('fill-by-person', exportRows(), exportTitleLines);
+  const activeFilterCount = (departmentId ? 1 : 0) + (storeId ? 1 : 0) + (filter !== 'all' ? 1 : 0);
+
   return (
     <div className="flex w-full flex-col gap-4 pt-2.5 sm:gap-6">
       <PageHeader icon={Grid3x3} title="Checklist Fill" subtitle="Who filled their daily checklists, day by day. Tap a name for their live view." />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <PeriodStepper
-          label={win.label}
-          onPrev={() => setOffset((o) => o - 1)}
-          onNext={() => setOffset((o) => Math.min(0, o + 1))}
-          nextDisabled={offset >= 0}
-          prevLabel="Previous month"
-          nextLabel="Next month"
-          todayLabel={offset !== 0 ? 'This month' : undefined}
-          onToday={offset !== 0 ? () => setOffset(0) : undefined}
-        />
-        {orgWide && (
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto">
-            <div className="sm:w-52">
-              <Combobox
-                id="fill-department"
-                value={departmentId}
-                onChange={setDepartmentId}
-                isLoading={departments.isPending}
-                placeholder="All departments"
-                emptyOptionLabel="All departments"
-                options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-              />
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Period and filters${activeFilterCount ? `, ${activeFilterCount} applied` : ''}`}
+              className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">{win.label}</span>
+              <CountBadge count={activeFilterCount} label={`${activeFilterCount} filters applied`} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="flex w-80 max-w-[90vw] flex-col gap-3">
+            <PeriodStepper
+              label={win.label}
+              onPrev={() => setOffset((o) => o - 1)}
+              onNext={() => setOffset((o) => Math.min(0, o + 1))}
+              nextDisabled={offset >= 0}
+              prevLabel="Previous month"
+              nextLabel="Next month"
+              todayLabel={offset !== 0 ? 'This month' : undefined}
+              onToday={offset !== 0 ? () => setOffset(0) : undefined}
+            />
+            {orgWide && (
+              <div className="flex flex-col gap-2">
+                <Combobox
+                  id="fill-department"
+                  label="Department"
+                  value={departmentId}
+                  onChange={setDepartmentId}
+                  isLoading={departments.isPending}
+                  placeholder="All departments"
+                  emptyOptionLabel="All departments"
+                  options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
+                />
+                <Combobox
+                  id="fill-store"
+                  label="Store"
+                  value={storeId}
+                  onChange={setStoreId}
+                  isLoading={stores.isPending}
+                  placeholder="All stores"
+                  emptyOptionLabel="All stores"
+                  options={(stores.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                />
+              </div>
+            )}
+            <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
+              <SlidingTabs label="Show" value={filter} options={fillFilterOptions(filterCounts)} onChange={setFilter} size="sm" fill="phone" />
+              <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
             </div>
-            <div className="sm:w-52">
-              <Combobox
-                id="fill-store"
-                value={storeId}
-                onChange={setStoreId}
-                isLoading={stores.isPending}
-                placeholder="All stores"
-                emptyOptionLabel="All stores"
-                options={(stores.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
-              />
-            </div>
-          </div>
-        )}
+          </PopoverContent>
+        </Popover>
         <span className="hidden sm:block sm:flex-1" aria-hidden />
         <div className="flex items-center gap-2">
           <div className="flex-1 sm:w-64 sm:flex-none">
@@ -159,17 +191,7 @@ export const FillHeatmapPage = () => {
             aria-label="Export the fill chart"
             filename="fill-by-person"
             sheetName="Fill"
-            title={exportTitle({
-              what: 'Checklist fill by person',
-              from: win.from,
-              to: win.to,
-              period: win.label,
-              filters: {
-                Department: departments.data?.find((d) => d.id === departmentId)?.name,
-                Store: stores.data?.find((st) => st.id === storeId)?.name,
-                Search: query.trim() || null,
-              },
-            })}
+            title={exportTitleLines}
             getRows={exportRows}
             className="h-11 rounded-lg shrink-0"
           />
@@ -194,15 +216,6 @@ export const FillHeatmapPage = () => {
               <h2 className="t-section font-display font-bold text-text">{view === 'cards' ? 'People' : 'Day by day'}</h2>
               <SlidingTabs label="View" value={view} options={FILL_VIEW_OPTIONS} onChange={setView} size="sm" />
             </div>
-
-            {!heatmap.isPending && rows.length > 0 && (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <SlidingTabs label="Show" value={filter} options={fillFilterOptions(filterCounts)} onChange={setFilter} size="sm" fill="phone" className="max-sm:w-full" />
-                <div className="sm:w-44">
-                  <SelectDropdown aria-label="Sort" label="Sort" value={sort} options={FILL_SORT_OPTIONS} onChange={setSort} />
-                </div>
-              </div>
-            )}
 
             <div className="flex flex-wrap items-center gap-3">
               <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Legend">
@@ -240,10 +253,18 @@ export const FillHeatmapPage = () => {
                           </span>
                         </th>
                       ))}
-                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Days with every checklist filled out of days due">Days filled</th>
-                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Questions answered out of questions due on their checklists">Questions done</th>
-                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface')} title="Checklists finished before the cutoff out of checklists due">Met deadline</th>
-                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-l border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice. Separated out: it measures accuracy, not fill">Answers right</th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border/60 bg-surface p-0')}>
+                        <button
+                          type="button"
+                          onClick={downloadCompletionCsv}
+                          title="Days with every checklist filled out of days due. Click to download as CSV"
+                          className="group flex h-full w-full cursor-pointer items-center justify-end gap-1 px-3 py-2.5 outline-none transition-colors duration-150 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 dark:hover:text-primary-300"
+                        >
+                          Completion
+                          <Download className="size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" aria-hidden="true" />
+                        </button>
+                      </th>
+                      <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-l border-b border-border/60 bg-surface')} title="Good answers out of checked answers they gave. Critical questions count twice. Separated out: it measures accuracy, not fill">Compliance</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
@@ -277,14 +298,16 @@ export const FillHeatmapPage = () => {
                             <span className="sr-only">{`${dayMonthOf(c.date)} ${DAY_LOOK[c.state].label}`}</span>
                           </td>
                         ))}
-                        <td className={COUNT_CELL_CLASS}>
-                          <FillCountCell done={p.due - p.missed} due={p.due} pct={p.fillRate} unit={p.due === 1 ? 'day' : 'days'} />
-                        </td>
-                        <td className={COUNT_CELL_CLASS}>
-                          <FillCountCell done={p.questionsDone} due={p.questionsDue} pct={p.questionsPct} />
-                        </td>
-                        <td className={COUNT_CELL_CLASS}>
-                          <FillCountCell done={p.runsOnTime} due={p.runsDue} pct={p.metDeadlinePct} />
+                        <td className={cn(COUNT_CELL_CLASS, 'p-0')}>
+                          <button
+                            type="button"
+                            onClick={downloadCompletionCsv}
+                            title={`Download ${p.name}'s fill as CSV`}
+                            aria-label={`Download the fill chart as CSV`}
+                            className="flex w-full cursor-pointer justify-end rounded-lg px-3 py-2.5 outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                          >
+                            <FillCountCell done={p.due - p.missed} due={p.due} pct={p.fillRate} unit={p.due === 1 ? 'day' : 'days'} />
+                          </button>
                         </td>
                         <td className={cn(COUNT_CELL_CLASS, 'border-l border-border/60')}>
                           <FillCountCell done={p.answersGood} due={p.answersChecked} pct={p.compliancePct} emptyTitle="No answers of theirs were checked in this month" />

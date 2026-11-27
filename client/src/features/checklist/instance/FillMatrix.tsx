@@ -1,12 +1,13 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { CalendarOff, Minus } from 'lucide-react';
+import { CalendarOff, Download, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { formatPct } from '../../../lib/percent';
+import { downloadCsvNow } from '../../../lib/exportTable';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
-import { STATE } from './fillMatrixState';
+import { STATE, fillMatrixRows } from './fillMatrixState';
 import { FillCountCell } from './FillCountCell';
 import { COUNT_CELL_CLASS, COUNT_HEAD_CLASS, fillTone, formatCount } from './fillCount';
 
@@ -96,7 +97,7 @@ FillCell.displayName = 'FillCell';
 
 const openNote = (open: number) => (open ? `+${open} open` : undefined);
 
-const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
+const MatrixRow = memo(({ row, onDownload }: { row: WeeklyReportRow; onDownload: () => void }) => (
   <tr className="group border-b border-border/60 transition-colors duration-150 last:border-0 hover:bg-surface-hover/40">
     <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 font-normal transition-colors duration-150 group-hover:bg-surface-hover">
       <span className="block w-36 sm:w-56 t-card font-display font-semibold text-text leading-snug line-clamp-2 break-words">{row.name}</span>
@@ -105,13 +106,18 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
     {row.cells.map(cell => (
       <td key={cell.date} className="px-1 py-1 text-center align-middle"><FillCell cell={cell} name={row.name} /></td>
     ))}
-    <td className={COUNT_CELL_CLASS}>
-      <FillCountCell done={row.questionsDone} due={row.questionsDue} pct={row.questionsPct} note={openNote(row.open)} />
+    <td className={cn(COUNT_CELL_CLASS, 'p-0')}>
+      <button
+        type="button"
+        onClick={onDownload}
+        title={`Download ${row.name}'s fill as CSV`}
+        aria-label="Download the fill table as CSV"
+        className="flex w-full cursor-pointer justify-end rounded-lg px-3 py-2.5 outline-none transition-colors duration-150 hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+      >
+        <FillCountCell done={row.completed} due={row.due} pct={row.completion} note={openNote(row.open)} unit={row.due === 1 ? 'day' : 'days'} />
+      </button>
     </td>
-    <td className={COUNT_CELL_CLASS}>
-      <FillCountCell done={row.onTime} due={row.due} pct={row.rate} unit={row.due === 1 ? 'day' : 'days'} />
-    </td>
-    <td className={COUNT_CELL_CLASS}>
+    <td className={cn(COUNT_CELL_CLASS, 'border-l border-border/60')}>
       <FillCountCell done={row.answersGood} due={row.answersChecked} pct={row.compliance} emptyTitle="No answers were checked in this period" />
     </td>
   </tr>
@@ -122,10 +128,12 @@ interface FillMatrixProps {
   data: WeeklyReport;
   today: string;
   label: string;
+  csvTitle: string | readonly string[];
 }
 
-export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
+export const FillMatrix = ({ data, today, label, csvTitle }: FillMatrixProps) => {
   const isMonthView = data.kind === 'month';
+  const downloadCsv = () => downloadCsvNow('checklist-fill', fillMatrixRows(data), csvTitle);
   return (
     <>
       <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'max-h-[min(72svh,56rem)] overflow-auto overscroll-x-contain outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
@@ -147,13 +155,22 @@ export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
                   )}
                 </th>
               ))}
-              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Questions answered out of questions due, on checklists whose cutoff has passed or that are filled">Questions done</th>
-              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Days filled before the cutoff out of days due">Met deadline</th>
-              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface')} title="Good answers out of checked answers. Critical questions count twice">Answers right</th>
+              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-b border-border bg-surface p-0')}>
+                <button
+                  type="button"
+                  onClick={downloadCsv}
+                  title="Checklists filled out of checklists due. Click to download as CSV"
+                  className="group flex h-full w-full cursor-pointer items-center justify-end gap-1 px-3 py-2.5 outline-none transition-colors duration-150 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40 dark:hover:text-primary-300"
+                >
+                  Completion
+                  <Download className="size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" aria-hidden="true" />
+                </button>
+              </th>
+              <th scope="col" className={cn(COUNT_HEAD_CLASS, 'sticky top-0 z-20 border-l border-b border-border bg-surface')} title="Good answers out of checked answers. Critical questions count twice">Compliance</th>
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((row) => <MatrixRow key={`${row.definitionId}-${row.storeId}-${row.scopeKey}`} row={row} />)}
+            {data.rows.map((row) => <MatrixRow key={`${row.definitionId}-${row.storeId}-${row.scopeKey}`} row={row} onDownload={downloadCsv} />)}
           </tbody>
         </table>
       </div>

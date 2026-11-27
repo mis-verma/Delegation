@@ -362,6 +362,12 @@ export const stampedFilename = (base: string, extension: 'csv' | 'xlsx', now = n
   return `${base}-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.${extension}`;
 };
 
+export const downloadCsvNow = (filename: string, rows: TableRows, title?: string | readonly string[]) => {
+  const titleLines = title === undefined ? [] : typeof title === 'string' ? [title] : title;
+  const file: TableRows = titleLines.length ? [...titleLines.map((line) => [line]), [], ...rows] : rows;
+  downloadBlob(csvBlob(file), stampedFilename(filename, 'csv'));
+};
+
 const EXPORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const formatExportDate = (value: string | Date): string => {

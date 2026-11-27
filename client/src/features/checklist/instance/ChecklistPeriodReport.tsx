@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, SearchX } from 'lucide-react';
+import { ChevronRight, SearchX, SlidersHorizontal } from 'lucide-react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { DateRangePicker, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton, type DateRangeValue } from '../../../components';
+import { CountBadge, DateRangePicker, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton, type DateRangeValue } from '../../../components';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { RadialGauge } from '../../../components/radialGauge/RadialGauge';
 import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TD_STICKY_CLASS, FIRST_COL_WIDTH_CLASS } from '../../../components/dataTable';
 import { checklistReportApi, type PeriodBucket, type PeriodBucketKind, type PeriodCell, type PeriodRow, type PeriodRowKind } from '../../../api/checklistReports';
@@ -188,6 +189,7 @@ export const ChecklistPeriodReport = ({ storeId, departmentId, storeName, depart
     [data],
   );
 
+  const rangeIsCustom = range !== null;
   const latest = data?.buckets.at(-1);
   const rings = useMemo(() => {
     if (!data || !latest) return [];
@@ -266,28 +268,42 @@ export const ChecklistPeriodReport = ({ storeId, departmentId, storeName, depart
     <section className="flex flex-col gap-3" aria-labelledby="period-report-heading">
       <h2 id="period-report-heading" className="sr-only">Questions done by {bucketWord}</h2>
 
-      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <PeriodTabControl value={by} options={ROW_KINDS} labels={ROW_LABELS} onChange={changeBy} fill className="sm:w-auto" />
-        <PeriodTabControl value={bucket} options={BUCKETS} labels={BUCKET_LABELS} onChange={changeBucket} columns className="sm:w-80" />
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <DateRangePicker
-            value={shownRange}
-            onChange={changeRange}
-            placeholder={DEFAULT_RANGE_TEXT[bucket]}
-            placeholderIsValue
-            className="min-w-0 flex-1 sm:w-64 sm:flex-none"
-            triggerClassName="min-h-11 sm:min-h-9 sm:h-9 py-0"
-          />
-          <ExportMenu
-            disabled={!data?.rows.length}
-            aria-label={`Export questions done by ${bucketWord}`}
-            filename={`checklist-${by}-${bucket}`}
-            sheetName="Questions done"
-            title={exportTitle({ what: `Checklists ${ROW_LABELS[by].toLowerCase()}, by ${bucketWord}`, from: data?.from, to: data?.to, filters: { Store: storeName, Department: departmentName } })}
-            getRows={exportRows}
-            className="h-11 shrink-0 rounded-lg sm:h-9"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Breakdown and filters${rangeIsCustom ? ', 1 applied' : ''}`}
+              className="inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 bg-surface px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">{ROW_LABELS[by]} · {BUCKET_LABELS[bucket]}</span>
+              <CountBadge count={rangeIsCustom ? 1 : 0} label="Custom dates applied" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="flex w-80 max-w-[90vw] flex-col gap-3">
+            <PeriodTabControl value={by} options={ROW_KINDS} labels={ROW_LABELS} onChange={changeBy} fill />
+            <PeriodTabControl value={bucket} options={BUCKETS} labels={BUCKET_LABELS} onChange={changeBucket} columns />
+            <DateRangePicker
+              value={shownRange}
+              onChange={changeRange}
+              placeholder={DEFAULT_RANGE_TEXT[bucket]}
+              placeholderIsValue
+              className="border-t border-border/50 pt-3"
+              triggerClassName="min-h-11"
+            />
+          </PopoverContent>
+        </Popover>
+        <span className="hidden sm:block sm:flex-1" aria-hidden />
+        <ExportMenu
+          disabled={!data?.rows.length}
+          aria-label={`Export questions done by ${bucketWord}`}
+          filename={`checklist-${by}-${bucket}`}
+          sheetName="Questions done"
+          title={exportTitle({ what: `Checklists ${ROW_LABELS[by].toLowerCase()}, by ${bucketWord}`, from: data?.from, to: data?.to, filters: { Store: storeName, Department: departmentName } })}
+          getRows={exportRows}
+          className="h-11 shrink-0 rounded-lg"
+        />
       </div>
 
       {query.isPending && <LoadingState />}
