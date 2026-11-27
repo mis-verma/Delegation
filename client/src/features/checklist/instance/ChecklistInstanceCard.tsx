@@ -9,7 +9,7 @@ import {
   dueTooltip,
   getInstanceView,
   instanceProgressToneClass,
-  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
+  RECURRENCE_LABEL, formatPeriodSpan, displayTitle } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import { useSharedNow } from '../../../lib/useSharedNow';
 import { LateWindowOverlay } from './LateWindowOverlay';
@@ -72,7 +72,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
     >
       {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
       <div className="flex flex-col gap-1 min-w-0">
-        <p className={cn('t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2', canPreview && 'pr-11')}>{instance.title}</p>
+        <p className={cn('t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2', canPreview && 'pr-11')}>{displayTitle(instance.title)}</p>
         <p className="t-meta font-medium text-text-muted">
           {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}

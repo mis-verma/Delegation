@@ -15,6 +15,8 @@ const DATE_LOCAL_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day:
 const TIME_LOCAL_FMT = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 const DEADLINE_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 
+export const displayTitle = (title: string): string => title.trim().replace(/\.+$/, '');
+
 export const formatDate = (iso: string) => DATE_LONG_FMT.format(new Date(iso));
 
 export const formatPeriodSpan = (instance: { periodStart: string; periodEnd: string }, short = false): string => {

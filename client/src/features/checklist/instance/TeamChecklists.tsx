@@ -18,7 +18,7 @@ import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { checklistInstanceApi, type ChecklistInstanceStatus } from '../../../api/checklistInstances';
 import { useStoresQuery, useAssignableUsersQuery } from '../../tickets/hook';
 import { useChecklistInstanceSummaryQuery } from '../hook';
-import { RECURRENCE_LABEL, formatPeriodSpan, getInstanceView, todayPeriodBoundIso } from '../checklistDisplay';
+import { RECURRENCE_LABEL, formatPeriodSpan, getInstanceView, todayPeriodBoundIso, displayTitle } from '../checklistDisplay';
 
 type Tab = 'pending' | 'due' | 'overdue' | 'completed' | 'all';
 type Window = 'today' | 'month';
@@ -349,7 +349,7 @@ export const TeamChecklists = () => {
                       <ClipboardList className="size-5" strokeWidth={2.25} aria-hidden="true" />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      <span className="line-clamp-2 leading-snug t-card font-display font-semibold text-text">{instance.title}</span>
+                      <span className="line-clamp-2 leading-snug t-card font-display font-semibold text-text">{displayTitle(instance.title)}</span>
                       <span className="flex flex-wrap items-center gap-1.5">
                         <IconChip icon={progress.icon} tone={progress.tone} label={progress.label} />
                         {late && <IconChip icon={Hourglass} tone="bg-danger" label="Overdue" labelClassName="text-danger" />}

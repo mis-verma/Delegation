@@ -6,7 +6,7 @@ import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TD_STICKY_CLASS
 import { cn } from '@/lib/utils';
 import {
   getInstanceView, formatClockTime,
-  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
+  RECURRENCE_LABEL, formatPeriodSpan, displayTitle } from '../checklistDisplay';
 import { useSharedNow } from '../../../lib/useSharedNow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -44,7 +44,7 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
     <tr onClick={onRowClick} className="group cursor-pointer border-b border-border/40 last:border-b-0">
       <td className={cn(CELL_CLASS, TD_STICKY_CLASS, 'group-focus-within:bg-surface-hover')}>
         <Link to={href} className="t-card font-display font-semibold text-text group-hover:text-primary-600 dark:group-hover:text-primary-400 line-clamp-2 leading-snug break-words transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
-          {instance.title}
+          {displayTitle(instance.title)}
         </Link>
       </td>
 

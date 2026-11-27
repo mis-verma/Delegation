@@ -9,7 +9,7 @@ import {
   formatDate,
   formatDateTime,
   getInstanceView,
-  instanceProgressToneClass, formatPeriodSpan } from '../checklistDisplay';
+  instanceProgressToneClass, formatPeriodSpan, displayTitle } from '../checklistDisplay';
 import { useSharedNow } from '../../../lib/useSharedNow';
 import { LateWindowOverlay } from './LateWindowOverlay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
@@ -31,7 +31,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
+            <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{displayTitle(instance.title)}</p>
             <p className="flex items-center gap-2 pt-1 t-meta text-text-muted font-display flex-wrap">
               {storeName && <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{storeName}</span>}
               <span>{formatDate(instance.periodStart)}</span>
