@@ -15,7 +15,6 @@ import { LateWindowOverlay } from './LateWindowOverlay';
 import { SubmissionPreviewDialog } from './SubmissionPreviewDialog';
 import { AdminRunActionsDialog } from './AdminRunActionsDialog';
 import { RunVerificationChip } from './RunVerificationChip';
-import { revokeMsLeft } from './revokeWindow';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
@@ -49,8 +48,8 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   const isSubmitter = !!user && instance.submittedBy === user.id;
   const submittedRun = !!instance.submittedAt && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'APPROVED');
   const canPreview = !!user && submittedRun && (isAdmin || isSubmitter || instance.assigneeIds.includes(user.id));
-  const submitterWindow = isSubmitter && instance.verificationStatus === 'PENDING_APPROVAL' && revokeMsLeft(instance.submittedAt, now) > 0;
-  const canChange = isAdmin || submitterWindow;
+  const submitterCanChange = isSubmitter && instance.verificationStatus === 'PENDING_APPROVAL';
+  const canChange = isAdmin || submitterCanChange;
   const doneByOthers = (() => {
     if (!isComplete || !user) return null;
     const names = new Set<string>();
@@ -124,7 +123,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
     )}
     {previewOpen && canPreview && (isAdmin
       ? <AdminRunActionsDialog instance={instance} onClose={() => setPreviewOpen(false)} />
-      : <SubmissionPreviewDialog instance={instance} now={now} canRevoke={isSubmitter} onClose={() => setPreviewOpen(false)} />)}
+      : <SubmissionPreviewDialog instance={instance} canRevoke={isSubmitter} onClose={() => setPreviewOpen(false)} />)}
     </div>
   );
 });
