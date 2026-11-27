@@ -3,7 +3,6 @@ import { memo } from 'react';
 import { Link } from 'react-router';
 import { AlarmClockOff, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
 import {
   formatDate,
@@ -80,11 +79,8 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="flex items-center gap-1 t-meta text-text-muted font-display tabular-nums">
-            <ClipboardList size={11} aria-hidden /> {done}/{total}
+            <ClipboardList size={11} aria-hidden /> {done}/{total}{!isComplete && ` · ${progress}%`}
           </span>
-          <Badge variant={isComplete ? 'success' : 'warning'}>
-            {isComplete ? 'Done' : `${progress}% done`}
-          </Badge>
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
 <OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
