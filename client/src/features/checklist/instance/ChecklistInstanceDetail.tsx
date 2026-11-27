@@ -1,15 +1,15 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
 import { useGoBack } from '../../../lib/historyBack';
-import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
+import { ArrowDown, ArrowLeft, CheckCheck, ShieldCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
-  Button, ChecklistProgressBar, Collapse, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, ActionLabel, ApprovalStatusChip, VerifiedByChip, VerifiedAtChip, } from '../../../components';
+  Button, ChecklistProgressBar, EmptyState, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner, ActionLabel, ApprovalStatusChip, VerifiedByChip, VerifiedAtChip, } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { useReviewDraft } from '../../verification/useReviewDraft';
 import { pickDefaults, runCorrectionItems } from '../../verification/correctionItems';
@@ -29,12 +29,11 @@ import { CorrectionRoundContext, sentBackAtOf } from './correctionRound';
 import { PhotoReviewContext } from './photoReviewContext';
 import { DetailItemRow } from './ChecklistDetailItemRow';
 import {
-  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
+  complianceToneClass, describeInstanceEnd, dueTooltip, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRowActivity } from '../../../lib/useRowActivity';
-import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { SmoothItem } from '../../../components/smoothItem';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { LateCountdownChip, LateWindowBanner } from './LateWindowBanner';
@@ -42,12 +41,11 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSubmitRun } from './fill/useSubmitRun';
 import { FillBottomBar } from './fill/FillBottomBar';
 import { FillAside } from './fill/FillAside';
-import { auditPeopleProgress, photosMissingOf, sectionKeyOf, sectionLabelOf, sectionsOf, type FillProgress } from './fill/fillProgress';
+import { auditPeopleProgress, photosMissingOf, type FillProgress } from './fill/fillProgress';
 
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
-type ShowMode = 'section' | 'all' | 'left' | 'one';
-type ItemGroup = { key: string; section: string | null; items: ChecklistInstanceItem[] };
+type ShowMode = 'all' | 'left' | 'one';
 type RunLabels = { storeName?: string | null; assigneeNames?: string[] };
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
@@ -61,9 +59,12 @@ const focusRow = (id: string) => {
   row.focus({ preventScroll: true });
 };
 
-const namesLine = (names: string[] | undefined) => {
+const firstNameOf = (name: string) => name.trim().split(/\s+/)[0] ?? name;
+
+const namesLine = (names: string[] | undefined, firstNameOnly = false) => {
   if (!names?.length) return null;
-  return names.length <= 2 ? names.join(' and ') : `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+  const list = firstNameOnly ? names.map(firstNameOf) : names;
+  return list.length <= 2 ? list.join(' and ') : `${list[0]}, ${list[1]} and ${list.length - 2} more`;
 };
 
 const DetailSkeleton = () => (
@@ -102,7 +103,6 @@ export const ChecklistInstanceDetail = () => {
   const { user } = useAuth();
   useRefreshOnNewDay();
   const now = useNow();
-  const isPhone = useMediaQuery('(max-width: 639px)');
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   const draft = useReviewDraft(instanceId || null);
   const submitSummary = useCallback(() => {
@@ -131,8 +131,6 @@ export const ChecklistInstanceDetail = () => {
   const { data: myProfile } = useMyProfileQuery();
   const [pickedShow, setShow] = useState<ShowMode | null>(null);
   const [oneIndex, setOneIndex] = useState(0);
-  const [pickedSection, setPickedSection] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set());
   const [editAnswers, setEditAnswers] = useState(false);
   const goBackAfterDecision = useGoBack(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
   const goBackToList = useGoBack('/checklists', { replace: true });
@@ -169,8 +167,9 @@ export const ChecklistInstanceDetail = () => {
     );
   }
 
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance, now);
   const labels = instance as typeof instance & RunLabels;
+  const isMine = !!user && instance.assigneeIds.includes(user.id);
   const inLateWindow = isInstanceInLateWindow(instance, isComplete, now);
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const isMissed = instance.isMissed === true || isInstanceEnded(instance, now);
@@ -200,8 +199,6 @@ export const ChecklistInstanceDetail = () => {
     (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED') &&
     photosMissing.count === 0;
   const resubmit = instance.verificationStatus === 'REJECTED';
-  const hasSections = instance.items.some(i => i.section);
-  const sections = hasSections ? sectionsOf(instance.items, isAnswered) : [];
   const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
@@ -209,58 +206,14 @@ export const ChecklistInstanceDetail = () => {
   const showSelfCompleteAll = left > 0 && !notYetOpen && canWork && !canReview && canSelfCompleteAllRun(user, instance);
   const fillProgress: FillProgress = { done, total, left, overdue, people: auditPeopleProgress(instance.items), photosMissing };
   const filling = canWork && !answersLocked && total > 0 && !canReview;
-  const autoShow: ShowMode = hasSections && isPhone && filling ? 'section' : 'all';
-  const show: ShowMode = canReview ? 'all' : pickedShow === 'section' && !hasSections ? 'all' : pickedShow ?? autoShow;
+  const show: ShowMode = canReview ? 'all' : pickedShow ?? 'all';
   const lastIndex = Math.max(0, instance.items.length - 1);
   const currentIndex = Math.min(oneIndex, lastIndex);
-  const sentBackItems = instance.verificationStatus === 'REJECTED' ? instance.items.filter((i) => !i.isDone && !!i.sendBackNote) : [];
-  const defaultSectionKey = (sentBackItems[0] && sectionKeyOf(sentBackItems[0]))
-    ?? sections.find((s) => s.done < s.total)?.key
-    ?? sections[0]?.key
-    ?? '';
-  const activeSectionKey = pickedSection !== null && sections.some((s) => s.key === pickedSection) ? pickedSection : defaultSectionKey;
-  const activeSectionIndex = Math.max(0, sections.findIndex((s) => s.key === activeSectionKey));
   const shownItems = show === 'left'
     ? instance.items.filter((i) => !answered(i) || settling.has(i.id))
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
       : instance.items;
-  // Grouped by floor and section together, so the same section name on two floors stays apart.
-  const bySection = (items: ChecklistInstanceItem[]): ItemGroup[] =>
-    items.reduce<ItemGroup[]>((groups, item) => {
-      const last = groups[groups.length - 1];
-      if (last && last.key === sectionKeyOf(item)) last.items.push(item);
-      else groups.push({ key: sectionKeyOf(item), section: sectionLabelOf(item), items: [item] });
-      return groups;
-    }, []);
-  const itemGroups: ItemGroup[] = hasSections
-    ? show === 'section'
-      ? sections.map((s) => ({ key: s.key, section: s.label, items: shownItems.filter((i) => sectionKeyOf(i) === s.key) }))
-      : bySection(shownItems)
-    : shownItems.length ? [{ key: '', section: null, items: shownItems }] : [];
-  const sectionCounts = new Map(sections.map((s) => [s.key, s]));
-  const isCollapsed = (key: string, items: ChecklistInstanceItem[]) => {
-    if (show !== 'all' || canReview || openSections.has(key)) return false;
-    const counts = sectionCounts.get(key);
-    return !!counts && counts.done === counts.total && !items.some((i) => settling.has(i.id));
-  };
-  const toggleSection = (key: string) => setOpenSections((prev) => {
-    const next = new Set(prev);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
-  const pickSection = (key: string) => {
-    if (show === 'section') {
-      setPickedSection(key);
-      requestAnimationFrame(() => document.getElementById(`section-${key || 'none'}`)?.scrollIntoView({ block: 'start' }));
-      return;
-    }
-    if (show !== 'all') setShow('all');
-    setOpenSections((prev) => new Set([...prev, key]));
-    requestAnimationFrame(() => {
-      document.getElementById(`section-${key || 'none'}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  };
   const goToItem = (target: ChecklistInstanceItem) => {
     const move = () => requestAnimationFrame(() => focusRow(target.id));
     if (show === 'one') {
@@ -268,28 +221,14 @@ export const ChecklistInstanceDetail = () => {
       requestAnimationFrame(move);
       return;
     }
-    if (show === 'section') {
-      const key = sectionKeyOf(target);
-      if (key !== activeSectionKey) {
-        setPickedSection(key);
-        requestAnimationFrame(move);
-        return;
-      }
-      move();
-      return;
-    }
-    const key = sectionKeyOf(target);
-    const collapsed = hasSections && isCollapsed(key, instance.items.filter((i) => sectionKeyOf(i) === key));
-    if (collapsed) setOpenSections((prev) => new Set([...prev, key]));
     const switching = show === 'left' && !shownItems.includes(target);
     if (switching) setShow('all');
     if (settling.size > 0) window.setTimeout(move, SETTLE_AND_MOVE_MS);
-    else if (switching || collapsed) requestAnimationFrame(move);
+    else if (switching) requestAnimationFrame(move);
     else move();
   };
   const goToNext = () => {
-    const inSection = show === 'section' ? instance.items.find((i) => !answered(i) && sectionKeyOf(i) === activeSectionKey) : undefined;
-    const next = inSection ?? instance.items.find((i) => !answered(i));
+    const next = instance.items.find((i) => !answered(i));
     if (next) goToItem(next);
   };
   const goToPhoto = (id: string) => {
@@ -305,18 +244,19 @@ export const ChecklistInstanceDetail = () => {
     (instance.verificationStatus === 'APPROVED' && !!verificationNote) ||
     (instance.verificationStatus === 'NOT_SUBMITTED' && !!verificationNote) ||
     instance.verificationStatus === 'REJECTED';
-  const metaParts = [
-    labels.storeName,
-    namesLine(labels.assigneeNames),
-    `${RECURRENCE_LABEL[instance.recurrence]}, ${formatPeriodSpan(instance)}`,
-  ].filter(Boolean);
-  const modeOptions = hasSections ? (['section', 'all', 'left', 'one'] as const) : (['all', 'left', 'one'] as const);
+  const metaParts = isMine
+    ? [namesLine(labels.assigneeNames, true)].filter(Boolean)
+    : [
+        labels.storeName,
+        namesLine(labels.assigneeNames),
+        `${RECURRENCE_LABEL[instance.recurrence]}, ${formatPeriodSpan(instance)}`,
+      ].filter(Boolean);
+  const modeOptions = ['all', 'left', 'one'] as const;
   const changeShow = (next: ShowMode) => {
     if (next === 'one') setOneIndex(Math.max(0, instance.items.findIndex((i) => !answered(i))));
     setShow(next);
   };
   const lateChip = inLateWindow ? <LateCountdownChip instance={instance} now={now} /> : null;
-  const activeSection = sections[activeSectionIndex];
 
   return (
     <ReviewEditsProvider
@@ -358,7 +298,7 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <StatusChip status={chipStatus} iconOnlyOnMobile />
+          <StatusChip status={chipStatus} title={dueTooltip(instance, chipStatus, now)} iconOnlyOnMobile />
           {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" iconOnlyOnMobile />}
           {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} iconOnlyOnMobile />}
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
@@ -374,12 +314,12 @@ export const ChecklistInstanceDetail = () => {
           {isLocked && instance.verifiedBy && (
             <VerifiedByChip verifierName={instance.verifiedByName ?? null} />
           )}
-          {isLocked && instance.verifiedAt && (
+          {isLocked && instance.verifiedAt && isAdminOrPC && (
             <VerifiedAtChip timestamp={instance.verifiedAt} />
           )}
           {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && !instance.verifiedAt && (
             <span className="hidden t-meta font-medium text-text-muted sm:inline">
-              Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
+              Submitted{isAdminOrPC ? ` ${formatDateTime(instance.submittedAt)}` : ''}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
             </span>
           )}
         </div>
@@ -426,7 +366,7 @@ export const ChecklistInstanceDetail = () => {
             <PeriodTabControl
               value={show}
               options={modeOptions}
-              labels={{ section: 'Sections', all: 'All', left: `Left ${left}`, one: 'One by one' }}
+              labels={{ all: 'All', left: `Left ${left}`, one: 'One by one' }}
               onChange={changeShow}
             />
           </div>
@@ -491,7 +431,7 @@ export const ChecklistInstanceDetail = () => {
 
           {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
             <NoticeBanner tone="info" icon={ShieldQuestion}>
-              Submitted{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}{instance.submittedAt ? ` on ${formatDateTime(instance.submittedAt)}` : ''}. {instance.approvalStage === 'HOD' ? 'With the department head now. After they approve, PC gives the final OK.' : instance.hodApprovedAt ? 'The department head approved it. Waiting for the final OK from PC.' : 'Waiting for approval from PC.'}
+              Submitted{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}{isAdminOrPC && instance.submittedAt ? ` on ${formatDateTime(instance.submittedAt)}` : ''}. {instance.approvalStage === 'HOD' ? 'With the department head now. After they approve, PC gives the final OK.' : instance.hodApprovedAt ? 'The department head approved it. Waiting for the final OK from PC.' : 'Waiting for approval from PC.'}
             </NoticeBanner>
           )}
 
@@ -503,7 +443,7 @@ export const ChecklistInstanceDetail = () => {
           )}
 
           {instance.verificationStatus === 'APPROVED' && (
-            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedByName ?? null} verifiedAt={instance.verifiedAt} />
+            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedByName ?? null} verifiedAt={isAdminOrPC ? instance.verifiedAt : null} />
           )}
 
           {instance.verificationStatus === 'REJECTED' && (
@@ -523,35 +463,6 @@ export const ChecklistInstanceDetail = () => {
             />
           )}
 
-          {show === 'section' && activeSection && sections.length > 1 && (
-            <div className={cn(PANEL_CLASS, 'flex items-center gap-2 p-2')}>
-              <Button
-                variant="outline"
-                size="md"
-                className="size-11 shrink-0 p-0"
-                disabled={activeSectionIndex <= 0}
-                onClick={() => pickSection(sections[activeSectionIndex - 1]!.key)}
-                aria-label="Previous section"
-              >
-                <ChevronLeft size={18} aria-hidden />
-              </Button>
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 text-center">
-                <span className="t-meta font-display font-medium text-text-muted tabular-nums">Section {activeSectionIndex + 1} of {sections.length} · {activeSection.done}/{activeSection.total} done</span>
-                <span className="t-card font-display font-bold text-text line-clamp-2 leading-snug break-words">{activeSection.label}</span>
-              </div>
-              <Button
-                variant={activeSection.done === activeSection.total ? 'primary' : 'outline'}
-                size="md"
-                className="size-11 shrink-0 p-0"
-                disabled={activeSectionIndex >= sections.length - 1}
-                onClick={() => pickSection(sections[activeSectionIndex + 1]!.key)}
-                aria-label="Next section"
-              >
-                <ChevronRight size={18} aria-hidden />
-              </Button>
-            </div>
-          )}
-
           <CorrectionRoundContext.Provider value={sentBackAtOf(instance)}>
           <PhotoReviewContext.Provider value={canReview && instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instanceId } : null}>
             <div className="flex flex-col gap-3">
@@ -561,86 +472,30 @@ export const ChecklistInstanceDetail = () => {
                   <p className="t-card font-display font-semibold text-text">Every question is answered.{canSubmit ? ' Submit it below.' : ''}</p>
                 </div>
               )}
-              {itemGroups.map((group, groupIndex) => {
-                const key = group.key;
-                const rows = group.items.map((item, idx) => (
-                  <SmoothItem key={item.id} active={show === 'left'}>
-                    <DetailItemRow
-                      item={item}
-                      instanceId={instanceId}
-                      canWork={canWork}
-                      isLocked={answersLocked}
-                      currentUserId={user?.id}
-                      overdue={overdue}
-                      showHeader={false}
-                      inSectionBox={hasSections}
-                      isFirst={groupIndex === 0 && idx === 0}
-                      selecting={canReview}
-                      picked={draft.pickedSet.has(item.id)}
-                      onTogglePicked={togglePick}
-                      note={draft.picked[item.id] ?? ''}
-                      onNoteChange={draft.setItemNote}
-                      photoOnly={draft.photoOnlySet.has(item.id)}
-                      onTogglePhotoOnly={draft.togglePhotoOnly}
-                      canWaive={canWaive}
-                      canRaiseTicket={canReview}
-                    />
-                  </SmoothItem>
-                ));
-                if (!hasSections) return <Fragment key="all">{rows}</Fragment>;
-                const counts = sectionCounts.get(key);
-                const finished = !!counts && counts.done === counts.total;
-                const collapsed = isCollapsed(key, group.items);
-                const inactive = show === 'section' && key !== activeSectionKey;
-                const bodyId = `section-body-${key || 'none'}-${groupIndex}`;
-                return (
-                  <section
-                    key={`${key || 'none'}-${groupIndex}`}
-                    id={groupIndex === itemGroups.findIndex((g) => (g.section ?? '') === key) ? `section-${key || 'none'}` : undefined}
-                    aria-label={group.section ?? 'Other questions'}
-                    className={cn('flex scroll-mt-4 flex-col rounded-xl border border-border/70 bg-transparent p-3 sm:p-4', inactive && 'hidden')}
-                  >
-                    <header className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <h2 className="min-w-0 break-words t-section font-display font-bold text-text">{group.section ?? 'Other questions'}</h2>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {counts && (
-                            <span className={cn('rounded-full px-2.5 py-0.5 t-meta font-display font-semibold tabular-nums ring-1 ring-inset', finished ? 'bg-success/10 text-success-strong ring-success/30 dark:text-success' : 'bg-surface text-text-secondary ring-border/60')}>
-                              {counts.done} of {counts.total}
-                            </span>
-                          )}
-                          {show === 'all' && finished && !canReview && (
-                            <button
-                              type="button"
-                              onClick={() => toggleSection(key)}
-                              aria-expanded={!collapsed}
-                              aria-controls={bodyId}
-                              aria-label={collapsed ? `Show ${group.section ?? 'other questions'}` : `Hide ${group.section ?? 'other questions'}`}
-                              className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-text-muted outline-none transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
-                            >
-                              <ChevronDown size={16} aria-hidden className={cn('transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]', collapsed ? '' : 'rotate-180')} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {counts && counts.total > 0 && <ChecklistProgressBar done={counts.done} total={counts.total} tone="auto" bare thin />}
-                    </header>
-                    <Collapse id={bodyId} open={!collapsed} innerClassName="flex flex-col gap-3 pt-3">
-                      {rows}
-                    </Collapse>
-                  </section>
-                );
-              })}
+              {shownItems.map((item) => (
+                <SmoothItem key={item.id} active={show === 'left'}>
+                  <DetailItemRow
+                    item={item}
+                    instanceId={instanceId}
+                    canWork={canWork}
+                    isLocked={answersLocked}
+                    currentUserId={user?.id}
+                    overdue={overdue}
+                    selecting={canReview}
+                    picked={draft.pickedSet.has(item.id)}
+                    onTogglePicked={togglePick}
+                    note={draft.picked[item.id] ?? ''}
+                    onNoteChange={draft.setItemNote}
+                    photoOnly={draft.photoOnlySet.has(item.id)}
+                    onTogglePhotoOnly={draft.togglePhotoOnly}
+                    canWaive={canWaive}
+                    canRaiseTicket={canReview}
+                  />
+                </SmoothItem>
+              ))}
             </div>
           </PhotoReviewContext.Provider>
           </CorrectionRoundContext.Provider>
-
-          {show === 'section' && activeSection && activeSection.done === activeSection.total && activeSectionIndex < sections.length - 1 && (
-            <Button variant="primary" size="md" className="h-11 self-end font-display" onClick={() => pickSection(sections[activeSectionIndex + 1]!.key)}>
-              Next section
-              <ChevronRight size={15} aria-hidden />
-            </Button>
-          )}
 
           {show === 'one' && instance.items.length > 1 && (
             <div className="flex items-center justify-between gap-3">
@@ -683,9 +538,6 @@ export const ChecklistInstanceDetail = () => {
             compliance={compliance}
             good={good}
             scored={scored}
-            sections={sections}
-            activeSection={show === 'section' ? activeSectionKey : null}
-            onPickSection={pickSection}
             late={lateChip}
             canSubmit={canSubmit && !canReview}
             resubmit={resubmit}

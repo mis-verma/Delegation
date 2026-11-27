@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { ENTITY_CARD_CLASS, IconChip, StatusChip, VerifiedAtChip } from '../../../components';
 import {
   complianceToneClass,
+  dueTooltip,
   getInstanceView,
   instanceProgressToneClass,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
@@ -46,6 +47,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   const { user } = useAuth();
   const [previewOpen, setPreviewOpen] = useState(false);
   const isAdmin = user?.role === 'ADMIN';
+  const isAdminOrPC = isAdmin || user?.role === 'PC';
   const isSubmitter = !!user && instance.submittedBy === user.id;
   const submittedRun = !!instance.submittedAt && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'APPROVED');
   const canPreview = !!user && submittedRun && (isAdmin || isSubmitter || instance.assigneeIds.includes(user.id));
@@ -78,12 +80,12 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {!closed && <StatusChip status={chipStatus} />}
+        {!closed && <StatusChip status={chipStatus} title={dueTooltip(instance, chipStatus, now)} />}
 <OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
         {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
         {showVerification && <RunVerificationChip instance={instance} />}
-        {instance.verificationStatus === 'APPROVED' && instance.verifiedAt && (
+        {instance.verificationStatus === 'APPROVED' && instance.verifiedAt && isAdminOrPC && (
           <VerifiedAtChip timestamp={instance.verifiedAt} format="short" className="max-sm:hidden" />
         )}
       </div>

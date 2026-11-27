@@ -271,6 +271,12 @@ export const describeDueBy = (deadlineMs: number, now: number = Date.now()): str
   return isToday ? `Due by ${clock}` : `Due by ${clock}, ${dayLabel}`;
 };
 
+export const dueTooltip = (instance: InstanceWindow, chipStatus: 'completed' | 'overdue' | 'due', now: number = Date.now()): string | undefined => {
+  if (chipStatus === 'completed') return undefined;
+  const by = describeDueBy(instanceDeadline(instance), now);
+  return chipStatus === 'overdue' ? `Overdue. ${by}, and the deadline has passed.` : by;
+};
+
 export type InstanceView = {
   done: number;
   total: number;

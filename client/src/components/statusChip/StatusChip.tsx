@@ -41,6 +41,7 @@ export interface StatusChipProps {
   status: StatusChipStatus;
   label?: ReactNode;
   icon?: LucideIcon | false;
+  title?: string;
   className?: string;
   iconOnlyOnMobile?: boolean;
   showLabelOnMobile?: boolean;
@@ -50,12 +51,12 @@ export interface StatusChipProps {
 // eslint-disable-next-line react-refresh/only-export-components
 export const getStatusChipMeta = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status];
 
-export const StatusChip = ({ status, label, icon, className, iconOnlyOnMobile = false, children }: StatusChipProps) => {
+export const StatusChip = ({ status, label, icon, title, className, iconOnlyOnMobile = false, children }: StatusChipProps) => {
   const config = STATUS_CHIP_CONFIG[status];
   const Icon = icon === false ? false : icon ?? config.icon;
 
   return (
-    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} className={cn('shrink-0', className)} iconOnlyOnMobile={iconOnlyOnMobile}>
+    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} title={title} className={cn('shrink-0', className)} iconOnlyOnMobile={iconOnlyOnMobile}>
       {children}
     </IconChip>
   );

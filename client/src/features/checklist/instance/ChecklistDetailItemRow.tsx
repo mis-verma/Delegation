@@ -1,5 +1,5 @@
 import { memo, type ReactElement } from 'react';
-import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, Layers, MessageSquareText, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Camera, Check, Copy, CornerUpLeft, History, ImageOff, MessageSquareText, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionLabel, IconChip, NoticeBanner, ToggleChip } from '../../../components';
 import { Switch } from '../../../components/switch';
@@ -91,10 +91,6 @@ export interface DetailItemRowProps {
   isLocked: boolean;
   currentUserId: string | undefined;
   overdue: boolean;
-  showHeader: boolean;
-  sectionCount?: { done: number; total: number };
-  inSectionBox?: boolean;
-  isFirst: boolean;
   selecting: boolean;
   picked: boolean;
   onTogglePicked: (itemId: string) => void;
@@ -112,7 +108,7 @@ const DECISION_PILL =
   'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 md:min-w-0 sm:pointer-coarse:min-h-11';
 
 export const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, inSectionBox = false, isFirst, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
@@ -127,27 +123,7 @@ export const DetailItemRow = memo(({
   const showPickedPanel = selecting && picked && !!onNoteChange;
   return (
     <>
-      {showHeader && (
-        <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-3'}`}>
-          <Layers size={14} className="text-text-muted shrink-0" aria-hidden />
-          <h2 className="t-section font-display font-bold text-text">
-            {item.section ?? 'Ungrouped'}
-          </h2>
-          {sectionCount && (
-            <span className={cn('shrink-0 t-meta font-semibold tabular-nums', sectionCount.done === sectionCount.total ? 'text-success' : 'text-text-muted')}>
-              {sectionCount.done}/{sectionCount.total}
-            </span>
-          )}
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
-      )}
       <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className={cn('flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background', sentBack && 'relative border border-danger/35 bg-danger/[0.04] p-2 pl-3 sm:p-2.5 sm:pl-3.5 before:absolute before:inset-y-3 before:left-0 before:w-1 before:rounded-r-full before:bg-danger')}>
-        {item.section && !showHeader && !inSectionBox && (
-          <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-sm border border-border bg-surface px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">
-            <Layers size={12} className="shrink-0" aria-hidden />
-            <span className="line-clamp-2 break-words">{item.section}</span>
-          </span>
-        )}
         {item.referenceImageUrl && !item.isNotApplicable && (
           <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5">
             <PhotoThumbs files={[{ id: `reference-${item.id}`, url: item.referenceImageUrl, mimeType: 'image/jpeg', name: 'Example photo' }]} label="Example photo" />

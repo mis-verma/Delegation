@@ -73,34 +73,3 @@ export const auditPeopleProgress = (items: ChecklistInstanceItem[]): FillProgres
   }
   return total > 0 ? { done, total } : null;
 };
-
-export interface SectionInfo {
-  key: string;
-  label: string;
-  done: number;
-  total: number;
-}
-
-/**
- * A section belongs to its floor, so two floors can both have Washrooms without the two
- * collapsing into one group. The key is opaque; only its uniqueness matters.
- */
-export const sectionKeyOf = (item: Pick<ChecklistInstanceItem, 'floor' | 'section'>) =>
-  `${item.floor ?? ''}\u0000${item.section ?? ''}`;
-
-export const sectionLabelOf = (item: Pick<ChecklistInstanceItem, 'floor' | 'section'>): string => {
-  const section = item.section ?? 'Other questions';
-  return item.floor ? `${item.floor} · ${section}` : section;
-};
-
-export const sectionsOf = (items: ChecklistInstanceItem[], answered: (i: ChecklistInstanceItem) => boolean): SectionInfo[] => {
-  const byKey = new Map<string, SectionInfo>();
-  for (const item of items) {
-    const key = sectionKeyOf(item);
-    const info = byKey.get(key) ?? { key, label: sectionLabelOf(item), done: 0, total: 0 };
-    info.total += 1;
-    if (answered(item)) info.done += 1;
-    byKey.set(key, info);
-  }
-  return [...byKey.values()];
-};
