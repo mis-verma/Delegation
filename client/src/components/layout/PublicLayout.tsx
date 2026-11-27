@@ -10,7 +10,7 @@ const skipToContent = (e: MouseEvent<HTMLAnchorElement>) => {
 
 export const PublicLayout = () => {
   return (
-    <div className="min-h-svh w-full flex flex-col justify-between bg-background text-text transition-colors duration-200 pt-[env(safe-area-inset-top)]">
+    <div className="min-h-svh w-full flex flex-col justify-between bg-background text-text transition-colors duration-200 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <a
         href="#main-content"
         onClick={skipToContent}
