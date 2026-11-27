@@ -213,7 +213,7 @@ export const sameStoredValue = (stored: unknown, incoming: unknown): boolean => 
 }
 
 export const getPopulatedInstanceById = async (id: string) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) return null
     const [hydrated] = await hydrateInstances([instance])
     return hydrated
@@ -269,10 +269,13 @@ export const auditItemSnapshot = (item: Record<string, unknown>) => ({
     qrExpectedValue: undefined,
 })
 
-export const parentNotDeletedExpr = sql`NOT EXISTS (
+/** True when this run itself hasn't been recycled and its checklist template hasn't been deleted.
+ * Used everywhere a run should behave as if it doesn't exist once either one is gone: lists,
+ * reports, dashboards and the reminder/notifier jobs. */
+export const parentNotDeletedExpr = sql`(${checklistInstances.deletedAt} IS NULL AND NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
-)`
+))`
 
 export const localNowExpr = localNowSql
 
@@ -307,7 +310,7 @@ export const buildMeta = (p: { page: number; limit: number }, total: number) => 
 })
 
 export const countInstances = async (where: SQL | undefined) => {
-    const [row] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistInstances).where(where)
+    const [row] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistInstances).where(and(isNull(checklistInstances.deletedAt), where))
     return Number(row?.value ?? 0)
 }
 
@@ -414,7 +417,7 @@ export const deriveInstanceItemCompletion = (isDone: boolean, completedByUserId:
 export const syncVerificationStatus = async (instanceId: string) => {
     const [items, [instance]] = await Promise.all([
         db.select({ isDone: checklistInstanceItems.isDone }).from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, instanceId)),
-        db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1),
+        db.select().from(checklistInstances).where(and(eq(checklistInstances.id, instanceId), isNull(checklistInstances.deletedAt))).limit(1),
     ])
     const allDone = items.length > 0 && items.every((i) => i.isDone)
     if (!instance) return
@@ -471,7 +474,7 @@ export const countsAgainstCompliance = (item: typeof checklistInstanceItems.$inf
 }
 
 export const loadWaivable = async (id: string, itemId: string, user: AccessTokenPayload) => {
-    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    const [instance] = await db.select().from(checklistInstances).where(and(eq(checklistInstances.id, id), isNull(checklistInstances.deletedAt))).limit(1)
     if (!instance) throw AppError.notFound("Checklist instance not found")
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
     const assigneeIds = assigneeLinks.map((l) => l.userId)
@@ -540,7 +543,7 @@ export const inWindowExpr = (now: Date = new Date()): SQL => {
 export const dayStartUtc = (day: string) => new Date(`${day}T00:00:00.000Z`)
 
 export const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
-    const conditions: SQL[] = filter.includeDeleted ? [] : [parentNotDeletedExpr]
+    const conditions: SQL[] = [isNull(checklistInstances.deletedAt), ...(filter.includeDeleted ? [] : [parentNotDeletedExpr])]
     if (filter.definitionId) conditions.push(eq(checklistInstances.definitionId, filter.definitionId))
     if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
     if (filter.status) conditions.push(completionCondition(filter.status))

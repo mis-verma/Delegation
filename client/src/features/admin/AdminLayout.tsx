@@ -63,6 +63,7 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },
   { to: '/admin/checklist-templates', label: 'Task Templates' },
+  { to: '/admin/checklist-recycle', label: 'Recycle bin', adminOnly: true },
   { to: '/admin/checklist-test-data', label: 'Remove old runs', adminOnly: true },
 ];
 

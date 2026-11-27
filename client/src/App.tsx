@@ -50,6 +50,7 @@ const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => 
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
 const TatLegReportPage = lazy(() => import('./features/tickets/reports/TatLegReportPage').then(m => ({ default: m.TatLegReportPage })));
 const TestDataCleanupPage = lazy(() => import('./features/checklist/testData').then(m => ({ default: m.TestDataCleanupPage })));
+const AdminRecycleView = lazy(() => import('./features/checklist').then(m => ({ default: m.AdminRecycleView })));
 const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
@@ -373,6 +374,7 @@ const router = createBrowserRouter([
                   { path: '/admin/audit-log', element: <AuditLogPage /> },
                   { path: '/admin/system-health', element: <SystemHealthPage /> },
                   { path: '/admin/checklist-test-data', element: <TestDataCleanupPage /> },
+                  { path: '/admin/checklist-recycle', element: <AdminRecycleView /> },
                 ],
               },
               { path: '/admin/holidays', element: <HolidaysPage /> },

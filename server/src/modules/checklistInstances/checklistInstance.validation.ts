@@ -69,8 +69,10 @@ export const verifyChecklistInstanceSchema = z.object({
     path: ["note"],
 })
 
+export const MAX_SEND_BACK_ITEMS = 10
+
 export const sendBackChecklistInstanceSchema = z.object({
-    itemIds: z.array(z.string().min(1)).min(1, "Pick at least one question.").max(200),
+    itemIds: z.array(z.string().min(1)).min(1, "Pick at least one question.").max(MAX_SEND_BACK_ITEMS, `You can send back up to ${MAX_SEND_BACK_ITEMS} questions at a time.`),
     note: z.string().trim().min(1, "Say what needs fixing.").max(1000),
     fixByHours: z.number().int().min(1).max(72).optional(),
     photoOnlyItemIds: z.array(z.string().min(1)).max(200).optional(),
@@ -171,4 +173,11 @@ export const testRunDeleteSchema = z.object({
 
 export const deleteRunSchema = z.object({
     reason: z.string().trim().min(3, "Say why this run is being deleted.").max(500),
+})
+
+export const recycledRunsQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    storeId: objectId.optional(),
+    q: z.string().trim().max(100).optional().transform((s) => s || undefined),
 })

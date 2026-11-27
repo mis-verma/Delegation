@@ -13,7 +13,6 @@ import {
   ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft,
 } from '../../components';
 import { DETAIL_SECTION_HEADING } from './detail/detailConstants';
-import { useDoneLast } from '../../lib/useDoneLast';
 import { SmoothItem } from '../../components/smoothItem';
 import {
   useAddChecklistMutation,
@@ -254,7 +253,7 @@ const ChecklistBlock = ({
 }) => {
   const [open, setOpen] = useState(true);
   const [showDone, setShowDone] = useState(true);
-  const { pending: pendingItems, done: doneItems } = useDoneLast(checklist.items, isItemDone);
+  const doneItems = checklist.items.filter(isItemDone);
   const deleteChecklist = useDeleteChecklistMutation(ticketId);
   const canDelete = useAuth().user?.role === 'ADMIN';
   const doneCount = checklist.items.filter(i => i.isDone).length;
@@ -324,41 +323,29 @@ const ChecklistBlock = ({
               No items in this checklist yet.
             </div>
           )}
-          {pendingItems.map(item => (
-            <SmoothItem key={item.id} active>
-              <ItemRow
-                item={item}
-                ticketId={ticketId}
-                isAdmin={isAdmin}
-                canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
-              />
-            </SmoothItem>
-          ))}
           {doneItems.length > 0 && (
-            <div className="flex flex-col gap-3 sm:gap-4">
-              {pendingItems.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowDone(v => !v)}
-                  aria-expanded={showDone}
-                  className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-200 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
-                >
-                  <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${showDone ? '' : '-rotate-90'}`} aria-hidden />
-                  Done ({doneItems.length})
-                </button>
-              )}
-              {(showDone || pendingItems.length === 0) && doneItems.map(item => (
-                <SmoothItem key={item.id} active>
-                  <ItemRow
-                    item={item}
-                    ticketId={ticketId}
-                    isAdmin={isAdmin}
-                    canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
-                  />
-                </SmoothItem>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowDone(v => !v)}
+              aria-expanded={showDone}
+              className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 t-meta font-display font-semibold text-text-secondary outline-none transition-colors duration-200 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+            >
+              <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${showDone ? '' : '-rotate-90'}`} aria-hidden />
+              {showDone ? 'Hide done' : 'Show done'} ({doneItems.length})
+            </button>
           )}
+          {checklist.items
+            .filter(item => showDone || !isItemDone(item))
+            .map(item => (
+              <SmoothItem key={item.id} active={!showDone}>
+                <ItemRow
+                  item={item}
+                  ticketId={ticketId}
+                  isAdmin={isAdmin}
+                  canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
+                />
+              </SmoothItem>
+            ))}
         </div>
       </div>
     </div>

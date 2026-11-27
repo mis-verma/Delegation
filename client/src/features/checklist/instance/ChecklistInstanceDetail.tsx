@@ -24,7 +24,6 @@ import { SelfCompleteAllAction } from './SelfCompleteAllAction';
 import { useMyProfileQuery } from '../../settings/hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
-import { CompletedGroup } from './CompletedGroup';
 import { SendBackSummary } from './SendBackSummary';
 import { CorrectionRoundContext, sentBackAtOf } from './correctionRound';
 import { PhotoReviewContext } from './photoReviewContext';
@@ -48,8 +47,7 @@ import { auditPeopleProgress, photosMissingOf, sectionKeyOf, sectionLabelOf, sec
 const NO_ITEMS: ChecklistInstanceItem[] = [];
 
 type ShowMode = 'section' | 'all' | 'left' | 'one';
-type ItemGroup = { key: string; section: string | null; items: ChecklistInstanceItem[]; done?: boolean };
-const DONE_GROUP_ID = 'section-completed';
+type ItemGroup = { key: string; section: string | null; items: ChecklistInstanceItem[] };
 type RunLabels = { storeName?: string | null; assigneeNames?: string[] };
 
 const isAnswered = (i: ChecklistInstanceItem) => i.isDone || i.isNotApplicable;
@@ -135,13 +133,12 @@ export const ChecklistInstanceDetail = () => {
   const [oneIndex, setOneIndex] = useState(0);
   const [pickedSection, setPickedSection] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set());
-  const [doneOpen, setDoneOpen] = useState(true);
   const [editAnswers, setEditAnswers] = useState(false);
   const goBackAfterDecision = useGoBack(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
   const goBackToList = useGoBack('/checklists', { replace: true });
 
   const rowIsBusy = useRowActivity(rowDomId);
-  const { pending: pendingItems, done: answeredItems, settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowIsBusy);
+  const { settling } = useDoneLast(instance?.items ?? NO_ITEMS, isAnswered, rowIsBusy);
 
   if (isPending) return <DetailSkeleton />;
 
@@ -223,19 +220,11 @@ export const ChecklistInstanceDetail = () => {
     ?? '';
   const activeSectionKey = pickedSection !== null && sections.some((s) => s.key === pickedSection) ? pickedSection : defaultSectionKey;
   const activeSectionIndex = Math.max(0, sections.findIndex((s) => s.key === activeSectionKey));
-  const reorder = canWork && !canReview && (show === 'all' || show === 'section');
-  // With sections, keep each one its own accordion instead of sweeping every done question,
-  // from every section, into one combined pile at the bottom.
-  const doneAtBottom = reorder && show === 'all' && !hasSections;
   const shownItems = show === 'left'
     ? instance.items.filter((i) => !answered(i) || settling.has(i.id))
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
-      : show === 'section' && reorder
-        ? [...pendingItems, ...answeredItems]
-        : doneAtBottom
-          ? pendingItems
-          : instance.items;
+      : instance.items;
   // Grouped by floor and section together, so the same section name on two floors stays apart.
   const bySection = (items: ChecklistInstanceItem[]): ItemGroup[] =>
     items.reduce<ItemGroup[]>((groups, item) => {
@@ -249,7 +238,6 @@ export const ChecklistInstanceDetail = () => {
       ? sections.map((s) => ({ key: s.key, section: s.label, items: shownItems.filter((i) => sectionKeyOf(i) === s.key) }))
       : bySection(shownItems)
     : shownItems.length ? [{ key: '', section: null, items: shownItems }] : [];
-  if (doneAtBottom && answeredItems.length > 0) itemGroups.push({ key: '__done__', section: null, items: answeredItems, done: true });
   const sectionCounts = new Map(sections.map((s) => [s.key, s]));
   const isCollapsed = (key: string, items: ChecklistInstanceItem[]) => {
     if (show !== 'all' || canReview || openSections.has(key)) return false;
@@ -269,10 +257,8 @@ export const ChecklistInstanceDetail = () => {
     }
     if (show !== 'all') setShow('all');
     setOpenSections((prev) => new Set([...prev, key]));
-    setDoneOpen(true);
     requestAnimationFrame(() => {
-      const target = document.getElementById(`section-${key || 'none'}`) ?? document.getElementById(DONE_GROUP_ID);
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`section-${key || 'none'}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   };
   const goToItem = (target: ChecklistInstanceItem) => {
@@ -293,10 +279,8 @@ export const ChecklistInstanceDetail = () => {
       return;
     }
     const key = sectionKeyOf(target);
-    const inHiddenDone = doneAtBottom && !doneOpen && answeredItems.includes(target);
-    const collapsed = inHiddenDone || (hasSections && isCollapsed(key, instance.items.filter((i) => sectionKeyOf(i) === key)));
-    if (inHiddenDone) setDoneOpen(true);
-    else if (collapsed) setOpenSections((prev) => new Set([...prev, key]));
+    const collapsed = hasSections && isCollapsed(key, instance.items.filter((i) => sectionKeyOf(i) === key));
+    if (collapsed) setOpenSections((prev) => new Set([...prev, key]));
     const switching = show === 'left' && !shownItems.includes(target);
     if (switching) setShow('all');
     if (settling.size > 0) window.setTimeout(move, SETTLE_AND_MOVE_MS);
@@ -586,7 +570,7 @@ export const ChecklistInstanceDetail = () => {
               {itemGroups.map((group, groupIndex) => {
                 const key = group.key;
                 const rows = group.items.map((item, idx) => (
-                  <SmoothItem key={item.id} active={reorder || show === 'left'}>
+                  <SmoothItem key={item.id} active={show === 'left'}>
                     <DetailItemRow
                       item={item}
                       instanceId={instanceId}
@@ -595,7 +579,7 @@ export const ChecklistInstanceDetail = () => {
                       currentUserId={user?.id}
                       overdue={overdue}
                       showHeader={false}
-                      inSectionBox={hasSections && !group.done}
+                      inSectionBox={hasSections}
                       isFirst={groupIndex === 0 && idx === 0}
                       selecting={canReview}
                       picked={draft.pickedSet.has(item.id)}
@@ -609,22 +593,6 @@ export const ChecklistInstanceDetail = () => {
                     />
                   </SmoothItem>
                 ));
-                if (group.done) {
-                  return (
-                    <CompletedGroup
-                      key="completed"
-                      id={DONE_GROUP_ID}
-                      count={group.items.length}
-                      total={total}
-                      hint="Answered questions move here"
-                      open={doneOpen}
-                      onToggle={() => setDoneOpen((v) => !v)}
-                      bodyClassName="flex flex-col gap-3"
-                    >
-                      {rows}
-                    </CompletedGroup>
-                  );
-                }
                 if (!hasSections) return <Fragment key="all">{rows}</Fragment>;
                 const counts = sectionCounts.get(key);
                 const finished = !!counts && counts.done === counts.total;
@@ -634,7 +602,7 @@ export const ChecklistInstanceDetail = () => {
                 return (
                   <section
                     key={`${key || 'none'}-${groupIndex}`}
-                    id={groupIndex === itemGroups.findIndex((g) => !g.done && (g.section ?? '') === key) ? `section-${key || 'none'}` : undefined}
+                    id={groupIndex === itemGroups.findIndex((g) => (g.section ?? '') === key) ? `section-${key || 'none'}` : undefined}
                     aria-label={group.section ?? 'Other questions'}
                     className={cn('flex scroll-mt-4 flex-col rounded-xl border border-border/70 bg-transparent p-3 sm:p-4', inactive && 'hidden')}
                   >

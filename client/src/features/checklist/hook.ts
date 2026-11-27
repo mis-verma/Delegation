@@ -35,6 +35,8 @@ const KEYS = {
   instancesForDefinition: (definitionId: string) => ['checklist-instances', 'by-definition', definitionId] as const,
   instancesBoard:         (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus }) =>
     ['checklist-instances', 'board', filter] as const,
+  recycle:                (filter: { storeId?: string; q?: string; page?: number; limit?: number }) =>
+    ['checklist-instances', 'recycle', filter] as const,
 };
 
 const DEFINITIONS_PAGE_SIZE = 30;
@@ -476,6 +478,19 @@ export const useChecklistInstancesBoardQuery = (
   });
 };
 
+export const useRecycledChecklistRunsQuery = (
+  filter: { storeId?: string; q?: string; page?: number; limit?: number } = {},
+) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: KEYS.recycle(filter),
+    queryFn: () => checklistInstanceApi.listRecycled(filter),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
+  });
+};
+
 type SetChecklistInstanceItemDoneVars = {
   itemId: string;
   isDone: boolean;
@@ -778,6 +793,14 @@ export const useDeleteChecklistRunMutation = () =>
     successMessage: 'Run deleted. Scores and lists no longer count it.',
     successHaptic: 'warning',
     errorFallback: "Couldn't delete the run. Try again.",
+  });
+
+export const useRestoreChecklistRunMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id }: { id: string }) => checklistInstanceApi.restoreRun(id),
+    invalidateKeys: [['checklist-instances'], ['scores']],
+    successMessage: 'Run restored',
+    errorFallback: "Couldn't restore the run. Try again.",
   });
 
 export const useDeleteTestRunsMutation = () =>

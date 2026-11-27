@@ -8,6 +8,7 @@ import { useRevokeChecklistSubmissionMutation } from '../hook';
 import { answerText } from './answerText';
 import { REVOKE_WINDOW_MS, revokeMsLeft } from './revokeWindow';
 import { RunVerificationChip } from './RunVerificationChip';
+import { EvidenceThumb } from './EvidenceThumb';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface SubmissionPreviewDialogProps {
@@ -90,15 +91,25 @@ export const SubmissionPreviewDialog = ({ instance, now, canRevoke, onClose }: S
         {instance.items.map((item) => {
           const answer = item.isNotApplicable ? 'Not applicable' : answerText(item) ?? (item.isDone ? 'Done' : 'No answer');
           const correcting = busy && pickedId === item.id;
+          const images = item.images.filter((img) => img.purpose === 'GENERAL');
           return (
             <li key={item.id} className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
-                <p className="flex flex-wrap items-center gap-1.5 t-meta text-text-secondary break-words">
-                  {item.isNotApplicable && <Ban size={12} className="shrink-0" aria-hidden="true" />}
-                  {answer}
-                </p>
-                {item.remarks && <p className="t-meta text-text-muted break-words">"{item.remarks}"</p>}
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <p className="t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
+                  <p className="flex flex-wrap items-center gap-1.5 t-meta text-text-secondary break-words">
+                    {item.isNotApplicable && <Ban size={12} className="shrink-0" aria-hidden="true" />}
+                    {answer}
+                  </p>
+                  {item.remarks && <p className="t-meta text-text-muted break-words">"{item.remarks}"</p>}
+                </div>
+                {images.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {images.map((img) => (
+                      <EvidenceThumb key={img.id} image={img} siblings={images} />
+                    ))}
+                  </div>
+                )}
               </div>
               {open && (
                 <Button
