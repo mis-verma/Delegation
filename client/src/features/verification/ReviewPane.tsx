@@ -3,7 +3,7 @@ import { Flag, CornerUpLeft, CheckCircle2, Ticket, ChevronDown, ArrowDownToLine 
 import { FigureCard, type FigureTone } from '../dashboard/FigureCard';
 import { itemFlags } from '../checklist/instance/reviewFlags';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
-import { ActionLabel, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
+import { ActionLabel, Collapse, IconChip, Modal, NoticeBanner, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { useMediaQuery } from '../../lib/useMediaQuery';
