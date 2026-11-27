@@ -38,8 +38,7 @@ const DAY_MS = 86_400_000;
 
 const FIELD_LABEL = 't-meta font-display font-medium text-text-secondary';
 const CONTROL_H = 'h-11';
-const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5rem_6rem] items-center gap-2 px-3';
-const SM_ONLY = 'hidden sm:block';
+const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-2 px-3';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -87,9 +86,7 @@ interface PreviewRow {
   key: string;
   name: string;
   sub: string;
-  assigned: number;
   completionPct: number | null;
-  onTimePct: number | null;
   compliancePct: number | null;
 }
 
@@ -98,9 +95,7 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
     <div className={cn('rounded-lg border border-border/60 overflow-hidden transition-opacity duration-200', isRefreshing && 'opacity-60')}>
       <div className={cn(PREVIEW_GRID, 'py-2 bg-surface-hover/60 border-b border-border/60 t-meta font-display font-medium text-text-muted')}>
         <span>Name</span>
-        <span className={cn('text-right', SM_ONLY)}>Assigned</span>
         <span className="text-right">Completion</span>
-        <span className={cn('text-right', SM_ONLY)}>On time</span>
         <span className="text-right">Compliance</span>
       </div>
       <ul className="divide-y divide-border/40">
@@ -110,9 +105,7 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
               <span className="t-meta font-display font-medium text-text line-clamp-1">{r.name}</span>
               <span className="t-meta font-display text-text-muted line-clamp-1">{r.sub}</span>
             </span>
-            <span className={cn('text-right t-meta font-display text-text-secondary tabular-nums', SM_ONLY)}>{r.assigned}</span>
             <PercentCell value={r.completionPct} />
-            <PercentCell value={r.onTimePct} className={SM_ONLY} />
             <PercentCell value={r.compliancePct} />
           </li>
         ))}
@@ -133,9 +126,7 @@ const PreviewSkeleton = () => (
       {Array.from({ length: PREVIEW_ROWS }, (_, i) => (
         <li key={i} className={cn(PREVIEW_GRID, 'h-11')}>
           <Skeleton className="h-3.5 w-3/4" />
-          <Skeleton className={cn('h-3.5 w-6 justify-self-end', SM_ONLY)} />
           <Skeleton className="h-3.5 w-8 justify-self-end" />
-          <Skeleton className={cn('h-3.5 w-8 justify-self-end', SM_ONLY)} />
           <Skeleton className="h-3.5 w-8 justify-self-end" />
         </li>
       ))}
@@ -193,13 +184,13 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
     if (!report) return [];
     if (shownView === 'person') {
       return report.people.slice(0, PREVIEW_ROWS).map((p) => ({
-        key: p.userId, name: p.name, sub: p.department, assigned: p.assigned,
-        completionPct: p.completionPct, onTimePct: p.onTimePct, compliancePct: p.compliancePct,
+        key: p.userId, name: p.name, sub: p.department,
+        completionPct: p.completionPct, compliancePct: p.compliancePct,
       }));
     }
     return report.departments.slice(0, PREVIEW_ROWS).map((d) => ({
-      key: d.departmentId ?? 'none', name: d.department, sub: `${d.people} ${d.people === 1 ? 'person' : 'people'}`, assigned: d.assigned,
-      completionPct: d.completionPct, onTimePct: d.onTimePct, compliancePct: d.compliancePct,
+      key: d.departmentId ?? 'none', name: d.department, sub: `${d.people} ${d.people === 1 ? 'person' : 'people'}`,
+      completionPct: d.completionPct, compliancePct: d.compliancePct,
     }));
   }, [report, shownView]);
   const totalRows = report ? (shownView === 'person' ? report.people.length : report.departments.length) : 0;

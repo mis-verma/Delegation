@@ -109,6 +109,8 @@ export type PeriodCell = {
     runsDone: number
     runsMissed: number
     runsOpen: number
+    runsOnTime: number
+    metDeadlinePct: number | null
     weightedGood: number
     weightedScored: number
 }
@@ -151,13 +153,15 @@ const cellOf = (m: ReportMetrics): PeriodCell => ({
     runsDone: m.completed,
     runsMissed: m.missed,
     runsOpen: m.open,
+    runsOnTime: m.onTime,
+    metDeadlinePct: m.metDeadlinePct,
     weightedGood: m.weightedGood,
     weightedScored: m.weightedScored,
 })
 
 const emptyCell = (): PeriodCell => ({
     itemsDue: 0, itemsDone: 0, completionPct: null, compliancePct: null, answersChecked: 0,
-    runsDue: 0, runsDone: 0, runsMissed: 0, runsOpen: 0, weightedGood: 0, weightedScored: 0,
+    runsDue: 0, runsDone: 0, runsMissed: 0, runsOpen: 0, runsOnTime: 0, metDeadlinePct: null, weightedGood: 0, weightedScored: 0,
 })
 
 export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
@@ -170,6 +174,7 @@ export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
         t.runsDone += c.runsDone
         t.runsMissed += c.runsMissed
         t.runsOpen += c.runsOpen
+        t.runsOnTime += c.runsOnTime
         t.weightedGood += c.weightedGood
         t.weightedScored += c.weightedScored
     }
@@ -177,6 +182,7 @@ export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
     t.itemsDone = Math.round(t.itemsDone * 10) / 10
     t.completionPct = percentOf(t.itemsDone, t.itemsDue)
     t.compliancePct = pooledCompliancePct([{ weightedGood: t.weightedGood, weightedScored: t.weightedScored }])
+    t.metDeadlinePct = metDeadlinePct(t.runsOnTime, t.runsDue)
     return t
 }
 
@@ -706,19 +712,8 @@ export const checklistReportService = {
 type ColumnDef = CsvColumn & { width: number; tone?: boolean }
 
 const METRIC_COLUMNS: ColumnDef[] = [
-    { key: "assigned", label: "Checklists assigned", width: 12 },
-    { key: "completed", label: "Completed", width: 12 },
-    { key: "completionPct", label: "Completion %", width: 12, tone: true },
-    { key: "onTime", label: "Completed on time", width: 12 },
-    { key: "onTimePct", label: "On-time %", width: 11, tone: true },
-    { key: "missed", label: "Missed", width: 10 },
-    { key: "submitted", label: "Submitted", width: 11 },
-    { key: "approved", label: "Approved", width: 11 },
-    { key: "sentBack", label: "Sent back", width: 11 },
-    { key: "questionsDone", label: "Questions done", width: 12 },
-    { key: "notApplicable", label: "Not applicable", width: 12 },
-    { key: "answersChecked", label: "Answers checked", width: 12 },
-    { key: "compliancePct", label: "Compliance %", width: 12, tone: true },
+    { key: "completionPct", label: "Completion %", width: 14, tone: true },
+    { key: "compliancePct", label: "Compliance %", width: 14, tone: true },
 ]
 
 export const PERSON_COLUMNS: ColumnDef[] = [
