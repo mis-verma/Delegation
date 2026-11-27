@@ -33,7 +33,7 @@ const hasOwnBackground = (className: unknown) =>
 
 const sizeMap: Record<NonNullable<ButtonProps['size']>, string> = {
   sm: 'h-8 pointer-coarse:h-11 px-3 t-meta gap-1.5 rounded-md',
-  md: 'h-10 px-5 text-sm gap-2 rounded-md',
+  md: 'h-10 pointer-coarse:h-11 px-5 text-sm gap-2 rounded-md',
   lg: 'h-11 px-6 text-base gap-2 rounded-md',
 };
 

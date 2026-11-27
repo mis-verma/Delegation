@@ -82,7 +82,7 @@ const CodeForm = ({ initialEmail }: { initialEmail: string }) => {
           type="button"
           onClick={() => void sendAgain()}
           disabled={cooldown > 0 || resend.isPending}
-          className="self-end min-h-9 px-1 font-display t-meta font-semibold text-primary-600 hover:text-primary-500 disabled:text-text-light disabled:cursor-not-allowed transition-colors cursor-pointer"
+          className="inline-flex min-h-11 items-center self-end px-1 font-display t-meta font-semibold text-primary-600 hover:text-primary-500 disabled:text-text-light disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           {resend.isPending ? "Sending..." : cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
         </button>
