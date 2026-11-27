@@ -27,7 +27,6 @@ import { assertCoordinatorRunReviewer } from "./checklistCoordinatorRun.js"
 import { env } from "../../config/env.js"
 import { stripSecretItemFields, sameStoredValue, getPopulatedInstanceById, assertInstanceOpen, assertInstanceEditable, auditItemSnapshot, assertCanAccess, getDepartmentIdsForUserIds, assertConditionalActionsSatisfied, applyConditionalSideEffects, deriveInstanceItemCompletion, syncVerificationStatus, assertNotOwnRun, assertCanVerify, countsAgainstCompliance, loadWaivable, dropChecklistSummaries } from "./checklistInstanceShared.js"
 import { loadAuditItemScore } from "./auditScore.js"
-import { revokeWindowOpen } from "./checklistRevokeWindow.js"
 import { approveOutcome, canSendBackAt, firstApprovalStage, stageAuthority, stageHeadIds, stageOf } from "./checklistApprovalStage.js"
 import { isAdminOrPc } from "../../utils/roles.js"
 
@@ -296,9 +295,6 @@ export const revokeSubmission = async (id: string, input: { itemId?: string; not
     }
     if (instance.submittedBy !== user.sub && !isAdmin) {
         throw AppError.forbidden("Only the person who submitted this checklist can take it back.")
-    }
-    if (!revokeWindowOpen(instance.submittedAt) && !isAdmin) {
-        throw AppError.badRequest("The 10 minutes to take this back are over.")
     }
     await assertRunOpenForUser(id, user)
 

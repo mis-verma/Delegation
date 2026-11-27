@@ -4,7 +4,7 @@ import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
 import { useGoBack } from '../../../lib/historyBack';
-import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, CheckCheck, ShieldCheck, ShieldQuestion, CornerUpLeft, Pencil, Clock, ClipboardX, ListTodo, Eye } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
@@ -111,7 +111,7 @@ export const ChecklistInstanceDetail = () => {
     const answered = items.length - na;
     return {
       title: `Submit "${instance?.title ?? 'this checklist'}"?`,
-      description: `${answered} ${answered === 1 ? 'question' : 'questions'} answered${na ? `, ${na} not applicable` : ''}. It goes to your department head first, then PC. You can take it back within 10 minutes if you spot a mistake.`,
+      description: `${answered} ${answered === 1 ? 'question' : 'questions'} answered${na ? `, ${na} not applicable` : ''}. It goes to your department head first, then PC. You can take it back any time before they decide.`,
     };
   }, [instance]);
   const submit = useSubmitRun(instanceId, submitSummary);
@@ -124,7 +124,7 @@ export const ChecklistInstanceDetail = () => {
     previousStatus.current = status;
     if (status === 'PENDING_APPROVAL' && (before === 'NOT_SUBMITTED' || before === 'REJECTED') && instance?.submittedBy === user?.id) {
       haptic('success');
-      toast.success('Sent for approval. You can take it back for 10 minutes from the Preview on the list.');
+      toast.success('Sent for approval. You can take it back any time from the Preview on the list.');
     }
   }, [status, instance?.submittedBy, user?.id]);
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
@@ -358,9 +358,9 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <StatusChip status={chipStatus} showLabelOnMobile />
-          {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
-          {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} />}
+          <StatusChip status={chipStatus} iconOnlyOnMobile />
+          {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" iconOnlyOnMobile />}
+          {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} iconOnlyOnMobile />}
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
             <ApprovalStatusChip
               status={
@@ -378,29 +378,23 @@ export const ChecklistInstanceDetail = () => {
             <VerifiedAtChip timestamp={instance.verifiedAt} />
           )}
           {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && !instance.verifiedAt && (
-            <span className="t-meta font-medium text-text-muted">
+            <span className="hidden t-meta font-medium text-text-muted sm:inline">
               Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
             </span>
           )}
         </div>
 
-        <div className={cn('grid gap-2 tabular-nums sm:hidden', compliance !== null && 'grid-cols-2')}>
-          <span className="flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
-            <span className="flex items-baseline gap-1.5">
-              <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
-              <span className="t-meta font-medium text-text-secondary">done</span>
-            </span>
-            <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
-            <span className="t-meta text-text-muted">{done} of {total}</span>
+        <div className={cn('grid grid-cols-2 gap-2 tabular-nums sm:hidden', compliance === null && 'grid-cols-1')}>
+          <span className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
+            <CheckCheck className="size-3.5 shrink-0 text-text-muted" aria-hidden />
+            <span className={cn('t-stat font-display font-bold leading-none', instanceProgressToneClass(overdue, isComplete))}>{progress}%</span>
+            <span className="t-meta text-text-muted truncate">{done}/{total}</span>
           </span>
           {compliance !== null && (
-            <span className="flex min-w-0 flex-col gap-1 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
-              <span className="flex items-baseline gap-1.5">
-                <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
-                <span className="t-meta font-medium text-text-secondary">right</span>
-              </span>
-              <ChecklistProgressBar done={good} total={scored} tone="auto" bare />
-              <span className="t-meta text-text-muted">{good} of {scored}</span>
+            <span className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/60 bg-surface px-2.5 py-2">
+              <ShieldCheck className="size-3.5 shrink-0 text-text-muted" aria-hidden />
+              <span className={cn('t-stat font-display font-bold leading-none', complianceToneClass(compliance))}>{compliance}%</span>
+              <span className="t-meta text-text-muted truncate">{good}/{scored}</span>
             </span>
           )}
         </div>
