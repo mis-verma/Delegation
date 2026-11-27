@@ -30,7 +30,7 @@ import { PhotoReviewContext } from './photoReviewContext';
 import { DetailItemRow } from './ChecklistDetailItemRow';
 import {
   complianceToneClass, describeInstanceEnd, dueTooltip, formatDateTime, getInstanceView, instanceClosing, instanceProgressToneClass, isInstanceEnded, instanceOpensOnLaterDay, isInstanceInLateWindow, isInstanceNotYetOpen,
-  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
+  RECURRENCE_LABEL, formatPeriodSpan, displayTitle } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { useDoneLast } from '../../../lib/useDoneLast';
 import { useRowActivity } from '../../../lib/useRowActivity';
@@ -279,7 +279,7 @@ export const ChecklistInstanceDetail = () => {
             which on a phone covered the N/A control on whichever question it landed over. */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="t-title font-display font-bold leading-snug text-text break-words">{instance.title.replace(/\.\s*$/, '')}</h1>
+            <h1 className="t-title font-display font-bold leading-snug text-text break-words">{displayTitle(instance.title)}</h1>
             <p className="t-meta font-display text-text-muted line-clamp-2">{metaParts.join(' · ')}</p>
           </div>
           {isAdminOrPC && (

@@ -3,13 +3,12 @@ import { memo } from 'react';
 import { Link } from 'react-router';
 import { AlarmClockOff, Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
 import {
   formatDate,
   formatDateTime,
   getInstanceView,
-  instanceProgressToneClass, formatPeriodSpan } from '../checklistDisplay';
+  instanceProgressToneClass, formatPeriodSpan, displayTitle } from '../checklistDisplay';
 import { useSharedNow } from '../../../lib/useSharedNow';
 import { LateWindowOverlay } from './LateWindowOverlay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
@@ -31,7 +30,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         {inLateWindow && <LateWindowOverlay instance={instance} now={now} />}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
+            <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{displayTitle(instance.title)}</p>
             <p className="flex items-center gap-2 pt-1 t-meta text-text-muted font-display flex-wrap">
               {storeName && <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{storeName}</span>}
               <span>{formatDate(instance.periodStart)}</span>
@@ -80,11 +79,8 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="flex items-center gap-1 t-meta text-text-muted font-display tabular-nums">
-            <ClipboardList size={11} aria-hidden /> {done}/{total}
+            <ClipboardList size={11} aria-hidden /> {done}/{total}{!isComplete && ` · ${progress}%`}
           </span>
-          <Badge variant={isComplete ? 'success' : 'warning'}>
-            {isComplete ? 'Done' : `${progress}% done`}
-          </Badge>
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
 <OpensChip opensOn={opensOn} dueInDays={dueInDays} />
 {closed && <IconChip icon={AlarmClockOff} tone="bg-danger" label={closedAt ? `Missed, closed ${closedAt}` : 'Missed'} />}
