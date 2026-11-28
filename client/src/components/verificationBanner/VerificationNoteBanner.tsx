@@ -22,9 +22,9 @@ export const VerificationNoteBanner = ({
 
   const tone = approved
     ? {
-        shell: 'bg-emerald-500/10 border-emerald-500/25',
-        tile: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-        body: 'text-slate-700 dark:text-slate-200',
+        shell: 'bg-surface-hover/60 border-border',
+        tile: 'bg-success/15 text-success',
+        body: 'text-text-secondary',
       }
     : {
         shell: 'bg-rose-500/10 border-rose-500/25',

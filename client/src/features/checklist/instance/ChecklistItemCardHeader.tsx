@@ -38,7 +38,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
           )}
           {!item.isDone && item.sendBackNote && <IconChip icon={CornerUpLeft} tone="bg-danger" label="Sent back" iconOnlyOnMobile />}
           {item.isDone && isFlaggedAnswer(item) && !interactive && <IconChip icon={AlertTriangle} tone="bg-warning" label="Flagged" iconOnlyOnMobile />}
-          {item.isDone && (interactive || !isFlaggedAnswer(item)) && <IconChip icon={Check} tone="bg-success" label="Done" iconOnlyOnMobile className="max-sm:hidden" />}
+          {item.isDone && (interactive || !isFlaggedAnswer(item)) && <IconChip icon={Check} tone="bg-success" label="Done" iconOnlyOnMobile />}
           {!item.isDone && requirementBadges.map((badge) => (
             <IconChip key={badge.label} icon={badge.icon} tone={badge.tone} label={badge.label} title={badge.title} iconOnlyOnMobile />
           ))}

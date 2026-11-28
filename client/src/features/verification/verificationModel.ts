@@ -39,6 +39,8 @@ export interface ChecklistRisk {
   criticalFailed: number;
   photosNeeded: number;
   photosHave: number;
+  /** Every general photo on the run, including questions that did not ask for one. */
+  photosTaken: number;
   needsLookCount: number;
   scored: number;
   good: number;
@@ -59,6 +61,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
   let ticketsRaised = 0;
   let photosNeeded = 0;
   let photosHave = 0;
+  let photosTaken = 0;
   let needsLookCount = 0;
   for (const item of instance.items) {
     const flags = itemFlags(item);
@@ -71,6 +74,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     const raised = item.reviewTicketId ? 1 : 0;
     ticketsRaised += raised;
     sentBackTimes += Math.max(0, item.sendBackCount - raised);
+    photosTaken += (item.images ?? []).filter((img) => (img.purpose ?? 'GENERAL') === 'GENERAL').length;
     if (!item.isNotApplicable && item.requiredImageCount > 0) {
       photosNeeded += 1;
       if (photoBreakdown(item).qualifying >= item.requiredImageCount) photosHave += 1;
@@ -92,6 +96,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     criticalFailed,
     photosNeeded,
     photosHave,
+    photosTaken,
     needsLookCount,
     scored: scores.scored,
     good: scores.good,
