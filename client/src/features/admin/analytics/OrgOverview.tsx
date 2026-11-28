@@ -163,6 +163,8 @@ export const OrgOverview = () => {
   );
   const openRankings = useCallback(() => navigate(scoresHref('department')), [navigate, scoresHref]);
   const isOwner = user?.role === 'OWNER';
+  // PC reviews approvals rather than ranks people, so the people leaderboard stays off their overview.
+  const isPc = user?.role === 'PC';
   const reportsButton = orgWide && !isOwner ? (
     <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')} className="pointer-coarse:min-h-11">
       <FileDown size={14} aria-hidden="true" />
@@ -192,7 +194,7 @@ export const OrgOverview = () => {
     <div className="@container">
       <div className="grid grid-cols-1 items-stretch gap-3 @3xl:grid-cols-2">
         <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
-        {!isPhone && <TeamLeaderboardRail from={windowFrom} to={windowTo} />}
+        {!isPhone && !isPc && <TeamLeaderboardRail from={windowFrom} to={windowTo} />}
       </div>
     </div>
   );

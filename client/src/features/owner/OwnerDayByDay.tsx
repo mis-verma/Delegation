@@ -82,7 +82,7 @@ export const OwnerDayByDay = () => {
       ) : (
         <div role="table" aria-label="Company score for each of the last 7 days" className="flex flex-col gap-1 sm:gap-1.5">
           <div role="row" className={GRID}>
-            <span role="columnheader" className="sr-only">Work</span>
+            <span role="columnheader"><span className="sr-only">Work</span></span>
             {buckets.map((b) => {
               const isToday = b.from === today;
               return (

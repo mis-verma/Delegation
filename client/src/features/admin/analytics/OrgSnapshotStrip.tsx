@@ -46,7 +46,7 @@ const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }:
           <span className={cn('t-stat text-text', STAT_FIGURE)}>{value}</span>
           <span className="line-clamp-2 t-meta font-display font-bold leading-snug text-text-secondary">{label}</span>
         </span>
-        <span className={cn('line-clamp-1 t-meta font-medium text-text-muted', captionClass)}>{caption}</span>
+        <span className={cn('line-clamp-2 t-meta font-medium text-text-muted', captionClass)}>{caption}</span>
       </span>
     </>
   );

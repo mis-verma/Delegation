@@ -305,7 +305,7 @@ export const HeatGrid = ({ matrix, module, measure, lowestFirst, totalLabel, max
         </span>
         {matrix.truncated && <span>Showing the 30 busiest rows.</span>}
         <span className="basis-full">
-          Each box is one {noun}, shown as a whole number.
+          Each box is one {noun}, shown to one decimal.
           <span className="pointer-coarse:hidden"> Hover it for the exact figure, click it for details.</span>
           <span className="pointer-fine:hidden"> Tap it for details.</span>
         </span>

@@ -67,7 +67,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
       )}
     >
       {overlay}
-      <span className={cn('relative flex min-w-0 max-w-full items-center gap-x-1 whitespace-nowrap t-meta text-text-muted', STAT_ROW_PHONE_CENTER, interactive && 'pointer-events-none')}>
+      <span className={cn('relative flex min-w-0 max-w-full items-center gap-x-1 whitespace-normal t-meta text-text-muted', STAT_ROW_PHONE_CENTER, interactive && 'pointer-events-none')}>
         <span aria-hidden="true" className={cn('hidden size-2 shrink-0 rounded-full', compact && 'max-sm:inline-block', loading ? 'bg-border' : FIGURE_BAR[shownTone])} />
         {short ? (
           <>
@@ -75,7 +75,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
             <span className="hidden min-w-0 truncate sm:@[22rem]:inline">{label}</span>
           </>
         ) : (
-          <span className="min-w-0 truncate">{label}</span>
+          <span className="min-w-0 line-clamp-2 leading-snug">{label}</span>
         )}
         {hint && (
           <span className={cn('pointer-events-auto inline-flex shrink-0', compact && 'max-sm:hidden')}>
@@ -96,7 +96,7 @@ export const FigureCard = ({ label, short, help, value, tone, bar, loading, text
         )}
       </span>
       {caption != null && (
-        <span className={cn('relative line-clamp-1 t-meta text-text-muted', interactive && 'pointer-events-none')}>{caption}</span>
+        <span className={cn('relative line-clamp-2 t-meta text-text-muted', interactive && 'pointer-events-none')}>{caption}</span>
       )}
       {bar !== undefined && (
         <span className={cn('relative h-1.5 w-full overflow-hidden rounded-full bg-surface-hover', compact && 'max-sm:hidden', interactive && 'pointer-events-none')} aria-hidden="true">
