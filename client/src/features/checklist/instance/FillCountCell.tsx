@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 import { fillTone, formatCount } from './fillCount';
 
 interface FillCountCellProps {
@@ -27,7 +27,7 @@ export const FillCountCell = ({ done, due, pct, unit, note, emptyTitle }: FillCo
   const width = Math.max(0, Math.min(100, pct));
   return (
     <span className="flex flex-col items-end gap-1 tabular-nums">
-      <span className={cn('t-card font-display font-bold leading-none whitespace-nowrap', tone.text)}>{formatPct(pct)}</span>
+      <span className={cn('t-card font-display font-bold leading-none whitespace-nowrap', tone.text)}>{formatWholePct(pct)}</span>
       <span className={TRACK} aria-hidden="true">
         <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none', tone.bar)} style={{ width: `${width}%` }} />
       </span>

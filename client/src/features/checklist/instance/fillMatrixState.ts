@@ -1,5 +1,5 @@
 import { CalendarOff, Check, Clock, X } from 'lucide-react';
-import { exportPct, type TableRows } from '../../../lib/exportTable';
+import { exportWholePct, type TableRows } from '../../../lib/exportTable';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 import { countText } from './fillCount';
 
@@ -15,7 +15,7 @@ export const STATE: Record<WeeklyCellState, { label: string; tone: string; icon:
 };
 
 const cellText = (cell: WeeklyCell): string | number | null => {
-  if (cell.state === 'summary') return exportPct(cell.completion ?? null);
+  if (cell.state === 'summary') return exportWholePct(cell.completion ?? null);
   const state = cell.state === 'open' && cell.done === 0 ? 'Not started' : STATE[cell.state].label;
   return cell.total && cell.runId ? `${state} (${cell.done}/${cell.total})` : state;
 };
@@ -34,12 +34,12 @@ export const fillMatrixRows = (data: WeeklyReport): TableRows => {
     ...r.cells.map(cellText),
     r.questionsDone ?? null,
     r.questionsDue ?? null,
-    exportPct(r.questionsPct),
+    exportWholePct(r.questionsPct),
     countText(r.onTime, r.due),
-    exportPct(r.rate),
+    exportWholePct(r.rate),
     countText(r.answersGood, r.answersChecked),
-    exportPct(r.compliance),
-    exportPct(r.completion),
+    exportWholePct(r.compliance),
+    exportWholePct(r.completion),
     r.open ?? 0,
   ]);
   return [head, ...body];

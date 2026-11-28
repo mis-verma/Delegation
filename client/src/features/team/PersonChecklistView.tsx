@@ -5,8 +5,8 @@ import { EmptyState, ExportMenu, InlineError, Skeleton, PANEL_CLASS } from '../.
 import { CATEGORY_PREDICATES } from '../tasks/taskFilters';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { CategoryBarChart, type CategoryBar } from './CategoryBarChart';
-import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
-import { formatPct, roundPct } from '../../lib/percent';
+import { exportWholePct, exportTitle, type TableRows } from '../../lib/exportTable';
+import { formatWholePct, roundPct } from '../../lib/percent';
 import type { ScoreReportRow } from '../../api/scores';
 import { cn } from '../../lib/utils';
 import type { ChecklistReportMetrics } from '../../api/checklistReports';
@@ -54,7 +54,7 @@ const BigStat = ({ label, value, valueClassName, detail, hint }: BigStatProps) =
   </div>
 );
 
-const pctText = (pct: number | null) => (pct === null ? null : formatPct(pct));
+const pctText = (pct: number | null) => (pct === null ? null : formatWholePct(pct));
 
 export const PersonChecklistView = ({
   personName,
@@ -103,21 +103,21 @@ export const PersonChecklistView = ({
     ['Store checklists', 'Value'],
     ['Checklists due', checklistDue],
     ['Completed', checklist?.completed ?? 0],
-    ['Completion % (completed of due)', exportPct(checklist?.completionPct)],
+    ['Completion % (completed of due)', exportWholePct(checklist?.completionPct)],
     ['Completed on time', checklist?.onTime ?? 0],
-    ['Met deadline % (on time of due)', exportPct(checklist?.metDeadlinePct)],
-    ['On time % (of finished)', exportPct(onTimeOfFinished)],
+    ['Met deadline % (on time of due)', exportWholePct(checklist?.metDeadlinePct)],
+    ['On time % (of finished)', exportWholePct(onTimeOfFinished)],
     ['Missed', checklist?.missed ?? 0],
     ['Still open (not counted yet)', checklist?.open ?? 0],
     ['Sent back', checklist?.sentBack ?? 0],
     ['Answers checked', checklist?.answersChecked ?? 0],
-    ['Answers right % (compliance)', checklist && checklist.answersChecked > 0 ? exportPct(checklist.compliancePct) : null],
+    ['Answers right % (compliance)', checklist && checklist.answersChecked > 0 ? exportWholePct(checklist.compliancePct) : null],
     [],
     ['Tickets and delegations due in this period', 'Value'],
     ['Due', workDue],
     ['Done', workDone],
-    ['Completion % (done of due)', exportPct(workRate)],
-    ['Photo proof % (required photos uploaded)', exportPct(photo?.photoRate)],
+    ['Completion % (done of due)', exportWholePct(workRate)],
+    ['Photo proof % (required photos uploaded)', exportWholePct(photo?.photoRate)],
     [],
     ['Created in this period', 'Done', 'Created'],
     ['Direct Task', taskStats.done, taskStats.total],
@@ -235,7 +235,7 @@ export const PersonChecklistView = ({
               <Skeleton className="h-7 w-16" />
             ) : (
               <span className={cn('t-stat font-display font-bold tabular-nums', photo?.photoRate == null ? 'text-text-light' : rateToneClass(photo.photoRate))}>
-                {formatPct(photo?.photoRate)}
+                {formatWholePct(photo?.photoRate)}
               </span>
             )}
             <span className="t-meta font-display font-medium text-text-secondary">

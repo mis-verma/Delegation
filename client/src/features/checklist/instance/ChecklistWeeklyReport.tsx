@@ -4,8 +4,8 @@ import { BarChart3, Building2, CalendarCheck2, CalendarRange, ChevronRight, Grid
 import { cn } from '@/lib/utils';
 import { Combobox, CountBadge, Dropdown, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, SelectDropdown, Skeleton, SlidingTabs, type SlidingTabOption } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
-import { formatPct } from '../../../lib/percent';
+import { exportWholePct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { formatWholePct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
@@ -130,7 +130,7 @@ export const ChecklistWeeklyReport = () => {
         missed: summary.missed,
         open: summary.open ?? 0,
       } as Record<SummaryKey, number>,
-      display: Object.fromEntries(Object.entries(pctKeys).map(([k, v]) => [k, formatPct(v)])) as Partial<Record<SummaryKey, string>>,
+      display: Object.fromEntries(Object.entries(pctKeys).map(([k, v]) => [k, formatWholePct(v)])) as Partial<Record<SummaryKey, string>>,
     };
   }, [summary]);
 
@@ -147,7 +147,7 @@ export const ChecklistWeeklyReport = () => {
     const winners = new Set(winner.map((w) => w.id));
     return [
       ['Rank', view === 'departments' ? 'Department' : 'Store', 'Checklist score %', 'Completion %', 'Answers right %', 'Due', 'Filled', 'Not filled', 'Still open', 'Too few runs to rank', 'Winner'],
-      ...ranked.map((i, idx) => [rankOf(i, idx), i.name, exportPct(i.score), exportPct(i.completion), exportPct(i.compliance), i.due, i.completed, i.missed, i.open, i.rankable ? '' : 'Yes', winners.has(i.id) ? 'Yes' : '']),
+      ...ranked.map((i, idx) => [rankOf(i, idx), i.name, exportWholePct(i.score), exportWholePct(i.completion), exportWholePct(i.compliance), i.due, i.completed, i.missed, i.open, i.rankable ? '' : 'Yes', winners.has(i.id) ? 'Yes' : '']),
     ];
   };
   const scoresMatrixHref = `/admin/scores?${new URLSearchParams({ view: 'checklist', matrix: '1', from: range.from, to: range.to, ...(appliedStoreId ? { store: appliedStoreId } : {}), ...(appliedDepartmentId ? { dept: appliedDepartmentId } : {}) }).toString()}`;

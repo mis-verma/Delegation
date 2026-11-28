@@ -4,7 +4,7 @@ import { CalendarOff, Download, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 import { downloadCsvNow } from '../../../lib/exportTable';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 import { STATE, fillMatrixRows } from './fillMatrixState';
@@ -41,7 +41,7 @@ export const FillCell = memo(({ cell, name }: { cell: WeeklyCell; name: string }
   const s = STATE[cell.state];
   const percent = cell.total ? Math.round((cell.done / cell.total) * 100) : 0;
   const stateLabel = cell.state === 'open' && cell.done === 0 ? 'Not started' : s.label;
-  const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
+  const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, answers right ${formatWholePct(cell.compliance)}` : ''}`;
   const Icon = s.icon;
 
   if (cell.state === 'summary') {
@@ -49,7 +49,7 @@ export const FillCell = memo(({ cell, name }: { cell: WeeklyCell; name: string }
     const questions = cell.questionsDue ? `, ${formatCount(cell.questionsDone ?? 0)} of ${formatCount(cell.questionsDue)} questions done` : '';
     const detail = due === 0 && !cell.open
       ? 'Nothing was due'
-      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${questions}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
+      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${questions}${cell.compliance !== null ? `, answers right ${formatWholePct(cell.compliance)}` : ''}`;
     const monthName = new Date(`${cell.date}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
     return (
       <Popover>
@@ -62,7 +62,7 @@ export const FillCell = memo(({ cell, name }: { cell: WeeklyCell; name: string }
           >
             {cell.completion == null
               ? <Minus size={14} className="text-text-light" aria-hidden />
-              : <span className={cn('t-card font-display font-bold tabular-nums', fillTone(cell.completion).text)}>{formatPct(cell.completion)}</span>}
+              : <span className={cn('t-card font-display font-bold tabular-nums', fillTone(cell.completion).text)}>{formatWholePct(cell.completion)}</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-3">
