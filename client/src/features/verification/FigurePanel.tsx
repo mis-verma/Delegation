@@ -52,7 +52,7 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
         const body = (
           <>
             <span className={cn('flex min-w-0 max-w-full items-center gap-1.5 t-meta font-display font-semibold text-text-muted', dense && 'sm:col-start-1')}>
-              {cell.icon && <cell.icon className={cn('size-3.5 shrink-0', cell.iconClassName)} aria-hidden="true" />}
+              {cell.icon && <cell.icon className={cn('size-3.5 shrink-0 max-sm:hidden', cell.iconClassName)} aria-hidden="true" />}
               <span className="min-w-0 truncate">
                 <span className="sm:hidden">{cell.short ?? cell.label}</span>
                 <span className="hidden sm:inline">{cell.label}</span>
