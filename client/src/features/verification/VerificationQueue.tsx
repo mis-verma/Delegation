@@ -357,7 +357,7 @@ export const VerificationQueue = () => {
             </span>
           )}
         </div>
-        <ReviewPane key={openRow.id} row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} className="lg:max-h-none" />
+        <ReviewPane key={openRow.id} row={openRow} draft={draft} onApprove={approveFromPane} onSendBack={sendBack} pageScroll />
       </div>
     );
   }

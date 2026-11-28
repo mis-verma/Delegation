@@ -370,7 +370,8 @@ const PaneScore = ({ row, draft }: { row: ChecklistRow; draft: ReviewDraft }) =>
 };
 
 interface PaneProps extends FooterProps {
-  className?: string;
+  /** The page scrolls instead of the pane body, so the sticky header pins to the page. */
+  pageScroll?: boolean;
 }
 
 const bodyProps = (row: ChecklistRow, draft: ReviewDraft) => ({
@@ -386,12 +387,12 @@ const bodyProps = (row: ChecklistRow, draft: ReviewDraft) => ({
   onItemNote: draft.setItemNote,
 });
 
-export const ReviewPane = ({ row, draft, onApprove, onSendBack, className }: PaneProps) => (
-  <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0 lg:max-h-[calc(100dvh_-_7rem)]', className)}>
+export const ReviewPane = ({ row, draft, onApprove, onSendBack, pageScroll = false }: PaneProps) => (
+  <section aria-label={`Review ${row.instance.title}`} className={cn(PANEL_CLASS, 'flex flex-col min-h-0', !pageScroll && 'lg:max-h-[calc(100dvh_-_7rem)]')}>
     <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-5">
       <PaneScore row={row} draft={draft} />
     </div>
-    <div className="flex-1 min-h-0 p-4 sm:p-5 lg:overflow-y-auto custom-scrollbar">
+    <div className={cn('flex-1 min-h-0 p-4 sm:p-5 custom-scrollbar', !pageScroll && 'lg:overflow-y-auto')}>
       <ReviewPaneBody {...bodyProps(row, draft)} />
     </div>
     <div className="shrink-0 flex border-t border-border/60 p-3.5 sm:p-4">
