@@ -65,7 +65,14 @@ export const checklistInstanceImageService = {
             throw AppError.badRequest(wantsVideo ? "This item needs a video, not a photo" : "This item needs a photo, not a video");
         }
 
-        if (item.isDone) {
+        const existing = await db.select().from(checklistInstanceImages)
+            .where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, purpose)));
+
+        // A Yes/No answer with a required follow-up photo saves as done the moment it's picked —
+        // the photo is a separate, later step (see ChecklistInstanceItemBooleanCard). So "done"
+        // only locks this purpose's evidence once a clear photo actually exists for it; until
+        // then, the item being done is exactly the state that's still waiting on this upload.
+        if (item.isDone && passingPhotos(existing).length > 0) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
             throw AppError.badRequest("This item is already done — reopen it first to change its evidence");
         }
@@ -84,8 +91,6 @@ export const checklistInstanceImageService = {
         }
 
         if (!wantsVideo) {
-            const existing = await db.select().from(checklistInstanceImages)
-                .where(and(eq(checklistInstanceImages.checklistInstanceItemId, item.id), eq(checklistInstanceImages.purpose, purpose)));
             const failedCount = existing.filter(isFailedPhoto).length;
             if (failedCount >= MAX_FAILED_PHOTOS) {
                 files.forEach((f) => fs.unlink(f.path, () => {}));
