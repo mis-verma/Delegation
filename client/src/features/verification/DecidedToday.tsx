@@ -1,19 +1,14 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, Clock, CornerUpLeft, History, ListChecks, MessageSquare, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { Clock, History, ListChecks, MessageSquare, RotateCcw, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, EmptyState, InlineError, useConfirm, ApprovalStatusChip, VerifiedByChip } from '../../components';
 import { TABLE_FRAME_CLASS, TH_CLASS, TD_CLASS, TableSkeleton } from '../../components/dataTable';
 import { useCanReopen } from '../checklist/instance/useCanReopen';
 import { useReopenApprovalMutation } from '../checklist/hook';
 import { useChecklistDecisionsQuery, type ChecklistDecision } from './useChecklistDecisions';
-
-const ACTION_CHIP: Record<ChecklistDecision['action'], { label: string; icon: typeof Send; tone: string }> = {
-  APPROVE: { label: 'Approved', icon: CheckCircle2, tone: 'bg-success' },
-  REJECT: { label: 'Sent back', icon: CornerUpLeft, tone: 'bg-danger' },
-  SEND_BACK: { label: 'Sent back', icon: CornerUpLeft, tone: 'bg-danger' },
-  SUBMIT: { label: 'Submitted', icon: Send, tone: 'bg-primary-600' },
-};
+import { DecisionCard } from './DecisionCard';
+import { DAY_TIME, FULL_DATE, parseAt, questionsLabelOf, statusKeyOf, ACTION_CHIP } from './decisionDisplay';
 
 // Desktop (lg+) freezes the first three columns. Offsets are the summed widths of the frozen columns
 // before them, written as lg-only classes so phones keep a plain scrolling table. Phones show
@@ -37,7 +32,7 @@ const COL_CLASS = [
 ] as const;
 const UNFREEZE = 'xl:static';
 
-const PAD = 'px-2 lg:px-3';
+const PAD = 'px-3';
 // Sticky cells need an opaque background so scrolling content slides underneath them, and the
 // lg-only `sticky` keeps phones on a normal flow. Never pair `relative` with `sticky`: tailwind-merge
 // keeps the later one, which turns the frozen cell into a plain offset box.
@@ -48,18 +43,6 @@ const FROZEN_EDGE = 'lg:shadow-[6px_0_6px_-6px_rgb(0_0_0/0.22)] xl:shadow-none';
 const CELL_TIGHT = 'py-1.5 pointer-coarse:py-2 border-t border-border/60';
 const ROW_CELL = cn(TD_CLASS, PAD, CELL_TIGHT, 'border-l border-border/40 transition-colors group-hover:bg-surface-hover');
 
-const TIME_ONLY = new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-const DAY_TIME = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
-const FULL_DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-
-const parseAt = (value: string): Date | null => {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-
-const initialsOf = (name: string) =>
-  name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('');
-
 interface DecisionRowProps {
   decision: ChecklistDecision;
   canReopen: boolean;
@@ -69,11 +52,10 @@ interface DecisionRowProps {
 
 const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
   const chip = ACTION_CHIP[decision.action];
-  const statusKey = decision.action === 'APPROVE' ? 'APPROVED' : decision.action === 'SUBMIT' ? 'SUBMITTED' : 'REJECTED';
   const at = parseAt(decision.at);
   const who = decision.actorName?.trim() || null;
   const questions = decision.itemCount ?? 0;
-  const questionsLabel = `${questions} ${questions === 1 ? 'question' : 'questions'}`;
+  const questionsLabel = questionsLabelOf(questions);
 
   return (
     <tr className="group">
@@ -88,7 +70,6 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
           </Link>
           <span className="flex min-w-0 items-center gap-1.5 t-meta text-text-muted">
             {decision.storeName && <span className="truncate">{decision.storeName}</span>}
-            {questions > 0 && <span className="shrink-0 tabular-nums lg:hidden">· {questionsLabel}</span>}
             {decision.note && (
               <span role="img" aria-label={`Note: ${decision.note}`} title={decision.note} className="shrink-0 xl:hidden">
                 <MessageSquare className="size-3" aria-hidden />
@@ -100,14 +81,7 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
 
       <td className={cn(ROW_CELL, STICKY_CELL, FREEZE.by)}>
         {who ? (
-          <>
-            <span role="img" aria-label={`Approved by ${who}`} title={who} className="flex size-7 items-center justify-center rounded-full bg-primary-500/15 t-meta font-display font-bold text-primary-700 dark:text-primary-300 lg:hidden">
-              {initialsOf(who)}
-            </span>
-            <span className="max-lg:hidden">
-              <VerifiedByChip verifierName={who} showLabel={false} />
-            </span>
-          </>
+          <VerifiedByChip verifierName={who} showLabel={false} />
         ) : (
           <span className="text-text-light">-</span>
         )}
@@ -117,8 +91,7 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
         {at ? (
           <time dateTime={at.toISOString()} title={FULL_DATE.format(at)} className="flex items-center gap-1.5 text-text">
             <Clock className="size-3 shrink-0 text-text-muted" aria-hidden />
-            <span className="lg:hidden">{TIME_ONLY.format(at)}</span>
-            <span className="max-lg:hidden">{DAY_TIME.format(at)}</span>
+            {DAY_TIME.format(at)}
           </time>
         ) : (
           <span className="text-text-light">-</span>
@@ -126,7 +99,7 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
       </td>
 
       <td className={ROW_CELL}>
-        <ApprovalStatusChip status={statusKey} label={<span className="max-lg:sr-only">{chip.label}</span>} title={chip.label} />
+        <ApprovalStatusChip status={statusKeyOf(decision.action)} label={chip.label} title={chip.label} />
       </td>
 
       <td className={cn(ROW_CELL, 'hidden lg:table-cell')}>
@@ -153,14 +126,12 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
           <Button
             size="sm"
             variant="outline"
-            className="px-2 lg:px-3"
-            title="Reopen"
             aria-label={`Reopen ${decision.title}`}
             isLoading={reopening}
             onClick={() => onReopen(decision)}
           >
             {!reopening && <RotateCcw size={14} aria-hidden />}
-            <span className="max-lg:sr-only">Reopen</span>
+            Reopen
           </Button>
         )}
       </td>
@@ -223,11 +194,20 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
     );
   }
 
+  const reopenable = (d: ChecklistDecision) => canReopen && latestApproval.has(d.id) && !waitingIds?.has(d.instanceId);
+  const isReopening = (d: ChecklistDecision) => reopen.isPending && reopen.variables === d.instanceId;
+
   return (
     <div className="flex flex-col gap-3">
       {isError && <InlineError message="Showing the last list we loaded. The refresh failed." onRetry={() => refetch()} />}
 
-      <div className={cn(TABLE_FRAME_CLASS, 'max-h-none lg:max-h-[min(60svh,28rem)]')}>
+      <ul aria-label="Today's approval history" className="flex flex-col gap-2 lg:hidden">
+        {decisions.map((d) => (
+          <DecisionCard key={d.id} decision={d} canReopen={reopenable(d)} reopening={isReopening(d)} onReopen={onReopen} />
+        ))}
+      </ul>
+
+      <div className={cn(TABLE_FRAME_CLASS, 'hidden lg:block max-h-none lg:max-h-[min(60svh,28rem)]')}>
         <table className="w-full table-fixed border-separate border-spacing-0 text-left">
           <caption className="sr-only">Today's approval history</caption>
           <colgroup>
@@ -237,12 +217,10 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
             <tr>
               <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.checklist, UNFREEZE, 'lg:z-30')}>Checklist</th>
               <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.by, UNFREEZE, 'lg:z-30 border-l border-primary-900/40')}>
-                <span className="lg:hidden">By</span>
-                <span className="max-lg:hidden">Approved by</span>
+                Approved by
               </th>
               <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.when, FROZEN_EDGE, UNFREEZE, 'lg:z-30 border-l border-primary-900/40')}>
-                <span className="lg:hidden">When</span>
-                <span className="max-lg:hidden">Date &amp; time</span>
+                Date &amp; time
               </th>
               <th scope="col" className={cn(TH_CLASS, PAD, 'border-l border-primary-700/40')}>Result</th>
               <th scope="col" className={cn(TH_CLASS, PAD, 'hidden lg:table-cell border-l border-primary-700/40')}>Questions</th>
@@ -252,13 +230,7 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
           </thead>
           <tbody>
             {decisions.map((d) => (
-              <DecisionRow
-                key={d.id}
-                decision={d}
-                canReopen={canReopen && latestApproval.has(d.id) && !waitingIds?.has(d.instanceId)}
-                reopening={reopen.isPending && reopen.variables === d.instanceId}
-                onReopen={onReopen}
-              />
+              <DecisionRow key={d.id} decision={d} canReopen={reopenable(d)} reopening={isReopening(d)} onReopen={onReopen} />
             ))}
           </tbody>
         </table>
