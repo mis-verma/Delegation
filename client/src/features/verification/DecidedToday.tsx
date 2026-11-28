@@ -15,11 +15,11 @@ const ACTION_CHIP: Record<ChecklistDecision['action'], { label: string; icon: ty
   SUBMIT: { label: 'Submitted', icon: Send, tone: 'bg-primary-600' },
 };
 
-// Widths are fixed so the sticky "who/when" columns can use a predictable left offset
-// instead of measuring the title column at runtime.
-const COL1_WIDTH = 'w-64 min-w-64 max-w-64';
-const COL2_WIDTH = 'w-40 min-w-40 max-w-40';
-const COL2_LEFT = 'left-64';
+// table-fixed + explicit widths (via <colgroup>) keep every column a known size, so the
+// sticky "who/when" columns can sit at a predictable left offset and their chips (which
+// refuse to shrink or wrap) can't bleed into the column next door.
+const COL_WIDTHS = ['16rem', '14rem', '11rem', '9rem', '7rem', '14rem', '6rem'] as const;
+const STICKY_LEFT = [0, 16, 30] as const; // rem offsets for columns 1-3 (Checklist / Approved by / Date & time)
 
 interface ReopenButtonProps {
   canReopen: boolean;
@@ -78,36 +78,41 @@ const DecisionCard = memo(function DecisionCard({ decision, canReopen, reopening
   );
 });
 
+// The last sticky column gets a visible seam (shadow) so it's clear the rest of the row
+// keeps scrolling underneath it, instead of the columns just silently stopping.
+const STICKY_CELL = 'sticky z-10 bg-surface transition-colors group-hover:bg-surface-hover';
+const FROZEN_EDGE = 'after:absolute after:inset-y-0 after:right-0 after:w-2 after:translate-x-full after:bg-gradient-to-r after:from-black/5 after:to-transparent after:content-[""] dark:after:from-black/20';
+
 const DecisionTableRow = memo(function DecisionTableRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
   const chip = ACTION_CHIP[decision.action];
   const statusKey = decision.action === 'APPROVE' ? 'APPROVED' : decision.action === 'SUBMIT' ? 'SUBMITTED' : 'REJECTED';
   return (
     <tr className="group border-t border-border/60">
-      <th scope="row" className={cn(TD_CLASS, COL1_WIDTH, 'sticky left-0 z-10 bg-surface font-normal transition-colors group-hover:bg-surface-hover')}>
-        <div className="flex flex-col gap-0.5 text-left">
+      <th scope="row" style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(TD_CLASS, STICKY_CELL, 'relative overflow-hidden font-normal text-left')}>
+        <div className="flex flex-col gap-0.5 min-w-0">
           <Link
             to={`/checklists/${decision.instanceId}`}
             className="t-card font-display font-semibold text-text leading-snug line-clamp-2 rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             {decision.title}
           </Link>
-          {decision.storeName && <span className="t-meta text-text-muted">{decision.storeName}</span>}
+          {decision.storeName && <span className="t-meta text-text-muted truncate">{decision.storeName}</span>}
         </div>
       </th>
-      <td className={cn(TD_CLASS, COL2_WIDTH, COL2_LEFT, 'sticky z-10 bg-surface border-l border-border/60 transition-colors group-hover:bg-surface-hover')}>
-        {decision.actorName ? <VerifiedByChip verifierName={decision.actorName} /> : <span className="text-text-light">-</span>}
+      <td style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TD_CLASS, STICKY_CELL, 'relative overflow-hidden border-l border-border/60')}>
+        {decision.actorName ? <VerifiedByChip verifierName={decision.actorName} showLabel={false} /> : <span className="text-text-light">-</span>}
       </td>
-      <td className={cn(TD_CLASS, 'whitespace-nowrap border-l border-border/60')}>
-        {decision.at ? <VerifiedAtChip timestamp={decision.at} format="time" /> : <span className="text-text-light">-</span>}
+      <td style={{ left: `${STICKY_LEFT[2]}rem` }} className={cn(TD_CLASS, STICKY_CELL, FROZEN_EDGE, 'relative overflow-hidden whitespace-nowrap border-l border-border/60')}>
+        {decision.at ? <VerifiedAtChip timestamp={decision.at} format="short" showLabel={false} /> : <span className="text-text-light">-</span>}
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/60')}><ApprovalStatusChip status={statusKey} label={chip.label} /></td>
-      <td className={cn(TD_CLASS, 'border-l border-border/60 tabular-nums')}>
-        {decision.itemCount != null && decision.itemCount > 0 ? `${decision.itemCount} ${decision.itemCount === 1 ? 'question' : 'questions'}` : <span className="text-text-light">-</span>}
+      <td className={cn(TD_CLASS, 'border-l border-border/40 transition-colors group-hover:bg-surface-hover')}><ApprovalStatusChip status={statusKey} label={chip.label} /></td>
+      <td className={cn(TD_CLASS, 'border-l border-border/40 tabular-nums transition-colors group-hover:bg-surface-hover')}>
+        {decision.itemCount != null && decision.itemCount > 0 ? decision.itemCount : <span className="text-text-light">-</span>}
       </td>
-      <td className={cn(TD_CLASS, 'max-w-sm border-l border-border/60 whitespace-pre-wrap break-words')}>
+      <td className={cn(TD_CLASS, 'border-l border-border/40 line-clamp-2 break-words transition-colors group-hover:bg-surface-hover')}>
         {decision.note || <span className="text-text-light">-</span>}
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/60 text-right')}>
+      <td className={cn(TD_CLASS, 'border-l border-border/40 text-right transition-colors group-hover:bg-surface-hover')}>
         <ReopenButton canReopen={decision.action === 'APPROVE' && canReopen} reopening={reopening} onReopen={() => onReopen(decision)} />
       </td>
     </tr>
@@ -186,17 +191,20 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
       </ul>
 
       <div className={cn(TABLE_FRAME_CLASS, 'hidden lg:block')}>
-        <table className="w-full border-collapse text-left">
+        <table className="w-full table-fixed border-collapse text-left">
           <caption className="sr-only">Today's approval history</caption>
+          <colgroup>
+            {COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
+          </colgroup>
           <thead className="sticky top-0 z-20">
             <tr>
-              <th scope="col" className={cn(TH_CLASS, COL1_WIDTH, 'sticky left-0 z-30')}>Checklist</th>
-              <th scope="col" className={cn(TH_CLASS, COL2_WIDTH, COL2_LEFT, 'sticky z-30 border-l border-primary-900/40')}>Approved by</th>
-              <th scope="col" className={cn(TH_CLASS, 'whitespace-nowrap border-l border-primary-900/40')}>Date &amp; time</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-900/40')}>Decision</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-900/40')}>Questions</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-900/40')}>Note</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-900/40')}><span className="sr-only">Action</span></th>
+              <th scope="col" style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(TH_CLASS, 'sticky z-30')}>Checklist</th>
+              <th scope="col" style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TH_CLASS, 'sticky z-30 border-l border-primary-900/40')}>Approved by</th>
+              <th scope="col" style={{ left: `${STICKY_LEFT[2]}rem` }} className={cn(TH_CLASS, FROZEN_EDGE, 'relative sticky z-30 whitespace-nowrap border-l border-primary-900/40')}>Date &amp; time</th>
+              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Decision</th>
+              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Questions</th>
+              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Note</th>
+              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}><span className="sr-only">Action</span></th>
             </tr>
           </thead>
           <tbody>

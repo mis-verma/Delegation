@@ -1,8 +1,11 @@
 import { Fragment, type ReactNode } from 'react';
 import { CheckCircle2, CheckCheck, Flag, Keyboard, SearchX, History, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, EmptyState, InlineError, Skeleton } from '../../components';
+import { Button, EmptyState, InlineError, Segmented, Skeleton } from '../../components';
 import { ChecklistQueueRow } from './ChecklistQueueRow';
+import { ChecklistQueueListRow } from './ChecklistQueueListRow';
+import { ChecklistQueueTable } from './ChecklistQueueTable';
+import { LAYOUT_OPTIONS, type ChecklistQueueLayout } from './checklistQueueLayout';
 import { groupOf, type ChecklistRow, type QueueGroup } from './verificationModel';
 
 const SkeletonRow = () => (
@@ -44,6 +47,8 @@ interface ChecklistListProps {
   heading?: string;
   titleSlot?: ReactNode;
   grouped?: boolean;
+  layout?: ChecklistQueueLayout;
+  onLayoutChange?: (layout: ChecklistQueueLayout) => void;
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
@@ -59,7 +64,7 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 export const ChecklistList = ({
   rows, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, onApproveAll, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
-  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, onOpen, onApprove, onSendBack, onSendBackItem,
+  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, layout = 'cards', onLayoutChange, onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
   const groupCounts = { critical: 0, attention: 0, ready: 0 };
   for (const r of rows) groupCounts[groupOf(r)] += 1;
@@ -75,6 +80,14 @@ export const ChecklistList = ({
         </div>
       )}
       <div className="flex items-center gap-2">
+        {onLayoutChange && (
+          <Segmented
+            label="View"
+            options={LAYOUT_OPTIONS.map((o) => ({ value: o.value, label: o.label, icon: <o.icon size={13} aria-hidden /> }))}
+            value={layout}
+            onChange={onLayoutChange}
+          />
+        )}
         {onShowShortcuts && (
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>
             <Keyboard size={14} aria-hidden />
@@ -132,7 +145,18 @@ export const ChecklistList = ({
       )
     )}
 
-    {rows.length > 0 && (
+    {rows.length > 0 && layout === 'table' && (
+      <ChecklistQueueTable
+        rows={rows}
+        activeId={activeId}
+        showDepartment={showDepartment}
+        onOpen={onOpen}
+        onApprove={onApprove}
+        onSendBack={onSendBack}
+      />
+    )}
+
+    {rows.length > 0 && layout !== 'table' && (
       <ul className="flex flex-col gap-3">
         {rows.map((row, index) => {
           const group = groupOf(row);
@@ -162,16 +186,27 @@ export const ChecklistList = ({
                   )}
                 </li>
               )}
-              <ChecklistQueueRow
-                row={row}
-                active={row.id === activeId}
-                showDepartment={showDepartment}
-                inlineActions={inlineActions}
-                onOpen={onOpen}
-                onApprove={onApprove}
-                onSendBack={onSendBack}
-                onSendBackItem={onSendBackItem}
-              />
+              {layout === 'list' ? (
+                <ChecklistQueueListRow
+                  row={row}
+                  active={row.id === activeId}
+                  showDepartment={showDepartment}
+                  onOpen={onOpen}
+                  onApprove={onApprove}
+                  onSendBack={onSendBack}
+                />
+              ) : (
+                <ChecklistQueueRow
+                  row={row}
+                  active={row.id === activeId}
+                  showDepartment={showDepartment}
+                  inlineActions={inlineActions}
+                  onOpen={onOpen}
+                  onApprove={onApprove}
+                  onSendBack={onSendBack}
+                  onSendBackItem={onSendBackItem}
+                />
+              )}
             </Fragment>
           );
         })}
