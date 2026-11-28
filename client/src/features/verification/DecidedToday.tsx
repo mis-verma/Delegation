@@ -24,22 +24,25 @@ const FREEZE = {
   when: 'lg:left-[22rem]',
 } as const;
 
+// From xl up the table fits without scrolling, so nothing is frozen and the Checklist title takes the
+// spare width (`xl:w-auto`) rather than an empty Note column stretching out.
 const COL_CLASS = [
-  'lg:w-[12.5rem]',
-  'w-14 lg:w-[9.5rem]',
-  'w-16 lg:w-[8rem]',
-  'w-12 lg:w-[6.5rem]',
-  'hidden lg:table-column lg:w-[5.5rem]',
-  'hidden xl:table-column',
-  'w-12 lg:w-[7rem]',
+  'lg:w-[12.5rem] xl:w-auto',
+  'w-14 lg:w-[9.5rem] xl:w-[11rem]',
+  'w-16 lg:w-[8rem] xl:w-[9.5rem]',
+  'w-12 lg:w-[6.5rem] xl:w-[8rem]',
+  'hidden lg:table-column lg:w-[5.5rem] xl:w-[6.5rem]',
+  'hidden xl:table-column xl:w-[16rem]',
+  'w-12 lg:w-[7rem] xl:w-[7rem]',
 ] as const;
+const UNFREEZE = 'xl:static';
 
 const PAD = 'px-2 lg:px-3';
 // Sticky cells need an opaque background so scrolling content slides underneath them, and the
 // lg-only `sticky` keeps phones on a normal flow. Never pair `relative` with `sticky`: tailwind-merge
 // keeps the later one, which turns the frozen cell into a plain offset box.
-const STICKY_CELL = 'lg:sticky z-10 bg-surface transition-colors group-hover:bg-surface-hover';
-const FROZEN_EDGE = 'lg:shadow-[6px_0_6px_-6px_rgb(0_0_0/0.22)]';
+const STICKY_CELL = 'lg:sticky xl:static z-10 bg-surface transition-colors group-hover:bg-surface-hover';
+const FROZEN_EDGE = 'lg:shadow-[6px_0_6px_-6px_rgb(0_0_0/0.22)] xl:shadow-none';
 // Row dividers sit on the cells (border-separate): an opaque sticky background would cover a
 // collapsed row border and leave gaps in the frozen columns.
 const CELL_TIGHT = 'py-1.5 pointer-coarse:py-2 border-t border-border/60';
@@ -232,12 +235,12 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr>
-              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.checklist, 'lg:z-30')}>Checklist</th>
-              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.by, 'lg:z-30 border-l border-primary-900/40')}>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.checklist, UNFREEZE, 'lg:z-30')}>Checklist</th>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.by, UNFREEZE, 'lg:z-30 border-l border-primary-900/40')}>
                 <span className="lg:hidden">By</span>
                 <span className="max-lg:hidden">Approved by</span>
               </th>
-              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.when, FROZEN_EDGE, 'lg:z-30 border-l border-primary-900/40')}>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.when, FROZEN_EDGE, UNFREEZE, 'lg:z-30 border-l border-primary-900/40')}>
                 <span className="lg:hidden">When</span>
                 <span className="max-lg:hidden">Date &amp; time</span>
               </th>
