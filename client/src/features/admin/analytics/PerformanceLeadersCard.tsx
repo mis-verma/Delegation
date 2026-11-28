@@ -40,7 +40,7 @@ const RING = { success: 'var(--color-vivid-green)', danger: 'var(--color-vivid-r
 
 const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: LeaderEntryProps) => {
   const value = row?.overall ?? null;
-  const badge = <IconChip icon={Icon} tone={SOLID[tone]} label={label} labelClassName={TONE_TEXT[tone]} className="w-fit" />;
+  const badge = <IconChip icon={Icon} tone={SOLID[tone]} label={label} labelClassName={cn(TONE_TEXT[tone], 'shrink-0')} className="w-fit" />;
   const content = row ? (
     <>
       <ScoreRing value={value} size={72} stroke={8} label={row.name} color={RING[tone]} />
