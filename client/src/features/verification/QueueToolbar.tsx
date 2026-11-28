@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
-import { Combobox } from '../../components';
+import { Combobox, Segmented } from '../../components';
 import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
 import type { QueueLookups } from './useChecklistQueue';
+import { LAYOUT_OPTIONS, type ChecklistQueueLayout } from './checklistQueueLayout';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
 import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type SortKey } from './verificationModel';
 
@@ -15,6 +16,8 @@ interface QueueToolbarProps {
   filtersActive: boolean;
   onClear: () => void;
   shownCount?: number | null;
+  layout: ChecklistQueueLayout;
+  onLayoutChange: (layout: ChecklistQueueLayout) => void;
 }
 
 const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
@@ -40,7 +43,7 @@ const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void 
   </span>
 );
 
-export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount }: QueueToolbarProps) => {
+export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, layout, onLayoutChange }: QueueToolbarProps) => {
   const [open, setOpen] = useState(false);
 
   const attention = params.attention && attentionAvailable;
@@ -54,8 +57,8 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <label className="relative flex-1 min-w-0 sm:max-w-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative flex-1 min-w-40 sm:max-w-sm">
           <span className="sr-only">Search by title, person or store</span>
           <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
           <input
@@ -165,6 +168,15 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
             )}
           </OptionSection>
         </OptionsSheet>
+
+        <Segmented
+          label="View"
+          iconOnlyOnMobile
+          className="sm:ml-auto"
+          options={LAYOUT_OPTIONS.filter((o) => o.value !== 'table' || attentionAvailable).map((o) => ({ value: o.value, label: o.label, icon: <o.icon size={13} aria-hidden /> }))}
+          value={layout === 'table' && !attentionAvailable ? 'list' : layout}
+          onChange={onLayoutChange}
+        />
       </div>
 
       {filtersActive && (
