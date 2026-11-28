@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../../components/skeleton';
 import { STAT_BAR_SMALL, STAT_FIGURE, STAT_PHONE_CENTER, STAT_ROW_PHONE_CENTER, STAT_SURFACE, STAT_SURFACE_ACTION, STAT_SURFACE_SELECTED } from '../../components/statSurface';
@@ -7,6 +8,8 @@ export interface FigureCell {
   key: string;
   label: string;
   short?: string;
+  icon?: LucideIcon;
+  iconClassName?: string;
   value: number | string | null;
   note?: string;
   alert?: boolean;
@@ -48,9 +51,12 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
         const selected = !!cell.selected && !broken;
         const body = (
           <>
-            <span className={cn('min-w-0 max-w-full truncate t-meta font-display font-semibold text-text-muted', dense && 'sm:col-start-1')}>
-              <span className="sm:hidden">{cell.short ?? cell.label}</span>
-              <span className="hidden sm:inline">{cell.label}</span>
+            <span className={cn('flex min-w-0 max-w-full items-center gap-1.5 t-meta font-display font-semibold text-text-muted', dense && 'sm:col-start-1')}>
+              {cell.icon && <cell.icon className={cn('size-3.5 shrink-0', cell.iconClassName)} aria-hidden="true" />}
+              <span className="min-w-0 truncate">
+                <span className="sm:hidden">{cell.short ?? cell.label}</span>
+                <span className="hidden sm:inline">{cell.label}</span>
+              </span>
             </span>
             <span className={cn('flex min-w-0 max-w-full items-center', STAT_ROW_PHONE_CENTER, tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7', dense && 'sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-self-end')}>
               {loading ? (
