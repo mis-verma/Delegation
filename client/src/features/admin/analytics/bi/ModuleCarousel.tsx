@@ -3,7 +3,7 @@ import { BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExplorerRow } from '../../../../api/scores';
 import { InlineError, PANEL_CLASS, Skeleton } from '../../../../components';
-import { formatPct, roundPct } from '../../../../lib/percent';
+import { formatPctFixed, roundPct } from '../../../../lib/percent';
 import { CATEGORY_ICON, CATEGORY_TILE } from '../../../dashboard/categoryLook';
 import { DashCardHeader } from '../../../dashboard/DashCardHeader';
 import { FigureCard } from '../../../dashboard/FigureCard';
@@ -33,7 +33,7 @@ interface ModuleCarouselProps {
 }
 
 const titleOf = (key: BiModule) => (key === 'all' ? SCORE_LABEL.overall : MODULE_LABEL[key]);
-const pctText = (value: number | null) => (roundPct(value) === null ? 'N/A' : formatPct(value));
+const pctText = (value: number | null) => (roundPct(value) === null ? 'N/A' : formatPctFixed(value));
 
 const detailOf = (total: ExplorerRow, key: BiModule) => {
   if (key === 'all') return total.totalDue === 0 ? 'Nothing due' : `${total.totalDue} ${total.totalDue === 1 ? 'item' : 'items'} due`;
@@ -68,7 +68,8 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false, pe
               value={roundPct(value)}
               tone={figureToneOf(value)}
               loading={false}
-              format={(n) => formatPct(n)}
+              decimals={1}
+              format={formatPctFixed}
               caption={detailOf(total, key)}
               onClick={() => onSelect(key)}
               selected={selected === key}
@@ -91,7 +92,7 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false, pe
               key={key}
               type="button"
               aria-pressed={isSelected}
-              aria-label={`${titleOf(key)}: ${value === null ? 'nothing due' : formatPct(value)}. ${detail}.${isAll ? ` ${BI_MODULES.map((m) => `${MODULE_LABEL[m]} ${pctText(rowValue(total, m, 'score'))}`).join(', ')}.` : ''}`}
+              aria-label={`${titleOf(key)}: ${value === null ? 'nothing due' : formatPctFixed(value)}. ${detail}.${isAll ? ` ${BI_MODULES.map((m) => `${MODULE_LABEL[m]} ${pctText(rowValue(total, m, 'score'))}`).join(', ')}.` : ''}`}
               onClick={() => onSelect(key)}
               className={cn(
                 'flex min-h-32 flex-col justify-between gap-3 rounded-xl border bg-surface p-4 text-left outline-none transition-colors duration-150 ease-out cursor-pointer',

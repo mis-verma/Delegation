@@ -42,9 +42,9 @@ const OrgTile = ({ icon: Icon, label, value, caption, solid, captionClass, to }:
         <Icon className="size-5" strokeWidth={2.25} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-baseline gap-2">
+        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className={cn('t-stat text-text', STAT_FIGURE)}>{value}</span>
-          <span className="line-clamp-1 t-meta font-display font-bold text-text-secondary">{label}</span>
+          <span className="line-clamp-2 t-meta font-display font-bold leading-snug text-text-secondary">{label}</span>
         </span>
         <span className={cn('line-clamp-1 t-meta font-medium text-text-muted', captionClass)}>{caption}</span>
       </span>

@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { InlineError, PANEL_CLASS } from '../../components';
+import { formatPctFixed } from '../../lib/percent';
 import type { ExplorerRow } from '../../api/scores';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { DashCardHeader } from '../dashboard/DashCardHeader';
@@ -12,8 +13,6 @@ const MODULES = ['checklist', 'ticket', 'delegation'] as const;
 const GRID_COLS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
 
 const joinNames = (names: string[]) => (names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
-
-const pctText = (n: number) => `${n.toFixed(1)}%`;
 
 interface Compare {
   before: ExplorerRow | undefined;
@@ -29,7 +28,8 @@ const ChangeCaption = ({ now, before, compare }: { now: number | null; before: n
   if (compare.failed) return <>Couldn&apos;t compare</>;
   if (compare.loading) return null;
   if (before === null) return <>Nothing to compare</>;
-  const diff = Math.round((now - before) * 10) / 10;
+  // Difference of the two figures as shown (one decimal), so the caption always matches the tiles.
+  const diff = Math.round((Math.round(now * 10) / 10 - Math.round(before * 10) / 10) * 10) / 10;
   if (diff === 0) return <>Same as before</>;
   return (
     <span className={cn('font-semibold', diff > 0 ? 'text-vivid-green-text' : 'text-vivid-red-text')}>
@@ -87,7 +87,7 @@ export const OwnerScoreCard = ({ periodLabel, total, loading, failed, onRetry, c
                   bar={now}
                   loading={loading}
                   decimals={1}
-                  format={pctText}
+                  format={formatPctFixed}
                   caption={loading ? undefined : <ChangeCaption now={now} before={figureOf(compare.before, key)} compare={compare} />}
                   to={detailHref}
                 />

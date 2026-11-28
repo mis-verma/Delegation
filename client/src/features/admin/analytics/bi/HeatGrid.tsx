@@ -1,7 +1,8 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { cn } from '@/lib/utils';
 import type { MatrixBucket, MatrixCell, MatrixPeriod, MatrixResponse } from '../../../../api/scores';
-import { HEAT_KEY, heatExact, heatFill, heatLook, heatWhole } from '../../../../lib/heatScale';
+import { HEAT_KEY, heatExact, heatFill, heatLabel, heatLook } from '../../../../lib/heatScale';
+import { formatPctFixed } from '../../../../lib/percent';
 import { MODULE_LABEL } from '../../../../lib/scoreLabels';
 import { useOrgToday } from '../../../checklist/useOrgToday';
 import { bucketShortLabel, bucketTitle, PERIOD_NOUN } from './biTimeUtils';
@@ -93,7 +94,7 @@ const HeatRowView = memo(function HeatRowView({ row, r, module, measure, period,
                 value === null && 'bg-surface-hover/40 text-text-light',
               )}
             >
-              {value === null ? <span className="size-1 rounded-full bg-current" aria-hidden="true" /> : heatWhole(value)}
+              {value === null ? <span className="size-1 rounded-full bg-current" aria-hidden="true" /> : heatLabel(value)}
             </button>
           </td>
         );
@@ -112,7 +113,7 @@ const HeatRowView = memo(function HeatRowView({ row, r, module, measure, period,
             overall === null && 'text-text-light',
           )}
         >
-          {overall === null ? '-' : `${heatWhole(overall)}%`}
+          {formatPctFixed(overall)}
         </button>
       </td>
     </tr>

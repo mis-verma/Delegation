@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { FAIR_FROM, GOOD_FROM } from './scoreBands';
+import { formatPctFixed, pctDigits } from './percent';
 
 export const HIGH_FROM = 95;
 
@@ -20,11 +21,10 @@ export const heatLook = (value: number | null): CSSProperties | undefined => {
 
 export const heatFill = (level: HeatLevel): string => `var(--heat-${level})`;
 
-const EPSILON = 1e-6;
+// Same one-decimal figure as every other score on screen, so a heat cell never disagrees with its tile.
+export const heatLabel = (value: number): string => pctDigits(value) ?? '-';
 
-export const heatWhole = (value: number): number => Math.min(100, Math.max(0, Math.floor(value + EPSILON)));
-
-export const heatExact = (value: number): string => `${Math.min(100, Math.max(0, Math.floor(value * 10 + EPSILON) / 10))}%`;
+export const heatExact = (value: number): string => formatPctFixed(value);
 
 export const HEAT_KEY: readonly { level: HeatLevel; label: string }[] = [
   { level: 'low', label: `Under ${FAIR_FROM}` },

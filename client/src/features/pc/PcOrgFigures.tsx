@@ -13,6 +13,7 @@ import { useOrgToday } from '../checklist/useOrgToday';
 import { useLeaveQuery } from '../leave/hook';
 import { StatusBadge } from '../../components/statusBadge';
 import { GOOD_FROM, FAIR_FROM } from '../../lib/scoreBands';
+import { formatPctFixed } from '../../lib/percent';
 import { PcListModal, type PcFilter, type PcListItem } from './PcListModal';
 import { PopupBoundary } from './PopupBoundary';
 
@@ -36,7 +37,7 @@ const shortDay = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString
 const bandTone = (rate: number): FigureTone => (rate >= GOOD_FROM ? 'good' : rate >= FAIR_FROM ? 'fair' : 'bad');
 const shareWithin = (total: number, late: number) => (total <= 0 ? 100 : Math.max(0, ((total - late) / total) * 100));
 const countTone = (total: number, late: number): FigureTone => (total === 0 || late === 0 ? 'good' : bandTone(shareWithin(total, late)));
-const pctText = (n: number) => `${Math.round(n)}%`;
+const pctText = (n: number) => formatPctFixed(n);
 
 const DeskSection = ({ title, hint, columns, children }: { title: string; hint?: string; columns: 2 | 4; children: ReactNode }) => (
   <section aria-label={title} className="flex flex-col gap-3">

@@ -20,11 +20,12 @@ const RANGE_BUCKET = 'range';
 export const formatPercent = (value: number | null | undefined): string =>
   formatPct(value, NO_DATA);
 
+// Points use the same one decimal as the scores they compare, so "+5.6 pts" matches 79.5% against 73.9%.
 const formatPoints = (delta: number | null | undefined): string => {
   if (delta == null || !Number.isFinite(delta)) return NO_DATA;
-  const rounded = Math.round(delta);
+  const rounded = Math.round(delta * 10) / 10;
   if (rounded === 0) return '0 pts';
-  return `${rounded > 0 ? '+' : '-'}${Math.abs(rounded)} pts`;
+  return `${rounded > 0 ? '+' : '-'}${Math.abs(rounded).toFixed(1)} pts`;
 };
 
 export const formatDuration = (hours: number | null | undefined): string => {
@@ -202,7 +203,8 @@ export const countTrend = (current: number, previous: number): Trend => {
 };
 
 export const rateTrend = (current: number, previous: number): Trend => {
-  const delta = Math.round(current) - Math.round(previous);
+  // Compare the figures as shown (one decimal), so the change always equals the difference of the two numbers on screen.
+  const delta = Math.round((Math.round(current * 10) / 10 - Math.round(previous * 10) / 10) * 10) / 10;
   return { direction: delta >= 0 ? 'up' : 'down', label: formatPoints(delta) };
 };
 
