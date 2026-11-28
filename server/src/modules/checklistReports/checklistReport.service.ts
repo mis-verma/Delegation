@@ -739,12 +739,30 @@ const exportColumns = (grouping: "person" | "department") => (grouping === "depa
 
 export const csvGrouping = (groupBy: ChecklistReportGrouping): "person" | "department" => (groupBy === "department" ? "department" : "person")
 
+// Whole-number percentages for exports. Keeps 100 and 0 only for their exact values.
+export const wholePctCell = (value: number): number => {
+    const r = Math.round(value)
+    if (value < 100 && r >= 100) return 99
+    if (value > 0 && r <= 0) return 1
+    return r
+}
+
+const exportRow = (row: Record<string, unknown>, columns: ColumnDef[]): Record<string, unknown> => {
+    const out: Record<string, unknown> = { ...row }
+    for (const c of columns) {
+        const v = row[c.key]
+        if (c.tone && typeof v === "number") out[c.key] = wholePctCell(v)
+    }
+    return out
+}
+
 export const streamReportCsv = async (res: Response, report: ChecklistReport, grouping: "person" | "department") => {
+    const columns = exportColumns(grouping)
     const rows: Record<string, unknown>[] = grouping === "department" ? report.departments : report.people
     async function* iterate() {
-        for (const row of rows) yield row
+        for (const row of rows) yield exportRow(row, columns)
     }
-    await streamCsv(res, iterate(), exportColumns(grouping))
+    await streamCsv(res, iterate(), columns)
 }
 
 const TONE_FILL = { good: "FFD1FAE5", warn: "FFFEF3C7", bad: "FFFEE2E2" } as const
@@ -782,7 +800,8 @@ const addSheet = (
     })
     sheet.views = [{ state: "frozen", ySplit: headerRow.number, xSplit: 1 }]
 
-    for (const row of rows) {
+    for (const source of rows) {
+        const row = exportRow(source, columns)
         const excelRow = sheet.addRow(columns.map((c) => row[c.key] ?? null))
         columns.forEach((c, i) => {
             if (!c.tone) return
