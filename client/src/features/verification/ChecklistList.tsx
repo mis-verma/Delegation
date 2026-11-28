@@ -68,6 +68,63 @@ export const ChecklistList = ({
 }: ChecklistListProps) => {
   const groupCounts = { critical: 0, attention: 0, ready: 0 };
   for (const r of rows) groupCounts[groupOf(r)] += 1;
+  const renderRows = (kind: 'cards' | 'list') => (
+      <ul className="flex flex-col gap-3">
+        {rows.map((row, index) => {
+          const group = groupOf(row);
+          const starts = grouped && (index === 0 || groupOf(rows[index - 1]) !== group);
+          const meta = GROUP_META[group];
+          return (
+            <Fragment key={row.id}>
+              {starts && (
+                <li role="presentation" id={group === 'ready' ? 'queue-ready' : undefined} className={cn('flex scroll-mt-4 items-center justify-between gap-2', index > 0 && 'pt-2')}>
+                  <h3 className={cn('inline-flex items-center gap-1.5 t-meta font-display font-bold', meta.tone)}>
+                    <meta.icon size={14} aria-hidden />
+                    {meta.label}
+                    <span className="tabular-nums font-semibold text-text-muted">{groupCounts[group]}</span>
+                  </h3>
+                  {group === 'ready' && onApproveAllClean && cleanCount > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success pointer-coarse:h-11"
+                      disabled={!!bulk}
+                      isLoading={!!bulk}
+                      onClick={onApproveAllClean}
+                    >
+                      {!bulk && <CheckCheck size={14} aria-hidden />}
+                      {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve ${cleanCount} with no issues`}
+                    </Button>
+                  )}
+                </li>
+              )}
+              {kind === 'list' ? (
+                <ChecklistQueueListRow
+                  row={row}
+                  active={row.id === activeId}
+                  showDepartment={showDepartment}
+                  onOpen={onOpen}
+                  onApprove={onApprove}
+                  onSendBack={onSendBack}
+                />
+              ) : (
+                <ChecklistQueueRow
+                  row={row}
+                  active={row.id === activeId}
+                  showDepartment={showDepartment}
+                  inlineActions={inlineActions}
+                  onOpen={onOpen}
+                  onApprove={onApprove}
+                  onSendBack={onSendBack}
+                  onSendBackItem={onSendBackItem}
+                />
+              )}
+            </Fragment>
+          );
+        })}
+      </ul>
+  );
+
   return (
   <section className="flex flex-col gap-3 min-w-0" aria-label={heading}>
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,10 +136,11 @@ export const ChecklistList = ({
           )}
         </div>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         {onLayoutChange && (
           <Segmented
             label="View"
+            iconOnlyOnMobile
             options={LAYOUT_OPTIONS.map((o) => ({ value: o.value, label: o.label, icon: <o.icon size={13} aria-hidden /> }))}
             value={layout}
             onChange={onLayoutChange}
@@ -146,72 +204,22 @@ export const ChecklistList = ({
     )}
 
     {rows.length > 0 && layout === 'table' && (
-      <ChecklistQueueTable
-        rows={rows}
-        activeId={activeId}
-        showDepartment={showDepartment}
-        onOpen={onOpen}
-        onApprove={onApprove}
-        onSendBack={onSendBack}
-      />
+      <>
+        <div className="hidden md:block">
+          <ChecklistQueueTable
+            rows={rows}
+            activeId={activeId}
+            showDepartment={showDepartment}
+            onOpen={onOpen}
+            onApprove={onApprove}
+            onSendBack={onSendBack}
+          />
+        </div>
+        <div className="md:hidden">{renderRows('list')}</div>
+      </>
     )}
 
-    {rows.length > 0 && layout !== 'table' && (
-      <ul className="flex flex-col gap-3">
-        {rows.map((row, index) => {
-          const group = groupOf(row);
-          const starts = grouped && (index === 0 || groupOf(rows[index - 1]) !== group);
-          const meta = GROUP_META[group];
-          return (
-            <Fragment key={row.id}>
-              {starts && (
-                <li role="presentation" id={group === 'ready' ? 'queue-ready' : undefined} className={cn('flex scroll-mt-4 items-center justify-between gap-2', index > 0 && 'pt-2')}>
-                  <h3 className={cn('inline-flex items-center gap-1.5 t-meta font-display font-bold', meta.tone)}>
-                    <meta.icon size={14} aria-hidden />
-                    {meta.label}
-                    <span className="tabular-nums font-semibold text-text-muted">{groupCounts[group]}</span>
-                  </h3>
-                  {group === 'ready' && onApproveAllClean && cleanCount > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success pointer-coarse:h-11"
-                      disabled={!!bulk}
-                      isLoading={!!bulk}
-                      onClick={onApproveAllClean}
-                    >
-                      {!bulk && <CheckCheck size={14} aria-hidden />}
-                      {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve ${cleanCount} with no issues`}
-                    </Button>
-                  )}
-                </li>
-              )}
-              {layout === 'list' ? (
-                <ChecklistQueueListRow
-                  row={row}
-                  active={row.id === activeId}
-                  showDepartment={showDepartment}
-                  onOpen={onOpen}
-                  onApprove={onApprove}
-                  onSendBack={onSendBack}
-                />
-              ) : (
-                <ChecklistQueueRow
-                  row={row}
-                  active={row.id === activeId}
-                  showDepartment={showDepartment}
-                  inlineActions={inlineActions}
-                  onOpen={onOpen}
-                  onApprove={onApprove}
-                  onSendBack={onSendBack}
-                  onSendBackItem={onSendBackItem}
-                />
-              )}
-            </Fragment>
-          );
-        })}
-      </ul>
-    )}
+    {rows.length > 0 && layout !== 'table' && renderRows(layout)}
 
     {!isPending && hasMore && (
       <div className="flex flex-col items-center gap-1.5">

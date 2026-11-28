@@ -25,18 +25,20 @@ interface FigurePanelProps {
   phoneColumns?: 2 | 4;
   compact?: boolean;
   phoneDense?: boolean;
+  dense?: boolean;
 }
 
 const CELL = cn(STAT_SURFACE, STAT_PHONE_CENTER, 'flex min-w-0 flex-col justify-center gap-1 text-left outline-none touch-manipulation transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40');
 const CELL_SIZE = 'min-h-16 p-3 sm:gap-3 sm:p-5';
 const CELL_SIZE_COMPACT = 'min-h-14 gap-0.5 px-2.5 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
 const CELL_SIZE_PHONE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:min-h-16 sm:gap-3 sm:p-5';
+const CELL_SIZE_DENSE = 'min-h-14 gap-0.5 px-2 py-1.5 sm:grid sm:min-h-12 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-3 sm:gap-y-0 sm:px-4 sm:py-2';
 const ACTION = STAT_SURFACE_ACTION;
 
-export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false }: FigurePanelProps) => {
+export const FigurePanel = ({ cells, label, loading = false, failed = false, onRetry, phoneColumns = 4, compact = false, phoneDense = false, dense = false }: FigurePanelProps) => {
   const formatCount = useStatCountFormat();
-  const cellSize = compact ? CELL_SIZE_COMPACT : phoneDense ? CELL_SIZE_PHONE_DENSE : CELL_SIZE;
-  const tightOnPhone = compact || phoneDense;
+  const cellSize = dense ? CELL_SIZE_DENSE : compact ? CELL_SIZE_COMPACT : phoneDense ? CELL_SIZE_PHONE_DENSE : CELL_SIZE;
+  const tightOnPhone = compact || phoneDense || dense;
   return (
     <div className={cn('grid w-full gap-2 sm:grid-cols-4', phoneColumns === 2 ? 'grid-cols-2' : 'grid-cols-4')} role="group" aria-label={label}>
       {cells.map((cell) => {
@@ -46,21 +48,21 @@ export const FigurePanel = ({ cells, label, loading = false, failed = false, onR
         const selected = !!cell.selected && !broken;
         const body = (
           <>
-            <span className="min-w-0 max-w-full truncate t-meta font-display font-semibold text-text-muted">
+            <span className={cn('min-w-0 max-w-full truncate t-meta font-display font-semibold text-text-muted', dense && 'sm:col-start-1')}>
               <span className="sm:hidden">{cell.short ?? cell.label}</span>
               <span className="hidden sm:inline">{cell.label}</span>
             </span>
-            <span className={cn('flex min-w-0 max-w-full items-center', STAT_ROW_PHONE_CENTER, tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7')}>
+            <span className={cn('flex min-w-0 max-w-full items-center', STAT_ROW_PHONE_CENTER, tightOnPhone ? 'min-h-6 sm:min-h-7' : 'min-h-7', dense && 'sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-self-end')}>
               {loading ? (
                 <Skeleton className="h-6 w-12" />
               ) : (
-                <span className={cn('t-stat sm:t-figure', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
+                <span className={cn(dense ? 't-stat' : 't-stat sm:t-figure', STAT_FIGURE, broken || cell.value === null ? 'text-text-light' : cell.alert ? 'text-danger' : 'text-text')}>
                   {broken || cell.value === null ? '-' : typeof cell.value === 'number' ? formatCount(cell.value) : cell.value}
                 </span>
               )}
             </span>
             {!loading && !broken && cell.note && (
-              <span className={cn('truncate t-meta', tightOnPhone && 'max-sm:hidden', cell.alert ? 'font-semibold text-danger' : 'text-text-light')}>{cell.note}</span>
+              <span className={cn('truncate t-meta', tightOnPhone && 'max-sm:hidden', dense && 'sm:col-start-1', cell.alert ? 'font-semibold text-danger' : 'text-text-light')}>{cell.note}</span>
             )}
           </>
         );

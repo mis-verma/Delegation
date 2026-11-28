@@ -363,7 +363,7 @@ export const VerificationQueue = () => {
   }
 
   return (
-    <div className="view-enter flex flex-col gap-4 sm:gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
+    <div className="view-enter flex flex-col gap-3 sm:gap-4 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={goBack} className={BACK_BUTTON}>
           <ArrowLeft size={15} aria-hidden />

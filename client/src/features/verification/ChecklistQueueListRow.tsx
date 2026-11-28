@@ -45,7 +45,7 @@ export const ChecklistQueueListRow = memo(function ChecklistQueueListRow({
           className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer outline-none rounded-md focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="t-card font-display font-semibold text-text leading-snug truncate">{instance.title}</span>
+            <span className="t-card font-display font-semibold text-text leading-snug truncate text-nowrap!">{instance.title}</span>
             <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
               {row.storeName && (
                 <span className="inline-flex items-center gap-1 truncate">
@@ -53,6 +53,11 @@ export const ChecklistQueueListRow = memo(function ChecklistQueueListRow({
                 </span>
               )}
               {showDepartment && <span className="truncate">{row.deptName}</span>}
+            </span>
+            <span className="flex items-center gap-1.5 t-meta font-display font-semibold tabular-nums sm:hidden">
+              <look.icon size={12} aria-hidden className={look.text} />
+              <span className={complianceToneClass(percent)}>{percent}%</span>
+              <span className="text-text-muted font-medium">· {waiting}</span>
             </span>
           </span>
 
@@ -72,7 +77,7 @@ export const ChecklistQueueListRow = memo(function ChecklistQueueListRow({
             title="Send back"
             aria-label={`Send back ${instance.title}`}
             onClick={() => onSendBack(id)}
-            className="flex size-9 items-center justify-center rounded-lg text-danger outline-none transition-colors duration-150 cursor-pointer hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger/40"
+            className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-danger outline-none transition-colors duration-150 cursor-pointer hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger/40"
           >
             <CornerUpLeft size={16} aria-hidden />
           </button>
@@ -81,7 +86,7 @@ export const ChecklistQueueListRow = memo(function ChecklistQueueListRow({
             title="Approve"
             aria-label={`Approve ${instance.title}`}
             onClick={() => onApprove(id)}
-            className="flex size-9 items-center justify-center rounded-lg bg-success-strong text-white outline-none transition-colors duration-150 cursor-pointer hover:bg-success-strong/90 focus-visible:ring-2 focus-visible:ring-success/40"
+            className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg bg-success-strong text-white outline-none transition-colors duration-150 cursor-pointer hover:bg-success-strong/90 focus-visible:ring-2 focus-visible:ring-success/40"
           >
             <Check size={16} aria-hidden />
           </button>

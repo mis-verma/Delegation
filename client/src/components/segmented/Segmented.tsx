@@ -17,9 +17,11 @@ interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  /** Keeps just the icons below `sm`; the words stay in the DOM for screen readers. */
+  iconOnlyOnMobile?: boolean;
 }
 
-export const Segmented = <T extends string>({ label, options, value, onChange, className }: SegmentedProps<T>) => {
+export const Segmented = <T extends string>({ label, options, value, onChange, className, iconOnlyOnMobile = false }: SegmentedProps<T>) => {
   const hintId = useId();
   const pillId = useId();
   const [shownHint, setShownHint] = useState<T | null>(null);
@@ -63,7 +65,7 @@ export const Segmented = <T extends string>({ label, options, value, onChange, c
             {shown === o.value && <TogglePill id={`${pillId}-pill`} />}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               {o.icon}
-              {o.label}
+              <span className={cn(iconOnlyOnMobile && 'max-sm:sr-only')}>{o.label}</span>
             </span>
           </button>
         );

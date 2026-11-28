@@ -39,6 +39,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
       return {
         key: section,
         label: SECTION_LOOK[section].label,
+        short: section === 'delegations' ? 'Delegation' : undefined,
         value: s.count,
         note: noteFor(s.count, s.late),
         alert: s.late > 0,
@@ -52,7 +53,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
 
   return (
     <nav aria-label="Review sections">
-      <FigurePanel cells={cells} label="Review sections" loading={loading} onRetry={onRetry} phoneDense />
+      <FigurePanel cells={cells} label="Review sections" loading={loading} onRetry={onRetry} phoneDense dense />
     </nav>
   );
 });

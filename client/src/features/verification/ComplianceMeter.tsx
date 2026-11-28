@@ -6,9 +6,10 @@ import type { ChecklistRisk } from './verificationModel';
 interface ComplianceMeterProps {
   risk: ChecklistRisk;
   className?: string;
+  compact?: boolean;
 }
 
-export const ComplianceMeter = memo(function ComplianceMeter({ risk, className }: ComplianceMeterProps) {
+export const ComplianceMeter = memo(function ComplianceMeter({ risk, className, compact = false }: ComplianceMeterProps) {
   const percent = risk.compliance ?? 100;
   const critical = risk.criticalFailed;
   const wrong = Math.max(0, risk.scored - risk.good - critical);
@@ -29,23 +30,23 @@ export const ComplianceMeter = memo(function ComplianceMeter({ risk, className }
     <div
       role="img"
       aria-label={`Compliance ${percent}%. ${summary}${detail ? `, ${detail}` : ''}`}
-      className={cn('flex flex-col gap-1.5', className)}
+      className={cn('flex flex-col', compact ? 'gap-1' : 'gap-1.5', className)}
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex items-baseline gap-1.5">
-          <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', complianceToneClass(percent))}>{percent}%</span>
-          <span className="t-meta font-display font-semibold text-text-muted">compliance</span>
+          <span className={cn('font-display font-extrabold tabular-nums leading-none', compact ? 't-section' : 't-stat', complianceToneClass(percent))}>{percent}%</span>
+          <span className={cn('t-meta font-display font-semibold text-text-muted', compact && 'max-sm:hidden')}>compliance</span>
         </span>
         <span className="t-meta font-display font-medium text-text-secondary text-right">{summary}</span>
       </div>
-      <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
+      <div className={cn('flex w-full gap-0.5 overflow-hidden rounded-full', compact ? 'h-1.5' : 'h-2')} aria-hidden="true">
         {segments.length === 0 ? (
           <span className="h-full w-full rounded-full bg-border" />
         ) : (
           segments.map((s) => <span key={s.key} className={cn('h-full first:rounded-l-full last:rounded-r-full', s.cls)} style={{ width: `${(s.n / total) * 100}%` }} />)
         )}
       </div>
-      {detail && <p className="t-meta font-display text-text-muted">{detail}</p>}
+      {detail && !compact && <p className="t-meta font-display text-text-muted">{detail}</p>}
     </div>
   );
 });
