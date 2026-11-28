@@ -210,7 +210,7 @@ export const ChecklistInstanceDetail = () => {
   const lastIndex = Math.max(0, instance.items.length - 1);
   const currentIndex = Math.min(oneIndex, lastIndex);
   const shownItems = show === 'left'
-    ? instance.items.filter((i) => !answered(i) || settling.has(i.id))
+    ? instance.items.filter((i) => !answered(i))
     : show === 'one'
       ? instance.items.slice(currentIndex, currentIndex + 1)
       : instance.items;
@@ -274,7 +274,8 @@ export const ChecklistInstanceDetail = () => {
 
       </div>
 
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-5')}>
+      {/* Frozen while the questions scroll beneath it. The card is opaque, so the questions do not show through. */}
+      <div className={cn(PANEL_CLASS, 'sticky top-0 z-20 flex flex-col gap-3 p-3.5 sm:p-5')}>
         {/* Editing the template sits in the flow of the page. It used to be a floating button,
             which on a phone covered the N/A control on whichever question it landed over. */}
         <div className="flex items-start justify-between gap-3">
@@ -309,6 +310,7 @@ export const ChecklistInstanceDetail = () => {
                   : instance.verificationStatus
               }
               label={verification.label}
+              compactOnMobile
             />
           )}
           {isLocked && instance.verifiedBy && (
