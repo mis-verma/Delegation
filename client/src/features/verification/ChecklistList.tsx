@@ -1,11 +1,11 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import { CheckCircle2, CheckCheck, Flag, Keyboard, SearchX, History, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, EmptyState, InlineError, Segmented, Skeleton } from '../../components';
+import { Button, EmptyState, InlineError, Skeleton } from '../../components';
 import { ChecklistQueueRow } from './ChecklistQueueRow';
 import { ChecklistQueueListRow } from './ChecklistQueueListRow';
 import { ChecklistQueueTable } from './ChecklistQueueTable';
-import { LAYOUT_OPTIONS, type ChecklistQueueLayout } from './checklistQueueLayout';
+import { ROW_GRID, rowLayoutOf, type ChecklistQueueLayout, type RowLayout } from './checklistQueueLayout';
 import { groupOf, type ChecklistRow, type QueueGroup } from './verificationModel';
 
 const SkeletonRow = () => (
@@ -48,7 +48,6 @@ interface ChecklistListProps {
   titleSlot?: ReactNode;
   grouped?: boolean;
   layout?: ChecklistQueueLayout;
-  onLayoutChange?: (layout: ChecklistQueueLayout) => void;
   onOpen: (id: string) => void;
   onApprove: (id: string) => void;
   onSendBack: (id: string) => void;
@@ -64,20 +63,28 @@ const GROUP_META: Record<QueueGroup, { label: string; icon: LucideIcon; tone: st
 export const ChecklistList = ({
   rows, activeId, isPending, loadFailed, onRetry, filtersActive, onClearFilters, onShowDecided,
   cleanCount = 0, bulk = null, onApproveAllClean, onApproveAll, hasMore, remaining, isFetchingMore, onLoadMore, onShowShortcuts,
-  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, layout = 'cards', onLayoutChange, onOpen, onApprove, onSendBack, onSendBackItem,
+  showDepartment = true, inlineActions = 'below-lg', heading = 'Checklists', titleSlot, grouped = false, layout = 'cards', onOpen, onApprove, onSendBack, onSendBackItem,
 }: ChecklistListProps) => {
-  const groupCounts = { critical: 0, attention: 0, ready: 0 };
-  for (const r of rows) groupCounts[groupOf(r)] += 1;
-  const renderRows = (kind: 'cards' | 'list') => (
-      <ul className="flex flex-col gap-3">
+  // One pass: each row's group and the per-group totals, so the render below never re-derives them.
+  const { rowGroups, groupCounts } = useMemo(() => {
+    const groups = new Array<QueueGroup>(rows.length);
+    const counts: Record<QueueGroup, number> = { critical: 0, attention: 0, ready: 0 };
+    for (let i = 0; i < rows.length; i += 1) {
+      groups[i] = groupOf(rows[i]);
+      counts[groups[i]] += 1;
+    }
+    return { rowGroups: groups, groupCounts: counts };
+  }, [rows]);
+  const renderRows = (kind: RowLayout) => (
+      <ul className={ROW_GRID[kind]}>
         {rows.map((row, index) => {
-          const group = groupOf(row);
-          const starts = grouped && (index === 0 || groupOf(rows[index - 1]) !== group);
+          const group = rowGroups[index];
+          const starts = grouped && (index === 0 || rowGroups[index - 1] !== group);
           const meta = GROUP_META[group];
           return (
             <Fragment key={row.id}>
               {starts && (
-                <li role="presentation" id={group === 'ready' ? 'queue-ready' : undefined} className={cn('flex scroll-mt-4 items-center justify-between gap-2', index > 0 && 'pt-2')}>
+                <li role="presentation" id={group === 'ready' ? 'queue-ready' : undefined} className={cn('col-span-full flex scroll-mt-4 items-center justify-between gap-2', index > 0 && 'pt-2')}>
                   <h3 className={cn('inline-flex items-center gap-1.5 t-meta font-display font-bold', meta.tone)}>
                     <meta.icon size={14} aria-hidden />
                     {meta.label}
@@ -137,15 +144,6 @@ export const ChecklistList = ({
         </div>
       )}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {onLayoutChange && (
-          <Segmented
-            label="View"
-            iconOnlyOnMobile
-            options={LAYOUT_OPTIONS.map((o) => ({ value: o.value, label: o.label, icon: <o.icon size={13} aria-hidden /> }))}
-            value={layout}
-            onChange={onLayoutChange}
-          />
-        )}
         {onShowShortcuts && (
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>
             <Keyboard size={14} aria-hidden />
@@ -182,7 +180,7 @@ export const ChecklistList = ({
 
     {loadFailed && <InlineError message="We couldn't load the checklists waiting for review. Check your connection and try again." onRetry={onRetry} />}
 
-    {isPending && <ul className="flex flex-col gap-3"><SkeletonRow /><SkeletonRow /><SkeletonRow /></ul>}
+    {isPending && <ul className={ROW_GRID[rowLayoutOf(layout)]}><SkeletonRow /><SkeletonRow /><SkeletonRow /></ul>}
 
     {!isPending && !loadFailed && rows.length === 0 && (
       filtersActive ? (
@@ -219,7 +217,7 @@ export const ChecklistList = ({
       </>
     )}
 
-    {rows.length > 0 && layout !== 'table' && renderRows(layout)}
+    {rows.length > 0 && layout !== 'table' && renderRows(rowLayoutOf(layout))}
 
     {!isPending && hasMore && (
       <div className="flex flex-col items-center gap-1.5">

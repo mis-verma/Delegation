@@ -8,6 +8,7 @@ import type { DecisionTarget } from './useRefreshAfterDecision';
 import { runPaced } from './pacedRun';
 import { TicketRow, TaskRow } from './TicketTaskRows';
 import { UNASSIGNED, formatWaiting, type QueueTab } from './verificationModel';
+import { ROW_GRID, rowLayoutOf, type ChecklistQueueLayout } from './checklistQueueLayout';
 import { SECTION_LOOK } from './sectionLook';
 import { SectionTitle as SectionHeading } from './SectionTitle';
 import { summarize, taskWaitingSince, ticketWaitingSince } from './sectionStats';
@@ -106,12 +107,15 @@ interface TicketTaskQueueProps {
     release: (ids: string[]) => void;
   };
   refresh: (target?: DecisionTarget | DecisionTarget[]) => Promise<unknown>;
+  layout: ChecklistQueueLayout;
 }
 
 export const TicketTaskQueue = ({
   tab, tickets: allTickets, tasks: allTasks, isPending, departmentId, departmentNameOf, filtersActive, failed, onRetry, onShowAll, onOpenDepartment, onClearDepartment, onClearFilters,
-  now, personNameById, decisions, refresh,
+  now, personNameById, decisions, refresh, layout,
 }: TicketTaskQueueProps) => {
+  const rowLayout = rowLayoutOf(layout);
+  const compact = rowLayout === 'list';
   const confirm = useConfirm();
   const { heldIds, schedule, hold, release } = decisions;
   const tickets = useMemo(() => allTickets.filter((t) => !heldIds.has(t.id)), [allTickets, heldIds]);
@@ -150,6 +154,8 @@ export const TicketTaskQueue = ({
   const visibleTickets = useMemo(() => (group && showTickets ? group.tickets : []), [group, showTickets]);
   const visibleTasks = useMemo(() => (group && showTasks ? group.tasks : []), [group, showTasks]);
   const selectableIds = useMemo(() => [...visibleTickets, ...visibleTasks].map((i) => i.id), [visibleTickets, visibleTasks]);
+  const ticketStats = useMemo(() => summarize(visibleTickets.map(ticketWaitingSince), now), [visibleTickets, now]);
+  const taskStats = useMemo(() => summarize(visibleTasks.map(taskWaitingSince), now), [visibleTasks, now]);
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
 
   const toggleSelect = useCallback((id: string) => setSelectedIds((prev) => {
@@ -224,7 +230,7 @@ export const TicketTaskQueue = ({
 
   if (isPending) {
     return departmentId ? (
-      <div className="flex flex-col gap-3" aria-busy="true">
+      <div className={ROW_GRID[rowLayout]} aria-busy="true">
         <RowSkeleton />
         <RowSkeleton />
         <RowSkeleton />
@@ -282,9 +288,9 @@ export const TicketTaskQueue = ({
 
       {showTickets && (
         <section className="flex flex-col gap-3" aria-label="Tickets">
-          <SectionHeading section="tickets" stats={summarize(visibleTickets.map(ticketWaitingSince), now)} now={now} />
-          <div className="flex flex-col gap-3">
-            {visibleTickets.length === 0 && !ticketsFailed && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" />}
+          <SectionHeading section="tickets" stats={ticketStats} now={now} />
+          <div className={ROW_GRID[rowLayout]}>
+            {visibleTickets.length === 0 && !ticketsFailed && <div className="col-span-full"><EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" /></div>}
             {visibleTickets.map((t) => (
               <TicketRow
                 key={t.id}
@@ -296,6 +302,7 @@ export const TicketTaskQueue = ({
                 onSendBack={sendBackTicket}
                 selected={selectedIds.has(t.id)}
                 onToggleSelect={toggleSelect}
+                compact={compact}
               />
             ))}
           </div>
@@ -304,9 +311,9 @@ export const TicketTaskQueue = ({
 
       {showTasks && (
         <section className="flex flex-col gap-3" aria-label="Delegations">
-          <SectionHeading section="delegations" stats={summarize(visibleTasks.map(taskWaitingSince), now)} now={now} />
-          <div className="flex flex-col gap-3">
-            {visibleTasks.length === 0 && !tasksFailed && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" />}
+          <SectionHeading section="delegations" stats={taskStats} now={now} />
+          <div className={ROW_GRID[rowLayout]}>
+            {visibleTasks.length === 0 && !tasksFailed && <div className="col-span-full"><EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" /></div>}
             {visibleTasks.map((t) => (
               <TaskRow
                 key={t.id}
@@ -318,6 +325,7 @@ export const TicketTaskQueue = ({
                 onSendBack={sendBackTask}
                 selected={selectedIds.has(t.id)}
                 onToggleSelect={toggleSelect}
+                compact={compact}
               />
             ))}
           </div>

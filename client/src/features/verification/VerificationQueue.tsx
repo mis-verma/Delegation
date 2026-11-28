@@ -392,6 +392,8 @@ export const VerificationQueue = () => {
         filtersActive={filtersActive}
         onClear={clearFilters}
         shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
+        layout={checklistLayout}
+        onLayoutChange={setChecklistLayout}
       />
 
       {params.dept && showTicketTask && (
@@ -421,7 +423,6 @@ export const VerificationQueue = () => {
             heading="Pending approval"
             titleSlot={<SectionTitle section="checklists" stats={sectionStats.checklists} now={now} />}
             layout={checklistLayout}
-            onLayoutChange={setChecklistLayout}
             onOpen={openRun}
             onApprove={approve}
             onSendBack={startSendBack}
@@ -450,6 +451,7 @@ export const VerificationQueue = () => {
           personNameById={personNameById}
           decisions={{ heldIds, schedule, hold, release }}
           refresh={refresh}
+          layout={checklistLayout}
         />
       )}
 

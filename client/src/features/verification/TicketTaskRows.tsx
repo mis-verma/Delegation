@@ -1,7 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import { memo, useMemo, useState, type ReactNode } from 'react';
 import { TicketForm } from '../tickets/TicketForm';
-import { Check, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronDown, AlertTriangle, Paperclip, UserRound, type LucideIcon } from 'lucide-react';
+import { Check, CornerUpLeft, TicketPlus, ShieldCheck, Ticket as TicketIcon, CheckSquare, ChevronDown, AlertTriangle, Paperclip, UserRound, type LucideIcon } from 'lucide-react';
 import { IconChip, PriorityChip, DepartmentChip } from '../../components';
 import { DecisionButtons, ROW_LINK, ROW_META, ROW_SURFACE, ROW_TITLE, WaitingTag } from './ChecklistQueueRow';
 import { CorrectionDialog } from './CorrectionDialog';
@@ -88,9 +88,10 @@ interface QueueRowProps {
   preview: (flagForCorrection: (itemId: string) => void) => ReactNode;
   summary?: { total: number; done: number; missingPhotos: number };
   onWarm?: () => void;
+  compact?: boolean;
 }
 
-const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon: Icon, title, waiting, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, rowId, correctionItems, workerNames, selection, expanded, onToggleExpanded, preview, summary, onWarm }: QueueRowProps) => {
+const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon: Icon, title, waiting, facts, chips, note, evidence, onOpen, onApprove, approveLabel = 'Approve', onSendBack, rowId, correctionItems, workerNames, selection, expanded, onToggleExpanded, preview, summary, onWarm, compact = false }: QueueRowProps) => {
   const [raising, setRaising] = useState(false);
   const draft = useReviewDraft(rowId);
 
@@ -111,6 +112,64 @@ const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon: Icon, title, waiting
 
   const complete = summary && summary.total > 0 && summary.done === summary.total && summary.missingPhotos === 0;
   const attentionNeeded = summary && summary.total > 0 && (summary.done < summary.total || summary.missingPhotos > 0);
+
+  const correctionDialog = (
+    <CorrectionDialog
+      items={correctionItems}
+      assigneeNames={workerNames}
+      draft={draft}
+      onSend={sendCorrection}
+      allowFixBy={false}
+      wholeLabel="It goes back as a whole, nothing is reopened."
+    />
+  );
+
+  if (compact) {
+    return (
+      <div
+        onPointerEnter={onWarm}
+        onFocus={onWarm}
+        className={cn('flex items-center gap-2 rounded-xl border bg-surface py-2 pl-3 pr-2 transition-colors duration-150', selection?.checked ? 'border-border-hover' : 'border-border/60 hover:border-border-hover')}
+      >
+        {selection && <SelectCheckbox checked={selection.checked} onChange={selection.onToggle} label={`Select ${title}`} />}
+        <button
+          type="button"
+          onClick={onOpen}
+          className="flex min-w-0 flex-1 flex-col gap-0.5 text-left cursor-pointer outline-none rounded-md focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Icon size={14} aria-hidden className="shrink-0 text-text-light" />
+            <span className="t-card font-display font-semibold text-text leading-snug truncate text-nowrap!" title={title}>{title}</span>
+          </span>
+          <span className="flex min-w-0 items-center gap-2 t-meta font-display text-text-muted">
+            <span className="min-w-0 truncate" title={facts}>{facts}</span>
+            <WaitingTag label={waiting.label} title={waiting.title} tone={waiting.tone} />
+          </span>
+        </button>
+        <span role="group" aria-label={`Actions for ${title}`} className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            title="Send back"
+            aria-label={`Send back ${title}`}
+            onClick={startCorrection}
+            className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-danger outline-none transition-colors duration-150 cursor-pointer hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            <CornerUpLeft size={16} aria-hidden />
+          </button>
+          <button
+            type="button"
+            title={approveLabel}
+            aria-label={`${approveLabel}: ${title}`}
+            onClick={onApprove}
+            className="flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg bg-success-strong text-white outline-none transition-colors duration-150 cursor-pointer hover:bg-success-strong/90 focus-visible:ring-2 focus-visible:ring-success/40"
+          >
+            <Check size={16} aria-hidden />
+          </button>
+        </span>
+        {correctionDialog}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -198,14 +257,7 @@ const QueueRow = ({ raiseTicketFrom, raiseTicketPath, icon: Icon, title, waiting
         />
       )}
 
-      <CorrectionDialog
-        items={correctionItems}
-        assigneeNames={workerNames}
-        draft={draft}
-        onSend={sendCorrection}
-        allowFixBy={false}
-        wholeLabel="It goes back as a whole, nothing is reopened."
-      />
+      {correctionDialog}
     </div>
   );
 };
@@ -215,6 +267,7 @@ const flatItems = (checklists: PreviewChecklist[] | undefined) => (checklists ??
 interface SelectableProps {
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  compact?: boolean;
 }
 
 interface DecisionProps {
@@ -228,7 +281,7 @@ interface DecisionProps {
 const asEvidence = (list: { id: string; url: string; mimeType: string; originalFilename: string | null }[]): EvidenceFile[] =>
   list.map((a) => ({ id: a.id, url: a.url, mimeType: a.mimeType, name: a.originalFilename }));
 
-export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { ticket: Ticket } & DecisionProps & SelectableProps) {
+export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect, compact = false }: { ticket: Ticket } & DecisionProps & SelectableProps) {
   const { user: signedIn } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -274,13 +327,14 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
         rowId={ticket.id}
         correctionItems={ticketCorrections}
         workerNames={ticket.assignee ? [ticket.assignee.firstName] : []}
+        compact={compact}
       />
       {showDetail && <TicketDetail ticket={ticket} onClose={() => setShowDetail(false)} />}
     </>
   );
 });
 
-export const TaskRow = memo(function TaskRow({ task, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect }: { task: Task } & DecisionProps & SelectableProps) {
+export const TaskRow = memo(function TaskRow({ task, now, departmentName, raisedByName, onApprove, onSendBack, selected = false, onToggleSelect, compact = false }: { task: Task } & DecisionProps & SelectableProps) {
   const { user: signedIn } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [warmed, setWarmed] = useState(false);
@@ -329,6 +383,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
         rowId={task.id}
         correctionItems={taskCorrections}
         workerNames={[]}
+        compact={compact}
       />
       {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}
     </>

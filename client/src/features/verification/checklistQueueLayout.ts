@@ -27,6 +27,15 @@ export const useChecklistQueueLayout = (): [ChecklistQueueLayout, (next: Checkli
   return [layout, setLayout];
 };
 
+// One grid for every list in the queue (checklists, tickets, delegations): cards run 1 -> 2 -> 3 columns,
+// the compact list runs 1 -> 2. `table` is checklists-only; everything else treats it as the list.
+export type RowLayout = 'cards' | 'list';
+export const rowLayoutOf = (layout: ChecklistQueueLayout): RowLayout => (layout === 'cards' ? 'cards' : 'list');
+export const ROW_GRID: Record<RowLayout, string> = {
+  cards: 'grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3',
+  list: 'grid grid-cols-1 gap-2 md:grid-cols-2',
+};
+
 export const LAYOUT_OPTIONS: { value: ChecklistQueueLayout; label: string; icon: LucideIcon }[] = [
   { value: 'cards', label: 'Cards', icon: LayoutGrid },
   { value: 'list', label: 'List', icon: List },
