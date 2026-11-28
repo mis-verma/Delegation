@@ -12,6 +12,24 @@ import { answerRightsOf } from './answerRights';
 import type { CaptureMethod } from '../../../api/ticket';
 import type { PhotoReviewReason, PhotoReviewStatus } from '../../../api/checklistInstances';
 
+type Orientation = 'portrait' | 'landscape' | 'square';
+
+// A fixed square crop hides whether a photo was actually shot portrait or landscape. The box
+// keeps roughly the same footprint either way, it just leans tall or wide to match the photo.
+const THUMB_BOX: Record<Orientation, { small: string; large: string }> = {
+  square: { small: 'size-16', large: 'size-24 sm:size-28' },
+  portrait: { small: 'h-16 w-12', large: 'h-24 w-18 sm:h-28 sm:w-20' },
+  landscape: { small: 'h-12 w-20', large: 'h-18 w-28 sm:h-20 sm:w-32' },
+};
+
+const orientationOf = (width: number, height: number): Orientation => {
+  if (!width || !height) return 'square';
+  const ratio = width / height;
+  if (ratio <= 0.8) return 'portrait';
+  if (ratio >= 1.25) return 'landscape';
+  return 'square';
+};
+
 export interface EvidenceImage {
   id:               string;
   url:              string;
@@ -100,6 +118,7 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
   const review = usePhotoReview();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState(src);
+  const [orientation, setOrientation] = useState<Orientation>('square');
   const closeLightbox = useCallback(() => setOpen(false), []);
   const gallery = useMemo(
     () => (siblings ?? [image]).filter((i) => !i.mimeType.startsWith('video/')).map((i) => `${UPLOADS_BASE}${i.url}`),
@@ -138,7 +157,8 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
               src={src}
               alt={alt}
               width={large ? 320 : 160}
-              className={`object-cover rounded-lg border bg-surface-hover ${failed ? 'border-danger ring-2 ring-danger/40' : 'border-border'} ${large ? 'size-24 sm:size-28' : 'size-16'}`}
+              onLoad={(e) => setOrientation(orientationOf(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight))}
+              className={`object-cover rounded-lg border bg-surface-hover ${failed ? 'border-danger ring-2 ring-danger/40' : 'border-border'} ${large ? THUMB_BOX[orientation].large : THUMB_BOX[orientation].small}`}
             />
           </button>
         )}

@@ -37,6 +37,16 @@ const STATUS_CHIP_CONFIG: Record<StatusChipStatus, StatusChipConfig> = {
   declined: { label: 'Declined', tone: 'bg-danger', icon: Ban },
 };
 
+// A plain icon square next to grey text reads as unfinished, especially for an alarming status
+// like Overdue. The whole pill now picks up a soft tint of the same colour as the icon.
+const STATUS_LOOK: Record<string, { frame: string; label: string }> = {
+  'bg-danger': { frame: 'border-danger/25 bg-danger/8', label: 'text-danger' },
+  'bg-warning': { frame: 'border-warning/25 bg-warning/8', label: 'text-warning' },
+  'bg-success': { frame: 'border-success/25 bg-success/8', label: 'text-success' },
+  'bg-text-muted': { frame: 'border-border/60 bg-surface-hover/60', label: 'text-text-secondary' },
+  'bg-primary-600 dark:bg-primary-400': { frame: 'border-primary-500/25 bg-primary-500/8', label: 'text-primary-700 dark:text-primary-300' },
+};
+
 export interface StatusChipProps {
   status: StatusChipStatus;
   label?: ReactNode;
@@ -54,9 +64,18 @@ export const getStatusChipMeta = (status: StatusChipStatus) => STATUS_CHIP_CONFI
 export const StatusChip = ({ status, label, icon, title, className, iconOnlyOnMobile = false, children }: StatusChipProps) => {
   const config = STATUS_CHIP_CONFIG[status];
   const Icon = icon === false ? false : icon ?? config.icon;
+  const look = STATUS_LOOK[config.tone];
 
   return (
-    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} title={title} className={cn('shrink-0', className)} iconOnlyOnMobile={iconOnlyOnMobile}>
+    <IconChip
+      icon={Icon}
+      tone={config.tone}
+      label={label ?? config.label}
+      title={title}
+      className={cn('shrink-0', look?.frame, className)}
+      labelClassName={look?.label}
+      iconOnlyOnMobile={iconOnlyOnMobile}
+    >
       {children}
     </IconChip>
   );
