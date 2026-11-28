@@ -14,6 +14,7 @@ import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { ChecklistList } from './ChecklistList';
+import { useChecklistQueueLayout } from './checklistQueueLayout';
 import { DecidedToday } from './DecidedToday';
 import { QueueToolbar } from './QueueToolbar';
 import { QueueSections } from './QueueSections';
@@ -63,6 +64,7 @@ interface Latest {
 
 export const VerificationQueue = () => {
   const { params, patch, searchParams } = useQueueParams();
+  const [checklistLayout, setChecklistLayout] = useChecklistQueueLayout();
   const now = useNow();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const confirm = useConfirm();
@@ -418,6 +420,8 @@ export const VerificationQueue = () => {
             grouped
             heading="Pending approval"
             titleSlot={<SectionTitle section="checklists" stats={sectionStats.checklists} now={now} />}
+            layout={checklistLayout}
+            onLayoutChange={setChecklistLayout}
             onOpen={openRun}
             onApprove={approve}
             onSendBack={startSendBack}
