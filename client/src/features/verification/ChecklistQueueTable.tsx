@@ -10,10 +10,13 @@ import { GROUP_LOOK } from './checklistQueueLayout';
 import { formatWaiting, groupOf, type ChecklistRow } from './verificationModel';
 import { useSharedNow } from '../../lib/useSharedNow';
 
-// Gutter (0) + Checklist (1) stay frozen; everything else scrolls under them.
-const COL_WIDTHS = ['0.375rem', '17rem', '10rem', '13rem', '7rem', '9rem', '10rem', '10rem'] as const;
+// Gutter (0) + Checklist (1) stay frozen; everything else scrolls under them. "Submitted by" has no
+// width on purpose: it takes the spare room, so the fixed columns keep the exact rem widths the sticky
+// offsets below are measured against.
+const COL_WIDTHS = ['0.375rem', '16rem', '12rem', undefined, '6.5rem', '6.5rem', '11.5rem', '9.5rem'] as const;
 const STICKY_LEFT = [0, 0.375] as const;
 const STICKY_CELL = 'sticky z-10 bg-surface transition-colors group-hover:bg-surface-hover';
+const CELL_TIGHT = 'py-1.5 pointer-coarse:py-2 border-t border-border/60';
 
 interface ChecklistQueueTableProps {
   rows: ChecklistRow[];
@@ -39,35 +42,35 @@ const TableRow = memo(function TableRow({
     : 'Not submitted yet';
 
   return (
-    <tr className={cn('group cursor-pointer border-t border-border/60', look.tint)} onClick={() => onOpen(id)}>
-      <td style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(STICKY_CELL, 'p-0')}>
+    <tr className={cn('group cursor-pointer', look.tint)} onClick={() => onOpen(id)}>
+      <td style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(STICKY_CELL, 'border-t border-border/60 p-0')}>
         <span className={cn('block h-full w-full', look.accentBar)} aria-hidden="true" />
       </td>
-      <th scope="row" style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TD_CLASS, STICKY_CELL, 'font-normal text-left align-middle')}>
-        <span className={cn('block t-card font-display leading-snug line-clamp-2', active ? 'font-bold' : 'font-semibold', 'text-text')}>{instance.title}</span>
+      <th scope="row" style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TD_CLASS, CELL_TIGHT, STICKY_CELL, 'font-normal text-left align-middle')}>
+        <span title={instance.title} className={cn('block t-card font-display leading-snug truncate text-nowrap!', active ? 'font-bold' : 'font-semibold', 'text-text')}>{instance.title}</span>
       </th>
-      <td className={cn(TD_CLASS, 'border-l border-border/40')}>
-        <span className="flex flex-col gap-0.5 t-meta text-text-muted">
-          {row.storeName && <span className="inline-flex items-center gap-1 truncate"><Store size={11} aria-hidden /> {row.storeName}</span>}
-          {showDepartment && <span className="truncate">{row.deptName}</span>}
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40')}>
+        <span className="flex min-w-0 items-center gap-1 t-meta text-text-muted" title={[row.storeName, showDepartment ? row.deptName : null].filter(Boolean).join(' · ')}>
+          {row.storeName && <Store size={11} aria-hidden className="shrink-0" />}
+          <span className="truncate">{[row.storeName, showDepartment ? row.deptName : null].filter(Boolean).join(' · ')}</span>
         </span>
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/40 truncate')} title={instance.submittedAt ? formatDateTime(instance.submittedAt) : undefined}>
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 truncate')} title={instance.submittedAt ? formatDateTime(instance.submittedAt) : undefined}>
         {submitted}
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/40 whitespace-nowrap tabular-nums', (now - row.waitingSince) / 86_400_000 >= 3 && 'text-warning font-semibold')}>
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 whitespace-nowrap tabular-nums', (now - row.waitingSince) / 86_400_000 >= 3 && 'text-warning font-semibold')}>
         {waiting}
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/40 tabular-nums font-display font-bold', complianceToneClass(percent))}>
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 tabular-nums font-display font-bold', complianceToneClass(percent))}>
         {percent}%
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/40')}>
-        <span className={cn('inline-flex items-center gap-1.5 t-meta font-display font-semibold', look.text)}>
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40')}>
+        <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap t-meta font-display font-semibold', look.text)}>
           <look.icon size={14} aria-hidden />
           {look.label}
         </span>
       </td>
-      <td className={cn(TD_CLASS, 'border-l border-border/40 text-right')} onClick={(e) => e.stopPropagation()}>
+      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 text-right')} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1.5">
           <Button size="sm" variant="outline" aria-label={`Send back ${instance.title}`} title="Send back" className="border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger" onClick={() => onSendBack(id)}>
             <CornerUpLeft size={13} aria-hidden />
@@ -86,11 +89,11 @@ export const ChecklistQueueTable = memo(function ChecklistQueueTable({
   rows, activeId, showDepartment = true, onOpen, onApprove, onSendBack,
 }: ChecklistQueueTableProps) {
   return (
-    <div className={TABLE_FRAME_CLASS}>
-      <table className="w-full table-fixed border-collapse text-left">
+    <div className={cn(TABLE_FRAME_CLASS, 'max-h-[min(70svh,40rem)]')}>
+      <table className="w-full min-w-[74.5rem] table-fixed border-separate border-spacing-0 text-left">
         <caption className="sr-only">Checklists waiting for approval</caption>
         <colgroup>
-          {COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
+          {COL_WIDTHS.map((w, i) => <col key={i} style={w ? { width: w } : undefined} />)}
         </colgroup>
         <thead className="sticky top-0 z-20">
           <tr>
