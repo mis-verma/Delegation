@@ -274,6 +274,8 @@ export const ChecklistInstanceDetail = () => {
 
       </div>
 
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-8">
       {/* Frozen while the questions scroll beneath it. The card is opaque, so the questions do not show through. */}
       <div className={cn(PANEL_CLASS, 'sticky top-0 z-20 flex flex-col gap-3 p-3.5 sm:p-5')}>
         {/* Editing the template sits in the flow of the page. It used to be a floating button,
@@ -454,8 +456,6 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
-        <div className="flex min-w-0 flex-col gap-3 lg:col-span-8">
           {instance.items.length === 0 && (
             <EmptyState
               icon={ListTodo}
