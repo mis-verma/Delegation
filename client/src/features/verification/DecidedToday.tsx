@@ -1,8 +1,8 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, CornerUpLeft, History, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { CheckCircle2, Clock, CornerUpLeft, History, ListChecks, MessageSquare, RotateCcw, Send, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, EmptyState, InlineError, useConfirm, ApprovalStatusChip, VerifiedByChip, VerifiedAtChip } from '../../components';
+import { Button, EmptyState, InlineError, useConfirm, ApprovalStatusChip, VerifiedByChip } from '../../components';
 import { TABLE_FRAME_CLASS, TH_CLASS, TD_CLASS, TableSkeleton } from '../../components/dataTable';
 import { useCanReopen } from '../checklist/instance/useCanReopen';
 import { useReopenApprovalMutation } from '../checklist/hook';
@@ -15,29 +15,47 @@ const ACTION_CHIP: Record<ChecklistDecision['action'], { label: string; icon: ty
   SUBMIT: { label: 'Submitted', icon: Send, tone: 'bg-primary-600' },
 };
 
-// table-fixed + explicit widths (via <colgroup>) keep every column a known size, so the
-// sticky "who/when" columns can sit at a predictable left offset and their chips (which
-// refuse to shrink or wrap) can't bleed into the column next door.
-// The Note column has no width on purpose: it soaks up any spare room, so every other column keeps
-// exactly the rem width below and the sticky offsets (sum of the columns before) stay true.
-const COL_WIDTHS = ['17rem', '12rem', '9.5rem', '8rem', '5.5rem', undefined, '7rem'] as const;
-const STICKY_LEFT = [0, 17, 29] as const; // rem offsets for columns 1-3 (Checklist / Approved by / Date & time)
+// Desktop (lg+) freezes the first three columns. Offsets are the summed widths of the frozen columns
+// before them, written as lg-only classes so phones keep a plain scrolling table. Phones show
+// initials, short times and a status dot; the full words come back as tooltips.
+const FREEZE = {
+  checklist: 'lg:left-0',
+  by: 'lg:left-[12.5rem]',
+  when: 'lg:left-[22rem]',
+} as const;
 
-interface ReopenButtonProps {
-  canReopen: boolean;
-  reopening: boolean;
-  onReopen: () => void;
-}
+const COL_CLASS = [
+  'lg:w-[12.5rem]',
+  'w-14 lg:w-[9.5rem]',
+  'w-16 lg:w-[8rem]',
+  'w-12 lg:w-[6.5rem]',
+  'hidden lg:table-column lg:w-[5.5rem]',
+  'hidden xl:table-column',
+  'w-12 lg:w-[7rem]',
+] as const;
 
-const ReopenButton = ({ canReopen, reopening, onReopen }: ReopenButtonProps) => {
-  if (!canReopen) return null;
-  return (
-    <Button size="sm" variant="outline" isLoading={reopening} onClick={onReopen}>
-      {!reopening && <RotateCcw size={14} aria-hidden />}
-      Reopen
-    </Button>
-  );
+const PAD = 'px-2 lg:px-3';
+// Sticky cells need an opaque background so scrolling content slides underneath them, and the
+// lg-only `sticky` keeps phones on a normal flow. Never pair `relative` with `sticky`: tailwind-merge
+// keeps the later one, which turns the frozen cell into a plain offset box.
+const STICKY_CELL = 'lg:sticky z-10 bg-surface transition-colors group-hover:bg-surface-hover';
+const FROZEN_EDGE = 'lg:shadow-[6px_0_6px_-6px_rgb(0_0_0/0.22)]';
+// Row dividers sit on the cells (border-separate): an opaque sticky background would cover a
+// collapsed row border and leave gaps in the frozen columns.
+const CELL_TIGHT = 'py-1.5 pointer-coarse:py-2 border-t border-border/60';
+const ROW_CELL = cn(TD_CLASS, PAD, CELL_TIGHT, 'border-l border-border/40 transition-colors group-hover:bg-surface-hover');
+
+const TIME_ONLY = new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+const DAY_TIME = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+const FULL_DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+
+const parseAt = (value: string): Date | null => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 };
+
+const initialsOf = (name: string) =>
+  name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('');
 
 interface DecisionRowProps {
   decision: ChecklistDecision;
@@ -46,82 +64,102 @@ interface DecisionRowProps {
   onReopen: (decision: ChecklistDecision) => void;
 }
 
-const DecisionCard = memo(function DecisionCard({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
+const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
   const chip = ACTION_CHIP[decision.action];
   const statusKey = decision.action === 'APPROVE' ? 'APPROVED' : decision.action === 'SUBMIT' ? 'SUBMITTED' : 'REJECTED';
-  return (
-    <li className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface">
-      <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <ApprovalStatusChip status={statusKey} label={chip.label} />
-          {decision.actorName && (
-            <VerifiedByChip verifierName={decision.actorName} />
-          )}
-          {decision.at && (
-            <VerifiedAtChip timestamp={decision.at} format="time" />
-          )}
-          <Link
-            to={`/checklists/${decision.instanceId}`}
-            className="t-card font-display font-semibold text-text leading-snug line-clamp-2 rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            {decision.title}
-          </Link>
-        </div>
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
-          {decision.storeName && <span>{decision.storeName}</span>}
-          {decision.itemCount != null && decision.itemCount > 0 && (
-            <span>{decision.itemCount} {decision.itemCount === 1 ? 'question' : 'questions'}</span>
-          )}
-        </p>
-        {decision.note && <p className="t-meta font-display text-text-secondary whitespace-pre-wrap break-words line-clamp-3">{decision.note}</p>}
-      </div>
-      <ReopenButton canReopen={decision.action === 'APPROVE' && canReopen} reopening={reopening} onReopen={() => onReopen(decision)} />
-    </li>
-  );
-});
+  const at = parseAt(decision.at);
+  const who = decision.actorName?.trim() || null;
+  const questions = decision.itemCount ?? 0;
+  const questionsLabel = `${questions} ${questions === 1 ? 'question' : 'questions'}`;
 
-// The last sticky column casts a soft shadow so it's clear the rest of the row keeps scrolling under
-// it. A box-shadow rather than a pseudo-element: it adds no scrollable overflow of its own.
-// Never add `relative` next to `sticky`: tailwind-merge keeps the last one, which turns the frozen
-// column into a plain offset box and shoves it sideways by its `left` value.
-const STICKY_CELL = 'sticky z-10 bg-surface transition-colors group-hover:bg-surface-hover';
-// Row dividers live on the cells (table is border-separate): a sticky cell's opaque background would
-// otherwise paint over a collapsed row border and leave gaps in the frozen columns.
-const CELL_TIGHT = 'py-1.5 pointer-coarse:py-2 border-t border-border/60';
-const FROZEN_EDGE = 'shadow-[6px_0_6px_-6px_rgb(0_0_0/0.22)]';
-
-const DecisionTableRow = memo(function DecisionTableRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
-  const chip = ACTION_CHIP[decision.action];
-  const statusKey = decision.action === 'APPROVE' ? 'APPROVED' : decision.action === 'SUBMIT' ? 'SUBMITTED' : 'REJECTED';
   return (
     <tr className="group">
-      <th scope="row" style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(TD_CLASS, CELL_TIGHT, STICKY_CELL, 'font-normal text-left')}>
-        <div className="flex flex-col min-w-0">
+      <th scope="row" className={cn(TD_CLASS, PAD, CELL_TIGHT, STICKY_CELL, FREEZE.checklist, 'min-w-0 text-left font-normal')}>
+        <div className="flex min-w-0 flex-col gap-0.5">
           <Link
             to={`/checklists/${decision.instanceId}`}
             title={decision.title}
-            className="t-card font-display font-semibold text-text leading-snug truncate text-nowrap! rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="t-card font-display font-semibold text-text truncate rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             {decision.title}
           </Link>
-          {decision.storeName && <span className="t-meta text-text-muted truncate text-nowrap!">{decision.storeName}</span>}
+          <span className="flex min-w-0 items-center gap-1.5 t-meta text-text-muted">
+            {decision.storeName && <span className="truncate">{decision.storeName}</span>}
+            {questions > 0 && <span className="shrink-0 tabular-nums lg:hidden">· {questionsLabel}</span>}
+            {decision.note && (
+              <span role="img" aria-label={`Note: ${decision.note}`} title={decision.note} className="shrink-0 xl:hidden">
+                <MessageSquare className="size-3" aria-hidden />
+              </span>
+            )}
+          </span>
         </div>
       </th>
-      <td style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TD_CLASS, CELL_TIGHT, STICKY_CELL, 'overflow-hidden border-l border-border/60')}>
-        {decision.actorName ? <VerifiedByChip verifierName={decision.actorName} showLabel={false} /> : <span className="text-text-light">-</span>}
+
+      <td className={cn(ROW_CELL, STICKY_CELL, FREEZE.by)}>
+        {who ? (
+          <>
+            <span role="img" aria-label={`Approved by ${who}`} title={who} className="flex size-7 items-center justify-center rounded-full bg-primary-500/15 t-meta font-display font-bold text-primary-700 dark:text-primary-300 lg:hidden">
+              {initialsOf(who)}
+            </span>
+            <span className="max-lg:hidden">
+              <VerifiedByChip verifierName={who} showLabel={false} />
+            </span>
+          </>
+        ) : (
+          <span className="text-text-light">-</span>
+        )}
       </td>
-      <td style={{ left: `${STICKY_LEFT[2]}rem` }} className={cn(TD_CLASS, CELL_TIGHT, STICKY_CELL, FROZEN_EDGE, 'overflow-hidden whitespace-nowrap border-l border-border/60')}>
-        {decision.at ? <VerifiedAtChip timestamp={decision.at} format="short" showLabel={false} /> : <span className="text-text-light">-</span>}
+
+      <td className={cn(ROW_CELL, STICKY_CELL, FREEZE.when, FROZEN_EDGE, 'whitespace-nowrap tabular-nums')}>
+        {at ? (
+          <time dateTime={at.toISOString()} title={FULL_DATE.format(at)} className="flex items-center gap-1.5 text-text">
+            <Clock className="size-3 shrink-0 text-text-muted" aria-hidden />
+            <span className="lg:hidden">{TIME_ONLY.format(at)}</span>
+            <span className="max-lg:hidden">{DAY_TIME.format(at)}</span>
+          </time>
+        ) : (
+          <span className="text-text-light">-</span>
+        )}
       </td>
-      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 transition-colors group-hover:bg-surface-hover')}><ApprovalStatusChip status={statusKey} label={chip.label} /></td>
-      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 tabular-nums transition-colors group-hover:bg-surface-hover')}>
-        {decision.itemCount != null && decision.itemCount > 0 ? decision.itemCount : <span className="text-text-light">-</span>}
+
+      <td className={ROW_CELL}>
+        <ApprovalStatusChip status={statusKey} label={<span className="max-lg:sr-only">{chip.label}</span>} title={chip.label} />
       </td>
-      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 truncate transition-colors group-hover:bg-surface-hover')} title={decision.note ?? undefined}>
-        {decision.note || <span className="text-text-light">-</span>}
+
+      <td className={cn(ROW_CELL, 'hidden lg:table-cell')}>
+        {questions > 0 ? (
+          <span title={questionsLabel} className="inline-flex items-center gap-1 t-meta font-semibold tabular-nums text-text">
+            <ListChecks className="size-3 text-text-muted" aria-hidden />
+            {questions}
+          </span>
+        ) : (
+          <span className="text-text-light">-</span>
+        )}
       </td>
-      <td className={cn(TD_CLASS, CELL_TIGHT, 'border-l border-border/40 text-right transition-colors group-hover:bg-surface-hover')}>
-        <ReopenButton canReopen={decision.action === 'APPROVE' && canReopen} reopening={reopening} onReopen={() => onReopen(decision)} />
+
+      <td className={cn(ROW_CELL, 'hidden xl:table-cell')}>
+        {decision.note ? (
+          <span title={decision.note} className="line-clamp-2 break-words t-meta text-text-secondary">{decision.note}</span>
+        ) : (
+          <span className="text-text-light">-</span>
+        )}
+      </td>
+
+      <td className={cn(ROW_CELL, 'text-right')}>
+        {canReopen && decision.action === 'APPROVE' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="px-2 lg:px-3"
+            title="Reopen"
+            aria-label={`Reopen ${decision.title}`}
+            isLoading={reopening}
+            onClick={() => onReopen(decision)}
+          >
+            {!reopening && <RotateCcw size={14} aria-hidden />}
+            <span className="max-lg:sr-only">Reopen</span>
+          </Button>
+        )}
       </td>
     </tr>
   );
@@ -186,38 +224,32 @@ export const DecidedToday = ({ onShowWaiting, waitingIds }: DecidedTodayProps) =
     <div className="flex flex-col gap-3">
       {isError && <InlineError message="Showing the last list we loaded. The refresh failed." onRetry={() => refetch()} />}
 
-      <ul className="flex flex-col gap-3 lg:hidden">
-        {decisions.map((d) => (
-          <DecisionCard
-            key={d.id}
-            decision={d}
-            canReopen={canReopen && latestApproval.has(d.id) && !waitingIds?.has(d.instanceId)}
-            reopening={reopen.isPending && reopen.variables === d.instanceId}
-            onReopen={onReopen}
-          />
-        ))}
-      </ul>
-
-      <div className={cn(TABLE_FRAME_CLASS, 'hidden max-h-[min(60svh,28rem)] lg:block')}>
-        <table className="w-full min-w-[71rem] table-fixed border-separate border-spacing-0 text-left">
+      <div className={cn(TABLE_FRAME_CLASS, 'max-h-none lg:max-h-[min(60svh,28rem)]')}>
+        <table className="w-full table-fixed border-separate border-spacing-0 text-left">
           <caption className="sr-only">Today's approval history</caption>
           <colgroup>
-            {COL_WIDTHS.map((w, i) => <col key={i} style={w ? { width: w } : undefined} />)}
+            {COL_CLASS.map((c, i) => <col key={i} className={c} />)}
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr>
-              <th scope="col" style={{ left: `${STICKY_LEFT[0]}rem` }} className={cn(TH_CLASS, 'sticky z-30')}>Checklist</th>
-              <th scope="col" style={{ left: `${STICKY_LEFT[1]}rem` }} className={cn(TH_CLASS, 'sticky z-30 border-l border-primary-900/40')}>Approved by</th>
-              <th scope="col" style={{ left: `${STICKY_LEFT[2]}rem` }} className={cn(TH_CLASS, FROZEN_EDGE, 'sticky z-30 whitespace-nowrap border-l border-primary-900/40')}>Date &amp; time</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Decision</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Questions</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}>Note</th>
-              <th scope="col" className={cn(TH_CLASS, 'border-l border-primary-700/40')}><span className="sr-only">Action</span></th>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.checklist, 'lg:z-30')}>Checklist</th>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.by, 'lg:z-30 border-l border-primary-900/40')}>
+                <span className="lg:hidden">By</span>
+                <span className="max-lg:hidden">Approved by</span>
+              </th>
+              <th scope="col" className={cn(TH_CLASS, PAD, FREEZE.when, FROZEN_EDGE, 'lg:z-30 border-l border-primary-900/40')}>
+                <span className="lg:hidden">When</span>
+                <span className="max-lg:hidden">Date &amp; time</span>
+              </th>
+              <th scope="col" className={cn(TH_CLASS, PAD, 'border-l border-primary-700/40')}>Result</th>
+              <th scope="col" className={cn(TH_CLASS, PAD, 'hidden lg:table-cell border-l border-primary-700/40')}>Questions</th>
+              <th scope="col" className={cn(TH_CLASS, PAD, 'hidden xl:table-cell border-l border-primary-700/40')}>Note</th>
+              <th scope="col" className={cn(TH_CLASS, PAD, 'border-l border-primary-700/40')}><span className="sr-only">Action</span></th>
             </tr>
           </thead>
           <tbody>
             {decisions.map((d) => (
-              <DecisionTableRow
+              <DecisionRow
                 key={d.id}
                 decision={d}
                 canReopen={canReopen && latestApproval.has(d.id) && !waitingIds?.has(d.instanceId)}

@@ -14,7 +14,7 @@ import { useSharedNow } from '../../lib/useSharedNow';
 const SWIPE_TRIGGER_PX = 96;
 const SWIPE_LOCK_PX = 12;
 
-export const ROW_SURFACE = 'relative flex flex-col gap-1.5 p-2.5 sm:p-3 rounded-xl border bg-surface transition-[border-color,background-color] duration-150';
+export const ROW_SURFACE = 'relative flex flex-col gap-2.5 p-3 sm:p-4 rounded-xl border bg-surface transition-[border-color,background-color] duration-150';
 export const ROW_TITLE = 't-card font-display text-text leading-snug line-clamp-2';
 export const ROW_META = 'flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted';
 export const ROW_LINK = 'inline-flex h-8 pointer-coarse:h-11 w-fit items-center gap-1 rounded-md t-meta font-display font-semibold text-primary-600 dark:text-primary-300 cursor-pointer outline-none transition-colors duration-150 hover:underline focus-visible:ring-2 focus-visible:ring-primary-500/40';

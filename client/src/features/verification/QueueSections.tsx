@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { SECTION_LOOK, type QueueSection } from './sectionLook';
 import type { QueueTab } from './verificationModel';
+import { ALL_LOOK } from './sectionLook';
 import type { SectionStats } from './sectionStats';
 import { FigurePanel, type FigureCell } from './FigurePanel';
 
@@ -27,6 +28,7 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
       key: 'all',
       label: 'Everything',
       short: 'All',
+      icon: ALL_LOOK.icon,
       value: total,
       note: anyFailed ? 'Some did not load' : noteFor(total, everythingLate),
       alert: everythingLate > 0 || anyFailed,
@@ -39,6 +41,8 @@ export const QueueSections = memo(function QueueSections({ tab, loading, stats, 
       return {
         key: section,
         label: SECTION_LOOK[section].label,
+        icon: SECTION_LOOK[section].icon,
+        iconClassName: SECTION_LOOK[section].text,
         short: section === 'delegations' ? 'Delegation' : undefined,
         value: s.count,
         note: noteFor(s.count, s.late),

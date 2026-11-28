@@ -135,7 +135,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
     <PhotoReviewContext.Provider value={instance.verificationStatus === 'PENDING_APPROVAL' ? { kind: 'run', ownerId: instance.id } : null}>
       <ReviewEditsProvider instanceId={instance.id} items={items} enabled={canSetAnswers} canUnanswer={rights.unanswer}>
       <div className="flex flex-col gap-4">
-        <header className="flex flex-col gap-2">
+        <header className="sticky top-0 z-10 -mx-4 -mt-4 flex flex-col gap-2 border-b border-border/60 bg-surface px-4 pb-3 pt-4 sm:-mx-5 sm:-mt-5 sm:px-5 sm:pt-5">
           {!hideTitle && (
             <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>
           )}
@@ -391,7 +391,7 @@ export const ReviewPane = ({ row, draft, onApprove, onSendBack, className }: Pan
     <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-5">
       <PaneScore row={row} draft={draft} />
     </div>
-    <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-5">
+    <div className="flex-1 min-h-0 p-4 sm:p-5 lg:overflow-y-auto custom-scrollbar">
       <ReviewPaneBody {...bodyProps(row, draft)} />
     </div>
     <div className="shrink-0 flex border-t border-border/60 p-3.5 sm:p-4">
