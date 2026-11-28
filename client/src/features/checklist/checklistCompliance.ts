@@ -11,13 +11,14 @@ type Scorable = Pick<
 
 const auditScoreOf = (item: Scorable): number | null => (item.itemType === 'AUDIT' ? auditItemScore(item.submissions) : null);
 
-export const hasUnresolvedCorrection = (item: Scorable): boolean =>
-  item.sendBackCount > 0 && (!item.isDone || !!item.reviewTicketId);
+// Matches the server report: a question a reviewer sent back is a failed check for the person
+// who did it, even when it was redone and accepted.
+export const wasSentBack = (item: Pick<Scorable, 'sendBackCount'>): boolean => item.sendBackCount > 0;
 
 export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
   if (item.isNotApplicable) return null;
   if (item.waivedAt) return null;
-  if (hasUnresolvedCorrection(item)) return 'bad';
+  if (wasSentBack(item)) return 'bad';
   if (!item.isDone) return null;
   if (item.itemType === 'AUDIT') {
     const score = auditScoreOf(item);
@@ -48,8 +49,10 @@ const BOOLEAN_LABEL: Record<string, Record<string, string>> = {
 
 export const complianceReason = (item: Scorable): string | null => {
   if (item.isNotApplicable || item.waivedAt) return null;
-  if (hasUnresolvedCorrection(item)) {
-    return item.isDone ? 'A ticket is still open on this answer, so it counts against compliance.' : null;
+  if (wasSentBack(item)) {
+    return item.reviewTicketId
+      ? 'Counts against compliance. A correction ticket is still open on this answer.'
+      : 'Counts against compliance. A reviewer sent this question back, and it still counts as a miss after it is redone.';
   }
   if (answerVerdict(item) !== 'bad') return null;
   if (item.itemType === 'AUDIT') {
@@ -75,7 +78,7 @@ export const waiveNotice = (item: Scorable): string | null =>
 
 export const countsAgainstCompliance = (item: Scorable): boolean => {
   if (item.isNotApplicable || item.waivedAt) return false;
-  if (hasUnresolvedCorrection(item)) return true;
+  if (wasSentBack(item)) return true;
   if (item.itemType === 'AUDIT') {
     const score = item.isDone ? auditScoreOf(item) : null;
     return score !== null && score < 1;
@@ -111,7 +114,7 @@ export const runScores = (items: Scorable[]): RunScores => {
       const weight = item.isCritical ? 2 : 1;
       scored += 1;
       weightedScored += weight;
-      const auditScore = hasUnresolvedCorrection(item) ? null : auditScoreOf(item);
+      const auditScore = wasSentBack(item) ? null : auditScoreOf(item);
       if (auditScore !== null) {
         weightedGood += weight * auditScore;
         if (verdict === 'good') good += 1;
