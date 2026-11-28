@@ -18,7 +18,7 @@ export const DashCardHeader = ({ id, title, count, countLabel, alert = false, su
   <div className={cn('flex items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-5 sm:pt-5', className)}>
     <div className="flex min-w-0 flex-col gap-0.5">
       <div className="flex min-w-0 items-center gap-2">
-        <h2 id={id} className="min-w-0 truncate t-section font-display font-bold tracking-tight text-text">{title}</h2>
+        <h2 id={id} className="min-w-0 line-clamp-2 leading-snug t-section font-display font-bold tracking-tight text-text">{title}</h2>
         {count != null && count > 0 && (
           <span
             role="status"

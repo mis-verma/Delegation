@@ -22,6 +22,7 @@ export const OverviewHeadline = memo(() => {
       {
         key: 'checklists',
         label: 'Checklists done today',
+        shortLabel: 'Checklists',
         value: fill === null ? '-' : `${Math.round(fill)}%`,
         caption: org ? `${org.completed} of ${org.total} runs` : 'Every store',
         icon: ClipboardCheck,
@@ -34,6 +35,7 @@ export const OverviewHeadline = memo(() => {
       {
         key: 'approvals',
         label: 'Waiting for approval',
+        shortLabel: 'Approvals',
         value: approvals.pending,
         caption: approvals.old > 0 ? `${approvals.old} over 24 hours` : 'None delayed',
         icon: ShieldQuestion,

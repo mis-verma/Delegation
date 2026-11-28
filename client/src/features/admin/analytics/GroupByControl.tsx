@@ -179,7 +179,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>Period</span>
           <div className="flex flex-wrap items-center gap-2">
-            <PeriodTabControl value={periodValue} options={tabs} labels={labels} onChange={choosePeriod} />
+            <PeriodTabControl value={periodValue} options={tabs} labels={labels} onChange={choosePeriod} className="grid w-full grid-cols-4 lg:inline-flex lg:w-fit" />
             {customPicker(
               'w-auto shrink-0',
               cn(CUSTOM_TRIGGER, hasRange ? 'pr-10' : 'pr-3', isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'),

@@ -10,6 +10,8 @@ export type StatTint = 'primary' | 'danger' | 'coral' | 'success';
 export interface StatStripItem {
   key: string;
   label: string;
+  /** Phone label when the full one would truncate in a quarter-width tile. */
+  shortLabel?: string;
   value: number | string;
   caption: string;
   icon: LucideIcon;
@@ -62,7 +64,14 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
                 <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
                 <span className={cn('t-card font-figure font-extrabold leading-none tabular-nums', tint.value)}>{shown(item)}</span>
               </span>
-              <span className="max-w-full truncate t-meta font-medium text-text-muted">{item.label}</span>
+              <span className="max-w-full line-clamp-2 leading-snug t-meta font-medium text-text-muted">
+                {item.shortLabel ? (
+                  <>
+                    <span className="sm:hidden">{item.shortLabel}</span>
+                    <span className="max-sm:hidden">{item.label}</span>
+                  </>
+                ) : item.label}
+              </span>
             </>
           );
           const href = item.href;

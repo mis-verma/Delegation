@@ -9,7 +9,7 @@ import { useScoreExplorer } from '../../scores/useScoreExplorer';
 import { asTrailItem, serializeTrail } from '../../scores/scoresDisplay';
 import { TONE_BAR, TONE_TEXT, toneOf } from '../../dashboard/scoreTone';
 import { DashCardHeader, DashCardLink } from '../../dashboard/DashCardHeader';
-import { formatPct, roundPct } from '../../../lib/percent';
+import { formatPctFixed } from '../../../lib/percent';
 import type { OverviewScoreWindow } from './useOverviewScores';
 
 type Group = 'department' | 'store';
@@ -46,7 +46,7 @@ const valueOf = (row: ExplorerRow, key: SortKey): number | string | null => {
 };
 
 const PctCell = ({ value }: { value: number | null }) => (
-  <span className={cn('tabular-nums', value === null ? 'text-text-light' : TONE_TEXT[toneOf(value)])}>{value === null ? '-' : formatPct(roundPct(value) ?? value)}</span>
+  <span className={cn('tabular-nums', value === null ? 'text-text-light' : TONE_TEXT[toneOf(value)])}>{formatPctFixed(value)}</span>
 );
 
 interface OverviewRankingProps {
@@ -123,7 +123,7 @@ export const OverviewRanking = memo(({ scoreWindow, fixedGroup, limit }: Overvie
                     </button>
                   </th>
                   {COLUMNS.map((c) => (
-                    <th key={c.key} scope="col" aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={cn('pb-2 text-right', c.hideOnPhone && 'max-sm:hidden')}>
+                    <th key={c.key} scope="col" aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={cn('whitespace-nowrap px-2 pb-2 text-right', c.hideOnPhone && 'max-sm:hidden')}>
                       <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-md t-meta font-display font-semibold text-text-muted outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/50">
                         {c.label}
                         {sort.key === c.key && (sort.dir === 'asc' ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />)}

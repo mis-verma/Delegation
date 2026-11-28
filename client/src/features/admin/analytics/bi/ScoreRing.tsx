@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatPct, roundPct } from '../../../../lib/percent';
+import { formatPctFixed, pctDigits, roundPct } from '../../../../lib/percent';
 import { TONE_COLOR, toneOf } from './vivid';
 
 const TWO_PI = 2 * Math.PI;
@@ -48,13 +48,12 @@ interface ScoreRingProps {
 }
 
 export const ScoreRing = ({ value, size = 64, stroke = 7, className, label, showValue = true, color }: ScoreRingProps) => {
-  const rounded = roundPct(value);
   // The number grows with the ring, so a bigger ring is a clearer one rather than a roomier one.
   const figure = size >= 64 ? 't-card' : 't-meta';
   return (
     <span
       role="img"
-      aria-label={`${label}: ${rounded === null ? 'nothing due' : formatPct(rounded)}`}
+      aria-label={`${label}: ${pctDigits(value) === null ? 'nothing due' : formatPctFixed(value)}`}
       className={cn('relative inline-flex shrink-0 items-center justify-center', className)}
       style={{ width: size, height: size }}
     >
@@ -63,7 +62,7 @@ export const ScoreRing = ({ value, size = 64, stroke = 7, className, label, show
       </svg>
       {showValue && (
         <span aria-hidden="true" className={cn('absolute inset-0 flex items-center justify-center font-display font-extrabold tabular-nums text-text', figure)}>
-          {rounded === null ? 'N/A' : Math.round(rounded)}
+          {pctDigits(value) ?? 'N/A'}
         </span>
       )}
     </span>
@@ -79,7 +78,7 @@ export interface ConcentricValue {
 
 export const ConcentricRings = ({ values, size = 56, stroke = 5 }: { values: readonly ConcentricValue[]; size?: number; stroke?: number }) => {
   const gap = 2;
-  const spoken = values.map((v) => `${v.label} ${roundPct(v.value) === null ? 'nothing due' : formatPct(v.value)}`).join(', ');
+  const spoken = values.map((v) => `${v.label} ${roundPct(v.value) === null ? 'nothing due' : formatPctFixed(v.value)}`).join(', ');
   return (
     <span role="img" aria-label={spoken} className="inline-flex shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden="true">

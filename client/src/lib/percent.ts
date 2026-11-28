@@ -7,6 +7,17 @@ export const roundPct = (value: number | null | undefined): number | null => {
   return r;
 };
 
+// One decimal, always, so a column or ring of scores lines up (80.0% beside 82.5%).
+export const pctDigits = (value: number | null | undefined): string | null => {
+  const r = roundPct(value);
+  return r === null ? null : r.toFixed(1);
+};
+
+export const formatPctFixed = (value: number | null | undefined, fallback = '-'): string => {
+  const d = pctDigits(value);
+  return d === null ? fallback : `${d}%`;
+};
+
 export const formatPct = (value: number | null | undefined, fallback = '-'): string => {
   const r = roundPct(value);
   return r === null ? fallback : `${r}%`;

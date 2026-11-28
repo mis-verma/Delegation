@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { InlineError, Skeleton } from '../../components';
 import { scoreApi, type TrendBucket } from '../../api/scores';
-import { HEAT_KEY, heatExact, heatFill, heatLook, heatWhole } from '../../lib/heatScale';
+import { HEAT_KEY, heatExact, heatFill, heatLabel, heatLook } from '../../lib/heatScale';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { SCORE_QUERY_OPTIONS } from '../dashboard/scoreQueries';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -44,7 +44,7 @@ const Cell = ({ value, day, row, strong }: { value: number | null; day: string; 
     >
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">
-        {value === null ? <span className="block size-1 rounded-full bg-current" /> : heatWhole(value)}
+        {value === null ? <span className="block size-1 rounded-full bg-current" /> : heatLabel(value)}
       </span>
     </span>
   );
@@ -82,7 +82,7 @@ export const OwnerDayByDay = () => {
       ) : (
         <div role="table" aria-label="Company score for each of the last 7 days" className="flex flex-col gap-1 sm:gap-1.5">
           <div role="row" className={GRID}>
-            <span role="columnheader" className="sr-only">Work</span>
+            <span role="columnheader"><span className="sr-only">Work</span></span>
             {buckets.map((b) => {
               const isToday = b.from === today;
               return (
