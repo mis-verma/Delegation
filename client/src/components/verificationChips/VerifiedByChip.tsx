@@ -41,7 +41,7 @@ export const VerifiedByChip = memo(function VerifiedByChip({
     return (
       <span title={title ?? fallbackText} className={cn(VERIFICATION_CHIP_EMPTY, className)}>
         <User className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-        {showLabel && <span>Verified by</span>}
+        {showLabel && <span className="max-sm:sr-only">Verified by</span>}
         <span className="truncate">{fallbackText}</span>
       </span>
     );
@@ -52,7 +52,7 @@ export const VerifiedByChip = memo(function VerifiedByChip({
   return (
     <span title={tooltip} className={cn(VERIFICATION_CHIP, className)}>
       <ShieldCheck className="size-3 shrink-0 text-text-muted" strokeWidth={2.25} aria-hidden="true" />
-      {showLabel && <span className="text-text-muted">Verified by</span>}
+      {showLabel && <span className="text-text-muted max-sm:sr-only">Verified by</span>}
       <span className="min-w-0 max-w-[130px] truncate font-medium text-text sm:max-w-[180px]">{cleanName}</span>
       {role && <span className="shrink-0 uppercase tracking-wide text-text-muted">{role}</span>}
     </span>

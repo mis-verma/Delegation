@@ -78,7 +78,7 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
     return (
       <span title={title ?? 'Timestamp not recorded'} className={cn(VERIFICATION_CHIP_EMPTY, className)}>
         <Clock className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-        {showLabel && <span>Verified at</span>}
+        {showLabel && <span className="max-sm:sr-only">Verified at</span>}
         <span className="tabular-nums">{fallbackText}</span>
       </span>
     );
@@ -92,7 +92,7 @@ export const VerifiedAtChip = memo(function VerifiedAtChip({
       className={cn(VERIFICATION_CHIP, className)}
     >
       <Clock className="size-3 shrink-0 text-text-muted" strokeWidth={2.25} aria-hidden="true" />
-      {showLabel && <span className="text-text-muted">Verified at</span>}
+      {showLabel && <span className="text-text-muted max-sm:sr-only">Verified at</span>}
       <time dateTime={isoTime} className="truncate tabular-nums text-text">
         {formattedText}
       </time>

@@ -14,6 +14,8 @@ export interface ApprovalStatusChipProps {
   showDot?: boolean;
   /** Extra class names */
   className?: string;
+  /** Phones show the dot and icon only; the label stays for screen readers. */
+  compactOnMobile?: boolean;
   /** Accessible title attribute */
   title?: string;
 }
@@ -30,11 +32,13 @@ export const ApprovalStatusChip = memo(function ApprovalStatusChip({
   showDot = true,
   className,
   title,
+  compactOnMobile = false,
 }: ApprovalStatusChipProps) {
   const normalizedKey = (status ?? 'PENDING').toUpperCase();
   const config = APPROVAL_STATUS_CONFIG[normalizedKey] ?? FALLBACK_APPROVAL_CONFIG;
   const resolvedLabel = label ?? config.label;
-  const IconComponent = icon === false ? null : (icon ?? config.icon);
+  // On phones the status icon stands in for the words, so the chip still reads at a glance.
+  const IconComponent = icon === false ? (compactOnMobile ? config.icon : null) : (icon ?? config.icon);
 
   return (
     <span
@@ -50,7 +54,7 @@ export const ApprovalStatusChip = memo(function ApprovalStatusChip({
       {IconComponent && (
         <IconComponent className="size-3 shrink-0" strokeWidth={2.25} aria-hidden="true" />
       )}
-      <span className="min-w-0 truncate">{resolvedLabel}</span>
+      <span className={cn('min-w-0 truncate', compactOnMobile && 'max-sm:sr-only')}>{resolvedLabel}</span>
     </span>
   );
 });
