@@ -129,7 +129,7 @@ export const ModuleCarousel = ({ total, selected, onSelect, updating = false, pe
                     <span key={m} className="flex items-center justify-between gap-2 t-meta font-medium text-text-secondary">
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span className="size-2 shrink-0 rounded-full" style={{ background: RING_COLOR[m] }} />
-                        <span className="truncate">{MODULE_LABEL[m]}</span>
+                        <span className="min-w-0 line-clamp-2 leading-snug">{MODULE_LABEL[m]}</span>
                       </span>
                       <span className="tabular-nums font-display font-semibold text-text">{pctText(rowValue(total, m, 'score'))}</span>
                     </span>
