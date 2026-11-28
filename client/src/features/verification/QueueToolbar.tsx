@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, History, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
+import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
 import { Combobox } from '../../components';
 import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
-import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import type { QueueLookups } from './useChecklistQueue';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
-import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type QueueView, type SortKey } from './verificationModel';
+import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type SortKey } from './verificationModel';
 
 interface QueueToolbarProps {
   params: QueueParams;
@@ -16,16 +15,10 @@ interface QueueToolbarProps {
   filtersActive: boolean;
   onClear: () => void;
   shownCount?: number | null;
-  counts: { all: number; checklists: number; tickets: number; delegations: number } | null;
-  decidedCount: number | null;
-  canSeeDecided?: boolean;
 }
 
 const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
 const SORT_ICON: Record<SortKey, typeof Clock> = { oldest: Clock, overdue: AlarmClock, compliance: ShieldCheck, newest: CalendarPlus };
-
-const VIEW_OPTIONS: readonly QueueView[] = ['waiting', 'decided'];
-
 
 const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
   value: o.value,
@@ -47,9 +40,8 @@ const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void 
   </span>
 );
 
-export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, counts, decidedCount, canSeeDecided = true }: QueueToolbarProps) => {
+export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount }: QueueToolbarProps) => {
   const [open, setOpen] = useState(false);
-  const decided = params.view === 'decided';
 
   const attention = params.attention && attentionAvailable;
   const storeName = params.store ? lookups.stores.find((s) => s.id === params.store)?.name ?? 'Store' : null;
@@ -57,13 +49,12 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
   const personName = params.person ? lookups.people.find((p) => p.id === params.person)?.name ?? 'Person' : null;
   const ageLabel = params.age !== 'any' ? AGE_SEGMENTS.find((a) => a.value === params.age)?.label ?? null : null;
 
-  const activeCount = (decided ? 1 : 0) +(params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
+  const activeCount = (params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
   const showLabel = shownCount == null ? 'Show results' : `Show ${shownCount} ${shownCount === 1 ? 'item' : 'items'}`;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        {!decided && (
         <label className="relative flex-1 min-w-0 sm:max-w-sm">
           <span className="sr-only">Search by title, person or store</span>
           <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
@@ -89,33 +80,16 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
             </button>
           )}
         </label>
-        )}
 
         <OptionsSheet
           isOpen={open}
           setIsOpen={setOpen}
           activeCount={activeCount}
-          subtitle={decided ? "Today's decisions" : filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
-          onReset={() => { onClear(); patch({ sort: 'oldest', tab: 'all', view: 'waiting', open: null }); }}
-          canReset={filtersActive || params.sort !== 'oldest' || decided}
-          showLabel={decided ? 'Show decisions' : showLabel}
+          subtitle={filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
+          onReset={() => { onClear(); patch({ sort: 'oldest', tab: 'all', open: null }); }}
+          canReset={filtersActive || params.sort !== 'oldest'}
+          showLabel={showLabel}
         >
-          {canSeeDecided && (
-          <OptionSection icon={History} label="Show">
-            <PeriodTabControl
-              value={params.view}
-              options={VIEW_OPTIONS}
-              labels={{
-                waiting: `Waiting${counts ? ` ${counts.all}` : ''}`,
-                decided: `Decided today${decidedCount != null ? ` ${decidedCount}` : ''}`,
-              }}
-              onChange={(view) => patch({ view, open: null }, { replace: false })}
-              fill
-            />
-          </OptionSection>
-          )}
-
-          {!decided && (<>
           <OptionSection icon={ArrowUpDown} label="Sort by">
             <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={params.sort} onChange={(sort) => patch({ sort })} />
           </OptionSection>
@@ -190,13 +164,11 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
               <p className="t-meta font-display text-text-muted">Only applies to checklists. Switch the Type to All or Checklists to use it.</p>
             )}
           </OptionSection>
-          </>)}
         </OptionsSheet>
       </div>
 
-      {(filtersActive || decided) && (
+      {filtersActive && (
         <div className="flex flex-wrap items-center gap-2">
-          {decided && <AppliedChip label="Decided today" onRemove={() => patch({ view: 'waiting' }, { replace: false })} />}
           {storeName && <AppliedChip label={storeName} onRemove={() => patch({ store: null })} />}
           {deptName && <AppliedChip label={deptName} onRemove={() => patch({ dept: null })} />}
           {personName && <AppliedChip label={personName} onRemove={() => patch({ person: null })} />}
