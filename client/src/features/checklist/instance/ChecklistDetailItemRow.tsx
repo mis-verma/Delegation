@@ -28,6 +28,7 @@ import { RaiseTicketAction } from './RaiseTicketAction';
 import { WaiveAction } from './WaiveAction';
 import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
+import { ItemNumberContext } from './itemNumber';
 
 const QUESTION_NOTE_MAX = 200;
 
@@ -102,13 +103,15 @@ export interface DetailItemRowProps {
   onTogglePhotoOnly?: (itemId: string) => void;
   looksRight?: boolean;
   onToggleLooksRight?: (itemId: string) => void;
+  /** 1-based position in the checklist, shown on phones in place of the type icon. */
+  number?: number;
 }
 
 const DECISION_PILL =
   'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3.5 t-meta font-display font-semibold outline-none transition-colors duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:min-h-8 md:min-w-0 sm:pointer-coarse:min-h-11';
 
 export const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, selecting, picked, onTogglePicked, canWaive, canRaiseTicket = false, note = '', onNoteChange, photoOnly = false, onTogglePhotoOnly, looksRight = false, onToggleLooksRight, number,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
@@ -122,7 +125,7 @@ export const DetailItemRow = memo(({
   const suggestedReasons = itemProblems(item);
   const showPickedPanel = selecting && picked && !!onNoteChange;
   return (
-    <>
+    <ItemNumberContext.Provider value={number}>
       <div id={`item-${item.id}`} data-row-id={item.id} tabIndex={-1} role="group" aria-label={item.label} className={cn('flex flex-col gap-1.5 scroll-mt-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background', sentBack && 'relative border border-danger/35 bg-danger/[0.04] p-2 pl-3 sm:p-2.5 sm:pl-3.5 before:absolute before:inset-y-3 before:left-0 before:w-1 before:rounded-r-full before:bg-danger')}>
         {item.referenceImageUrl && !item.isNotApplicable && (
           <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5">
@@ -290,7 +293,7 @@ export const DetailItemRow = memo(({
           )}
         </div>
       </div>
-    </>
+    </ItemNumberContext.Provider>
   );
 });
 DetailItemRow.displayName = 'DetailItemRow';

@@ -47,7 +47,7 @@ export const ApprovalStatusChip = memo(function ApprovalStatusChip({
     >
       {showDot && (
         <span
-          className={cn('size-1.5 shrink-0 rounded-full', config.dot)}
+          className={cn('size-1.5 shrink-0 rounded-full', config.dot, compactOnMobile && 'max-sm:hidden')}
           aria-hidden="true"
         />
       )}
