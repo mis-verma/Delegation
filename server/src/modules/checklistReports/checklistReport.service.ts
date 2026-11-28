@@ -103,6 +103,7 @@ export type PeriodCell = {
     itemsDue: number
     itemsDone: number
     completionPct: number | null
+    questionsPct: number | null
     compliancePct: number | null
     answersChecked: number
     runsDue: number
@@ -138,7 +139,8 @@ export type ChecklistPeriodReport = {
 
 export const PERIOD_NOTES = [
     "Questions due counts every question in the checklists that ran in the period, so a daily checklist with 8 questions over 7 days is 56. A checklist that has not opened yet, has no questions, or is a daily one left on a holiday is not counted.",
-    "Questions done counts answered questions and questions marked not applicable. Completion % = questions done / questions due.",
+    "Questions done counts answered questions and questions marked not applicable. Questions % = questions done / questions due.",
+    "Completion % = checklists completed / checklists due, the same figure the score uses.",
     "By person: a checklist only one person fills counts in full for them. A shared checklist is split: each person gets the questions they answered, plus an equal share of the ones still open or answered by someone not on the checklist, so the people add up to the checklist total (shown to one decimal). Compliance % uses the same rule as the Scores page and the other reports: pooled weighted good answers over checked answers, critical questions count double, sent-back questions count as failed, waived and not applicable ones are left out, and an audit adds its audit score.",
     "Weeks run Monday to Sunday, quarters are calendar quarters (Q1 is January to March) and years are calendar years, all in the organisation's time zone. A checklist is placed in the week, month, quarter or year its period starts in.",
 ]
@@ -146,7 +148,8 @@ export const PERIOD_NOTES = [
 const cellOf = (m: ReportMetrics): PeriodCell => ({
     itemsDue: m.itemsDue,
     itemsDone: m.itemsDone,
-    completionPct: percentOf(m.itemsDone, m.itemsDue),
+    completionPct: m.completionPct,
+    questionsPct: percentOf(m.itemsDone, m.itemsDue),
     compliancePct: m.compliancePct,
     answersChecked: m.answersChecked,
     runsDue: m.due,
@@ -160,7 +163,7 @@ const cellOf = (m: ReportMetrics): PeriodCell => ({
 })
 
 const emptyCell = (): PeriodCell => ({
-    itemsDue: 0, itemsDone: 0, completionPct: null, compliancePct: null, answersChecked: 0,
+    itemsDue: 0, itemsDone: 0, completionPct: null, questionsPct: null, compliancePct: null, answersChecked: 0,
     runsDue: 0, runsDone: 0, runsMissed: 0, runsOpen: 0, runsOnTime: 0, metDeadlinePct: null, weightedGood: 0, weightedScored: 0,
 })
 
@@ -180,7 +183,8 @@ export const sumCells = (cells: readonly PeriodCell[]): PeriodCell => {
     }
     t.itemsDue = Math.round(t.itemsDue * 10) / 10
     t.itemsDone = Math.round(t.itemsDone * 10) / 10
-    t.completionPct = percentOf(t.itemsDone, t.itemsDue)
+    t.completionPct = percentOf(t.runsDone, t.runsDue)
+    t.questionsPct = percentOf(t.itemsDone, t.itemsDue)
     t.compliancePct = pooledCompliancePct([{ weightedGood: t.weightedGood, weightedScored: t.weightedScored }])
     t.metDeadlinePct = metDeadlinePct(t.runsOnTime, t.runsDue)
     return t

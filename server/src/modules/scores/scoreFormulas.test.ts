@@ -96,10 +96,15 @@ describe("notDone", () => {
 })
 
 describe("overallOf", () => {
-    it("averages unrounded inputs and rounds once at the end", () => {
+    it("gives each module equal weight, whatever metrics it has, and rounds once at the end", () => {
         const third = (1 / 3) * 100
         const out = overallOf([{ due: 3, completion: third, compliance: third }, { due: 1, completion: 100, compliance: null }])
-        expect(out).toBe(55.6)
+        expect(out).toBe(66.7)
+    })
+
+    it("does not change when a module with no scored answers is given a compliance value of 100", () => {
+        const withoutCompliance = overallOf([{ due: 10, completion: 50, compliance: null }, { due: 10, completion: 100, compliance: 100 }, { due: 10, completion: 100, compliance: 100 }])
+        expect(withoutCompliance).toBe(83.3)
     })
 
     it("skips modules with nothing due and returns null when nothing was due", () => {
