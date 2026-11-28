@@ -62,14 +62,16 @@ export const pooledCompliancePct = (parts: readonly WeightedAnswers[]): number |
 
 export type OverallInput = { due: number; completion: number | null; compliance: number | null }
 
+// Each module gets one score (the mean of its available metrics), then modules are averaged equally.
+// Averaging raw metric values instead would give a module with no scored answers less weight.
 export const overallOf = (modules: readonly OverallInput[]): number | null => {
-    const values: number[] = []
+    const scores: number[] = []
     for (const m of modules) {
         if (m.due <= 0) continue
-        if (m.completion !== null) values.push(m.completion)
-        if (m.compliance !== null) values.push(m.compliance)
+        const parts = [m.completion, m.compliance].filter((v): v is number => v !== null)
+        if (parts.length) scores.push(parts.reduce((a, b) => a + b, 0) / parts.length)
     }
-    return values.length ? round1(values.reduce((a, b) => a + b, 0) / values.length) : null
+    return scores.length ? round1(scores.reduce((a, b) => a + b, 0) / scores.length) : null
 }
 
 export const moduleScoreOf = (due: number, completion: number | null, compliance: number | null): number | null => overallOf([{ due, completion, compliance }])

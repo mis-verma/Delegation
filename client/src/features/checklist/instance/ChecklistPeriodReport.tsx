@@ -133,7 +133,7 @@ const RingCard = ({ row, cell, showRuns, label, sub, onPick }: RingCardProps) =>
     <button
       type="button"
       onClick={onPick}
-      aria-label={`${label}: ${formatPct(cell.completionPct)} of questions done. Show in the table`}
+      aria-label={`${label}: ${formatPct(cell.completionPct)} of checklists completed. Show in the table`}
       className={cn(
         PANEL_CLASS,
         'flex w-full min-h-11 items-center gap-3 p-2.5 text-left outline-none transition-[border-color,transform] duration-150 ease-out hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
