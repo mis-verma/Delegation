@@ -316,7 +316,7 @@ export const ChecklistInstanceDetail = () => {
             />
           )}
           {isLocked && instance.verifiedBy && (
-            <VerifiedByChip verifierName={instance.verifiedByName ?? null} />
+            <VerifiedByChip verifierName={instance.verifiedByName ?? null} compactOnMobile />
           )}
           {isLocked && instance.verifiedAt && isAdminOrPC && (
             <VerifiedAtChip timestamp={instance.verifiedAt} />
@@ -366,12 +366,13 @@ export const ChecklistInstanceDetail = () => {
 
         {filling && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-            <span className="t-meta font-display font-semibold text-text-muted">Show</span>
+            <span className="t-meta font-display font-semibold text-text-muted max-sm:sr-only">Show</span>
             <PeriodTabControl
               value={show}
               options={modeOptions}
               labels={{ all: 'All', left: `Left ${left}`, one: 'One by one' }}
               onChange={changeShow}
+              className="w-full sm:w-fit"
             />
           </div>
         )}
@@ -478,6 +479,7 @@ export const ChecklistInstanceDetail = () => {
                 <SmoothItem key={item.id} active={show === 'left'}>
                   <DetailItemRow
                     item={item}
+                    number={instance.items.indexOf(item) + 1}
                     instanceId={instanceId}
                     canWork={canWork}
                     isLocked={answersLocked}

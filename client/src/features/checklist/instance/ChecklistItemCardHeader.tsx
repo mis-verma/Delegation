@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
+import { useContext } from 'react';
 import { AlertTriangle, Check, CornerUpLeft, Flag, RotateCcw } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { ChecklistItemIconTile } from './ChecklistItemIconTile';
 import { ITEM_TYPE_ICON, itemRequirementBadges } from './checklistItemIcon';
 import { formatDateTime, isFlaggedAnswer } from '../checklistDisplay';
 import { useCanReopen } from './useCanReopen';
+import { ItemNumberContext } from './itemNumber';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -21,12 +23,13 @@ interface ChecklistItemCardHeaderProps {
 
 export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPending, subtitle, hidePhotoBadge }: ChecklistItemCardHeaderProps) => {
   const canReopen = useCanReopen();
+  const number = useContext(ItemNumberContext);
   const { user } = useAuth();
   const by = item.completedByName ? ` by ${item.completedBy === user?.id ? 'you' : item.completedByName}` : '';
   const requirementBadges = itemRequirementBadges(item).filter((badge) => !hidePhotoBadge || badge.label === 'Can mark N/A');
   return (
     <div className="flex items-start gap-3">
-      <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
+      <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} number={number} />
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <p className="text-sm sm:t-card font-display font-semibold leading-snug text-text break-words">{item.label}</p>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -35,14 +38,14 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
           )}
           {!item.isDone && item.sendBackNote && <IconChip icon={CornerUpLeft} tone="bg-danger" label="Sent back" iconOnlyOnMobile />}
           {item.isDone && isFlaggedAnswer(item) && !interactive && <IconChip icon={AlertTriangle} tone="bg-warning" label="Flagged" iconOnlyOnMobile />}
-          {item.isDone && (interactive || !isFlaggedAnswer(item)) && <IconChip icon={Check} tone="bg-success" label="Done" iconOnlyOnMobile />}
+          {item.isDone && (interactive || !isFlaggedAnswer(item)) && <IconChip icon={Check} tone="bg-success" label="Done" iconOnlyOnMobile className="max-sm:hidden" />}
           {!item.isDone && requirementBadges.map((badge) => (
             <IconChip key={badge.label} icon={badge.icon} tone={badge.tone} label={badge.label} title={badge.title} iconOnlyOnMobile />
           ))}
         </div>
         {subtitle}
         {item.isDone && item.completedAt && (
-          <p className="t-meta text-text-muted font-display">Completed {formatDateTime(item.completedAt)}{by}</p>
+          <p className="hidden t-meta text-text-muted font-display sm:block">Completed {formatDateTime(item.completedAt)}{by}</p>
         )}
       </div>
       {interactive && item.isDone && onReopen && canReopen && (
