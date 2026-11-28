@@ -11,3 +11,17 @@ export const formatPct = (value: number | null | undefined, fallback = '-'): str
   const r = roundPct(value);
   return r === null ? fallback : `${r}%`;
 };
+
+// Whole-number percentages for checklist figures. Keeps 100% and 0% for their exact values only.
+export const wholePct = (value: number | null | undefined): number | null => {
+  if (value == null || !Number.isFinite(value)) return null;
+  const r = Math.round(value);
+  if (value < 100 && r >= 100) return 99;
+  if (value > 0 && r <= 0) return 1;
+  return r;
+};
+
+export const formatWholePct = (value: number | null | undefined, fallback = '-'): string => {
+  const r = wholePct(value);
+  return r === null ? fallback : `${r}%`;
+};

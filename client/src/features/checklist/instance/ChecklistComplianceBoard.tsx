@@ -23,7 +23,7 @@ import { useOrgToday } from '../useOrgToday';
 import { windowLabel } from '../../scores/useScoreWindow';
 import { CARD_PAD, FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { SectionHeader } from '../../scores/SectionHeader';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 import { ChecklistReportButton } from '../report/ChecklistReportButton';
 import { ChecklistScoringGaps } from './ChecklistScoringGaps';
 import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
@@ -455,7 +455,7 @@ export const ChecklistComplianceBoard = () => {
             <p>{windowLabel(counts.window.from, counts.window.to)}</p>
             <p>
               {counts.dueRuns > 0 && counts.completionPct !== null
-                ? <><span className="font-semibold tabular-nums text-text">{formatPct(counts.completionPct)}</span> of the {counts.dueRuns} runs that came due were completed. On track runs are not in that number.</>
+                ? <><span className="font-semibold tabular-nums text-text">{formatWholePct(counts.completionPct)}</span> of the {counts.dueRuns} runs that came due were completed. On track runs are not in that number.</>
                 : 'No run has come due in this period yet.'}
             </p>
             {counts.notCounted > 0 && (

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 import { fillBand, fillTone, formatCount, type FillBand } from './fillCount';
 
 const BAND_LABEL: Record<FillBand, string> = { good: 'On track', fair: 'Slipping', low: 'Behind' };
@@ -21,7 +21,7 @@ export const ScoreBadge = ({ pct, caption }: { pct: number | null | undefined; c
   const band = fillBand(pct);
   return (
     <span className="flex shrink-0 flex-col items-end gap-1" title={caption}>
-      <span className={cn('t-stat font-figure font-bold leading-none tabular-nums', fillTone(pct).text)}>{formatPct(pct)}</span>
+      <span className={cn('t-stat font-figure font-bold leading-none tabular-nums', fillTone(pct).text)}>{formatWholePct(pct)}</span>
       <span className={cn('rounded-full px-2 py-0.5 t-meta font-semibold ring-1 ring-inset', BAND_CHIP[band])}>{BAND_LABEL[band]}</span>
     </span>
   );
@@ -54,7 +54,7 @@ export const MetricBar = ({ label, done, due, pct, unit }: MetricBarProps) => {
         <span className="t-meta font-display font-semibold text-text-secondary">{label}</span>
         <span className="flex items-baseline gap-1.5 tabular-nums">
           {!empty && <span className="t-meta text-text-muted">{formatCount(done)} of {formatCount(due)}{unit ? ` ${unit}` : ''}</span>}
-          <span className={cn('t-card font-display font-bold', empty ? 'text-text-light' : fillTone(pct).text)}>{empty ? '-' : formatPct(pct)}</span>
+          <span className={cn('t-card font-display font-bold', empty ? 'text-text-light' : fillTone(pct).text)}>{empty ? '-' : formatWholePct(pct)}</span>
         </span>
       </div>
       <ScoreTrack pct={empty ? null : pct} />

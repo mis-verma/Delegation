@@ -10,8 +10,8 @@ import { TABLE_FRAME_CLASS, TH_CLASS, TH_CORNER_CLASS, TD_CLASS, TD_STICKY_CLASS
 import { checklistReportApi, type PeriodBucket, type PeriodBucketKind, type PeriodCell, type PeriodRow, type PeriodRowKind } from '../../../api/checklistReports';
 import { useAuth } from '../../../context/AuthContext';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
-import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
-import { formatPct } from '../../../lib/percent';
+import { exportWholePct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { formatWholePct } from '../../../lib/percent';
 import { GOOD_FROM, FAIR_FROM } from '../../../lib/scoreBands';
 import { rateToneClass } from '../checklistDisplay';
 import { RECURRENCE_LABEL } from '../recurrenceRegistry';
@@ -48,10 +48,10 @@ const CellFigures = ({ cell, align = 'end' }: { cell: PeriodCell | undefined; al
   return (
     <span className={cn('flex flex-col tabular-nums leading-tight', align === 'start' ? 'items-start' : 'items-end')}>
       <span className={cn('whitespace-nowrap t-meta font-display font-semibold', toneOf(cell.completionPct))}>
-        {`Completion ${formatPct(cell.completionPct)}`}
+        {`Completion ${formatWholePct(cell.completionPct)}`}
       </span>
       <span className={cn('whitespace-nowrap t-meta font-display', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
-        {cell.compliancePct === null ? 'Nothing checked' : `Compliance ${formatPct(cell.compliancePct)}`}
+        {cell.compliancePct === null ? 'Nothing checked' : `Compliance ${formatWholePct(cell.compliancePct)}`}
       </span>
     </span>
   );
@@ -95,10 +95,10 @@ const ScoreCardBody = ({ cell, showRuns, label, sub }: ScoreCardBodyProps) => (
       thickness={6}
       gradientFrom={ringColor(cell.completionPct)}
       gradientTo={ringColor(cell.completionPct)}
-      ariaLabel={`${label} ${formatPct(cell.completionPct)}`}
+      ariaLabel={`${label} ${formatWholePct(cell.completionPct)}`}
       className="shrink-0"
     >
-      <span className={cn('t-meta font-display font-bold tabular-nums', toneOf(cell.completionPct))}>{formatPct(cell.completionPct)}</span>
+      <span className={cn('t-meta font-display font-bold tabular-nums', toneOf(cell.completionPct))}>{formatWholePct(cell.completionPct)}</span>
     </RadialGauge>
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug">{label}</span>
@@ -108,11 +108,11 @@ const ScoreCardBody = ({ cell, showRuns, label, sub }: ScoreCardBodyProps) => (
         {showRuns && cell.runsDue > 0 && <span className="text-text-muted"> · {cell.runsDone} of {cell.runsDue} runs</span>}
       </span>
       <span className={cn('t-meta font-display tabular-nums', cell.compliancePct === null ? 'text-text-light' : toneOf(cell.compliancePct))}>
-        {cell.compliancePct === null ? 'Nothing checked yet' : `Compliance ${formatPct(cell.compliancePct)}`}
+        {cell.compliancePct === null ? 'Nothing checked yet' : `Compliance ${formatWholePct(cell.compliancePct)}`}
       </span>
       {cell.runsDue > 0 && (
         <span className={cn('t-meta font-display tabular-nums', toneOf(cell.metDeadlinePct))}>
-          {cell.metDeadlinePct === null ? 'No deadline yet' : `Deadlines met ${formatPct(cell.metDeadlinePct)}`}
+          {cell.metDeadlinePct === null ? 'No deadline yet' : `Deadlines met ${formatWholePct(cell.metDeadlinePct)}`}
         </span>
       )}
     </span>
@@ -133,7 +133,7 @@ const RingCard = ({ row, cell, showRuns, label, sub, onPick }: RingCardProps) =>
     <button
       type="button"
       onClick={onPick}
-      aria-label={`${label}: ${formatPct(cell.completionPct)} of checklists completed. Show in the table`}
+      aria-label={`${label}: ${formatWholePct(cell.completionPct)} of checklists completed. Show in the table`}
       className={cn(
         PANEL_CLASS,
         'flex w-full min-h-11 items-center gap-3 p-2.5 text-left outline-none transition-[border-color,transform] duration-150 ease-out hover:border-border-hover active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40',
@@ -238,9 +238,9 @@ export const ChecklistPeriodReport = ({ storeId, departmentId, storeName, depart
     const line = (cells: Record<string, PeriodCell>, total: PeriodCell) => [
       ...data.buckets.flatMap((b) => {
         const c = cells[b.key];
-        return c ? [c.itemsDue, c.itemsDone, exportPct(c.completionPct), exportPct(c.compliancePct), exportPct(c.metDeadlinePct)] : [0, 0, null, null, null];
+        return c ? [c.itemsDue, c.itemsDone, exportWholePct(c.completionPct), exportWholePct(c.compliancePct), exportWholePct(c.metDeadlinePct)] : [0, 0, null, null, null];
       }),
-      total.itemsDue, total.itemsDone, exportPct(total.completionPct), exportPct(total.compliancePct), exportPct(total.metDeadlinePct),
+      total.itemsDue, total.itemsDone, exportWholePct(total.completionPct), exportWholePct(total.compliancePct), exportWholePct(total.metDeadlinePct),
     ];
     return [
       head,

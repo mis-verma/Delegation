@@ -1,4 +1,4 @@
-import { roundPct } from './percent';
+import { roundPct, wholePct } from './percent';
 import { GOOD_FROM, FAIR_FROM } from './scoreBands';
 
 export type CellValue = string | number | null | undefined;
@@ -400,3 +400,5 @@ export const exportTitle = ({ what, from, to, period, filters }: {
 
 export const exportPct = (value: number | null | undefined): number | null =>
   roundPct(value);
+
+export const exportWholePct = (value: number | null | undefined): number | null => wholePct(value);

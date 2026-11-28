@@ -9,7 +9,7 @@ import { rateToneClass } from '../checklistDisplay';
 import { errorMessage } from '../../../lib/queryHelpers';
 import { useChecklistReportDownload, useChecklistReportPreview } from './useChecklistReport';
 import type { ChecklistReportFormat, ChecklistReportGrouping, ChecklistReportParams } from '../../../api/checklistReports';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 
 type PeriodKey = 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30' | 'custom';
 
@@ -79,7 +79,7 @@ const PercentCell = ({ value, className }: { value: number | null; className?: s
       <span className="sr-only">No data</span>
     </span>
   ) : (
-    <span className={cn('text-right t-meta font-display font-semibold tabular-nums', rateToneClass(value), className)}>{formatPct(value)}</span>
+    <span className={cn('text-right t-meta font-display font-semibold tabular-nums', rateToneClass(value), className)}>{formatWholePct(value)}</span>
   );
 
 interface PreviewRow {

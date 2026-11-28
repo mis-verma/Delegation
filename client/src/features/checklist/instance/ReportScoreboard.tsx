@@ -3,7 +3,7 @@ import { ChevronRight, CircleHelp, Crown, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { formatPct } from '../../../lib/percent';
+import { formatWholePct } from '../../../lib/percent';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { CARD_PAD } from '../../scores/controlStyles';
 import { NumCell, NumHead } from '../../scores/scoreTableParts';
@@ -37,7 +37,7 @@ const Figure = ({ value, onClick, label }: { value: number | null; onClick: () =
       value === null ? 'text-text-light' : rateToneClass(value),
     )}
   >
-    {formatPct(value)}
+    {formatWholePct(value)}
   </button>
 );
 
@@ -89,7 +89,7 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
           : !item.rankable && <span className="t-meta text-text-muted">Too few runs (fewer than {MIN_RANK_VOLUME} due)</span>}
       </span>
       <span className="flex shrink-0 flex-col items-end leading-tight">
-        <span className={cn('t-stat font-display tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatPct(item.score)}</span>
+        <span className={cn('t-stat font-display tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatWholePct(item.score)}</span>
         <span className="t-meta text-text-muted">checklist score</span>
       </span>
     </span>
@@ -100,7 +100,7 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
       ].map((m) => (
         <span key={m.label} className="flex flex-col">
           <span className="t-meta text-text-muted">{m.label}</span>
-          <span className={cn('t-card font-display font-bold tabular-nums', m.value === null ? 'text-text-light' : rateToneClass(m.value))}>{formatPct(m.value)}</span>
+          <span className={cn('t-card font-display font-bold tabular-nums', m.value === null ? 'text-text-light' : rateToneClass(m.value))}>{formatWholePct(m.value)}</span>
         </span>
       ))}
       <span className="flex flex-col">
@@ -170,7 +170,7 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end">
-            <span className="t-stat font-display tabular-nums text-text">{formatPct(winner[0].score)}</span>
+            <span className="t-stat font-display tabular-nums text-text">{formatWholePct(winner[0].score)}</span>
             <span className="t-meta text-text-muted">checklist score</span>
           </div>
         </div>
