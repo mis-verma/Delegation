@@ -64,7 +64,7 @@ export const StatStrip = memo(({ items, label }: StatStripProps) => {
                 <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
                 <span className={cn('t-card font-figure font-extrabold leading-none tabular-nums', tint.value)}>{shown(item)}</span>
               </span>
-              <span className="max-w-full truncate t-meta font-medium text-text-muted">
+              <span className="max-w-full line-clamp-2 leading-snug t-meta font-medium text-text-muted">
                 {item.shortLabel ? (
                   <>
                     <span className="sm:hidden">{item.shortLabel}</span>
