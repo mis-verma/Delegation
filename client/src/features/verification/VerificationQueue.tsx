@@ -179,10 +179,10 @@ export const VerificationQueue = () => {
     const hadFocus = !!rowEl && rowEl.contains(document.activeElement);
     if (current !== id && !hadFocus && openId !== id) return;
     setCursor(next?.id ?? null);
-    if (openId === id) {
-      update({ open: next?.id ?? null });
-      if (next) return;
-    }
+    // Deciding a checklist from its full detail view goes back to the list rather than
+    // straight into the next one's detail — jumping into the next run felt like it opened
+    // mid-way through, with no chance to see it land in the list first.
+    if (openId === id) update({ open: null });
     focusRow(next?.id ?? null);
   }, []);
 
@@ -325,8 +325,6 @@ export const VerificationQueue = () => {
     return query ? `/verify?${query}` : '/verify';
   }, [searchParams]);
 
-  const showWaiting = useCallback(() => patch({ view: 'waiting' }), [patch]);
-  const showDecided = useCallback(() => patch({ view: 'decided', open: null }, { replace: false }), [patch]);
   const openDepartment = useCallback((id: string) => patch({ dept: id }, { replace: false }), [patch]);
   const clearDepartment = useCallback(() => patch({ dept: null }), [patch]);
   const showAllSections = useCallback(() => patch({ tab: 'all', open: null }), [patch]);
@@ -392,73 +390,75 @@ export const VerificationQueue = () => {
         filtersActive={filtersActive}
         onClear={clearFilters}
         shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
-        counts={counts}
-        decidedCount={decidedToday}
-        canSeeDecided={canSeeDecided}
       />
 
-      {params.view === 'decided' && canSeeDecided ? (
-        <DecidedToday onShowWaiting={showWaiting} waitingIds={waitingChecklistIds} />
-      ) : (
-        <>
+      {params.dept && showTicketTask && (
+        <Breadcrumbs items={[{ label: 'Verification', to: rootHref }, { label: departmentNameOf(params.dept) }]} />
+      )}
 
-          {params.dept && showTicketTask && (
-            <Breadcrumbs items={[{ label: 'Verification', to: rootHref }, { label: departmentNameOf(params.dept) }]} />
-          )}
+      {showChecklists && (
+        <div className={cn('grid grid-cols-1 gap-4 items-start', )}>
+          <ChecklistList
+            rows={visibleRows}
+            activeId={activeId}
+            isPending={checklistQuery.isPending}
+            loadFailed={checklistQuery.isError && !checklistQuery.data}
+            onRetry={() => { void checklistQuery.refetch(); }}
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            cleanCount={cleanRows.length}
+            bulk={bulk}
+            onApproveAllClean={approveAllClean}
+            onApproveAll={viewer?.role === 'ADMIN' ? approveEverything : undefined}
+            hasMore={hasMore}
+            remaining={Math.max(0, checklistTotal - instances.length)}
+            isFetchingMore={checklistQuery.isFetchingNextPage}
+            onLoadMore={() => { void checklistQuery.fetchNextPage(); }}
+            onShowShortcuts={() => setHelpOpen(true)}
+            grouped
+            heading="Pending approval"
+            titleSlot={<SectionTitle section="checklists" stats={sectionStats.checklists} now={now} />}
+            onOpen={openRun}
+            onApprove={approve}
+            onSendBack={startSendBack}
+            onSendBackItem={sendBackItem}
+          />
 
-          {showChecklists && (
-            <div className={cn('grid grid-cols-1 gap-4 items-start', )}>
-              <ChecklistList
-                rows={visibleRows}
-                activeId={activeId}
-                isPending={checklistQuery.isPending}
-                loadFailed={checklistQuery.isError && !checklistQuery.data}
-                onRetry={() => { void checklistQuery.refetch(); }}
-                filtersActive={filtersActive}
-                onClearFilters={clearFilters}
-                onShowDecided={showDecided}
-                cleanCount={cleanRows.length}
-                bulk={bulk}
-                onApproveAllClean={approveAllClean}
-                onApproveAll={viewer?.role === 'ADMIN' ? approveEverything : undefined}
-                hasMore={hasMore}
-                remaining={Math.max(0, checklistTotal - instances.length)}
-                isFetchingMore={checklistQuery.isFetchingNextPage}
-                onLoadMore={() => { void checklistQuery.fetchNextPage(); }}
-                onShowShortcuts={() => setHelpOpen(true)}
-                grouped
-                titleSlot={<SectionTitle section="checklists" stats={sectionStats.checklists} now={now} />}
-                onOpen={openRun}
-                onApprove={approve}
-                onSendBack={startSendBack}
-                onSendBackItem={sendBackItem}
-              />
+        </div>
+      )}
 
-            </div>
-          )}
+      {showTicketTask && (
+        <TicketTaskQueue
+          tab={params.tab}
+          tickets={filteredTickets}
+          tasks={filteredTasks}
+          isPending={ticketsQuery.isPending || tasksQuery.isPending}
+          departmentId={params.dept}
+          departmentNameOf={departmentNameOf}
+          filtersActive={filtersActive}
+          failed={ticketTaskFailed}
+          onRetry={retryAll}
+          onShowAll={showAllSections}
+          onOpenDepartment={openDepartment}
+          onClearDepartment={clearDepartment}
+          onClearFilters={clearFilters}
+          now={now}
+          personNameById={personNameById}
+          decisions={{ heldIds, schedule, hold, release }}
+          refresh={refresh}
+        />
+      )}
 
-          {showTicketTask && (
-            <TicketTaskQueue
-              tab={params.tab}
-              tickets={filteredTickets}
-              tasks={filteredTasks}
-              isPending={ticketsQuery.isPending || tasksQuery.isPending}
-              departmentId={params.dept}
-              departmentNameOf={departmentNameOf}
-              filtersActive={filtersActive}
-              failed={ticketTaskFailed}
-              onRetry={retryAll}
-              onShowAll={showAllSections}
-              onOpenDepartment={openDepartment}
-              onClearDepartment={clearDepartment}
-              onClearFilters={clearFilters}
-              now={now}
-              personNameById={personNameById}
-              decisions={{ heldIds, schedule, hold, release }}
-              refresh={refresh}
-            />
-          )}
-        </>
+      {showChecklists && canSeeDecided && (
+        <section className="flex flex-col gap-3 min-w-0" aria-label="Approval history">
+          <div className="flex items-center gap-2">
+            <h2 className="t-section font-display font-bold text-text">Approval history</h2>
+            {decidedToday != null && decidedToday > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{decidedToday}</span>
+            )}
+          </div>
+          <DecidedToday waitingIds={waitingChecklistIds} />
+        </section>
       )}
 
       <ShortcutsHelp open={helpOpen} onClose={closeHelp} />
