@@ -80,7 +80,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
   const leftToCheck = useMemo(() => items.filter((i) => !isDecided(i)), [items, isDecided]);
   const checkedItems = useMemo(() => items.filter(isDecided), [items, isDecided]);
   const criticalItems = useMemo(() => items.filter((i) => itemFlags(i).criticalFailed), [items]);
-  const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
+  const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : risk.photosTaken > 0 ? `${risk.photosTaken} taken` : 'Not needed';
 
   const goTo = useCallback((id: string) => {
     const inChecked = checkedItems.some((i) => i.id === id);
@@ -257,7 +257,7 @@ const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, ph
           />
           <FigureCard
             label="Photos"
-            help={risk.photosNeeded === 0 ? 'No photos are needed for this checklist.' : `${risk.photosHave} of ${risk.photosNeeded} required photo questions have their photos.`}
+            help={risk.photosNeeded === 0 ? (risk.photosTaken > 0 ? `${risk.photosTaken} photo${risk.photosTaken === 1 ? ' was' : 's were'} added. None of the questions asks for one.` : 'No photos are needed for this checklist.') : `${risk.photosHave} of ${risk.photosNeeded} required photo questions have their photos.`}
             value={risk.photosNeeded === 0 ? null : risk.photosHave}
             text={photos}
             tone={risk.photosNeeded === 0 ? 'plain' : risk.photosHave < risk.photosNeeded ? 'bad' : 'good'}
