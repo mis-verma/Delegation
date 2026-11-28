@@ -35,7 +35,7 @@ export const ComplianceMeter = memo(function ComplianceMeter({ risk, className, 
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex items-baseline gap-1.5">
           <span className={cn('font-display font-extrabold tabular-nums leading-none', compact ? 't-section' : 't-stat', complianceToneClass(percent))}>{percent}%</span>
-          <span className={cn('t-meta font-display font-semibold text-text-muted', compact && 'max-sm:hidden')}>compliance</span>
+          {!compact && <span className="t-meta font-display font-semibold text-text-muted">compliance</span>}
         </span>
         <span className="t-meta font-display font-medium text-text-secondary text-right">{summary}</span>
       </div>

@@ -143,7 +143,7 @@ export const ChecklistList = ({
           )}
         </div>
       )}
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
         {onShowShortcuts && (
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>
             <Keyboard size={14} aria-hidden />
@@ -153,7 +153,7 @@ export const ChecklistList = ({
         {onApproveAll && rows.length > 0 && (
           <Button
             size="sm"
-            className="bg-success text-white hover:bg-success/90 hover:text-white pointer-coarse:h-11"
+            className="bg-success text-white hover:bg-success/90 hover:text-white pointer-coarse:h-11 max-sm:flex-1"
             disabled={!!bulk}
             isLoading={!!bulk}
             onClick={onApproveAll}
@@ -166,7 +166,7 @@ export const ChecklistList = ({
           <Button
             size="sm"
             variant="outline"
-            className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success"
+            className="border-success/40 text-success hover:bg-success/10 hover:border-success/60 hover:text-success max-sm:flex-1"
             disabled={!!bulk}
             isLoading={!!bulk}
             onClick={onApproveAllClean}
